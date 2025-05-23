@@ -7,7 +7,7 @@ This is a collection of Home Assistant automations & scripts I have configured t
 ### 1. Update filament usage in Spoolman
 Upon completing a print, the filament used will be updated in Spoolman. 
 
-[Automation Details](docs\print_complete_update_filament_usage.md) | Source .YAML
+[Automation Details](docs/print_complete_update_filament_usage.md) | Source .YAML
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
@@ -19,7 +19,7 @@ This script simply forced a reload of the integration on a nightly basis.
 
 ## Prequisites:
 - Spoolman installed and accessible from Home Assistant
-- Custom Fields added to Spoolman as follows: ([detailed instructions](docs\spoolman_custom_fields.md))
+- Custom Fields added to Spoolman as follows: ([detailed instructions](docs/spoolman_custom_fields.md))
   - UUID
   - etc.
 - REST integration in Home Assistant installed
