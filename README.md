@@ -1,8 +1,13 @@
-# hass-bambulab
+# hass-bambulab-config
 
 This repo is a collection of the configuration and automation that I use within Home Assistant for integrating with my Bambu Lab 3D printer and related services (like Spoolman).
 
-This includes: 
+Scenarios / Use Cases:
+- Keep spool usage in Spoolman updated
+  - first/last used datetime
+  - filament usage upon print completion
+
+The actual config objects that are used to achieve the above scenarios include:
 
 - Automations:
   - Update Spool Last Used datetime in Spoolman each time Printer.ActiveTray is changed.
