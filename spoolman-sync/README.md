@@ -33,6 +33,7 @@ This script simply forced a reload of the integration on a nightly basis.
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
+- Make sure to review the YAML code examples and update the Entity and Sensor names to match your Home Assistant setup
 
 ## Version Information
 2025-05-23 - v1.0.0 - Initial public release
