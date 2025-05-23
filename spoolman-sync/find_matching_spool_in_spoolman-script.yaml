@@ -1,0 +1,265 @@
+sequence:
+  - variables:
+      spool_found: false
+      matching_spool: null
+  - action: rest_command.spoolman_getspools
+    metadata: {}
+    data: {}
+    response_variable: spools
+    alias: Get all Spools from Spoolman API (exclude Archived)
+  - alias: Target_uuid is provided (and valid)
+    if:
+      - alias: target_uuid is provided (and valid)
+        condition: template
+        value_template: >
+          {% if parameters.target_uuid is none or parameters.target_uuid == ''
+          or parameters.target_uuid | regex_match('^0+$') %}
+            false
+          {% else %}
+            true
+          {% endif %}
+    then:
+      - variables:
+          bambu_only: true
+          matched_spools: >-
+            {{ spools.content | selectattr('extra.spool_uuid', 'equalto', '"' ~
+            parameters.target_uuid ~ '"') | list }}
+          count: "{{ matched_spools | length }}"
+          matched_spools_in_ams: >-
+            {{ matched_spools | selectattr('location', 'equalto', 'AMS') | list
+            }}
+          count_in_ams: "{{ matched_spools_in_ams | length }}"
+          matched_spools_unsealed: >-
+            {{ matched_spools | selectattr('extra.sealed', 'equalto', 'false') |
+            list }}
+          count_unsealed: "{{ matched_spools_unsealed | length }}"
+      - choose:
+          - conditions:
+              - alias: Exactly 1 match found (by UUID)
+                condition: template
+                value_template: "{{ count == 1 }}"
+            sequence:
+              - variables:
+                  spool_found: true
+                  response_object:
+                    spool: "{{ matched_spools[0] }}"
+                    success: true
+                    message: Exact match found by UUID
+                    all_matches: null
+              - stop: Success
+                response_variable: response_object
+          - conditions:
+              - alias: More than one spool have same UUID (error)
+                condition: template
+                value_template: "{{ count > 1 }}"
+            sequence:
+              - action: persistent_notification.create
+                metadata: {}
+                data:
+                  message: "Issue: There are {{ count }} spools with the same UUID"
+                enabled: false
+              - variables:
+                  spool_found: false
+                  response_object:
+                    spool: null
+                    success: false
+                    message: Mutiple spools have the same matching UUID
+                    all_matches: "{{ matched_spools }}"
+              - stop: Mutiple UUID Matches
+                response_variable: response_object
+  - variables:
+      spools_lower: |-
+        [ {% for spool in spools.content %}
+          {"id": "{{ spool.id }}", "color_hex_lower": "{{ spool.filament.color_hex | lower }}", "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "location": "{{ spool.location }}"}
+          {% if not loop.last %},{% endif %}
+        {% endfor %} ]
+      query_hex_lower: >-
+        {{ parameters.target_color_hex[:6] | lower if
+        parameters.target_color_hex | length == 8 else
+        parameters.target_color_hex | lower }}
+      matched_spools: >-
+        {{ spools_lower | selectattr('color_hex_lower', 'equalto',
+        query_hex_lower | string)
+              | selectattr('material', 'equalto', parameters.target_type)
+              | selectattr('profile_name', 'equalto', parameters.target_name)
+              | selectattr('vendor', 'equalto', 'Bambu Lab') | list if bambu_only else 
+              spools_lower | selectattr('color_hex_lower', 'equalto', query_hex_lower | string)
+              | selectattr('vendor', 'ne', 'Bambu Lab') 
+              | selectattr('material', 'equalto', parameters.target_type) | list }}
+      count: "{{ matched_spools | length }}"
+      matched_spools_in_ams: "{{ matched_spools | selectattr('location', 'equalto', 'AMS') | list }}"
+      count_in_ams: "{{ matched_spools_in_ams | length }}"
+      matched_spools_unsealed: "{{ matched_spools | selectattr('sealed', 'equalto', 'false') | list }}"
+      count_unsealed: "{{ matched_spools_unsealed | length }}"
+    alias: Match on other attributes (Color & Type)
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ count == 1 }}"
+            alias: Exactly 1 Matching Spool Found
+        sequence:
+          - variables:
+              matchedID: "{{ matched_spools[0].id | int }}"
+              matching_spool: >-
+                {{ spools.content | selectattr('id', 'equalto', matchedID) |
+                list | first }}
+            alias: Update matching_spool variable with matched spool
+          - variables:
+              spool_found: true
+              response_object:
+                spool: "{{ matching_spool }}"
+                success: true
+                message: Exact match found by Color & Type
+                all_matches: null
+          - stop: Success
+            response_variable: response_object
+      - conditions:
+          - condition: template
+            value_template: "{{ count == 0 }}"
+            alias: No Matching Spools Found
+        sequence:
+          - action: persistent_notification.create
+            metadata: {}
+            data:
+              message: No Matching Spool Found
+            enabled: false
+            alias: "Notify: No Match Found"
+          - variables:
+              spool_found: false
+              response_object:
+                spool: null
+                success: false
+                message: No spools found by Color & Type
+                all_matches: null
+          - stop: No spools found by Color & Type
+            response_variable: response_object
+      - conditions:
+          - condition: template
+            value_template: "{{ count > 1 and count_in_ams == 1 }}"
+            alias: Multiple matches, but only 1 match is in the AMS
+        sequence:
+          - variables:
+              matchedID: "{{ matched_spools_in_ams[0].id | int }}"
+              matching_spool: >-
+                {{ spools.content | selectattr('id', 'equalto', matchedID) |
+                list | first }}
+            alias: Update matching_spool from matched spool in AMS
+          - variables:
+              spool_found: true
+              response_object:
+                spool: "{{ matching_spool }}"
+                success: true
+                message: >-
+                  Found multiple matching spools by Color & Type, but only 1 is
+                  in the AMS
+                all_matches: matched_spools
+          - stop: Success
+            response_variable: response_object
+      - conditions:
+          - condition: template
+            value_template: "{{ count > 1 and count_in_ams > 1 }}"
+            alias: Multiple matches and more than 1 match in the AMS
+        sequence:
+          - action: persistent_notification.create
+            metadata: {}
+            data:
+              message: Multiple matches found in the AMS - please fix.
+            enabled: false
+            alias: "Notify: Multiple matches found in AMS - cannot choose"
+          - variables:
+              in_ams_ids: "{{ matched_spools | map(attribute='id') | list }}"
+              multiple_matches: "{{ spools.content | selectattr('id', 'in', in_ams_ids) | list }}"
+            alias: Update matching_spools from matched spools in AMS
+          - variables:
+              spool_found: false
+              response_object:
+                spool: null
+                success: false
+                message: >-
+                  Multiple spools found by Color & Type, but more than 1 is in
+                  the AMS
+                all_matches: multiple_matches
+          - stop: Multiple Matches with Multiple in AMS
+            response_variable: response_object
+      - conditions:
+          - alias: >-
+              Multiple matches, none in the AMS, but only 1 spool is unsealed
+              (eg could be used)
+            condition: template
+            value_template: "{{ count > 1 and count_in_ams == 0 and count_unsealed == 1 }}"
+        sequence:
+          - action: persistent_notification.create
+            metadata: {}
+            data:
+              message: Spool in use but not in AMS - move to AMS?
+            alias: "Notify: Spool in use but not in AMS - update?"
+            enabled: false
+          - variables:
+              matchedID: "{{ matched_spools_unsealed[0].id | int }}"
+              matching_spool: >-
+                {{ spools.content | selectattr('id', 'equalto', matchedID) |
+                list | first }}
+            alias: Update matched spool from unsealed spool
+          - variables:
+              spool_found: true
+              response_object:
+                spool: "{{ matching_spool }}"
+                success: true
+                message: >-
+                  More than 1 spool found by Color & Type, none are in the AMS,
+                  but only 1 is unsealed/open
+                all_matches: matched_spools
+          - stop: Success
+            response_variable: response_object
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ count > 0 and count_in_ams == 0 and count_unsealed > 1 }}"
+                alias: >-
+                  Multiple matches, none in the AMS and more than 1 are open
+                  (unsealed)
+              - condition: template
+                value_template: "{{ count > 0 and count_in_ams == 0 and count_unsealed == 0 }}"
+                alias: Multiple matches, none in the AMS and none open/unsealed
+        sequence:
+          - action: persistent_notification.create
+            metadata: {}
+            data:
+              message: >-
+                More than one match, and mutple opened or none opened - need
+                help
+            enabled: false
+          - variables:
+              spool_found: false
+              response_object:
+                spool: null
+                success: false
+                message: >-
+                  Multiple spools found by Color & Type, none in AMS and more
+                  than 1 open OR none open
+                all_matches: matched_spools
+          - stop: Multiple Matches but cannot determine single match
+            response_variable: response_object
+          - variables:
+              in_ams_ids: "{{ matched_spools | map(attribute='id') | list }}"
+              multiple_matches: "{{ spools.content | selectattr('id', 'in', in_ams_ids) | list }}"
+            alias: Update matching_spools from unsealed spools
+        alias: >-
+          More than 1 match unsealed or more than 1 match and none are
+          opened/unsealed
+alias: Find Matching Spool in Spoolman
+description: Find a spool in Spoolman based on UUID or Color (hex code) and Type (eg PLA).
+fields:
+  parameters:
+    selector:
+      object: {}
+    default:
+      target_color_hex: 3F8E43
+      target_type: PLA
+      target_uuid: "000000000"
+      remaining_enabled: false
+      remaining_percent: 51
+      tray_weight: 1000
+      target_name: Bambu PLA Matte
+icon: fapro:filament-1
