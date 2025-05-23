@@ -7,25 +7,28 @@ This is a collection of Home Assistant automations & scripts I have configured t
 ### 1. Update filament usage in Spoolman
 Upon completing a print, the filament used will be updated in Spoolman. 
 
-[Automation Details](docs/print_complete_update_filament_usage.md) | Source .YAML
+[Automation Details](docs/print_complete_update_filament_usage.md) | [Source .YAML](print_complete-update_filament_usage.yaml)
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
+
+[Automation Details](docs/active_tray_changed_update_spoolman.md) | [Source .YAML](active_tray_changed_update_spoolman.yaml)
 
 ### 3. Refresh Spoolman integration daily
 I noticed when first starting to use the Spoolman integration that it got out of sync and the Home Assistant entities were sometimes inaccurate (specifically the location was wrong and/or orphaned entities existed). 
 
 This script simply forced a reload of the integration on a nightly basis.
 
+[Automation Details](docs/reload_spoolman_integration_nightly.md) | [Source .YAML](reload_spoolman_integration_nightly.yaml)
+
 ## Prequisites:
-- Spoolman installed and accessible from Home Assistant
+- [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
+- [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
 - Custom Fields added to Spoolman as follows: ([detailed instructions](docs/spoolman_custom_fields.md))
-  - UUID
-  - etc.
-- REST integration in Home Assistant installed
-- REST endpoint for Spoolman configured (for retrieving all spools from Spoolman API)
-- Spoolman integration installed (for updating spoolman)
-- Bambu Lab integration installed and configured
+- [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
+- [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
+- REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
+
  
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.

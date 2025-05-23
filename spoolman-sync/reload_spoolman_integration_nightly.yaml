@@ -1,0 +1,14 @@
+alias: Reload Spoolman Integration - Daily @11pm
+description: >-
+  Each night forces a reload of the Spoolman integration. This seems to be
+  required for new spools to be registered in Home Assistant.
+triggers:
+  - trigger: time
+    at: "23:00:00"
+conditions: []
+actions:
+  - action: homeassistant.reload_config_entry
+    metadata: {}
+    data:
+      entry_id: 01JPNH7WNWR5TMZ8YSNDHXWR38
+mode: single

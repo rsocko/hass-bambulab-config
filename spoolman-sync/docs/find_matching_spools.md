@@ -34,6 +34,8 @@ If unsuccessful (cannot find a match): the script will return a failure and erro
 - REST endpoint for Spoolman configured (for retrieving all spools from Spoolman API)
 - Spoolman integration installed (for updating spoolman)
  
+## Notes:
+- There are some known bugs and edge cases that I have not yet fixed. I will catalog and track these as GitHub issues in this repo and update the code once fixed.
 
 ## Flowchart of Logic:
 

@@ -6,6 +6,7 @@ This repo is a collection of the configuration and automation that I use within 
 - [Keep spool usage in Spoolman updated](spoolman-sync\README.md)
   - first/last used datetime
   - filament usage upon print completion
+  - refreshing Spoolman integration regularly
 
 The actual config objects that are used to achieve the above scenarios include:
 

@@ -12,14 +12,8 @@ The automation identifies the filament details for each tray, uses the Find Spoo
 [Print Complete - Update Filament Usage - YAML](../print_complete-update_filament_usage.yaml)
 
 ## Prequisites:
-- Spoolman installed and accessible from Home Assistant
-- Custom Fields added to Spoolman ([detailed instructions](spoolman_custom_fields.md))
-  - UUID
-  - etc.
-- REST integration in Home Assistant installed
-- REST endpoint for Spoolman configured (for retrieving all spools from Spoolman API)
-- Spoolman integration installed (for updating spoolman)
-- Bambu Lab integration installed and configured
+- [Find Matching Spool Home Assistant script](find_matching_spools.md) setup and working
+- All other prerequisites as specified in [README](../README.md)
  
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.

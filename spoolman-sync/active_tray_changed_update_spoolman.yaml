@@ -1,0 +1,170 @@
+alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
+description: >-
+  Trigger whenever the printer's Active Tray is updated and currently printing -
+  so that it can update Last Used date/time in Spoolman for the corresponding
+  Spool
+triggers:
+  - trigger: state
+    entity_id:
+      - sensor.ntk_ryansoffice_3dprinter_active_tray
+  - trigger: state
+    entity_id:
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    to: printing
+conditions:
+  - condition: and
+    conditions:
+      - condition: state
+        entity_id: sensor.ntk_ryansoffice_3dprinter_current_stage
+        state: printing
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.ntk_ryansoffice_3dprinter_active_tray
+            state: unavailable
+        alias: Active Tray is NOT Unavailable
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.ntk_ryansoffice_3dprinter_active_tray
+            state: unknown
+        alias: Active Tray is NOT Unknown
+actions:
+  - action: persistent_notification.create
+    data:
+      title: debug active tray info
+      message: >-
+        uuid is {{ active_tray.uuid }}, color is {{ active_tray.color }},
+        remaining is {{ active_tray.remain }}
+    enabled: false
+  - variables:
+      active_tray:
+        uuid: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray',
+          'tray_uuid') }}
+        type: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type')
+          }}
+        color: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'color')
+          | replace('#', '')  }}
+        name: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'name')
+          }}
+        remain: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray',
+          'remain') }}
+  - action: script.find_matching_spool_in_spoolman
+    metadata: {}
+    data:
+      parameters:
+        target_color_hex: "{{ active_tray.color }}"
+        target_type: "{{ active_tray.type }}"
+        target_uuid: "{{ active_tray.uuid }}"
+        remaining_enabled: false
+        remaining_percent: "{{ active_tray.remain }}"
+        tray_weight: 1000
+        target_name: "{{ active_tray.name }}"
+    response_variable: find_spool_response
+  - alias: Take action if Spool was found (or error if not)
+    choose:
+      - conditions:
+          - alias: Spool Found (response from script)
+            condition: template
+            value_template: "{{ find_spool_response.success == true }}"
+        sequence:
+          - alias: Loop through Spools (from Spoolman)
+            repeat:
+              for_each: "{{ spools.content }}"
+              sequence:
+                - action: persistent_notification.create
+                  metadata: {}
+                  data:
+                    title: Test Spool Notification
+                    message: >
+                      ID: {{ repeat.item.id }} Location: {{ repeat.item.location
+                      }} Filament Name: {{ repeat.item.filament.name }} UUID: {{
+                      repeat.item.extra.spool_uuid | replace('"', '') }}
+                  enabled: false
+                - condition: template
+                  value_template: >-
+                    {{ repeat.item.extra.spool_uuid | replace('"', '') ==
+                    active_tray.uuid }}
+                          
+                  alias: >-
+                    Test if Active Tray UUID matches the Spool UUID from
+                    Spoolman
+                - sequence:
+                    - variables:
+                        found_spool: true
+                      alias: Set Variable to Spool Found = True
+                    - action: persistent_notification.create
+                      metadata: {}
+                      data:
+                        title: Found Spool
+                        message: >-
+                          Found spool - it is number {{ repeat.item.id }}
+                          first_used  {{ repeat.item.first_used if 'first_used'
+                          in repeat.item else now().isoformat() }}
+                    - action: spoolman.patch_spool
+                      metadata: {}
+                      data:
+                        id: "{{ repeat.item.id }}"
+                        last_used: "{{ now().isoformat() }}"
+                        first_used: >
+                          {{ repeat.item.first_used if 'first_used' in
+                          repeat.item else now().isoformat() }}
+                      alias: Update Spoolman Last Used (and First Used if empty)
+            enabled: false
+          - action: script.update_spool_last_and_first_used
+            metadata: {}
+            data:
+              spool: "{{ find_spool_response.spool }}"
+          - alias: Update Spoolman UUID if needed (and valid)
+            if:
+              - alias: >-
+                  If Tray UUID defined, not blank of 00000 and found spool UUID
+                  isn't populated and found spool is from Bambu Lab
+                condition: template
+                value_template: >-
+                  {{ active_tray.uuid is not none and active_tray.uuid | length
+                  > 0 and active_tray.uuid | regex_match('^0+$') == false and
+                  find_spool_response.spool.extra.spool_uuid | string |
+                  trim('"') | length == 0 and 
+                  find_spool_response.spool.filament.vendor.name == 'Bambu Lab' 
+                  }}
+            then:
+              - action: spoolman.patch_spool
+                metadata: {}
+                data:
+                  id: "{{ find_spool_response.spool.id }}"
+                  extra:
+                    spool_uuid: "{{ active_tray.uuid }}"
+                alias: Update UUID in Spoolman for matched Spool
+      - conditions:
+          - alias: No single matching spool found
+            condition: template
+            value_template: "{{ find_spool_response.success == false }}"
+        sequence:
+          - action: persistent_notification.create
+            metadata: {}
+            data:
+              title: "Spoolman Update Error: Cannot Find Spool"
+              message: >-
+                Cannot update Spoolman with last used spool information due to
+                issue finding the correct spool. Error message: "{{
+                find_spool_response.Message }}"
+  - variables:
+      needUUIDUpdate: >-
+        {{ active_tray.uuid is not none and active_tray.uuid | length > 0 and
+        active_tray.uuid | regex_match('^0+$') == false and
+        find_spool_response.spool.tray_uuid | length == 0 and
+        find_spool_response.spool.filament.vendor.name == 'Bambu Lab'  }}
+      activeTrayNotNone: "{{ active_tray.uuid is not none }}"
+      activeTrayUuidLengthBiggerThanZero: "{{ active_tray.uuid | length > 0 }}"
+      uuidNotZeros: "{{ active_tray.uuid | regex_match('^0+$') == false }}"
+      spoolHasNoUUID: "{{ find_spool_response.spool.tray_uuid | length == 0 }}"
+      spoolHasNoUUIDv2: "{{ find_spool_response.spool.extra.spool_uuid | length == 0 }}"
+      isBambuLab: "{{ find_spool_response.spool.filament.vendor.name == 'Bambu Lab'  }}"
+    enabled: false
+mode: single
