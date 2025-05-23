@@ -1,3 +1,0 @@
-UUID
-Profile Name
-Other?
