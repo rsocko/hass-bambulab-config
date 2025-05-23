@@ -2,7 +2,7 @@
 
 This repo is a collection of the configuration and automation that I use within Home Assistant for integrating with my Bambu Lab 3D printer and related services (like Spoolman).
 
-Scenarios / Use Cases:
+##Scenarios / Use Cases:
 - Keep spool usage in Spoolman updated
   - first/last used datetime
   - filament usage upon print completion
