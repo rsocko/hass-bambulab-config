@@ -9,7 +9,7 @@ The automation reads the filament details from the Print Weight entity of the Ba
 The automation identifies the filament details for each tray, uses the Find Spool script to locate the correct corresponding spool in Spoolman and finally calls the Spoolman Home Assistant integration which provides an Update Spool action which can change spool attributes in Spoolman. In this case we reduce the filament used weight.
 
 ## Source Code
-[Print Complete - Update Filament Usage - YAML](print_complete-update_filament_usage.yaml)
+[Print Complete - Update Filament Usage - YAML](..\print_complete-update_filament_usage.yaml)
 
 ## Prequisites:
 - Spoolman installed and accessible from Home Assistant
@@ -28,4 +28,4 @@ The automation identifies the filament details for each tray, uses the Find Spoo
 
 ## Flow of the Logic
 
-![Flow Chart describing the Print Complete automation](Bambu%20Printer%20Automations-Print%20Complete.png)
+![Flow Chart describing the Print Complete automation](..\Bambu%20Printer%20Automations-Print%20Complete.png)
