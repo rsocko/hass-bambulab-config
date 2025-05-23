@@ -13,7 +13,7 @@ The automation identifies the filament details for each tray, uses the Find Spoo
 
 ## Prequisites:
 - Spoolman installed and accessible from Home Assistant
-- Custom Fields added to Spoolman as follows: ([detailed instructions](spoolman_custom_fields.md))
+- Custom Fields added to Spoolman ([detailed instructions](spoolman_custom_fields.md))
   - UUID
   - etc.
 - REST integration in Home Assistant installed
@@ -23,8 +23,9 @@ The automation identifies the filament details for each tray, uses the Find Spoo
  
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
+  - Sometimes the Print Weight entity does not have any attributes populated. I have not (yet) determined root cause or the pattern in which this occurs. This results in an error in the automation.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
-- Sometimes the Print Weight entity does not have any attributes populated. I have not (yet) determined root cause or the pattern in which this occurs. This results in an error in the automation.
+
 
 ## Flow of the Logic
 

@@ -4,7 +4,7 @@ The following are extra fields that need to be added to your instance of Spoolma
 
 ## Extra Fields - Filaments
 
-### profile_name
+### Profile Name
 #### Description:
 This field is used to store the exact profile name used by the filament in Bambu Studio. This allows for ensuring the right filament is located when using the 'Find Spool' script. An example where this is necessary is when there are two different spools of the same color (like White: #ffffff). The 'Find Spool' logic will use this profile name to ensure it matches the correct spool.
 
