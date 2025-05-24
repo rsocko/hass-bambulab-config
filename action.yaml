@@ -1,0 +1,19 @@
+name: 'Label manager for PRs and Issues based on configurable conditions'
+description: 'All-in-one action to manage labels in PRs and Issues based on many, extensible conditional rules'
+author: 'Galo Navarro <anglorvaroa@gmail.com>'
+inputs: 
+  config_path:
+    default: '.github/labeler.yml'
+    description: 'Path for labeling rules'
+  use_local_config:
+    default: 'false'
+    description: 'By default the action will use the configuration file set in the default branch of the repository. When set to true, the action will instead use the configuration found in the local checkout of the repository.'
+  fail_on_error:
+    default: 'false'
+    description: 'By default the action will never fail when an error is found during the evaluation of the labels. This is done in order to avoid disrupting CI pipelines with non-critical tasks. To override this behaviour, set this property to `true` so that any error in the evaluation of labels causes a failure of the workflow.'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+branding:
+  icon: award
+  color: blue
