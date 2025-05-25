@@ -25,4 +25,4 @@ The automation triggers on filament being actively used. It first uses the Find 
 
 ## Flow of the Logic
 
-![Flow Chart describing the Active Tray Changed automation](../TBD)
+![Flow Chart describing the Active Tray Changed automation](../Bambu%20Printer%20Automations-Tray%20Updated.png)
