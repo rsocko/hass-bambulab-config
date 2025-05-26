@@ -16,6 +16,7 @@ The automation triggers on filament being actively used. It first uses the Find 
 
 ## Prequisites:
 - [Find Matching Spool Home Assistant script](find_matching_spools.md) setup and working
+- [Update Spool Last and First Used in Spoolman - Home Assistant script](update_spool_last_used.md) setup and working
 - All other prerequisites as specified in [README](../README.md)
  
 ## Notes:
