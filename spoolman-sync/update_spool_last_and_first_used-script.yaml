@@ -1,0 +1,26 @@
+sequence:
+  - action: spoolman.patch_spool
+    metadata: {}
+    data:
+      id: "{{ spool.id }}"
+      last_used: "{{ now().isoformat() }}"
+      first_used: |
+        {{ spool.first_used if 'first_used' in spool else now().isoformat() }}
+    alias: Update Spoolman Last Used (and First Used if empty)
+alias: Update Spool Last and First Used in Spoolman
+description: >-
+  Taking a Spool object as input (with at least an id property) and optionally a
+  first_used property - will update Spoolman with the current time as last used
+  and update first used if not already populated.
+fields:
+  spool:
+    selector:
+      object: {}
+    default:
+      id: null
+    required: true
+    name: Spool
+    description: >-
+      Spool Object - must contain an id property and optionally the first_used
+      datetime. Can include any other properties.
+icon: fapro:filament-1

@@ -13,7 +13,7 @@ Note: If the UUID isn't provided, is blank or a string of 000000 it is assumed t
 If either the UUID is not provided, or the UUID cannot be found, then the script uses other attributes to locate a matching spool. This would occur if the Spool is not a Bambu Lab spool (thus does not have a UUID) or is a new spool being used and you have added it to your Spoolman inventory but not entered the UUID for that spool. This allows the script to help you find the correct spool even when the UUID isn't yet set (so that you can manually update the UUID if desired).
 
 ## Source Code
-[Find Matching Spool in Spoolmane - Script - YAML](../find_matching_spool_in_spoolman-script.yaml)
+[Find Matching Spool in Spoolman - Script - YAML](../find_matching_spool_in_spoolman-script.yaml)
 
 ## Inputs: 
 - UUID (the unique spool ID from the Bambu Lab RFID tag - if present)
