@@ -2,6 +2,36 @@
 
 This repo is a collection of the configuration and automation that I use within Home Assistant for integrating with my Bambu Lab 3D printer and related services (like Spoolman).
 
+- Projects:
+  - Printer WLED (customize for errors++)
+  - AMS Lighting
+    - Filament Tags
+    - Tray
+    - Hygrometer
+  - ESP32 5" Dashboard / Controller
+  - Spoolman Usage sync
+    - Add system.log messaging
+  - HASS Printer Dashboard
+    - AMS / Filament details
+    - Spool Alerts (desiccant change, re-order)
+  - Filament NFC Tags (Location & Details)
+    - iOS Shortcuts
+    - HASS Filament Dashboard
+      - Swap / Insert Spool
+  - Manyfold Extensions
+  - Spoolman Extensions
+    - Extra Fields (and usage)
+    - Removing field choices (instructions)
+    - Prometheus metrics
+  - Spoolman Custom UX
+    - Sorting by custom fields
+  - MQTT Proxy (in HASS)
+  - Metrics / Dashboards (currently PowerBI)
+  - Printer Maintenance Tracking
+  - Print History (log of image, details)
+  - Filament Purchase Queue/Wishlist
+  - 
+
 ## Scenarios / Use Cases:
 - [Keep spool usage in Spoolman updated](spoolman-sync/README.md)
   - first/last used datetime
