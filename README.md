@@ -9,8 +9,7 @@ This repo is a collection of the configuration and automation that I use within 
     - Tray
     - Hygrometer
   - ESP32 5" Dashboard / Controller ([Backlog](https://github.com/users/rsocko/projects/7/views/2))
-  - Spoolman Usage sync
-    - Add system.log messaging
+  - Spoolman Usage sync ([Backlog](https://github.com/users/rsocko/projects/8/views/2))
   - HASS Printer Dashboard
     - AMS / Filament details
     - Spool Alerts (desiccant change, re-order)
