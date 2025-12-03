@@ -4,7 +4,7 @@ This repo is a collection of the configuration and automation that I use within 
 
 - Projects:
   - Printer WLED (customize for errors++)
-  - AMS Lighting
+  - AMS Lighting (Models, Lights, Assembly Automation) ([Backlog](https://github.com/users/rsocko/projects/9/views/2?system_template=team_planning))
     - Filament Tags
     - Tray
     - Hygrometer
