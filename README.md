@@ -10,7 +10,7 @@ This repo is a collection of the configuration and automation that I use within 
     - Hygrometer
   - ESP32 5" Dashboard / Controller ([Backlog](https://github.com/users/rsocko/projects/7/views/2))
   - Spoolman Usage sync ([Backlog](https://github.com/users/rsocko/projects/8/views/2))
-  - BentoBox Power Controls, Sensonrs, Automation
+  - BentoBox Power Controls, Sensors, Automation
   - HASS Printer Dashboard
     - AMS / Filament details
     - Spool Alerts (desiccant change, re-order)
