@@ -14,6 +14,7 @@ This repo is a collection of the configuration and automation that I use within 
   - HASS Printer Dashboard
     - AMS / Filament details
     - Spool Alerts (desiccant change, re-order)
+    - HMS Error details (0-many errors - show count & details) - bold/bright
   - Filament NFC Tags (Location & Details)
     - iOS Shortcuts
     - HASS Filament Dashboard
