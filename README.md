@@ -3,15 +3,15 @@
 This repo is a collection of the configuration and automation that I use within Home Assistant for integrating with my Bambu Lab 3D printer and related services (like Spoolman).
 
 - Projects:
-  - Printer WLED (customize for errors++)
   - AMS Lighting (Models, Lights, Assembly Automation) ([Backlog](https://github.com/users/rsocko/projects/9/views/2?system_template=team_planning))
     - Filament Tags
     - Tray
     - Hygrometer
+    - Printer WLED (customize for errors++)
   - ESP32 5" Dashboard / Controller ([Backlog](https://github.com/users/rsocko/projects/7/views/2))
   - Spoolman Usage sync ([Backlog](https://github.com/users/rsocko/projects/8/views/2))
   - BentoBox Power Controls, Sensors, Automation
-  - HASS Printer Dashboard
+  - HASS Printer Dashboard ([Backlog](https://github.com/users/rsocko/projects/17/views/1))
     - AMS / Filament details
     - Spool Alerts (desiccant change, re-order)
     - HMS Error details (0-many errors - show count & details) - bold/bright
