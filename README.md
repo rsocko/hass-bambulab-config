@@ -15,7 +15,7 @@ This repo is a collection of the configuration and automation that I use within 
     - AMS / Filament details
     - Spool Alerts (desiccant change, re-order)
     - HMS Error details (0-many errors - show count & details) - bold/bright
-  - Filament NFC Tags (Location & Details)
+  - Filament NFC Tags (Location & Details) ([Backlog](https://github.com/users/rsocko/projects/16/views/1))
     - iOS Shortcuts
     - HASS Filament Dashboard
       - Swap / Insert Spool
