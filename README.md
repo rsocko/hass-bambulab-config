@@ -24,7 +24,7 @@ This repo is a collection of the configuration and automation that I use within 
     - Extra Fields (and usage)
     - Removing field choices (instructions)
     - Prometheus metrics
-  - Spoolman Custom UX
+  - Spoolman Custom UX ([Backlog](https://github.com/users/rsocko/projects/19/views/2))
     - Sorting by custom fields
   - MQTT Proxy (in HASS)
   - Metrics / Dashboards (currently PowerBI)
