@@ -26,12 +26,11 @@ This repo is a collection of the configuration and automation that I use within 
     - Prometheus metrics
   - Spoolman Custom UX ([Backlog](https://github.com/users/rsocko/projects/19/views/2))
     - Sorting by custom fields
+    - Filament Purchase Queue/Wishlist
   - MQTT Proxy (in HASS) ([Backlog](https://github.com/users/rsocko/projects/20/views/2))
   - Metrics / Dashboards (currently PowerBI) ([Backlog](https://github.com/users/rsocko/projects/18/views/2))
   - Printer Maintenance Tracking
   - Print History (log of image, details)
-  - Filament Purchase Queue/Wishlist
-  - 
 
 ## Scenarios / Use Cases:
 - [Keep spool usage in Spoolman updated](spoolman-sync/README.md)
