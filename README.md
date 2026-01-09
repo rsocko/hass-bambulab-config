@@ -8,7 +8,7 @@ This repo is a collection of the configuration and automation that I use within 
     - Tray
     - Hygrometer
     - Printer WLED (customize for errors++)
-  - ESP32 5" Dashboard / Controller ([Backlog](https://github.com/users/rsocko/projects/7/views/2))
+  - ESP32 Dashboard / Controller ([Backlog](https://github.com/users/rsocko/projects/7/views/2))
   - Spoolman Usage sync ([Backlog](https://github.com/users/rsocko/projects/8/views/2))
   - BentoBox Power Controls, Sensors, Automation
   - HASS Printer Dashboard ([Backlog](https://github.com/users/rsocko/projects/17/views/1))
@@ -26,7 +26,7 @@ This repo is a collection of the configuration and automation that I use within 
     - Prometheus metrics
   - Spoolman Custom UX ([Backlog](https://github.com/users/rsocko/projects/19/views/2))
     - Sorting by custom fields
-  - MQTT Proxy (in HASS)
+  - MQTT Proxy (in HASS) ([Backlog](https://github.com/users/rsocko/projects/20/views/2))
   - Metrics / Dashboards (currently PowerBI)
   - Printer Maintenance Tracking
   - Print History (log of image, details)
