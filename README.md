@@ -19,7 +19,10 @@ This repo is a collection of the configuration and automation that I use within 
     - iOS Shortcuts
     - HASS Filament Dashboard
       - Swap / Insert Spool
-  - Manyfold Extensions
+  - 3D Model Catalog & Organization ([Backlog](https://github.com/users/rsocko/projects/21/views/2))
+    - Manyfold Extensions
+    - Custom/Additional UX + Manyfold API
+    - Extending 3mf parsing (for assets/images/etc.)
   - Spoolman Extensions
     - Extra Fields (and usage)
     - Removing field choices (instructions)
