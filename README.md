@@ -33,7 +33,7 @@ This repo is a collection of the configuration and automation that I use within 
   - MQTT Proxy (in HASS) ([Backlog](https://github.com/users/rsocko/projects/20/views/2))
   - Metrics / Dashboards (currently PowerBI) ([Backlog](https://github.com/users/rsocko/projects/18/views/2))
   - Printer Maintenance Tracking
-  - Print History (log of image, details)
+  - Print History (log of image, details) ([Backlog](https://github.com/users/rsocko/projects/22/views/1))
 
 ## Scenarios / Use Cases:
 - [Keep spool usage in Spoolman updated](spoolman-sync/README.md)
