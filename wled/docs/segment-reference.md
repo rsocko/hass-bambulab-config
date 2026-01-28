@@ -23,7 +23,7 @@ Quick reference for WLED segment IDs and their purposes.
 | 14 | AMS2 Spool B3 | 5 | Illuminate spool slot B3 | 250-264 | Bright when active |
 | 15 | AMS2 Spool B4 | 5 | Illuminate spool slot B4 | 265-279 | Bright when active |
 
-**Total Segments Used: 16/16** (at max capacity)
+**Total Segments Used: 16 segments (IDs 0-15, using all available slots)**
 **Total LEDs (Example): ~280**
 
 ## MagWLED Controller - Segment Map

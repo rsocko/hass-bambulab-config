@@ -100,8 +100,8 @@
         "strip_id": 4,
         "name": "AMS 1 Tag Lighting",
         "gpio_pin": 4,
-        "total_leds": 80,
-        "description": "Complex path across AMS 1 tags with top and bottom routes",
+        "total_leds": 40,
+        "description": "LED path across AMS 1 tags (top path only for simplified layout)",
         "segments": [
           {
             "segment_id": 8,
@@ -184,7 +184,8 @@
       "Adjust start_led and stop_led based on actual LED counts",
       "GPIO pins may need adjustment based on Digquad wiring",
       "Segment IDs in WLED are 0-indexed",
-      "Total LED count across all strips: 320 (in this example)"
+      "Total LED count across all strips: Strip 1 (30) + Strip 2 (90) + Strip 3 (60) + Strip 4 (40) + Strip 5 (60) = 280 LEDs in this example",
+      "Strip 4 uses simplified top-only path with 40 LEDs. For complex top+bottom layout, use 80 LEDs total"
     ]
   }
 }

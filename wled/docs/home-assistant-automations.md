@@ -50,10 +50,10 @@ automation:
     trigger:
       - platform: state
         entity_id: sensor.bambu_lab_x1c_hms_errors
-        attribute: hms
     condition:
       - condition: template
-        value_template: "{{ trigger.to_state.attributes.hms | length > 0 }}"
+        value_template: >
+          {{ trigger.to_state.state not in ['unavailable', 'unknown', '0', 0] }}
     action:
       - service: light.turn_on
         target:
@@ -65,6 +65,11 @@ automation:
           message: "Print error detected!"
           title: "3D Printer Alert"
 ```
+
+**Note**: The HMS error entity structure may vary depending on your Bambu Lab integration version. Adjust the entity name and condition to match your setup. Common variations:
+- `sensor.bambu_lab_x1c_hms_errors` with state as error count
+- `sensor.bambu_lab_x1c_hms` with attributes containing error list
+- Check your entity's attributes in Developer Tools to verify the correct structure.
 
 ## Automation 3: Print Complete
 
@@ -247,8 +252,8 @@ rest_command:
         "seg": [{
           "id": 1,
           "i": [
-            0, {{ (progress * 30 / 100) | int }}, "FF5500",
-            {{ (progress * 30 / 100) | int }}, 30, "000000"
+            0, {{ ((progress | int) * 30 / 100) | int }}, "FF5500",
+            {{ ((progress | int) * 30 / 100) | int }}, 30, "000000"
           ]
         }]
       }
