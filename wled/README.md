@@ -13,6 +13,7 @@ This directory contains WLED configuration files for controlling LED strips on a
 #### Strip 1 - Printer Interior Lighting
 - **Location**: Inside printer lid
 - **Purpose**: General interior illumination
+- Current Blueprint starting point: https://github.com/PaulBiod/HA-bambulab-wled and similar: https://github.com/jberreth/bambu-status-wled-ha-blueprint
 - **Segments**: 1 segment
 
 #### Strip 2 - Printer Front Display (C-Shape)
