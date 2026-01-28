@@ -105,7 +105,7 @@ wled/
 ## 📊 Configuration Summary
 
 ### Controllers
-- **Digquad**: 5 LED strips, 15 segments, ~280 LEDs
+- **Digquad**: 5 LED strips, 16 segments, ~280 LEDs
 - **MagWLED**: 1 LED strip, 8 segments, ~80 LEDs
 
 ### LED Strips
@@ -227,7 +227,7 @@ Use this to track your progress:
 - **v1.0** (2024): Initial complete WLED configuration package
   - 2 controller setup (Digquad + MagWLED)
   - 6 LED strips
-  - 23 total segments (15 + 8)
+  - 24 total segments (16 + 8)
   - 25 presets (14 + 11)
   - Complete documentation suite
 

@@ -8,7 +8,7 @@ This document provides detailed wiring instructions for connecting LED strips to
 
 ### Digquad Controller
 - **Ports**: 5 output ports (GPIO configurable)
-- **Max Segments**: 16 (we use 15)
+- **Max Segments**: 16 (all 16 used)
 - **Max LEDs per port**: Varies by controller, typically 500-1000 LEDs
 - **Power**: Ensure adequate power supply for total LED count
 
@@ -69,7 +69,7 @@ This document provides detailed wiring instructions for connecting LED strips to
 └─────────────────────────────────────────────────────────────────────────────┘
 
 Total LED Count: ~280 LEDs (example - adjust based on your actual strips)
-Total Segments: 15/16 (1 segment remaining for future use)
+Total Segments: 16/16 (all segments used, at maximum capacity)
 
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -380,9 +380,9 @@ This lights LEDs 0-15 orange (progress) and 16-30 black (remaining)
 6. **Maintenance reminders**: Special patterns for maintenance schedule
 
 ### Available Segments
-- Digquad: 1 unused segment
+- Digquad: 0 unused segments (all 16 used)
 - MagWLED: 8 unused segments
-- Can add more indicators or split existing segments
+- Can expand MagWLED or add more indicators on future devices
 
 ## Safety Warnings
 

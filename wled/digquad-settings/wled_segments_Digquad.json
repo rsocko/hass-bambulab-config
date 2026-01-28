@@ -2,7 +2,7 @@
   "segments": {
     "description": "Segment layout for Digquad controller - UPDATE LED counts based on your actual strips",
     "total_segments": 16,
-    "used_segments": 15,
+    "used_segments": 16,
     "controller": "Digquad",
     "strips": [
       {

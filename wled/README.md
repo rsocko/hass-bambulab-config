@@ -31,9 +31,9 @@ This directory contains WLED configuration files for controlling LED strips on a
 
 #### Strip 4 - AMS 1 Tag Lighting
 - **Location**: Front of AMS 1
-- **Layout**: Complex path across spool tags and hygrometer
+- **Layout**: Across the top of tag holders (simplified top-only path)
 - **Purpose**: Highlight active and upcoming spools
-- **Segments**: 8 segments (4 top paths + 4 bottom paths)
+- **Segments**: 4 segments (one per spool slot, top path only)
 
 #### Strip 5 - AMS 2 Lid Spool Lighting
 - **Location**: Top of AMS 2 lid
@@ -49,7 +49,7 @@ This directory contains WLED configuration files for controlling LED strips on a
 
 ## Segment Allocation
 
-### Digquad Controller (15 total segments - within 16 limit)
+### Digquad Controller (16 total segments - all used)
 1. Segment 0: Strip 1 - Interior Light (full strip)
 2. Segment 1: Strip 2 - Printer Bottom (progress bar)
 3. Segment 2: Strip 2 - Printer Left (status)
@@ -250,9 +250,10 @@ Once the WLED controllers are configured:
 - Consider using multiple power injection points for long strips
 
 ### Segment Limitations
-- Digquad uses 15 segments (1 under the 16 limit)
+- Digquad uses 16 segments (at the 16 segment limit)
 - MagWLED uses 8 segments (8 under the 16 limit)
-- This leaves room for future expansion or adjustments
+- No room for expansion on Digquad without reorganizing segments
+- MagWLED has room for future expansion or adjustments
 
 ### Future Enhancements
 - Add temperature-based color coding for AMS slots
