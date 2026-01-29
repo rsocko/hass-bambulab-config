@@ -169,6 +169,8 @@ Based on the current DigQuad configuration:
 | A3  | 466-477  | 526-538 (estimated)          |
 | A4  | 490-501  | 551-562 (estimated)          |
 
+**Note**: There is a gap at LEDs 478-489 which contains the AMS 1 hygrometer LEDs. This is physically embedded in the tag strip.
+
 ### AMS 2 Tag LED Ranges
 | Tag | Top LEDs | Bottom LEDs (from segment 14) |
 |-----|----------|-------------------------------|
@@ -176,6 +178,16 @@ Based on the current DigQuad configuration:
 | B2  | 592-605  | 657-671 (estimated)          |
 | B3  | 606-619  | 672-686 (estimated)          |
 | B4  | 632-643  | 687-698 (estimated)          |
+
+**Note**: There is a gap at LEDs 620-631 which contains the AMS 2 hygrometer LEDs. This is physically embedded in the tag strip.
+
+### Important LED Layout Notes
+
+1. **Hygrometer LEDs are embedded**: The hygrometer LEDs are physically part of the tag LED strips, not separate strips.
+2. **Cannot separate in combined segments**: When combining tags into a single segment (e.g., "A2-A4 combined"), we must either:
+   - Exclude the hygrometer LEDs (creating non-contiguous ranges), OR
+   - Include the hygrometer LEDs in the combined segment
+3. **Practical solution**: In the preset configurations, we combine A1-A3 (excluding A4) and include A4+Hygrometer in segment 12. This keeps segments contiguous.
 
 **Note**: Bottom LED ranges are estimated and should be verified against the actual LED strip installation. Refer to `digquad-led-segments.md` for exact measurements.
 

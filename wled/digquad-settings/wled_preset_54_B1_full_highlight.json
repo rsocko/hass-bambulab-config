@@ -104,25 +104,25 @@
       "segment_id": 8,
       "name": "A1-A4 Tags Top Combined",
       "start_led": 442,
-      "stop_led": 501,
-      "led_count": 60,
-      "purpose": "All AMS 1 tag tops combined (A1-A4)",
+      "stop_led": 477,
+      "led_count": 36,
+      "purpose": "AMS 1 tag tops combined (A1-A3)",
       "default_color": [255, 220, 180],
       "default_brightness": 76,
       "priority": "background",
-      "notes": "Combines A1 (442-453), A2 (454-465), A3 (466-477), A4 (490-501) tops"
+      "notes": "Combines A1 (442-453), A2 (454-465), A3 (466-477) tops. A4 (490-501) is in hygrometer segment."
     },
     {
       "segment_id": 9,
       "name": "B2-B4 Tags Top (Inactive Combined)",
       "start_led": 592,
-      "stop_led": 643,
-      "led_count": 52,
-      "purpose": "Inactive AMS 2 tag tops combined (B2, B3, B4)",
+      "stop_led": 619,
+      "led_count": 28,
+      "purpose": "Inactive AMS 2 tag tops combined (B2, B3)",
       "default_color": [255, 220, 180],
       "default_brightness": 76,
       "priority": "background",
-      "notes": "Combines B2 (592-605), B3 (606-619), B4 (632-643) tops"
+      "notes": "Combines B2 (592-605), B3 (606-619) tops. B4 (632-643) is in hygrometer segment."
     },
     {
       "segment_id": 10,
@@ -150,25 +150,27 @@
     },
     {
       "segment_id": 12,
-      "name": "AMS 1 Hygrometer",
+      "name": "AMS 1 Hygrometer + A4 Tag",
       "start_led": 478,
       "stop_led": 501,
       "led_count": 24,
-      "purpose": "AMS 1 humidity indicator",
+      "purpose": "AMS 1 humidity indicator + A4 tag (combined)",
       "default_color": [255, 255, 255],
       "default_brightness": 102,
-      "priority": "indicator"
+      "priority": "indicator",
+      "notes": "Includes hygrometer and A4 tag top - combined due to physical LED strip layout"
     },
     {
       "segment_id": 13,
-      "name": "AMS 2 Hygrometer",
+      "name": "AMS 2 Hygrometer + B4 Tag",
       "start_led": 620,
       "stop_led": 643,
       "led_count": 24,
-      "purpose": "AMS 2 humidity indicator",
+      "purpose": "AMS 2 humidity indicator + B4 tag (combined)",
       "default_color": [255, 255, 255],
       "default_brightness": 102,
-      "priority": "indicator"
+      "priority": "indicator",
+      "notes": "Includes hygrometer and B4 tag top - combined due to physical LED strip layout"
     },
     {
       "segment_id": 14,
