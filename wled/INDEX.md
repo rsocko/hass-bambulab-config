@@ -31,6 +31,8 @@ wled/
 ### Core Specifications (READ THESE FIRST!)
 | File | Purpose | When to Read |
 |------|---------|--------------|
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | **One-page quick reference card** | Start here for overview |
+| [SUMMARY.md](SUMMARY.md) | **High-level summary of design refinement** | After quick reference |
 | [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) | **Controller allocation strategy and segment limitation analysis** | Before any configuration changes |
 | [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) | **Complete specification of 31+ presets with active tray scenarios** | During preset creation |
 | [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) | **7-phase implementation plan with validation checkpoints** | During implementation |
@@ -41,15 +43,17 @@ wled/
 ## 🚀 Start Here
 
 ### For First-Time Users
-1. **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Understand segment limitations and controller allocation
-2. **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Review all 31+ preset definitions
-3. **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Follow 7-phase implementation plan
-4. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
-5. **[led-functions.md](led-functions.md)** - Learn what each LED zone does
-6. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
-7. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
-8. **[README.md](README.md)** - Complete overview and integration guide
-9. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
+1. **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - ⭐ **START HERE!** One-page overview
+2. **[SUMMARY.md](SUMMARY.md)** - High-level summary of design refinement
+3. **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Understand segment limitations and controller allocation
+4. **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Review all 31+ preset definitions
+5. **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Follow 7-phase implementation plan
+6. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
+7. **[led-functions.md](led-functions.md)** - Learn what each LED zone does
+8. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
+9. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+10. **[README.md](README.md)** - Complete overview and integration guide
+11. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
 
 ### For Experienced Users
 1. **[digquad-led-segments.md](digquad-led-segments.md)** - Quick reference for LED ranges
@@ -266,6 +270,8 @@ Use this to track your progress:
 ## 📌 Quick Links
 
 ### Most Important Files
+- 🎯 [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - **START HERE!** One-page overview
+- 📄 [SUMMARY.md](SUMMARY.md) - High-level summary
 - ⭐ [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) - Allocation strategy & limitations
 - ⭐ [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) - 31+ preset definitions
 - ⭐ [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) - 7-phase implementation
@@ -311,4 +317,4 @@ Use this to track your progress:
 
 ---
 
-**Ready to get started?** → Open [digquad-led-segments.md](digquad-led-segments.md), then [QUICK_START.md](QUICK_START.md) now! 🚀
+**Ready to get started?** → Open [QUICK_REFERENCE.md](QUICK_REFERENCE.md) first, then [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) now! 🚀
