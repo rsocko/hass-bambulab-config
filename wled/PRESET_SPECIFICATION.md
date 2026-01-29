@@ -4,28 +4,47 @@
 
 This document provides a comprehensive specification of all WLED presets for the Bambu Lab printer LED system. Each preset defines which segments are active and what colors/effects they display for specific printer scenarios.
 
+**IMPORTANT: Two-Controller Setup**
+- **DigQuad Controller**: Controls 5 LED strips (711 LEDs) with 15 segments (0-14), 1 spare
+- **MagWLED Controller**: Controls 1 LED strip (~30 LEDs) with 1 segment (0), 15 spare
+
+Presets must coordinate actions across BOTH controllers when needed. In Home Assistant, you'll typically need to call services for both `light.digquad` and `light.magwled` entities.
+
 ## Segment Reference
 
-### Complete Segment Allocation (16 segments)
+### Complete Segment Allocation (15 segments on DigQuad + 1 on MagWLED)
+
+#### DigQuad Controller (15 segments used, 1 spare)
 
 | Segment ID | Name | GPIO | LED Range | Count | Purpose |
 |------------|------|------|-----------|-------|---------|
-| 0 | Interior Lid Light | - | - | 30 | Simple interior lighting |
-| 1 | Front Door Bottom | 15 | 0-49 | 50 | Progress bar |
-| 2 | Front Door Left+Top | 15 | 50-157 | 108 | Status indicator (merged) |
-| 3 | AMS 1 Tray Top | 1 | 158-215 | 58 | Combined tray lighting |
-| 4 | AMS 1 Tray Bottom | 1 | 241-297 | 57 | Neutral background |
-| 5 | AMS 2 Tray Top | 3 | 298-357 | 60 | Combined tray lighting |
-| 6 | AMS 2 Tray Bottom | 3 | 382-436 | 55 | Neutral background |
-| 7 | AMS 1 Tag A1 Top | 16 | 442-453 | 12 | Tag for tray A1 |
-| 8 | AMS 1 Tag A2 Top | 16 | 454-465 | 12 | Tag for tray A2 |
-| 9 | AMS 1 Tag A3 Top | 16 | 466-477 | 12 | Tag for tray A3 |
-| 10 | AMS 1 Tag A4 Top | 16 | 490-501 | 12 | Tag for tray A4 |
-| 11 | AMS 2 Tag B1 Top | 4 | 579-591 | 13 | Tag for tray B1 |
-| 12 | AMS 2 Tag B2 Top | 4 | 592-605 | 14 | Tag for tray B2 |
-| 13 | AMS 2 Tag B3 Top | 4 | 606-619 | 14 | Tag for tray B3 |
-| 14 | AMS 2 Tag B4 Top | 4 | 632-643 | 12 | Tag for tray B4 |
-| 15 | Neutral Backgrounds | 16, 4 | Various | ~125 | Hygrometers + tag bottoms (neutral) |
+| 0 | Front Door Bottom | 15 | 0-49 | 50 | Progress bar |
+| 1 | Front Door Left+Top | 15 | 50-157 | 108 | Status indicator (merged) |
+| 2 | AMS 1 Tray Top | 1 | 158-215 | 58 | Combined tray lighting |
+| 3 | AMS 1 Tray Bottom | 1 | 241-297 | 57 | Neutral background |
+| 4 | AMS 2 Tray Top | 3 | 298-357 | 60 | Combined tray lighting |
+| 5 | AMS 2 Tray Bottom | 3 | 382-436 | 55 | Neutral background |
+| 6 | AMS 1 Tag A1 Top | 16 | 442-453 | 12 | Tag for tray A1 |
+| 7 | AMS 1 Tag A2 Top | 16 | 454-465 | 12 | Tag for tray A2 |
+| 8 | AMS 1 Tag A3 Top | 16 | 466-477 | 12 | Tag for tray A3 |
+| 9 | AMS 1 Tag A4 Top | 16 | 490-501 | 12 | Tag for tray A4 |
+| 10 | AMS 2 Tag B1 Top | 4 | 579-591 | 13 | Tag for tray B1 |
+| 11 | AMS 2 Tag B2 Top | 4 | 592-605 | 14 | Tag for tray B2 |
+| 12 | AMS 2 Tag B3 Top | 4 | 606-619 | 14 | Tag for tray B3 |
+| 13 | AMS 2 Tag B4 Top | 4 | 632-643 | 12 | Tag for tray B4 |
+| 14 | Neutral Backgrounds | 16, 4 | Various | ~125 | Hygrometers + tag bottoms (neutral) |
+
+**Total: 15 segments on DigQuad, 1 segment spare**
+
+#### MagWLED Controller (1 segment used, 15 spare)
+
+| Segment ID | Name | GPIO | LED Range | Count | Purpose |
+|------------|------|------|-----------|-------|---------|
+| 0 | Interior Lid Light | 2 | 0-~30 | ~30 | Simple interior lighting |
+
+**Total: 1 segment on MagWLED, 15 segments available for future use**
+
+**System Total**: 16 active segments (15 on DigQuad + 1 on MagWLED)
 
 ## Color Palette
 
@@ -63,32 +82,42 @@ This document provides a comprehensive specification of all WLED presets for the
 
 #### Preset 1: Printer Offline
 **Scenario**: Printer is powered off or unreachable by Home Assistant  
-**Active Segments**: 2 (Front Door Left+Top)  
+**Active Segments**: DigQuad Segment 1 (Front Door Left+Top), MagWLED Segment 0 (Lid) off  
 **Trigger**: `sensor.printer_status == "offline"`
 
+**DigQuad Segments:**
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Off | - | 0% | Lid off |
-| 1 | Off | - | 0% | Progress bar off |
-| 2 | Amber | Solid | 30% | Dim amber indicator |
-| 3-15 | Off | - | 0% | All AMS off |
+| 0 | Off | - | 0% | Progress bar off |
+| 1 | Amber | Solid | 30% | Dim amber indicator |
+| 2-14 | Off | - | 0% | All AMS off |
+
+**MagWLED Segments:**
+| Segment | Color | Effect | Brightness | Notes |
+|---------|-------|--------|------------|-------|
+| 0 | Off | - | 0% | Interior lid off |
 
 #### Preset 2: Printer Idle
 **Scenario**: Printer is powered on but not printing  
 **Active Segments**: All  
 **Trigger**: `sensor.printer_stage == "idle"`
 
+**DigQuad Segments:**
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Soft White | Solid | 40% | Lid on |
-| 1 | Off | - | 0% | No progress |
-| 2 | Soft Green | Breathe | 30% | Gentle breathing |
-| 3 | Soft White | Solid | 30% | AMS 1 top dim |
-| 4 | Soft White | Solid | 25% | AMS 1 bottom neutral |
-| 5 | Soft White | Solid | 30% | AMS 2 top dim |
-| 6 | Soft White | Solid | 25% | AMS 2 bottom neutral |
-| 7-14 | Soft White | Solid | 25% | All tags dim |
-| 15 | Soft White | Solid | 25% | Backgrounds neutral |
+| 0 | Off | - | 0% | No progress |
+| 1 | Soft Green | Breathe | 30% | Gentle breathing |
+| 2 | Soft White | Solid | 30% | AMS 1 top dim |
+| 3 | Soft White | Solid | 25% | AMS 1 bottom neutral |
+| 4 | Soft White | Solid | 30% | AMS 2 top dim |
+| 5 | Soft White | Solid | 25% | AMS 2 bottom neutral |
+| 6-13 | Soft White | Solid | 25% | All tags dim |
+| 14 | Soft White | Solid | 25% | Backgrounds neutral |
+
+**MagWLED Segments:**
+| Segment | Color | Effect | Brightness | Notes |
+|---------|-------|--------|------------|-------|
+| 0 | Soft White | Solid | 40% | Interior lid on |
 
 ---
 
