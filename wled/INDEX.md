@@ -2,6 +2,24 @@
 
 This index helps you navigate all the WLED configuration files and documentation.
 
+## 🆕 NEW: Preset-Based Segment Configuration
+
+**Advanced technique unlocked!** Work around the 16-segment limitation by using WLED presets to save different segment layouts!
+
+### Core Documents
+- **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Comprehensive guide (17KB)
+- **[QUICK_START_PRESET_BASED.md](QUICK_START_PRESET_BASED.md)** - Quick start guide (9KB)
+- **[docs/preset_based_visual_guide.md](docs/preset_based_visual_guide.md)** - Visual guide with diagrams (18KB)
+- **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Home Assistant automation examples (18KB)
+
+### Example Configurations
+- **[digquad-settings/wled_preset_50_A1_full_highlight.json](digquad-settings/wled_preset_50_A1_full_highlight.json)** - Preset 50 (A1)
+- **[digquad-settings/wled_preset_54_B1_full_highlight.json](digquad-settings/wled_preset_54_B1_full_highlight.json)** - Preset 54 (B1)
+
+**Key Benefit**: Highlight BOTH top AND bottom of active tag LEDs with filament color!
+
+---
+
 ## 📁 Directory Structure
 
 ```
