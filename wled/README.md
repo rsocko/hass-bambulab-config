@@ -6,18 +6,23 @@ This directory contains WLED configuration files for controlling LED strips on a
 > 
 > Comprehensive specification documents have been created to address controller allocation, segment limitations, and phased implementation:
 > 
-> - **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Detailed guidance on which controller (MagWLED vs DigQuad) should be used for each LED strip, considering the 16-segment limitation
+> - **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Detailed guidance on optimizing segment allocation across MagWLED and DigQuad controllers
 > - **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Complete specification of all 31+ presets with active tray scenarios, segment usage, and workarounds for blocked scenarios
 > - **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Step-by-step implementation approach with 7 phases, validation checkpoints, and rollback procedures
 > 
-> **Key Changes from Previous Configuration:**
-> 1. ✨ Front door left and top segments **merged** into single status segment (reduces from 3 to 2 segments)
-> 2. ✨ Printer interior lid light **moved to DigQuad** (frees MagWLED for future use)
-> 3. ✨ Combined AMS tray top/bottom lighting (reduces per-AMS segments)
-> 4. ✨ Neutral background segments created for tag bottoms and hygrometers (soft white)
+> **Key Hardware Reality:**
+> - ✅ DigQuad is at **full capacity** with 5 GPIO pins (cannot add more LED strips)
+> - ✅ MagWLED controls the Interior Lid Light (simple 1-segment control)
+> - ✅ **NO hardware changes needed** - Current setup is optimal
+> 
+> **Key Segment Allocation:**
+> 1. ✨ Front door left and top segments **merged** into single status segment (reduces from 3 to 2 segments on DigQuad)
+> 2. ✨ Interior Lid Light **remains on MagWLED** (1 segment, 15 spare for future use)
+> 3. ✨ DigQuad uses 15 segments with 1 spare (combined AMS tray lighting + individual tag control)
+> 4. ✨ Neutral background segment created for tag bottoms and hygrometers (soft white)
 > 5. ✨ Individual control maintained for all 8 tray tags (A1-A4, B1-B4)
 > 
-> These changes allow us to stay within the **16-segment limit** while maintaining excellent functionality.
+> These changes optimize segment usage across both controllers while respecting hardware constraints.
 
 ## Hardware Setup
 

@@ -21,20 +21,23 @@ The original problem statement requested:
 **Document**: [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)
 
 **Key Recommendations**:
-- Move Printer Interior Lid Light from MagWLED to DigQuad
-- Keep MagWLED free for future expansion
-- Use DigQuad for all 711 LEDs across 5 GPIO pins
-- Optimized segment allocation: 16 segments (exactly at limit)
+- **Keep Interior Lid Light on MagWLED** (DigQuad at full capacity with 5 GPIO pins)
+- No hardware changes needed
+- Merge front door left and top segments on DigQuad
+- Use DigQuad for 711 LEDs across 5 GPIO pins (all in use)
+- Optimized segment allocation: 15 segments on DigQuad + 1 on MagWLED
 
 **Segment Breakdown**:
-- Front Door: 2 segments (merged left+top)
-- AMS 1 Trays: 2 segments (combined top, combined bottom)
-- AMS 2 Trays: 2 segments (combined top, combined bottom)
-- AMS 1 Tags: 4 segments (individual tops for A1-A4)
-- AMS 2 Tags: 4 segments (individual tops for B1-B4)
-- Neutral Backgrounds: 1 segment (tag bottoms + hygrometers)
-- Interior Lid: 1 segment
-- **Total: 16 segments ✅**
+- **DigQuad (15 segments, 1 spare)**:
+  - Front Door: 2 segments (merged left+top)
+  - AMS 1 Trays: 2 segments (combined top, combined bottom)
+  - AMS 2 Trays: 2 segments (combined top, combined bottom)
+  - AMS 1 Tags: 4 segments (individual tops for A1-A4)
+  - AMS 2 Tags: 4 segments (individual tops for B1-B4)
+  - Neutral Backgrounds: 1 segment (tag bottoms + hygrometers)
+- **MagWLED (1 segment, 15 spare)**:
+  - Interior Lid: 1 segment
+- **Total: 16 active segments (15+1) ✅**
 
 ### 2. Preset Specification
 **Document**: [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)
@@ -108,41 +111,54 @@ Updated segment definitions reflect:
 ## Key Changes from Previous Configuration
 
 ### Hardware Changes
-1. **Move Interior Lid Light** from MagWLED GPIO 2 to DigQuad (GPIO TBD)
-   - Frees MagWLED controller for future use
-   - Simplifies wiring (all LEDs on one controller)
+1. **NO Hardware Changes** - DigQuad already at full capacity (5 GPIO pins)
+   - Interior Lid Light REMAINS on MagWLED GPIO 2
+   - DigQuad has all 5 GPIO pins in use
+   - Configuration respects physical hardware constraints
 
 ### Segment Changes
-1. **Merged Front Door Left+Top** into single segment
+1. **Merged Front Door Left+Top** into single segment on DigQuad
    - Reduces from 3 segments to 2 segments on front door
    - Both areas show same status (consistent display)
    - Frees 1 segment for other uses
 
-2. **Combined AMS Tray Lighting**
+2. **Combined AMS Tray Lighting** on DigQuad
    - Top LEDs combined per AMS (2 segments total)
    - Bottom LEDs combined per AMS (2 segments total)
    - Cannot animate individual tray loading, but can use tags
 
-3. **Individual Tag Tops**
-   - All 8 tags get individual segments (segments 6-13)
+3. **Individual Tag Tops** on DigQuad
+   - All 8 tags get individual segments (DigQuad segments 6-13)
    - Allows highlighting active tray with filament color
    - Maintains primary functionality
 
-4. **Neutral Background Segment**
-   - Combines all tag bottoms and hygrometers
+4. **Neutral Background Segment** on DigQuad
+   - Combines all tag bottoms and hygrometers (DigQuad segment 14)
    - Set to soft white (#FFDCB4) at 25-30% brightness
    - Provides ambient lighting without drawing attention
+
+5. **Interior Lid on MagWLED**
+   - Simple on/off control (MagWLED segment 0)
+   - Frees 15 segments on MagWLED for future expansion
+   - Requires coordination with DigQuad in presets
 
 ### Preset Changes
 1. **8 Active Tray Presets** (Presets 8-15)
    - One preset per active tray (A1, A2, A3, A4, B1, B2, B3, B4)
-   - Each highlights the appropriate tag with filament color
+   - Each highlights the appropriate tag with filament color on DigQuad
+   - MagWLED Interior Lid coordinated with DigQuad presets
    - Automation switches presets based on active tray sensor
 
 2. **Dynamic Color Integration**
    - Tag colors pulled from Spoolman integration
    - Filament color matches actual spool
-   - Requires Home Assistant automation to sync colors
+   - Requires Home Assistant automation to sync colors to DigQuad
+
+3. **Two-Controller Coordination**
+   - Home Assistant must control both DigQuad and MagWLED
+   - Most presets affect DigQuad segments (0-14)
+   - MagWLED segment 0 (Interior Lid) controlled separately
+   - Service calls needed for both `light.digquad` and `light.magwled`
 
 ## Implementation Strategy
 
@@ -193,8 +209,13 @@ Provides:
 ## Benefits of This Approach
 
 ### Technical Benefits
-- ✅ Stays within 16-segment limit
+- ✅ Respects DigQuad's 5 GPIO pin limit (no hardware changes)
+- ✅ Stays within 16-segment limit per controller (15 on DigQuad, 1 on MagWLED)
 - ✅ Maintains excellent functionality
+- ✅ Individual control of all 8 tray tags
+- ✅ Progress bar and status indication
+- ✅ Simplified wiring (each controller manages its own strips)
+- ✅ MagWLED has 15 segments available for future expansion
 - ✅ Individual control of all 8 tray tags
 - ✅ Progress bar and status indication
 - ✅ Simplified wiring (single controller)
