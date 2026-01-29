@@ -2,7 +2,20 @@
 
 This directory contains WLED configuration files for controlling LED strips on a Bambu Lab printer with dual AMS units.
 
-> **📌 NEW SPECIFICATIONS AVAILABLE**  
+> **📌 NEW: PRESET-BASED SEGMENT CONFIGURATION**  
+> 
+> **Advanced technique unlocked!** WLED presets can save segment definitions (not just colors), enabling dynamic segment reconfiguration to work around the 16-segment limitation.
+>
+> 🎯 **Key Benefit**: Highlight **BOTH top AND bottom** of active tag LEDs with filament color
+> 
+> **Quick Links:**
+> - **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Comprehensive guide to preset-based segment configurations
+> - **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Home Assistant automation examples  
+> - **[digquad-settings/wled_preset_50_A1_full_highlight.json](digquad-settings/wled_preset_50_A1_full_highlight.json)** - Example configuration
+>
+> ✨ **How It Works**: Create 8 preset configurations (Presets 50-57), each with different segment layouts optimized for a specific active tray. Home Assistant automation switches between them automatically.
+
+> **📌 COMPLETE SPECIFICATIONS AVAILABLE**  
 > 
 > Comprehensive specification documents have been created to address controller allocation, segment limitations, and phased implementation:
 > 
