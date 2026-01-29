@@ -4,6 +4,29 @@
 
 This document provides a high-level summary of the WLED design refinement completed to address segment limitations and optimize the controller allocation for the Bambu Lab printer LED system.
 
+## 🆕 NEW: Preset-Based Segment Configuration
+
+**Major Enhancement Added**: An advanced technique that leverages WLED's ability to save segment definitions in presets (not just colors) to work around the 16-segment-per-controller limitation.
+
+### What This Enables
+✅ **Full Tag Highlighting**: Control BOTH top AND bottom of active tag with filament color  
+✅ **Dynamic Layouts**: Switch between different 16-segment configurations on the fly  
+✅ **No Hardware Changes**: Pure software solution via preset switching  
+✅ **Context-Aware**: Automatically adapt segment layout based on active tray
+
+### Implementation
+- **Presets 50-57**: Each saves a different segment layout optimized for a specific active tray
+- **Home Assistant**: Automation switches presets when active tray changes
+- **Segments 6-7**: Always contain active tag top and bottom in these special presets
+- **~500ms delay**: Time needed for WLED to reconfigure segments between presets
+
+### Documentation
+- **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Complete conceptual guide
+- **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Automation examples
+- **Example JSONs** in `digquad-settings/wled_preset_*_full_highlight.json`
+
+---
+
 ## Problem Statement Addressed
 
 The original problem statement requested:

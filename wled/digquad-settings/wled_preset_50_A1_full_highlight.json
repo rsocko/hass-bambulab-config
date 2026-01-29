@@ -1,0 +1,212 @@
+{
+  "preset_id": 50,
+  "name": "A1_Full_Highlight",
+  "description": "Preset configuration with A1 tag top AND bottom as separate segments for full highlight control",
+  "save_segment_bounds": true,
+  "notes": [
+    "This preset saves SEGMENT DEFINITIONS, not just colors",
+    "When loaded, it reconfigures the segment layout to enable A1 top+bottom control",
+    "All other tag tops/bottoms are combined to stay within 16-segment limit",
+    "Load this preset when tray A1 is active during printing"
+  ],
+  "segments": [
+    {
+      "segment_id": 0,
+      "name": "Progress Bar",
+      "start_led": 0,
+      "stop_led": 49,
+      "led_count": 50,
+      "purpose": "Print progress indicator",
+      "default_color": [0, 255, 0],
+      "default_brightness": 128,
+      "priority": "essential"
+    },
+    {
+      "segment_id": 1,
+      "name": "Front Door Status",
+      "start_led": 50,
+      "stop_led": 157,
+      "led_count": 108,
+      "purpose": "Status indication (left + top merged)",
+      "default_color": [0, 255, 0],
+      "default_brightness": 153,
+      "priority": "essential"
+    },
+    {
+      "segment_id": 2,
+      "name": "AMS 1 Tray Top",
+      "start_led": 158,
+      "stop_led": 215,
+      "led_count": 58,
+      "purpose": "AMS 1 top illumination",
+      "default_color": [255, 255, 255],
+      "default_brightness": 102,
+      "priority": "essential"
+    },
+    {
+      "segment_id": 3,
+      "name": "AMS 1 Tray Bottom",
+      "start_led": 241,
+      "stop_led": 297,
+      "led_count": 57,
+      "purpose": "AMS 1 bottom illumination",
+      "default_color": [255, 220, 180],
+      "default_brightness": 64,
+      "priority": "essential"
+    },
+    {
+      "segment_id": 4,
+      "name": "AMS 2 Tray Top",
+      "start_led": 298,
+      "stop_led": 357,
+      "led_count": 60,
+      "purpose": "AMS 2 top illumination",
+      "default_color": [255, 255, 255],
+      "default_brightness": 102,
+      "priority": "essential"
+    },
+    {
+      "segment_id": 5,
+      "name": "AMS 2 Tray Bottom",
+      "start_led": 382,
+      "stop_led": 436,
+      "led_count": 55,
+      "purpose": "AMS 2 bottom illumination",
+      "default_color": [255, 220, 180],
+      "default_brightness": 64,
+      "priority": "essential"
+    },
+    {
+      "segment_id": 6,
+      "name": "A1 Tag TOP - ACTIVE",
+      "start_led": 442,
+      "stop_led": 453,
+      "led_count": 12,
+      "purpose": "Active tray A1 TOP highlight - set to filament color",
+      "default_color": [255, 0, 0],
+      "default_brightness": 204,
+      "priority": "active_tag",
+      "notes": "This segment should be set to the active filament color from Spoolman"
+    },
+    {
+      "segment_id": 7,
+      "name": "A1 Tag BOTTOM - ACTIVE",
+      "start_led": 502,
+      "stop_led": 513,
+      "led_count": 12,
+      "purpose": "Active tray A1 BOTTOM highlight - set to filament color",
+      "default_color": [255, 0, 0],
+      "default_brightness": 204,
+      "priority": "active_tag",
+      "notes": "This segment should be set to the same filament color as segment 6"
+    },
+    {
+      "segment_id": 8,
+      "name": "A2-A4 Tags Top (Inactive Combined)",
+      "start_led": 454,
+      "stop_led": 501,
+      "led_count": 48,
+      "purpose": "Inactive AMS 1 tag tops combined (A2, A3, A4)",
+      "default_color": [255, 220, 180],
+      "default_brightness": 76,
+      "priority": "background",
+      "notes": "Combines A2 (454-465), A3 (466-477), and A4 (490-501) tops"
+    },
+    {
+      "segment_id": 9,
+      "name": "B1-B4 Tags Top Combined",
+      "start_led": 579,
+      "stop_led": 643,
+      "led_count": 65,
+      "purpose": "All AMS 2 tag tops combined (B1-B4)",
+      "default_color": [255, 220, 180],
+      "default_brightness": 76,
+      "priority": "background",
+      "notes": "Combines B1 (579-591), B2 (592-605), B3 (606-619), B4 (632-643)"
+    },
+    {
+      "segment_id": 10,
+      "name": "A2-A4 Tags Bottom (Inactive Combined)",
+      "start_led": 514,
+      "stop_led": 562,
+      "led_count": 49,
+      "purpose": "Inactive AMS 1 tag bottoms combined (A2, A3, A4)",
+      "default_color": [255, 220, 180],
+      "default_brightness": 64,
+      "priority": "background",
+      "notes": "Combines A2 (514-525), A3 (526-538), and A4 (551-562) bottoms"
+    },
+    {
+      "segment_id": 11,
+      "name": "B1-B4 Tags Bottom Combined",
+      "start_led": 644,
+      "stop_led": 698,
+      "led_count": 55,
+      "purpose": "All AMS 2 tag bottoms combined (B1-B4)",
+      "default_color": [255, 220, 180],
+      "default_brightness": 64,
+      "priority": "background",
+      "notes": "Combines B1 (644-656), B2 (657-671), B3 (672-686), B4 (687-698) bottoms"
+    },
+    {
+      "segment_id": 12,
+      "name": "AMS 1 Hygrometer",
+      "start_led": 478,
+      "stop_led": 501,
+      "led_count": 24,
+      "purpose": "AMS 1 humidity indicator",
+      "default_color": [255, 255, 255],
+      "default_brightness": 102,
+      "priority": "indicator"
+    },
+    {
+      "segment_id": 13,
+      "name": "AMS 2 Hygrometer",
+      "start_led": 620,
+      "stop_led": 643,
+      "led_count": 24,
+      "purpose": "AMS 2 humidity indicator",
+      "default_color": [255, 255, 255],
+      "default_brightness": 102,
+      "priority": "indicator"
+    },
+    {
+      "segment_id": 14,
+      "name": "Reserved / Future Use",
+      "start_led": 0,
+      "stop_led": 0,
+      "led_count": 0,
+      "purpose": "Spare segment for future expansion",
+      "default_color": [0, 0, 0],
+      "default_brightness": 0,
+      "priority": "spare"
+    }
+  ],
+  "usage": {
+    "total_segments": 15,
+    "spare_segments": 1,
+    "active_tag_segments": 2,
+    "essential_segments": 6,
+    "background_segments": 4,
+    "indicator_segments": 2
+  },
+  "automation_example": {
+    "trigger": "sensor.bambu_active_tray == 1",
+    "action": "Load preset 50, then set segments 6 and 7 to filament color"
+  },
+  "led_ranges_notes": [
+    "LED ranges are based on digquad-led-segments.md documentation",
+    "Some ranges (especially tag bottoms) may need adjustment based on actual strip",
+    "Test each segment individually after loading preset to verify correct LEDs light up",
+    "If ranges are incorrect, adjust in WLED UI and re-save preset with 'Save segment bounds' enabled"
+  ],
+  "verification_checklist": [
+    "Load preset 50 in WLED UI",
+    "Turn on only segment 6 - verify A1 top LEDs light up (442-453)",
+    "Turn on only segment 7 - verify A1 bottom LEDs light up (502-513)",
+    "Verify segments 8-11 correctly combine other tags",
+    "Test setting segments 6 and 7 to same color (filament color)",
+    "Verify smooth transition when switching from base preset",
+    "Test in actual printing scenario with tray A1 active"
+  ]
+}

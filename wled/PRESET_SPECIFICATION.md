@@ -10,6 +10,28 @@ This document provides a comprehensive specification of all WLED presets for the
 
 Presets must coordinate actions across BOTH controllers when needed. In Home Assistant, you'll typically need to call services for both `light.digquad` and `light.magwled` entities.
 
+## 🆕 Enhanced Preset-Based Segment Configuration
+
+**NEW CAPABILITY**: This specification now includes an advanced technique that uses WLED's ability to save segment definitions in presets, not just colors. This allows us to create multiple 16-segment layouts that can be dynamically switched based on the active tray.
+
+### Key Benefit
+**Enable highlighting BOTH top AND bottom of active tag LEDs** by switching between preset configurations that redefine segment boundaries on the fly.
+
+### How It Works
+- **Presets 1-49**: Traditional presets (colors/effects on fixed segment layout)
+- **Presets 50-57**: Advanced preset configurations (save segment definitions themselves)
+  - Preset 50: A1 tag top+bottom as separate segments
+  - Preset 51: A2 tag top+bottom as separate segments
+  - Preset 52-57: Similar for A3, A4, B1, B2, B3, B4
+
+### Documentation References
+For detailed information on this advanced technique:
+- **Conceptual Guide**: See [PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)
+- **Implementation Examples**: See [docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)
+- **Example Configurations**: See preset JSON files in `digquad-settings/wled_preset_*_full_highlight.json`
+
+This document continues with the traditional preset specifications (Presets 1-49).
+
 ## Segment Reference
 
 ### Complete Segment Allocation (15 segments on DigQuad + 1 on MagWLED)
@@ -644,14 +666,100 @@ Use this checklist when implementing and testing presets:
 
 ---
 
+---
+
+## 🆕 Advanced: Preset-Based Segment Configurations (Presets 50-57)
+
+### Overview
+Beyond the traditional presets (1-49) that apply colors/effects to fixed segments, WLED supports an advanced feature: **saving segment definitions within presets**. This enables dynamic segment reconfiguration to work around the 16-segment limitation.
+
+### The Tag Top+Bottom Challenge
+
+**Problem**: In the base configuration (Presets 1-49), tag bottoms are all combined into segment 14, making it impossible to highlight BOTH the top AND bottom of a specific active tag with its filament color.
+
+**Solution**: Create preset configurations (50-57) where the active tag's top and bottom are separate segments, while inactive tags are combined.
+
+### Preset Configuration Matrix
+
+#### Presets 50-57: Active Tray with Full Tag Control
+
+Each of these presets redefines the segment layout to prioritize the active tray:
+
+| Preset # | Active Tray | Segment 6 | Segment 7 | Segments 8-11 |
+|----------|-------------|-----------|-----------|---------------|
+| 50 | A1 (Tray 1) | A1 Top | A1 Bottom | A2-A4, B1-B4 combined |
+| 51 | A2 (Tray 2) | A2 Top | A2 Bottom | A1,A3-A4, B1-B4 combined |
+| 52 | A3 (Tray 3) | A3 Top | A3 Bottom | A1-A2,A4, B1-B4 combined |
+| 53 | A4 (Tray 4) | A4 Top | A4 Bottom | A1-A3, B1-B4 combined |
+| 54 | B1 (Tray 5) | B1 Top | B1 Bottom | A1-A4, B2-B4 combined |
+| 55 | B2 (Tray 6) | B2 Top | B2 Bottom | A1-A4, B1,B3-B4 combined |
+| 56 | B3 (Tray 7) | B3 Top | B3 Bottom | A1-A4, B1-B2,B4 combined |
+| 57 | B4 (Tray 8) | B4 Top | B4 Bottom | A1-A4, B1-B3 combined |
+
+### Common Segment Layout (Segments 0-5 in All Presets 50-57)
+
+These essential segments remain the same across all preset configurations:
+- **Segment 0**: Progress Bar (0-49)
+- **Segment 1**: Front Door Status (50-157)
+- **Segment 2**: AMS 1 Tray Top (158-215)
+- **Segment 3**: AMS 1 Tray Bottom (241-297)
+- **Segment 4**: AMS 2 Tray Top (298-357)
+- **Segment 5**: AMS 2 Tray Bottom (382-436)
+
+### Usage Pattern
+
+When implementing these presets in Home Assistant:
+
+```yaml
+1. Detect active tray change (sensor.bambu_active_tray)
+2. Calculate preset ID: 49 + tray_number (Presets 50-57)
+3. Load preset (this reconfigures segments)
+4. Wait 500ms for reconfiguration
+5. Set segment 6 (active tag top) to filament color
+6. Set segment 7 (active tag bottom) to same filament color
+7. Set segments 8-11 (inactive tags) to neutral color
+```
+
+### Benefits
+✅ **Full Tag Highlighting**: Both top and bottom of active tag show filament color  
+✅ **Within 16-Segment Limit**: Each preset configuration uses ≤16 segments  
+✅ **No Hardware Changes**: Pure software solution  
+✅ **Backward Compatible**: Base presets (1-49) continue to work  
+✅ **Dynamic**: Automatically adapts to active tray changes
+
+### Trade-offs
+⚠️ **Switching Delay**: ~500ms delay when changing preset configurations  
+⚠️ **Inactive Tags Combined**: Non-active tags lose individual control (acceptable as they're dim)  
+⚠️ **Preset Management**: Need to maintain 8 preset configurations  
+⚠️ **Automation Complexity**: Requires more sophisticated Home Assistant logic
+
+### Implementation Resources
+
+For complete implementation details, see:
+- **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Comprehensive guide to preset-based segment configurations
+- **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Home Assistant automation examples
+- **[digquad-settings/wled_preset_50_A1_full_highlight.json](digquad-settings/wled_preset_50_A1_full_highlight.json)** - Example preset configuration for A1
+- **[digquad-settings/wled_preset_54_B1_full_highlight.json](digquad-settings/wled_preset_54_B1_full_highlight.json)** - Example preset configuration for B1
+
+---
+
 ## Conclusion
 
-This specification defines 31+ presets that cover all major printer scenarios while staying within the 16-segment limitation. The key design decisions are:
+This specification defines 31+ traditional presets (1-49) plus 8 advanced preset-based segment configurations (50-57) that cover all major printer scenarios.
 
+### Traditional Presets (1-49)
+Cover all scenarios with fixed segment layout:
 1. **Merged front door left+top** reduces from 3 to 2 segments
-2. **Individual tag control** for all 8 trays (segments 7-14)
-3. **Combined background lighting** (segment 15) for neutrality
-4. **Dynamic preset switching** based on active tray (presets 8-15)
+2. **Individual tag top control** for all 8 trays (segments 6-13)
+3. **Combined background lighting** (segment 14) for neutrality
+4. **Dynamic color switching** based on active tray
 5. **Workarounds** for scenarios blocked by segment limits
 
-Each preset can be tested incrementally and refined based on actual behavior and user preferences.
+### Advanced Preset Configurations (50-57)
+Provide enhanced capability through dynamic segment reconfiguration:
+1. **Full tag highlighting** with both top and bottom control
+2. **Context-aware layouts** optimized for each active tray
+3. **Flexible segment allocation** within 16-segment constraint
+4. **Seamless switching** via Home Assistant automation
+
+Each preset can be tested incrementally and refined based on actual behavior and user preferences. The preset-based approach is optional and can be adopted gradually as needed for more complex scenarios.
