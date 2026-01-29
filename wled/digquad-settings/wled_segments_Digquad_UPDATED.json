@@ -1,0 +1,307 @@
+{
+  "segments": {
+    "description": "UPDATED Segment layout for Digquad controller - Based on actual 711 LED installation with optimized allocation",
+    "total_segments": 16,
+    "used_segments": 16,
+    "controller": "Digquad",
+    "total_leds": 711,
+    "gpio_outputs": 5,
+    "changes_from_previous": [
+      "Printer Interior Lid Light moved to DigQuad (was on MagWLED)",
+      "Front Door Left and Top merged into single segment (was 2 segments)",
+      "Reduced from per-tray AMS lighting to combined top/bottom per AMS",
+      "Combined tag bottoms and hygrometers into single neutral segment",
+      "Actual LED counts from physical installation (711 total)"
+    ],
+    "strips": [
+      {
+        "strip_id": 1,
+        "name": "Printer Front Door (C-Shape)",
+        "gpio_pin": 15,
+        "total_leds": 158,
+        "description": "C-shape LED strip on printer front: bottom (progress bar), left+top (status, MERGED)",
+        "segments": [
+          {
+            "segment_id": 0,
+            "name": "Front Door Bottom",
+            "start_led": 0,
+            "stop_led": 49,
+            "led_count": 50,
+            "purpose": "Print progress bar - displays percentage complete",
+            "typical_colors": "Green (printing), Red (error), Off (idle)",
+            "effects": "Solid, dynamic fill based on progress %"
+          },
+          {
+            "segment_id": 1,
+            "name": "Front Door Left+Top (MERGED)",
+            "start_led": 50,
+            "stop_led": 157,
+            "led_count": 108,
+            "purpose": "Status indicator - MERGED left and top for consistent display",
+            "typical_colors": "Green (printing), Blue (idle breathing), Orange (heating), Red (error)",
+            "effects": "Solid, Breathing, Blink"
+          }
+        ]
+      },
+      {
+        "strip_id": 2,
+        "name": "AMS 1 Lid/Spool Lighting",
+        "gpio_pin": 1,
+        "total_leds": 140,
+        "description": "Reverse C-shape on AMS 1 lid for spool illumination - combined top and bottom",
+        "segments": [
+          {
+            "segment_id": 2,
+            "name": "AMS1 Tray Top (All Combined)",
+            "start_led": 158,
+            "stop_led": 215,
+            "led_count": 58,
+            "purpose": "Combined lighting for all 4 tray tops in AMS 1",
+            "typical_colors": "Soft White (idle), Bright White (printing), Blue (loading)",
+            "effects": "Solid, Chase (loading)"
+          },
+          {
+            "segment_id": 3,
+            "name": "AMS1 Tray Bottom (Neutral)",
+            "start_led": 241,
+            "stop_led": 297,
+            "led_count": 57,
+            "purpose": "Neutral background lighting for tray bottoms",
+            "typical_colors": "Soft White (#FFDCB4) at 25-30%",
+            "effects": "Solid (neutral background)"
+          }
+        ],
+        "notes": [
+          "Side wall LEDs (216-240) are distributed between top and bottom or can be grouped with one",
+          "Cannot individually control per-tray lighting due to segment limit",
+          "Use tag segments (7-10) to indicate which specific tray is active"
+        ]
+      },
+      {
+        "strip_id": 3,
+        "name": "AMS 2 Lid/Spool Lighting",
+        "gpio_pin": 3,
+        "total_leds": 139,
+        "description": "Same as AMS 1 but for AMS 2, with heating animation support",
+        "segments": [
+          {
+            "segment_id": 4,
+            "name": "AMS2 Tray Top (All Combined)",
+            "start_led": 298,
+            "stop_led": 357,
+            "led_count": 60,
+            "purpose": "Combined lighting for all 4 tray tops in AMS 2",
+            "typical_colors": "Soft White (idle), Bright White (printing), Amber (drying mode)",
+            "effects": "Solid, Chase (loading)"
+          },
+          {
+            "segment_id": 5,
+            "name": "AMS2 Tray Bottom (Neutral)",
+            "start_led": 382,
+            "stop_led": 436,
+            "led_count": 55,
+            "purpose": "Neutral background lighting for tray bottoms",
+            "typical_colors": "Soft White (#FFDCB4) at 25-30%",
+            "effects": "Solid (neutral background)"
+          }
+        ],
+        "notes": [
+          "Side wall LEDs (358-381) are distributed between top and bottom",
+          "AMS 2 supports heating animation (amber) for drying mode",
+          "Use tag segments (11-14) to indicate which specific tray is active"
+        ]
+      },
+      {
+        "strip_id": 4,
+        "name": "AMS 1 Tags + Hygrometer",
+        "gpio_pin": 16,
+        "total_leds": 136,
+        "description": "Complex path across AMS 1 tags with individual tag tops and combined bottoms",
+        "segments": [
+          {
+            "segment_id": 6,
+            "name": "AMS1 Tag A1 Top",
+            "start_led": 442,
+            "stop_led": 453,
+            "led_count": 12,
+            "purpose": "Highlight tag for Tray A1 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          },
+          {
+            "segment_id": 7,
+            "name": "AMS1 Tag A2 Top",
+            "start_led": 454,
+            "stop_led": 465,
+            "led_count": 12,
+            "purpose": "Highlight tag for Tray A2 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          },
+          {
+            "segment_id": 8,
+            "name": "AMS1 Tag A3 Top",
+            "start_led": 466,
+            "stop_led": 477,
+            "led_count": 12,
+            "purpose": "Highlight tag for Tray A3 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          },
+          {
+            "segment_id": 9,
+            "name": "AMS1 Tag A4 Top",
+            "start_led": 490,
+            "stop_led": 501,
+            "led_count": 12,
+            "purpose": "Highlight tag for Tray A4 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          }
+        ],
+        "notes": [
+          "Individual tag top control allows highlighting active tray",
+          "Tag bottoms are combined in segment 14 (neutral)",
+          "Hygrometer LEDs (478-489) are part of segment 14",
+          "Side LEDs (437-441) can be grouped with first tag or segment 14"
+        ]
+      },
+      {
+        "strip_id": 5,
+        "name": "AMS 2 Tags + Hygrometer",
+        "gpio_pin": 4,
+        "total_leds": 138,
+        "description": "Complex path across AMS 2 tags with individual tag tops and combined bottoms",
+        "segments": [
+          {
+            "segment_id": 10,
+            "name": "AMS2 Tag B1 Top",
+            "start_led": 579,
+            "stop_led": 591,
+            "led_count": 13,
+            "purpose": "Highlight tag for Tray B1 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          },
+          {
+            "segment_id": 11,
+            "name": "AMS2 Tag B2 Top",
+            "start_led": 592,
+            "stop_led": 605,
+            "led_count": 14,
+            "purpose": "Highlight tag for Tray B2 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          },
+          {
+            "segment_id": 12,
+            "name": "AMS2 Tag B3 Top",
+            "start_led": 606,
+            "stop_led": 619,
+            "led_count": 14,
+            "purpose": "Highlight tag for Tray B3 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          },
+          {
+            "segment_id": 13,
+            "name": "AMS2 Tag B4 Top",
+            "start_led": 632,
+            "stop_led": 643,
+            "led_count": 12,
+            "purpose": "Highlight tag for Tray B4 - shows filament color when active",
+            "typical_colors": "Filament Color (active at 80%), Soft White (inactive at 30%)",
+            "effects": "Solid, can pulse for warnings"
+          }
+        ],
+        "notes": [
+          "Individual tag top control allows highlighting active tray",
+          "Tag bottoms are combined in segment 14 (neutral)",
+          "Hygrometer LEDs (620-631, others) are part of segment 14",
+          "Side LEDs (573-578) can be grouped with first tag or segment 14"
+        ]
+      },
+      {
+        "strip_id": 6,
+        "name": "Neutral Backgrounds & Hygrometers (Combined)",
+        "gpio_pin": "16, 4",
+        "total_leds": "~127",
+        "description": "Combined segment for all tag bottoms and hygrometer LEDs - set to neutral soft white",
+        "segments": [
+          {
+            "segment_id": 14,
+            "name": "Tag Bottoms + Hygrometers (All Combined)",
+            "start_led_ranges": [
+              "437-441 (AMS1 side start)",
+              "478-489 (AMS1 hygrometer bottom)",
+              "502-566 (AMS1 tag bottoms + hygro top + side)",
+              "573-578 (AMS2 side start)",
+              "620-631 (AMS2 hygrometer bottom)",
+              "644-710 (AMS2 tag bottoms + hygro top)"
+            ],
+            "led_count": "~127",
+            "purpose": "Neutral background lighting for all tag bottoms and hygrometers",
+            "typical_colors": "Soft White (#FFDCB4) at 25-30%",
+            "effects": "Solid (neutral background)",
+            "notes": [
+              "This is a COMPLEX multi-range segment spanning GPIO 16 and 4",
+              "WLED may not support multi-GPIO segments - see implementation alternatives",
+              "Alternative: Create two separate segments (one for AMS1, one for AMS2)"
+            ]
+          }
+        ]
+      },
+      {
+        "strip_id": 7,
+        "name": "Printer Interior Lid Light",
+        "gpio_pin": "TBD - needs hardware move",
+        "total_leds": 30,
+        "description": "Simple LED strip inside printer lid - MOVED from MagWLED to DigQuad",
+        "segments": [
+          {
+            "segment_id": 15,
+            "name": "Interior Lid Light",
+            "start_led": "TBD",
+            "stop_led": "TBD",
+            "led_count": 30,
+            "purpose": "General interior illumination",
+            "typical_colors": "Bright White (on), Off (idle/printing)",
+            "effects": "Solid"
+          }
+        ],
+        "notes": [
+          "This strip needs to be physically moved from MagWLED GPIO to DigQuad",
+          "Can be connected to any available DigQuad GPIO with 30 LED capacity",
+          "Simple single-segment control - perfect for final 16th segment",
+          "LED range TBD based on which GPIO pin is used and offset"
+        ]
+      }
+    ],
+    "segment_summary": {
+      "total_defined": 16,
+      "breakdown": {
+        "front_door": 2,
+        "ams1_trays": 2,
+        "ams2_trays": 2,
+        "ams1_tags": 4,
+        "ams2_tags": 4,
+        "neutral_backgrounds": 1,
+        "lid_interior": 1
+      }
+    },
+    "implementation_notes": [
+      "Segment 14 may need to be split into two segments if WLED doesn't support multi-GPIO segments",
+      "If split, use Segment 14 for AMS1 backgrounds and create new segment for AMS2 (would exceed 16 limit)",
+      "Alternative: Eliminate AMS tray bottoms entirely (segments 3, 5) to free up 2 slots",
+      "Final LED ranges depend on exact physical installation and GPIO connections",
+      "Test all segments incrementally during Phase 1 implementation",
+      "See PHASED_IMPLEMENTATION_GUIDE.md for step-by-step setup"
+    ],
+    "reference_documents": [
+      "See CONTROLLER_ALLOCATION_RECOMMENDATION.md for detailed rationale",
+      "See PRESET_SPECIFICATION.md for all 31+ preset definitions",
+      "See PHASED_IMPLEMENTATION_GUIDE.md for implementation steps",
+      "See digquad-led-segments.md for detailed LED breakdowns"
+    ]
+  }
+}

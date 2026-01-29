@@ -31,6 +31,11 @@ wled/
 ### Core Specifications (READ THESE FIRST!)
 | File | Purpose | When to Read |
 |------|---------|--------------|
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | **One-page quick reference card** | Start here for overview |
+| [SUMMARY.md](SUMMARY.md) | **High-level summary of design refinement** | After quick reference |
+| [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) | **Controller allocation strategy and segment limitation analysis** | Before any configuration changes |
+| [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) | **Complete specification of 31+ presets with active tray scenarios** | During preset creation |
+| [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) | **7-phase implementation plan with validation checkpoints** | During implementation |
 | [digquad-led-segments.md](digquad-led-segments.md) | **Exact LED counts and ranges for all 711 LEDs** | Before any configuration |
 | [led-functions.md](led-functions.md) | **Specific function of each LED zone** | During planning and configuration |
 | [light-scenarios.md](light-scenarios.md) | **Complete catalog of 33+ lighting scenarios** | For preset creation and automation |
@@ -38,12 +43,17 @@ wled/
 ## 🚀 Start Here
 
 ### For First-Time Users
-1. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
-2. **[led-functions.md](led-functions.md)** - Learn what each LED zone does
-3. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
-4. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
-5. **[README.md](README.md)** - Complete overview and integration guide
-6. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
+1. **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - ⭐ **START HERE!** One-page overview
+2. **[SUMMARY.md](SUMMARY.md)** - High-level summary of design refinement
+3. **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Understand segment limitations and controller allocation
+4. **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Review all 31+ preset definitions
+5. **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Follow 7-phase implementation plan
+6. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
+7. **[led-functions.md](led-functions.md)** - Learn what each LED zone does
+8. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
+9. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+10. **[README.md](README.md)** - Complete overview and integration guide
+11. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
 
 ### For Experienced Users
 1. **[digquad-led-segments.md](digquad-led-segments.md)** - Quick reference for LED ranges
@@ -56,6 +66,9 @@ wled/
 
 | File | Purpose | When to Read |
 |------|---------|--------------|
+| [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) | Controller allocation strategy, segment limitation analysis, and alternatives | **BEFORE configuration** |
+| [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) | Complete specification of 31+ presets with all active tray scenarios | During preset creation |
+| [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) | 7-phase implementation plan with validation and rollback procedures | During implementation |
 | [digquad-led-segments.md](digquad-led-segments.md) | Exact LED counts, GPIO pins, and LED ranges for all 711 LEDs | **BEFORE configuration** |
 | [led-functions.md](led-functions.md) | Detailed function specifications for each LED zone | During planning |
 | [light-scenarios.md](light-scenarios.md) | Complete catalog of 33+ lighting scenarios with behaviors | For automation design |
@@ -92,15 +105,28 @@ wled/
 |------|---------|-------------|
 | [digquad-settings/wled_cfg_Digquad.json](digquad-settings/wled_cfg_Digquad.json) | Digquad controller base config | Upload to Digquad |
 | [digquad-settings/wled_presets_Digquad.json](digquad-settings/wled_presets_Digquad.json) | 14 presets for printer/AMS control | Import to Digquad |
-| [digquad-settings/wled_segments_Digquad.json](digquad-settings/wled_segments_Digquad.json) | Segment definitions (reference only) | For manual segment creation |
-| [magwled-settings/wled_cfg_MagWLED.json](magwled-settings/wled_cfg_MagWLED.json) | MagWLED controller config | Upload to MagWLED |
-| [magwled-settings/wled_presets_MagWLED_updated.json](magwled-settings/wled_presets_MagWLED_updated.json) | Updated presets for AMS 2 tags | Import to MagWLED |
-| [magwled-settings/wled_segments_MagWLED.json](magwled-settings/wled_segments_MagWLED.json) | Segment definitions (reference only) | For manual segment creation |
+| [digquad-settings/wled_segments_Digquad.json](digquad-settings/wled_segments_Digquad.json) | Original segment definitions (reference only) | For manual segment creation |
+| [digquad-settings/wled_segments_Digquad_UPDATED.json](digquad-settings/wled_segments_Digquad_UPDATED.json) | **UPDATED segment definitions (16 segments, optimized)** | **Recommended for new installations** |
+| [magwled-settings/wled_cfg_MagWLED.json](magwled-settings/wled_cfg_MagWLED.json) | MagWLED controller config (legacy) | Upload to MagWLED if used |
+| [magwled-settings/wled_presets_MagWLED_updated.json](magwled-settings/wled_presets_MagWLED_updated.json) | Updated presets for AMS 2 tags (legacy) | Import to MagWLED if used |
+| [magwled-settings/wled_segments_MagWLED.json](magwled-settings/wled_segments_MagWLED.json) | Segment definitions (legacy, reference only) | For manual segment creation |
 
 ## 🎯 Use Case Guide
 
 ### "I want to know the exact LED specifications"
 → Read **[digquad-led-segments.md](digquad-led-segments.md)** (711 LEDs total)
+
+### "I need controller allocation advice"
+→ Read **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** (MagWLED vs DigQuad)
+
+### "I want to understand segment limitations"
+→ Read **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** (16-segment limit analysis)
+
+### "I want to see all preset definitions"
+→ Read **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** (31+ presets with active tray scenarios)
+
+### "I need a phased implementation plan"
+→ Read **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** (7 phases with validation)
 
 ### "I want to understand what each LED zone does"
 → Read **[led-functions.md](led-functions.md)**
@@ -174,6 +200,9 @@ wled/
 
 Use this to track your progress:
 
+- [ ] Read CONTROLLER_ALLOCATION_RECOMMENDATION.md (allocation strategy)
+- [ ] Read PRESET_SPECIFICATION.md (31+ preset definitions)
+- [ ] Read PHASED_IMPLEMENTATION_GUIDE.md (implementation plan)
 - [ ] Read digquad-led-segments.md (LED specifications)
 - [ ] Read led-functions.md (function specifications)
 - [ ] Read light-scenarios.md (scenario catalog)
@@ -185,13 +214,14 @@ Use this to track your progress:
 - [ ] Installed AMS 2 Lid LEDs (GPIO 3, 139 LEDs)
 - [ ] Installed AMS 1 Tag LEDs (GPIO 16, 136 LEDs)
 - [ ] Installed AMS 2 Tag LEDs (GPIO 4, 138 LEDs)
+- [ ] **Moved Interior Lid Light from MagWLED to DigQuad**
 - [ ] Connected power supply (15-20A @ 5V recommended)
-- [ ] Configured Digquad controller
-- [ ] Created functional segments
-- [ ] Imported/created presets from light-scenarios.md
+- [ ] Configured Digquad controller with UPDATED segment definitions
+- [ ] Created 16 optimized segments (merged front door, combined backgrounds)
+- [ ] Imported/created presets from PRESET_SPECIFICATION.md
 - [ ] Tested all segments
 - [ ] Added to Home Assistant
-- [ ] Created automations based on light-scenarios.md
+- [ ] Created automations for active tray scenarios
 - [ ] Tested with actual print
 - [ ] Documented final configuration
 
@@ -215,11 +245,14 @@ Use this to track your progress:
 ## 🎓 Learning Path
 
 ### Beginner
-1. Read [digquad-led-segments.md](digquad-led-segments.md) - Understand LED layout
-2. Read [led-functions.md](led-functions.md) - Learn zone functions
-3. Read [light-scenarios.md](light-scenarios.md) - See all scenarios
-4. Follow [QUICK_START.md](QUICK_START.md) - Setup guide
-5. Use [docs/visual-installation-guide.md](docs/visual-installation-guide.md) - Visual reference
+1. Read [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) - Understand segment limitations
+2. Read [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) - Review preset definitions
+3. Read [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) - Start with Phase 1
+4. Read [digquad-led-segments.md](digquad-led-segments.md) - Understand LED layout
+5. Read [led-functions.md](led-functions.md) - Learn zone functions
+6. Read [light-scenarios.md](light-scenarios.md) - See all scenarios
+7. Follow [QUICK_START.md](QUICK_START.md) - Setup guide
+8. Use [docs/visual-installation-guide.md](docs/visual-installation-guide.md) - Visual reference
 
 ### Intermediate
 1. Review [README.md](README.md) for complete design
@@ -237,6 +270,11 @@ Use this to track your progress:
 ## 📌 Quick Links
 
 ### Most Important Files
+- 🎯 [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - **START HERE!** One-page overview
+- 📄 [SUMMARY.md](SUMMARY.md) - High-level summary
+- ⭐ [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) - Allocation strategy & limitations
+- ⭐ [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) - 31+ preset definitions
+- ⭐ [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) - 7-phase implementation
 - ⭐ [digquad-led-segments.md](digquad-led-segments.md) - LED specifications (711 LEDs)
 - ⭐ [led-functions.md](led-functions.md) - Zone functions
 - ⭐ [light-scenarios.md](light-scenarios.md) - Scenario catalog (33+)
@@ -248,6 +286,7 @@ Use this to track your progress:
 ### Configuration Files
 - ⚙️ [digquad-settings/wled_cfg_Digquad.json](digquad-settings/wled_cfg_Digquad.json)
 - 🎨 [digquad-settings/wled_presets_Digquad.json](digquad-settings/wled_presets_Digquad.json)
+- ✨ [digquad-settings/wled_segments_Digquad_UPDATED.json](digquad-settings/wled_segments_Digquad_UPDATED.json) - **Recommended**
 
 ## 💡 Tips
 
@@ -278,4 +317,4 @@ Use this to track your progress:
 
 ---
 
-**Ready to get started?** → Open [digquad-led-segments.md](digquad-led-segments.md), then [QUICK_START.md](QUICK_START.md) now! 🚀
+**Ready to get started?** → Open [QUICK_REFERENCE.md](QUICK_REFERENCE.md) first, then [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) now! 🚀
