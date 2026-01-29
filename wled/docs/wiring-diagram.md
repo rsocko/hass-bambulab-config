@@ -2,21 +2,24 @@
 
 ## Physical Layout Overview
 
-This document provides detailed wiring instructions for connecting LED strips to your Digquad and MagWLED controllers for Bambu Lab printer lighting.
+This document provides detailed wiring instructions for connecting LED strips to your Digquad controller for Bambu Lab printer lighting.
+
+**System Specifications:**
+- **Total LEDs**: 711
+- **Controller**: Digquad (5 GPIO outputs)
+- **LED Types**: COB 160 LED/m and Mini 2.7mm 160 LED/m
+
+For complete LED specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
+For function details, see [../led-functions.md](../led-functions.md).
+For scenario behaviors, see [../light-scenarios.md](../light-scenarios.md).
 
 ## Controller Specifications
 
 ### Digquad Controller
-- **Ports**: 5 output ports (GPIO configurable)
-- **Max Segments**: 16 (all 16 used)
-- **Max LEDs per port**: Varies by controller, typically 500-1000 LEDs
-- **Power**: Ensure adequate power supply for total LED count
-
-### MagWLED Controller  
-- **Ports**: 1 output port (GPIO 2)
-- **Max Segments**: 16 (we use 8)
-- **Max LEDs**: 48 currently configured (expandable)
-- **Power**: Built-in power management
+- **GPIO Outputs**: 5 (GPIO 15, 1, 3, 16, 4)
+- **Total LEDs**: 711
+- **Max LEDs per port**: Varies by LED type and power supply
+- **Power**: Requires adequate 5V power supply (15-20A recommended)
 
 ## Wiring Diagram
 
@@ -105,7 +108,10 @@ Total Segments: 8/16 (8 segments remaining for future use)
 
 ## Physical Strip Layout
 
-### Strip 1: Printer Interior
+**IMPORTANT**: The specifications below are updated with actual LED counts (711 total).
+For complete specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
+
+### Printer Front Door (GPIO 15, 158 LEDs, Range: 0-157)
 ```
 ┌──────────────────────────────────────┐
 │         PRINTER LID (INSIDE)         │
@@ -271,19 +277,18 @@ Strip 3 (AMS1 Lid):
 ## Power Supply Recommendations
 
 ### Power Calculation
+- Total LEDs: 711
 - Each LED draws approximately 60mA at full white brightness
-- Total current = (Total LEDs) × 0.06A
-
-Example:
-- 280 LEDs × 0.06A = 16.8A at full white
-- Typical usage: 30-50% brightness = 5-8A
-- Recommended: 10A 5V power supply with headroom
+- Maximum theoretical: 711 × 0.06A = 42.66A at full white
+- Typical usage: 30-50% brightness with mixed colors = 12-21A
+- **Recommended**: 15-20A @ 5V power supply with adequate headroom
 
 ### Power Injection
-For strips with more than 100 LEDs:
-- Inject power at both ends of the strip
+For optimal performance:
+- Inject power at each GPIO output
 - Use adequate wire gauge (18-22 AWG)
 - Keep voltage drop below 0.5V
+- Full white at 100% is rarely needed in practice
 
 ### Separate Power Considerations
 - Digquad can handle 5 strips but may need external power injection

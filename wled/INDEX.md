@@ -10,16 +10,14 @@ wled/
 ├── QUICK_START.md                         # Fast-track setup guide
 ├── INDEX.md                               # This file - navigation guide
 │
+├── digquad-led-segments.md                # ⭐ ACTUAL LED specifications (711 LEDs)
+├── led-functions.md                       # ⭐ LED function specifications by zone
+├── light-scenarios.md                     # ⭐ Complete scenario catalog (33+ scenarios)
+│
 ├── digquad-settings/                      # Digquad controller files
 │   ├── wled_cfg_Digquad.json             # Controller configuration
-│   ├── wled_presets_Digquad.json         # 14 preset definitions
+│   ├── wled_presets_Digquad.json         # Preset definitions
 │   └── wled_segments_Digquad.json        # Segment layout reference
-│
-├── magwled-settings/                      # MagWLED controller files
-│   ├── wled_cfg_MagWLED.json             # Controller configuration
-│   ├── wled_presets_MagWLED.json         # Original presets
-│   ├── wled_presets_MagWLED_updated.json # Updated presets for AMS 2
-│   └── wled_segments_MagWLED.json        # Segment layout reference
 │
 └── docs/                                  # Detailed documentation
     ├── wiring-diagram.md                  # Physical installation guide
@@ -28,24 +26,45 @@ wled/
     └── home-assistant-automations.md      # HA integration examples
 ```
 
+## ⭐ New Specification Files
+
+### Core Specifications (READ THESE FIRST!)
+| File | Purpose | When to Read |
+|------|---------|--------------|
+| [digquad-led-segments.md](digquad-led-segments.md) | **Exact LED counts and ranges for all 711 LEDs** | Before any configuration |
+| [led-functions.md](led-functions.md) | **Specific function of each LED zone** | During planning and configuration |
+| [light-scenarios.md](light-scenarios.md) | **Complete catalog of 33+ lighting scenarios** | For preset creation and automation |
+
 ## 🚀 Start Here
 
 ### For First-Time Users
-1. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide (READ THIS FIRST!)
-2. **[README.md](README.md)** - Understand the overall design and requirements
-3. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
+1. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
+2. **[led-functions.md](led-functions.md)** - Learn what each LED zone does
+3. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
+4. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+5. **[README.md](README.md)** - Complete overview and integration guide
+6. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
 
 ### For Experienced Users
-1. **[docs/segment-reference.md](docs/segment-reference.md)** - Quick lookup of segment IDs and mappings
-2. **Configuration Files** - Jump directly to JSON configs in controller directories
+1. **[digquad-led-segments.md](digquad-led-segments.md)** - Quick reference for LED ranges
+2. **[docs/segment-reference.md](docs/segment-reference.md)** - Segment IDs and mappings
+3. **Configuration Files** - Jump directly to JSON configs in controller directories
 
 ## 📚 Document Guide
+
+### Specification Documents (New!)
+
+| File | Purpose | When to Read |
+|------|---------|--------------|
+| [digquad-led-segments.md](digquad-led-segments.md) | Exact LED counts, GPIO pins, and LED ranges for all 711 LEDs | **BEFORE configuration** |
+| [led-functions.md](led-functions.md) | Detailed function specifications for each LED zone | During planning |
+| [light-scenarios.md](light-scenarios.md) | Complete catalog of 33+ lighting scenarios with behaviors | For automation design |
 
 ### Core Documentation
 
 | File | Purpose | When to Read |
 |------|---------|--------------|
-| [README.md](README.md) | Complete overview of design, segment allocation, and hardware setup | Before starting |
+| [README.md](README.md) | Complete overview of design, updated with actual specifications | Before starting |
 | [QUICK_START.md](QUICK_START.md) | Condensed setup guide with clear steps | During installation |
 
 ### Installation Guides
@@ -80,6 +99,15 @@ wled/
 
 ## 🎯 Use Case Guide
 
+### "I want to know the exact LED specifications"
+→ Read **[digquad-led-segments.md](digquad-led-segments.md)** (711 LEDs total)
+
+### "I want to understand what each LED zone does"
+→ Read **[led-functions.md](led-functions.md)**
+
+### "I want to see all possible lighting scenarios"
+→ Read **[light-scenarios.md](light-scenarios.md)** (33+ scenarios)
+
 ### "I want to install LED strips on my printer"
 → Start with **[QUICK_START.md](QUICK_START.md)**
 
@@ -90,7 +118,7 @@ wled/
 → Read **[docs/wiring-diagram.md](docs/wiring-diagram.md)**
 
 ### "I need to configure WLED controllers"
-→ Use config files in **digquad-settings/** and **magwled-settings/**
+→ Use config files in **digquad-settings/**
 
 ### "I need to know what segment ID controls what"
 → Check **[docs/segment-reference.md](docs/segment-reference.md)**
@@ -104,63 +132,66 @@ wled/
 
 ## 📊 Configuration Summary
 
-### Controllers
-- **Digquad**: 5 LED strips, 16 segments, ~280 LEDs
-- **MagWLED**: 1 LED strip, 8 segments, ~80 LEDs
+### System Overview
+- **Total LEDs**: 711
+- **Controller**: Digquad (5 GPIO outputs)
+- **LED Types**: COB 160 LED/m and Mini 2.7mm 160 LED/m
 
-### LED Strips
-1. **Strip 1**: Printer interior (1 segment)
-2. **Strip 2**: Printer front C-shape (3 segments)
-3. **Strip 3**: AMS 1 lid spools (4 segments)
-4. **Strip 4**: AMS 1 tags (4 segments)
-5. **Strip 5**: AMS 2 lid spools (4 segments)
-6. **Strip 6**: AMS 2 tags (8 segments)
+### LED Distribution by GPIO
+1. **GPIO 15**: Printer Front Door - 158 LEDs (0-157)
+2. **GPIO 1**: AMS 1 Lid/Spools - 140 LEDs (158-297)
+3. **GPIO 3**: AMS 2 Lid/Spools - 139 LEDs (298-436)
+4. **GPIO 16**: AMS 1 Tags + Hygrometer - 136 LEDs (437-572)
+5. **GPIO 4**: AMS 2 Tags + Hygrometer - 138 LEDs (573-710)
 
-### Presets
+### Key Functional Zones
+- **Progress Bar**: Printer door bottom (50 LEDs)
+- **Status Indicators**: Printer door left/top (108 LEDs)
+- **Spool Lighting**: AMS 1 & 2 lids (279 LEDs)
+- **Tag Lighting**: AMS 1 & 2 tags (274 LEDs)
+- **Hygrometer Indicators**: Included in tag lighting
 
-#### Digquad (14 presets)
-- General: Normal Printing, Print Error, Print Complete, Idle, Maintenance, AMS Loading
-- Per-Spool: Active Spool A1-A4, Active Spool B1-B4
-
-#### MagWLED (11 presets)
-- General: Normal Printing, Idle, Maintenance
-- Per-Tag: Active Tag B1-B4, Upcoming Tag B1-B4
+### Scenarios
+- **33+ lighting scenarios** defined in [light-scenarios.md](light-scenarios.md)
+- Covers all printer states, errors, AMS operations, and maintenance modes
 
 ## 🔧 Customization
 
 ### Before Installation
-- **LED Counts**: All LED counts in config files are EXAMPLES
-- **Measure First**: Count exact LEDs in your strips before configuring
-- **Update JSONs**: Modify config files with your actual measurements
+- **LED Specifications**: All specifications are now documented in [digquad-led-segments.md](digquad-led-segments.md)
+- **Actual Measurements**: 711 LEDs total across 5 GPIO outputs
+- **Review Functions**: Check [led-functions.md](led-functions.md) to understand each zone
+- **Plan Scenarios**: Review [light-scenarios.md](light-scenarios.md) for preset planning
 
 ### After Installation
 - **Colors**: Adjust in preset files or WLED interface
 - **Effects**: Try different WLED built-in effects
 - **Brightness**: Tune to your preference
-- **Automations**: Customize Home Assistant automations
+- **Automations**: Customize Home Assistant automations based on [light-scenarios.md](light-scenarios.md)
+- **Segments**: Organize based on functional zones from [led-functions.md](led-functions.md)
 
 ## 📝 Checklist
 
 Use this to track your progress:
 
+- [ ] Read digquad-led-segments.md (LED specifications)
+- [ ] Read led-functions.md (function specifications)
+- [ ] Read light-scenarios.md (scenario catalog)
 - [ ] Read QUICK_START.md
 - [ ] Read README.md for design overview
-- [ ] Measured all LED strips
-- [ ] Updated configuration files with actual LED counts
-- [ ] Installed Strip 1 (Interior)
-- [ ] Installed Strip 2 (Front C)
-- [ ] Installed Strip 3 (AMS 1 Lid)
-- [ ] Installed Strip 4 (AMS 1 Tags)
-- [ ] Installed Strip 5 (AMS 2 Lid)
-- [ ] Installed Strip 6 (AMS 2 Tags)
-- [ ] Connected power supply
+- [ ] Obtained LED strips (711 LEDs total)
+- [ ] Installed Printer Front Door LEDs (GPIO 15, 158 LEDs)
+- [ ] Installed AMS 1 Lid LEDs (GPIO 1, 140 LEDs)
+- [ ] Installed AMS 2 Lid LEDs (GPIO 3, 139 LEDs)
+- [ ] Installed AMS 1 Tag LEDs (GPIO 16, 136 LEDs)
+- [ ] Installed AMS 2 Tag LEDs (GPIO 4, 138 LEDs)
+- [ ] Connected power supply (15-20A @ 5V recommended)
 - [ ] Configured Digquad controller
-- [ ] Configured MagWLED controller
-- [ ] Created all segments
-- [ ] Imported presets
+- [ ] Created functional segments
+- [ ] Imported/created presets from light-scenarios.md
 - [ ] Tested all segments
 - [ ] Added to Home Assistant
-- [ ] Created automations
+- [ ] Created automations based on light-scenarios.md
 - [ ] Tested with actual print
 - [ ] Documented final configuration
 
@@ -184,25 +215,32 @@ Use this to track your progress:
 ## 🎓 Learning Path
 
 ### Beginner
-1. Read [QUICK_START.md](QUICK_START.md)
-2. Follow [docs/visual-installation-guide.md](docs/visual-installation-guide.md)
-3. Use [docs/segment-reference.md](docs/segment-reference.md) for lookups
+1. Read [digquad-led-segments.md](digquad-led-segments.md) - Understand LED layout
+2. Read [led-functions.md](led-functions.md) - Learn zone functions
+3. Read [light-scenarios.md](light-scenarios.md) - See all scenarios
+4. Follow [QUICK_START.md](QUICK_START.md) - Setup guide
+5. Use [docs/visual-installation-guide.md](docs/visual-installation-guide.md) - Visual reference
 
 ### Intermediate
 1. Review [README.md](README.md) for complete design
 2. Study [docs/wiring-diagram.md](docs/wiring-diagram.md) for details
-3. Customize preset JSON files
+3. Create segments based on [led-functions.md](led-functions.md)
+4. Configure presets from [light-scenarios.md](light-scenarios.md)
 
 ### Advanced
 1. Read [docs/home-assistant-automations.md](docs/home-assistant-automations.md)
-2. Create custom effects and automations
-3. Implement progress bar visualization
-4. Add filament color matching
+2. Map scenarios from [light-scenarios.md](light-scenarios.md) to automations
+3. Implement progress bar visualization (door bottom)
+4. Add filament color matching (from Spoolman)
+5. Configure humidity warnings (hygrometer LEDs)
 
 ## 📌 Quick Links
 
 ### Most Important Files
-- 🚀 [QUICK_START.md](QUICK_START.md) - Start here!
+- ⭐ [digquad-led-segments.md](digquad-led-segments.md) - LED specifications (711 LEDs)
+- ⭐ [led-functions.md](led-functions.md) - Zone functions
+- ⭐ [light-scenarios.md](light-scenarios.md) - Scenario catalog (33+)
+- 🚀 [QUICK_START.md](QUICK_START.md) - Setup guide
 - 📖 [README.md](README.md) - Full documentation
 - 🔌 [docs/wiring-diagram.md](docs/wiring-diagram.md) - Wiring guide
 - 📋 [docs/segment-reference.md](docs/segment-reference.md) - Quick reference
@@ -210,20 +248,27 @@ Use this to track your progress:
 ### Configuration Files
 - ⚙️ [digquad-settings/wled_cfg_Digquad.json](digquad-settings/wled_cfg_Digquad.json)
 - 🎨 [digquad-settings/wled_presets_Digquad.json](digquad-settings/wled_presets_Digquad.json)
-- ⚙️ [magwled-settings/wled_cfg_MagWLED.json](magwled-settings/wled_cfg_MagWLED.json)
-- 🎨 [magwled-settings/wled_presets_MagWLED_updated.json](magwled-settings/wled_presets_MagWLED_updated.json)
 
 ## 💡 Tips
 
+- **Read specifications first** - digquad-led-segments.md has exact LED counts
+- **Understand functions** - led-functions.md explains what each zone does
+- **Plan scenarios** - light-scenarios.md defines all 33+ lighting behaviors
 - **Bookmark this file** for easy navigation
 - **Print the segment reference** for quick lookup during configuration
 - **Take photos** during installation for future reference
-- **Document your LED counts** in a separate file
 - **Backup configurations** before making changes
-- **Test incrementally** - one strip at a time
+- **Test incrementally** - one GPIO output at a time
 
 ## 📅 Revision History
 
+- **v1.1** (2024): Added comprehensive specifications
+  - Added digquad-led-segments.md with exact LED counts (711 total)
+  - Added led-functions.md with zone function specifications
+  - Added light-scenarios.md with 33+ lighting scenarios
+  - Updated all documentation to reference actual specifications
+  - Consolidated to single Digquad controller (5 GPIO outputs)
+  
 - **v1.0** (2024): Initial complete WLED configuration package
   - 2 controller setup (Digquad + MagWLED)
   - 6 LED strips
@@ -233,4 +278,4 @@ Use this to track your progress:
 
 ---
 
-**Ready to get started?** → Open [QUICK_START.md](QUICK_START.md) now! 🚀
+**Ready to get started?** → Open [digquad-led-segments.md](digquad-led-segments.md), then [QUICK_START.md](QUICK_START.md) now! 🚀

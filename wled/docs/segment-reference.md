@@ -2,95 +2,116 @@
 
 Quick reference for WLED segment IDs and their purposes.
 
-## Digquad Controller - Segment Map
+**Total System LEDs: 711**
 
-| Segment ID | Name | Strip | Purpose | LED Range (Example) | Notes |
-|------------|------|-------|---------|---------------------|-------|
-| 0 | Interior Light | 1 | General interior illumination | 0-29 | Always on during printing |
-| 1 | Printer Bottom | 2 | Print progress bar | 30-59 | Dynamic progress indicator |
-| 2 | Printer Left | 2 | Status indicator | 60-89 | Green=good, Red=error |
-| 3 | Printer Top | 2 | Status indicator | 90-119 | Green=good, Red=error |
-| 4 | AMS1 Spool A1 | 3 | Illuminate spool slot A1 | 120-134 | Bright when active |
-| 5 | AMS1 Spool A2 | 3 | Illuminate spool slot A2 | 135-149 | Bright when active |
-| 6 | AMS1 Spool A3 | 3 | Illuminate spool slot A3 | 150-164 | Bright when active |
-| 7 | AMS1 Spool A4 | 3 | Illuminate spool slot A4 | 165-179 | Bright when active |
-| 8 | AMS1 Tag A1 | 4 | Highlight tag for spool A1 | 180-189 | Orange when active |
-| 9 | AMS1 Tag A2 | 4 | Highlight tag for spool A2 | 190-199 | Orange when active |
-| 10 | AMS1 Tag A3 | 4 | Highlight tag for spool A3 | 200-209 | Orange when active |
-| 11 | AMS1 Tag A4 | 4 | Highlight tag for spool A4 | 210-219 | Orange when active |
-| 12 | AMS2 Spool B1 | 5 | Illuminate spool slot B1 | 220-234 | Bright when active |
-| 13 | AMS2 Spool B2 | 5 | Illuminate spool slot B2 | 235-249 | Bright when active |
-| 14 | AMS2 Spool B3 | 5 | Illuminate spool slot B3 | 250-264 | Bright when active |
-| 15 | AMS2 Spool B4 | 5 | Illuminate spool slot B4 | 265-279 | Bright when active |
+For complete LED specifications, see [digquad-led-segments.md](../digquad-led-segments.md).
+For function details, see [led-functions.md](../led-functions.md).
+For scenario behaviors, see [light-scenarios.md](../light-scenarios.md).
 
-**Total Segments Used: 16 segments (IDs 0-15, using all available slots)**
-**Total LEDs (Example): ~280**
+## Digquad Controller - GPIO Pin Mapping
 
-## MagWLED Controller - Segment Map
+| GPIO Pin | Connected To | LED Type | LED Count | LED Range | Purpose |
+|----------|--------------|----------|-----------|-----------|---------|
+| 15 | Printer Front Door | COB 160 LED/m | 158 | 0-157 | Progress bar + status indicators |
+| 1 | AMS 1 Lid/Spools | COB 160 LED/m | 140 | 158-297 | Spool illumination |
+| 3 | AMS 2 Lid/Spools | COB 160 LED/m | 139 | 298-436 | Spool illumination |
+| 16 | AMS 1 Tags + Hygro | Mini 2.7mm 160 LED/m | 136 | 437-572 | Tag/hygrometer indication |
+| 4 | AMS 2 Tags + Hygro | Mini 2.7mm 160 LED/m | 138 | 573-710 | Tag/hygrometer indication |
 
-### Full Layout (8 Segments)
+**Total: 711 LEDs**
 
-| Segment ID | Name | Strip | Purpose | LED Range (Example) | Notes |
-|------------|------|-------|---------|---------------------|-------|
-| 0 | AMS2 Tag B1 Top | 6 | Top path for tag B1 | 0-9 | Orange when active |
-| 1 | AMS2 Tag B2 Top | 6 | Top path for tag B2 | 10-19 | Orange when active |
-| 2 | AMS2 Tag B3 Top | 6 | Top path for tag B3 | 20-29 | Orange when active |
-| 3 | AMS2 Tag B4 Top | 6 | Top path for tag B4 | 30-39 | Orange when active |
-| 4 | AMS2 Tag B1 Bottom | 6 | Bottom path for tag B1 | 40-49 | Orange when active |
-| 5 | AMS2 Tag B2 Bottom | 6 | Bottom path for tag B2 | 50-59 | Orange when active |
-| 6 | AMS2 Tag B3 Bottom | 6 | Bottom path for tag B3 | 60-69 | Orange when active |
-| 7 | AMS2 Tag B4 Bottom | 6 | Bottom path for tag B4 | 70-79 | Orange when active |
+## Functional Zone Breakdown
 
-**Total Segments Used: 8/16**
-**Total LEDs (Example): ~80**
+### GPIO 15: Printer Front Door (158 LEDs)
 
-### Simplified Layout (4 Segments) - Alternative
+| Zone | LED Range | Count | Primary Function |
+|------|-----------|-------|------------------|
+| Bottom | 0-49 | 50 | Print progress bar, animated progress |
+| Left | 50-114 | 65 | Status indicator (pulsing green/flashing red) |
+| Top | 115-157 | 43 | Status indicator (same as left) |
 
-| Segment ID | Name | Strip | Purpose | LED Range (Example) | Notes |
-|------------|------|-------|---------|---------------------|-------|
-| 0 | AMS2 Tag B1 | 6 | Complete tag B1 (top+bottom) | 0-19 | Simpler control |
-| 1 | AMS2 Tag B2 | 6 | Complete tag B2 (top+bottom) | 20-39 | Simpler control |
-| 2 | AMS2 Tag B3 | 6 | Complete tag B3 (top+bottom) | 40-59 | Simpler control |
-| 3 | AMS2 Tag B4 | 6 | Complete tag B4 (top+bottom) | 60-79 | Simpler control |
+**Functions** (see [led-functions.md](../led-functions.md)):
+- Bottom: Display print progress %, pause animation, completion flash
+- Left/Top: Print status (pulsing soft green when printing, flashing red on error)
 
-**Total Segments Used: 4/16** (more room for expansion)
+### GPIO 1: AMS 1 Lid/Spools (140 LEDs, Range: 158-297)
 
-## Preset to Segment Mapping
+Detailed breakdown in [digquad-led-segments.md](../digquad-led-segments.md).
 
-### Digquad Presets
+**Key Segments**:
+- Top sections by tray (17, 12, 13, 13 LEDs)
+- Side wall (25 LEDs)
+- Bottom sections by tray (14, 13, 13, 14 LEDs)
 
-| Preset | Name | Active Segments | Description |
-|--------|------|-----------------|-------------|
-| 1 | Normal Printing | All (0-15) | Progress bar + green status + dim spools |
-| 2 | Print Error | 0-3 | Interior + printer frame flash red |
-| 3 | Print Complete | 0-3 | Interior green + frame celebration |
-| 4 | Idle/Standby | All | Dim warm white + blue breathing |
-| 5 | Maintenance | All | Bright white everywhere |
-| 6 | AMS Loading | 0-7 | Dim printer + loading animation on AMS |
-| 7 | Active Spool A1 | 4, 8 | Highlight spool A1 + tag A1 |
-| 8 | Active Spool A2 | 5, 9 | Highlight spool A2 + tag A2 |
-| 9 | Active Spool A3 | 6, 10 | Highlight spool A3 + tag A3 |
-| 10 | Active Spool A4 | 7, 11 | Highlight spool A4 + tag A4 |
-| 11 | Active Spool B1 | 12 | Highlight spool B1 |
-| 12 | Active Spool B2 | 13 | Highlight spool B2 |
-| 13 | Active Spool B3 | 14 | Highlight spool B3 |
-| 14 | Active Spool B4 | 15 | Highlight spool B4 |
+**Functions**:
+- Lighting of all spools (white)
+- Indicator of current spool in use
+- Error indication (spool load issue)
+- Animation for loading/unloading spool
 
-### MagWLED Presets
+### GPIO 3: AMS 2 Lid/Spools (139 LEDs, Range: 298-436)
 
-| Preset | Name | Active Segments | Description |
-|--------|------|-----------------|-------------|
-| 1 | Normal Printing | All (0-7) | Dim gray on all tags |
-| 2 | Idle/Standby | None | All tags off |
-| 3 | Maintenance | All (0-7) | Bright white on all tags |
-| 4 | Active Tag B1 | 0, 4 | Orange on B1 top+bottom |
-| 5 | Active Tag B2 | 1, 5 | Orange on B2 top+bottom |
-| 6 | Active Tag B3 | 2, 6 | Orange on B3 top+bottom |
-| 7 | Active Tag B4 | 3, 7 | Orange on B4 top+bottom |
-| 8 | Upcoming Tag B1 | 0, 4 | Yellow on B1 (dimmer) |
-| 9 | Upcoming Tag B2 | 1, 5 | Yellow on B2 (dimmer) |
-| 10 | Upcoming Tag B3 | 2, 6 | Yellow on B3 (dimmer) |
-| 11 | Upcoming Tag B4 | 3, 7 | Yellow on B4 (dimmer) |
+Similar to AMS 1, with additional heating animation support (AMS2 only).
+
+### GPIO 16: AMS 1 Tags + Hygrometer (136 LEDs, Range: 437-572)
+
+Complex layout including tags and hygrometer.
+
+**Functions**:
+- **Tag Top**: Color-match filament, highlight current use
+- **Tag Bottom**: % filament left, desiccant warning (>X months), spool errors
+- **Hygrometer**: Make visible, humidity warning (>X%)
+
+### GPIO 4: AMS 2 Tags + Hygrometer (138 LEDs, Range: 573-710)
+
+Similar to AMS 1 tags.
+
+## Preset to Scenario Mapping
+
+For complete scenario catalog, see [light-scenarios.md](../light-scenarios.md).
+
+### Power & Connectivity States
+
+| Preset | Name | Description | Key LEDs |
+|--------|------|-------------|----------|
+| 1 | Printer Offline | Dim amber | Door |
+| 2 | Printer Idle | Soft blue breathing | All |
+| 3 | Printer Busy | Medium white | All |
+
+### Print Lifecycle States
+
+| Preset | Name | Description | Key LEDs |
+|--------|------|-------------|----------|
+| 4 | Heating Bed | Orange pulse | Door |
+| 5 | Heating Nozzle | Yellow pulse | Door |
+| 6 | Bed Leveling | Blue pulse/chase | Door + Lid |
+| 7 | Purge Line | Cyan pulse | Door |
+| 8 | Printing | Green status + progress | Door bottom (progress), Door left/top (green), Tags (filament color) |
+| 9 | Paused (User) | Yellow blink | All |
+| 10 | Paused (Error) | Red strobe | Door, affected tray |
+| 11 | Print Finished | Green pulse | All |
+
+### Error & Warning States
+
+| Preset | Name | Description | Key LEDs |
+|--------|------|-------------|----------|
+| 12 | Filament Runout | Red blink | Door, affected tag |
+| 13 | Filament Jam | Orange strobe | AMS, tags |
+| 14 | AMS Comm Error | Purple pulse | AMS |
+| 15 | Temperature Error | Red strobe | All |
+| 16 | Door Open | Bright white | Door, lid |
+
+### AMS-Specific Scenarios
+
+| Preset | Name | Description | Key LEDs |
+|--------|------|-------------|----------|
+| 17 | Filament Loading | Blue chase | AMS, active tag |
+| 18 | Filament Unloading | Teal chase | AMS, tags |
+| 19 | AMS Drying | Warm amber | AMS, hygrometer white |
+| 20 | Humidity High | Red warning | Hygrometer |
+| 21 | Humidity Normal | White | Hygrometer, AMS |
+| 22 | Tray Selected | Filament color | Selected tag |
+| 23 | Tray Feeding | Bright filament color | Active tag, tray |
 
 ## Color Codes
 
@@ -130,30 +151,30 @@ Quick reference for WLED segment IDs and their purposes.
 
 ## Home Assistant Sensor Mapping
 
-| Bambu Lab Sensor | WLED Action | Example Value |
-|------------------|-------------|---------------|
-| `sensor.bambu_lab_x1c_current_stage` | Trigger preset change | "printing", "idle", "complete" |
-| `sensor.bambu_lab_x1c_print_progress` | Update progress bar | 0-100 (percentage) |
-| `sensor.bambu_lab_x1c_active_tray` | Highlight active spool | 1-8 (tray number) |
-| `sensor.bambu_lab_x1c_hms_errors` | Trigger error preset | Empty or list of errors |
+| Bambu Lab Sensor | WLED Action | Example Value | Preset |
+|------------------|-------------|---------------|--------|
+| `sensor.bambu_lab_x1c_current_stage` | Trigger lifecycle preset | "printing", "idle", "complete" | 2-11 |
+| `sensor.bambu_lab_x1c_print_progress` | Update progress bar | 0-100 (percentage) | Dynamic |
+| `sensor.bambu_lab_x1c_active_tray` | Highlight active tray/tag | 1-8 (tray number) | 22-23 |
+| `sensor.bambu_lab_x1c_hms_errors` | Trigger error preset | Error list or count | 10, 12-15 |
+| `sensor.bambu_lab_x1c_chamber_temperature` | Temperature warnings | Temperature value | 28-29 |
+| AMS humidity sensors | Hygrometer warnings | Humidity percentage | 20-21 |
 
-## GPIO Pin Mapping
+## GPIO Output Reference
 
-### Digquad Controller
+| GPIO Pin | Purpose | LED Count | Typical Brightness | Notes |
+|----------|---------|-----------|-------------------|-------|
+| 15 | Printer Door | 158 | 30-50% | Progress + status |
+| 1 | AMS 1 Lid | 140 | 30-40% | Spool illumination |
+| 3 | AMS 2 Lid | 139 | 30-40% | Spool illumination |
+| 16 | AMS 1 Tags | 136 | 40-60% | Tag highlighting |
+| 4 | AMS 2 Tags | 138 | 40-60% | Tag highlighting |
 
-| GPIO Pin | Strip # | Description | LED Count (Example) |
-|----------|---------|-------------|---------------------|
-| 1 | Strip 1 | Printer Interior | 30 |
-| 2 | Strip 2 | Printer Front C-shape | 90 |
-| 3 | Strip 3 | AMS 1 Lid | 60 |
-| 4 | Strip 4 | AMS 1 Tags | 40 |
-| 5 | Strip 5 | AMS 2 Lid | 60 |
-
-### MagWLED Controller
-
-| GPIO Pin | Strip # | Description | LED Count (Example) |
-|----------|---------|-------------|---------------------|
-| 2 | Strip 6 | AMS 2 Tags | 80 |
+**Power Management:**
+- Typical usage: 30-50% brightness with mixed colors
+- Estimated current: 12-21A @ 5V
+- Power injection recommended for each GPIO
+- Monitor actual draw during operation
 
 ## Quick Command Reference
 
@@ -205,19 +226,24 @@ data:
 
 | Problem | Check | Solution |
 |---------|-------|----------|
-| No lights | Power supply | Verify 5V and ground |
-| Wrong colors | LED type | Change to GRB or BGR |
-| Segment gaps | LED counts | Verify start/stop numbers |
-| Flickering | Power | Add power injection |
-| Preset not working | Preset ID | Check preset exists |
-| Automation not triggering | Entity ID | Verify correct entity names |
+| No lights | Power supply | Verify 5V and ground, check connections |
+| Wrong colors | LED type | Change to GRB or BGR in WLED config |
+| Partial lighting | LED counts | Verify total count matches actual (711) |
+| Flickering | Power | Add power injection at each GPIO |
+| Preset not working | Preset ID | Check preset exists and is configured |
+| Automation not triggering | Entity ID | Verify correct entity names in HA |
+| Progress bar not updating | LED range | Verify bottom segment is 0-50 |
+| Tags wrong color | Filament data | Check Spoolman integration |
+| Hygrometer not showing | LED range | Verify hygrometer LEDs in tag ranges |
 
 ## Notes
 
-- **LED ranges are EXAMPLES** - You must measure your actual strips
-- **GPIO pins may vary** - Adjust based on your Digquad wiring
+- **LED ranges are ACTUAL** - 711 total LEDs documented in digquad-led-segments.md
+- **GPIO pins are SPECIFIED** - Use pins 15, 1, 3, 16, 4
+- **Functions are DEFINED** - See led-functions.md for zone purposes
+- **Scenarios are CATALOGED** - See light-scenarios.md for all 33+ behaviors
 - **Always backup** configurations before making changes
-- **Test presets manually** before creating automations
+- **Test incrementally** - One GPIO at a time
 - **Start simple** and add complexity gradually
 
 ## Print This Page
@@ -226,6 +252,7 @@ This reference card is designed to be printed and kept near your printer for qui
 
 ---
 
-**Version:** 1.0  
+**Version:** 1.1 (Updated with actual specifications)  
+**Total LEDs:** 711  
 **Last Updated:** 2024  
 **Repository:** https://github.com/rsocko/hass-bambulab-config

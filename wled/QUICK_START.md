@@ -6,144 +6,183 @@ This guide will help you get started quickly with your WLED LED strip configurat
 
 This configuration package includes:
 
-1. **Main README** (`README.md`) - Complete overview and segment allocation
-2. **Wiring Diagram** (`docs/wiring-diagram.md`) - Detailed installation instructions
-3. **Home Assistant Automations** (`docs/home-assistant-automations.md`) - Integration examples
-4. **Digquad Configuration**:
+1. **Specification Documents** (READ THESE FIRST):
+   - `digquad-led-segments.md` - Exact LED specifications (711 LEDs total)
+   - `led-functions.md` - Detailed function specifications for each zone
+   - `light-scenarios.md` - Complete catalog of 33+ lighting scenarios
+2. **Main README** (`README.md`) - Complete overview integrated with specifications
+3. **Wiring Diagram** (`docs/wiring-diagram.md`) - Detailed installation instructions
+4. **Home Assistant Automations** (`docs/home-assistant-automations.md`) - Integration examples
+5. **Digquad Configuration**:
    - `digquad-settings/wled_cfg_Digquad.json` - Controller configuration
-   - `digquad-settings/wled_presets_Digquad.json` - 14 presets for various scenarios
+   - `digquad-settings/wled_presets_Digquad.json` - Presets based on light-scenarios.md
    - `digquad-settings/wled_segments_Digquad.json` - Segment layout reference
-5. **MagWLED Configuration**:
-   - `magwled-settings/wled_cfg_MagWLED.json` - Existing controller config
-   - `magwled-settings/wled_presets_MagWLED_updated.json` - Updated presets for AMS 2 tags
-   - `magwled-settings/wled_segments_MagWLED.json` - Segment layout reference
 
 ## Quick Start Steps
 
-### Step 1: Review the Design (5 minutes)
+### Step 1: Review the Specifications (15 minutes)
 
-1. Read `README.md` to understand the overall design
-2. Review segment allocation to see how segments are distributed
-3. Note that we use 15/16 segments on Digquad and 8/16 on MagWLED
+**CRITICAL**: Read these specification files first to understand the system:
 
-### Step 2: Measure Your LED Strips (30 minutes)
+1. **Read `digquad-led-segments.md`** - Exact LED counts and GPIO mapping:
+   - Total LEDs: 711
+   - GPIO 15: Printer Front Door (158 LEDs, range 0-157)
+   - GPIO 1: AMS 1 Lid/Spools (140 LEDs, range 158-297)
+   - GPIO 3: AMS 2 Lid/Spools (139 LEDs, range 298-436)
+   - GPIO 16: AMS 1 Tags (136 LEDs, range 437-572)
+   - GPIO 4: AMS 2 Tags (138 LEDs, range 573-710)
 
-**CRITICAL**: Before installing, you must measure your actual LED counts!
+2. **Read `led-functions.md`** - Understand what each zone does:
+   - Progress bar (door bottom)
+   - Status indicators (door left/top)
+   - Spool illumination functions
+   - Tag functions (color matching, filament %, errors)
+   - Hygrometer indicators
 
-1. Connect each strip to a controller one at a time
-2. Count the exact number of LEDs in each strip
-3. For segmented strips (like Strip 2), note where each section begins/ends
-4. Document your measurements in a file
+3. **Review `light-scenarios.md`** - See all 33+ lighting scenarios:
+   - Print lifecycle states
+   - Error conditions
+   - AMS operations
+   - Maintenance modes
 
-Example:
-```
-Strip 1: 30 LEDs (0-29)
-Strip 2: 90 LEDs total
-  - Bottom: 30 LEDs (30-59)
-  - Left: 30 LEDs (60-89)
-  - Top: 30 LEDs (90-119)
-... etc.
-```
+4. **Read `README.md`** - Complete overview integrated with specifications
 
-### Step 3: Install LED Strips (1-2 hours)
+### Step 2: Verify Hardware Requirements (10 minutes)
 
-Follow the detailed instructions in `docs/wiring-diagram.md`:
+**LED Strips Required (711 LEDs total):**
+- COB 160 LED/m strips for printer door and AMS lids (437 LEDs)
+- Mini 2.7mm 160 LED/m strips for AMS tags (274 LEDs)
+- See Amazon product links in `digquad-led-segments.md`
 
-1. **Printer Interior** (Strip 1): Simple single strip in lid
-2. **Printer Front** (Strip 2): C-shape bottom-left-top
-3. **AMS 1 Lid** (Strip 3): Reverse C around spools
-4. **AMS 1 Tags** (Strip 4): Across tag holders
-5. **AMS 2 Lid** (Strip 5): Same as Strip 3
-6. **AMS 2 Tags** (Strip 6): Same as Strip 4 but with top/bottom paths
+**Power Supply:**
+- 711 LEDs × 0.06A = 42.66A maximum (full white, worst case)
+- Typical usage at 30-50% brightness: 12-21A
+- **Recommended**: 15-20A @ 5V power supply with headroom
+- Power injection recommended for each GPIO output
 
-### Step 4: Update Configuration Files (15 minutes)
+**Controller:**
+- Digquad LED Controller with 5 available GPIO outputs
+- Configure GPIO pins: 15, 1, 3, 16, 4
 
-1. Open `wled_cfg_Digquad.json`
-2. Update LED counts in the `hw.led.ins[]` sections:
-   ```json
-   {
-     "start": 0,
-     "len": YOUR_ACTUAL_LED_COUNT,
-     ...
-   }
-   ```
-3. Update total LED count in `hw.led.total`
-4. Save the file
+### Step 3: Install LED Strips (2-3 hours)
 
-5. Repeat for `wled_cfg_MagWLED.json` if needed
+Follow the detailed instructions in `docs/wiring-diagram.md` and use LED specifications from `digquad-led-segments.md`:
 
-### Step 5: Configure WLED Controllers (30 minutes)
+1. **Printer Front Door** (GPIO 15, 158 LEDs):
+   - COB 160 LED/m strip
+   - C-shape layout: bottom (50), left (65), top (43)
+   - Functions: Progress bar (bottom), status indicators (left/top)
 
-#### Digquad:
+2. **AMS 1 Lid/Spools** (GPIO 1, 140 LEDs):
+   - COB 160 LED/m strip
+   - Covers 4 trays with top and bottom sections
+   - Functions: Spool illumination, active tray indication, loading animations
+
+3. **AMS 2 Lid/Spools** (GPIO 3, 139 LEDs):
+   - COB 160 LED/m strip
+   - Similar to AMS 1, includes heating animation support
+
+4. **AMS 1 Tags** (GPIO 16, 136 LEDs):
+   - Mini 2.7mm 160 LED/m strip
+   - Covers 4 tray tags plus hygrometer
+   - Functions: Filament color matching, percentage display, error indication
+
+5. **AMS 2 Tags** (GPIO 4, 138 LEDs):
+   - Mini 2.7mm 160 LED/m strip
+   - Similar to AMS 1 tags
+
+### Step 4: Configure WLED Controller (30 minutes)
+
+#### Digquad Configuration:
 1. Connect to Digquad web interface (http://digquad.local or IP)
 2. Go to Config > LED Preferences
-3. Upload or manually enter configuration from `wled_cfg_Digquad.json`
-4. Save and reboot
+3. Configure 5 GPIO outputs with actual LED counts:
+   ```
+   GPIO 15: 158 LEDs (Printer Door)
+   GPIO 1:  140 LEDs (AMS 1 Lid)
+   GPIO 3:  139 LEDs (AMS 2 Lid)
+   GPIO 16: 136 LEDs (AMS 1 Tags)
+   GPIO 4:  138 LEDs (AMS 2 Tags)
+   Total:   711 LEDs
+   ```
+4. Set LED type (WS2812B or SK6812)
+5. Save and reboot
 
-#### MagWLED:
-1. Connect to MagWLED web interface
-2. Update configuration if needed
-3. Save and reboot
+### Step 5: Create Segments (30 minutes)
 
-### Step 6: Create Segments (20 minutes)
+Create segments based on functional zones (refer to `led-functions.md` for functions):
 
-After basic configuration, manually create segments in WLED interface:
+#### Suggested Segment Organization:
+```
+Segment 0: Printer Door Bottom (0-49) - Progress bar
+Segment 1: Printer Door Left (50-114) - Status
+Segment 2: Printer Door Top (115-157) - Status
+Segment 3-6: AMS1 Trays (158-297) - By function or tray
+Segment 7-10: AMS2 Trays (298-436) - By function or tray  
+Segment 11-14: AMS1 Tags (437-572) - By tray + hygrometer
+Segment 15: AMS2 Tags (573-710) - Can be further segmented
+```
 
-#### Digquad Segments (reference: `wled_segments_Digquad.json`):
-1. Segment 0: Interior (0-29 or your count)
-2. Segment 1: Printer Bottom (30-59)
-3. Segment 2: Printer Left (60-89)
-4. Segment 3: Printer Top (90-119)
-5. Segments 4-7: AMS1 Spools A1-A4
-6. Segments 8-11: AMS1 Tags A1-A4
-7. Segments 12-15: AMS2 Spools B1-B4
+Or organize by functional zones:
+- Progress indicators
+- Status indicators
+- Spool illumination
+- Tag identification
+- Hygrometer warnings
 
-#### MagWLED Segments (reference: `wled_segments_MagWLED.json`):
-1. Segments 0-3: AMS2 Tags B1-B4 Top
-2. Segments 4-7: AMS2 Tags B1-B4 Bottom
+See `digquad-led-segments.md` for exact LED ranges.
 
-Or use simplified 4-segment layout (see alternative in JSON file)
+### Step 6: Import Presets (20 minutes)
 
-### Step 7: Import Presets (15 minutes)
+Import or create presets based on `light-scenarios.md`:
 
-#### Digquad Presets:
-1. In WLED interface, go to Config > Presets
-2. Import from `wled_presets_Digquad.json` or create manually:
-   - Preset 1: Normal Printing
-   - Preset 2: Print Error (red flashing)
-   - Preset 3: Print Complete (green celebration)
-   - Preset 4: Idle/Standby (dim blue breathing)
-   - Preset 5: Maintenance Mode (bright white)
-   - Preset 6: AMS Loading
-   - Presets 7-10: Active Spool A1-A4
-   - Presets 11-14: Active Spool B1-B4
+#### Key Preset Categories (33+ total):
+1. **Power & Connectivity**: Offline, Idle, Busy
+2. **Print Lifecycle**: Heating, Leveling, Printing, Paused, Finished
+3. **Error States**: Filament runout, tangle, temperature error
+4. **AMS Operations**: Loading, unloading, drying, humidity
+5. **Maintenance**: Cooling, chamber light, cleaning
+6. **Environmental**: Temperature warnings, power recovery
+7. **Aesthetic**: Show mode, night mode, monitoring mode
 
-#### MagWLED Presets:
-1. Import from `wled_presets_MagWLED_updated.json`
-2. Key presets:
-   - Preset 1: Normal Printing
-   - Preset 2: Idle/Standby
-   - Preset 3: Maintenance
-   - Presets 4-7: Active Tags B1-B4
-   - Presets 8-11: Upcoming Tags B1-B4
+Reference `light-scenarios.md` for detailed color and effect specifications for each scenario.
 
-### Step 8: Test Everything (30 minutes)
+### Step 7: Test Everything (30 minutes)
 
-1. Test each preset manually in WLED interface
-2. Verify all segments light up correctly
-3. Check colors and effects
-4. Adjust brightness and speed as needed
-5. Test power supply under full load
+1. Test each GPIO output independently
+2. Verify all 711 LEDs light up correctly
+3. Test each segment for proper range
+4. Try each preset from `light-scenarios.md`
+5. Adjust brightness and speed as needed
+6. Test power supply under realistic load (not full white)
+7. Verify LED functions from `led-functions.md`:
+   - Progress bar animation (door bottom)
+   - Status indicators (door left/top)
+   - Spool highlighting
+   - Tag color matching
+   - Hygrometer warnings
 
-### Step 9: Home Assistant Integration (1 hour)
+### Step 8: Home Assistant Integration (1 hour)
 
 Follow instructions in `docs/home-assistant-automations.md`:
 
-1. Add both WLED devices to Home Assistant
-2. Copy example automations to your configuration
-3. Adjust entity names to match your setup
-4. Test each automation manually
-5. Monitor for proper operation during actual prints
+1. Add WLED device to Home Assistant
+2. Create automations based on `light-scenarios.md`:
+   - Map printer states to presets
+   - Configure tray selection highlighting
+   - Set up progress bar updates
+   - Configure error state alerts
+   - Set up humidity warnings
+3. Test each automation manually
+4. Monitor during actual prints
+
+Example key automations:
+- **Print Started** → Preset 8 (Printing state)
+- **Heating Bed** → Preset 4 (Orange pulse)
+- **Print Error** → Preset 10 (Red strobe)
+- **Filament Loading** → Preset 17 (Blue chase)
+- **Humidity High** → Preset 20 (Red hygrometer)
+- **Print Complete** → Preset 11 (Green celebration)
 
 ## Common Issues and Solutions
 
@@ -173,12 +212,17 @@ Follow instructions in `docs/home-assistant-automations.md`:
 ## Power Requirements
 
 Calculate your power needs:
+- Total LEDs: 711
 - Each LED: ~60mA at full white
-- Example with 280 LEDs: 280 × 0.06A = 16.8A maximum
-- Typical usage at 50% brightness: ~8-9A
-- **Recommendation**: 10-12A 5V power supply
+- Maximum theoretical: 711 × 0.06A = 42.66A (full white, all LEDs)
+- Typical usage at 30-50% brightness: ~12-21A
+- **Recommendation**: 15-20A @ 5V power supply with adequate headroom
 
-⚠️ **Important**: For strips over 100 LEDs, use power injection at multiple points!
+⚠️ **Important**: 
+- Use power injection at each GPIO output for best performance
+- Full white at 100% is rarely needed in practice
+- Most scenarios use 30-50% brightness with mixed colors
+- Test actual power draw during typical usage scenarios
 
 ## Safety Checklist
 
@@ -206,36 +250,63 @@ After basic setup:
 
 ## Preset Quick Reference
 
-### Digquad Presets
-| Preset | Name | Use Case |
-|--------|------|----------|
-| 1 | Normal Printing | Active print in progress |
-| 2 | Print Error | HMS error detected |
-| 3 | Print Complete | Successful completion |
-| 4 | Idle/Standby | Printer not active |
-| 5 | Maintenance | Working on printer |
-| 6 | AMS Loading | Loading filament |
-| 7-10 | Active Spool A1-A4 | Highlight active AMS1 spool |
-| 11-14 | Active Spool B1-B4 | Highlight active AMS2 spool |
+Reference `light-scenarios.md` for complete details. Key presets:
 
-### MagWLED Presets
-| Preset | Name | Use Case |
+### Power & Connectivity
+| Preset | Name | Behavior |
 |--------|------|----------|
-| 1 | Normal Printing | Active print |
-| 2 | Idle/Standby | Not printing |
-| 3 | Maintenance | Work mode |
-| 4-7 | Active Tag B1-B4 | Currently active spool |
-| 8-11 | Upcoming Tag B1-B4 | Spool used later in print |
+| 1 | Offline | Dim amber on door |
+| 2 | Idle | Soft blue breathing |
+| 3 | Busy | Medium white, solid |
+
+### Print Lifecycle
+| Preset | Name | Behavior |
+|--------|------|----------|
+| 4 | Heating Bed | Orange pulse |
+| 5 | Heating Nozzle | Yellow pulse |
+| 6 | Bed Leveling | Blue pulse/chase |
+| 7 | Purge Line | Cyan pulse |
+| 8 | Printing | Green status, progress bar, filament colors |
+| 9 | Paused (User) | Yellow blink |
+| 10 | Paused (Error) | Red strobe |
+| 11 | Print Finished | Green pulse celebration |
+
+### Error States
+| Preset | Name | Behavior |
+|--------|------|----------|
+| 12 | Filament Runout | Red on affected tray |
+| 13 | Filament Jam | Orange strobe |
+| 14 | AMS Error | Purple pulse |
+| 15 | Temperature Error | Red strobe |
+
+### AMS Operations
+| Preset | Name | Behavior |
+|--------|------|----------|
+| 17 | Loading | Blue chase |
+| 18 | Unloading | Teal chase |
+| 19 | Drying Mode | Warm amber |
+| 20 | Humidity High | Red hygrometer |
+| 21 | Humidity Normal | White hygrometer |
+
+See `light-scenarios.md` for all 33+ scenarios with detailed specifications.
 
 ## Automation Logic Summary
 
-The automation system works as follows:
+The automation system maps printer states to lighting scenarios (see `light-scenarios.md`):
 
-1. **Print State Changes**: Trigger different presets based on printer stage
-2. **Active Tray Changes**: Highlight the currently active AMS spool
-3. **Print Progress**: Update bottom segment as progress bar
-4. **Error Detection**: Flash red when HMS errors occur
-5. **Manual Control**: Dashboard buttons for maintenance and testing
+1. **Print State Changes**: Trigger presets based on printer stage
+2. **Active Tray Changes**: Highlight currently active AMS tray/tag
+3. **Print Progress**: Update bottom segment progress bar (0-100%)
+4. **Error Detection**: Flash red when HMS errors or filament issues occur
+5. **AMS Operations**: Animate loading/unloading, show humidity warnings
+6. **Manual Control**: Dashboard buttons for maintenance and testing
+
+Key sensor mappings:
+- `sensor.bambu_lab_x1c_current_stage` → Print lifecycle presets
+- `sensor.bambu_lab_x1c_active_tray` → Tray/tag highlighting
+- `sensor.bambu_lab_x1c_print_progress` → Progress bar percentage
+- `sensor.bambu_lab_x1c_hms_errors` → Error state presets
+- AMS humidity sensors → Hygrometer warnings
 
 ## Maintenance
 
@@ -262,27 +333,38 @@ The automation system works as follows:
 
 ## Customization Tips
 
+### Reference Specifications
+- **LED Counts**: See `digquad-led-segments.md` for exact ranges
+- **Functions**: See `led-functions.md` for zone purposes
+- **Scenarios**: See `light-scenarios.md` for all behaviors
+
 ### Change Colors
-Edit preset JSON files before uploading, or use WLED interface after import.
+Edit preset files or use WLED interface to adjust colors per scenario.
 
 ### Add Effects
 WLED has 100+ built-in effects. Try different ones for each preset!
 
-### Sync Both Controllers
-Enable UDP sync to have both controllers run the same effect.
-
 ### Progress Visualization
-The bottom printer segment (Segment 1) is perfect for progress visualization:
-- Use Home Assistant to read print percentage
+The bottom printer segment (0-50 LEDs) is dedicated for progress visualization:
+- Read print percentage from Home Assistant
+- Calculate LEDs to light: (percentage / 100) × 50
 - Update LED colors via WLED API
-- Create a moving gradient or solid progress bar
+- Create moving gradient or solid progress bar
 
 ### Filament-Matched Colors
-If you use Spoolman:
+Integrate with Spoolman:
 - Read filament color from Spoolman entity
-- Convert to RGB
-- Set segment color via WLED API
+- Convert hex color to RGB
+- Set tag segment color via WLED API
 - Makes it easy to identify which spool is active!
+
+### Function-Specific Features
+Based on `led-functions.md`:
+- **Door Bottom**: Animated progress with pause detection
+- **Door Left/Top**: Pulsing green when printing, flashing red on error
+- **Tag Top**: Color-match filament, show current use
+- **Tag Bottom**: % filament left, desiccant warning, error indication
+- **Hygrometer**: Humidity level warnings (>X% triggers red)
 
 ## Troubleshooting Checklist
 
@@ -318,19 +400,32 @@ Found a bug or have an improvement?
 
 ## Final Notes
 
-- **LED counts in configs are EXAMPLES** - you must measure yours!
-- **Test everything before a long print**
-- **Start with simple presets, add complexity later**
-- **Keep backups of your working configurations**
-- **Have fun customizing your setup!**
+- **All specifications are documented**: See `digquad-led-segments.md` for exact LED counts (711 total)
+- **Functions are defined**: See `led-functions.md` for what each zone does
+- **Scenarios are cataloged**: See `light-scenarios.md` for all 33+ lighting behaviors
+- **Test incrementally**: Verify each GPIO output before moving to the next
+- **Start with simple presets**: Add complexity after basics work
+- **Keep backups**: Save working configurations before changes
+- **Monitor power**: Use realistic scenarios, not full white at 100%
+- **Have fun customizing**: The system is designed to be flexible!
 
 ## Estimated Time Investment
 
-- **Planning & Measuring**: 1 hour
+- **Reading Specifications**: 30 minutes
+- **Planning & Preparation**: 1 hour
 - **Physical Installation**: 2-3 hours
 - **WLED Configuration**: 1-2 hours
 - **Home Assistant Setup**: 1-2 hours
 - **Testing & Refinement**: 2-3 hours
-- **Total**: 7-11 hours for complete setup
+- **Total**: 8-12 hours for complete setup
 
 Good luck with your installation! 🎉
+
+## Quick Reference Links
+
+- 📊 [digquad-led-segments.md](digquad-led-segments.md) - LED specifications
+- 🎯 [led-functions.md](led-functions.md) - Zone functions
+- 🎨 [light-scenarios.md](light-scenarios.md) - Scenario catalog
+- 📖 [README.md](README.md) - Complete documentation
+- 🔌 [docs/wiring-diagram.md](docs/wiring-diagram.md) - Installation guide
+- 🏠 [docs/home-assistant-automations.md](docs/home-assistant-automations.md) - Automation examples
