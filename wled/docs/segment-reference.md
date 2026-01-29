@@ -26,9 +26,9 @@ For scenario behaviors, see [light-scenarios.md](../light-scenarios.md).
 
 | Zone | LED Range | Count | Primary Function |
 |------|-----------|-------|------------------|
-| Bottom | 0-50 | 50 | Print progress bar, animated progress |
-| Left | 51-115 | 65 | Status indicator (pulsing green/flashing red) |
-| Top | 116-157 | 43 | Status indicator (same as left) |
+| Bottom | 0-49 | 50 | Print progress bar, animated progress |
+| Left | 50-114 | 65 | Status indicator (pulsing green/flashing red) |
+| Top | 115-157 | 43 | Status indicator (same as left) |
 
 **Functions** (see [led-functions.md](../led-functions.md)):
 - Bottom: Display print progress %, pause animation, completion flash

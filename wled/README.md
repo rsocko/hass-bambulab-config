@@ -22,9 +22,9 @@ For comprehensive scenario catalog, see [light-scenarios.md](light-scenarios.md)
 - **Layout**: 'C' shape wrapping around the front
 - **Total LEDs**: 158 (LED Range: 0-157)
 - **Segments**: 3 segments
-  - **Bottom** (0-50): 50 LEDs - Print progress bar
-  - **Left** (51-115): 65 LEDs - Status indicator (pulsing green when printing, flashing red on error)
-  - **Top** (116-158): 43 LEDs - Status indicator (same as left side)
+  - **Bottom** (0-49): 50 LEDs - Print progress bar
+  - **Left** (50-114): 65 LEDs - Status indicator (pulsing green when printing, flashing red on error)
+  - **Top** (115-157): 43 LEDs - Status indicator (same as left side)
 - **Functions**: Display print progress, print status, error indication
 
 #### Strip 2 - AMS 1 Lid Spool Lighting

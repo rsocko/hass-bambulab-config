@@ -24,10 +24,6 @@ Adjust these entity names to match your Home Assistant configuration:
 
 Based on [light-scenarios.md](../light-scenarios.md), automations are organized into:
 
-## Automation Categories
-
-Based on [light-scenarios.md](../light-scenarios.md), automations are organized into:
-
 1. **Print Lifecycle States** - Heating, leveling, printing, paused, finished
 2. **Error & Warning States** - Filament issues, temperature errors, door open
 3. **AMS Operations** - Loading, unloading, drying, humidity warnings
@@ -302,14 +298,14 @@ rest_command:
         "seg": [{
           "id": 0,
           "i": [
-            0, {{ ((progress | int) * 50 / 100) | int }}, "FF5500",
-            {{ ((progress | int) * 50 / 100) | int }}, 50, "000000"
+            0, {{ ((progress | int) * 49 / 100) | int }}, "FF5500",
+            {{ ((progress | int) * 49 / 100) | int }}, 49, "000000"
           ]
         }]
       }
 ```
 
-Note: This uses segment 0 (printer door bottom) with 50 LEDs (range 0-50). The progress bar lights LEDs from 0 to the calculated progress position in orange, and the rest remain off.
+Note: This uses segment 0 (printer door bottom) with 50 LEDs (range 0-49). The progress bar lights LEDs from 0 to the calculated progress position in orange, and the rest remain off.
 
 ## Scenario-Based Automation Summary
 

@@ -114,9 +114,9 @@ Create segments based on functional zones (refer to `led-functions.md` for funct
 
 #### Suggested Segment Organization:
 ```
-Segment 0: Printer Door Bottom (0-50) - Progress bar
-Segment 1: Printer Door Left (51-115) - Status
-Segment 2: Printer Door Top (116-157) - Status
+Segment 0: Printer Door Bottom (0-49) - Progress bar
+Segment 1: Printer Door Left (50-114) - Status
+Segment 2: Printer Door Top (115-157) - Status
 Segment 3-6: AMS1 Trays (158-297) - By function or tray
 Segment 7-10: AMS2 Trays (298-436) - By function or tray  
 Segment 11-14: AMS1 Tags (437-572) - By tray + hygrometer
