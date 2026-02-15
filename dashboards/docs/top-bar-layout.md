@@ -127,6 +127,7 @@ To add a new card, insert it into the `cards` array. Example for adding a temper
 - Icon colors are used to differentiate card types (blue, green, orange, purple)
 - The layout automatically adapts to screen size using CSS grid
 - Camera cards use `picture-entity` type for optimal performance
+- **Note**: Styles are currently duplicated across similar card types due to JSON format limitations. A future improvement could convert to YAML format with anchors/references for better style reusability.
 
 ## Migration from Badges
 
