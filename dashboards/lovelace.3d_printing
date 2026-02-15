@@ -125,7 +125,7 @@
                     "type": "custom:mushroom-template-card",
                     "entity": "sensor.ntk_ryansoffice_3dprinter_end_time",
                     "primary": "Est. Completion",
-                    "secondary": "{% set state = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}{% if state not in ['unavailable', 'unknown'] and state != None %}{{ as_timestamp(state) | timestamp_custom('%I:%M %p', true) }}{% else %}N/A{% endif %}",
+                    "secondary": "{% set state = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}{% if state not in ['unavailable', 'unknown'] and state is not none %}{{ as_timestamp(state) | timestamp_custom('%I:%M %p', true) }}{% else %}N/A{% endif %}",
                     "icon": "mdi:clock-end",
                     "icon_color": "purple",
                     "layout": "vertical",
