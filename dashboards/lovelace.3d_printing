@@ -17,6 +17,155 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "custom:bubble-card",
+                  "card_type": "button",
+                  "button_type": "state",
+                  "entity": "sensor.ntk_ryansoffice_3dprinter_print_status",
+                  "name": "Print Status",
+                  "icon": "mdi:rotate-3d",
+                  "show_state": true,
+                  "show_attribute": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+                },
+                {
+                  "type": "custom:bubble-card",
+                  "card_type": "button",
+                  "button_type": "state",
+                  "entity": "sensor.ntk_ryansoffice_3dprinter_current_stage",
+                  "name": "Current Stage",
+                  "icon": "mdi:printer-3d",
+                  "show_state": true,
+                  "show_attribute": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+                },
+                {
+                  "type": "custom:bubble-card",
+                  "card_type": "button",
+                  "button_type": "state",
+                  "entity": "sensor.ntk_ryansoffice_3dprinter_task_name",
+                  "name": "Task Name",
+                  "icon": "mdi:cube-outline",
+                  "show_state": true,
+                  "show_attribute": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+                },
+                {
+                  "type": "custom:bubble-card",
+                  "card_type": "button",
+                  "button_type": "state",
+                  "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+                  "name": "HMS Errors",
+                  "show_state": true,
+                  "show_attribute": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+                },
+                {
+                  "type": "custom:mushroom-template-card",
+                  "entity": "sensor.print_layer_progress_formatted",
+                  "primary": "Layer Progress",
+                  "secondary": "{{ states('sensor.print_layer_progress_formatted') }}",
+                  "icon": "fas:layer-group",
+                  "icon_color": "blue",
+                  "layout": "vertical",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "card_mod": {
+                    "style": "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
+                  }
+                },
+                {
+                  "type": "custom:mushroom-template-card",
+                  "entity": "sensor.ntk_ryansoffice_3dprinter_print_progress",
+                  "primary": "Print Progress",
+                  "secondary": "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') }}",
+                  "icon": "mdi:progress-helper",
+                  "icon_color": "green",
+                  "layout": "vertical",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "card_mod": {
+                    "style": "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
+                  }
+                },
+                {
+                  "type": "custom:mushroom-template-card",
+                  "entity": "sensor.print_time_remaining_formatted",
+                  "primary": "Time Remaining",
+                  "secondary": "{{ states('sensor.print_time_remaining_formatted') }}",
+                  "icon": "mdi:progress-clock",
+                  "icon_color": "orange",
+                  "layout": "vertical",
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "card_mod": {
+                    "style": "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
+                  }
+                },
+                {
+                  "type": "custom:config-template-card",
+                  "entities": [
+                    "sensor.ntk_ryansoffice_3dprinter_end_time"
+                  ],
+                  "card": {
+                    "type": "custom:mushroom-template-card",
+                    "entity": "sensor.ntk_ryansoffice_3dprinter_end_time",
+                    "primary": "Est. Completion",
+                    "secondary": "{% set state = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}{% if state not in ['unavailable', 'unknown'] and state is not none %}{{ as_timestamp(state) | timestamp_custom('%I:%M %p', true) }}{% else %}N/A{% endif %}",
+                    "icon": "mdi:clock-end",
+                    "icon_color": "purple",
+                    "layout": "vertical",
+                    "tap_action": {
+                      "action": "more-info"
+                    },
+                    "card_mod": {
+                      "style": "\n                      ha-card {\n                        font-size: 16px;\n                      }\n                      .primary {\n                        font-size: 18px !important;\n                        font-weight: 600;\n                      }\n                      .secondary {\n                        font-size: 22px !important;\n                        font-weight: 700;\n                      }\n                    "
+                    }
+                  }
+                },
+                {
+                  "type": "picture-entity",
+                  "entity": "camera.ntk_ryansoffice_3dprinter_camera",
+                  "name": "Printer Camera",
+                  "show_name": true,
+                  "show_state": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  },
+                  "camera_view": "live"
+                },
+                {
+                  "type": "picture-entity",
+                  "entity": "image.ntk_ryansoffice_3dprinter_cover_image",
+                  "name": "Print Preview",
+                  "show_name": true,
+                  "show_state": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  }
+                }
+              ],
+              "columns": 2,
+              "square": false
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
                   "type": "custom:ha-bambulab-print_status-card",
                   "printer": "210dfdfa64085e8cf073e50eae757d90",
                   "style": "simple",
@@ -1448,105 +1597,6 @@
               ]
             }
           ],
-          "badges": [
-            {
-              "type": "entity",
-              "show_name": true,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "sensor.ntk_ryansoffice_3dprinter_print_status",
-              "show_entity_picture": false,
-              "icon": "mdi:rotate-3d"
-            },
-            {
-              "type": "entity",
-              "show_name": true,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "sensor.ntk_ryansoffice_3dprinter_current_stage",
-              "icon": "mdi:printer-3d",
-              "show_entity_picture": false
-            },
-            {
-              "type": "entity",
-              "show_name": true,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "sensor.ntk_ryansoffice_3dprinter_task_name",
-              "icon": "mdi:cube-outline"
-            },
-            {
-              "type": "entity",
-              "show_name": false,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "sensor.print_layer_progress_formatted",
-              "icon": "fas:layer-group"
-            },
-            {
-              "type": "entity",
-              "show_name": false,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "sensor.ntk_ryansoffice_3dprinter_print_progress",
-              "icon": "mdi:progress-helper"
-            },
-            {
-              "type": "entity",
-              "show_name": false,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "sensor.print_time_remaining_formatted",
-              "icon": "mdi:progress-clock"
-            },
-            {
-              "type": "entity",
-              "show_name": false,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors"
-            },
-            {
-              "type": "entity",
-              "show_name": true,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "camera.ntk_ryansoffice_3dprinter_camera",
-              "icon": "",
-              "show_entity_picture": true
-            },
-            {
-              "type": "entity",
-              "show_name": false,
-              "show_state": true,
-              "show_icon": true,
-              "entity": "camera.3dprintertopcamera_hd_stream",
-              "show_entity_picture": false
-            },
-            {
-              "type": "custom:config-template-card",
-              "entities": [
-                "sensor.ntk_ryansoffice_3dprinter_remaining_time"
-              ],
-              "card": {
-                "type": "entity",
-                "entity": "sensor.ntk_ryansoffice_3dprinter_remaining_time",
-                "show_name": false,
-                "show_icon": true,
-                "show_state": true,
-                "state": "[[[\n  const total = parseInt(states['sensor.ntk_ryansoffice_3dprinter_remaining_time'].state);\n  const days = Math.floor(total / 1440);\n  const hours = Math.floor((total % 1440) / 60);\n  const minutes = total % 60;\n  if (days > 0) return `${days}d ${hours}h ${minutes}m`;\n  if (hours > 0) return `${hours}h ${minutes}m`;\n  return `${minutes}m`;\n]]]\n"
-              }
-            },
-            {
-              "type": "entity",
-              "show_name": false,
-              "show_state": false,
-              "show_icon": true,
-              "entity": "image.ntk_ryansoffice_3dprinter_cover_image",
-              "show_entity_picture": true,
-              "state_content": "name"
-            }
-          ],
           "header": {
             "card": {
               "type": "markdown",
@@ -1782,7 +1832,7 @@
                     "action": "none"
                   },
                   "icon": "mdi:water",
-                  "label": "[[[\n  const selected_entity = states['sensor.selected_spool'].state;\n  const spool_id = states[selected_entity].attributes.id;\n  const spool_entity = states[selected_entity];\n\n  const date = spool_entity?.attributes?.extra_desiccant_filled;\n  if (!date) return '—';\n\n  const filled = new Date(date);\n  const now = new Date();\n  const days = Math.floor((now - filled) / 86400000);\n\n  let ago;\n  if (days < 7) ago = `${days}d ago`;\n  else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;\n  else ago = `${Math.floor(days / 30)}mo ago`;\n\n  return `${filled.toLocaleDateString('en-US')} (${ago})`;\n]]]\n",
+                  "label": "[[[\n  const selected_entity = states['sensor.selected_spool'].state;\n  const spool_id = states[selected_entity].attributes.id;\n  const spool_entity = states[selected_entity];\n\n  const date = spool_entity?.attributes?.extra_desiccant_filled;\n  if (!date) return '\u2014';\n\n  const filled = new Date(date);\n  const now = new Date();\n  const days = Math.floor((now - filled) / 86400000);\n\n  let ago;\n  if (days < 7) ago = `${days}d ago`;\n  else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;\n  else ago = `${Math.floor(days / 30)}mo ago`;\n\n  return `${filled.toLocaleDateString('en-US')} (${ago})`;\n]]]\n",
                   "styles": {
                     "grid": [
                       {
