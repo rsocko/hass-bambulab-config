@@ -192,13 +192,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_1_tray_1';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_1_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -209,6 +212,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -228,20 +242,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_1_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -281,13 +304,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_1_tray_2';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_1_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -298,6 +324,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -317,20 +354,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_1_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -370,13 +416,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_1_tray_3';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_1_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -387,6 +436,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -406,20 +466,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_1_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -459,13 +528,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_1_tray_4';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_1_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -476,6 +548,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -495,20 +578,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_1_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -567,13 +659,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_2_tray_1';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -584,6 +679,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -603,20 +709,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -656,13 +771,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_2_tray_2';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_2_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -673,6 +791,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -692,20 +821,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_2_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -745,13 +883,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_2_tray_3';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_2_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -762,6 +903,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -781,20 +933,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_2_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -834,13 +995,16 @@
                         },
                         {
                           "type": "custom:button-card",
-                          "layout": "vertical",
                           "entity": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_2_tray_4';\n]]]\n",
                           "name": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                          "icon": "[[[\n  const tray = 'ams_2_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                           "show_state": false,
-                          "show_icon": true,
+                          "show_icon": false,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                          "custom_fields": {
+                            "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "placeholder": "[[[\n  return '';\n]]]\n"
+                          },
                           "styles": {
                             "card": [
                               {
@@ -851,6 +1015,17 @@
                               },
                               {
                                 "box-shadow": "none"
+                              }
+                            ],
+                            "grid": [
+                              {
+                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                              },
+                              {
+                                "grid-template-columns": "1fr"
+                              },
+                              {
+                                "grid-template-rows": "auto auto"
                               }
                             ],
                             "name": [
@@ -870,20 +1045,29 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "icon": [
-                              {
-                                "width": "20px"
-                              },
-                              {
-                                "height": "20px"
-                              },
-                              {
-                                "justify-self": "center"
-                              },
-                              {
-                                "color": "[[[\n  const tray = 'ams_2_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                              }
-                            ]
+                            "custom_fields": {
+                              "desiccant_icon": [
+                                {
+                                  "justify-self": "start"
+                                },
+                                {
+                                  "padding-left": "4px"
+                                }
+                              ],
+                              "remaining_weight": [
+                                {
+                                  "justify-self": "center"
+                                }
+                              ],
+                              "placeholder": [
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
+                            }
                           }
                         }
                       ]
@@ -941,13 +1125,16 @@
                             },
                             {
                               "type": "custom:button-card",
-                              "layout": "vertical",
                               "entity": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.ntk_ryansoffice_3dprinter_external_spool';\n]]]\n",
                               "name": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
-                              "icon": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return 'none';\n\n  return 'mdi:water';\n]]]\n",
                               "show_state": false,
-                              "show_icon": true,
+                              "show_icon": false,
                               "tap_action": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
+                              "custom_fields": {
+                                "desiccant_icon": "[[[\n  const tray = 'external_spool';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
+                                "remaining_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                                "placeholder": "[[[\n  return '';\n]]]\n"
+                              },
                               "styles": {
                                 "card": [
                                   {
@@ -958,6 +1145,17 @@
                                   },
                                   {
                                     "box-shadow": "none"
+                                  }
+                                ],
+                                "grid": [
+                                  {
+                                    "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                  },
+                                  {
+                                    "grid-template-columns": "1fr"
+                                  },
+                                  {
+                                    "grid-template-rows": "auto auto"
                                   }
                                 ],
                                 "name": [
@@ -977,20 +1175,29 @@
                                     "padding-bottom": "4px"
                                   }
                                 ],
-                                "icon": [
-                                  {
-                                    "width": "20px"
-                                  },
-                                  {
-                                    "height": "20px"
-                                  },
-                                  {
-                                    "justify-self": "center"
-                                  },
-                                  {
-                                    "color": "[[[\n  const tray = 'external_spool';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  const colors = {\n    undefined: '#9e9e9e',\n    green: '#00cc66',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n\n  return colors[status] || '#9e9e9e';\n]]]\n"
-                                  }
-                                ]
+                                "custom_fields": {
+                                  "desiccant_icon": [
+                                    {
+                                      "justify-self": "start"
+                                    },
+                                    {
+                                      "padding-left": "4px"
+                                    }
+                                  ],
+                                  "remaining_weight": [
+                                    {
+                                      "justify-self": "center"
+                                    }
+                                  ],
+                                  "placeholder": [
+                                    {
+                                      "justify-self": "end"
+                                    },
+                                    {
+                                      "padding-right": "4px"
+                                    }
+                                  ]
+                                }
                               }
                             }
                           ]
