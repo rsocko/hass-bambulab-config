@@ -199,7 +199,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -216,10 +216,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -252,11 +252,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -311,7 +306,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -328,10 +323,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -364,11 +359,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -423,7 +413,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -440,10 +430,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -476,11 +466,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -535,7 +520,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -552,10 +537,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -588,11 +573,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -666,7 +646,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -683,10 +663,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -719,11 +699,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -778,7 +753,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -795,10 +770,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -831,11 +806,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -890,7 +860,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -907,10 +877,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -943,11 +913,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1002,7 +967,7 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -1019,10 +984,10 @@
                             ],
                             "grid": [
                               {
-                                "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                "grid-template-columns": "auto 1fr auto"
                               },
                               {
                                 "grid-template-rows": "auto auto"
@@ -1055,11 +1020,6 @@
                                 }
                               ],
                               "remaining_weight": [
-                                {
-                                  "justify-self": "center"
-                                }
-                              ],
-                              "placeholder": [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1132,7 +1092,7 @@
                               "tap_action": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                               "custom_fields": {
                                 "desiccant_icon": "[[[\n  const tray = 'external_spool';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                                "remaining_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const entity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = entity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
+                                "remaining_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                                 "placeholder": "[[[\n  return '';\n]]]\n"
                               },
                               "styles": {
@@ -1149,10 +1109,10 @@
                                 ],
                                 "grid": [
                                   {
-                                    "grid-template-areas": "\"n\" \"desiccant_icon remaining_weight placeholder\""
+                                    "grid-template-areas": "\"n n n\" \"desiccant_icon . remaining_weight\""
                                   },
                                   {
-                                    "grid-template-columns": "1fr"
+                                    "grid-template-columns": "auto 1fr auto"
                                   },
                                   {
                                     "grid-template-rows": "auto auto"
@@ -1185,18 +1145,13 @@
                                     }
                                   ],
                                   "remaining_weight": [
-                                    {
-                                      "justify-self": "center"
-                                    }
-                                  ],
-                                  "placeholder": [
-                                    {
-                                      "justify-self": "end"
-                                    },
-                                    {
-                                      "padding-right": "4px"
-                                    }
-                                  ]
+                                {
+                                  "justify-self": "end"
+                                },
+                                {
+                                  "padding-right": "4px"
+                                }
+                              ]
                                 }
                               }
                             }
