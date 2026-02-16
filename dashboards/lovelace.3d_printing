@@ -361,7 +361,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -383,24 +383,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_1';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_1';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '1';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -411,7 +400,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -428,7 +417,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -451,8 +440,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -460,7 +449,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -469,7 +458,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -493,7 +483,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -515,24 +505,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_2';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_2';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '2';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -543,7 +522,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -560,7 +539,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -583,8 +562,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -592,7 +571,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -601,7 +580,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -625,7 +605,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -647,24 +627,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_3';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_3';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '3';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -675,7 +644,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -692,7 +661,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -715,8 +684,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -724,7 +693,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -733,7 +702,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -757,7 +727,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -779,24 +749,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_4';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_4';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '4';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -807,7 +766,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -824,7 +783,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -847,8 +806,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -856,7 +815,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -865,7 +824,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     }
@@ -908,7 +868,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -930,24 +890,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_1';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_2_tray_1';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '5';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -958,7 +907,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -975,7 +924,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -998,8 +947,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1007,7 +956,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1016,7 +965,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -1040,7 +990,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -1062,24 +1012,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_2';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_2_tray_2';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '6';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -1090,7 +1029,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -1107,7 +1046,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -1130,8 +1069,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1139,7 +1078,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1148,7 +1087,9 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]
+"
                         }
                       ]
                     },
@@ -1172,7 +1113,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -1194,24 +1135,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_3';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_2_tray_3';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '7';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -1222,7 +1152,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -1239,7 +1169,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -1262,8 +1192,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1271,7 +1201,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1280,7 +1210,9 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]
+"
                         }
                       ]
                     },
@@ -1304,7 +1236,7 @@
                                 "padding": "4px"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "14px"
                               },
@@ -1326,24 +1258,13 @@
                           "show_icon": false,
                           "show_label": true,
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_4';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'AMS Tray Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : `Tray: ${tray.replace('_', ' ').toUpperCase()}`,\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // AMS Tray Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'AMS Tray Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'Tray Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                          "custom_fields": {
+                          custom_fields: {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                             "remaining_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_2_tray_4';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '8';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -1354,7 +1275,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -1371,7 +1292,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -1394,8 +1315,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1403,7 +1324,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1412,7 +1333,9 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]
+"
                         }
                       ]
                     }
@@ -1454,7 +1377,7 @@
                                     "padding": "4px"
                                   }
                                 ],
-                                "name": [
+                                name: [
                                   {
                                     "font-size": "14px"
                                   },
@@ -1476,24 +1399,13 @@
                               "show_icon": false,
                               "show_label": true,
                               "tap_action": "[[[\n  const tray = 'external_spool';\n  const trayEntity = 'sensor.ntk_ryansoffice_3dprinter_external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  const trayData = map?.[tray];\n\n  return {\n    action: 'fire-dom-event',\n    browser_mod: {\n      service: 'browser_mod.popup',\n      data: {\n        title: trayData?.name || 'External Spool Details',\n        content: {\n          type: 'vertical-stack',\n          cards: [\n            // Spool/Tray Info Header\n            {\n              type: 'custom:mushroom-template-card',\n              primary: trayData?.name || 'No Spool Matched',\n              secondary: spoolId ? `Spool ID: ${spoolId}` : 'External Spool',\n              icon: 'mdi:printer-3d-nozzle',\n              icon_color: trayData?.status === 'empty' ? 'disabled' : 'primary',\n              fill_container: false,\n              card_mod: {\n                style: `\n                  ha-card {\n                    background: ${trayData?.color ? '#' + trayData.color + '20' : 'var(--ha-card-background)'};\n                  }\n                `\n              }\n            },\n            // Material and Vendor Info\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_material || 'Unknown',\n                  secondary: 'Material',\n                  icon: 'mdi:texture-box',\n                  icon_color: 'orange',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: states['sensor.spoolman_spool_' + spoolId]?.attributes?.filament_vendor_name || 'Unknown',\n                  secondary: 'Vendor',\n                  icon: 'mdi:factory',\n                  icon_color: 'purple',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Color and Icon Display\n            spoolId ? {\n              type: 'horizontal-stack',\n              cards: [\n                {\n                  type: 'custom:button-card',\n                  name: 'Filament Color',\n                  show_state: false,\n                  show_icon: true,\n                  icon: 'mdi:palette',\n                  styles: {\n                    card: [{\n                      'background': trayData?.color ? '#' + trayData.color : '#cccccc',\n                      'height': '80px'\n                    }],\n                    name: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }],\n                    icon: [{\n                      'color': trayData?.color ? (parseInt(trayData.color.substring(0,2), 16) + parseInt(trayData.color.substring(2,4), 16) + parseInt(trayData.color.substring(4,6), 16)) / 3 > 128 ? '#000' : '#fff' : '#000'\n                    }]\n                  }\n                },\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: `${states['sensor.spoolman_spool_' + spoolId]?.attributes?.remaining_weight || 'N/A'}g`,\n                  secondary: 'Remaining',\n                  icon: 'mdi:weight-gram',\n                  icon_color: 'blue',\n                  fill_container: false\n                }\n              ]\n            } : null,\n            // Desiccant Status and Reset\n            spoolId && trayData?.desiccant ? {\n              type: 'vertical-stack',\n              cards: [\n                {\n                  type: 'custom:mushroom-template-card',\n                  primary: 'Desiccant Status',\n                  secondary: trayData?.filled ? `Filled: ${new Date(trayData.filled).toLocaleDateString()}` : 'Not Set',\n                  icon: 'mdi:water',\n                  icon_color: trayData?.status === 'green' ? 'green' : trayData?.status === 'yellow' ? 'yellow' : trayData?.status === 'orange' ? 'orange' : trayData?.status === 'red' ? 'red' : 'disabled',\n                  fill_container: false\n                },\n                {\n                  type: 'custom:button-card',\n                  name: 'Reset Desiccant Date',\n                  icon: 'mdi:update',\n                  tap_action: {\n                    action: 'call-service',\n                    service: 'spoolman.patch_spool',\n                    service_data: {\n                      spool_id: spoolId,\n                      extra: {\n                        desiccant_filled: new Date().toISOString()\n                      }\n                    },\n                    confirmation: {\n                      text: 'Reset desiccant filled date to now?'\n                    }\n                  },\n                  styles: {\n                    card: [{ 'height': '50px' }]\n                  }\n                }\n              ]\n            } : null,\n            // Spoolman Link\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'Open in Spoolman',\n              icon: 'mdi:open-in-new',\n              tap_action: {\n                action: 'url',\n                url_path: `http://homeassistant.local:7912/spools/${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }],\n                name: [{ 'color': 'var(--primary-color)' }]\n              }\n            } : null,\n            // Weight History Chart (Dynamic Duration)\n            spoolId ? (() => {\n              const spoolEntity = states['sensor.spoolman_spool_' + spoolId];\n              const firstUsed = spoolEntity?.attributes?.first_used;\n              let historyHours = 168; // Default 7 days\n              \n              if (firstUsed) {\n                const firstUsedDate = new Date(firstUsed);\n                const now = new Date();\n                const daysSinceOpened = Math.floor((now - firstUsedDate) / (1000 * 60 * 60 * 24));\n                \n                // Show full history since opened, with reasonable limits\n                if (daysSinceOpened <= 7) {\n                  historyHours = daysSinceOpened * 24 || 24; // At least 1 day\n                } else if (daysSinceOpened <= 30) {\n                  historyHours = daysSinceOpened * 24;\n                } else if (daysSinceOpened <= 90) {\n                  historyHours = daysSinceOpened * 24;\n                } else {\n                  historyHours = daysSinceOpened * 24; // Show full history\n                }\n              }\n              \n              return {\n                type: 'history-graph',\n                title: firstUsed ? `Weight History (${Math.floor(historyHours / 24)} days)` : 'Weight History',\n                entities: [\n                  {\n                    entity: `sensor.spoolman_spool_${spoolId}`,\n                    name: 'Remaining Weight'\n                  }\n                ],\n                hours_to_show: historyHours\n              };\n            })() : null,\n            // External Spool Raw Data (when no spool matched)\n            !spoolId ? {\n              type: 'entities',\n              title: 'External Spool Information',\n              entities: [\n                {\n                  entity: trayEntity,\n                  name: 'External Spool Entity'\n                }\n              ]\n            } : null,\n            // More Info Button\n            spoolId ? {\n              type: 'custom:button-card',\n              name: 'More Details',\n              icon: 'mdi:information',\n              tap_action: {\n                action: 'more-info',\n                entity: `sensor.spoolman_spool_${spoolId}`\n              },\n              styles: {\n                card: [{ 'height': '50px' }]\n              }\n            } : null\n          ].filter(card => card !== null)\n        }\n      }\n    }\n  };\n]]]\n",
-                              "custom_fields": {
+                              custom_fields: {
                                 "desiccant_icon": "[[[\n  const tray = 'external_spool';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
                                 "remaining_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                                 "placeholder": "[[[\n  return '';\n]]]\n"
                               },
-                              "styles": {
-                                "card": [
-                                  {
-                                    "padding": "6px"
-                                  },
-                                  {
-                                    "background": "none"
-                                  },
-                                  {
-                                    "box-shadow": "none"
-                                  }
-                                ],
-                                "grid": [
+                              "styles": "[[[\n  const tray = 'external_spool';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '254';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                                grid: [
                                   {
                                     "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                                   },
@@ -1504,7 +1416,7 @@
                                     "grid-template-rows": "auto auto auto"
                                   }
                                 ],
-                                "name": [
+                                name: [
                                   {
                                     "font-size": "12px"
                                   },
@@ -1521,7 +1433,7 @@
                                     "padding-bottom": "2px"
                                   }
                                 ],
-                                "label": [
+                                label: [
                                   {
                                     "font-size": "9px"
                                   },
@@ -1544,8 +1456,8 @@
                                     "padding-bottom": "4px"
                                   }
                                 ],
-                                "custom_fields": {
-                                  "desiccant_icon": [
+                                custom_fields: {
+                                  desiccant_icon: [
                                     {
                                       "justify-self": "start"
                                     },
@@ -1553,7 +1465,7 @@
                                       "padding-left": "4px"
                                     }
                                   ],
-                                  "remaining_weight": [
+                                  remaining_weight: [
                                     {
                                       "justify-self": "end"
                                     },
@@ -1600,7 +1512,7 @@
                                 "name": "Current Print Weight",
                                 "show_icon": false,
                                 "show_state": false,
-                                "custom_fields": {
+                                custom_fields: {
                                   "weight_label": "[[[\n  const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const totalWeight = parseFloat(weightEntity?.state) || 0;\n  \n  return `<div style=\"font-size: 14px; font-weight: 600; margin-bottom: 8px;\">Total: ${totalWeight.toFixed(1)}g</div>`;\n]]]\n",
                                   "weight_bar": "[[[\n  // Get print weight entity\n  const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  if (!weightEntity) return '<div style=\"color: #888;\">No print data</div>';\n  \n  const totalWeight = parseFloat(weightEntity?.state) || 0;\n  \n  // Extract weight data from attributes (keys starting with \"AMS\")\n  const weights = [];\n  let attributeTotal = 0;\n  \n  for (const [key, value] of Object.entries(weightEntity.attributes)) {\n    if (key.startsWith('AMS') && value && !isNaN(value)) {\n      // Parse the tray name: \"AMS 1 Tray 2\" -> ams_1_tray_2\n      const match = key.match(/AMS (\\d+) Tray (\\d+)/);\n      if (match) {\n        const amsNum = match[1];\n        const trayNum = match[2];\n        const trayKey = `ams_${amsNum}_tray_${trayNum}`;\n        const trayEntity = `sensor.p1s_01p00c460102350_${trayKey}`;\n        \n        // Get color from tray entity\n        const tray = states[trayEntity];\n        let color = tray?.attributes?.color || '#cccccc';\n        \n        // Normalize color (remove # and alpha channel if present)\n        if (color.startsWith('#')) {\n          color = color.substring(1);\n        }\n        if (color.length === 8) {\n          color = color.substring(0, 6);\n        }\n        color = '#' + color;\n        \n        weights.push({\n          name: key,\n          weight: parseFloat(value),\n          color: color\n        });\n        attributeTotal += parseFloat(value);\n      }\n    }\n  }\n  \n  // Handle case where we have total weight but no attribute breakdown\n  if (weights.length === 0 && totalWeight > 0) {\n    let result = '<div style=\"margin-bottom: 8px;\">';\n    result += '<div style=\"';\n    result += 'height: 30px; ';\n    result += 'border-radius: 6px; ';\n    result += 'background: linear-gradient(135deg, #999 0%, #ccc 50%, #999 100%); ';\n    result += 'border: 2px solid var(--divider-color, rgba(127, 127, 127, 0.5)); ';\n    result += 'box-shadow: 0 1px 3px rgba(0,0,0,0.1); ';\n    result += 'display: flex; ';\n    result += 'align-items: center; ';\n    result += 'justify-content: center;';\n    result += '\">';\n    result += '<span style=\"font-size: 11px; font-weight: 600; color: #333; text-shadow: 0 0 2px rgba(255,255,255,0.8);\">\u26a0\ufe0f Breakdown unavailable</span>';\n    result += '</div>';\n    result += '<div style=\"font-size: 11px; color: #888; margin-top: 4px; font-style: italic;\">Filament usage details not available for this print</div>';\n    result += '</div>';\n    return result;\n  }\n  \n  if (weights.length === 0 || attributeTotal === 0) {\n    return '<div style=\"color: #888; font-size: 12px;\">No print active or no weight data available</div>';\n  }\n  \n  // Generate stacked bar HTML\n  const barHeight = '30px';\n  const borderRadius = '6px';\n  \n  let barHTML = '<div style=\"margin-bottom: 8px;\">';\n  barHTML += '<div style=\"';\n  barHTML += 'display: flex; ';\n  barHTML += `height: ${barHeight}; `;\n  barHTML += `border-radius: ${borderRadius}; `;\n  barHTML += 'overflow: hidden; ';\n  barHTML += 'border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); ';\n  barHTML += 'box-shadow: 0 1px 3px rgba(0,0,0,0.1);';\n  barHTML += '\">';\n  \n  // Add each segment\n  weights.forEach((item, index) => {\n    const percent = (item.weight / attributeTotal) * 100;\n    const isLast = index === weights.length - 1;\n    \n    // Calculate brightness for text color\n    const r = parseInt(item.color.substring(1, 3), 16);\n    const g = parseInt(item.color.substring(3, 5), 16);\n    const b = parseInt(item.color.substring(5, 7), 16);\n    const brightness = (r * 299 + g * 587 + b * 114) / 1000;\n    \n    // Check if color is very light (near white) or very dark (near black)\n    const isVeryLight = brightness > 240;\n    const isVeryDark = brightness < 20;\n    \n    barHTML += '<div style=\"';\n    barHTML += `width: ${percent}%; `;\n    barHTML += `background-color: ${item.color}; `;\n    barHTML += 'display: flex; ';\n    barHTML += 'align-items: center; ';\n    barHTML += 'justify-content: center; ';\n    barHTML += 'position: relative; ';\n    \n    // Add extra border for very light or very dark colors for visibility\n    if (isVeryLight || isVeryDark) {\n      barHTML += 'box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.5); ';\n    }\n    \n    // Add border between segments (but not after last one)\n    if (!isLast) {\n      barHTML += 'border-right: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); ';\n    }\n    \n    barHTML += '\">';\n    \n    // Add weight text if segment is wide enough\n    if (percent > 10) {\n      const textColor = brightness > 128 ? '#000000' : '#ffffff';\n      \n      barHTML += `<span style=\"font-size: 11px; font-weight: 600; color: ${textColor}; text-shadow: 0 0 2px rgba(0,0,0,0.3);\">`;\n      barHTML += `${item.weight.toFixed(1)}g`;\n      barHTML += '</span>';\n    }\n    \n    barHTML += '</div>';\n  });\n  \n  barHTML += '</div>';\n  \n  // Add legend with filament details\n  barHTML += '<div style=\"font-size: 11px; color: var(--secondary-text-color, #888); margin-top: 6px; line-height: 1.4;\">';\n  weights.forEach((item, index) => {\n    const percent = (item.weight / attributeTotal) * 100;\n    barHTML += `<div style=\"display: flex; align-items: center; margin-bottom: 2px;\">`;\n    barHTML += `<span style=\"display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px;\"></span>`;\n    barHTML += `<span>${item.name}: ${item.weight.toFixed(1)}g (${percent.toFixed(1)}%)</span>`;\n    barHTML += '</div>';\n  });\n  barHTML += '</div>';\n  barHTML += '</div>';\n  \n  return barHTML;\n]]]\n"
                                 },
@@ -1627,7 +1539,7 @@
                                       "grid-template-rows": "auto auto auto"
                                     }
                                   ],
-                                  "name": [
+                                  name: [
                                     {
                                       "font-size": "14px"
                                     },
@@ -1641,7 +1553,7 @@
                                       "margin-bottom": "4px"
                                     }
                                   ],
-                                  "custom_fields": {
+                                  custom_fields: {
                                     "weight_label": [
                                       {
                                         "justify-self": "start"
@@ -2297,7 +2209,7 @@
                         "color": "[[[\n  const selected_entity = states['sensor.selected_spool'].state;\n  const spool_id = states[selected_entity].attributes.id;\n  const spool_entity = states[selected_entity];\n\n  const date = spool_entity?.attributes?.extra_desiccant_filled;\n  if (!date) return 'gray';\n\n  const months = ((Date.now() - new Date(date)) / 86400000) / 30.437;\n  if (months > 2.5) return 'red';\n  if (months > 2.0) return 'orange';\n  if (months > 1.5) return 'yellow';\n  return 'green';\n]]]\n"
                       }
                     ],
-                    "label": [
+                    label: [
                       {
                         "font-size": "14px"
                       },
@@ -2361,7 +2273,7 @@
                         "margin-bottom": "2px"
                       }
                     ],
-                    "label": [
+                    label: [
                       {
                         "font-size": "14px"
                       },
