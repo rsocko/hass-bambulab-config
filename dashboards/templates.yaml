@@ -38,7 +38,8 @@ sensor:
                 'name': 'Empty', 
                 'desiccant': none, 
                 'filled': none, 
-                'status': 'empty' 
+                'status': 'empty',
+                'color': none
               }
             }) %}
             {% continue %}
@@ -115,7 +116,8 @@ sensor:
                 'name': spool_name,
                 'desiccant': desiccant,
                 'filled': filled,
-                'status': status
+                'status': status,
+                'color': tray_color
               }
             }) %}
           {% else %}
@@ -125,7 +127,8 @@ sensor:
                 'name': none,
                 'desiccant': none,
                 'filled': none,
-                'status': 'undefined'
+                'status': 'undefined',
+                'color': tray_color
               }
             }) %}
           {% endif %}
