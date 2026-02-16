@@ -17,6 +17,46 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "vertical-stack",
+                    "cards": [
+                      {
+                        "type": "custom:mushroom-template-card",
+                        "primary": "\u26a0\ufe0f HMS ERROR ALERT",
+                        "secondary": "{{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') | int }} Error(s)",
+                        "icon": "mdi:alert-circle",
+                        "icon_color": "red",
+                        "fill_container": false,
+                        "tap_action": {
+                          "action": "more-info"
+                        },
+                        "card_mod": {
+                          "style": ": |\n  ha-card {\n    background: rgba(244, 67, 54, 0.15);\n    border: 2px solid var(--red-color);\n    --card-mod-icon-color: red;\n  }"
+                        }
+                      },
+                      {
+                        "type": "markdown",
+                        "content": "{% set errors = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'errors') %}\n{% if errors %}\n{% for error in errors %}\n**Error {{ loop.index }}:** {{ error.attr }}\n\n**Code:** {{ error.code }}\n\n{{ error.text }}\n\n---\n{% endfor %}\n{% else %}\nNo error details available\n{% endif %}",
+                        "card_mod": {
+                          "style": ": |\n  ha-card {\n    background: rgba(244, 67, 54, 0.08);\n    border-left: 4px solid var(--red-color);\n  }"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
                   "type": "custom:ha-bambulab-print_status-card",
                   "printer": "210dfdfa64085e8cf073e50eae757d90",
                   "style": "simple",
@@ -1033,7 +1073,11 @@
                               },
                               {
                                 "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
-                                "name": "HMS Notifications"
+                                "name": "HMS Notifications",
+                                "tap_action": {
+                                  "action": "more-info"
+                                },
+                                "secondary_info": "last-changed"
                               },
                               {
                                 "entity": "sensor.ntk_ryansoffice_3dprinter_start_time",
@@ -1339,10 +1383,14 @@
             },
             {
               "type": "entity",
-              "show_name": false,
+              "show_name": true,
               "show_state": true,
               "show_icon": true,
-              "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors"
+              "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+              "name": "HMS",
+              "tap_action": {
+                "action": "more-info"
+              }
             },
             {
               "type": "entity",
@@ -1620,7 +1668,7 @@
                     "action": "none"
                   },
                   "icon": "mdi:water",
-                  "label": "[[[\n  const selected_entity = states['sensor.selected_spool'].state;\n  const spool_id = states[selected_entity].attributes.id;\n  const spool_entity = states[selected_entity];\n\n  const date = spool_entity?.attributes?.extra_desiccant_filled;\n  if (!date) return '—';\n\n  const filled = new Date(date);\n  const now = new Date();\n  const days = Math.floor((now - filled) / 86400000);\n\n  let ago;\n  if (days < 7) ago = `${days}d ago`;\n  else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;\n  else ago = `${Math.floor(days / 30)}mo ago`;\n\n  return `${filled.toLocaleDateString('en-US')} (${ago})`;\n]]]\n",
+                  "label": "[[[\n  const selected_entity = states['sensor.selected_spool'].state;\n  const spool_id = states[selected_entity].attributes.id;\n  const spool_entity = states[selected_entity];\n\n  const date = spool_entity?.attributes?.extra_desiccant_filled;\n  if (!date) return '\u2014';\n\n  const filled = new Date(date);\n  const now = new Date();\n  const days = Math.floor((now - filled) / 86400000);\n\n  let ago;\n  if (days < 7) ago = `${days}d ago`;\n  else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;\n  else ago = `${Math.floor(days / 30)}mo ago`;\n\n  return `${filled.toLocaleDateString('en-US')} (${ago})`;\n]]]\n",
                   "styles": {
                     "grid": [
                       {
