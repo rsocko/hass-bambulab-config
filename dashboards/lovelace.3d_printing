@@ -388,19 +388,8 @@
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_1';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_1';\n  const activeTray = states['sensor.ntk_ryansoffice_3dprinter_active_tray'];\n  const activeTrayUuid = activeTray?.attributes?.tray_uuid;\n  const thisTrayUuid = states[trayEntity]?.attributes?.tray_uuid;\n  const isActive = activeTrayUuid && thisTrayUuid && activeTrayUuid === thisTrayUuid;\n  \n  // Get tray color for border\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const trayColor = map?.[tray]?.color;\n  const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -411,7 +400,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -428,7 +417,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -451,8 +440,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -460,7 +449,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -469,7 +458,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -520,19 +510,8 @@
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_2';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_2';\n  const activeTray = states['sensor.ntk_ryansoffice_3dprinter_active_tray'];\n  const activeTrayUuid = activeTray?.attributes?.tray_uuid;\n  const thisTrayUuid = states[trayEntity]?.attributes?.tray_uuid;\n  const isActive = activeTrayUuid && thisTrayUuid && activeTrayUuid === thisTrayUuid;\n  \n  // Get tray color for border\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const trayColor = map?.[tray]?.color;\n  const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -543,7 +522,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -560,7 +539,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -583,8 +562,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -592,7 +571,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -601,7 +580,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -652,19 +632,8 @@
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_3';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_3';\n  const activeTray = states['sensor.ntk_ryansoffice_3dprinter_active_tray'];\n  const activeTrayUuid = activeTray?.attributes?.tray_uuid;\n  const thisTrayUuid = states[trayEntity]?.attributes?.tray_uuid;\n  const isActive = activeTrayUuid && thisTrayUuid && activeTrayUuid === thisTrayUuid;\n  \n  // Get tray color for border\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const trayColor = map?.[tray]?.color;\n  const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -675,7 +644,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -692,7 +661,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -715,8 +684,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -724,7 +693,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -733,7 +702,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -784,19 +754,8 @@
                             "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_1_tray_4';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_4';\n  const activeTray = states['sensor.ntk_ryansoffice_3dprinter_active_tray'];\n  const activeTrayUuid = activeTray?.attributes?.tray_uuid;\n  const thisTrayUuid = states[trayEntity]?.attributes?.tray_uuid;\n  const isActive = activeTrayUuid && thisTrayUuid && activeTrayUuid === thisTrayUuid;\n  \n  // Get tray color for border\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const trayColor = map?.[tray]?.color;\n  const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -807,7 +766,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -824,7 +783,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -847,8 +806,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -856,7 +815,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -865,7 +824,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     }
@@ -935,19 +895,8 @@
                             "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
-                          "styles": {
-                            "card": [
-                              {
-                                "padding": "6px"
-                              },
-                              {
-                                "background": "none"
-                              },
-                              {
-                                "box-shadow": "none"
-                              }
-                            ],
-                            "grid": [
+                          "styles": "[[[\n  const tray = 'ams_2_tray_1';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_1';\n  const activeTray = states['sensor.ntk_ryansoffice_3dprinter_active_tray'];\n  const activeTrayUuid = activeTray?.attributes?.tray_uuid;\n  const thisTrayUuid = states[trayEntity]?.attributes?.tray_uuid;\n  const isActive = activeTrayUuid && thisTrayUuid && activeTrayUuid === thisTrayUuid;\n  \n  // Get tray color for border\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const trayColor = map?.[tray]?.color;\n  const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],
+                            grid: [
                               {
                                 "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\""
                               },
@@ -958,7 +907,7 @@
                                 "grid-template-rows": "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
                                 "font-size": "12px"
                               },
@@ -975,7 +924,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -998,8 +947,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1007,7 +956,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1016,7 +965,8 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]\n"
                         }
                       ]
                     },
@@ -1107,7 +1057,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -1130,8 +1080,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1139,7 +1089,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1148,7 +1098,9 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]
+"
                         }
                       ]
                     },
@@ -1239,7 +1191,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -1262,8 +1214,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1271,7 +1223,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1280,7 +1232,9 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]
+"
                         }
                       ]
                     },
@@ -1371,7 +1325,7 @@
                                 "padding-bottom": "2px"
                               }
                             ],
-                            "label": [
+                            label: [
                               {
                                 "font-size": "9px"
                               },
@@ -1394,8 +1348,8 @@
                                 "padding-bottom": "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "desiccant_icon": [
+                            custom_fields: {
+                              desiccant_icon: [
                                 {
                                   "justify-self": "start"
                                 },
@@ -1403,7 +1357,7 @@
                                   "padding-left": "4px"
                                 }
                               ],
-                              "remaining_weight": [
+                              remaining_weight: [
                                 {
                                   "justify-self": "end"
                                 },
@@ -1412,7 +1366,9 @@
                                 }
                               ]
                             }
-                          }
+                          };
+]]]
+"
                         }
                       ]
                     }
