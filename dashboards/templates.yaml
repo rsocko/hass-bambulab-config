@@ -29,6 +29,7 @@ sensor:
           {% set tray_type = state_attr(tray_entity, 'type') %}
           {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') %}
           {% set tray_color = state_attr(tray_entity, 'color') | lower %}
+          {% set tray_color_raw = tray_color %}
           
           {# --- EMPTY TRAY HANDLING --- #} 
           {% if tray_type == 'Empty' %}
@@ -38,7 +39,8 @@ sensor:
                 'name': 'Empty', 
                 'desiccant': none, 
                 'filled': none, 
-                'status': 'empty' 
+                'status': 'empty',
+                'color': none
               }
             }) %}
             {% continue %}
@@ -115,7 +117,8 @@ sensor:
                 'name': spool_name,
                 'desiccant': desiccant,
                 'filled': filled,
-                'status': status
+                'status': status,
+                'color': tray_color
               }
             }) %}
           {% else %}
@@ -125,7 +128,8 @@ sensor:
                 'name': none,
                 'desiccant': none,
                 'filled': none,
-                'status': 'undefined'
+                'status': 'undefined',
+                'color': tray_color
               }
             }) %}
           {% endif %}
