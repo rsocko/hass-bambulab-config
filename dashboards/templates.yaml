@@ -19,6 +19,7 @@ sensor:
 
         {% set spool_entities = states.sensor
           | selectattr('entity_id', 'match', 'sensor\\.spoolman_spool_\\d+$')
+          | rejectattr('attributes.extra_sealed', 'equalto', true)
           | list
         %}
 
@@ -39,7 +40,8 @@ sensor:
                 'desiccant': none, 
                 'filled': none, 
                 'status': 'empty',
-                'color': none
+                'color': none,
+                'reason': none
               }
             }) %}
             {% continue %}
@@ -58,6 +60,7 @@ sensor:
           
           {% set match = none %}
           {% set spool_entity = none %}
+          {% set match_reason = none %}
 
           {% if tray_uuid and tray_uuid != '' and tray_uuid != '00000000000000000000000000000000' %}
             {# Match by tray_uuid #}
@@ -65,6 +68,12 @@ sensor:
               | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid)
               | list
             %}
+            {% if match | length > 1 %}
+              {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid ~ ' - ensure UUIDs are unique' %}
+              {% set match = [] %}
+            {% elif match | length == 0 %}
+              {% set match_reason = 'No unsealed spool with UUID ' ~ tray_uuid %}
+            {% endif %}
           {% else %}
             {# Fallback: Match by color, exclude Bambu Lab filament #}
             {% set match = spool_entities
@@ -72,6 +81,12 @@ sensor:
               | rejectattr('attributes.filament_vendor_name', 'equalto', 'Bambu Lab')
               | list
             %}
+            {% if match | length > 1 %}
+              {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color %}
+              {% set match = [] %}
+            {% elif match | length == 0 %}
+              {% set match_reason = 'No unsealed spool with color #' ~ tray_color %}
+            {% endif %}
           {% endif %}
 
           {% if match %}
@@ -117,18 +132,20 @@ sensor:
                 'desiccant': desiccant,
                 'filled': filled,
                 'status': status,
-                'color': tray_color
+                'color': tray_color,
+                'reason': none
               }
             }) %}
           {% else %}
             {% set ns.result = ns.result | combine({
               tray_name: {
                 'spool_id': none,
-                'name': none,
+                'name': 'Unknown Filament',
                 'desiccant': none,
                 'filled': none,
                 'status': 'undefined',
-                'color': tray_color
+                'color': tray_color,
+                'reason': match_reason
               }
             }) %}
           {% endif %}
