@@ -2,32 +2,49 @@
 
 ## Overview
 
-This feature adds a visual indicator to the AMS tray spool cards displayed below the AMS card in the 3D printing dashboard. When a tray is actively being used by the printer, its corresponding spool card will display a colored border matching the filament color, similar to how the AMS card itself indicates the active tray.
+This feature adds a visual indicator to the AMS tray spool cards and external spool card displayed below the AMS card in the 3D printing dashboard. When a tray is actively being used by the printer, its corresponding spool card will display a cyan border matching the style used by the Bambu Lab AMS card itself.
 
 ## Implementation
 
 ### How it Works
 
-1. **Active Tray Detection**: The feature uses the `sensor.ntk_ryansoffice_3dprinter_active_tray` sensor which provides a `tray_uuid` attribute indicating which tray is currently active.
+1. **Active Tray Detection**: The feature uses the `sensor.ntk_ryansoffice_3dprinter_active_tray` sensor which provides a state value indicating which tray is currently active:
+   - States `'1'` through `'8'`: AMS trays (1-4 for AMS 1, 5-8 for AMS 2)
+   - State `'254'`: External spool  
+   - State `'255'`: No active tray
 
-2. **UUID Matching**: Each tray entity (e.g., `sensor.p1s_01p00c460102350_ams_1_tray_1`) also has a `tray_uuid` attribute. The code compares these UUIDs to determine if a specific tray is the active one.
+2. **Tray Number Matching**: The code compares the active_tray sensor state directly with the tray number to determine if a specific tray is active. This approach works for both Bambu and non-Bambu spools since it doesn't require UUID matching.
 
-3. **Dynamic Border Styling**: When a tray is active, the button-card applies:
-   - A 3px solid border using the filament color from `sensor.spoolman_tray_map`
+3. **Consistent Border Styling**: When a tray is active, the button-card applies:
+   - A 3px solid border in **cyan** (#2196F3) - the same color used by the Bambu AMS card
    - An 8px border-radius for a rounded appearance
-   - Falls back to `var(--primary-color)` if no color is available
+   - Works consistently on both light and dark backgrounds
 
 ### Code Structure
 
 The implementation uses JavaScript template syntax in the `styles` field of each button-card:
 
 ```javascript
-"styles": "[[[\n  const tray = 'ams_1_tray_1';\n  const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_1';\n  const activeTray = states['sensor.ntk_ryansoffice_3dprinter_active_tray'];\n  const activeTrayUuid = activeTray?.attributes?.tray_uuid;\n  const thisTrayUuid = states[trayEntity]?.attributes?.tray_uuid;\n  const isActive = activeTrayUuid && thisTrayUuid && activeTrayUuid === thisTrayUuid;\n  \n  // Get tray color for border\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const trayColor = map?.[tray]?.color;\n  const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])\n    ],\n    // ... rest of styles\n  };\n]]]\n"
+"styles": "[[[\n  const tray = 'ams_1_tray_1';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '1';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': \`3px solid \${borderColor}\` }, { 'border-radius': '8px' }] : [])\n    ],\n    // ... rest of styles\n  };\n]]]\n"
 ```
+
+### Tray Number Mapping
+
+| Tray Name | Active State Value | Description |
+|-----------|-------------------|-------------|
+| ams_1_tray_1 | `'1'` | AMS 1, Slot 1 |
+| ams_1_tray_2 | `'2'` | AMS 1, Slot 2 |
+| ams_1_tray_3 | `'3'` | AMS 1, Slot 3 |
+| ams_1_tray_4 | `'4'` | AMS 1, Slot 4 |
+| ams_2_tray_1 | `'5'` | AMS 2, Slot 1 |
+| ams_2_tray_2 | `'6'` | AMS 2, Slot 2 |
+| ams_2_tray_3 | `'7'` | AMS 2, Slot 3 |
+| ams_2_tray_4 | `'8'` | AMS 2, Slot 4 |
+| external_spool | `'254'` | External spool holder |
 
 ### Coverage
 
-The feature is implemented for all 8 AMS trays:
+The feature is implemented for all 9 filament sources:
 - ✅ AMS 1 - Tray 1 (ams_1_tray_1)
 - ✅ AMS 1 - Tray 2 (ams_1_tray_2)
 - ✅ AMS 1 - Tray 3 (ams_1_tray_3)
@@ -36,34 +53,38 @@ The feature is implemented for all 8 AMS trays:
 - ✅ AMS 2 - Tray 2 (ams_2_tray_2)
 - ✅ AMS 2 - Tray 3 (ams_2_tray_3)
 - ✅ AMS 2 - Tray 4 (ams_2_tray_4)
+- ✅ External Spool (external_spool)
 
 ## Visual Behavior
 
 ### When Active
 - The spool card displays a **3px solid border**
-- Border color matches the **filament color** from the spool
+- Border color is **#2196F3** (Material Blue/cyan)
 - Border has an **8px radius** for smooth corners
+- Color provides excellent contrast on both light and dark Home Assistant themes
 - All existing card styling (padding, background, etc.) is preserved
 
 ### When Inactive
 - No border is shown (box-shadow: none)
 - Card appears with default transparent background
-- No visual difference from the previous implementation
+- Same visual appearance as before the feature was added
+
+### Advantages Over Previous Implementation
+
+The new implementation has several improvements over the UUID-based approach:
+
+1. **Works with all spools**: Non-Bambu spools don't have UUIDs but will still show the active border
+2. **Simpler logic**: Direct state comparison is faster and more reliable than UUID matching
+3. **Consistent color**: Cyan border is easily visible regardless of filament color
+4. **Better UX**: Matches the visual style of the official Bambu AMS card
+5. **Dark/light theme support**: #2196F3 provides good contrast in all themes
 
 ## Dependencies
 
 ### Sensors Required
 1. **sensor.ntk_ryansoffice_3dprinter_active_tray**
-   - Provides: `tray_uuid` attribute
+   - Provides: State value (`'1'`-`'8'` for AMS, `'254'` for external, `'255'` for none)
    - Updated by printer when active tray changes
-
-2. **sensor.spoolman_tray_map**
-   - Provides: Color information for each tray
-   - Located in: `dashboards/templates.yaml`
-
-3. **Tray Entity Sensors**
-   - Format: `sensor.p1s_01p00c460102350_ams_[1-2]_tray_[1-4]`
-   - Provides: `tray_uuid` attribute for matching
 
 ### Custom Cards
 - **custom:button-card** - Used for spool display cards
@@ -99,15 +120,26 @@ To adjust the corner rounding:
 
 ### Using a Different Color
 
-To use a fixed color instead of the filament color:
+To use a different highlight color:
 
 ```javascript
 // Replace:
-const borderColor = trayColor ? '#' + trayColor : 'var(--primary-color)';
+const borderColor = '#2196F3';
 
-// With (example: always use blue):
-const borderColor = '#0066cc';
+// With (example: green):
+const borderColor = '#4CAF50';
+
+// Or (example: orange):
+const borderColor = '#FF9800';
 ```
+
+Some alternative colors that work well on both light and dark backgrounds:
+- `#2196F3` - Material Blue (current/default)
+- `#00BCD4` - Cyan
+- `#03A9F4` - Light Blue
+- `#4CAF50` - Green
+- `#FF9800` - Orange
+- `#F44336` - Red
 
 ### Adding a Glow Effect
 
@@ -117,7 +149,7 @@ To add a subtle glow/shadow to the border:
 ...(isActive ? [
   { 'border': `3px solid ${borderColor}` }, 
   { 'border-radius': '8px' },
-  { 'box-shadow': `0 0 10px ${borderColor}40` }  // Add 40 for 25% opacity
+  { 'box-shadow': `0 0 10px ${borderColor}60` }  // Add 60 for 38% opacity
 ] : [])
 ```
 
@@ -131,31 +163,45 @@ To add a subtle glow/shadow to the border:
 
 1. **Active tray sensor unavailable**
    - Check if `sensor.ntk_ryansoffice_3dprinter_active_tray` exists
-   - Verify the sensor has a valid `tray_uuid` attribute
+   - Verify the sensor has a valid state value ('1'-'8' or '254')
 
-2. **UUID mismatch**
-   - Ensure tray entities have `tray_uuid` attributes
-   - Verify UUIDs match between active_tray sensor and tray entities
+2. **Sensor in wrong state**
+   - Check if sensor state is '255' (no active tray)
+   - Verify a print is actually running
 
-3. **Spoolman integration issue**
-   - Check `sensor.spoolman_tray_map` is available
-   - Verify tray_map contains color data for the tray
+3. **JavaScript template error**
+   - Open browser console (F12) and check for errors
+   - Verify button-card is properly installed
 
 ### Wrong Tray Highlighted
 
 **Problem**: Border appears on the wrong tray
 
-**Cause**: The tray entity name or tray key doesn't match
+**Cause**: Incorrect tray number mapping
 
-**Solution**: Verify the `tray` variable and `trayEntity` variable match your actual entity names in the JavaScript template.
+**Solution**: Verify the tray number in the JavaScript template matches the expected value:
+- AMS 1 trays should use '1'-'4'
+- AMS 2 trays should use '5'-'8'
+- External spool should use '254'
 
 ### Border Always Shows
 
 **Problem**: Border appears even when tray is not active
 
-**Cause**: Logic error in isActive calculation
+**Cause**: Logic error or incorrect state value
 
-**Solution**: Check browser console for JavaScript errors in the button-card template.
+**Solution**: 
+- Check the active_tray sensor state in Home Assistant developer tools
+- Verify the comparison is using strict equality (`===`)
+- Ensure quotes around the number (`'1'` not `1`)
+
+### External Spool Not Highlighting
+
+**Problem**: External spool doesn't show border when active
+
+**Cause**: Incorrect state value comparison
+
+**Solution**: Verify the external spool uses state value '254' (not '255' which means no active tray)
 
 ## Related Features
 
@@ -164,21 +210,40 @@ To add a subtle glow/shadow to the border:
 
 ## Files Modified
 
-- `dashboards/lovelace.3d_printing` - Main dashboard configuration containing all 8 AMS tray button-cards
+- `dashboards/lovelace.3d_printing` - Main dashboard configuration containing all 9 spool button-cards
+- `dashboards/docs/active-spool-border.md` - This documentation file
 
-## Future Enhancements
+## Technical Notes
 
-Potential improvements:
+### Why Tray Number Instead of UUID?
 
-1. **Animation** - Add a subtle pulse or fade effect when tray becomes active
-2. **Additional Visual Indicators** - Include an icon or badge showing "ACTIVE" text
-3. **Configurable Colors** - Allow user to choose border color scheme in UI
-4. **External Spool Support** - Extend feature to external spool card
-5. **Multi-Color Border** - For multi-material prints, show gradient border with all active colors
+The previous implementation used UUID matching which had limitations:
+- **Non-Bambu spools**: Third-party filaments may not have UUIDs in the system
+- **Complexity**: Required matching UUIDs between two different sensors
+- **Reliability**: UUID matching could fail if attributes weren't available
+
+The tray number approach:
+- **Universal**: Works with any spool (Bambu or third-party)
+- **Simple**: Direct state comparison
+- **Reliable**: The active_tray sensor always provides a valid state
+- **Efficient**: No need to access multiple sensor attributes
+
+### Why Cyan Color Instead of Filament Color?
+
+Using the filament color for the border had issues:
+- **Low contrast**: Dark filaments (black, gray) were hard to see
+- **Similar colors**: Multiple similar-colored spools were difficult to distinguish
+- **Theme issues**: Some colors didn't work well on both light and dark themes
+
+The cyan border (#2196F3):
+- **High visibility**: Stands out on any background
+- **Consistent**: Same visual treatment as the official Bambu AMS card
+- **Theme-agnostic**: Works equally well in light and dark modes
+- **Distinctive**: Clearly different from the gray default border
 
 ## Support
 
 For issues or questions about this feature:
 - Check the [main README](../../README.md)
-- Review the [AMS card documentation](https://github.com/AdrianGarside/ha-bambulab) for ha_bambulab integration
+- Review the [ha-bambulab integration](https://github.com/greghesp/ha-bambulab) documentation
 - Reference the [button-card documentation](https://github.com/custom-cards/button-card) for styling options
