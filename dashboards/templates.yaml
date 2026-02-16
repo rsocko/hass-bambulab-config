@@ -70,7 +70,7 @@ sensor:
             %}
             {% if match | length > 1 %}
               {% set match_reason = 'Multiple spools found with same UUID' %}
-              {% set match = none %}
+              {% set match = [] %}
             {% elif match | length == 0 %}
               {% set match_reason = 'No spool found with matching UUID' %}
             {% endif %}
@@ -83,7 +83,7 @@ sensor:
             %}
             {% if match | length > 1 %}
               {% set match_reason = 'Multiple unsealed spools found with same color' %}
-              {% set match = none %}
+              {% set match = [] %}
             {% elif match | length == 0 %}
               {% set match_reason = 'No unsealed spool found with matching color' %}
             {% endif %}
