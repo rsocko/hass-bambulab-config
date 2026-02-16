@@ -25,6 +25,16 @@ Key features:
 - AMS (Automatic Material System) status
 - Spool information and tracking
 
+### Print Details
+The Print Details section includes an enhanced print weight visualization. See [docs/print-weight-bar-chart.md](docs/print-weight-bar-chart.md) for detailed information.
+
+Key features:
+- Horizontal stacked bar chart showing filament usage breakdown
+- Each segment colored with actual filament color
+- Percentage display for each filament (when segment is large enough)
+- Total weight display
+- Dark and light mode compatible with proper borders and contrast
+
 ## Custom Cards Required
 
 The dashboard uses several custom cards that must be installed via HACS:
