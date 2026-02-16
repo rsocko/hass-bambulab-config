@@ -29,7 +29,6 @@ sensor:
           {% set tray_type = state_attr(tray_entity, 'type') %}
           {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') %}
           {% set tray_color = state_attr(tray_entity, 'color') | lower %}
-          {% set tray_color_raw = tray_color %}
           
           {# --- EMPTY TRAY HANDLING --- #} 
           {% if tray_type == 'Empty' %}
