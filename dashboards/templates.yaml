@@ -69,10 +69,10 @@ sensor:
               | list
             %}
             {% if match | length > 1 %}
-              {% set match_reason = 'Multiple spools found with same UUID' %}
+              {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid ~ ' - ensure UUIDs are unique' %}
               {% set match = [] %}
             {% elif match | length == 0 %}
-              {% set match_reason = 'No spool found with matching UUID' %}
+              {% set match_reason = 'No unsealed spool with UUID ' ~ tray_uuid %}
             {% endif %}
           {% else %}
             {# Fallback: Match by color, exclude Bambu Lab filament #}
@@ -82,10 +82,10 @@ sensor:
               | list
             %}
             {% if match | length > 1 %}
-              {% set match_reason = 'Multiple unsealed spools found with same color' %}
+              {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color %}
               {% set match = [] %}
             {% elif match | length == 0 %}
-              {% set match_reason = 'No unsealed spool found with matching color' %}
+              {% set match_reason = 'No unsealed spool with color #' ~ tray_color %}
             {% endif %}
           {% endif %}
 
