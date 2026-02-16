@@ -377,7 +377,7 @@
                         {
                           "type": "custom:button-card",
                           "entity": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? `sensor.spoolman_spool_${spoolId}`\n    : 'sensor.p1s_01p00c460102350_ams_1_tray_1';\n]]]\n",
-                          "name": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const name = map?.[tray]?.name ?? 'EMPTY';\n  const reason = map?.[tray]?.reason;\n  return reason ? name : name;\n]]]\n",
+                          "name": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.name ?? 'EMPTY';\n]]]\n",
                           "label": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  return map?.[tray]?.reason ?? '';\n]]]\n",
                           "show_state": false,
                           "show_icon": false,
