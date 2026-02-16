@@ -50,8 +50,8 @@
                       }
                     ]
                   }
-                }
-              ]
+                },
+                {
                   "type": "custom:bubble-card",
                   "card_type": "button",
                   "button_type": "state",
