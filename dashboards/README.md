@@ -1,0 +1,116 @@
+# Dashboard Documentation
+
+This directory contains the Home Assistant dashboards for the 3D Printer monitoring system.
+
+## Files
+
+- **lovelace.3d_printing** - Main 3D printer dashboard configuration (JSON format)
+- **templates.yaml** - Reusable card templates
+- **docs/** - Documentation for dashboard features and customization
+
+## Dashboard Features
+
+### Top Bar
+The dashboard features a prominent top bar with status information optimized for readability on both desktop and mobile devices. See [docs/top-bar-layout.md](docs/top-bar-layout.md) for detailed information.
+
+Key features:
+- Real-time print status and progress
+- Time remaining and estimated completion time
+- Live camera feeds
+- Health monitoring system (HMS) error status
+
+### Main Content Area
+- Bambu Lab print status card with controls
+- Advanced camera card with multiple views
+- AMS (Automatic Material System) status
+- Spool information and tracking
+
+## Custom Cards Required
+
+The dashboard uses several custom cards that must be installed via HACS:
+
+1. **ha-bambulab-print_status-card** - Bambu Lab specific print status
+2. **ha-bambulab-ams-card** - AMS tray monitoring
+3. **ha-bambulab-spool-card** - Filament spool information
+4. **bubble-card** - Modern card design for status info
+5. **mushroom** - Minimalist cards for sensors
+6. **advanced-camera-card** - Enhanced camera viewing
+7. **config-template-card** - Dynamic card templates
+8. **button-card** - Customizable button cards
+9. **auto-entities** - Dynamic entity lists
+10. **vertical-layout** - Layout control
+11. **grid-layout** - Grid layout control
+12. **card-mod** (optional) - Custom styling
+
+## Installation
+
+1. Install all required custom cards via HACS
+2. Copy the dashboard configuration to your Home Assistant instance
+3. Update entity names to match your Bambu Lab printer configuration
+4. Reload the dashboard
+
+## Configuration
+
+### Entity Naming
+The dashboard expects entities with the following naming pattern:
+- `sensor.ntk_ryansoffice_3dprinter_*` - Various printer sensors
+- `camera.ntk_ryansoffice_3dprinter_camera` - Printer camera
+- `binary_sensor.ntk_ryansoffice_3dprinter_hms_errors` - HMS errors
+
+Update these to match your actual entity names.
+
+### Printer ID
+Update the printer ID in the Bambu Lab card configuration:
+```json
+"printer": "YOUR_PRINTER_ID_HERE"
+```
+
+### Power Switch
+If you have a smart switch controlling printer power, update:
+```json
+"custom_power": "switch.YOUR_POWER_SWITCH"
+```
+
+## Customization
+
+### Top Bar Layout
+See [docs/top-bar-layout.md](docs/top-bar-layout.md) for details on customizing the top bar, including:
+- Changing grid columns
+- Adjusting font sizes
+- Adding new cards
+- Modifying colors and icons
+
+### Themes
+The dashboard automatically adapts to your Home Assistant theme. For best results, use a theme with good contrast.
+
+## Troubleshooting
+
+### Cards Not Appearing
+1. Verify all custom cards are installed
+2. Check browser console for errors
+3. Verify entity names match your configuration
+4. Clear browser cache and hard reload
+
+### Mobile Layout Issues
+1. Ensure you're using the latest Home Assistant mobile app
+2. Try rotating device to force layout recalculation
+3. Check that `columns` setting is appropriate for screen size
+
+### Styling Not Applied
+1. Verify card-mod is installed if using custom styles
+2. Check for CSS syntax errors in style sections
+3. Clear browser cache after making changes
+
+## Contributing
+
+When making changes to the dashboard:
+1. Test on both desktop and mobile views
+2. Verify JSON syntax is valid
+3. Document any new custom cards required
+4. Update this README if adding new features
+
+## Related Resources
+
+- [Home Assistant Lovelace Documentation](https://www.home-assistant.io/lovelace/)
+- [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)
+- [HACS - Custom Card Installation](https://hacs.xyz/)
