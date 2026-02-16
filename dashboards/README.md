@@ -25,6 +25,18 @@ Key features:
 - AMS (Automatic Material System) status
 - Spool information and tracking
 
+### AMS Tray Popup
+Interactive popup dialogs for detailed spool information. See [docs/ams-tray-popup.md](docs/ams-tray-popup.md) for detailed information.
+
+Key features:
+- Click any AMS tray to open detailed spool information
+- Color-coded filament display with brightness-adjusted text
+- 7-day weight history chart
+- Desiccant status tracking with age-based color indicators
+- One-click desiccant reset button
+- Direct link to Spoolman web interface
+- Fallback display for unmatched or empty trays
+
 ### Print Details
 The Print Details section includes an enhanced print weight visualization. See [docs/print-weight-bar-chart.md](docs/print-weight-bar-chart.md) for detailed information.
 
@@ -51,6 +63,7 @@ The dashboard uses several custom cards that must be installed via HACS:
 10. **vertical-layout** - Layout control
 11. **grid-layout** - Grid layout control
 12. **card-mod** (optional) - Custom styling
+13. **browser-mod** - Required for AMS tray popup dialogs
 
 ## Installation
 
