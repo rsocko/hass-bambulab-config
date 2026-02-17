@@ -1,0 +1,43 @@
+alias: Print Started - Backup Print Weight Attributes
+description: >
+  Captures and stores print_weight sensor attributes when a print starts.
+  This backup allows the print completion automation to work correctly
+  even if Home Assistant restarts during the print job.
+triggers:
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_started
+    trigger: device
+conditions: []
+actions:
+  # Wait a moment for the print_weight sensor to be fully populated
+  - delay:
+      seconds: 5
+  
+  # Store the print_weight attributes as JSON
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.print_weight_backup
+    data:
+      value: >
+        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes | tojson }}
+  
+  # Store metadata for validation (task name, start time, total weight)
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.print_metadata_backup
+    data:
+      value: >
+        {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}|{{ now().isoformat() }}|{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}
+  
+  # Log the backup action
+  - action: logbook.log
+    metadata: {}
+    data:
+      name: Print Weight Backup
+      message: >
+        Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+        Print weight attributes backed up. Total weight: {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+        Backup will be used if HA restarts during print.
+
+mode: restart
