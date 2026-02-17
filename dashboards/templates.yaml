@@ -46,6 +46,24 @@ sensor:
             }) %}
             {% continue %}
           {% endif %}
+          
+          {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
+          {# External spool doesn't have 'type' attribute, check UUID and color instead #}
+          {% if (not tray_uuid or tray_uuid == '' or tray_uuid == '00000000000000000000000000000000') 
+                and (not tray_color or tray_color == '' or tray_color == 'none') %}
+            {% set ns.result = ns.result | combine({ 
+              tray_name: { 
+                'spool_id': none, 
+                'name': 'Empty', 
+                'desiccant': none, 
+                'filled': none, 
+                'status': 'empty',
+                'color': none,
+                'reason': none
+              }
+            }) %}
+            {% continue %}
+          {% endif %}
           {# -------------------------------- #}
 
           {# Normalize tray color: remove '#' and strip transparency characters if 8 hex digits #}
