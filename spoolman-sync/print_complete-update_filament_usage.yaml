@@ -114,6 +114,18 @@ actions:
                   data:
                     id: "{{ find_spool_response.spool.id }}"
                     use_weight: "{{ tray_print_weight }}"
+                - action: system_log.write
+                  metadata: {}
+                  data:
+                    message: >-
+                      Print Complete: Successfully updated filament usage in
+                      Spoolman for {{ tray_name }}. Task: {{
+                      states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+                      Spool ID {{ find_spool_response.spool.id }} ({{
+                      find_spool_response.spool.filament.name }}). Used {{
+                      tray_print_weight }} grams.
+                    level: info
+                    logger: homeassistant.components.bambulab.spoolman_sync
                 - action: logbook.log
                   metadata: {}
                   data:
@@ -160,6 +172,19 @@ actions:
                       Cannot update Spoolman with print weight usage information
                       due to issue finding the correct spool. Error message: "{{
                       find_spool_response.Message }}"
+                - action: system_log.write
+                  metadata: {}
+                  data:
+                    message: >-
+                      Print Complete ERROR: Cannot find spool in Spoolman for {{
+                      tray_name }}. Task: {{
+                      states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+                      UUID: {{ selected_tray.uuid }}, Type: {{ selected_tray.type
+                      }}, Color: {{ selected_tray.color }}. Used {{
+                      tray_print_weight }} grams. Error: {{
+                      find_spool_response.Message }}
+                    level: error
+                    logger: homeassistant.components.bambulab.spoolman_sync
               alias: Active Tray UUID is NOT empty (eg Bambu Spool)
       for_each: "{{ ams_tray_list }}"
 mode: single
