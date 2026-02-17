@@ -40,6 +40,10 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [Monitor humidity levels in room and AMS units](humidity/README.md)
+  - Real-time humidity and temperature tracking
+  - Color-coded status indicators for filament storage
+  - Optional integration with humidity-intelligence package
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -54,4 +58,7 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update the First and Last used information for a given spool in Spoolman
   
 - **Dashboard / Widgets**
-- 
+  - Humidity monitoring cards for room and AMS units
+  - Fan control cards for printer and enclosure fans
+  - Print status and AMS tray displays
+
