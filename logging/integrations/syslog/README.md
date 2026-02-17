@@ -306,7 +306,7 @@ Configure `/etc/stunnel/stunnel.conf`:
 ```conf
 [syslog-tls]
 client = yes
-accept = 127.0.0.1:601
+accept = 127.0.0.1:6010
 connect = remote-server:6514
 cert = /etc/stunnel/cert.pem
 key = /etc/stunnel/key.pem
@@ -314,7 +314,7 @@ key = /etc/stunnel/key.pem
 
 Update rsyslog to forward to stunnel:
 ```conf
-*.* @@127.0.0.1:601
+*.* @@127.0.0.1:6010
 ```
 
 ## Filtering
