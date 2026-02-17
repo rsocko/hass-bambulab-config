@@ -30,6 +30,9 @@ Two temperature cards showing:
 2. **Scroll to bottom** for the "COMBINED HORIZONTAL STACK" section
 3. Copy the entire section (starts with `type: horizontal-stack`)
 4. Replace **all** instances of `YOUR_PRINTER_NAME` with your printer name
+   - ⚠️ **Use Find & Replace** (Ctrl+H) to update all 12+ instances at once
+   - Find: `YOUR_PRINTER_NAME`
+   - Replace: `your_actual_printer_name` (e.g., `bambulab_x1c`)
 5. Paste into your Home Assistant dashboard:
    - Edit Dashboard → Add Card → Manual Card → Paste → Save
 

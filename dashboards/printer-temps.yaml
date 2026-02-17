@@ -7,6 +7,13 @@
 # 1. Copy the cards below into your Home Assistant dashboard
 # 2. Replace 'YOUR_PRINTER_NAME' with your actual printer entity name
 #    (e.g., 'ntk_ryansoffice_3dprinter')
+#    
+#    ⚠️ IMPORTANT: Use Find & Replace to update ALL instances!
+#    - Find: YOUR_PRINTER_NAME
+#    - Replace: your_actual_printer_name
+#    - Each card section contains 6+ instances that must ALL be replaced
+#    - Missing even one will cause inconsistent behavior
+#
 # 3. Ensure you have the following custom cards installed from HACS:
 #    - Mushroom Cards (required)
 #    - card-mod (required for styling)
