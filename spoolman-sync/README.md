@@ -21,6 +21,17 @@ This script simply forced a reload of the integration on a nightly basis.
 
 [Automation Details](docs/reload_spoolman_integration_nightly.md) | [Source .YAML](reload_spoolman_integration_nightly.yaml)
 
+## Features
+### System Logging
+All automations now include persistent system logging using Home Assistant's `system_log.write` service. This provides:
+- ✅ Durable log retention that persists across HA restarts (unlike notifications)
+- ✅ Complete error messages with full context for troubleshooting
+- ✅ Success logging for key operations (filament updates, spool changes)
+- ✅ Standard log levels (info, warning, error) for filtering
+- ✅ Integration with Home Assistant's logging infrastructure
+
+[System Logging Documentation](docs/system_logging.md)
+
 ## Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
