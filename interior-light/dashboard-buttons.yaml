@@ -4,6 +4,7 @@
 # to quickly reset the printer's interior light to white.
 #
 # Choose ONE of the options below based on your preference and installed custom cards.
+# Copy only the configuration you want to use (not the entire file).
 
 # ========================================
 # Option 1: Mushroom Template Card (Recommended)
@@ -29,8 +30,6 @@ card_mod:
       border-left: 3px solid var(--amber-color);
     }
 
----
-
 # ========================================
 # Option 2: Button Card (Standard)
 # ========================================
@@ -48,8 +47,6 @@ show_name: true
 show_icon: true
 icon_height: 40px
 
----
-
 # ========================================
 # Option 3: Entity Button (Minimal)
 # ========================================
@@ -63,8 +60,6 @@ tap_action:
   action: call-service
   service: script.reset_interior_light_to_white
   data: {}
-
----
 
 # ========================================
 # Option 4: Bubble Card (Modern UI)
@@ -90,8 +85,6 @@ styles: |
     font-size: 16px !important;
     font-weight: 600;
   }
-
----
 
 # ========================================
 # Option 5: Horizontal Stack with Light Control

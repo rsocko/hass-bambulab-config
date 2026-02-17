@@ -46,8 +46,6 @@ automation:
           level: info
           logger: homeassistant.components.bambulab.interior_light
 
----
-
   # ========================================
   # Automation 2: Reset Interior Light on Print Complete
   # ========================================
@@ -77,8 +75,6 @@ automation:
           message: "Interior light reset to white after print completion"
           level: info
           logger: homeassistant.components.bambulab.interior_light
-
----
 
   # ========================================
   # Automation 3: Reset Interior Light When Printer Becomes Idle

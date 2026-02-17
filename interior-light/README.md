@@ -216,12 +216,12 @@ Then add buttons for each preset to your dashboard!
 
 ### For ESP32 Screen Integration
 - The script can be called from ESPHome using Home Assistant API
-- See `ESP32_INTEGRATION.md` for details (coming soon)
+- See `ESP32_INTEGRATION.md` for details
 
 ### For Physical Button Integration
 - Connect a physical button to your Home Assistant setup
 - Configure it to call `script.reset_interior_light_to_white`
-- See `PHYSICAL_BUTTON_INTEGRATION.md` for details (coming soon)
+- See `PHYSICAL_BUTTON_INTEGRATION.md` for details
 
 ### For Voice Control
 Add this to Google Assistant or Alexa:
