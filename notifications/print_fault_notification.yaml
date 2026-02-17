@@ -1,0 +1,129 @@
+alias: Print Fault - Error Notification with Snapshot
+description: >
+  Sends a notification with camera snapshot when a print encounters an error or fault.
+  Creates a persistent notification that requires dismissal.
+triggers:
+  - entity_id: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+    to: "on"
+    trigger: state
+    from:
+      - "off"
+      - unavailable
+
+conditions:
+  - condition: state
+    entity_id: input_boolean.printer_notifications_enabled
+    state: "on"
+
+actions:
+  - variables:
+      printer_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') }}"
+      camera_entity: "camera.ntk_ryansoffice_3dprinter_camera"
+      snapshot_light: "{{ states('input_text.printer_snapshot_light') }}"
+      notification_service: "{{ states('input_text.printer_notification_service') }}"
+      fault_message_template: "{{ states('input_text.printer_fault_message') }}"
+
+  # Turn on snapshot light if configured
+  - if:
+      - condition: template
+        value_template: "{{ snapshot_light != '' and snapshot_light != 'unavailable' }}"
+    then:
+      - action: light.turn_on
+        target:
+          entity_id: "{{ snapshot_light }}"
+        data:
+          brightness_pct: "{{ states('input_number.printer_snapshot_light_brightness') | int }}"
+      
+      # Wait for light to reach full brightness
+      - delay:
+          seconds: 1
+
+  # Capture camera snapshot
+  - action: camera.snapshot
+    target:
+      entity_id: "{{ camera_entity }}"
+    data:
+      filename: "/config/www/printer_snapshots/{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
+
+  # Restore light state if it was turned on
+  - if:
+      - condition: template
+        value_template: "{{ snapshot_light != '' and snapshot_light != 'unavailable' }}"
+    then:
+      - delay:
+          seconds: 1
+      - action: light.turn_off
+        target:
+          entity_id: "{{ snapshot_light }}"
+
+  # Build notification message with template support
+  - variables:
+      notification_message: >
+        {% set msg = fault_message_template %}
+        {% set msg = msg | replace('{{printer_name}}', printer_name) %}
+        {% set msg = msg | replace('{{task_name}}', task_name) %}
+        {% set msg = msg | replace('{{print_status}}', print_status) %}
+        {{ msg }}
+
+  # Send mobile notification with snapshot (CRITICAL)
+  - action: "{{ notification_service }}"
+    data:
+      title: "⚠️ Print Error"
+      message: "{{ notification_message }}"
+      data:
+        image: "/local/printer_snapshots/{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
+        push:
+          interruption-level: critical
+        actions:
+          - action: "URI"
+            title: "View Printer"
+            uri: "/lovelace/3d-printing"
+
+  # Create persistent notification for fault
+  - action: persistent_notification.create
+    data:
+      notification_id: "printer_fault_{{ now().timestamp() | int }}"
+      title: "⚠️ Printer Error"
+      message: >
+        **{{ notification_message }}**
+        
+        Status: {{ print_status }}
+        
+        Time: {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
+        
+        ![Printer Snapshot](/local/printer_snapshots/{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg)
+
+  # Log error
+  - action: system_log.write
+    data:
+      message: >-
+        Print Error: {{ printer_name }} encountered an error during {{ task_name }}.
+        Status: {{ print_status }}
+      level: error
+      logger: homeassistant.components.bambulab.notifications
+
+  - action: logbook.log
+    data:
+      name: Print Error
+      message: "Sent error notification for {{ task_name }}. Status: {{ print_status }}"
+
+  # TTS announcement (always on for errors, but respect quiet hours)
+  - if:
+      - condition: state
+        entity_id: input_boolean.printer_tts_enabled
+        state: "on"
+      - condition: template
+        value_template: "{{ states('input_text.printer_tts_media_player') != '' }}"
+    then:
+      - action: tts.speak
+        target:
+          entity_id: "{{ states('input_text.printer_tts_media_player') }}"
+        data:
+          message: "Alert! {{ notification_message }}"
+          options:
+            volume_level: "{{ states('input_number.printer_tts_volume') | float / 100 }}"
+
+mode: queued
+max: 5

@@ -1,0 +1,68 @@
+alias: Print Started - Notification
+description: >
+  Sends a notification when a print job starts.
+  This is optional but useful for tracking print activity.
+triggers:
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_started
+    trigger: device
+
+conditions:
+  - condition: state
+    entity_id: input_boolean.printer_notifications_enabled
+    state: "on"
+
+actions:
+  - variables:
+      printer_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      notification_service: "{{ states('input_text.printer_notification_service') }}"
+
+  # Send simple notification
+  - action: "{{ notification_service }}"
+    data:
+      title: "Print Started"
+      message: "{{ printer_name }} started printing {{ task_name }}"
+      data:
+        push:
+          interruption-level: passive
+        actions:
+          - action: "URI"
+            title: "View Printer"
+            uri: "/lovelace/3d-printing"
+
+  # Log start
+  - action: logbook.log
+    data:
+      name: Print Started
+      message: "Print job started: {{ task_name }}"
+
+  # Optional TTS announcement (only if enabled and not in quiet hours)
+  - if:
+      - condition: state
+        entity_id: input_boolean.printer_tts_enabled
+        state: "on"
+      - condition: template
+        value_template: >
+          {% set now_time = now().time() %}
+          {% set quiet_start = state_attr('input_datetime.printer_quiet_hours_start', 'timestamp') | int %}
+          {% set quiet_end = state_attr('input_datetime.printer_quiet_hours_end', 'timestamp') | int %}
+          {% set current_seconds = now_time.hour * 3600 + now_time.minute * 60 + now_time.second %}
+          {% if quiet_start < quiet_end %}
+            {{ current_seconds < quiet_start or current_seconds > quiet_end }}
+          {% else %}
+            {{ current_seconds < quiet_start and current_seconds > quiet_end }}
+          {% endif %}
+      - condition: template
+        value_template: "{{ states('input_text.printer_tts_media_player') != '' }}"
+    then:
+      - action: tts.speak
+        target:
+          entity_id: "{{ states('input_text.printer_tts_media_player') }}"
+        data:
+          message: "{{ printer_name }} started printing {{ task_name }}"
+          options:
+            volume_level: "{{ states('input_number.printer_tts_volume') | float / 100 }}"
+
+mode: single
