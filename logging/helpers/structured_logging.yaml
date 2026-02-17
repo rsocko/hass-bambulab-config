@@ -1,0 +1,85 @@
+# Structured Logging Helper Script
+# 
+# This script provides a consistent way to create structured log entries
+# with context, correlation IDs, and metadata across all automations.
+#
+# Usage:
+#   - service: script.structured_log
+#     data:
+#       message: "Your log message"
+#       level: "info"  # or "warning", "error", "debug"
+#       logger: "homeassistant.components.custom"
+#       context:
+#         operation: "operation_name"
+#         entity_id: "sensor.example"
+#         correlation_id: "unique_id"
+
+structured_log:
+  alias: "Structured Logging"
+  description: "Create structured log entries with context and correlation"
+  mode: parallel
+  max: 100
+  fields:
+    message:
+      description: "The log message"
+      example: "Operation completed successfully"
+      required: true
+      selector:
+        text:
+    level:
+      description: "Log level: debug, info, warning, error, or critical"
+      example: "info"
+      default: "info"
+      selector:
+        select:
+          options:
+            - "debug"
+            - "info"
+            - "warning"
+            - "error"
+            - "critical"
+    logger:
+      description: "Logger name for categorization"
+      example: "homeassistant.components.bambulab.spoolman_sync"
+      default: "homeassistant.components.bambulab"
+      selector:
+        text:
+    context:
+      description: "Additional context as key-value pairs (YAML dict)"
+      example: "{operation: test, entity_id: sensor.example}"
+      required: false
+      selector:
+        object:
+  sequence:
+    # Build structured message with context
+    - variables:
+        # Generate correlation ID if not provided
+        correlation_id: >-
+          {% if context is defined and context.correlation_id is defined %}
+            {{ context.correlation_id }}
+          {% else %}
+            {{ now().timestamp() | string + '_' + range(1000, 9999) | random | string }}
+          {% endif %}
+        
+        # Build context string
+        context_str: >-
+          {% if context is defined and context | length > 0 %}
+            {% set ns = namespace(items=[]) %}
+            {% for key, value in context.items() %}
+              {% set ns.items = ns.items + [key ~ '=' ~ value] %}
+            {% endfor %}
+            [{{ ns.items | join(', ') }}]
+          {% else %}
+            []
+          {% endif %}
+        
+        # Build full structured message
+        structured_message: >-
+          [CID:{{ correlation_id }}] {{ context_str }} {{ message }}
+    
+    # Write to system log
+    - service: system_log.write
+      data:
+        message: "{{ structured_message }}"
+        level: "{{ level }}"
+        logger: "{{ logger }}"

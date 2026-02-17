@@ -97,7 +97,7 @@ actions:
                   value_template: >-
                     {{ repeat.item.extra.spool_uuid | replace('"', '') ==
                     active_tray.uuid }}
-                          
+
                   alias: >-
                     Test if Active Tray UUID matches the Spool UUID from
                     Spoolman
@@ -127,6 +127,16 @@ actions:
             metadata: {}
             data:
               spool: "{{ find_spool_response.spool }}"
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Active Tray Changed: Successfully updated Spoolman last used for
+                Spool ID {{ find_spool_response.spool.id }} ({{
+                find_spool_response.spool.filament.name }}). Active Tray: {{
+                active_tray.name }}, UUID: {{ active_tray.uuid }}
+              level: info
+              logger: homeassistant.components.bambulab.spoolman_sync
           - alias: Update Spoolman UUID if needed (and valid)
             if:
               - alias: >-
@@ -137,8 +147,8 @@ actions:
                   {{ active_tray.uuid is not none and active_tray.uuid | length
                   > 0 and active_tray.uuid | regex_match('^0+$') == false and
                   find_spool_response.spool.extra.spool_uuid | string |
-                  trim('"') | length == 0 and 
-                  find_spool_response.spool.filament.vendor.name == 'Bambu Lab' 
+                  trim('"') | length == 0 and
+                  find_spool_response.spool.filament.vendor.name == 'Bambu Lab'
                   }}
             then:
               - action: spoolman.patch_spool
@@ -148,20 +158,64 @@ actions:
                   extra:
                     spool_uuid: "{{ active_tray.uuid }}"
                 alias: Update UUID in Spoolman for matched Spool
+              - action: system_log.write
+                metadata: {}
+                data:
+                  message: >-
+                    Active Tray Changed: Updated UUID in Spoolman for Spool ID {{
+                    find_spool_response.spool.id }} with UUID {{ active_tray.uuid
+                    }}
+                  level: info
+                  logger: homeassistant.components.bambulab.spoolman_sync
       - conditions:
           - alias: No single matching spool found
             condition: template
             value_template: "{{ find_spool_response.success == false }}"
         sequence:
+          # Log to logbook for visibility
+          - action: logbook.log
+            data:
+              name: Spoolman Active Tray Sync Error
+              message: >-
+                Failed to update last used time for active tray.
+                UUID: {{ active_tray.uuid }}, Color: {{ active_tray.color }}, Type: {{ active_tray.type }}
+                Error: {{ find_spool_response.message }}
+
+          # Create detailed persistent notification
           - action: persistent_notification.create
             metadata: {}
             data:
+              notification_id: "{{ notification_id }}"
               title: "Spoolman Update Error: Cannot Find Spool"
               message: >-
                 Cannot update Spoolman with last used spool information due to
-                issue finding the correct spool. Error message: "{{
-                find_spool_response.Message }}"
-              notification_id: "{{ notification_id }}"
+                issue finding the correct spool.
+
+                **Error:** {{ find_spool_response.message }}
+
+
+                **Active Tray Details:**
+
+                - UUID: `{{ active_tray.uuid }}`
+
+                - Color: `{{ active_tray.color }}`
+
+                - Type: `{{ active_tray.type }}`
+
+                - Name: `{{ active_tray.name }}`
+
+
+                This may indicate the spool is not registered in Spoolman or multiple spools match.
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Active Tray Changed ERROR: Cannot find spool in Spoolman. Active
+                Tray: {{ active_tray.name }}, UUID: {{ active_tray.uuid }}, Type:
+                {{ active_tray.type }}, Color: {{ active_tray.color }}. Error: {{
+                find_spool_response.message }}
+              level: error
+              logger: homeassistant.components.bambulab.spoolman_sync
   - variables:
       needUUIDUpdate: >-
         {{ active_tray.uuid is not none and active_tray.uuid | length > 0 and

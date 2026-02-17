@@ -58,6 +58,15 @@ sequence:
                 data:
                   message: "Issue: There are {{ count }} spools with the same UUID"
                 enabled: false
+              - action: system_log.write
+                metadata: {}
+                data:
+                  message: >-
+                    Find Matching Spool ERROR: Multiple spools ({{ count }}) have
+                    the same UUID {{ parameters.target_uuid }}. This is a data
+                    integrity issue that needs to be resolved.
+                  level: error
+                  logger: homeassistant.components.bambulab.spoolman_sync
               - variables:
                   spool_found: false
                   response_object:
@@ -124,6 +133,15 @@ sequence:
               message: No Matching Spool Found
             enabled: false
             alias: "Notify: No Match Found"
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Find Matching Spool: No spools found. Target Type: {{
+                parameters.target_type }}, Color: {{ parameters.target_color_hex
+                }}, Name: {{ parameters.target_name }}
+              level: warning
+              logger: homeassistant.components.bambulab.spoolman_sync
           - variables:
               spool_found: false
               response_object:
@@ -166,6 +184,17 @@ sequence:
               message: Multiple matches found in the AMS - please fix.
             enabled: false
             alias: "Notify: Multiple matches found in AMS - cannot choose"
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Find Matching Spool ERROR: Multiple spools ({{ count_in_ams }})
+                found in the AMS with matching criteria. Type: {{
+                parameters.target_type }}, Color: {{ parameters.target_color_hex
+                }}, Name: {{ parameters.target_name }}. Cannot determine which
+                spool to use.
+              level: error
+              logger: homeassistant.components.bambulab.spoolman_sync
           - variables:
               in_ams_ids: "{{ matched_spools | map(attribute='id') | list }}"
               multiple_matches: "{{ spools.content | selectattr('id', 'in', in_ams_ids) | list }}"
@@ -230,6 +259,18 @@ sequence:
                 More than one match, and mutple opened or none opened - need
                 help
             enabled: false
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Find Matching Spool ERROR: Multiple spools ({{ count }}) found
+                with matching criteria, none in AMS. Either multiple are
+                open/unsealed ({{ count_unsealed }}) or none are open. Type: {{
+                parameters.target_type }}, Color: {{ parameters.target_color_hex
+                }}, Name: {{ parameters.target_name }}. Cannot determine which
+                spool to use.
+              level: error
+              logger: homeassistant.components.bambulab.spoolman_sync
           - variables:
               spool_found: false
               response_object:
