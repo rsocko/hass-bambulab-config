@@ -1,0 +1,126 @@
+# Interior Light Reset Button for Dashboard
+#
+# This file contains button configurations that can be added to your Home Assistant dashboard
+# to quickly reset the printer's interior light to white.
+#
+# Choose ONE of the options below based on your preference and installed custom cards.
+
+# ========================================
+# Option 1: Mushroom Template Card (Recommended)
+# ========================================
+# Requires: mushroom cards from HACS
+# Features: Modern design, customizable icon and colors
+#
+type: custom:mushroom-template-card
+primary: Reset Interior Light
+secondary: Set to bright white
+icon: mdi:lightbulb-on
+icon_color: amber
+tap_action:
+  action: call-service
+  service: script.reset_interior_light_to_white
+  data: {}
+hold_action:
+  action: more-info
+card_mod:
+  style: |
+    ha-card {
+      background: rgba(255, 193, 7, 0.1);
+      border-left: 3px solid var(--amber-color);
+    }
+
+---
+
+# ========================================
+# Option 2: Button Card (Standard)
+# ========================================
+# No custom cards required - uses built-in button card
+# Features: Simple, reliable, no dependencies
+#
+type: button
+name: Reset Interior Light
+icon: mdi:lightbulb-on
+tap_action:
+  action: call-service
+  service: script.reset_interior_light_to_white
+  data: {}
+show_name: true
+show_icon: true
+icon_height: 40px
+
+---
+
+# ========================================
+# Option 3: Entity Button (Minimal)
+# ========================================
+# No custom cards required - uses entity button
+# Features: Compact, works everywhere
+#
+type: entity-button
+name: Reset Light
+icon: mdi:lightbulb-on
+tap_action:
+  action: call-service
+  service: script.reset_interior_light_to_white
+  data: {}
+
+---
+
+# ========================================
+# Option 4: Bubble Card (Modern UI)
+# ========================================
+# Requires: bubble-card from HACS
+# Features: Modern bubble design with state display
+#
+type: custom:bubble-card
+card_type: button
+button_type: state
+name: Reset Interior Light
+icon: mdi:lightbulb-on
+show_state: false
+tap_action:
+  action: call-service
+  service: script.reset_interior_light_to_white
+  data: {}
+styles: |
+  .bubble-button-card-container {
+    background: var(--ha-card-background);
+  }
+  .bubble-name {
+    font-size: 16px !important;
+    font-weight: 600;
+  }
+
+---
+
+# ========================================
+# Option 5: Horizontal Stack with Light Control
+# ========================================
+# Shows current light state with reset button
+# Requires: mushroom cards from HACS
+#
+type: horizontal-stack
+cards:
+  - type: custom:mushroom-light-card
+    entity: light.magwled
+    name: Interior Light
+    use_light_color: true
+    show_brightness_control: true
+    show_color_control: false
+    layout: vertical
+    
+  - type: custom:mushroom-template-card
+    primary: Reset
+    secondary: To White
+    icon: mdi:restore
+    icon_color: amber
+    layout: vertical
+    tap_action:
+      action: call-service
+      service: script.reset_interior_light_to_white
+      data: {}
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(255, 193, 7, 0.08);
+        }
