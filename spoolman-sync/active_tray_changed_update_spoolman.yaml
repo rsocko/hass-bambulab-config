@@ -153,7 +153,7 @@ actions:
               message: >-
                 Cannot update Spoolman with last used spool information due to
                 issue finding the correct spool. Error message: "{{
-                find_spool_response.Message }}"
+                find_spool_response.message }}"
   - variables:
       needUUIDUpdate: >-
         {{ active_tray.uuid is not none and active_tray.uuid | length > 0 and

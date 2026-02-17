@@ -159,7 +159,7 @@ actions:
                     message: >-
                       Cannot update Spoolman with print weight usage information
                       due to issue finding the correct spool. Error message: "{{
-                      find_spool_response.Message }}"
+                      find_spool_response.message }}"
               alias: Active Tray UUID is NOT empty (eg Bambu Spool)
       for_each: "{{ ams_tray_list }}"
 mode: single
