@@ -1,0 +1,25 @@
+# Environment files with sensitive data
+.env
+
+# Temporary files
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+
+# Backup files
+*.backup
+backup-*.tar.gz
+
+# Debug reports
+debug-report.txt
+debug-*.log
+
+# Test images
+test_image.jpg
+test_snapshot_*.jpg
+
+# OS files
+.DS_Store
+Thumbs.db

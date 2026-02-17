@@ -1,0 +1,139 @@
+# Example Lovelace Dashboard Card for Obico ML Server Monitoring
+# Add this to your Lovelace dashboard in YAML mode
+
+type: vertical-stack
+cards:
+  # Status Card
+  - type: entities
+    title: Obico ML Server Status
+    show_header_toggle: false
+    entities:
+      - entity: binary_sensor.obico_ml_server_healthy
+        name: Health Status
+        icon: mdi:heart-pulse
+      - entity: sensor.obico_ml_server_status
+        name: Server Status
+        icon: mdi:server
+      - entity: sensor.obico_container_status
+        name: Container Status
+        icon: mdi:docker
+      - type: divider
+      - entity: sensor.obico_memory_usage
+        name: Memory Usage
+        icon: mdi:memory
+      - entity: sensor.obico_cpu_usage
+        name: CPU Usage
+        icon: mdi:cpu-64-bit
+
+  # Resource Usage Gauges
+  - type: horizontal-stack
+    cards:
+      - type: gauge
+        entity: sensor.obico_memory_usage
+        name: Memory
+        unit: MB
+        min: 0
+        max: 3072
+        severity:
+          green: 0
+          yellow: 2048
+          red: 2560
+        needle: true
+      
+      - type: gauge
+        entity: sensor.obico_cpu_usage
+        name: CPU
+        unit: "%"
+        min: 0
+        max: 100
+        severity:
+          green: 0
+          yellow: 60
+          red: 80
+        needle: true
+
+  # Actions Card
+  - type: entities
+    title: Actions
+    show_header_toggle: false
+    entities:
+      - type: button
+        name: View Logs
+        icon: mdi:text-box-outline
+        tap_action:
+          action: url
+          url_path: "ssh://user@server-mini"
+        hold_action:
+          action: none
+      - type: button
+        name: Restart Container
+        icon: mdi:restart
+        tap_action:
+          action: call-service
+          service: shell_command.restart_obico_container
+        hold_action:
+          action: none
+
+# Alternative: Mushroom Cards (requires mushroom card integration)
+# Uncomment and use if you have mushroom cards installed
+
+# type: vertical-stack
+# cards:
+#   # Status Overview
+#   - type: custom:mushroom-template-card
+#     primary: Obico ML Server
+#     secondary: >
+#       {% if is_state('binary_sensor.obico_ml_server_healthy', 'on') %}
+#         Healthy • {{ states('sensor.obico_memory_usage') }}MB • {{ states('sensor.obico_cpu_usage') }}% CPU
+#       {% else %}
+#         Offline
+#       {% endif %}
+#     icon: >
+#       {% if is_state('binary_sensor.obico_ml_server_healthy', 'on') %}
+#         mdi:check-circle
+#       {% else %}
+#         mdi:alert-circle
+#       {% endif %}
+#     icon_color: >
+#       {% if is_state('binary_sensor.obico_ml_server_healthy', 'on') %}
+#         green
+#       {% else %}
+#         red
+#       {% endif %}
+#     tap_action:
+#       action: more-info
+#     badge_icon: >
+#       {% if states('sensor.obico_memory_usage')|float(0) > 2500 %}
+#         mdi:memory
+#       {% elif states('sensor.obico_cpu_usage')|float(0) > 80 %}
+#         mdi:cpu-64-bit
+#       {% endif %}
+#     badge_color: orange
+#   
+#   # Resource Bars
+#   - type: custom:mushroom-template-card
+#     primary: Resources
+#     secondary: |
+#       Memory: {{ states('sensor.obico_memory_usage') }}MB / 3GB
+#       CPU: {{ states('sensor.obico_cpu_usage') }}%
+#     icon: mdi:chart-line
+#     icon_color: blue
+#   
+#   # Quick Actions
+#   - type: horizontal-stack
+#     cards:
+#       - type: custom:mushroom-template-card
+#         primary: Restart
+#         icon: mdi:restart
+#         icon_color: orange
+#         tap_action:
+#           action: call-service
+#           service: shell_command.restart_obico_container
+#       
+#       - type: custom:mushroom-template-card
+#         primary: Logs
+#         icon: mdi:text-box-outline
+#         icon_color: blue
+#         tap_action:
+#           action: url
+#           url_path: "http://server-mini:9090"

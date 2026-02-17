@@ -1,0 +1,54 @@
+# Example REST Sensors for Obico ML Server Monitoring
+# Add these to your configuration.yaml or sensors.yaml
+
+sensor:
+  # Obico ML Server Health Status
+  - platform: rest
+    name: "Obico ML Server Status"
+    resource: "http://server-mini:3333/health"
+    method: GET
+    value_template: >
+      {% if value_json is defined %}
+        {{ value_json.status | default('unknown') }}
+      {% else %}
+        offline
+      {% endif %}
+    json_attributes:
+      - version
+      - uptime
+    scan_interval: 60
+    
+  # Container Status (using shell command - requires SSH setup)
+  - platform: command_line
+    name: "Obico Container Status"
+    command: 'ssh user@server-mini "docker inspect --format=''{{.State.Status}}'' obico-ml-server 2>/dev/null || echo offline"'
+    scan_interval: 60
+    
+  # Container Memory Usage (using shell command)
+  - platform: command_line
+    name: "Obico Memory Usage"
+    command: 'ssh user@server-mini "docker stats obico-ml-server --no-stream --format ''{{.MemUsage}}'' 2>/dev/null | cut -d''/'' -f1 | sed ''s/MiB//'' | tr -d '' '' || echo 0"'
+    unit_of_measurement: "MB"
+    scan_interval: 60
+    
+  # Container CPU Usage (using shell command)
+  - platform: command_line
+    name: "Obico CPU Usage"
+    command: 'ssh user@server-mini "docker stats obico-ml-server --no-stream --format ''{{.CPUPerc}}'' 2>/dev/null | sed ''s/%//'' || echo 0"'
+    unit_of_measurement: "%"
+    scan_interval: 60
+
+# Binary sensor for health status
+binary_sensor:
+  - platform: template
+    sensors:
+      obico_ml_server_healthy:
+        friendly_name: "Obico ML Server Healthy"
+        value_template: >
+          {{ states('sensor.obico_ml_server_status') in ['healthy', 'ok'] }}
+        icon_template: >
+          {% if states('sensor.obico_ml_server_status') in ['healthy', 'ok'] %}
+            mdi:check-circle
+          {% else %}
+            mdi:alert-circle
+          {% endif %}

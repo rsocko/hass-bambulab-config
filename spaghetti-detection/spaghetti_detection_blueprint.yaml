@@ -1,0 +1,182 @@
+blueprint:
+  name: Bambu Lab Spaghetti Detection
+  description: |
+    Automated spaghetti detection for Bambu Lab 3D printers using Obico ML Server.
+    This automation monitors your print in real-time and takes action when failures are detected.
+  domain: automation
+  input:
+    printer_device:
+      name: Bambu Lab Printer
+      description: Select your Bambu Lab printer device
+      selector:
+        device:
+          integration: bambu_lab
+    
+    home_assistant_url:
+      name: Home Assistant URL
+      description: |
+        The URL of your Home Assistant instance (e.g., http://homeassistant.local:8123).
+        Used for sending camera snapshots to the ML server.
+      default: "http://homeassistant.local:8123"
+    
+    obico_ml_host:
+      name: Obico ML API Host
+      description: |
+        The URL of the Obico ML Server (e.g., http://server-mini:3333).
+        Make sure this is accessible from Home Assistant.
+      default: "http://server-mini:3333"
+    
+    obico_api_token:
+      name: Obico ML API Token
+      description: The authentication token for the Obico ML Server (matches ML_API_TOKEN in .env)
+      default: "obico_api_secret"
+    
+    detection_interval:
+      name: Detection Interval
+      description: How often to check for spaghetti (in seconds)
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 300
+          unit_of_measurement: seconds
+    
+    confidence_threshold:
+      name: Confidence Threshold
+      description: Minimum confidence level to trigger action (0-100%)
+      default: 80
+      selector:
+        number:
+          min: 50
+          max: 100
+          unit_of_measurement: "%"
+    
+    action_on_detection:
+      name: Action on Detection
+      description: What to do when spaghetti is detected
+      default: pause
+      selector:
+        select:
+          options:
+            - label: "Notify Only"
+              value: notify
+            - label: "Pause Print"
+              value: pause
+            - label: "Cancel Print"
+              value: cancel
+    
+    notification_service:
+      name: Notification Service
+      description: The notification service to use (e.g., notify.notify or notify.mobile_app_device)
+      default: notify.notify
+      selector:
+        text:
+    
+    notification_type:
+      name: Notification Type
+      description: Type of notification to send
+      default: standard
+      selector:
+        select:
+          options:
+            - label: "Critical (with sound)"
+              value: critical
+            - label: "Standard"
+              value: standard
+            - label: "None"
+              value: none
+
+variables:
+  printer_device: !input printer_device
+  home_assistant_url: !input home_assistant_url
+  obico_ml_host: !input obico_ml_host
+  obico_api_token: !input obico_api_token
+  detection_interval: !input detection_interval
+  confidence_threshold: !input confidence_threshold
+  action_on_detection: !input action_on_detection
+  notification_service: !input notification_service
+  notification_type: !input notification_type
+
+trigger:
+  - platform: state
+    entity_id: !input printer_device
+    attribute: print_status
+    to: "printing"
+
+condition:
+  - condition: state
+    entity_id: !input printer_device
+    attribute: print_status
+    state: "printing"
+
+action:
+  - repeat:
+      while:
+        - condition: state
+          entity_id: !input printer_device
+          attribute: print_status
+          state: "printing"
+      sequence:
+        # Capture snapshot from printer camera
+        - service: camera.snapshot
+          target:
+            entity_id: "{{ device_entities(printer_device) | select('search', 'camera') | list | first }}"
+          data:
+            filename: /tmp/bambu_snapshot_{{ now().timestamp() }}.jpg
+        
+        # Send snapshot to Obico ML server for analysis
+        # Note: This is a simplified example. The actual implementation
+        # requires the Bambu Lab Spaghetti Detection integration
+        # which handles the API communication.
+        
+        # Wait for detection interval
+        - delay:
+            seconds: !input detection_interval
+        
+        # Check if detection triggered (this would come from the integration)
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ states('sensor.spaghetti_detection_confidence') | float(0) > confidence_threshold }}"
+              sequence:
+                # Send notification if enabled
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ notification_type != 'none' }}"
+                      sequence:
+                        - service: !input notification_service
+                          data:
+                            title: "🚨 Spaghetti Detected!"
+                            message: >
+                              Print failure detected with {{ states('sensor.spaghetti_detection_confidence') }}% confidence.
+                              Action: {{ action_on_detection | upper }}
+                            data:
+                              priority: "{{ 'high' if notification_type == 'critical' else 'normal' }}"
+                              ttl: 0
+                              importance: "{{ 'high' if notification_type == 'critical' else 'default' }}"
+                              image: /tmp/bambu_snapshot_latest.jpg
+                
+                # Take action based on configuration
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ action_on_detection == 'pause' }}"
+                      sequence:
+                        - service: button.press
+                          target:
+                            entity_id: "{{ device_entities(printer_device) | select('search', 'pause') | list | first }}"
+                    
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ action_on_detection == 'cancel' }}"
+                      sequence:
+                        - service: button.press
+                          target:
+                            entity_id: "{{ device_entities(printer_device) | select('search', 'stop') | list | first }}"
+                
+                # Exit the repeat loop after taking action
+                - stop: "Spaghetti detected - action taken"
+
+mode: single
+max_exceeded: silent
