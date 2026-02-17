@@ -157,7 +157,7 @@ actions:
                 message: >
                   Cannot update Spoolman with print weight usage information
                   for {{ tray_name }} due to issue finding the correct spool.
-                  Error message: "{{ find_spool_response.Message }}"
+                  Error message: "{{ find_spool_response.message }}"
             
             - action: system_log
               data:
