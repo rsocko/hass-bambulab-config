@@ -234,7 +234,7 @@ actions:
               alias: Spool not found - log error persistently
                       Cannot update Spoolman with print weight usage information
                       due to issue finding the correct spool. Error message: "{{
-                      find_spool_response.Message }}"
+                      find_spool_response.message }}"
                 - action: system_log.write
                   metadata: {}
                   data:
@@ -245,7 +245,7 @@ actions:
                       UUID: {{ selected_tray.uuid }}, Type: {{ selected_tray.type
                       }}, Color: {{ selected_tray.color }}. Used {{
                       tray_print_weight }} grams. Error: {{
-                      find_spool_response.Message }}
+                      find_spool_response.message }}
                     level: error
                     logger: homeassistant.components.bambulab.spoolman_sync
               alias: Active Tray UUID is NOT empty (eg Bambu Spool)
