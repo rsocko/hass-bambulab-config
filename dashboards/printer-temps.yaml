@@ -1,0 +1,310 @@
+# Bambu Lab Printer Temperature Display Cards
+# 
+# This file contains cards to display and monitor the extruder (nozzle) and bed temperatures
+# for your Bambu Lab 3D printer.
+#
+# INSTALLATION:
+# 1. Copy the cards below into your Home Assistant dashboard
+# 2. Replace 'YOUR_PRINTER_NAME' with your actual printer entity name
+#    (e.g., 'ntk_ryansoffice_3dprinter')
+#    
+#    ⚠️ IMPORTANT: Use Find & Replace to update ALL instances!
+#    - Find: YOUR_PRINTER_NAME
+#    - Replace: your_actual_printer_name
+#    - Each card section contains 6+ instances that must ALL be replaced
+#    - Missing even one will cause inconsistent behavior
+#
+# 3. Ensure you have the following custom cards installed from HACS:
+#    - Mushroom Cards (required)
+#    - card-mod (required for styling)
+#
+# FEATURES:
+# - Displays current and target temperatures for nozzle and bed
+# - Color-coded display: RED when heating up, BLUE when cooling down, GREY when at target
+# - Colored icons matching the heating/cooling state
+# - Horizontal layout for compact display
+# - Mobile responsive
+# - Click to see more details
+#
+# SENSOR REQUIREMENTS:
+# Your Bambu Lab integration should provide these entities:
+# - sensor.YOUR_PRINTER_NAME_nozzle_temperature (current nozzle temp)
+# - number.YOUR_PRINTER_NAME_nozzle_target_temperature (target nozzle temp)
+# - sensor.YOUR_PRINTER_NAME_bed_temperature (current bed temp)
+# - number.YOUR_PRINTER_NAME_bed_target_temperature (target bed temp)
+
+# =============================================================================
+# NOZZLE TEMPERATURE CARD
+# =============================================================================
+type: custom:mushroom-template-card
+entity: sensor.YOUR_PRINTER_NAME_nozzle_temperature
+primary: >-
+  {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+  {{ target | round(0) }}°C
+secondary: >-
+  {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+  {{ current | round(0) }}°C
+icon: >-
+  {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+  {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+  {% if target > current + 2 %}
+    mdi:arrow-up
+  {% elif target < current - 2 %}
+    mdi:arrow-down
+  {% else %}
+    mdi:thermometer
+  {% endif %}
+icon_color: >-
+  {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+  {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+  {% if target > current + 2 %}
+    red
+  {% elif target < current - 2 %}
+    blue
+  {% else %}
+    grey
+  {% endif %}
+layout: horizontal
+tap_action:
+  action: more-info
+card_mod:
+  style: |
+    ha-card {
+      {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        background: rgba(244, 67, 54, 0.08);
+        border-left: 3px solid rgba(244, 67, 54, 0.8);
+      {% elif target < current - 2 %}
+        background: rgba(33, 150, 243, 0.08);
+        border-left: 3px solid rgba(33, 150, 243, 0.8);
+      {% else %}
+        background: rgba(158, 158, 158, 0.05);
+      {% endif %}
+    }
+    .primary {
+      font-size: 14px !important;
+      font-weight: 500;
+      opacity: 0.7;
+    }
+    .secondary {
+      font-size: 28px !important;
+      font-weight: 700;
+      {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        color: rgb(244, 67, 54) !important;
+      {% elif target < current - 2 %}
+        color: rgb(33, 150, 243) !important;
+      {% else %}
+        color: rgb(158, 158, 158) !important;
+      {% endif %}
+    }
+
+---
+
+# =============================================================================
+# BED TEMPERATURE CARD
+# =============================================================================
+type: custom:mushroom-template-card
+entity: sensor.YOUR_PRINTER_NAME_bed_temperature
+primary: >-
+  {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+  {{ target | round(0) }}°C
+secondary: >-
+  {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+  {{ current | round(0) }}°C
+icon: >-
+  {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+  {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+  {% if target > current + 2 %}
+    mdi:arrow-up
+  {% elif target < current - 2 %}
+    mdi:arrow-down
+  {% else %}
+    mdi:radiator
+  {% endif %}
+icon_color: >-
+  {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+  {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+  {% if target > current + 2 %}
+    red
+  {% elif target < current - 2 %}
+    blue
+  {% else %}
+    grey
+  {% endif %}
+layout: horizontal
+tap_action:
+  action: more-info
+card_mod:
+  style: |
+    ha-card {
+      {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        background: rgba(244, 67, 54, 0.08);
+        border-left: 3px solid rgba(244, 67, 54, 0.8);
+      {% elif target < current - 2 %}
+        background: rgba(33, 150, 243, 0.08);
+        border-left: 3px solid rgba(33, 150, 243, 0.8);
+      {% else %}
+        background: rgba(158, 158, 158, 0.05);
+      {% endif %}
+    }
+    .primary {
+      font-size: 14px !important;
+      font-weight: 500;
+      opacity: 0.7;
+    }
+    .secondary {
+      font-size: 28px !important;
+      font-weight: 700;
+      {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        color: rgb(244, 67, 54) !important;
+      {% elif target < current - 2 %}
+        color: rgb(33, 150, 243) !important;
+      {% else %}
+        color: rgb(158, 158, 158) !important;
+      {% endif %}
+    }
+
+---
+
+# =============================================================================
+# COMBINED HORIZONTAL STACK (RECOMMENDED)
+# =============================================================================
+# Use this if you want both temperature cards side-by-side in a single row
+type: horizontal-stack
+cards:
+  - type: custom:mushroom-template-card
+    entity: sensor.YOUR_PRINTER_NAME_nozzle_temperature
+    primary: >-
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {{ target | round(0) }}°C
+    secondary: >-
+      {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+      {{ current | round(0) }}°C
+    icon: >-
+      {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        mdi:arrow-up
+      {% elif target < current - 2 %}
+        mdi:arrow-down
+      {% else %}
+        mdi:thermometer
+      {% endif %}
+    icon_color: >-
+      {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        red
+      {% elif target < current - 2 %}
+        blue
+      {% else %}
+        grey
+      {% endif %}
+    layout: horizontal
+    tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+          {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+          {% if target > current + 2 %}
+            background: rgba(244, 67, 54, 0.08);
+            border-left: 3px solid rgba(244, 67, 54, 0.8);
+          {% elif target < current - 2 %}
+            background: rgba(33, 150, 243, 0.08);
+            border-left: 3px solid rgba(33, 150, 243, 0.8);
+          {% else %}
+            background: rgba(158, 158, 158, 0.05);
+          {% endif %}
+        }
+        .primary {
+          font-size: 14px !important;
+          font-weight: 500;
+          opacity: 0.7;
+        }
+        .secondary {
+          font-size: 28px !important;
+          font-weight: 700;
+          {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+          {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+          {% if target > current + 2 %}
+            color: rgb(244, 67, 54) !important;
+          {% elif target < current - 2 %}
+            color: rgb(33, 150, 243) !important;
+          {% else %}
+            color: rgb(158, 158, 158) !important;
+          {% endif %}
+        }
+
+  - type: custom:mushroom-template-card
+    entity: sensor.YOUR_PRINTER_NAME_bed_temperature
+    primary: >-
+      {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+      {{ target | round(0) }}°C
+    secondary: >-
+      {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+      {{ current | round(0) }}°C
+    icon: >-
+      {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        mdi:arrow-up
+      {% elif target < current - 2 %}
+        mdi:arrow-down
+      {% else %}
+        mdi:radiator
+      {% endif %}
+    icon_color: >-
+      {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+      {% if target > current + 2 %}
+        red
+      {% elif target < current - 2 %}
+        blue
+      {% else %}
+        grey
+      {% endif %}
+    layout: horizontal
+    tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+          {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+          {% if target > current + 2 %}
+            background: rgba(244, 67, 54, 0.08);
+            border-left: 3px solid rgba(244, 67, 54, 0.8);
+          {% elif target < current - 2 %}
+            background: rgba(33, 150, 243, 0.08);
+            border-left: 3px solid rgba(33, 150, 243, 0.8);
+          {% else %}
+            background: rgba(158, 158, 158, 0.05);
+          {% endif %}
+        }
+        .primary {
+          font-size: 14px !important;
+          font-weight: 500;
+          opacity: 0.7;
+        }
+        .secondary {
+          font-size: 28px !important;
+          font-weight: 700;
+          {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+          {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+          {% if target > current + 2 %}
+            color: rgb(244, 67, 54) !important;
+          {% elif target < current - 2 %}
+            color: rgb(33, 150, 243) !important;
+          {% else %}
+            color: rgb(158, 158, 158) !important;
+          {% endif %}
+        }
