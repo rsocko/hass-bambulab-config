@@ -20,7 +20,7 @@ actions:
       entity_id: input_text.print_weight_backup
     data:
       value: >
-        {{ state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', '') | tojson }}
+        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes | tojson }}
   
   # Store metadata for validation (task name, start time, total weight)
   - action: input_text.set_value
