@@ -5,6 +5,8 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 ## Files
 
 - **lovelace.3d_printing** - Main 3D printer dashboard configuration (JSON format)
+- **lovelace.3d_v4** - Enhanced v4 dashboard with custom AMS tray popups (JSON format)
+- **ams-tray-popup-standalone.yaml** - Standalone test card for popup functionality
 - **templates.yaml** - Reusable card templates
 - **docs/** - Documentation for dashboard features and customization
 
@@ -26,16 +28,20 @@ Key features:
 - Spool information and tracking
 
 ### AMS Tray Popup
-Interactive popup dialogs for detailed spool information. See [docs/ams-tray-popup.md](docs/ams-tray-popup.md) for detailed information.
+Interactive popup dialogs for detailed spool information. Available in both dashboards:
+- **3D Printing Dashboard**: See [docs/ams-tray-popup.md](docs/ams-tray-popup.md)
+- **3D v4 Dashboard**: See [docs/ams-tray-popup-v4.md](docs/ams-tray-popup-v4.md) and [docs/ams-tray-popup-v4-visual.md](docs/ams-tray-popup-v4-visual.md)
 
 Key features:
-- Click any AMS tray to open detailed spool information
+- Click any AMS tray or external spool to open detailed popup
+- Material type and vendor information
 - Color-coded filament display with brightness-adjusted text
-- 7-day weight history chart
+- Dynamic weight history chart (adjusts duration based on spool age)
 - Desiccant status tracking with age-based color indicators
-- One-click desiccant reset button
+- One-click desiccant reset button with confirmation
 - Direct link to Spoolman web interface
 - Fallback display for unmatched or empty trays
+- More details button for full entity information
 
 ### Print Details
 The Print Details section includes an enhanced print weight visualization. See [docs/print-weight-bar-chart.md](docs/print-weight-bar-chart.md) for detailed information.
