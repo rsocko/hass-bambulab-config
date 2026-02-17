@@ -118,6 +118,8 @@ action:
           state: "printing"
       sequence:
         # Capture snapshot from printer camera
+        # Note: Using a consistent filename prevents disk accumulation
+        # The file is overwritten on each capture
         - service: camera.snapshot
           target:
             entity_id: "{{ device_entities(printer_device) | select('search', 'camera') | list | first }}"

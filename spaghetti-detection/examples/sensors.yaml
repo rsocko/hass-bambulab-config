@@ -1,6 +1,12 @@
 # Example REST Sensors for Obico ML Server Monitoring
 # Add these to your configuration.yaml or sensors.yaml
 
+# IMPORTANT: The command_line sensors require passwordless SSH access
+# from Home Assistant to server-mini. Set up SSH keys before using these sensors:
+#   ssh-keygen -t ed25519 (on HA host)
+#   ssh-copy-id user@server-mini
+#   Test: ssh user@server-mini "echo test" (should work without password)
+
 sensor:
   # Obico ML Server Health Status
   - platform: rest
@@ -25,9 +31,10 @@ sensor:
     scan_interval: 60
     
   # Container Memory Usage (using shell command)
+  # Note: This handles both MiB and GiB values. Values in GiB are converted to MB.
   - platform: command_line
     name: "Obico Memory Usage"
-    command: 'ssh user@server-mini "docker stats obico-ml-server --no-stream --format ''{{.MemUsage}}'' 2>/dev/null | cut -d''/'' -f1 | sed ''s/MiB//'' | tr -d '' '' || echo 0"'
+    command: 'ssh user@server-mini "docker stats obico-ml-server --no-stream --format ''{{.MemUsage}}'' 2>/dev/null | cut -d''/'' -f1 | awk ''{if ($0 ~ /GiB/) {gsub(/GiB/,\"\"); print $1*1024} else {gsub(/MiB/,\"\"); print $1}}'' || echo 0"'
     unit_of_measurement: "MB"
     scan_interval: 60
     
