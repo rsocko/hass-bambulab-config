@@ -1,0 +1,247 @@
+{
+  "dashboard": {
+    "title": "Home Assistant - Bambu Lab Operations",
+    "uid": "bambulab-ops",
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "30s",
+    "tags": ["homeassistant", "bambulab", "3dprinting"],
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "Log Volume by Level",
+        "targets": [
+          {
+            "expr": "sum by (level) (rate({job=\"homeassistant\", logger=~\".*bambulab.*\"}[5m]))",
+            "legendFormat": "{{level}}"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "stat",
+        "title": "Error Rate (Last 5m)",
+        "targets": [
+          {
+            "expr": "sum(rate({job=\"homeassistant\", level=\"ERROR\", logger=~\".*bambulab.*\"}[5m])) * 60",
+            "legendFormat": "Errors/min"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "fields": "",
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+        "type": "logs",
+        "title": "Recent Errors & Warnings",
+        "targets": [
+          {
+            "expr": "{job=\"homeassistant\", logger=~\".*bambulab.*\", level=~\"ERROR|WARNING\"}",
+            "maxLines": 100
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 18},
+        "type": "stat",
+        "title": "Print Completions (24h)",
+        "targets": [
+          {
+            "expr": "count_over_time({job=\"homeassistant\"} |= \"Print Complete: Successfully\" [24h])",
+            "legendFormat": "Successful"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "green"},
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 18},
+        "type": "stat",
+        "title": "Print Failures (24h)",
+        "targets": [
+          {
+            "expr": "count_over_time({job=\"homeassistant\"} |= \"Print Complete ERROR\" [24h])",
+            "legendFormat": "Failed"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "red"},
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 18},
+        "type": "stat",
+        "title": "Success Rate (24h)",
+        "targets": [
+          {
+            "expr": "count_over_time({job=\"homeassistant\"} |= \"Print Complete: Successfully\" [24h]) / (count_over_time({job=\"homeassistant\"} |= \"Print Complete: Successfully\" [24h]) + count_over_time({job=\"homeassistant\"} |= \"Print Complete ERROR\" [24h])) * 100"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 80, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            },
+            "unit": "percent",
+            "decimals": 1
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 26},
+        "type": "bargauge",
+        "title": "Top Error Sources (24h)",
+        "targets": [
+          {
+            "expr": "topk(5, sum by (logger) (count_over_time({job=\"homeassistant\", level=\"ERROR\"}[24h])))",
+            "legendFormat": "{{logger}}"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"}
+          }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 26},
+        "type": "table",
+        "title": "Recent Spoolman Operations",
+        "targets": [
+          {
+            "expr": "{job=\"homeassistant\", logger=~\".*spoolman.*\"} |= \"Successfully\" | line_format \"{{.message}}\"",
+            "maxLines": 20
+          }
+        ],
+        "options": {
+          "showHeader": true
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "Time": "Timestamp",
+                "Line": "Operation"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34},
+        "type": "logs",
+        "title": "All Bambu Lab Logs (Live)",
+        "targets": [
+          {
+            "expr": "{job=\"homeassistant\", logger=~\".*bambulab.*\"}",
+            "maxLines": 200
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "wrapLogMessage": true,
+          "enableLogDetails": true
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 44},
+        "type": "graph",
+        "title": "Automation Execution Rate",
+        "targets": [
+          {
+            "expr": "sum by (logger) (rate({job=\"homeassistant\", logger=~\".*bambulab.*spoolman.*\"}[5m]))",
+            "legendFormat": "{{logger}}"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 44},
+        "type": "table",
+        "title": "UUID Conflicts (Data Integrity)",
+        "targets": [
+          {
+            "expr": "{job=\"homeassistant\"} |= \"same UUID\" | line_format \"{{.timestamp}} - {{.message}}\""
+          }
+        ],
+        "options": {
+          "showHeader": true
+        }
+      }
+    ]
+  }
+}

@@ -40,6 +40,12 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [Centralized Logging & Monitoring](logging/README.md)
+  - structured logging with correlation IDs
+  - error/warning tracking and alerting
+  - integration with homelab infrastructure (Loki, Grafana, Prometheus)
+  - automated responses to critical errors
+  - searchable and filterable logs
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -52,6 +58,13 @@ The actual config objects that are used to achieve the above scenarios include:
 - **Scripts**: (reusable components used in automations)
   - Find Matching Spool in Spoolman - given a set of parameters - find the matching spool in the Spoolman database
   - Update the First and Last used information for a given spool in Spoolman
+  - Structured Logging Helper - create consistent log entries with correlation IDs and context
+
+- **Logging & Monitoring**:
+  - Centralized logger configuration with component-specific levels
+  - Error and warning alert automations
+  - Integration with Grafana Loki, Prometheus, Syslog, or custom webhooks
+  - Pre-built Grafana dashboards for operations monitoring
   
 - **Dashboard / Widgets**
 - 
