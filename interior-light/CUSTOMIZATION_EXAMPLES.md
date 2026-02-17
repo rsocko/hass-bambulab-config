@@ -242,7 +242,7 @@ automation:
           # First layer - bright for monitoring
           - conditions:
               - condition: template
-                value_template: "{{ 'first' in trigger.to_state.state | lower }}"
+                value_template: "{{ 'first' in trigger.to_state.state.lower() }}"
             sequence:
               - service: light.turn_on
                 target:
@@ -267,7 +267,7 @@ automation:
           # Cooling - dim blue
           - conditions:
               - condition: template
-                value_template: "{{ 'cool' in trigger.to_state.state | lower }}"
+                value_template: "{{ 'cool' in trigger.to_state.state.lower() }}"
             sequence:
               - service: light.turn_on
                 target:

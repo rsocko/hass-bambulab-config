@@ -13,9 +13,11 @@ automation:
     trigger:
       # OPTION 1: If you have a door sensor (binary_sensor.your_door_sensor)
       # Uncomment and modify this trigger:
+      # Check your door sensor's states in Developer Tools → States first
+      # Common states are "on"/"off" or "open"/"closed"
       # - platform: state
       #   entity_id: binary_sensor.bambu_printer_door
-      #   to: "on"  # or "open" depending on your sensor
+      #   to: "on"  # Change to "open" if your sensor uses that state
       
       # OPTION 2: Manual trigger via automation.trigger service
       # Keep this commented out in production, useful for testing

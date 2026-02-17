@@ -32,9 +32,9 @@ ESP32/ESP8266          Button
 
 **With LED Feedback:**
 ```
-ESP32/ESP8266          Button          LED
+ESP32/ESP8266          Button          LED          Resistor
     GPIO0 ------------ Pin 1
-    GPIO2 ------------ (Anode) ---[220Ω]--- (Cathode) --- GND
+    GPIO2 ---[220Ω]--- (Anode) ------- (Cathode) --- GND
     GND -------------- Pin 2
 ```
 

@@ -47,9 +47,9 @@ display:
       // Draw printer status
       it.print(10, 10, id(font_large), "Bambu Lab P1S");
       
-      // Draw current print status
+      // Draw current print status (with safety check)
       it.printf(10, 40, id(font_medium), "Status: %s", 
-        id(printer_status).state.c_str());
+        id(printer_status).has_state() ? id(printer_status).state.c_str() : "Unknown");
       
       // Draw light reset button
       if (id(touchscreen).touched()) {
