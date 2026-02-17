@@ -24,7 +24,18 @@ This script simply forced a reload of the integration on a nightly basis.
 ### 4. Persistent error logging and manual recovery
 When the spoolman sync automation fails (e.g., spool not found), the system now stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
 
-[Documentation](docs/persistent_error_logging.md) | [Input Helpers](print_job_tracking_helpers.yaml) | [Print Started Automation](print_started-capture_print_data.yaml) | [Manual Recovery Script](manual_spoolman_recovery-script.yaml)
+**📚 Documentation:**
+- [Installation Guide](docs/installation_guide.md) - Step-by-step setup instructions
+- [Quick Reference](docs/quick_reference.md) - At-a-glance command reference
+- [Full Documentation](docs/persistent_error_logging.md) - Complete system details
+- [Error Flow Diagram](docs/error_logging_flow.md) - Visual flow and scenarios
+
+**📄 Files:**
+- [Input Helpers Configuration](print_job_tracking_helpers.yaml)
+- [Print Started Automation](print_started-capture_print_data.yaml)
+- [Manual Recovery Script](manual_spoolman_recovery-script.yaml)
+- [Updated Print Complete Automation](print_complete-update_filament_usage.yaml)
+- [Updated Active Tray Changed Automation](active_tray_changed_update_spoolman.yaml)
 
 ## Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
