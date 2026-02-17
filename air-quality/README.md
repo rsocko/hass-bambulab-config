@@ -32,10 +32,14 @@ The air quality integration provides:
 2. **Dynamic Speed Adjustment** - Adjust purifier based on real-time air quality
 3. **Post-Print Filtering** - Continue purification for 30 minutes after print
 4. **Air Quality Alerts** - Notifications when air quality degrades
-5. **Bento Box Fan Control** - Filament-aware enclosure ventilation (NEW!)
+5. **Bento Box Fan Control** - Filament-aware enclosure ventilation
    - Detects high-VOC filaments and increases ventilation
    - Responds to PM2.5 and VOC levels in real-time
    - Extended 45-minute post-print filtering for toxic materials
+6. **Filter Tracking** - Monitor HEPA and carbon filter usage (NEW!)
+   - Tracks fan runtime hours automatically
+   - Usage percentage and replacement alerts
+   - Know exactly when to replace filters
 
 ## Required Hardware
 
@@ -169,13 +173,31 @@ For each automation file in the `air-quality/` directory:
   - Continues if air quality is still poor
   - Note: Bento Box fan now controlled by separate automation
 
-- **`bento_box_fan_auto_control.yaml`** - Filament-aware Bento Box fan control (NEW!)
+- **`bento_box_fan_auto_control.yaml`** - Filament-aware Bento Box fan control
   - **Detects high-VOC filaments** (ABS, ASA, PC, Nylon, HIPS)
   - **Adjusts speed** based on filament type + air quality
   - **Independent operation** - not tied to chamber fan or purifier
   - **Extended filtering** - runs 45 minutes post-print for toxic materials
   - **Smart notifications** - alerts when printing with high-VOC materials
   - See [Bento Box Fan Documentation](docs/bento-box-fan-filament-control.md) for details
+
+- **`bento_box_filter_helpers.yaml`** - Filter tracking input helpers (NEW!)
+  - **Runtime tracking** for HEPA and carbon filters
+  - **Usage percentage** calculations
+  - **Replacement date** tracking
+  - **Configurable thresholds** for filter lifespan
+
+- **`bento_box_filter_runtime_tracking.yaml`** - Automatic runtime accumulation (NEW!)
+  - **Tracks fan runtime** every minute when fan is on
+  - **Updates both filters** simultaneously
+  - **Can be disabled** via toggle if needed
+
+- **`bento_box_filter_alerts.yaml`** - Filter replacement notifications (NEW!)
+  - **Alerts at 75%** - Monitor filters
+  - **Alerts at 90%** - Order replacements
+  - **Alerts at 100%** - Replace immediately
+  - **Persistent notifications** for overdue filters
+  - See [Filter Tracking Documentation](docs/bento-box-filter-tracking.md) for details
 
 ## Configuration
 
