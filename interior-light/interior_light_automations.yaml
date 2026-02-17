@@ -44,7 +44,7 @@ automation:
         data:
           message: "Interior light reset to white via door open automation"
           level: info
-          logger: homeassistant.components.bambulab.interior_light
+          logger: homeassistant.components.automation.interior_light
 
   # ========================================
   # Automation 2: Reset Interior Light on Print Complete
@@ -74,7 +74,7 @@ automation:
         data:
           message: "Interior light reset to white after print completion"
           level: info
-          logger: homeassistant.components.bambulab.interior_light
+          logger: homeassistant.components.automation.interior_light
 
   # ========================================
   # Automation 3: Reset Interior Light When Printer Becomes Idle
@@ -110,4 +110,4 @@ automation:
         data:
           message: "Interior light reset to white on idle after {{ trigger.from_state.state }}"
           level: info
-          logger: homeassistant.components.bambulab.interior_light
+          logger: homeassistant.components.automation.interior_light

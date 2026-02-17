@@ -16,4 +16,4 @@ script:
         data:
           message: "Interior light reset to white via script"
           level: info
-          logger: homeassistant.components.bambulab.interior_light
+          logger: homeassistant.components.script.reset_interior_light
