@@ -73,21 +73,10 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update Spool Filament Used (in Spoolman) when a 3D print completes.
   - Reload Spoolman Integration (daily) to ensure sensors are in sync
   - Bambu Lab WLED Controller (customized for better error indicators)
-  - Print completion notifications with camera snapshots
-  - Print error alerts with persistent notifications
-  - Print started tracking notifications
-  - Air Quality Management (auto-enable purifier, speed adjustment, alerts)
 
 - **Scripts**: (reusable components used in automations)
   - Find Matching Spool in Spoolman - given a set of parameters - find the matching spool in the Spoolman database
   - Update the First and Last used information for a given spool in Spoolman
-  - Structured Logging Helper - create consistent log entries with correlation IDs and context
-
-- **Logging & Monitoring**:
-  - Centralized logger configuration with component-specific levels
-  - Error and warning alert automations
-  - Integration with Grafana Loki, Prometheus, Syslog, or custom webhooks
-  - Pre-built Grafana dashboards for operations monitoring
   
 - **Dashboard / Widgets**
   - [LED Controls Card](dashboards/led-controls.yaml) - Control all printer lights with advanced WLED features
@@ -97,7 +86,3 @@ The actual config objects that are used to achieve the above scenarios include:
   - Govee Air Purifier Control with speed adjustment
   - Fan Controls (Printer fans and Bento Box fan)
 - 
-  - Humidity monitoring cards for room and AMS units
-  - Fan control cards for printer and enclosure fans
-  - Print status and AMS tray displays
-

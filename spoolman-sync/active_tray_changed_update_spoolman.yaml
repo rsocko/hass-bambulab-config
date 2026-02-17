@@ -66,12 +66,19 @@ actions:
         tray_weight: 1000
         target_name: "{{ active_tray.name }}"
     response_variable: find_spool_response
+  - variables:
+      valid_uuid: >-
+        {{ active_tray.uuid is not none and active_tray.uuid | length > 0 and
+        active_tray.uuid | regex_match('^0+$') == false }}
+      notification_id: >-
+        spoolman_error_{{ active_tray.uuid if valid_uuid else active_tray.color
+        ~ '_' ~ active_tray.type }}
   - alias: Take action if Spool was found (or error if not)
     choose:
       - conditions:
           - alias: Spool Found (response from script)
             condition: template
-            value_template: "{{ find_spool_response.success }}"
+            value_template: "{{ find_spool_response.success == true }}"
         sequence:
           - alias: Loop through Spools (from Spoolman)
             repeat:
@@ -163,7 +170,7 @@ actions:
       - conditions:
           - alias: No single matching spool found
             condition: template
-            value_template: "{{ not find_spool_response.success }}"
+            value_template: "{{ find_spool_response.success == false }}"
         sequence:
           # Log to logbook for visibility
           - action: logbook.log
@@ -178,7 +185,7 @@ actions:
           - action: persistent_notification.create
             metadata: {}
             data:
-              notification_id: spoolman_active_tray_error
+              notification_id: "{{ notification_id }}"
               title: "Spoolman Update Error: Cannot Find Spool"
               message: >-
                 Cannot update Spoolman with last used spool information due to
@@ -199,8 +206,6 @@ actions:
 
 
                 This may indicate the spool is not registered in Spoolman or multiple spools match.
-                issue finding the correct spool. Error message: "{{
-                find_spool_response.Message }}"
           - action: system_log.write
             metadata: {}
             data:
@@ -208,7 +213,7 @@ actions:
                 Active Tray Changed ERROR: Cannot find spool in Spoolman. Active
                 Tray: {{ active_tray.name }}, UUID: {{ active_tray.uuid }}, Type:
                 {{ active_tray.type }}, Color: {{ active_tray.color }}. Error: {{
-                find_spool_response.Message }}
+                find_spool_response.message }}
               level: error
               logger: homeassistant.components.bambulab.spoolman_sync
   - variables:
