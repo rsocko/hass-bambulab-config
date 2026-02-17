@@ -1,316 +1,316 @@
-"config_template_card_vars": [
+config_template_card_vars: [
   {
-    "GLOBAL_VAR": "states['light.ntk_masterbedroom_lights_main'].state"
+    GLOBAL_VAR: "states['light.ntk_masterbedroom_lights_main'].state"
   }
-],
-"views": [
+]
+views: [
   {
-    "title": "Home",
-    "sections": [
+    title: "Home",
+    sections: [
       {
-        "type": "grid",
-        "cards": [
+        type: "grid",
+        cards: [
           {
-            "type": "conditional",
-            "conditions": [
+            type: "conditional",
+            conditions: [
               {
-                "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
-                "state": "on"
+                entity: "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+                state: "on"
               }
             ],
-            "card": {
-              "type": "vertical-stack",
-              "cards": [
+            card: {
+              type: "vertical-stack",
+              cards: [
                 {
-                  "type": "custom:mushroom-template-card",
-                  "primary": "\u26a0\ufe0f HMS ERROR ALERT",
-                  "secondary": "{{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') | int }} Error(s)",
-                  "icon": "mdi:alert-circle",
-                  "icon_color": "red",
-                  "fill_container": false,
-                  "tap_action": {
-                    "action": "more-info"
+                  type: "custom:mushroom-template-card",
+                  primary: "\u26a0\ufe0f HMS ERROR ALERT",
+                  secondary: "{{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') | int }} Error(s)",
+                  icon: "mdi:alert-circle",
+                  icon_color: "red",
+                  fill_container: false,
+                  tap_action: {
+                    action: "more-info"
                   },
-                  "card_mod": {
-                    "style": ": |\n  ha-card {\n    background: rgba(244, 67, 54, 0.15);\n    border: 2px solid var(--red-color);\n    --card-mod-icon-color: red;\n  }"
+                  card_mod: {
+                    style: ": |\n  ha-card {\n    background: rgba(244, 67, 54, 0.15);\n    border: 2px solid var(--red-color);\n    --card-mod-icon-color: red;\n  }"
                   }
                 },
                 {
-                  "type": "markdown",
-                  "content": "{% set errors = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'errors') %}\n{% if errors %}\n{% for error in errors %}\n**Error {{ loop.index }}:** {{ error.attr }}\n\n**Code:** {{ error.code }}\n\n{{ error.text }}\n\n---\n{% endfor %}\n{% else %}\nNo error details available\n{% endif %}",
-                  "card_mod": {
-                    "style": ": |\n  ha-card {\n    background: rgba(244, 67, 54, 0.08);\n    border-left: 4px solid var(--red-color);\n  }"
+                  type: "markdown",
+                  content: "{% set errors = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'errors') %}\n{% if errors %}\n{% for error in errors %}\n**Error {{ loop.index }}:** {{ error.attr }}\n\n**Code:** {{ error.code }}\n\n{{ error.text }}\n\n---\n{% endfor %}\n{% else %}\nNo error details available\n{% endif %}",
+                  card_mod: {
+                    style: ": |\n  ha-card {\n    background: rgba(244, 67, 54, 0.08);\n    border-left: 4px solid var(--red-color);\n  }"
                   }
                 }
               ]
             }
           },
           {
-            "type": "custom:bubble-card",
-            "card_type": "button",
-            "button_type": "state",
-            "entity": "sensor.ntk_ryansoffice_3dprinter_print_status",
-            "name": "Print Status",
-            "icon": "mdi:rotate-3d",
-            "show_state": true,
-            "show_attribute": false,
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:bubble-card",
+            card_type: "button",
+            button_type: "state",
+            entity: "sensor.ntk_ryansoffice_3dprinter_print_status",
+            name: "Print Status",
+            icon: "mdi:rotate-3d",
+            show_state: true,
+            show_attribute: false,
+            tap_action: {
+              action: "more-info"
             },
-            "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+            styles: "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
           },
           {
-            "type": "custom:bubble-card",
-            "card_type": "button",
-            "button_type": "state",
-            "entity": "sensor.ntk_ryansoffice_3dprinter_current_stage",
-            "name": "Current Stage",
-            "icon": "mdi:printer-3d",
-            "show_state": true,
-            "show_attribute": false,
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:bubble-card",
+            card_type: "button",
+            button_type: "state",
+            entity: "sensor.ntk_ryansoffice_3dprinter_current_stage",
+            name: "Current Stage",
+            icon: "mdi:printer-3d",
+            show_state: true,
+            show_attribute: false,
+            tap_action: {
+              action: "more-info"
             },
-            "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+            styles: "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
           },
           {
-            "type": "custom:bubble-card",
-            "card_type": "button",
-            "button_type": "state",
-            "entity": "sensor.ntk_ryansoffice_3dprinter_task_name",
-            "name": "Task Name",
-            "icon": "mdi:cube-outline",
-            "show_state": true,
-            "show_attribute": false,
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:bubble-card",
+            card_type: "button",
+            button_type: "state",
+            entity: "sensor.ntk_ryansoffice_3dprinter_task_name",
+            name: "Task Name",
+            icon: "mdi:cube-outline",
+            show_state: true,
+            show_attribute: false,
+            tap_action: {
+              action: "more-info"
             },
-            "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+            styles: "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
           },
           {
-            "type": "custom:bubble-card",
-            "card_type": "button",
-            "button_type": "state",
-            "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
-            "name": "HMS Errors",
-            "show_state": true,
-            "show_attribute": false,
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:bubble-card",
+            card_type: "button",
+            button_type: "state",
+            entity: "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+            name: "HMS Errors",
+            show_state: true,
+            show_attribute: false,
+            tap_action: {
+              action: "more-info"
             },
-            "styles": "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
+            styles: "\n              .bubble-button-card-container {\n                background: var(--ha-card-background);\n              }\n              .bubble-name {\n                font-size: 18px !important;\n                font-weight: 600;\n              }\n              .bubble-state {\n                font-size: 16px !important;\n              }\n            "
           },
           {
-            "type": "custom:mushroom-template-card",
-            "entity": "sensor.print_layer_progress_formatted",
-            "primary": "Layer Progress",
-            "secondary": "{{ states('sensor.print_layer_progress_formatted') }}",
-            "icon": "fas:layer-group",
-            "icon_color": "blue",
-            "layout": "vertical",
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:mushroom-template-card",
+            entity: "sensor.print_layer_progress_formatted",
+            primary: "Layer Progress",
+            secondary: "{{ states('sensor.print_layer_progress_formatted') }}",
+            icon: "fas:layer-group",
+            icon_color: "blue",
+            layout: "vertical",
+            tap_action: {
+              action: "more-info"
             },
-            "card_mod": {
-              "style": "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
+            card_mod: {
+              style: "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
             }
           },
           {
-            "type": "custom:mushroom-template-card",
-            "entity": "sensor.ntk_ryansoffice_3dprinter_print_progress",
-            "primary": "Print Progress",
-            "secondary": "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') }}",
-            "icon": "mdi:progress-helper",
-            "icon_color": "green",
-            "layout": "vertical",
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:mushroom-template-card",
+            entity: "sensor.ntk_ryansoffice_3dprinter_print_progress",
+            primary: "Print Progress",
+            secondary: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') }}",
+            icon: "mdi:progress-helper",
+            icon_color: "green",
+            layout: "vertical",
+            tap_action: {
+              action: "more-info"
             },
-            "card_mod": {
-              "style": "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
+            card_mod: {
+              style: "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
             }
           },
           {
-            "type": "custom:mushroom-template-card",
-            "entity": "sensor.print_time_remaining_formatted",
-            "primary": "Time Remaining",
-            "secondary": "{{ states('sensor.print_time_remaining_formatted') }}",
-            "icon": "mdi:progress-clock",
-            "icon_color": "orange",
-            "layout": "vertical",
-            "tap_action": {
-              "action": "more-info"
+            type: "custom:mushroom-template-card",
+            entity: "sensor.print_time_remaining_formatted",
+            primary: "Time Remaining",
+            secondary: "{{ states('sensor.print_time_remaining_formatted') }}",
+            icon: "mdi:progress-clock",
+            icon_color: "orange",
+            layout: "vertical",
+            tap_action: {
+              action: "more-info"
             },
-            "card_mod": {
-              "style": "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
+            card_mod: {
+              style: "\n                  ha-card {\n                    font-size: 16px;\n                  }\n                  .primary {\n                    font-size: 18px !important;\n                    font-weight: 600;\n                  }\n                  .secondary {\n                    font-size: 22px !important;\n                    font-weight: 700;\n                  }\n                "
             }
           },
           {
-            "type": "custom:config-template-card",
-            "entities": [
+            type: "custom:config-template-card",
+            entities: [
               "sensor.ntk_ryansoffice_3dprinter_end_time"
             ],
-            "card": {
-              "type": "custom:mushroom-template-card",
-              "entity": "sensor.ntk_ryansoffice_3dprinter_end_time",
-              "primary": "Est. Completion",
-              "secondary": "{% set state = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}{% if state not in ['unavailable', 'unknown'] and state is not none %}{{ as_timestamp(state) | timestamp_custom('%I:%M %p', true) }}{% else %}N/A{% endif %}",
-              "icon": "mdi:clock-end",
-              "icon_color": "purple",
-              "layout": "vertical",
-              "tap_action": {
-                "action": "more-info"
+            card: {
+              type: "custom:mushroom-template-card",
+              entity: "sensor.ntk_ryansoffice_3dprinter_end_time",
+              primary: "Est. Completion",
+              secondary: "{% set state = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}{% if state not in ['unavailable', 'unknown'] and state is not none %}{{ as_timestamp(state) | timestamp_custom('%I:%M %p', true) }}{% else %}N/A{% endif %}",
+              icon: "mdi:clock-end",
+              icon_color: "purple",
+              layout: "vertical",
+              tap_action: {
+                action: "more-info"
               },
-              "card_mod": {
-                "style": "\n                      ha-card {\n                        font-size: 16px;\n                      }\n                      .primary {\n                        font-size: 18px !important;\n                        font-weight: 600;\n                      }\n                      .secondary {\n                        font-size: 22px !important;\n                        font-weight: 700;\n                      }\n                    "
+              card_mod: {
+                style: "\n                      ha-card {\n                        font-size: 16px;\n                      }\n                      .primary {\n                        font-size: 18px !important;\n                        font-weight: 600;\n                      }\n                      .secondary {\n                        font-size: 22px !important;\n                        font-weight: 700;\n                      }\n                    "
               }
             }
           },
           {
-            "type": "picture-entity",
-            "entity": "camera.ntk_ryansoffice_3dprinter_camera",
-            "name": "Printer Camera",
-            "show_name": true,
-            "show_state": false,
-            "tap_action": {
-              "action": "more-info"
+            type: "picture-entity",
+            entity: "camera.ntk_ryansoffice_3dprinter_camera",
+            name: "Printer Camera",
+            show_name: true,
+            show_state: false,
+            tap_action: {
+              action: "more-info"
             },
-            "camera_view": "live"
+            camera_view: "live"
           },
           {
-            "type": "picture-entity",
-            "entity": "image.ntk_ryansoffice_3dprinter_cover_image",
-            "name": "Print Preview",
-            "show_name": true,
-            "show_state": false,
-            "tap_action": {
-              "action": "more-info"
+            type: "picture-entity",
+            entity: "image.ntk_ryansoffice_3dprinter_cover_image",
+            name: "Print Preview",
+            show_name: true,
+            show_state: false,
+            tap_action: {
+              action: "more-info"
             }
           }
         ],
-        "columns": 2,
-        "square": false
+        columns: 2,
+        square: false
       },
       {
-        "type": "grid",
-        "cards": [
+        type: "grid",
+        cards: [
           {
-            "type": "custom:ha-bambulab-print_status-card",
-            "printer": "210dfdfa64085e8cf073e50eae757d90",
-            "style": "simple",
-            "custom_power": "switch.sonoff_10018b4baf"
+            type: "custom:ha-bambulab-print_status-card",
+            printer: "210dfdfa64085e8cf073e50eae757d90",
+            style: "simple",
+            custom_power: "switch.sonoff_10018b4baf"
           },
           {
-            "type": "custom:advanced-camera-card",
-            "cameras": [
+            type: "custom:advanced-camera-card",
+            cameras: [
               {
-                "camera_entity": "camera.ntk_ryansoffice_3dprinter_camera",
-                "live_provider": "auto",
-                "capabilities": {
-                  "disable": []
+                camera_entity: "camera.ntk_ryansoffice_3dprinter_camera",
+                live_provider: "auto",
+                capabilities: {
+                  disable: []
                 },
-                "always_error_if_entity_unavailable": false,
-                "image": {
-                  "mode": "camera"
+                always_error_if_entity_unavailable: false,
+                image: {
+                  mode: "camera"
                 }
               },
               {
-                "camera_entity": "camera.3dprintertopcamera_hd_stream"
+                camera_entity: "camera.3dprintertopcamera_hd_stream"
               }
             ],
-            "status_bar": {
-              "items": {
-                "engine": {
-                  "enabled": true
+            status_bar: {
+              items: {
+                engine: {
+                  enabled: true
                 },
-                "resolution": {
-                  "enabled": true
+                resolution: {
+                  enabled: true
                 }
               },
-              "style": "none"
+              style: "none"
             },
-            "performance": {
-              "features": {
-                "card_loading_effects": false,
-                "animated_progress_indicator": true,
-                "card_loading_indicator": true
+            performance: {
+              features: {
+                card_loading_effects: false,
+                animated_progress_indicator: true,
+                card_loading_indicator: true
               },
-              "style": {
-                "border_radius": true
+              style: {
+                border_radius: true
               }
             },
-            "view": {
-              "dim": false,
-              "theme": {
-                "themes": [
+            view: {
+              dim: false,
+              theme: {
+                themes: [
                   "dark"
                 ]
               },
-              "default_cycle_camera": false
+              default_cycle_camera: false
             },
-            "menu": {
-              "buttons": {
-                "iris": {
-                  "enabled": false
+            menu: {
+              buttons: {
+                iris: {
+                  enabled: false
                 },
-                "camera_ui": {
-                  "enabled": false
+                camera_ui: {
+                  enabled: false
                 },
-                "expand": {
-                  "enabled": true
+                expand: {
+                  enabled: true
                 },
-                "display_mode": {
-                  "enabled": true,
-                  "alignment": "opposing"
+                display_mode: {
+                  enabled: true,
+                  alignment: "opposing"
                 },
-                "live": {
-                  "enabled": false
+                live: {
+                  enabled: false
                 },
-                "cameras": {
-                  "enabled": false
+                cameras: {
+                  enabled: false
                 },
-                "substreams": {
-                  "enabled": false
+                substreams: {
+                  enabled: false
                 },
-                "clips": {
-                  "enabled": false
+                clips: {
+                  enabled: false
                 },
-                "snapshots": {
-                  "enabled": false
+                snapshots: {
+                  enabled: false
                 },
-                "download": {
-                  "enabled": false
+                download: {
+                  enabled: false
                 },
-                "timeline": {
-                  "enabled": false
+                timeline: {
+                  enabled: false
                 },
-                "folders": {
-                  "enabled": false
+                folders: {
+                  enabled: false
                 },
-                "media_player": {
-                  "enabled": false
+                media_player: {
+                  enabled: false
                 },
-                "image": {
-                  "enabled": false
+                image: {
+                  enabled: false
                 }
               },
-              "style": "overlay",
-              "alignment": "right"
+              style: "overlay",
+              alignment: "right"
             },
-            "live": {
-              "draggable": true,
-              "zoomable": true,
-              "show_image_during_load": true,
-              "controls": {
-                "builtin": true,
-                "wheel": true
+            live: {
+              draggable: true,
+              zoomable: true,
+              show_image_during_load: true,
+              controls: {
+                builtin: true,
+                wheel: true
               },
-              "display": {}
+              display: {}
             },
-            "media_gallery": {
-              "controls": {
-                "thumbnails": {
-                  "size": 228
+            media_gallery: {
+              controls: {
+                thumbnails: {
+                  size: 228
                 }
               }
             }
@@ -318,59 +318,59 @@
         ]
       },
       {
-        "type": "grid",
-        "cards": [
+        type: "grid",
+        cards: [
           {
-            "type": "custom:ha-bambulab-ams-card",
-            "entity": "",
-            "header": "",
-            "subtitle": "AMS 1",
-            "style": "vector",
-            "ams": "bb6d8ff7b5587a848196c105ca8920c3",
-            "show_type": false,
-            "show_info_bar": true,
-            "custom_humidity": "sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity",
-            "custom_temperature": "sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature"
+            type: "custom:ha-bambulab-ams-card",
+            entity: "",
+            header: "",
+            subtitle: "AMS 1",
+            style: "vector",
+            ams: "bb6d8ff7b5587a848196c105ca8920c3",
+            show_type: false,
+            show_info_bar: true,
+            custom_humidity: "sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity",
+            custom_temperature: "sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature"
           },
           {
-            "type": "horizontal-stack",
-            "cards": [
+            type: "horizontal-stack",
+            cards: [
               {
-                "type": "vertical-stack",
-                "cards": [
+                type: "vertical-stack",
+                cards: [
                   {
-                    "type": "custom:button-card",
-                    "name": "A1",
-                    "show_icon": false,
-                    "show_state": false,
-                    "styles": {
-                      "card": [
+                    type: "custom:button-card",
+                    name: "A1",
+                    show_icon: false,
+                    show_state: false,
+                    styles: {
+                      card: [
                         {
-                          "background": "none"
+                          background: "none"
                         },
                         {
-                          "box-shadow": "none"
+                          box-shadow: "none"
                         },
                         {
-                          "padding": "4px"
+                          padding: "4px"
                         }
                       ],
-                      "name": [
+                      name: [
                         {
-                          "font-size": "14px"
+                          font-size: "14px"
                         },
                         {
-                          "font-weight": "bold"
+                          font-weight: "bold"
                         },
                         {
-                          "justify-self": "center"
+                          justify-self: "center"
                         }
                       ]
                     }
                   },
                   {
-                    "type": "custom:button-card",
-                    "entity": |
+                    type: "custom:button-card",
+                    entity: |
                       [[[
                       const tray = 'ams_1_tray_1';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -380,22 +380,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_1_tray_1';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_1_tray_1';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_1_tray_1';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_1_tray_1';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_1';
@@ -597,8 +597,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_1_tray_1';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -616,7 +616,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_1_tray_1';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -631,7 +631,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_1_tray_1';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -664,12 +664,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_1_tray_1';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -687,78 +687,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -769,40 +769,40 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "A2",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "A2",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
-                      "name": [
+                      name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_1_tray_2';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -812,22 +812,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_1_tray_2';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_1_tray_2';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_1_tray_2';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_1_tray_2';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_2';
@@ -1029,8 +1029,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_1_tray_2';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -1048,7 +1048,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_1_tray_2';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1063,7 +1063,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_1_tray_2';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1096,12 +1096,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_1_tray_2';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -1119,78 +1119,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -1201,40 +1201,40 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "A3",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "A3",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
-                      "name": [
+                      name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_1_tray_3';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1244,22 +1244,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_1_tray_3';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_1_tray_3';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_1_tray_3';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_1_tray_3';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_3';
@@ -1461,8 +1461,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_1_tray_3';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -1480,7 +1480,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_1_tray_3';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1495,7 +1495,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_1_tray_3';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1528,12 +1528,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_1_tray_3';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -1551,78 +1551,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -1633,40 +1633,40 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "A4",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "A4",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
-                      "name": [
+                      name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_1_tray_4';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1676,22 +1676,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_1_tray_4';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_1_tray_4';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_1_tray_4';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_1_tray_4';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_1_tray_4';
@@ -1893,8 +1893,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_1_tray_4';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -1912,7 +1912,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_1_tray_4';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1927,7 +1927,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_1_tray_4';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -1960,12 +1960,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_1_tray_4';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -1983,78 +1983,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -2067,57 +2067,57 @@
                       ]
                       },
                       {
-                      "type": "custom:ha-bambulab-ams-card",
-                      "entity": "",
-                      "header": "",
-                      "subtitle": "AMS 2 Pro",
-                      "style": "vector",
-                      "ams": "e8499b3326385f02079f3c382558ded2",
-                      "show_info_bar": true,
-                      "custom_humidity": "sensor.3d_printer_ams_2_humidity_and_temp_humidity",
-                      "custom_temperature": "sensor.3d_printer_ams_2_humidity_and_temp_temperature",
-                      "show_type": false,
-                      "spool_anim_reflection": true,
-                      "spool_anim_wiggle": true
+                      type: "custom:ha-bambulab-ams-card",
+                      entity: "",
+                      header: "",
+                      subtitle: "AMS 2 Pro",
+                      style: "vector",
+                      ams: "e8499b3326385f02079f3c382558ded2",
+                      show_info_bar: true,
+                      custom_humidity: "sensor.3d_printer_ams_2_humidity_and_temp_humidity",
+                      custom_temperature: "sensor.3d_printer_ams_2_humidity_and_temp_temperature",
+                      show_type: false,
+                      spool_anim_reflection: true,
+                      spool_anim_wiggle: true
                       },
                       {
-                      "type": "horizontal-stack",
-                      "cards": [
+                      type: "horizontal-stack",
+                      cards: [
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "B1",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "B1",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
-                      "name": [
+                      name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_2_tray_1';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2127,22 +2127,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_2_tray_1';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_2_tray_1';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_2_tray_1';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_2_tray_1';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_1';
@@ -2344,8 +2344,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_2_tray_1';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -2363,7 +2363,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_2_tray_1';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2378,7 +2378,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_2_tray_1';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2411,12 +2411,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_2_tray_1';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -2434,78 +2434,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -2516,40 +2516,40 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "B2",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "B2",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
-                      "name": [
+                      name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_2_tray_2';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2559,22 +2559,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_2_tray_2';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_2_tray_2';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_2_tray_2';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_2_tray_2';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_2';
@@ -2776,8 +2776,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_2_tray_2';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -2795,7 +2795,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_2_tray_2';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2810,7 +2810,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_2_tray_2';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2843,12 +2843,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_2_tray_2';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -2866,78 +2866,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -2948,40 +2948,40 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "B3",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "B3",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_2_tray_3';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -2991,22 +2991,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_2_tray_3';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_2_tray_3';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_2_tray_3';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_2_tray_3';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_3';
@@ -3208,8 +3208,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_2_tray_3';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -3227,7 +3227,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_2_tray_3';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -3242,7 +3242,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_2_tray_3';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -3275,12 +3275,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_2_tray_3';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -3298,78 +3298,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -3380,40 +3380,40 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "B4",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "B4",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'ams_2_tray_4';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -3423,22 +3423,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.p1s_01p00c460102350_ams_2_tray_4';
                       ]]],
-                    "name": |
+                    name: |
                       [[[
                       const tray = 'ams_2_tray_4';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.name ?? 'EMPTY';
                       ]]],
-                    "label": |
+                    label: |
                       [[[
                       const tray = 'ams_2_tray_4';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                       return map?.[tray]?.reason ?? '';
                       ]]],
-                    "show_state": false,
-                    "show_icon": false,
-                    "show_label": true,
-                    "tap_action": |
+                    show_state: false,
+                    show_icon: false,
+                    show_label: true,
+                    tap_action: |
                       [[[
                       const tray = 'ams_2_tray_4';
                       const trayEntity = 'sensor.p1s_01p00c460102350_ams_2_tray_4';
@@ -3640,8 +3640,8 @@
                       }
                       };
                       ]]],
-                    "custom_fields": {
-                      "desiccant_icon": |
+                    custom_fields: {
+                      desiccant_icon: |
                         [[[
                         const tray = 'ams_2_tray_4';
                         const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -3659,7 +3659,7 @@
                         const color = colors[status] || '#9e9e9e';
                         return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                         ]]],
-                      "remaining_weight": |
+                      remaining_weight: |
                         [[[
                         const tray = 'ams_2_tray_4';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -3674,7 +3674,7 @@
 
                         return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                         ]]],
-                      "print_weight": |
+                      print_weight: |
                         [[[
                         const tray = 'ams_2_tray_4';
                         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -3707,12 +3707,12 @@
 
                         return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                         ]]],
-                      "placeholder": |
+                      placeholder: |
                         [[[
                         return '';
                         ]]]
                     },
-                    "styles": |
+                    styles: |
                       [[[
                       const tray = 'ams_2_tray_4';
                       const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -3730,78 +3730,78 @@
                       ],
                       grid: [
                       {
-                      "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
-                      "grid-template-columns": "auto 1fr auto"
+                      grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      "grid-template-rows": "auto auto auto auto"
+                      grid-template-rows: "auto auto auto auto"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "12px"
+                      font-size: "12px"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.2
+                      line-height: 1.2
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "2px"
+                      padding-bottom: "2px"
                       }
                       ],
                       label: [
                       {
-                      "font-size": "9px"
+                      font-size: "9px"
                       },
                       {
-                      "color": "#888"
+                      color: "#888"
                       },
                       {
-                      "font-style": "italic"
+                      font-style: "italic"
                       },
                       {
-                      "white-space": "normal"
+                      white-space: "normal"
                       },
                       {
-                      "line-height": 1.1
+                      line-height: 1.1
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       },
                       {
-                      "padding-bottom": "4px"
+                      padding-bottom: "4px"
                       }
                       ],
                       custom_fields: {
                       desiccant_icon: [
                       {
-                      "justify-self": "start"
+                      justify-self: "start"
                       },
                       {
-                      "padding-left": "4px"
+                      padding-left: "4px"
                       }
                       ],
                       remaining_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ],
                       print_weight: [
                       {
-                      "justify-self": "end"
+                      justify-self: "end"
                       },
                       {
-                      "padding-right": "4px"
+                      padding-right: "4px"
                       }
                       ]
                       }
@@ -3814,56 +3814,56 @@
                       ]
                       },
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:ha-bambulab-spool-card",
-                      "header": "Header Text",
-                      "subtitle": "External ",
-                      "show_header": true,
-                      "spool": "9b8ca6134d4424a7c8fd4467ad2adbc3",
-                      "show_info_bar": false,
-                      "show_type": false,
-                      "tray": 1
+                      type: "custom:ha-bambulab-spool-card",
+                      header: "Header Text",
+                      subtitle: "External ",
+                      show_header: true,
+                      spool: "9b8ca6134d4424a7c8fd4467ad2adbc3",
+                      show_info_bar: false,
+                      show_type: false,
+                      tray: 1
                       },
                       {
-                      "type": "horizontal-stack",
-                      "cards": [
+                      type: "horizontal-stack",
+                      cards: [
                       {
-                      "type": "vertical-stack",
-                      "cards": [
+                      type: "vertical-stack",
+                      cards: [
                       {
-                      "type": "custom:button-card",
-                      "name": "External",
-                      "show_icon": false,
-                      "show_state": false,
-                      "styles": {
-                      "card": [
+                      type: "custom:button-card",
+                      name: "External",
+                      show_icon: false,
+                      show_state: false,
+                      styles: {
+                      card: [
                       {
-                      "background": "none"
+                      background: "none"
                       },
                       {
-                      "box-shadow": "none"
+                      box-shadow: "none"
                       },
                       {
-                      "padding": "4px"
+                      padding: "4px"
                       }
                       ],
                       name: [
                       {
-                      "font-size": "14px"
+                      font-size: "14px"
                       },
                       {
-                      "font-weight": "bold"
+                      font-weight: "bold"
                       },
                       {
-                      "justify-self": "center"
+                      justify-self: "center"
                       }
                       ]
                       }
                       },
                       {
-                      "type": "custom:button-card",
+                      type: "custom:button-card",
                       "entity": "[[[
                       const tray = 'external_spool';
                       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -3873,22 +3873,22 @@
                       ? `sensor.spoolman_spool_${spoolId}`
                       : 'sensor.ntk_ryansoffice_3dprinter_external_spool';
                       ]]],
-                        "name": |
+                        name: |
                           [[[
                           const tray = 'external_spool';
                           const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                           return map?.[tray]?.name ?? 'EMPTY';
                           ]]],
-                        "label": |
+                        label: |
                           [[[
                           const tray = 'external_spool';
                           const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
                           return map?.[tray]?.reason ?? '';
                           ]]],
-                        "show_state": false,
-                        "show_icon": false,
-                        "show_label": true,
-                        "tap_action": |
+                        show_state: false,
+                        show_icon: false,
+                        show_label: true,
+                        tap_action: |
                           [[[
                           const tray = 'external_spool';
                           const trayEntity = 'sensor.ntk_ryansoffice_3dprinter_external_spool';
@@ -4090,8 +4090,8 @@
                           }
                           };
                           ]]],
-                        "custom_fields": {
-                          "desiccant_icon": |
+                        custom_fields: {
+                          desiccant_icon: |
                             [[[
                             const tray = 'external_spool';
                             const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
@@ -4109,7 +4109,7 @@
                             const color = colors[status] || '#9e9e9e';
                             return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;
                             ]]],
-                          "remaining_weight": |
+                          remaining_weight: |
                             [[[
                             const tray = 'external_spool';
                             const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -4124,7 +4124,7 @@
 
                             return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;
                             ]]],
-                          "print_weight": |
+                          print_weight: |
                             [[[
                             const tray = 'external_spool';
                             const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
@@ -4157,12 +4157,12 @@
 
                             return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;
                             ]]],
-                          "placeholder": |
+                          placeholder: |
                             [[[
                             return '';
                             ]]]
                         },
-                        "styles": |
+                        styles: |
                           [[[
                           const tray = 'external_spool';
                           const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
@@ -4180,78 +4180,78 @@
                           ],
                           grid: [
                           {
-                          "grid-template-areas": "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                          grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                           },
                           {
-                          "grid-template-columns": "auto 1fr auto"
+                          grid-template-columns: "auto 1fr auto"
                           },
                           {
-                          "grid-template-rows": "auto auto auto auto"
+                          grid-template-rows: "auto auto auto auto"
                           }
                           ],
                           name: [
                           {
-                          "font-size": "12px"
+                          font-size: "12px"
                           },
                           {
-                          "white-space": "normal"
+                          white-space: "normal"
                           },
                           {
-                          "line-height": 1.2
+                          line-height: 1.2
                           },
                           {
-                          "justify-self": "center"
+                          justify-self: "center"
                           },
                           {
-                          "padding-bottom": "2px"
+                          padding-bottom: "2px"
                           }
                           ],
                           label: [
                           {
-                          "font-size": "9px"
+                          font-size: "9px"
                           },
                           {
-                          "color": "#888"
+                          color: "#888"
                           },
                           {
-                          "font-style": "italic"
+                          font-style: "italic"
                           },
                           {
-                          "white-space": "normal"
+                          white-space: "normal"
                           },
                           {
-                          "line-height": 1.1
+                          line-height: 1.1
                           },
                           {
-                          "justify-self": "center"
+                          justify-self: "center"
                           },
                           {
-                          "padding-bottom": "4px"
+                          padding-bottom: "4px"
                           }
                           ],
                           custom_fields: {
                           desiccant_icon: [
                           {
-                          "justify-self": "start"
+                          justify-self: "start"
                           },
                           {
-                          "padding-left": "4px"
+                          padding-left: "4px"
                           }
                           ],
                           remaining_weight: [
                           {
-                          "justify-self": "end"
+                          justify-self: "end"
                           },
                           {
-                          "padding-right": "4px"
+                          padding-right: "4px"
                           }
                           ],
                           print_weight: [
                           {
-                          "justify-self": "end"
+                          justify-self: "end"
                           },
                           {
-                          "padding-right": "4px"
+                          padding-right: "4px"
                           }
                           ]
                           }
@@ -4260,39 +4260,39 @@
                           ]
                           }
                           ],
-                          "grid_options": {
-                          "columns": 3,
-                          "rows": 1
+                          grid_options: {
+                          columns: 3,
+                          rows: 1
                           }
                           }
                           ],
-                          "grid_options": {
-                          "columns": 3,
-                          "rows": 1
+                          grid_options: {
+                          columns: 3,
+                          rows: 1
                           }
                           }
                           ]
                           },
                           {
-                          "type": "grid",
-                          "cards": [
+                          type: "grid",
+                          cards: [
                           {
-                          "type": "custom:tabbed-card",
-                          "options": {},
-                          "tabs": [
+                          type: "custom:tabbed-card",
+                          options: {},
+                          tabs: [
                           {
-                          "card": {
-                          "type": "vertical-stack",
-                          "cards": [
+                          card: {
+                          type: "vertical-stack",
+                          cards: [
                           {
-                          "type": "entities",
-                          "entities": [
+                          type: "entities",
+                          entities: [
                           {
-                          "type": "custom:button-card",
-                          "entity": "sensor.ntk_ryansoffice_3dprinter_print_weight",
-                          "name": "Current Print Weight",
-                          "show_icon": false,
-                          "show_state": false,
+                          type: "custom:button-card",
+                          entity: "sensor.ntk_ryansoffice_3dprinter_print_weight",
+                          name: "Current Print Weight",
+                          show_icon: false,
+                          show_state: false,
                           custom_fields: {
                           "weight_label": "[[[
                           const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
@@ -4300,7 +4300,7 @@
 
                           return `<div style=\"font-size: 14px; font-weight: 600; margin-bottom: 8px;\">Total: ${totalWeight.toFixed(1)}g</div>`;
                           ]]],
-                            "weight_bar": |
+                            weight_bar: |
                               [[[
                               // Get print weight entity
                               const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
@@ -4447,313 +4447,313 @@
                               return barHTML;
                               ]]]
                           },
-                          "styles": {
-                            "card": [
+                          styles: {
+                            card: [
                               {
-                                "background": "none"
+                                background: "none"
                               },
                               {
-                                "box-shadow": "none"
+                                box-shadow: "none"
                               },
                               {
-                                "padding": "8px"
+                                padding: "8px"
                               }
                             ],
-                            "grid": [
+                            grid: [
                               {
-                                "grid-template-areas": "\"n\" \"weight_label\" \"weight_bar\""
+                                grid-template-areas: "\"n\" \"weight_label\" \"weight_bar\""
                               },
                               {
-                                "grid-template-columns": "1fr"
+                                grid-template-columns: "1fr"
                               },
                               {
-                                "grid-template-rows": "auto auto auto"
+                                grid-template-rows: "auto auto auto"
                               }
                             ],
-                            "name": [
+                            name: [
                               {
-                                "font-size": "14px"
+                                font-size: "14px"
                               },
                               {
-                                "font-weight": "600"
+                                font-weight: "600"
                               },
                               {
-                                "justify-self": "start"
+                                justify-self: "start"
                               },
                               {
-                                "margin-bottom": "4px"
+                                margin-bottom: "4px"
                               }
                             ],
-                            "custom_fields": {
-                              "weight_label": [
+                            custom_fields: {
+                              weight_label: [
                                 {
-                                  "justify-self": "start"
+                                  justify-self: "start"
                                 }
                               ],
-                              "weight_bar": [
+                              weight_bar: [
                                 {
-                                  "width": "100%"
+                                  width: "100%"
                                 }
                               ]
                             }
                           }
                         },
                         {
-                          "entity": "sensor.ntk_ryansoffice_3dprinter_current_stage",
-                          "name": "Stage"
+                          entity: "sensor.ntk_ryansoffice_3dprinter_current_stage",
+                          name: "Stage"
                         },
                         {
-                          "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
-                          "name": "HMS Notifications",
-                          "tap_action": {
-                            "action": "more-info"
+                          entity: "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+                          name: "HMS Notifications",
+                          tap_action: {
+                            action: "more-info"
                           },
-                          "secondary_info": "last-changed"
+                          secondary_info: "last-changed"
                         },
                         {
-                          "entity": "sensor.ntk_ryansoffice_3dprinter_start_time",
-                          "name": "Start Time",
-                          "secondary_info": "last-changed"
+                          entity: "sensor.ntk_ryansoffice_3dprinter_start_time",
+                          name: "Start Time",
+                          secondary_info: "last-changed"
                         },
                         {
-                          "entity": "sensor.ntk_ryansoffice_3dprinter_end_time",
-                          "name": "End Time"
+                          entity: "sensor.ntk_ryansoffice_3dprinter_end_time",
+                          name: "End Time"
                         },
                         {
-                          "entity": "sensor.ntk_ryansoffice_3dprinter_remaining_time",
-                          "name": "Remaining Time"
+                          entity: "sensor.ntk_ryansoffice_3dprinter_remaining_time",
+                          name: "Remaining Time"
                         },
                         {
-                          "entity": "sensor.ntk_ryansoffice_3dprinter_active_tray",
-                          "name": "Current Filament",
-                          "icon": "fapro:filament-2"
+                          entity: "sensor.ntk_ryansoffice_3dprinter_active_tray",
+                          name: "Current Filament",
+                          icon: "fapro:filament-2"
                         }
                       ]
                     }
                   ]
                 },
-                "attributes": {
-                  "label": "Print Details"
+                attributes: {
+                  label: "Print Details"
                 }
               },
               {
-                "card": {
-                  "type": "vertical-stack",
-                  "cards": [
+                card: {
+                  type: "vertical-stack",
+                  cards: [
                     {
-                      "type": "markdown",
-                      "text_only": true,
-                      "content": "### AMS 1"
+                      type: "markdown",
+                      text_only: true,
+                      content: "### AMS 1"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray A1: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_1_tray_1",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray A1: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_1_tray_1",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray A2: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_1_tray_2",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray A2: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_1_tray_2",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray A3: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_1_tray_3",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray A3: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_1_tray_3",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray A4: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_1_tray_4",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray A4: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_1_tray_4",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "markdown",
-                      "text_only": true,
-                      "content": "### AMS 2 Pro"
+                      type: "markdown",
+                      text_only: true,
+                      content: "### AMS 2 Pro"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray B1: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_2_tray_1",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray B1: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_2_tray_1",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:check\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "blue",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:check\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "blue",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray B2: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_2_tray_2",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray B2: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_2_tray_2",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:alert-circle\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:alert-circle\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray B3: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_2_tray_3",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray B3: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_2_tray_3",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     },
                     {
-                      "type": "custom:mushroom-template-card",
-                      "primary": "Tray B4: {{ states(entity) }}",
-                      "secondary": "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
-                      "icon": "mdi:circle",
-                      "entity": "sensor.p1s_01p00c460102350_ams_2_tray_4",
-                      "multiline_secondary": true,
-                      "grid_options": {
-                        "columns": "full",
-                        "rows": "auto"
+                      type: "custom:mushroom-template-card",
+                      primary: "Tray B4: {{ states(entity) }}",
+                      secondary: "UUID: {{ state_attr(entity, 'tray_uuid') }}\nColor: {{ state_attr(entity, 'color') }}",
+                      icon: "mdi:circle",
+                      entity: "sensor.p1s_01p00c460102350_ams_2_tray_4",
+                      multiline_secondary: true,
+                      grid_options: {
+                        columns: "full",
+                        rows: "auto"
                       },
-                      "badge_icon": "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
-                      "badge_color": "green",
-                      "hold_action": {
-                        "action": "none"
+                      badge_icon: "{% if states(entity)|default(false, true) and state_attr(entity, 'active') %}\nmdi:circle-double\n{% else %}\n\n{% endif %}\n",
+                      badge_color: "green",
+                      hold_action: {
+                        action: "none"
                       },
-                      "double_tap_action": {
-                        "action": "none"
+                      double_tap_action: {
+                        action: "none"
                       },
-                      "tap_action": {
-                        "action": "more-info"
+                      tap_action: {
+                        action: "more-info"
                       },
-                      "color": "{{ state_attr(entity, 'color') }}",
-                      "features_position": "bottom"
+                      color: "{{ state_attr(entity, 'color') }}",
+                      features_position: "bottom"
                     }
                   ]
                 },
-                "attributes": {
-                  "label": "Spool Details"
+                attributes: {
+                  label: "Spool Details"
                 }
               }
             ]
@@ -4761,97 +4761,97 @@
         ]
       }
     ],
-    "badges": [
+    badges: [
       {
-        "type": "entity",
-        "show_name": true,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "sensor.ntk_ryansoffice_3dprinter_print_status",
-        "show_entity_picture": false,
-        "icon": "mdi:rotate-3d"
+        type: "entity",
+        show_name: true,
+        show_state: true,
+        show_icon: true,
+        entity: "sensor.ntk_ryansoffice_3dprinter_print_status",
+        show_entity_picture: false,
+        icon: "mdi:rotate-3d"
       },
       {
-        "type": "entity",
-        "show_name": true,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "sensor.ntk_ryansoffice_3dprinter_current_stage",
-        "icon": "mdi:printer-3d",
-        "show_entity_picture": false
+        type: "entity",
+        show_name: true,
+        show_state: true,
+        show_icon: true,
+        entity: "sensor.ntk_ryansoffice_3dprinter_current_stage",
+        icon: "mdi:printer-3d",
+        show_entity_picture: false
       },
       {
-        "type": "entity",
-        "show_name": true,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "sensor.ntk_ryansoffice_3dprinter_task_name",
-        "icon": "mdi:cube-outline"
+        type: "entity",
+        show_name: true,
+        show_state: true,
+        show_icon: true,
+        entity: "sensor.ntk_ryansoffice_3dprinter_task_name",
+        icon: "mdi:cube-outline"
       },
       {
-        "type": "entity",
-        "show_name": false,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "sensor.print_layer_progress_formatted",
-        "icon": "fas:layer-group"
+        type: "entity",
+        show_name: false,
+        show_state: true,
+        show_icon: true,
+        entity: "sensor.print_layer_progress_formatted",
+        icon: "fas:layer-group"
       },
       {
-        "type": "entity",
-        "show_name": false,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "sensor.ntk_ryansoffice_3dprinter_print_progress",
-        "icon": "mdi:progress-helper"
+        type: "entity",
+        show_name: false,
+        show_state: true,
+        show_icon: true,
+        entity: "sensor.ntk_ryansoffice_3dprinter_print_progress",
+        icon: "mdi:progress-helper"
       },
       {
-        "type": "entity",
-        "show_name": false,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "sensor.print_time_remaining_formatted",
-        "icon": "mdi:progress-clock"
+        type: "entity",
+        show_name: false,
+        show_state: true,
+        show_icon: true,
+        entity: "sensor.print_time_remaining_formatted",
+        icon: "mdi:progress-clock"
       },
       {
-        "type": "entity",
-        "show_name": true,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
-        "name": "HMS",
-        "tap_action": {
-          "action": "more-info"
+        type: "entity",
+        show_name: true,
+        show_state: true,
+        show_icon: true,
+        entity: "binary_sensor.ntk_ryansoffice_3dprinter_hms_errors",
+        name: "HMS",
+        tap_action: {
+          action: "more-info"
         }
       },
       {
-        "type": "entity",
-        "show_name": true,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "camera.ntk_ryansoffice_3dprinter_camera",
-        "icon": "",
-        "show_entity_picture": true
+        type: "entity",
+        show_name: true,
+        show_state: true,
+        show_icon: true,
+        entity: "camera.ntk_ryansoffice_3dprinter_camera",
+        icon: "",
+        show_entity_picture: true
       },
       {
-        "type": "entity",
-        "show_name": false,
-        "show_state": true,
-        "show_icon": true,
-        "entity": "camera.3dprintertopcamera_hd_stream",
-        "show_entity_picture": false
+        type: "entity",
+        show_name: false,
+        show_state: true,
+        show_icon: true,
+        entity: "camera.3dprintertopcamera_hd_stream",
+        show_entity_picture: false
       },
       {
-        "type": "custom:config-template-card",
-        "entities": [
+        type: "custom:config-template-card",
+        entities: [
           "sensor.ntk_ryansoffice_3dprinter_remaining_time"
         ],
-        "card": {
-          "type": "entity",
-          "entity": "sensor.ntk_ryansoffice_3dprinter_remaining_time",
-          "show_name": false,
-          "show_icon": true,
-          "show_state": true,
-          "state": |
+        card: {
+          type: "entity",
+          entity: "sensor.ntk_ryansoffice_3dprinter_remaining_time",
+          show_name: false,
+          show_icon: true,
+          show_state: true,
+          state: |
             [[[
             const total = parseInt(states['sensor.ntk_ryansoffice_3dprinter_remaining_time'].state);
             const days = Math.floor(total / 1440);
@@ -4864,251 +4864,251 @@
         }
       },
       {
-        "type": "entity",
-        "show_name": false,
-        "show_state": false,
-        "show_icon": true,
-        "entity": "image.ntk_ryansoffice_3dprinter_cover_image",
-        "show_entity_picture": true,
-        "state_content": "name"
+        type: "entity",
+        show_name: false,
+        show_state: false,
+        show_icon: true,
+        entity: "image.ntk_ryansoffice_3dprinter_cover_image",
+        show_entity_picture: true,
+        state_content: "name"
       }
     ],
-    "header": {
-      "card": {
-        "type": "markdown",
-        "text_only": true,
-        "content": "# 3D Printer"
+    header: {
+      card: {
+        type: "markdown",
+        text_only: true,
+        content: "# 3D Printer"
       }
     }
   },
   {
-    "type": "custom:vertical-layout",
-    "path": "spool",
-    "icon": "fapro:filament-2",
-    "cards": [
+    type: "custom:vertical-layout",
+    path: "spool",
+    icon: "fapro:filament-2",
+    cards: [
       {
-        "type": "custom:bubble-card",
-        "card_type": "separator",
-        "sub_button": {
-          "main": [],
-          "bottom": []
+        type: "custom:bubble-card",
+        card_type: "separator",
+        sub_button: {
+          main: [],
+          bottom: []
         },
-        "name": "Spool Information",
-        "icon": "fapro:filament-2",
-        "card_layout": "large"
+        name: "Spool Information",
+        icon: "fapro:filament-2",
+        card_layout: "large"
       },
       {
-        "type": "custom:config-template-card",
-        "variables": {
-          "selected_entity": "states['sensor.selected_spool'].state"
+        type: "custom:config-template-card",
+        variables: {
+          selected_entity: "states['sensor.selected_spool'].state"
         },
-        "entities": [
+        entities: [
           "sensor.selected_spool"
         ],
-        "card": {
-          "type": "custom:bubble-card",
-          "card_type": "button",
-          "button_type": "state",
-          "entity": "${selected_entity}",
-          "icon": "",
-          "name": "",
-          "show_icon": true,
-          "show_attribute": false,
-          "show_state": false,
-          "scrolling_effect": true,
-          "rows": 1.719,
-          "styles": "/* Global bump */ \n* { \n  font-size: 18px !important; \n} \n\n/* Main entity name */ \n.bubble-name { \n  font-size: 22px !important; \n  font-weight: 700; \n} \n\n/* Top location attribute */ \n.bubble-sub-button-main .bubble-sub-button-text { \n  font-size: 22px !important; \n  font-weight: 600; \n} \n\n/* Bottom ID label */ \n.bubble-sub-button-bottom .bubble-sub-button-text, .bubble-state { \n  font-size: 16px !important; \n  font-weight: 600; \n}\n",
-          "sub_button": {
-            "main": [],
-            "bottom": [
+        card: {
+          type: "custom:bubble-card",
+          card_type: "button",
+          button_type: "state",
+          entity: "${selected_entity}",
+          icon: "",
+          name: "",
+          show_icon: true,
+          show_attribute: false,
+          show_state: false,
+          scrolling_effect: true,
+          rows: 1.719,
+          styles: "/* Global bump */ \n* { \n  font-size: 18px !important; \n} \n\n/* Main entity name */ \n.bubble-name { \n  font-size: 22px !important; \n  font-weight: 700; \n} \n\n/* Top location attribute */ \n.bubble-sub-button-main .bubble-sub-button-text { \n  font-size: 22px !important; \n  font-weight: 600; \n} \n\n/* Bottom ID label */ \n.bubble-sub-button-bottom .bubble-sub-button-text, .bubble-state { \n  font-size: 16px !important; \n  font-weight: 600; \n}\n",
+          sub_button: {
+            main: [],
+            bottom: [
               {
-                "entity": "${selected_entity}",
-                "icon": "fas:location-dot",
-                "show_background": true,
-                "state_background": false,
-                "show_icon": true,
-                "show_attribute": true,
-                "attribute": "location"
+                entity: "${selected_entity}",
+                icon: "fas:location-dot",
+                show_background: true,
+                state_background: false,
+                show_icon: true,
+                show_attribute: true,
+                attribute: "location"
               },
               {
-                "entity": "${selected_entity}",
-                "icon": "mdi:weight-gram",
-                "state_background": false,
-                "show_state": true
+                entity: "${selected_entity}",
+                icon: "mdi:weight-gram",
+                state_background: false,
+                show_state: true
               }
             ]
           }
         }
       },
       {
-        "type": "custom:bubble-card",
-        "card_type": "separator",
-        "sub_button": {
-          "main": [],
-          "bottom": []
+        type: "custom:bubble-card",
+        card_type: "separator",
+        sub_button: {
+          main: [],
+          bottom: []
         },
-        "name": "Change Location",
-        "icon": "mdi:map-marker-distance",
-        "card_layout": "large"
+        name: "Change Location",
+        icon: "mdi:map-marker-distance",
+        card_layout: "large"
       },
       {
-        "type": "custom:config-template-card",
-        "entities": [
+        type: "custom:config-template-card",
+        entities: [
           "sensor.selected_spool"
         ],
-        "variables": {
-          "selected_entity": "states['sensor.selected_spool'].state",
-          "spool_id": "states[states['sensor.selected_spool'].state].attributes.id"
+        variables: {
+          selected_entity: "states['sensor.selected_spool'].state",
+          spool_id: "states[states['sensor.selected_spool'].state].attributes.id"
         },
-        "card": {
-          "type": "custom:bubble-card",
-          "card_type": "sub-buttons",
-          "entity": "${selected_entity}",
-          "hide_main_background": false,
-          "rows": 0.938,
-          "sub_button": {
-            "main": [],
-            "bottom": [
+        card: {
+          type: "custom:bubble-card",
+          card_type: "sub-buttons",
+          entity: "${selected_entity}",
+          hide_main_background: false,
+          rows: 0.938,
+          sub_button: {
+            main: [],
+            bottom: [
               {
-                "tap_action": {
-                  "action": "perform-action",
-                  "perform_action": "script.update_spool_location",
-                  "target": {},
-                  "data": {
-                    "spool_id": "${ spool_id }",
-                    "location": "AMS"
+                tap_action: {
+                  action: "perform-action",
+                  perform_action: "script.update_spool_location",
+                  target: {},
+                  data: {
+                    spool_id: "${ spool_id }",
+                    location: "AMS"
                   }
                 },
-                "name": "AMS",
-                "show_name": true,
-                "icon": "fas:arrow-right-to-bracket",
-                "show_state": false,
-                "state_background": false
+                name: "AMS",
+                show_name: true,
+                icon: "fas:arrow-right-to-bracket",
+                show_state: false,
+                state_background: false
               },
               {
-                "tap_action": {
-                  "action": "perform-action",
-                  "perform_action": "script.update_spool_location",
-                  "target": {},
-                  "data": {
-                    "spool_id": "${ spool_id }",
-                    "location": "AMS 2"
+                tap_action: {
+                  action: "perform-action",
+                  perform_action: "script.update_spool_location",
+                  target: {},
+                  data: {
+                    spool_id: "${ spool_id }",
+                    location: "AMS 2"
                   }
                 },
-                "name": "AMS 2",
-                "show_name": true,
-                "icon": "fas:arrow-right-to-bracket",
-                "show_state": false,
-                "state_background": false
+                name: "AMS 2",
+                show_name: true,
+                icon: "fas:arrow-right-to-bracket",
+                show_state: false,
+                state_background: false
               }
             ]
           }
         }
       },
       {
-        "type": "custom:layout-card",
-        "layout_type": "custom:grid-layout",
-        "layout": {
-          "grid-template-columns": "1fr auto",
-          "grid-gap": "12px"
+        type: "custom:layout-card",
+        layout_type: "custom:grid-layout",
+        layout: {
+          grid-template-columns: "1fr auto",
+          grid-gap: "12px"
         },
-        "cards": [
+        cards: [
           {
-            "type": "entities",
-            "entities": [
+            type: "entities",
+            entities: [
               {
-                "entity": "input_select.spool_location_choice",
-                "name": "Move to:",
-                "secondary_info": "none"
+                entity: "input_select.spool_location_choice",
+                name: "Move to:",
+                secondary_info: "none"
               }
             ],
-            "theme": "Metro Blue",
-            "card_mod": {
-              "style": "ha-card {\n  font-size: 1.4rem;\n}\n"
+            theme: "Metro Blue",
+            card_mod: {
+              style: "ha-card {\n  font-size: 1.4rem;\n}\n"
             }
           },
           {
-            "show_name": false,
-            "show_icon": true,
-            "type": "button",
-            "icon": "mdi:refresh-circle",
-            "name": "",
-            "tap_action": {
-              "action": "perform-action",
-              "perform_action": "automation.trigger",
-              "target": {
-                "entity_id": "automation.spoolman_location_sync"
+            show_name: false,
+            show_icon: true,
+            type: "button",
+            icon: "mdi:refresh-circle",
+            name: "",
+            tap_action: {
+              action: "perform-action",
+              perform_action: "automation.trigger",
+              target: {
+                entity_id: "automation.spoolman_location_sync"
               },
-              "data": {
-                "skip_condition": true
+              data: {
+                skip_condition: true
               }
             },
-            "show_state": false,
-            "theme": "Metro Blue",
-            "card_mod": {
-              "style": "ha-card {\n  width: 70px;       /* icon-sized */\n  height: 55px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\nha-icon {\n  width: 48px;\n  height: 48px;\n}\n"
+            show_state: false,
+            theme: "Metro Blue",
+            card_mod: {
+              style: "ha-card {\n  width: 70px;       /* icon-sized */\n  height: 55px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\nha-icon {\n  width: 48px;\n  height: 48px;\n}\n"
             }
           }
         ]
       },
       {
-        "type": "custom:config-template-card",
-        "entities": [
+        type: "custom:config-template-card",
+        entities: [
           "sensor.selected_spool",
           "input_select.spool_location_choice"
         ],
-        "variables": {
-          "selected_entity": "states['sensor.selected_spool'].state",
-          "spool_id": "states[states['sensor.selected_spool'].state].attributes.id",
-          "new_location": "states['input_select.spool_location_choice'].state"
+        variables: {
+          selected_entity: "states['sensor.selected_spool'].state",
+          spool_id: "states[states['sensor.selected_spool'].state].attributes.id",
+          new_location: "states['input_select.spool_location_choice'].state"
         },
-        "card": {
-          "type": "custom:bubble-card",
-          "card_type": "button",
-          "button_type": "name",
-          "name": "${new_location}",
-          "icon": "mdi:tray-arrow-down",
-          "show_icon": true,
-          "tap_action": {
-            "action": "call-service",
-            "service": "script.update_spool_location",
-            "service_data": {
-              "spool_id": "${spool_id}",
-              "location": "${new_location}"
+        card: {
+          type: "custom:bubble-card",
+          card_type: "button",
+          button_type: "name",
+          name: "${new_location}",
+          icon: "mdi:tray-arrow-down",
+          show_icon: true,
+          tap_action: {
+            action: "call-service",
+            service: "script.update_spool_location",
+            service_data: {
+              spool_id: "${spool_id}",
+              location: "${new_location}"
             }
           }
         }
       },
       {
-        "type": "custom:bubble-card",
-        "card_type": "separator",
-        "sub_button": {
-          "main": [],
-          "bottom": []
+        type: "custom:bubble-card",
+        card_type: "separator",
+        sub_button: {
+          main: [],
+          bottom: []
         },
-        "name": "Desiccant Container",
-        "icon": "mdi:water-circle",
-        "rows": "2"
+        name: "Desiccant Container",
+        icon: "mdi:water-circle",
+        rows: "2"
       },
       {
-        "type": "horizontal-stack",
-        "cards": [
+        type: "horizontal-stack",
+        cards: [
           {
-            "type": "custom:button-card",
-            "show_icon": true,
-            "show_name": false,
-            "show_label": true,
-            "tap_action": {
-              "action": "none"
+            type: "custom:button-card",
+            show_icon: true,
+            show_name: false,
+            show_label: true,
+            tap_action: {
+              action: "none"
             },
-            "hold_action": {
-              "action": "none"
+            hold_action: {
+              action: "none"
             },
-            "double_tap_action": {
-              "action": "none"
+            double_tap_action: {
+              action: "none"
             },
-            "icon": "mdi:water",
-            "label": |
+            icon: "mdi:water",
+            label: |
               [[[
               const selected_entity = states['sensor.selected_spool'].state;
               const spool_id = states[selected_entity].attributes.id;
@@ -5128,44 +5128,44 @@
 
               return `${filled.toLocaleDateString('en-US')} (${ago})`;
               ]]],
-            "styles": {
-              "grid": [
+            styles: {
+              grid: [
                 {
-                  "grid-template-areas": "\"i\" \"l\""
+                  grid-template-areas: "\"i\" \"l\""
                 },
                 {
-                  "grid-template-rows": "min-content min-content"
+                  grid-template-rows: "min-content min-content"
                 },
                 {
-                  "justify-items": "center"
+                  justify-items: "center"
                 },
                 {
-                  "align-items": "center"
+                  align-items: "center"
                 }
               ],
-              "card": [
+              card: [
                 {
-                  "background": "none"
+                  background: "none"
                 },
                 {
-                  "box-shadow": "none"
+                  box-shadow: "none"
                 },
                 {
-                  "padding": "4px"
+                  padding: "4px"
                 }
               ],
-              "icon": [
+              icon: [
                 {
-                  "width": "25px"
+                  width: "25px"
                 },
                 {
-                  "height": "25px"
+                  height: "25px"
                 },
                 {
-                  "margin-bottom": "2px"
+                  margin-bottom: "2px"
                 },
                 {
-                  "color": |
+                  color: |
                     [[[
                     const selected_entity = states['sensor.selected_spool'].state;
                     const spool_id = states[selected_entity].attributes.id;
@@ -5182,31 +5182,31 @@
                     ]]]
                 }
               ],
-              "label": [
+              label: [
                 {
-                  "font-size": "14px"
+                  font-size: "14px"
                 },
                 {
-                  "text-align": "center"
+                  text-align: "center"
                 },
                 {
-                  "white-space": "nowrap"
+                  white-space: "nowrap"
                 }
               ]
             }
           },
           {
-            "type": "custom:button-card",
-            "icon": "mdi:clock-check-outline",
-            "label": "Mark as refilled",
-            "show_icon": true,
-            "show_name": false,
-            "show_label": true,
-            "tap_action": {
-              "action": "call-service",
-              "service": "script.refill_desiccant_update_date",
-              "service_data": {
-                "spool_id": |
+            type: "custom:button-card",
+            icon: "mdi:clock-check-outline",
+            label: "Mark as refilled",
+            show_icon: true,
+            show_name: false,
+            show_label: true,
+            tap_action: {
+              action: "call-service",
+              service: "script.refill_desiccant_update_date",
+              service_data: {
+                spool_id: |
                   [[[
                   const selected_entity = states['sensor.selected_spool'].state;
                   const spool_id = states[selected_entity].attributes.id;
@@ -5216,55 +5216,55 @@
                   ]]]
               }
             },
-            "styles": {
-              "grid": [
+            styles: {
+              grid: [
                 {
-                  "grid-template-areas": "\"i\" \"l\""
+                  grid-template-areas: "\"i\" \"l\""
                 },
                 {
-                  "grid-template-rows": "min-content min-content"
+                  grid-template-rows: "min-content min-content"
                 },
                 {
-                  "justify-items": "center"
+                  justify-items: "center"
                 },
                 {
-                  "align-items": "center"
+                  align-items: "center"
                 }
               ],
-              "card": [
+              card: [
                 {
-                  "border": "1px solid rgba(0,0,0,0.15)"
+                  border: "1px solid rgba(0,0,0,0.15)"
                 },
                 {
-                  "box-shadow": "none"
+                  box-shadow: "none"
                 },
                 {
-                  "padding": "4px"
+                  padding: "4px"
                 }
               ],
-              "icon": [
+              icon: [
                 {
-                  "width": "25px"
+                  width: "25px"
                 },
                 {
-                  "height": "25px"
+                  height: "25px"
                 },
                 {
-                  "margin-bottom": "2px"
+                  margin-bottom: "2px"
                 }
               ],
-              "label": [
+              label: [
                 {
-                  "font-size": "14px"
+                  font-size: "14px"
                 },
                 {
-                  "font-weight": "bold"
+                  font-weight: "bold"
                 },
                 {
-                  "text-align": "center"
+                  text-align: "center"
                 },
                 {
-                  "white-space": "nowrap"
+                  white-space: "nowrap"
                 }
               ]
             }
@@ -5272,99 +5272,99 @@
         ]
       },
       {
-        "type": "custom:bubble-card",
-        "card_type": "separator",
-        "sub_button": {
-          "main": [],
-          "bottom": []
+        type: "custom:bubble-card",
+        card_type: "separator",
+        sub_button: {
+          main: [],
+          bottom: []
         },
-        "name": "Other Actions",
-        "icon": "mdi:gesture-tap"
+        name: "Other Actions",
+        icon: "mdi:gesture-tap"
       },
       {
-        "type": "custom:config-template-card",
-        "entities": [],
-        "variables": {
-          "filament_id": "new URLSearchParams(location.search).get(\"filament_id\")"
+        type: "custom:config-template-card",
+        entities: [],
+        variables: {
+          filament_id: "new URLSearchParams(location.search).get(\"filament_id\")"
         },
-        "card": {
-          "type": "custom:bubble-card",
-          "card_type": "button",
-          "name": "Load from Query String",
-          "icon": "mdi:download",
-          "tap_action": {
-            "action": "call-service",
-            "service": "input_text.set_value",
-            "service_data": {
-              "entity_id": "input_text.filament_id",
-              "value": "${ filament_id }"
+        card: {
+          type: "custom:bubble-card",
+          card_type: "button",
+          name: "Load from Query String",
+          icon: "mdi:download",
+          tap_action: {
+            action: "call-service",
+            service: "input_text.set_value",
+            service_data: {
+              entity_id: "input_text.filament_id",
+              value: "${ filament_id }"
             }
           },
-          "disabled": true,
-          "button_type": "name",
-          "sub_button": {
-            "main": [],
-            "bottom": []
+          disabled: true,
+          button_type: "name",
+          sub_button: {
+            main: [],
+            bottom: []
           },
-          "button_action": {
-            "tap_action": {
-              "action": "perform-action",
-              "perform_action": "input_text.set_value",
-              "target": {
-                "entity_id": "input_text.filament_id"
+          button_action: {
+            tap_action: {
+              action: "perform-action",
+              perform_action: "input_text.set_value",
+              target: {
+                entity_id: "input_text.filament_id"
               },
-              "data": {
-                "value": "${ filament_id }"
+              data: {
+                value: "${ filament_id }"
               }
             }
           },
-          "card_layout": "large"
+          card_layout: "large"
         }
       }
     ]
   },
   {
-    "type": "sections",
-    "max_columns": 4,
-    "title": "Filament Catalog",
-    "path": "filaments",
-    "icon": "",
-    "sections": [
+    type: "sections",
+    max_columns: 4,
+    title: "Filament Catalog",
+    path: "filaments",
+    icon: "",
+    sections: [
       {
-        "type": "grid",
-        "cards": [
+        type: "grid",
+        cards: [
           {
-            "type": "heading",
-            "heading": "Filaments",
-            "heading_style": "title"
+            type: "heading",
+            heading: "Filaments",
+            heading_style: "title"
           },
           {
-            "type": "custom:auto-entities",
-            "card": {
-              "type": "entities"
+            type: "custom:auto-entities",
+            card: {
+              type: "entities"
             },
-            "filter": {
-              "include": [
+            filter: {
+              include: [
                 {
-                  "options": {},
-                  "device": "a6938154abe12684b14b6f4781f08c6d",
-                  "sort": {
-                    "reverse": false,
-                    "numeric": true,
-                    "method": "state"
+                  options: {},
+                  device: "a6938154abe12684b14b6f4781f08c6d",
+                  sort: {
+                    reverse: false,
+                    numeric: true,
+                    method: "state"
                   }
                 }
               ],
-              "exclude": []
+              exclude: []
             },
-            "grid_options": {
-              "columns": "full"
+            grid_options: {
+              columns: "full"
             }
           }
         ],
-        "column_span": 1
+        column_span: 1
       }
     ],
-    "cards": []
+    cards: []
   }
 ]
