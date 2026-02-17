@@ -1,0 +1,129 @@
+alias: Air Quality Auto-Adjust Purifier Speed
+description: >
+  Automatically adjusts the Govee air purifier speed based on current air quality.
+  This automation monitors PM2.5, CO2, and VOC levels and increases or decreases
+  the purifier speed to maintain good air quality.
+  
+  The automation only runs when:
+  - The purifier is already on (won't turn it on automatically)
+  - A 3D print is in progress or recently completed (within 30 minutes)
+  
+  Speed adjustments:
+  - Very Poor: 100% (maximum purification)
+  - Poor: 80% (high purification)
+  - Moderate: 50% (balanced)
+  - Good: 33% (quiet operation)
+
+triggers:
+  # Check air quality every 5 minutes
+  - trigger: time_pattern
+    minutes: "/5"
+
+conditions:
+  # Only adjust if purifier is already on
+  - condition: state
+    entity_id: fan.govee_air_purifier
+    state: "on"
+  
+  # Only adjust during or shortly after printing
+  - condition: or
+    conditions:
+      # Printer is currently printing
+      - condition: state
+        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+        state: "printing"
+      
+      # Print finished within last 30 minutes
+      - condition: template
+        value_template: >
+          {% set print_end = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+          {% if print_end not in ['unknown', 'unavailable', ''] %}
+            {{ (as_timestamp(now()) - as_timestamp(print_end)) < 1800 }}
+          {% else %}
+            false
+          {% endif %}
+
+actions:
+  # Calculate required purifier speed based on air quality
+  - variables:
+      pm25: "{{ states('sensor.airgradient_pm25') | float(0) }}"
+      co2: "{{ states('sensor.airgradient_co2') | int(0) }}"
+      voc: "{{ states('sensor.airgradient_tvoc') | int(0) }}"
+      current_speed: "{{ state_attr('fan.govee_air_purifier', 'percentage') | int(0) }}"
+      target_speed: >
+        {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+        {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+        {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+        
+        {# Very poor air quality #}
+        {% if pm25 >= 55 or co2 >= 2000 or voc >= 300 %}
+          100
+        {# Poor air quality #}
+        {% elif pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
+          80
+        {# Moderate air quality #}
+        {% elif pm25 >= 12 or co2 >= 800 or voc >= 100 %}
+          50
+        {# Good air quality #}
+        {% else %}
+          33
+        {% endif %}
+  
+  # Only adjust if speed needs to change by more than 10%
+  - condition: template
+    value_template: "{{ (target_speed | int - current_speed | int) | abs >= 10 }}"
+  
+  # Adjust purifier speed
+  - action: fan.set_percentage
+    target:
+      entity_id: fan.govee_air_purifier
+    data:
+      percentage: "{{ target_speed }}"
+  
+  # Log significant speed increases (air quality worsened)
+  - if:
+      - condition: template
+        value_template: "{{ target_speed | int > current_speed | int }}"
+    then:
+      - action: logbook.log
+        data:
+          name: Air Purifier Speed Increased
+          message: >
+            Air quality degraded. Increased purifier speed from {{ current_speed }}% to {{ target_speed }}%.
+            PM2.5: {{ pm25 | round(1) }} µg/m³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+      
+      # Send notification for significant speed increases
+      - if:
+          - condition: template
+            value_template: "{{ (target_speed | int - current_speed | int) >= 30 }}"
+        then:
+          - action: notify.notify
+            data:
+              title: "⚠️ Air Purifier Speed Increased"
+              message: >
+                Air quality has degraded during printing.
+                
+                Purifier speed: {{ current_speed }}% → {{ target_speed }}%
+                
+                Current readings:
+                PM2.5: {{ pm25 | round(1) }} µg/m³
+                CO2: {{ co2 }} ppm
+                VOC: {{ voc }} ppb
+              data:
+                notification_id: purifier_speed_increase
+                tag: air_quality
+  
+  # Log speed decreases (air quality improved)
+  - if:
+      - condition: template
+        value_template: "{{ target_speed | int < current_speed | int }}"
+    then:
+      - action: logbook.log
+        data:
+          name: Air Purifier Speed Decreased
+          message: >
+            Air quality improved. Decreased purifier speed from {{ current_speed }}% to {{ target_speed }}%.
+            PM2.5: {{ pm25 | round(1) }} µg/m³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+
+mode: single
+max_exceeded: silent
