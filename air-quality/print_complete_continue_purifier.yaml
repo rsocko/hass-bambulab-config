@@ -35,13 +35,8 @@ actions:
           66
         {% endif %}
   
-  # Keep Bento Box fan running
-  - action: fan.turn_on
-    target:
-      entity_id: fan.bento_box_fan
-    data:
-      percentage: 50
-    continue_on_error: true
+  # Note: Bento Box fan is now controlled by dedicated automation
+  # (bento_box_fan_auto_control.yaml) based on air quality and filament type
   
   # Log the action
   - action: logbook.log
@@ -122,17 +117,13 @@ actions:
             data:
               percentage: 33
           
-          - action: fan.turn_off
-            target:
-              entity_id: fan.bento_box_fan
-            continue_on_error: true
-          
           - action: logbook.log
             data:
               name: Air Purifier Reduced
               message: >
                 Air quality moderate after 30 minutes. Reduced purifier to low speed.
                 PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+                Note: Bento Box fan controlled by separate automation.
     
     # Default: Air quality is good, turn off purifier
     default:
@@ -140,19 +131,15 @@ actions:
         target:
           entity_id: fan.govee_air_purifier
       
-      - action: fan.turn_off
-        target:
-          entity_id: fan.bento_box_fan
-        continue_on_error: true
-      
       - action: logbook.log
         data:
           name: Air Purification Complete
           message: >
-            Air quality good after 30 minutes. Turned off purifier and Bento Box fan.
+            Air quality good after 30 minutes. Turned off purifier.
             PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³,
             CO2: {{ states('sensor.airgradient_co2') }} ppm,
             VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+            Note: Bento Box fan controlled by separate automation.
       
       - action: notify.notify
         data:
@@ -160,7 +147,7 @@ actions:
           message: >
             Air quality has returned to good levels.
             
-            Purifier and fans turned off.
+            Purifier turned off.
             
             PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
             CO2: {{ states('sensor.airgradient_co2') }} ppm

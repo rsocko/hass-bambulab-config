@@ -44,13 +44,8 @@ actions:
           33
         {% endif %}
   
-  # Also turn on Bento Box fan if available
-  - action: fan.turn_on
-    target:
-      entity_id: fan.bento_box_fan
-    data:
-      percentage: 66
-    continue_on_error: true
+  # Note: Bento Box fan is now controlled by dedicated automation
+  # (bento_box_fan_auto_control.yaml) based on air quality and filament type
   
   # Send notification
   - action: notify.notify
@@ -60,7 +55,6 @@ actions:
         Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
         
         Air purifier turned on at {{ state_attr('fan.govee_air_purifier', 'percentage') }}%.
-        Bento Box fan enabled.
         
         Current Air Quality:
         PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
@@ -77,9 +71,9 @@ actions:
       message: >
         Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
         Govee air purifier turned on at {{ state_attr('fan.govee_air_purifier', 'percentage') }}%.
-        Bento Box fan enabled.
         Air quality: PM2.5={{ states('sensor.airgradient_pm25') | round(1) }}, 
         CO2={{ states('sensor.airgradient_co2') }}, 
         VOC={{ states('sensor.airgradient_tvoc') }}
+        Note: Bento Box fan controlled by separate automation based on filament type.
 
 mode: restart

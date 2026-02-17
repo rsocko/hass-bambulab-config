@@ -20,8 +20,11 @@ The air quality integration provides:
 - **Humidity** - Relative humidity
 
 ### 🌬️ Air Purification Control
-- **Govee Air Purifier** - Smart control with speed adjustment
-- **Bento Box Fan** - Enclosure fan integration
+- **Govee Air Purifier** - Smart control with speed adjustment based on air quality
+- **Bento Box Fan** - Independent enclosure ventilation based on air quality AND filament type
+  - Automatically detects high-VOC materials (ABS, ASA, PC, Nylon, HIPS)
+  - Adjusts ventilation speed based on filament toxicity
+  - Runs independently of chamber fan and purifier
 - **Color-coded status** - Visual feedback on air quality levels
 
 ### 🤖 Smart Automations
@@ -29,6 +32,10 @@ The air quality integration provides:
 2. **Dynamic Speed Adjustment** - Adjust purifier based on real-time air quality
 3. **Post-Print Filtering** - Continue purification for 30 minutes after print
 4. **Air Quality Alerts** - Notifications when air quality degrades
+5. **Bento Box Fan Control** - Filament-aware enclosure ventilation (NEW!)
+   - Detects high-VOC filaments and increases ventilation
+   - Responds to PM2.5 and VOC levels in real-time
+   - Extended 45-minute post-print filtering for toxic materials
 
 ## Required Hardware
 
@@ -147,8 +154,8 @@ For each automation file in the `air-quality/` directory:
 
 - **`print_started_auto_purifier.yaml`** - Auto-enable purifier when print starts
   - Turns on purifier at speed based on current air quality
-  - Enables Bento Box fan
   - Sends notification with air quality readings
+  - Note: Bento Box fan now controlled by separate automation
 
 - **`auto_adjust_purifier_speed.yaml`** - Dynamic speed adjustment during printing
   - Checks air quality every 5 minutes
@@ -160,6 +167,15 @@ For each automation file in the `air-quality/` directory:
   - Turns off if air quality is good
   - Reduces to low speed if moderate
   - Continues if air quality is still poor
+  - Note: Bento Box fan now controlled by separate automation
+
+- **`bento_box_fan_auto_control.yaml`** - Filament-aware Bento Box fan control (NEW!)
+  - **Detects high-VOC filaments** (ABS, ASA, PC, Nylon, HIPS)
+  - **Adjusts speed** based on filament type + air quality
+  - **Independent operation** - not tied to chamber fan or purifier
+  - **Extended filtering** - runs 45 minutes post-print for toxic materials
+  - **Smart notifications** - alerts when printing with high-VOC materials
+  - See [Bento Box Fan Documentation](docs/bento-box-fan-filament-control.md) for details
 
 ## Configuration
 
