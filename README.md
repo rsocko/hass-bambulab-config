@@ -40,6 +40,11 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [Monitor air quality and control air purification](air-quality/README.md)
+  - Real-time air quality monitoring (PM2.5, CO2, VOC)
+  - Automated air purifier control during printing
+  - Smart speed adjustment based on air quality
+  - Alerts for poor air quality
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -48,10 +53,14 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update Spool Filament Used (in Spoolman) when a 3D print completes.
   - Reload Spoolman Integration (daily) to ensure sensors are in sync
   - Bambu Lab WLED Controller (customized for better error indicators)
+  - Air Quality Management (auto-enable purifier, speed adjustment, alerts)
 
 - **Scripts**: (reusable components used in automations)
   - Find Matching Spool in Spoolman - given a set of parameters - find the matching spool in the Spoolman database
   - Update the First and Last used information for a given spool in Spoolman
   
 - **Dashboard / Widgets**
+  - Air Quality Monitoring Cards (PM2.5, CO2, VOC, Temperature, Humidity)
+  - Govee Air Purifier Control with speed adjustment
+  - Fan Controls (Printer fans and Bento Box fan)
 - 

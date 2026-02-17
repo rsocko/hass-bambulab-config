@@ -1,0 +1,172 @@
+alias: Print Complete - Keep Purifier Running
+description: >
+  Keeps the air purifier running for 30 minutes after a print completes to continue
+  filtering any residual particles and VOCs. After 30 minutes, if air quality is good,
+  the purifier is turned off or reduced to low speed.
+  
+  This automation also manages the Bento Box fan to help with air circulation
+  during the post-print period.
+
+triggers:
+  # Trigger when print completes
+  - device_id: YOUR_PRINTER_DEVICE_ID_HERE
+    domain: bambu_lab
+    type: event_print_finished
+    trigger: device
+
+conditions: []
+
+actions:
+  # Ensure purifier is running at appropriate speed
+  - action: fan.turn_on
+    target:
+      entity_id: fan.govee_air_purifier
+    data:
+      percentage: >
+        {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+        {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+        {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+        
+        {# If air quality is poor, run at high speed #}
+        {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
+          80
+        {# Otherwise run at medium speed for post-print filtering #}
+        {% else %}
+          66
+        {% endif %}
+  
+  # Keep Bento Box fan running
+  - action: fan.turn_on
+    target:
+      entity_id: fan.bento_box_fan
+    data:
+      percentage: 50
+    continue_on_error: true
+  
+  # Log the action
+  - action: logbook.log
+    data:
+      name: Post-Print Air Purification
+      message: >
+        Print completed: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+        Air purifier will run for 30 minutes to filter residual particles.
+        Initial speed: {{ state_attr('fan.govee_air_purifier', 'percentage') }}%.
+  
+  # Send notification
+  - action: notify.notify
+    data:
+      title: "🖨️ Print Complete - Air Filtering"
+      message: >
+        Print completed: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
+        
+        Air purifier will continue running for 30 minutes.
+        Current speed: {{ state_attr('fan.govee_air_purifier', 'percentage') }}%
+        
+        PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+        VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+      data:
+        notification_id: print_complete_air
+        tag: print_control
+  
+  # Wait 30 minutes
+  - delay:
+      minutes: 30
+  
+  # Check air quality and adjust or turn off purifier
+  - choose:
+      # If air quality is still poor, keep running at current speed
+      - conditions:
+          - condition: template
+            value_template: >
+              {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+              {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+              {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+              {{ pm25 >= 35 or co2 >= 1200 or voc >= 200 }}
+        sequence:
+          - action: logbook.log
+            data:
+              name: Air Purification Extended
+              message: >
+                Air quality still poor after 30 minutes. Keeping purifier running.
+                PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³,
+                CO2: {{ states('sensor.airgradient_co2') }} ppm,
+                VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+          
+          - action: notify.notify
+            data:
+              title: "Air Purification Extended"
+              message: >
+                Air quality is still elevated after 30 minutes of filtering.
+                
+                Keeping purifier running.
+                
+                PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+                CO2: {{ states('sensor.airgradient_co2') }} ppm
+                VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+              data:
+                notification_id: purification_extended
+                tag: air_quality
+      
+      # If air quality is moderate, reduce to low speed
+      - conditions:
+          - condition: template
+            value_template: >
+              {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+              {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+              {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+              {{ pm25 >= 12 or co2 >= 800 or voc >= 100 }}
+        sequence:
+          - action: fan.set_percentage
+            target:
+              entity_id: fan.govee_air_purifier
+            data:
+              percentage: 33
+          
+          - action: fan.turn_off
+            target:
+              entity_id: fan.bento_box_fan
+            continue_on_error: true
+          
+          - action: logbook.log
+            data:
+              name: Air Purifier Reduced
+              message: >
+                Air quality moderate after 30 minutes. Reduced purifier to low speed.
+                PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+    
+    # Default: Air quality is good, turn off purifier
+    default:
+      - action: fan.turn_off
+        target:
+          entity_id: fan.govee_air_purifier
+      
+      - action: fan.turn_off
+        target:
+          entity_id: fan.bento_box_fan
+        continue_on_error: true
+      
+      - action: logbook.log
+        data:
+          name: Air Purification Complete
+          message: >
+            Air quality good after 30 minutes. Turned off purifier and Bento Box fan.
+            PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³,
+            CO2: {{ states('sensor.airgradient_co2') }} ppm,
+            VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+      
+      - action: notify.notify
+        data:
+          title: "✅ Air Purification Complete"
+          message: >
+            Air quality has returned to good levels.
+            
+            Purifier and fans turned off.
+            
+            PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+            CO2: {{ states('sensor.airgradient_co2') }} ppm
+            VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+          data:
+            notification_id: purification_complete
+            tag: air_quality
+
+mode: restart

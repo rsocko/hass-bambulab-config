@@ -1,0 +1,85 @@
+alias: Print Started - Auto Enable Air Purification
+description: >
+  Automatically turns on the Govee air purifier when a 3D print starts.
+  This helps manage air quality during printing by proactively filtering
+  particles and VOCs that may be emitted during the printing process.
+  
+  The purifier speed is adjusted based on current air quality readings:
+  - Good air quality: Low speed (33%)
+  - Moderate air quality: Medium speed (66%)
+  - Poor air quality: High speed (100%)
+
+triggers:
+  # Trigger when print starts
+  - device_id: YOUR_PRINTER_DEVICE_ID_HERE
+    domain: bambu_lab
+    type: event_print_started
+    trigger: device
+
+conditions: []
+
+actions:
+  # Wait a moment for sensor readings to stabilize
+  - delay:
+      seconds: 5
+  
+  # Determine appropriate purifier speed based on current air quality
+  - action: fan.turn_on
+    target:
+      entity_id: fan.govee_air_purifier
+    data:
+      percentage: >
+        {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+        {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+        {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+        
+        {# Check if air quality is poor or very poor #}
+        {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
+          100
+        {# Check if air quality is moderate #}
+        {% elif pm25 >= 12 or co2 >= 800 or voc >= 100 %}
+          66
+        {# Air quality is good #}
+        {% else %}
+          33
+        {% endif %}
+  
+  # Also turn on Bento Box fan if available
+  - action: fan.turn_on
+    target:
+      entity_id: fan.bento_box_fan
+    data:
+      percentage: 66
+    continue_on_error: true
+  
+  # Send notification
+  - action: notify.notify
+    data:
+      title: "🖨️ Air Purification Started"
+      message: >
+        Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
+        
+        Air purifier turned on at {{ state_attr('fan.govee_air_purifier', 'percentage') }}%.
+        Bento Box fan enabled.
+        
+        Current Air Quality:
+        PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+        CO2: {{ states('sensor.airgradient_co2') }} ppm
+        VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+      data:
+        notification_id: print_air_purification
+        tag: print_control
+  
+  # Log the action
+  - action: logbook.log
+    data:
+      name: Air Purification Started
+      message: >
+        Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+        Govee air purifier turned on at {{ state_attr('fan.govee_air_purifier', 'percentage') }}%.
+        Bento Box fan enabled.
+        Air quality: PM2.5={{ states('sensor.airgradient_pm25') | round(1) }}, 
+        CO2={{ states('sensor.airgradient_co2') }}, 
+        VOC={{ states('sensor.airgradient_tvoc') }}
+
+mode: restart
