@@ -34,12 +34,20 @@ This repo is a collection of the configuration and automation that I use within 
   - Metrics / Dashboards (currently PowerBI) ([Backlog](https://github.com/users/rsocko/projects/18/views/2))
   - Printer Maintenance Tracking
   - Print History (log of image, details) ([Backlog](https://github.com/users/rsocko/projects/22/views/1))
+  - Paperless-AI Integration
+    - AI-powered document classification
+    - Semantic search with RAG
+    - Ollama local LLM integration
 
 ## Scenarios / Use Cases:
 - [Keep spool usage in Spoolman updated](spoolman-sync/README.md)
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [AI-powered document management with Paperless-AI](paperless-ai/README.md)
+  - automatic document classification and tagging
+  - semantic search with natural language queries
+  - local AI processing with Ollama
 
 The actual config objects that are used to achieve the above scenarios include:
 
