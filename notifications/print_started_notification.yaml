@@ -46,13 +46,13 @@ actions:
       - condition: template
         value_template: >
           {% set now_time = now().time() %}
-          {% set quiet_start = state_attr('input_datetime.printer_quiet_hours_start', 'timestamp') | int %}
-          {% set quiet_end = state_attr('input_datetime.printer_quiet_hours_end', 'timestamp') | int %}
+          {% set quiet_start_seconds = state_attr('input_datetime.printer_quiet_hours_start', 'timestamp') | int %}
+          {% set quiet_end_seconds = state_attr('input_datetime.printer_quiet_hours_end', 'timestamp') | int %}
           {% set current_seconds = now_time.hour * 3600 + now_time.minute * 60 + now_time.second %}
-          {% if quiet_start < quiet_end %}
-            {{ current_seconds < quiet_start or current_seconds > quiet_end }}
+          {% if quiet_start_seconds < quiet_end_seconds %}
+            {{ current_seconds < quiet_start_seconds or current_seconds > quiet_end_seconds }}
           {% else %}
-            {{ current_seconds < quiet_start and current_seconds > quiet_end }}
+            {{ current_seconds < quiet_start_seconds and current_seconds > quiet_end_seconds }}
           {% endif %}
       - condition: template
         value_template: "{{ states('input_text.printer_tts_media_player') != '' }}"

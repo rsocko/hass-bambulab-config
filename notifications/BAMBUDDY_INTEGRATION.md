@@ -54,18 +54,22 @@ rest_command:
     content_type: "multipart/form-data"
 ```
 
-### Option 2: Shell Command (More Flexible)
+### Option 2: Shell Command (Recommended)
 
 Add to your `configuration.yaml`:
 
 ```yaml
 shell_command:
-  bambuddy_upload_snapshot: >
+  # Upload latest snapshot file to Bambuddy
+  bambuddy_upload_latest_snapshot: >
+    latest_file=$(ls -t /config/www/printer_snapshots/*.jpg | head -n 1) &&
     curl -X POST 
-    -H "X-API-Key: YOUR_API_KEY_HERE" 
-    -F "file=@{{ snapshot_path }}" 
-    "http://your-bambuddy-server:8000/api/v1/archives/{{ archive_id }}/photos"
+    -H "X-API-Key: {{ api_key }}" 
+    -F "file=@${latest_file}" 
+    "{{ base_url }}/archives/{{ archive_id }}/photos"
 ```
+
+This command finds the most recently created snapshot and uploads it to Bambuddy.
 
 ### Option 3: Python Script (Most Powerful)
 

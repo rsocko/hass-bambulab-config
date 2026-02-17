@@ -3,6 +3,9 @@ description: >
   Optional automation to upload printer snapshot to Bambuddy archive.
   Requires Bambuddy server setup and configuration.
   See BAMBUDDY_INTEGRATION.md for setup instructions.
+  
+  Note: This automation waits 5 seconds after print completion to ensure
+  the snapshot from print_complete_notification is ready.
 triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
@@ -17,19 +20,21 @@ conditions:
     value_template: "{{ states('input_text.current_print_archive_id') != '' }}"
 
 actions:
+  # Wait for print_complete_notification to take snapshot
+  - delay:
+      seconds: 5
+
   - variables:
       archive_id: "{{ states('input_text.current_print_archive_id') }}"
-      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
       api_key: "{{ states('input_text.bambuddy_api_key') }}"
       base_url: "{{ states('input_text.bambuddy_base_url') }}"
-      snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_{{ task_name | replace(' ', '_') }}.jpg"
 
-  # Upload snapshot to Bambuddy using shell command
-  # Note: This requires curl to be available in Home Assistant
-  - action: shell_command.bambuddy_upload_snapshot
+  # Upload latest snapshot to Bambuddy using shell command
+  # This uses the most recently created snapshot file
+  # Note: This requires curl and bash commands to be available
+  - action: shell_command.bambuddy_upload_latest_snapshot
     data:
       archive_id: "{{ archive_id }}"
-      snapshot_path: "/config/www/printer_snapshots/{{ snapshot_filename }}"
       api_key: "{{ api_key }}"
       base_url: "{{ base_url }}"
     continue_on_error: true
@@ -38,7 +43,7 @@ actions:
   - action: logbook.log
     data:
       name: Bambuddy Upload
-      message: "Uploaded snapshot to Bambuddy archive {{ archive_id }}"
+      message: "Uploaded latest snapshot to Bambuddy archive {{ archive_id }}"
 
   # Clear the archive ID after upload
   - action: input_text.set_value

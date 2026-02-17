@@ -24,6 +24,7 @@ actions:
       snapshot_light: "{{ states('input_text.printer_snapshot_light') }}"
       notification_service: "{{ states('input_text.printer_notification_service') }}"
       fault_message_template: "{{ states('input_text.printer_fault_message') }}"
+      snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
 
   # Turn on snapshot light if configured
   - if:
@@ -45,7 +46,7 @@ actions:
     target:
       entity_id: "{{ camera_entity }}"
     data:
-      filename: "/config/www/printer_snapshots/{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
+      filename: "/config/www/printer_snapshots/{{ snapshot_filename }}"
 
   # Restore light state if it was turned on
   - if:
@@ -73,7 +74,7 @@ actions:
       title: "⚠️ Print Error"
       message: "{{ notification_message }}"
       data:
-        image: "/local/printer_snapshots/{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
+        image: "/local/printer_snapshots/{{ snapshot_filename }}"
         push:
           interruption-level: critical
         actions:
@@ -93,7 +94,7 @@ actions:
         
         Time: {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
         
-        ![Printer Snapshot](/local/printer_snapshots/{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg)
+        ![Printer Snapshot](/local/printer_snapshots/{{ snapshot_filename }})
 
   # Log error
   - action: system_log.write
