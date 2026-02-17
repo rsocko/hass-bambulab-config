@@ -23,6 +23,17 @@ sensor:
           | list
         %}
 
+        {% set EMPTY_UUID = '00000000000000000000000000000000' %}
+        {% set empty_tray_result = {
+          'spool_id': none,
+          'name': 'Empty',
+          'desiccant': none,
+          'filled': none,
+          'status': 'empty',
+          'color': none,
+          'reason': none
+        } %}
+        
         {% set ns = namespace(result={}) %}
         {% set now_ts = now().timestamp() %}
 
@@ -33,35 +44,15 @@ sensor:
           
           {# --- EMPTY TRAY HANDLING --- #} 
           {% if tray_type == 'Empty' %}
-            {% set ns.result = ns.result | combine({ 
-              tray_name: { 
-                'spool_id': none, 
-                'name': 'Empty', 
-                'desiccant': none, 
-                'filled': none, 
-                'status': 'empty',
-                'color': none,
-                'reason': none
-              }
-            }) %}
+            {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
             {% continue %}
           {% endif %}
           
           {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
           {# External spool doesn't have 'type' attribute, check UUID and color instead #}
-          {% if (not tray_uuid or tray_uuid == '' or tray_uuid == '00000000000000000000000000000000') 
+          {% if (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) 
                 and (not tray_color or tray_color == '' or tray_color == 'none') %}
-            {% set ns.result = ns.result | combine({ 
-              tray_name: { 
-                'spool_id': none, 
-                'name': 'Empty', 
-                'desiccant': none, 
-                'filled': none, 
-                'status': 'empty',
-                'color': none,
-                'reason': none
-              }
-            }) %}
+            {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
             {% continue %}
           {% endif %}
           {# -------------------------------- #}
@@ -80,7 +71,7 @@ sensor:
           {% set spool_entity = none %}
           {% set match_reason = none %}
 
-          {% if tray_uuid and tray_uuid != '' and tray_uuid != '00000000000000000000000000000000' %}
+          {% if tray_uuid and tray_uuid != '' and tray_uuid != EMPTY_UUID %}
             {# Match by tray_uuid #}
             {% set match = spool_entities
               | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid)
