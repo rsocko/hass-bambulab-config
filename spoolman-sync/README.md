@@ -25,6 +25,21 @@ This script simply forced a reload of the integration on a nightly basis.
 
 [Automation Details](docs/reload_spoolman_integration_nightly.md) | [Source .YAML](reload_spoolman_integration_nightly.yaml)
 
+### 4. Persistent error logging and manual recovery
+When the spoolman sync automation fails (e.g., spool not found), the system now stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
+
+**📚 Documentation:**
+- [Installation Guide](docs/error-logging/installation_guide.md) - Step-by-step setup instructions
+- [Quick Reference](docs/error-logging/quick_reference.md) - At-a-glance command reference
+- [Full Documentation](docs/error-logging/persistent_error_logging.md) - Complete system details
+- [Error Flow Diagram](docs/error-logging/error_logging_flow.md) - Visual flow and scenarios
+
+**📄 Files:**
+- [Input Helpers Configuration](print_job_tracking_helpers.yaml)
+- [Print Started Automation](print_started-capture_print_data.yaml)
+- [Manual Recovery Script](manual_spoolman_recovery-script.yaml)
+- [Updated Print Complete Automation](print_complete-update_filament_usage.yaml)
+- [Updated Active Tray Changed Automation](active_tray_changed_update_spoolman.yaml)
 ## Features
 ### System Logging
 All automations now include persistent system logging using Home Assistant's `system_log.write` service. This provides:
@@ -44,6 +59,7 @@ All automations now include persistent system logging using Home Assistant's `sy
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
 - REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
+- Input helpers configured for error logging ([configuration file](print_job_tracking_helpers.yaml)) - Add this to your Home Assistant configuration
 
  
 ## Notes:
