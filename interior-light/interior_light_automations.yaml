@@ -1,0 +1,115 @@
+automation:
+  # ========================================
+  # Automation 1: Reset Interior Light on Door Open (When Not Printing)
+  # ========================================
+  # This automation resets the interior light to white when you open the printer door
+  # but ONLY when the printer is NOT actively printing (to avoid interrupting print visibility)
+  #
+  - id: interior_light_reset_on_door_open
+    alias: "Interior Light - Reset to White on Door Open"
+    description: "Automatically reset interior light to white when door opens and printer is not printing"
+    mode: single
+    
+    trigger:
+      # OPTION 1: If you have a door sensor (binary_sensor.your_door_sensor)
+      # Uncomment and modify this trigger:
+      # Check your door sensor's states in Developer Tools → States first
+      # Common states are "on"/"off" or "open"/"closed"
+      # - platform: state
+      #   entity_id: binary_sensor.bambu_printer_door
+      #   to: "on"  # Change to "open" if your sensor uses that state
+      
+      # OPTION 2: Manual trigger via automation.trigger service
+      # Keep this commented out in production, useful for testing
+      - platform: event
+        event_type: interior_light_door_open_manual_trigger
+    
+    condition:
+      # Only reset light when printer is NOT actively printing
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+            state: "running"
+      
+      # Optional: Only during certain hours (e.g., not at night)
+      # Uncomment to enable:
+      # - condition: time
+      #   after: "07:00:00"
+      #   before: "23:00:00"
+    
+    action:
+      - service: script.reset_interior_light_to_white
+        data: {}
+      
+      - service: system_log.write
+        data:
+          message: "Interior light reset to white via door open automation"
+          level: info
+          logger: homeassistant.components.automation.interior_light
+
+  # ========================================
+  # Automation 2: Reset Interior Light on Print Complete
+  # ========================================
+  # This automation can reset the light to white after a print completes
+  # (instead of leaving it green) for easier model inspection
+  #
+  - id: interior_light_reset_after_print_complete
+    alias: "Interior Light - Reset to White After Print Complete"
+    description: "Reset interior light to white 10 seconds after print completes for model viewing"
+    mode: single
+    
+    trigger:
+      - platform: state
+        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+        to: "finish"
+    
+    action:
+      # Wait 10 seconds to let the completion animation finish
+      - delay:
+          seconds: 10
+      
+      - service: script.reset_interior_light_to_white
+        data: {}
+      
+      - service: system_log.write
+        data:
+          message: "Interior light reset to white after print completion"
+          level: info
+          logger: homeassistant.components.automation.interior_light
+
+  # ========================================
+  # Automation 3: Reset Interior Light When Printer Becomes Idle
+  # ========================================
+  # This automation resets the light when the printer status changes to idle
+  # Useful for clearing error colors (red) or pause colors (yellow)
+  #
+  - id: interior_light_reset_on_idle
+    alias: "Interior Light - Reset to White on Idle"
+    description: "Reset interior light to white when printer becomes idle after errors or pauses"
+    mode: single
+    
+    trigger:
+      - platform: state
+        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+        to: "idle"
+    
+    # Only reset if coming from an error or pause state (not from finish)
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.from_state.state in ['failed', 'paused', 'pause'] }}
+    
+    action:
+      # Small delay to ensure state transition is complete
+      - delay:
+          seconds: 2
+      
+      - service: script.reset_interior_light_to_white
+        data: {}
+      
+      - service: system_log.write
+        data:
+          message: "Interior light reset to white on idle after {{ trigger.from_state.state }}"
+          level: info
+          logger: homeassistant.components.automation.interior_light

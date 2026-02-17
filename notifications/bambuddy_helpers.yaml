@@ -1,0 +1,27 @@
+# Bambuddy Integration Helpers
+# Optional: Only needed if you want to integrate with Bambuddy for photo archiving
+
+input_text:
+  # Bambuddy server configuration
+  bambuddy_api_key:
+    name: Bambuddy API Key
+    max: 255
+    initial: ""
+
+  bambuddy_base_url:
+    name: Bambuddy Base URL
+    max: 255
+    initial: "http://localhost:8000/api/v1"
+
+  # Stores the current print's archive ID for later photo upload
+  current_print_archive_id:
+    name: Current Print Archive ID
+    max: 100
+    initial: ""
+
+input_boolean:
+  # Master switch for Bambuddy integration
+  bambuddy_integration_enabled:
+    name: Bambuddy Integration Enabled
+    icon: mdi:archive
+    initial: false

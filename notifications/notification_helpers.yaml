@@ -1,0 +1,88 @@
+# Input helpers for notification configuration
+# These helpers control when and how notifications are sent
+
+input_boolean:
+  # Master switch to enable/disable all print notifications
+  printer_notifications_enabled:
+    name: Printer Notifications Enabled
+    icon: mdi:bell
+    initial: true
+
+  # Enable TTS announcements for print events
+  printer_tts_enabled:
+    name: Printer TTS Enabled
+    icon: mdi:volume-high
+    initial: false
+
+  # Enable critical notifications (bypass Do Not Disturb)
+  printer_critical_notifications:
+    name: Printer Critical Notifications
+    icon: mdi:bell-alert
+    initial: false
+
+input_number:
+  # Brightness for snapshot light (if configured)
+  printer_snapshot_light_brightness:
+    name: Snapshot Light Brightness
+    min: 1
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:brightness-percent
+    initial: 100
+
+  # TTS volume level
+  printer_tts_volume:
+    name: TTS Volume
+    min: 0
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    icon: mdi:volume-high
+    initial: 50
+
+input_text:
+  # Custom message template for print completion
+  printer_success_message:
+    name: Print Success Message
+    max: 255
+    initial: "{{printer_name}} has finished printing {{task_name}}"
+
+  # Custom message template for print fault
+  printer_fault_message:
+    name: Print Fault Message
+    max: 255
+    initial: "{{printer_name}} encountered an error during {{task_name}}"
+
+  # Mobile notification service (e.g., notify.mobile_app_iphone)
+  printer_notification_service:
+    name: Notification Service
+    max: 255
+    initial: "notify.notify"
+
+  # Media player for TTS (e.g., media_player.living_room)
+  printer_tts_media_player:
+    name: TTS Media Player
+    max: 255
+    initial: ""
+
+  # Optional light entity for snapshot lighting
+  printer_snapshot_light:
+    name: Snapshot Light Entity
+    max: 255
+    initial: ""
+
+input_datetime:
+  # Quiet hours start (suppress TTS)
+  printer_quiet_hours_start:
+    name: Quiet Hours Start
+    has_time: true
+    has_date: false
+    initial: "22:00:00"
+
+  # Quiet hours end
+  printer_quiet_hours_end:
+    name: Quiet Hours End
+    has_time: true
+    has_date: false
+    initial: "08:00:00"
