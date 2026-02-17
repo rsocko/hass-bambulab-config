@@ -215,7 +215,7 @@ TAGS=unprocessed
 For systems with limited resources:
 
 ```env
-# Slower scan interval to reduce CPU usage
+# Slower scan interval to reduce CPU usage (every 2 hours)
 SCAN_INTERVAL=0 */2 * * *
 
 # Use lightweight model
