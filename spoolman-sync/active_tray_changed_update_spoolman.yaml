@@ -68,8 +68,8 @@ actions:
     response_variable: find_spool_response
   - variables:
       valid_uuid: >-
-        {{ active_tray.uuid and active_tray.uuid | length > 0 and not
-        active_tray.uuid | regex_match('^0+$') }}
+        {{ active_tray.uuid is not none and active_tray.uuid | length > 0 and
+        active_tray.uuid | regex_match('^0+$') == false }}
       notification_id: >-
         spoolman_error_{{ active_tray.uuid if valid_uuid else active_tray.color
         ~ '_' ~ active_tray.type }}
