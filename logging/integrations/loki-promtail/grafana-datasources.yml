@@ -1,0 +1,21 @@
+# Grafana datasource provisioning
+# This automatically configures Loki as a datasource in Grafana
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    version: 1
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Extract correlation ID and create link to search for it
+        - datasourceUid: loki
+          matcherRegex: "CID:([^\\]]+)"
+          name: "Correlation ID"
+          url: "$${__value.raw}"

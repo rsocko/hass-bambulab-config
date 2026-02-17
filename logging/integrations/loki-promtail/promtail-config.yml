@@ -1,0 +1,161 @@
+# Promtail configuration for Home Assistant logs
+# This configuration file tells Promtail how to read and parse Home Assistant logs
+# and ship them to Grafana Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+# Positions file to track where we are in the log file
+positions:
+  filename: /tmp/positions.yaml
+
+# Where to send logs
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    # Optional: Add authentication
+    # basic_auth:
+    #   username: loki
+    #   password: secret
+    
+    # Optional: Add custom headers
+    # headers:
+    #   X-Scope-OrgID: tenant1
+    
+    # Batch settings
+    batchwait: 1s
+    batchsize: 102400
+    
+    # Retry settings
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+# Scrape configuration - tells Promtail which logs to read
+scrape_configs:
+  # Home Assistant main log file
+  - job_name: homeassistant
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: homeassistant
+          host: __hostname__
+          environment: production
+          __path__: /config/home-assistant.log
+    
+    # Pipeline stages for parsing and enrichment
+    pipeline_stages:
+      # Stage 1: Parse the log line using regex
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (?P<level>\w+) \((?P<thread>[^)]+)\) \[(?P<logger>[^\]]+)\] (?P<message>.*)$'
+      
+      # Stage 2: Extract correlation ID from message if present
+      - regex:
+          source: message
+          expression: '^\[CID:(?P<correlation_id>[^\]]+)\]'
+      
+      # Stage 3: Extract context from structured logs
+      - regex:
+          source: message
+          expression: '\[(?P<context>[^\]]+)\]'
+      
+      # Stage 4: Set timestamp from log line
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05'
+      
+      # Stage 5: Set labels (used for indexing and querying)
+      - labels:
+          level:
+          logger:
+          thread:
+      
+      # Stage 6: Add correlation_id as label if present
+      - labels:
+          correlation_id:
+      
+      # Stage 7: Convert log level to numeric severity
+      - template:
+          source: level_num
+          template: |
+            {{ if eq .level "DEBUG" }}0
+            {{ else if eq .level "INFO" }}1
+            {{ else if eq .level "WARNING" }}2
+            {{ else if eq .level "ERROR" }}3
+            {{ else if eq .level "CRITICAL" }}4
+            {{ else }}0{{ end }}
+      
+      # Stage 8: Add component label for Bambu Lab logs
+      - match:
+          selector: '{logger=~".*bambulab.*"}'
+          stages:
+            - labels:
+                component: "bambulab"
+      
+      # Stage 9: Add component label for Spoolman logs
+      - match:
+          selector: '{logger=~".*spoolman.*"}'
+          stages:
+            - labels:
+                component: "spoolman"
+      
+      # Stage 10: Add operation label for print operations
+      - match:
+          selector: '{logger=~".*spoolman_sync.*"} |= "Print Complete"'
+          stages:
+            - labels:
+                operation: "print_complete"
+      
+      # Stage 11: Add operation label for tray changes
+      - match:
+          selector: '{logger=~".*spoolman_sync.*"} |= "Active Tray Changed"'
+          stages:
+            - labels:
+                operation: "tray_changed"
+      
+      # Stage 12: Add error_type label for specific errors
+      - match:
+          selector: '{level="ERROR"} |= "same UUID"'
+          stages:
+            - labels:
+                error_type: "uuid_conflict"
+      
+      - match:
+          selector: '{level="ERROR"} |= "Cannot find spool"'
+          stages:
+            - labels:
+                error_type: "spool_not_found"
+      
+      # Stage 13: Drop noisy logs (optional)
+      # - drop:
+      #     source: logger
+      #     expression: ".*heartbeat.*"
+      
+      # Stage 14: Rate limiting (optional)
+      # - limit:
+      #     rate: 1000
+      #     burst: 2000
+      #     drop: true
+
+# Optional: Additional log sources
+# Uncomment and configure as needed
+
+# # Home Assistant automations trace
+# - job_name: homeassistant-automations
+#   static_configs:
+#     - targets:
+#         - localhost
+#       labels:
+#         job: homeassistant-automations
+#         __path__: /config/automations.log
+
+# # OZW daemon logs (if using OZW integration)
+# - job_name: ozw-daemon
+#   static_configs:
+#     - targets:
+#         - localhost
+#       labels:
+#         job: ozw
+#         __path__: /config/OZW_Log.txt

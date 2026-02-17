@@ -1,0 +1,246 @@
+# ============================================================
+# Humidity Intelligence Card
+# ============================================================
+# Copy and paste this card into your Home Assistant dashboard
+# to monitor humidity levels across your room and AMS units.
+#
+# This creates a horizontal layout displaying humidity sensors for:
+# - Room/Office humidity (if available)
+# - AMS 1 humidity sensor
+# - AMS 2 humidity sensor
+#
+# REQUIRED CUSTOM CARDS:
+# - mushroom (via HACS)
+# - card-mod (via HACS) - for custom styling
+#
+# OPTIONAL:
+# - humidity-intelligence package for advanced humidity analysis
+#   https://github.com/senyo888/humidity-intelligence
+#
+# SETUP INSTRUCTIONS:
+# 1. Update entity names below to match your actual entities
+# 2. If you have a room humidity sensor, uncomment the room section
+# 3. Update AMS entity names to match your printer configuration
+# 4. Copy the entire card configuration below into your dashboard
+#
+# ============================================================
+
+type: horizontal-stack
+cards:
+  # ============================================================
+  # ROOM HUMIDITY (Optional - uncomment if you have a room sensor)
+  # ============================================================
+  # - type: custom:mushroom-template-card
+  #   primary: Room
+  #   secondary: |-
+  #     {% set humidity = states('sensor.room_humidity') | float(-1) %}
+  #     {% if humidity >= 0 %}
+  #       {{ humidity | round(1) }}%
+  #     {% else %}
+  #       N/A
+  #     {% endif %}
+  #   icon: mdi:home-thermometer-outline
+  #   icon_color: |-
+  #     {% set humidity = states('sensor.room_humidity') | float(-1) %}
+  #     {% if humidity < 30 %}
+  #       red
+  #     {% elif humidity < 40 %}
+  #       orange
+  #     {% elif humidity < 60 %}
+  #       green
+  #     {% elif humidity < 70 %}
+  #       amber
+  #     {% else %}
+  #       red
+  #     {% endif %}
+  #   tap_action:
+  #     action: more-info
+  #     entity: sensor.room_humidity
+  #   hold_action:
+  #     action: more-info
+  #     entity: sensor.room_humidity
+  #   card_mod:
+  #     style: |
+  #       ha-card {
+  #         background: rgba(103, 58, 183, 0.05);
+  #       }
+  #       ha-card:hover {
+  #         background: rgba(103, 58, 183, 0.1);
+  #       }
+
+  # ============================================================
+  # AMS 1 HUMIDITY
+  # ============================================================
+  # Humidity sensor for AMS Unit 1
+  - type: custom:mushroom-template-card
+    primary: AMS 1
+    secondary: |-
+      {% set humidity = states('sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity') | float(-1) %}
+      {% set temp = states('sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature') | float(-1) %}
+      {% if humidity >= 0 %}
+        {{ humidity | round(1) }}% · {{ temp | round(1) }}°C
+      {% else %}
+        N/A
+      {% endif %}
+    icon: mdi:package-variant
+    icon_color: |-
+      {% set humidity = states('sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity') | float(-1) %}
+      {% if humidity < 0 %}
+        grey
+      {% elif humidity < 20 %}
+        green
+      {% elif humidity < 40 %}
+        light-green
+      {% elif humidity < 60 %}
+        amber
+      {% elif humidity < 70 %}
+        orange
+      {% else %}
+        red
+      {% endif %}
+    tap_action:
+      action: more-info
+      entity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+    hold_action:
+      action: more-info
+      entity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(33, 150, 243, 0.05);
+        }
+        ha-card:hover {
+          background: rgba(33, 150, 243, 0.1);
+        }
+
+  # ============================================================
+  # AMS 2 HUMIDITY
+  # ============================================================
+  # Humidity sensor for AMS Unit 2
+  - type: custom:mushroom-template-card
+    primary: AMS 2
+    secondary: |-
+      {% set humidity = states('sensor.3d_printer_ams_2_humidity_and_temp_humidity') | float(-1) %}
+      {% set temp = states('sensor.3d_printer_ams_2_humidity_and_temp_temperature') | float(-1) %}
+      {% if humidity >= 0 %}
+        {{ humidity | round(1) }}% · {{ temp | round(1) }}°C
+      {% else %}
+        N/A
+      {% endif %}
+    icon: mdi:package-variant-closed
+    icon_color: |-
+      {% set humidity = states('sensor.3d_printer_ams_2_humidity_and_temp_humidity') | float(-1) %}
+      {% if humidity < 0 %}
+        grey
+      {% elif humidity < 20 %}
+        green
+      {% elif humidity < 40 %}
+        light-green
+      {% elif humidity < 60 %}
+        amber
+      {% elif humidity < 70 %}
+        orange
+      {% else %}
+        red
+      {% endif %}
+    tap_action:
+      action: more-info
+      entity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+    hold_action:
+      action: more-info
+      entity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(156, 39, 176, 0.05);
+        }
+        ha-card:hover {
+          background: rgba(156, 39, 176, 0.1);
+        }
+
+# ============================================================
+# ALTERNATIVE: Vertical Stack Layout (for narrow spaces)
+# ============================================================
+# If the horizontal layout is too wide, you can use a vertical
+# stack instead. Simply replace 'horizontal-stack' with 
+# 'vertical-stack' above.
+#
+# ============================================================
+# HUMIDITY THRESHOLDS GUIDE:
+# ============================================================
+# For 3D Printing Filament Storage:
+# - Optimal:     < 20% (ideal for hygroscopic materials like Nylon)
+# - Good:        20-40% (acceptable for most filaments)
+# - Monitor:     40-60% (PLA/PETG still okay, watch Nylon/TPU)
+# - Concern:     60-70% (filament quality may degrade)
+# - Critical:    > 70% (high risk of moisture absorption)
+#
+# Color Coding:
+# - Green:       < 40% (Optimal to Good)
+# - Amber:       40-60% (Monitor range)
+# - Orange:      60-70% (Concern range)
+# - Red:         > 70% (Critical - action needed)
+#
+# For General Room Comfort:
+# - Too Dry:     < 30%
+# - Optimal:     40-60%
+# - Too Humid:   > 70%
+#
+# ============================================================
+# INTEGRATION WITH HUMIDITY-INTELLIGENCE:
+# ============================================================
+# This card works standalone, but you can enhance it with the
+# humidity-intelligence package for advanced features:
+#
+# 1. Install humidity-intelligence via HACS:
+#    https://github.com/senyo888/humidity-intelligence
+#
+# 2. Configure your sensors in the humidity_intelligence.yaml
+#
+# 3. You can then add additional cards showing:
+#    - House average humidity
+#    - Dew point calculations
+#    - Condensation risk
+#    - Mould risk analysis
+#    - 7-day humidity drift
+#    - Humidity constellation chart
+#
+# 4. Use automation-ready binary sensors:
+#    - binary_sensor.humidity_danger
+#    - binary_sensor.condensation_danger
+#    - binary_sensor.mould_danger
+#
+# See the humidity-intelligence documentation for full details.
+#
+# ============================================================
+# CUSTOMIZATION TIPS:
+# ============================================================
+# 1. Entity Names:
+#    - Update sensor entity IDs to match your configuration
+#    - Common patterns: sensor.DEVICE_NAME_humidity
+#
+# 2. Temperature Units:
+#    - Change °C to °F if needed
+#    - Adjust temperature conversion in templates
+#
+# 3. Colors:
+#    - Modify icon_color thresholds for your preferences
+#    - Adjust background colors in card_mod style section
+#
+# 4. Icons:
+#    - mdi:home-thermometer-outline - Room sensor
+#    - mdi:package-variant - AMS unit
+#    - mdi:package-variant-closed - AMS unit (alternative)
+#    - mdi:water-percent - Humidity specific
+#    - See https://pictogrammers.com/library/mdi/ for more icons
+#
+# 5. Additional AMS Units:
+#    - Copy and paste an AMS card block
+#    - Update entity names and labels
+#    - Adjust colors as desired
+#
+# 6. Mobile Optimization:
+#    - Cards automatically stack vertically on narrow screens
+#    - Consider using grid layout with columns: 2 or 3
+#
+# ============================================================

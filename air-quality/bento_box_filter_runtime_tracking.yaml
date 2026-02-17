@@ -1,0 +1,65 @@
+alias: Bento Box Filter Runtime Tracking
+description: >
+  Tracks the runtime of the Bento Box fan to monitor HEPA and carbon filter usage.
+  Accumulates runtime hours whenever the fan is on, updating every minute.
+  
+  This automation:
+  - Monitors fan state changes
+  - Accumulates runtime when fan is active
+  - Updates both HEPA and carbon filter runtime counters
+  - Can be disabled via input_boolean if needed
+
+triggers:
+  # Check fan state every minute
+  - trigger: time_pattern
+    minutes: "/1"
+
+conditions:
+  # Only run if tracking is enabled
+  - condition: state
+    entity_id: input_boolean.bento_box_filter_tracking_enabled
+    state: "on"
+  
+  # Only accumulate when fan is actually on
+  - condition: state
+    entity_id: fan.bento_box_fan
+    state: "on"
+
+actions:
+  # Calculate runtime increment (1 minute = 1/60 hour)
+  - variables:
+      runtime_increment: 0.0167  # 1 minute in hours (1/60)
+      current_hepa_runtime: "{{ states('input_number.bento_box_hepa_runtime_hours') | float(0) }}"
+      current_carbon_runtime: "{{ states('input_number.bento_box_carbon_runtime_hours') | float(0) }}"
+      fan_speed: "{{ state_attr('fan.bento_box_fan', 'percentage') | int(0) }}"
+  
+  # Update HEPA filter runtime
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.bento_box_hepa_runtime_hours
+    data:
+      value: "{{ (current_hepa_runtime | float + runtime_increment) | round(2) }}"
+  
+  # Update carbon filter runtime
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.bento_box_carbon_runtime_hours
+    data:
+      value: "{{ (current_carbon_runtime | float + runtime_increment) | round(2) }}"
+  
+  # Log every 60 minutes (when runtime is a whole number)
+  - if:
+      - condition: template
+        value_template: >
+          {{ (states('input_number.bento_box_hepa_runtime_hours') | float(0) * 10) | int % 10 == 0 }}
+    then:
+      - action: logbook.log
+        data:
+          name: Bento Box Filter Runtime Update
+          message: >
+            Filter runtime updated. HEPA: {{ states('input_number.bento_box_hepa_runtime_hours') | round(1) }}h,
+            Carbon: {{ states('input_number.bento_box_carbon_runtime_hours') | round(1) }}h.
+            Fan speed: {{ fan_speed }}%
+
+mode: single
+max_exceeded: silent

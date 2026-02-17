@@ -40,6 +40,31 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [LED Controls for Bambu Lab Printer](dashboards/LED_CONTROLS_README.md)
+  - Control all printer lights (MagWLED, chamber, AMS, front display)
+  - WLED RGBIC control with effects and palettes
+  - Quick actions and status overview
+  - See [full documentation](dashboards/docs/led-controls.md)
+- [Centralized Logging & Monitoring](logging/README.md)
+  - structured logging with correlation IDs
+  - error/warning tracking and alerting
+  - integration with homelab infrastructure (Loki, Grafana, Prometheus)
+  - automated responses to critical errors
+  - searchable and filterable logs
+- [Printer notifications with camera snapshots](notifications/README.md)
+  - print completion notifications with photos
+  - print error alerts with critical priority
+  - TTS announcements with quiet hours support
+  - optional Bambuddy photo archive integration
+- [Monitor air quality and control air purification](air-quality/README.md)
+  - Real-time air quality monitoring (PM2.5, CO2, VOC)
+  - Automated air purifier control during printing
+  - Smart speed adjustment based on air quality
+  - Alerts for poor air quality
+- [Monitor humidity levels in room and AMS units](humidity/README.md)
+  - Real-time humidity and temperature tracking
+  - Color-coded status indicators for filament storage
+  - Optional integration with humidity-intelligence package
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -54,4 +79,10 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update the First and Last used information for a given spool in Spoolman
   
 - **Dashboard / Widgets**
+  - [LED Controls Card](dashboards/led-controls.yaml) - Control all printer lights with advanced WLED features
+  - AMS Tray Cards - Display filament information and status
+  - Print Status Cards - Monitor print progress and stages
+  - Air Quality Monitoring Cards (PM2.5, CO2, VOC, Temperature, Humidity)
+  - Govee Air Purifier Control with speed adjustment
+  - Fan Controls (Printer fans and Bento Box fan)
 - 
