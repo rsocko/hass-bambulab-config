@@ -85,7 +85,7 @@ binary_sensor:
       # Optional: Blink LED for feedback
       - if:
           condition:
-            switch.is_on: feedback_led
+            lambda: 'return id(feedback_led).state;'
           then:
             - switch.turn_off: feedback_led
             - delay: 100ms
