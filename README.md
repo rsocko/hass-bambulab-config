@@ -45,6 +45,26 @@ This repo is a collection of the configuration and automation that I use within 
   - WLED RGBIC control with effects and palettes
   - Quick actions and status overview
   - See [full documentation](dashboards/docs/led-controls.md)
+- [Centralized Logging & Monitoring](logging/README.md)
+  - structured logging with correlation IDs
+  - error/warning tracking and alerting
+  - integration with homelab infrastructure (Loki, Grafana, Prometheus)
+  - automated responses to critical errors
+  - searchable and filterable logs
+- [Printer notifications with camera snapshots](notifications/README.md)
+  - print completion notifications with photos
+  - print error alerts with critical priority
+  - TTS announcements with quiet hours support
+  - optional Bambuddy photo archive integration
+- [Monitor air quality and control air purification](air-quality/README.md)
+  - Real-time air quality monitoring (PM2.5, CO2, VOC)
+  - Automated air purifier control during printing
+  - Smart speed adjustment based on air quality
+  - Alerts for poor air quality
+- [Monitor humidity levels in room and AMS units](humidity/README.md)
+  - Real-time humidity and temperature tracking
+  - Color-coded status indicators for filament storage
+  - Optional integration with humidity-intelligence package
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -53,12 +73,31 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update Spool Filament Used (in Spoolman) when a 3D print completes.
   - Reload Spoolman Integration (daily) to ensure sensors are in sync
   - Bambu Lab WLED Controller (customized for better error indicators)
+  - Print completion notifications with camera snapshots
+  - Print error alerts with persistent notifications
+  - Print started tracking notifications
+  - Air Quality Management (auto-enable purifier, speed adjustment, alerts)
 
 - **Scripts**: (reusable components used in automations)
   - Find Matching Spool in Spoolman - given a set of parameters - find the matching spool in the Spoolman database
   - Update the First and Last used information for a given spool in Spoolman
+  - Structured Logging Helper - create consistent log entries with correlation IDs and context
+
+- **Logging & Monitoring**:
+  - Centralized logger configuration with component-specific levels
+  - Error and warning alert automations
+  - Integration with Grafana Loki, Prometheus, Syslog, or custom webhooks
+  - Pre-built Grafana dashboards for operations monitoring
   
 - **Dashboard / Widgets**
   - [LED Controls Card](dashboards/led-controls.yaml) - Control all printer lights with advanced WLED features
   - AMS Tray Cards - Display filament information and status
   - Print Status Cards - Monitor print progress and stages
+  - Air Quality Monitoring Cards (PM2.5, CO2, VOC, Temperature, Humidity)
+  - Govee Air Purifier Control with speed adjustment
+  - Fan Controls (Printer fans and Bento Box fan)
+- 
+  - Humidity monitoring cards for room and AMS units
+  - Fan control cards for printer and enclosure fans
+  - Print status and AMS tray displays
+

@@ -1,0 +1,51 @@
+# Print Weight Persistence Configuration
+# This file contains input helpers to store print_weight sensor attributes
+# across Home Assistant restarts
+
+# Input text helper to store print weight attributes JSON
+input_text:
+  print_weight_backup:
+    name: "Print Weight Backup"
+    max: 1024
+    icon: mdi:weight
+
+  print_metadata_backup:
+    name: "Print Metadata Backup"
+    max: 255
+    icon: mdi:information
+
+# Template sensor to make stored data easily accessible
+template:
+  - sensor:
+      - name: "Print Weight Data Status"
+        unique_id: print_weight_data_status
+        state: >
+          {% if states('input_text.print_weight_backup') | length > 0 %}
+            stored
+          {% else %}
+            empty
+          {% endif %}
+        attributes:
+          last_stored_at: >
+            {{ state_attr('input_text.print_metadata_backup', 'last_update') }}
+          task_name: >
+            {% set metadata = states('input_text.print_metadata_backup') %}
+            {% if metadata and metadata != 'unknown' %}
+              {{ metadata.split('|')[0] if '|' in metadata else '' }}
+            {% else %}
+              unavailable
+            {% endif %}
+          print_start_time: >
+            {% set metadata = states('input_text.print_metadata_backup') %}
+            {% if metadata and metadata != 'unknown' %}
+              {{ metadata.split('|')[1] if '|' in metadata and metadata.count('|') >= 1 else '' }}
+            {% else %}
+              unavailable
+            {% endif %}
+          total_weight: >
+            {% set metadata = states('input_text.print_metadata_backup') %}
+            {% if metadata and metadata != 'unknown' %}
+              {{ metadata.split('|')[2] if '|' in metadata and metadata.count('|') >= 2 else '' }}
+            {% else %}
+              unavailable
+            {% endif %}

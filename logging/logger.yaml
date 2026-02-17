@@ -1,0 +1,48 @@
+# Home Assistant Logger Configuration
+# This file configures logging levels and filters for Home Assistant
+# Include this in your configuration.yaml with: logger: !include logging/logger.yaml
+
+# Default logging level for all components
+default: info
+
+# Specific component logging levels
+logs:
+  # Bambu Lab Spoolman Sync - All automation logs
+  homeassistant.components.bambulab.spoolman_sync: info
+  
+  # Bambu Lab Printer Integration
+  homeassistant.components.bambulab: info
+  custom_components.bambulab: info
+  
+  # Spoolman Integration
+  homeassistant.components.spoolman: info
+  custom_components.spoolman: info
+  
+  # WLED Integration (for printer status LEDs)
+  homeassistant.components.wled: warning
+  
+  # Automation and Script execution
+  homeassistant.components.automation: info
+  homeassistant.components.script: info
+  
+  # REST API calls (Spoolman API)
+  homeassistant.components.rest: warning
+  homeassistant.components.rest_command: warning
+  
+  # Template sensors
+  homeassistant.components.template: warning
+  
+  # Event system (for print events)
+  homeassistant.core: warning
+  homeassistant.components.event: info
+
+# Log filtering options:
+# - critical: Critical failures only
+# - error: Errors and above
+# - warning: Warnings and above
+# - info: Info messages and above
+# - debug: All messages including debug
+# - notset: Inherit from parent logger
+
+# To enable debug logging for troubleshooting, change specific component to 'debug'
+# Example: homeassistant.components.bambulab.spoolman_sync: debug

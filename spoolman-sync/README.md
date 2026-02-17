@@ -7,7 +7,11 @@ This is a collection of Home Assistant automations & scripts I have configured t
 ### 1. Update filament usage in Spoolman
 Upon completing a print, the filament used will be updated in Spoolman. 
 
+**⚠️ IMPORTANT**: If you experience issues with Home Assistant restarting during prints, use the enhanced version with print weight persistence.
+
 [Automation Details](docs/print_complete_update_filament_usage.md) | [Source .YAML](print_complete-update_filament_usage.yaml)
+
+**Enhanced Version with HA Restart Resilience**: [Print Weight Persistence Documentation](docs/print_weight_persistence.md) | [Implementation Summary](PRINT_WEIGHT_PERSISTENCE_IMPLEMENTATION.md)
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
@@ -21,6 +25,32 @@ This script simply forced a reload of the integration on a nightly basis.
 
 [Automation Details](docs/reload_spoolman_integration_nightly.md) | [Source .YAML](reload_spoolman_integration_nightly.yaml)
 
+### 4. Persistent error logging and manual recovery
+When the spoolman sync automation fails (e.g., spool not found), the system now stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
+
+**📚 Documentation:**
+- [Installation Guide](docs/error-logging/installation_guide.md) - Step-by-step setup instructions
+- [Quick Reference](docs/error-logging/quick_reference.md) - At-a-glance command reference
+- [Full Documentation](docs/error-logging/persistent_error_logging.md) - Complete system details
+- [Error Flow Diagram](docs/error-logging/error_logging_flow.md) - Visual flow and scenarios
+
+**📄 Files:**
+- [Input Helpers Configuration](print_job_tracking_helpers.yaml)
+- [Print Started Automation](print_started-capture_print_data.yaml)
+- [Manual Recovery Script](manual_spoolman_recovery-script.yaml)
+- [Updated Print Complete Automation](print_complete-update_filament_usage.yaml)
+- [Updated Active Tray Changed Automation](active_tray_changed_update_spoolman.yaml)
+## Features
+### System Logging
+All automations now include persistent system logging using Home Assistant's `system_log.write` service. This provides:
+- ✅ Durable log retention that persists across HA restarts (unlike notifications)
+- ✅ Complete error messages with full context for troubleshooting
+- ✅ Success logging for key operations (filament updates, spool changes)
+- ✅ Standard log levels (info, warning, error) for filtering
+- ✅ Integration with Home Assistant's logging infrastructure
+
+[System Logging Documentation](docs/system_logging.md)
+
 ## Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
@@ -29,12 +59,25 @@ This script simply forced a reload of the integration on a nightly basis.
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
 - REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
+- Input helpers configured for error logging ([configuration file](print_job_tracking_helpers.yaml)) - Add this to your Home Assistant configuration
 
  
 ## Notes:
+- **New in v2.0**: Print Weight Persistence solution added to handle Home Assistant restarts during prints. See [documentation](docs/print_weight_persistence.md) for details.
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
 - Make sure to review the YAML code examples and update the Entity and Sensor names to match your Home Assistant setup
 
+## Known Issues & Solutions
+### Issue: Print weight attributes lost on HA restart
+**Status**: ✅ **SOLVED** - See [Print Weight Persistence](docs/print_weight_persistence.md)
+
+When Home Assistant restarts during an active print, the print_weight sensor attributes are lost, preventing the automation from updating Spoolman correctly. The new print weight persistence solution provides a robust workaround using backup and restore mechanism.
+
+**Related**: 
+- [Upstream GitHub Issue #1048](https://github.com/greghesp/ha-bambulab/issues/1048)
+- [Implementation Summary](PRINT_WEIGHT_PERSISTENCE_IMPLEMENTATION.md)
+
 ## Version Information
+2026-02-17 - v2.0.0 - Added Print Weight Persistence solution for HA restart resilience
 2025-05-23 - v1.0.0 - Initial public release
