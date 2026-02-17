@@ -125,9 +125,9 @@ action:
 | `print_complete-update_filament_usage.yaml` | Updated with error logging |
 | `active_tray_changed_update_spoolman.yaml` | Updated with error messaging |
 | `manual_spoolman_recovery-script.yaml` | Manual recovery script |
-| `docs/persistent_error_logging.md` | Full documentation |
-| `docs/error_logging_flow.md` | Flow diagrams |
-| `docs/installation_guide.md` | Step-by-step setup |
+| `persistent_error_logging.md` | Full documentation |
+| `error_logging_flow.md` | Flow diagrams |
+| `installation_guide.md` | Step-by-step setup |
 
 ## Logbook Entries
 
@@ -198,4 +198,4 @@ Compatible with:
 ---
 
 **Last Updated**: 2026-02-17  
-**Documentation**: See `docs/persistent_error_logging.md` for full details
+**Documentation**: See `persistent_error_logging.md` for full details

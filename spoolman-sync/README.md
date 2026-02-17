@@ -25,10 +25,10 @@ This script simply forced a reload of the integration on a nightly basis.
 When the spoolman sync automation fails (e.g., spool not found), the system now stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
 
 **📚 Documentation:**
-- [Installation Guide](docs/installation_guide.md) - Step-by-step setup instructions
-- [Quick Reference](docs/quick_reference.md) - At-a-glance command reference
-- [Full Documentation](docs/persistent_error_logging.md) - Complete system details
-- [Error Flow Diagram](docs/error_logging_flow.md) - Visual flow and scenarios
+- [Installation Guide](docs/error-logging/installation_guide.md) - Step-by-step setup instructions
+- [Quick Reference](docs/error-logging/quick_reference.md) - At-a-glance command reference
+- [Full Documentation](docs/error-logging/persistent_error_logging.md) - Complete system details
+- [Error Flow Diagram](docs/error-logging/error_logging_flow.md) - Visual flow and scenarios
 
 **📄 Files:**
 - [Input Helpers Configuration](print_job_tracking_helpers.yaml)

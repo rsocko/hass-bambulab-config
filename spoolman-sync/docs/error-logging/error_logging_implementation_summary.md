@@ -70,7 +70,7 @@ New script for applying stored error data:
 
 Four new documentation files:
 
-**Installation Guide** (`docs/installation_guide.md`):
+**Installation Guide** (`installation_guide.md`):
 - Step-by-step setup instructions
 - Via UI or YAML configuration
 - Entity ID update checklist
@@ -78,14 +78,14 @@ Four new documentation files:
 - Optional dashboard cards
 - Troubleshooting section
 
-**Quick Reference** (`docs/quick_reference.md`):
+**Quick Reference** (`quick_reference.md`):
 - At-a-glance command reference
 - Common errors and quick fixes
 - Template examples for dashboards
 - Automation examples
 - API access examples
 
-**Full Documentation** (`docs/persistent_error_logging.md`):
+**Full Documentation** (`persistent_error_logging.md`):
 - Complete system overview
 - Component descriptions
 - Error data formats
@@ -93,7 +93,7 @@ Four new documentation files:
 - Dashboard integration examples
 - Troubleshooting guide
 
-**Error Flow Diagram** (`docs/error_logging_flow.md`):
+**Error Flow Diagram** (`error_logging_flow.md`):
 - ASCII flow diagrams
 - Print job lifecycle
 - Manual recovery flow
@@ -191,7 +191,7 @@ For existing users:
 5. Add "Manual Recovery" script
 6. Test with a print job
 
-Detailed in [Installation Guide](docs/installation_guide.md).
+Detailed in [Installation Guide](installation_guide.md).
 
 ## Testing Recommendations
 
@@ -207,11 +207,11 @@ Detailed in [Installation Guide](docs/installation_guide.md).
 - `spoolman-sync/print_job_tracking_helpers.yaml`
 - `spoolman-sync/print_started-capture_print_data.yaml`
 - `spoolman-sync/manual_spoolman_recovery-script.yaml`
-- `spoolman-sync/docs/installation_guide.md`
-- `spoolman-sync/docs/quick_reference.md`
-- `spoolman-sync/docs/persistent_error_logging.md`
-- `spoolman-sync/docs/error_logging_flow.md`
-- `spoolman-sync/docs/pr_summary.md` (this file)
+- `spoolman-sync/docs/error-logging/installation_guide.md`
+- `spoolman-sync/docs/error-logging/quick_reference.md`
+- `spoolman-sync/docs/error-logging/persistent_error_logging.md`
+- `spoolman-sync/docs/error-logging/error_logging_flow.md`
+- `spoolman-sync/docs/error-logging/error_logging_implementation_summary.md` (this file)
 
 **Modified Files** (3):
 - `spoolman-sync/print_complete-update_filament_usage.yaml` (bug fix + error logging)
