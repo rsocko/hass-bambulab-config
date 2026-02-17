@@ -40,6 +40,11 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [LED Controls for Bambu Lab Printer](dashboards/LED_CONTROLS_README.md)
+  - Control all printer lights (MagWLED, chamber, AMS, front display)
+  - WLED RGBIC control with effects and palettes
+  - Quick actions and status overview
+  - See [full documentation](dashboards/docs/led-controls.md)
 - [Centralized Logging & Monitoring](logging/README.md)
   - structured logging with correlation IDs
   - error/warning tracking and alerting
@@ -85,6 +90,9 @@ The actual config objects that are used to achieve the above scenarios include:
   - Pre-built Grafana dashboards for operations monitoring
   
 - **Dashboard / Widgets**
+  - [LED Controls Card](dashboards/led-controls.yaml) - Control all printer lights with advanced WLED features
+  - AMS Tray Cards - Display filament information and status
+  - Print Status Cards - Monitor print progress and stages
   - Air Quality Monitoring Cards (PM2.5, CO2, VOC, Temperature, Humidity)
   - Govee Air Purifier Control with speed adjustment
   - Fan Controls (Printer fans and Bento Box fan)

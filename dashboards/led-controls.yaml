@@ -1,0 +1,456 @@
+# LED Controls Dashboard Card for Bambu Lab 3D Printer
+# This card displays and controls all LED lights associated with the 3D printer
+# 
+# SETUP INSTRUCTIONS:
+# 1. Replace placeholder entity IDs with your actual entity IDs
+# 2. Copy this entire card configuration to your dashboard
+# 3. Customize colors, icons, and labels as needed
+#
+# Entity ID Placeholders (replace with your actual entities):
+#   - light.magwled_internal_top_light - MagWLED internal top light
+#   - light.bambu_chamber_light - Built-in printer chamber light
+#   - light.digquad_ams1_tray_light - AMS 1 tray light (WLED)
+#   - light.digquad_ams1_tag_light - AMS 1 filament tag LED (WLED)
+#   - light.digquad_ams2_tray_light - AMS 2 tray light (WLED)
+#   - light.digquad_ams2_tag_light - AMS 2 filament tag LED (WLED)
+#   - light.digquad_front_led - Front printer LED (WLED)
+
+type: vertical-stack
+cards:
+  # Section Header
+  - type: custom:mushroom-title-card
+    title: "💡 LED Controls"
+    subtitle: "Printer & AMS Lighting"
+
+  # Main LED Controls Grid
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      # 1. MagWLED Internal Top Light (WLED - RGBIC)
+      - type: custom:mushroom-light-card
+        entity: light.magwled_internal_top_light
+        name: Interior Top Light
+        icon: mdi:lightbulb-on
+        use_light_color: true
+        show_brightness_control: true
+        show_color_control: true
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        double_tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "Interior Top Light (MagWLED)"
+              content:
+                type: vertical-stack
+                cards:
+                  # WLED Effect & Palette Controls
+                  - type: entities
+                    entities:
+                      - entity: light.magwled_internal_top_light
+                        name: Power
+                      - entity: select.magwled_internal_top_light_effect
+                        name: Effect
+                      - entity: select.magwled_internal_top_light_palette
+                        name: Color Palette
+                      - entity: number.magwled_internal_top_light_speed
+                        name: Effect Speed
+                      - entity: number.magwled_internal_top_light_intensity
+                        name: Effect Intensity
+                  
+                  # Color & Brightness
+                  - type: light
+                    entity: light.magwled_internal_top_light
+                    name: Color & Brightness
+                  
+                  # Presets Quick Access
+                  - type: horizontal-stack
+                    cards:
+                      - type: custom:mushroom-template-card
+                        primary: "Preset 1"
+                        icon: mdi:numeric-1-circle
+                        tap_action:
+                          action: call-service
+                          service: select.select_option
+                          service_data:
+                            option: "1"
+                          target:
+                            entity_id: select.magwled_internal_top_light_preset
+                      - type: custom:mushroom-template-card
+                        primary: "Preset 2"
+                        icon: mdi:numeric-2-circle
+                        tap_action:
+                          action: call-service
+                          service: select.select_option
+                          service_data:
+                            option: "2"
+                          target:
+                            entity_id: select.magwled_internal_top_light_preset
+                      - type: custom:mushroom-template-card
+                        primary: "Preset 3"
+                        icon: mdi:numeric-3-circle
+                        tap_action:
+                          action: call-service
+                          service: select.select_option
+                          service_data:
+                            option: "3"
+                          target:
+                            entity_id: select.magwled_internal_top_light_preset
+
+      # 2. Built-in Chamber Light
+      - type: custom:mushroom-light-card
+        entity: light.bambu_chamber_light
+        name: Chamber Light
+        icon: mdi:ceiling-light
+        use_light_color: false
+        show_brightness_control: true
+        show_color_control: false
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        card_mod:
+          style: |
+            ha-card {
+              {% if is_state('light.bambu_chamber_light', 'on') %}
+                background: rgba(255, 220, 130, 0.15);
+              {% endif %}
+            }
+
+      # 3. AMS 1 Tray Light (WLED - RGBIC)
+      - type: custom:mushroom-light-card
+        entity: light.digquad_ams1_tray_light
+        name: AMS 1 Tray Light
+        icon: mdi:led-strip-variant
+        use_light_color: true
+        show_brightness_control: true
+        show_color_control: true
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        double_tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "AMS 1 Tray Light (WLED)"
+              content:
+                type: vertical-stack
+                cards:
+                  # WLED Controls
+                  - type: entities
+                    entities:
+                      - entity: light.digquad_ams1_tray_light
+                        name: Power
+                      - entity: select.digquad_ams1_tray_light_effect
+                        name: Effect
+                      - entity: select.digquad_ams1_tray_light_palette
+                        name: Color Palette
+                      - entity: number.digquad_ams1_tray_light_speed
+                        name: Speed
+                      - entity: number.digquad_ams1_tray_light_intensity
+                        name: Intensity
+                  
+                  - type: light
+                    entity: light.digquad_ams1_tray_light
+
+      # 4. AMS 1 Tag LED (WLED - RGBIC)
+      - type: custom:mushroom-light-card
+        entity: light.digquad_ams1_tag_light
+        name: AMS 1 Tag LEDs
+        icon: mdi:tag-multiple
+        use_light_color: true
+        show_brightness_control: true
+        show_color_control: true
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        double_tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "AMS 1 Tag LEDs (WLED)"
+              content:
+                type: vertical-stack
+                cards:
+                  # WLED Controls
+                  - type: entities
+                    entities:
+                      - entity: light.digquad_ams1_tag_light
+                        name: Power
+                      - entity: select.digquad_ams1_tag_light_effect
+                        name: Effect
+                      - entity: select.digquad_ams1_tag_light_palette
+                        name: Color Palette
+                      - entity: number.digquad_ams1_tag_light_speed
+                        name: Speed
+                      - entity: number.digquad_ams1_tag_light_intensity
+                        name: Intensity
+                  
+                  - type: light
+                    entity: light.digquad_ams1_tag_light
+                  
+                  # Individual Tray Tag Segments (if configured)
+                  - type: markdown
+                    content: |
+                      **Individual Tag Control**
+                      
+                      Configure WLED segments for individual tray tag control.
+                      See WLED documentation for segment configuration.
+
+      # 5. AMS 2 Tray Light (WLED - RGBIC)
+      - type: custom:mushroom-light-card
+        entity: light.digquad_ams2_tray_light
+        name: AMS 2 Tray Light
+        icon: mdi:led-strip-variant
+        use_light_color: true
+        show_brightness_control: true
+        show_color_control: true
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        double_tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "AMS 2 Tray Light (WLED)"
+              content:
+                type: vertical-stack
+                cards:
+                  # WLED Controls
+                  - type: entities
+                    entities:
+                      - entity: light.digquad_ams2_tray_light
+                        name: Power
+                      - entity: select.digquad_ams2_tray_light_effect
+                        name: Effect
+                      - entity: select.digquad_ams2_tray_light_palette
+                        name: Color Palette
+                      - entity: number.digquad_ams2_tray_light_speed
+                        name: Speed
+                      - entity: number.digquad_ams2_tray_light_intensity
+                        name: Intensity
+                  
+                  - type: light
+                    entity: light.digquad_ams2_tray_light
+
+      # 6. AMS 2 Tag LED (WLED - RGBIC)
+      - type: custom:mushroom-light-card
+        entity: light.digquad_ams2_tag_light
+        name: AMS 2 Tag LEDs
+        icon: mdi:tag-multiple
+        use_light_color: true
+        show_brightness_control: true
+        show_color_control: true
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        double_tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "AMS 2 Tag LEDs (WLED)"
+              content:
+                type: vertical-stack
+                cards:
+                  # WLED Controls
+                  - type: entities
+                    entities:
+                      - entity: light.digquad_ams2_tag_light
+                        name: Power
+                      - entity: select.digquad_ams2_tag_light_effect
+                        name: Effect
+                      - entity: select.digquad_ams2_tag_light_palette
+                        name: Color Palette
+                      - entity: number.digquad_ams2_tag_light_speed
+                        name: Speed
+                      - entity: number.digquad_ams2_tag_light_intensity
+                        name: Intensity
+                  
+                  - type: light
+                    entity: light.digquad_ams2_tag_light
+                  
+                  - type: markdown
+                    content: |
+                      **Individual Tag Control**
+                      
+                      Configure WLED segments for individual tray tag control.
+                      See WLED documentation for segment configuration.
+
+      # 7. Front Printer LED (WLED - RGBIC)
+      - type: custom:mushroom-light-card
+        entity: light.digquad_front_led
+        name: Front Display LED
+        icon: mdi:led-strip
+        use_light_color: true
+        show_brightness_control: true
+        show_color_control: true
+        collapsible_controls: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        double_tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "Front Display LED (WLED)"
+              content:
+                type: vertical-stack
+                cards:
+                  # WLED Controls
+                  - type: entities
+                    entities:
+                      - entity: light.digquad_front_led
+                        name: Power
+                      - entity: select.digquad_front_led_effect
+                        name: Effect
+                      - entity: select.digquad_front_led_palette
+                        name: Color Palette
+                      - entity: number.digquad_front_led_speed
+                        name: Speed
+                      - entity: number.digquad_front_led_intensity
+                        name: Intensity
+                  
+                  - type: light
+                    entity: light.digquad_front_led
+                  
+                  # Progress Bar Info
+                  - type: markdown
+                    content: |
+                      **Front LED Features:**
+                      
+                      - **Bottom Strip**: Print progress bar
+                      - **Left/Top**: Status indicators
+                      
+                      Configure WLED segments for progress tracking.
+
+  # Quick Actions Section
+  - type: horizontal-stack
+    cards:
+      # All Lights On
+      - type: custom:mushroom-template-card
+        primary: All On
+        secondary: Turn on all lights
+        icon: mdi:lightbulb-group
+        icon_color: amber
+        tap_action:
+          action: call-service
+          service: light.turn_on
+          target:
+            entity_id:
+              - light.magwled_internal_top_light
+              - light.bambu_chamber_light
+              - light.digquad_ams1_tray_light
+              - light.digquad_ams1_tag_light
+              - light.digquad_ams2_tray_light
+              - light.digquad_ams2_tag_light
+              - light.digquad_front_led
+        card_mod:
+          style: |
+            ha-card {
+              background: rgba(255, 183, 77, 0.1);
+            }
+
+      # All Lights Off
+      - type: custom:mushroom-template-card
+        primary: All Off
+        secondary: Turn off all lights
+        icon: mdi:lightbulb-group-off
+        icon_color: disabled
+        tap_action:
+          action: call-service
+          service: light.turn_off
+          target:
+            entity_id:
+              - light.magwled_internal_top_light
+              - light.bambu_chamber_light
+              - light.digquad_ams1_tray_light
+              - light.digquad_ams1_tag_light
+              - light.digquad_ams2_tray_light
+              - light.digquad_ams2_tag_light
+              - light.digquad_front_led
+        card_mod:
+          style: |
+            ha-card {
+              background: rgba(158, 158, 158, 0.1);
+            }
+
+  # Status Overview
+  - type: custom:mushroom-template-card
+    primary: >
+      {% set on_lights = [
+        states('light.magwled_internal_top_light'),
+        states('light.bambu_chamber_light'),
+        states('light.digquad_ams1_tray_light'),
+        states('light.digquad_ams1_tag_light'),
+        states('light.digquad_ams2_tray_light'),
+        states('light.digquad_ams2_tag_light'),
+        states('light.digquad_front_led')
+      ] | select('eq', 'on') | list | count %}
+      {{ on_lights }} of 7 lights on
+    secondary: >
+      {% set lights = [
+        'Interior',
+        'Chamber',
+        'AMS1 Tray',
+        'AMS1 Tags',
+        'AMS2 Tray',
+        'AMS2 Tags',
+        'Front'
+      ] %}
+      {% set entities = [
+        'light.magwled_internal_top_light',
+        'light.bambu_chamber_light',
+        'light.digquad_ams1_tray_light',
+        'light.digquad_ams1_tag_light',
+        'light.digquad_ams2_tray_light',
+        'light.digquad_ams2_tag_light',
+        'light.digquad_front_led'
+      ] %}
+      {% set on = [] %}
+      {% for i in range(entities|length) %}
+        {% if is_state(entities[i], 'on') %}
+          {% set on = on + [lights[i]] %}
+        {% endif %}
+      {% endfor %}
+      {% if on|length > 0 %}{{ on|join(', ') }}{% else %}All lights off{% endif %}
+    icon: mdi:lightbulb-multiple
+    icon_color: >
+      {% set on_lights = [
+        states('light.magwled_internal_top_light'),
+        states('light.bambu_chamber_light'),
+        states('light.digquad_ams1_tray_light'),
+        states('light.digquad_ams1_tag_light'),
+        states('light.digquad_ams2_tray_light'),
+        states('light.digquad_ams2_tag_light'),
+        states('light.digquad_front_led')
+      ] | select('eq', 'on') | list | count %}
+      {% if on_lights == 0 %}disabled
+      {% elif on_lights < 4 %}blue
+      {% elif on_lights < 7 %}amber
+      {% else %}green
+      {% endif %}
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(33, 150, 243, 0.05);
+        }
