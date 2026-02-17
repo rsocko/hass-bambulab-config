@@ -21,6 +21,11 @@ This script simply forced a reload of the integration on a nightly basis.
 
 [Automation Details](docs/reload_spoolman_integration_nightly.md) | [Source .YAML](reload_spoolman_integration_nightly.yaml)
 
+### 4. Persistent error logging and manual recovery
+When the spoolman sync automation fails (e.g., spool not found), the system now stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
+
+[Documentation](docs/persistent_error_logging.md) | [Input Helpers](print_job_tracking_helpers.yaml) | [Print Started Automation](print_started-capture_print_data.yaml) | [Manual Recovery Script](manual_spoolman_recovery-script.yaml)
+
 ## Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
@@ -29,6 +34,7 @@ This script simply forced a reload of the integration on a nightly basis.
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
 - REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
+- Input helpers configured for error logging ([configuration file](print_job_tracking_helpers.yaml)) - Add this to your Home Assistant configuration
 
  
 ## Notes:
