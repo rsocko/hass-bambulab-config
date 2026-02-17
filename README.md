@@ -40,6 +40,11 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [Printer notifications with camera snapshots](notifications/README.md)
+  - print completion notifications with photos
+  - print error alerts with critical priority
+  - TTS announcements with quiet hours support
+  - optional Bambuddy photo archive integration
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -48,6 +53,9 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update Spool Filament Used (in Spoolman) when a 3D print completes.
   - Reload Spoolman Integration (daily) to ensure sensors are in sync
   - Bambu Lab WLED Controller (customized for better error indicators)
+  - Print completion notifications with camera snapshots
+  - Print error alerts with persistent notifications
+  - Print started tracking notifications
 
 - **Scripts**: (reusable components used in automations)
   - Find Matching Spool in Spoolman - given a set of parameters - find the matching spool in the Spoolman database
