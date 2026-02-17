@@ -6,6 +6,7 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 
 - **lovelace.3d_printing** - Main 3D printer dashboard configuration (JSON format)
 - **templates.yaml** - Reusable card templates
+- **fan-controls.yaml** - Fan monitoring and control cards (copy-paste ready)
 - **docs/** - Documentation for dashboard features and customization
 
 ## Dashboard Features
@@ -46,6 +47,17 @@ Key features:
 - Percentage display for each filament (when segment is large enough)
 - Total weight display
 - Dark and light mode compatible with proper borders and contrast
+
+### Fan Controls
+Compact fan monitoring and control cards for printer and enclosure fans. See [docs/fan-controls.md](docs/fan-controls.md) for detailed information.
+
+Key features:
+- Monitor all 3 Bambu Lab printer fans (Auxiliary, Chamber, Cooling)
+- Control ESP32 Bento Box enclosure fan
+- Color-coded icons based on fan speed
+- Horizontal layout optimized for desktop and mobile
+- Click to view details or toggle fan state
+- Informational display for occasional monitoring
 
 ## Custom Cards Required
 
