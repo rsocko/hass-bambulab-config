@@ -3,7 +3,7 @@ sequence:
   - variables:
       error_parts: "{{ states('input_text.spoolman_sync_last_error').split('|') }}"
       has_error: "{{ error_parts | length >= 7 }}"
-      
+
   # Check if there's an error to process
   - if:
       - condition: template
@@ -16,7 +16,7 @@ sequence:
             No spoolman sync error found in storage. The error log may be empty
             or already cleared.
       - stop: No error data available
-        
+
   # Extract error details
   - variables:
       error_timestamp: "{{ error_parts[0] }}"
@@ -27,7 +27,7 @@ sequence:
       tray_color: "{{ error_parts[5] }}"
       tray_type: "{{ error_parts[6] }}"
       spool_id: "{{ spool_id | default(0) }}"
-      
+
   # Validate spool ID was provided
   - if:
       - condition: template
@@ -38,33 +38,33 @@ sequence:
           title: Manual Recovery - Spool ID Required
           message: >-
             **Error from:** {{ error_timestamp }}
-            
+
             **Tray:** {{ tray_name }}
-            
+
             **Weight to deduct:** {{ print_weight }}g
-            
+
             **Original error:** {{ error_message }}
-            
-            
+
+
             **Tray details:**
-            
+
             - UUID: `{{ tray_uuid }}`
-            
+
             - Color: `{{ tray_color }}`
-            
+
             - Type: `{{ tray_type }}`
-            
-            
+
+
             Please manually find the matching spool in Spoolman and provide its ID
             to this script using the "spool_id" parameter.
       - stop: Spool ID required
-        
+
   # Attempt to update the spool
   - action: spoolman.use_spool_filament
     data:
       id: "{{ spool_id }}"
       use_weight: "{{ print_weight }}"
-      
+
   # Log success
   - action: logbook.log
     data:
@@ -72,12 +72,12 @@ sequence:
       message: >-
         Successfully applied manual recovery. Reduced spool {{ spool_id }}
         by {{ print_weight }}g for {{ tray_name }} from error at {{ error_timestamp }}.
-        
+
   # Clear the error flag if this was the last error
   - action: input_boolean.turn_off
     data:
       entity_id: input_boolean.spoolman_sync_error_active
-      
+
   # Success notification
   - action: persistent_notification.create
     data:
@@ -86,7 +86,7 @@ sequence:
       message: >-
         Successfully updated spool {{ spool_id }} with {{ print_weight }}g usage
         from {{ tray_name }}.
-        
+
         Original error from {{ error_timestamp }} has been resolved.
 
 alias: Manual Spoolman Recovery

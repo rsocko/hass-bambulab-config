@@ -90,7 +90,7 @@ actions:
                   value_template: >-
                     {{ repeat.item.extra.spool_uuid | replace('"', '') ==
                     active_tray.uuid }}
-                          
+
                   alias: >-
                     Test if Active Tray UUID matches the Spool UUID from
                     Spoolman
@@ -130,8 +130,8 @@ actions:
                   {{ active_tray.uuid is not none and active_tray.uuid | length
                   > 0 and active_tray.uuid | regex_match('^0+$') == false and
                   find_spool_response.spool.extra.spool_uuid | string |
-                  trim('"') | length == 0 and 
-                  find_spool_response.spool.filament.vendor.name == 'Bambu Lab' 
+                  trim('"') | length == 0 and
+                  find_spool_response.spool.filament.vendor.name == 'Bambu Lab'
                   }}
             then:
               - action: spoolman.patch_spool
@@ -154,7 +154,7 @@ actions:
                 Failed to update last used time for active tray.
                 UUID: {{ active_tray.uuid }}, Color: {{ active_tray.color }}, Type: {{ active_tray.type }}
                 Error: {{ find_spool_response.message }}
-                
+
           # Create detailed persistent notification
           - action: persistent_notification.create
             metadata: {}
@@ -164,21 +164,21 @@ actions:
               message: >-
                 Cannot update Spoolman with last used spool information due to
                 issue finding the correct spool.
-                
+
                 **Error:** {{ find_spool_response.message }}
-                
-                
+
+
                 **Active Tray Details:**
-                
+
                 - UUID: `{{ active_tray.uuid }}`
-                
+
                 - Color: `{{ active_tray.color }}`
-                
+
                 - Type: `{{ active_tray.type }}`
-                
+
                 - Name: `{{ active_tray.name }}`
-                
-                
+
+
                 This may indicate the spool is not registered in Spoolman or multiple spools match.
   - variables:
       needUUIDUpdate: >-

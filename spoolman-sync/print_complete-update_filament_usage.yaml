@@ -57,7 +57,7 @@ actions:
         states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items()
         %}
           {% if key.startswith('AMS') %}
-            {{ key }}:{{ value }}, 
+            {{ key }}:{{ value }},
           {% endif %}
         {% endfor %}
       ams_tray_list: |
@@ -156,24 +156,24 @@ actions:
                       {{ error_timestamp }}|{{ tray_name }}|{{ find_spool_response.message }}|{{ tray_print_weight }}|{{ selected_tray.uuid }}|{{ selected_tray.color }}|{{ selected_tray.type }}
                     task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
                     current_error_log: "{{ states('input_text.spoolman_sync_error_log') }}"
-                    
+
                 # Set error flag
                 - action: input_boolean.turn_on
                   data:
                     entity_id: input_boolean.spoolman_sync_error_active
-                    
+
                 # Store last error details
                 - action: input_text.set_value
                   data:
                     entity_id: input_text.spoolman_sync_last_error
                     value: "{{ error_details }}"
-                    
+
                 # Update error timestamp
                 - action: input_datetime.set_datetime
                   data:
                     entity_id: input_datetime.spoolman_sync_last_error_time
                     datetime: "{{ error_timestamp }}"
-                    
+
                 # Append to error log (keep last ~10 entries)
                 - action: input_text.set_value
                   data:
@@ -182,7 +182,7 @@ actions:
                       {% set log_lines = current_error_log.split('\n') if current_error_log else [] %}
                       {% set new_log = log_lines[-9:] + [error_details] %}
                       {{ new_log | join('\n') }}
-                      
+
                 # Log to logbook for visibility
                 - action: logbook.log
                   data:
@@ -190,7 +190,7 @@ actions:
                     message: >-
                       Failed to update filament usage for {{ tray_name }} after print "{{ task_name }}".
                       Weight: {{ tray_print_weight }}g. Error: {{ find_spool_response.message }}
-                      
+
                 # Create detailed persistent notification
                 - action: persistent_notification.create
                   metadata: {}
@@ -199,25 +199,25 @@ actions:
                     title: "Spoolman Update Error: Cannot Find Spool"
                     message: >-
                       **Print Job:** {{ task_name }}
-                      
+
                       **Tray:** {{ tray_name }}
-                      
+
                       **Print Weight:** {{ tray_print_weight }} grams
-                      
+
                       **Error:** {{ find_spool_response.message }}
-                      
-                      
+
+
                       **Tray Details for Manual Recovery:**
-                      
+
                       - UUID: `{{ selected_tray.uuid }}`
-                      
+
                       - Color: `{{ selected_tray.color }}`
-                      
+
                       - Type: `{{ selected_tray.type }}`
-                      
-                      
+
+
                       To manually update Spoolman, find the matching spool and reduce its weight by {{ tray_print_weight }}g.
-                      
+
                       Error details stored in `input_text.spoolman_sync_last_error` for recovery.
               alias: Spool not found - log error persistently
       for_each: "{{ ams_tray_list }}"

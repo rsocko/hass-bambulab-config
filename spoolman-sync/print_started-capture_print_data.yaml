@@ -13,13 +13,13 @@ actions:
   - variables:
       task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
       start_time: "{{ now().isoformat() }}"
-      
+
   # Store basic print job info
   - action: input_text.set_value
     data:
       entity_id: input_text.print_job_current
       value: "{{ task_name }}|{{ start_time }}"
-      
+
   # Capture AMS tray configuration for all 4 trays
   - variables:
       tray_data: >-
@@ -35,12 +35,12 @@ actions:
           }{% if not loop.last %},{% endif %}
         {% endfor %}
         ]
-        
+
   - action: input_text.set_value
     data:
       entity_id: input_text.print_job_ams_trays
       value: "{{ tray_data }}"
-      
+
   - action: logbook.log
     data:
       name: Print Started
