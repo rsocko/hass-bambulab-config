@@ -47,7 +47,9 @@ display:
       // Draw printer status
       it.print(10, 10, id(font_large), "Bambu Lab P1S");
       
-      // Draw current print status (with safety check)
+      // Draw current print status (with safety check to prevent crashes)
+      // Always check has_state() before accessing state on text sensors
+      // to avoid crashes during startup or network issues
       it.printf(10, 40, id(font_medium), "Status: %s", 
         id(printer_status).has_state() ? id(printer_status).state.c_str() : "Unknown");
       
@@ -290,12 +292,12 @@ display:
       it.filled_rectangle(0, 0, 320, 40, COLOR_HEADER);
       it.print(160, 20, id(font_large), COLOR_TEXT, TextAlign::CENTER, "Bambu Lab Control");
       
-      // Printer status
+      // Printer status (with safety checks to prevent crashes)
       it.printf(10, 50, id(font_medium), "Status: %s", 
-        id(printer_status).state.c_str());
+        id(printer_status).has_state() ? id(printer_status).state.c_str() : "Unknown");
       
       it.printf(10, 75, id(font_medium), "Progress: %s%%", 
-        id(print_progress).state.c_str());
+        id(print_progress).has_state() ? id(print_progress).state.c_str() : "0");
       
       // Light status
       auto light_brightness = id(light_brightness).state;
