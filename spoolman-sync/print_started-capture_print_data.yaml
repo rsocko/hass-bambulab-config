@@ -11,7 +11,7 @@ triggers:
 conditions: []
 actions:
   - variables:
-      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"  # Update to your printer's task name sensor
       start_time: "{{ now().isoformat() }}"
 
   # Store basic print job info
@@ -25,6 +25,7 @@ actions:
       tray_data: >-
         [
         {% for tray_num in range(1, 5) %}
+          {# Update the following entity prefix to match your printer's serial number #}
           {% set tray_entity = 'sensor.p1s_01p00c460102350_ams_1_tray_' ~ tray_num %}
           {
             "tray": {{ tray_num }},

@@ -71,7 +71,7 @@ actions:
       - conditions:
           - alias: Spool Found (response from script)
             condition: template
-            value_template: "{{ find_spool_response.success == true }}"
+            value_template: "{{ find_spool_response.success }}"
         sequence:
           - alias: Loop through Spools (from Spoolman)
             repeat:
@@ -144,7 +144,7 @@ actions:
       - conditions:
           - alias: No single matching spool found
             condition: template
-            value_template: "{{ find_spool_response.success == false }}"
+            value_template: "{{ not find_spool_response.success }}"
         sequence:
           # Log to logbook for visibility
           - action: logbook.log

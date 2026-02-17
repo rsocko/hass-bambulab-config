@@ -106,7 +106,7 @@ actions:
           choose:
             - conditions:
                 - condition: template
-                  value_template: "{{ find_spool_response.success == true }}"
+                  value_template: "{{ find_spool_response.success }}"
                   alias: Spool found (response from script)
               sequence:
                 - action: spoolman.use_spool_filament
@@ -146,7 +146,7 @@ actions:
                       Used {{ tray_print_weight }} grams.
             - conditions:
                 - condition: template
-                  value_template: "{{ find_spool_response.success == false }}"
+                  value_template: "{{ not find_spool_response.success }}"
                   alias: Spool not found - error (cannot update usage)
               sequence:
                 # Store error details persistently for manual recovery
