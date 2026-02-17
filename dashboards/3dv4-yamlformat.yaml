@@ -1,0 +1,2383 @@
+views:
+  - title: Home
+    sections:
+      - type: grid
+        cards:
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+                state: 'on'
+            card:
+              type: vertical-stack
+              cards:
+                - type: custom:mushroom-template-card
+                  primary: ⚠️ HMS ERROR ALERT
+                  secondary: >-
+                    {{
+                    states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors')
+                    | title }} - {{
+                    state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors',
+                    'count') | int }} Error(s)
+                  icon: mdi:alert-circle
+                  icon_color: red
+                  fill_container: false
+                  tap_action:
+                    action: more-info
+                  card_mod:
+                    style: |-
+                      : |
+                        ha-card {
+                          background: rgba(244, 67, 54, 0.15);
+                          border: 2px solid var(--red-color);
+                          --card-mod-icon-color: red;
+                        }
+                - type: markdown
+                  content: >-
+                    {% set errors =
+                    state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors',
+                    'errors') %}
+
+                    {% if errors %}
+
+                    {% for error in errors %}
+
+                    **Error {{ loop.index }}:** {{ error.attr }}
+
+
+                    **Code:** {{ error.code }}
+
+
+                    {{ error.text }}
+
+
+                    ---
+
+                    {% endfor %}
+
+                    {% else %}
+
+                    No error details available
+
+                    {% endif %}
+                  card_mod:
+                    style: |-
+                      : |
+                        ha-card {
+                          background: rgba(244, 67, 54, 0.08);
+                          border-left: 4px solid var(--red-color);
+                        }
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.ntk_ryansoffice_3dprinter_print_status
+            name: Print Status
+            icon: mdi:rotate-3d
+            show_state: true
+            show_attribute: false
+            tap_action:
+              action: more-info
+            styles: |2-
+
+                            .bubble-button-card-container {
+                              background: var(--ha-card-background);
+                            }
+                            .bubble-name {
+                              font-size: 18px !important;
+                              font-weight: 600;
+                            }
+                            .bubble-state {
+                              font-size: 16px !important;
+                            }
+                          
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.ntk_ryansoffice_3dprinter_current_stage
+            name: Current Stage
+            icon: mdi:printer-3d
+            show_state: true
+            show_attribute: false
+            tap_action:
+              action: more-info
+            styles: |2-
+
+                            .bubble-button-card-container {
+                              background: var(--ha-card-background);
+                            }
+                            .bubble-name {
+                              font-size: 18px !important;
+                              font-weight: 600;
+                            }
+                            .bubble-state {
+                              font-size: 16px !important;
+                            }
+                          
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.ntk_ryansoffice_3dprinter_task_name
+            name: Task Name
+            icon: mdi:cube-outline
+            show_state: true
+            show_attribute: false
+            tap_action:
+              action: more-info
+            styles: |2-
+
+                            .bubble-button-card-container {
+                              background: var(--ha-card-background);
+                            }
+                            .bubble-name {
+                              font-size: 18px !important;
+                              font-weight: 600;
+                            }
+                            .bubble-state {
+                              font-size: 16px !important;
+                            }
+                          
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+            name: HMS Errors
+            show_state: true
+            show_attribute: false
+            tap_action:
+              action: more-info
+            styles: |2-
+
+                            .bubble-button-card-container {
+                              background: var(--ha-card-background);
+                            }
+                            .bubble-name {
+                              font-size: 18px !important;
+                              font-weight: 600;
+                            }
+                            .bubble-state {
+                              font-size: 16px !important;
+                            }
+                          
+          - type: custom:mushroom-template-card
+            entity: sensor.print_layer_progress_formatted
+            primary: Layer Progress
+            secondary: '{{ states(''sensor.print_layer_progress_formatted'') }}'
+            icon: fas:layer-group
+            icon_color: blue
+            layout: vertical
+            tap_action:
+              action: more-info
+            card_mod:
+              style: |2-
+
+                                  ha-card {
+                                    font-size: 16px;
+                                  }
+                                  .primary {
+                                    font-size: 18px !important;
+                                    font-weight: 600;
+                                  }
+                                  .secondary {
+                                    font-size: 22px !important;
+                                    font-weight: 700;
+                                  }
+                                
+          - type: custom:mushroom-template-card
+            entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+            primary: Print Progress
+            secondary: '{{ states(''sensor.ntk_ryansoffice_3dprinter_print_progress'') }}'
+            icon: mdi:progress-helper
+            icon_color: green
+            layout: vertical
+            tap_action:
+              action: more-info
+            card_mod:
+              style: |2-
+
+                                  ha-card {
+                                    font-size: 16px;
+                                  }
+                                  .primary {
+                                    font-size: 18px !important;
+                                    font-weight: 600;
+                                  }
+                                  .secondary {
+                                    font-size: 22px !important;
+                                    font-weight: 700;
+                                  }
+                                
+          - type: custom:mushroom-template-card
+            entity: sensor.print_time_remaining_formatted
+            primary: Time Remaining
+            secondary: '{{ states(''sensor.print_time_remaining_formatted'') }}'
+            icon: mdi:progress-clock
+            icon_color: orange
+            layout: vertical
+            tap_action:
+              action: more-info
+            card_mod:
+              style: |2-
+
+                                  ha-card {
+                                    font-size: 16px;
+                                  }
+                                  .primary {
+                                    font-size: 18px !important;
+                                    font-weight: 600;
+                                  }
+                                  .secondary {
+                                    font-size: 22px !important;
+                                    font-weight: 700;
+                                  }
+                                
+          - type: custom:config-template-card
+            entities:
+              - sensor.ntk_ryansoffice_3dprinter_end_time
+            card:
+              type: custom:mushroom-template-card
+              entity: sensor.ntk_ryansoffice_3dprinter_end_time
+              primary: Est. Completion
+              secondary: >-
+                {% set state =
+                states('sensor.ntk_ryansoffice_3dprinter_end_time') %}{% if
+                state not in ['unavailable', 'unknown'] and state is not none
+                %}{{ as_timestamp(state) | timestamp_custom('%I:%M %p', true)
+                }}{% else %}N/A{% endif %}
+              icon: mdi:clock-end
+              icon_color: purple
+              layout: vertical
+              tap_action:
+                action: more-info
+              card_mod:
+                style: |2-
+
+                                        ha-card {
+                                          font-size: 16px;
+                                        }
+                                        .primary {
+                                          font-size: 18px !important;
+                                          font-weight: 600;
+                                        }
+                                        .secondary {
+                                          font-size: 22px !important;
+                                          font-weight: 700;
+                                        }
+                                      
+          - type: picture-entity
+            entity: camera.ntk_ryansoffice_3dprinter_camera
+            name: Printer Camera
+            show_name: true
+            show_state: false
+            tap_action:
+              action: more-info
+            camera_view: live
+          - type: picture-entity
+            entity: image.ntk_ryansoffice_3dprinter_cover_image
+            name: Print Preview
+            show_name: true
+            show_state: false
+            tap_action:
+              action: more-info
+        columns: 2
+        square: false
+      - type: grid
+        cards:
+          - type: custom:ha-bambulab-print_status-card
+            printer: 210dfdfa64085e8cf073e50eae757d90
+            style: simple
+            custom_power: switch.sonoff_10018b4baf
+          - type: custom:advanced-camera-card
+            cameras:
+              - camera_entity: camera.ntk_ryansoffice_3dprinter_camera
+                live_provider: auto
+                capabilities:
+                  disable: []
+                always_error_if_entity_unavailable: false
+                image:
+                  mode: camera
+              - camera_entity: camera.3dprintertopcamera_hd_stream
+            status_bar:
+              items:
+                engine:
+                  enabled: true
+                resolution:
+                  enabled: true
+              style: none
+            performance:
+              features:
+                card_loading_effects: false
+                animated_progress_indicator: true
+                card_loading_indicator: true
+              style:
+                border_radius: true
+            view:
+              dim: false
+              theme:
+                themes:
+                  - dark
+              default_cycle_camera: false
+            menu:
+              buttons:
+                iris:
+                  enabled: false
+                camera_ui:
+                  enabled: false
+                expand:
+                  enabled: true
+                display_mode:
+                  enabled: true
+                  alignment: opposing
+                live:
+                  enabled: false
+                cameras:
+                  enabled: false
+                substreams:
+                  enabled: false
+                clips:
+                  enabled: false
+                snapshots:
+                  enabled: false
+                download:
+                  enabled: false
+                timeline:
+                  enabled: false
+                folders:
+                  enabled: false
+                media_player:
+                  enabled: false
+                image:
+                  enabled: false
+              style: overlay
+              alignment: right
+            live:
+              draggable: true
+              zoomable: true
+              show_image_during_load: true
+              controls:
+                builtin: true
+                wheel: true
+              display: {}
+            media_gallery:
+              controls:
+                thumbnails:
+                  size: 228
+      - type: grid
+        cards:
+          - type: custom:ha-bambulab-ams-card
+            entity: ''
+            header: ''
+            subtitle: AMS 1
+            style: vector
+            ams: bb6d8ff7b5587a848196c105ca8920c3
+            show_type: false
+            show_info_bar: true
+            custom_humidity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+            custom_temperature: >-
+              sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
+          - type: horizontal-stack
+            cards:
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: A1
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_1_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_1_tray_1';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_1_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_1_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_1_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_1_tray_1';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_1_tray_1';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: A2
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_1_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_1_tray_2';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_1_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_1_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_1_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_1_tray_2';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_1_tray_2';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: A3
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_1_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_1_tray_3';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_1_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_1_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_1_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_1_tray_3';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_1_tray_3';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: A4
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_1_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_1_tray_4';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_1_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_1_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_1_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_1_tray_4';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_1_tray_4';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+          - type: custom:ha-bambulab-ams-card
+            entity: ''
+            header: ''
+            subtitle: AMS 2 Pro
+            style: vector
+            ams: e8499b3326385f02079f3c382558ded2
+            show_info_bar: true
+            custom_humidity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+            custom_temperature: sensor.3d_printer_ams_2_humidity_and_temp_temperature
+            show_type: false
+            spool_anim_reflection: true
+            spool_anim_wiggle: true
+          - type: horizontal-stack
+            cards:
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: B1
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_2_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_2_tray_1';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_2_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_2_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_2_tray_1';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_2_tray_1';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_2_tray_1';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: B2
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_2_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_2_tray_2';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_2_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_2_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_2_tray_2';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_2_tray_2';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_2_tray_2';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: B3
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_2_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_2_tray_3';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_2_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_2_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_2_tray_3';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_2_tray_3';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_2_tray_3';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+              - type: vertical-stack
+                cards:
+                  - type: custom:button-card
+                    name: B4
+                    show_icon: false
+                    show_state: false
+                    styles:
+                      card:
+                        - background: none
+                        - box-shadow: none
+                        - padding: 4px
+                      name:
+                        - font-size: 14px
+                        - font-weight: bold
+                        - justify-self: center
+                  - type: custom:button-card
+                    entity: |
+                      [[[
+                        const tray = 'ams_2_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? `sensor.spoolman_spool_${spoolId}`
+                          : 'sensor.p1s_01p00c460102350_ams_2_tray_4';
+                      ]]]
+                    name: |
+                      [[[
+                        const tray = 'ams_2_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.name ?? 'EMPTY';
+                      ]]]
+                    label: |
+                      [[[
+                        const tray = 'ams_2_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        return map?.[tray]?.reason ?? '';
+                      ]]]
+                    show_state: false
+                    show_icon: false
+                    show_label: true
+                    tap_action: |
+                      [[[
+                        const tray = 'ams_2_tray_4';
+                        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                        const spoolId = map?.[tray]?.spool_id;
+
+                        return spoolId
+                          ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                          : { action: 'none' };
+                      ]]]
+                    custom_fields:
+                      desiccant_icon: |
+                        [[[
+                          const tray = 'ams_2_tray_4';
+                          const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                          // Hide droplet for green OR empty trays
+                          if (status === 'green' || status === 'empty') return '';
+
+                          const colors = {
+                            undefined: '#9e9e9e',
+                            yellow: '#ffcc00',
+                            orange: '#ff9900',
+                            red: '#cc0000'
+                          };
+                          
+                          const color = colors[status] || '#9e9e9e';
+                          return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                        ]]]
+                      remaining_weight: |
+                        [[[
+                          const tray = 'ams_2_tray_4';
+                          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                          const spoolId = map?.[tray]?.spool_id;
+                          
+                          if (!spoolId) return '';
+                          
+                          const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                          const weight = spoolentity?.attributes?.remaining_weight;
+                          
+                          if (weight === undefined || weight === null) return '';
+                          
+                          return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                        ]]]
+                      placeholder: |
+                        [[[
+                          return '';
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 6px
+                        - background: none
+                        - box-shadow: none
+                      grid:
+                        - grid-template-areas: '"n n n" "l l l" "desiccant_icon . remaining_weight"'
+                        - grid-template-columns: auto 1fr auto
+                        - grid-template-rows: auto auto auto
+                      name:
+                        - font-size: 12px
+                        - white-space: normal
+                        - line-height: 1.2
+                        - justify-self: center
+                        - padding-bottom: 2px
+                      label:
+                        - font-size: 9px
+                        - color: '#888'
+                        - font-style: italic
+                        - white-space: normal
+                        - line-height: 1.1
+                        - justify-self: center
+                        - padding-bottom: 4px
+                      custom_fields:
+                        desiccant_icon:
+                          - justify-self: start
+                          - padding-left: 4px
+                        remaining_weight:
+                          - justify-self: end
+                          - padding-right: 4px
+          - type: vertical-stack
+            cards:
+              - type: custom:ha-bambulab-spool-card
+                header: Header Text
+                subtitle: 'External '
+                show_header: true
+                spool: 9b8ca6134d4424a7c8fd4467ad2adbc3
+                show_info_bar: false
+                show_type: false
+                tray: 1
+              - type: horizontal-stack
+                cards:
+                  - type: vertical-stack
+                    cards:
+                      - type: custom:button-card
+                        name: External
+                        show_icon: false
+                        show_state: false
+                        styles:
+                          card:
+                            - background: none
+                            - box-shadow: none
+                            - padding: 4px
+                          name:
+                            - font-size: 14px
+                            - font-weight: bold
+                            - justify-self: center
+                      - type: custom:button-card
+                        entity: |
+                          [[[
+                            const tray = 'external_spool';
+                            const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                            const spoolId = map?.[tray]?.spool_id;
+
+                            return spoolId
+                              ? `sensor.spoolman_spool_${spoolId}`
+                              : 'sensor.ntk_ryansoffice_3dprinter_external_spool';
+                          ]]]
+                        name: |
+                          [[[
+                            const tray = 'external_spool';
+                            const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                            return map?.[tray]?.name ?? 'EMPTY';
+                          ]]]
+                        label: |
+                          [[[
+                            const tray = 'external_spool';
+                            const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                            return map?.[tray]?.reason ?? '';
+                          ]]]
+                        show_state: false
+                        show_icon: false
+                        show_label: true
+                        tap_action: |
+                          [[[
+                            const tray = 'external_spool';
+                            const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                            const spoolId = map?.[tray]?.spool_id;
+
+                            return spoolId
+                              ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }
+                              : { action: 'none' };
+                          ]]]
+                        custom_fields:
+                          desiccant_icon: |
+                            [[[
+                              const tray = 'external_spool';
+                              const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;
+
+                              // Hide droplet for green OR empty trays
+                              if (status === 'green' || status === 'empty') return '';
+
+                              const colors = {
+                                undefined: '#9e9e9e',
+                                yellow: '#ffcc00',
+                                orange: '#ff9900',
+                                red: '#cc0000'
+                              };
+                              
+                              const color = colors[status] || '#9e9e9e';
+                              return `<ha-icon icon="mdi:water" style="--mdc-icon-size: 16px; color: ${color};"></ha-icon>`;
+                            ]]]
+                          remaining_weight: |
+                            [[[
+                              const tray = 'external_spool';
+                              const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+                              const spoolId = map?.[tray]?.spool_id;
+                              
+                              if (!spoolId) return '';
+                              
+                              const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
+                              const weight = spoolentity?.attributes?.remaining_weight;
+                              
+                              if (weight === undefined || weight === null) return '';
+                              
+                              return `<span style="font-size: 10px; color: #888;">${Math.round(weight)}g</span>`;
+                            ]]]
+                          placeholder: |
+                            [[[
+                              return '';
+                            ]]]
+                        styles:
+                          card:
+                            - padding: 6px
+                            - background: none
+                            - box-shadow: none
+                          grid:
+                            - grid-template-areas: >-
+                                "n n n" "l l l" "desiccant_icon .
+                                remaining_weight"
+                            - grid-template-columns: auto 1fr auto
+                            - grid-template-rows: auto auto auto
+                          name:
+                            - font-size: 12px
+                            - white-space: normal
+                            - line-height: 1.2
+                            - justify-self: center
+                            - padding-bottom: 2px
+                          label:
+                            - font-size: 9px
+                            - color: '#888'
+                            - font-style: italic
+                            - white-space: normal
+                            - line-height: 1.1
+                            - justify-self: center
+                            - padding-bottom: 4px
+                          custom_fields:
+                            desiccant_icon:
+                              - justify-self: start
+                              - padding-left: 4px
+                            remaining_weight:
+                              - justify-self: end
+                              - padding-right: 4px
+                grid_options:
+                  columns: 3
+                  rows: 1
+            grid_options:
+              columns: 3
+              rows: 1
+      - type: grid
+        cards:
+          - type: custom:tabbed-card
+            options: {}
+            tabs:
+              - card:
+                  type: vertical-stack
+                  cards:
+                    - type: entities
+                      entities:
+                        - type: custom:button-card
+                          entity: sensor.ntk_ryansoffice_3dprinter_print_weight
+                          name: Current Print Weight
+                          show_icon: false
+                          show_state: false
+                          custom_fields:
+                            weight_label: |
+                              [[[
+                                const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
+                                const totalWeight = parseFloat(weightEntity?.state) || 0;
+                                
+                                return `<div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Total: ${totalWeight.toFixed(1)}g</div>`;
+                              ]]]
+                            weight_bar: |
+                              [[[
+                                // Get print weight entity
+                                const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
+                                if (!weightEntity) return '<div style="color: #888;">No print data</div>';
+                                
+                                const totalWeight = parseFloat(weightEntity?.state) || 0;
+                                
+                                // Extract weight data from attributes (keys starting with "AMS")
+                                const weights = [];
+                                let attributeTotal = 0;
+                                
+                                for (const [key, value] of Object.entries(weightEntity.attributes)) {
+                                  if (key.startsWith('AMS') && value && !isNaN(value)) {
+                                    // Parse the tray name: "AMS 1 Tray 2" -> ams_1_tray_2
+                                    const match = key.match(/AMS (\d+) Tray (\d+)/);
+                                    if (match) {
+                                      const amsNum = match[1];
+                                      const trayNum = match[2];
+                                      const trayKey = `ams_${amsNum}_tray_${trayNum}`;
+                                      const trayEntity = `sensor.p1s_01p00c460102350_${trayKey}`;
+                                      
+                                      // Get color from tray entity
+                                      const tray = states[trayEntity];
+                                      let color = tray?.attributes?.color || '#cccccc';
+                                      
+                                      // Normalize color (remove # and alpha channel if present)
+                                      if (color.startsWith('#')) {
+                                        color = color.substring(1);
+                                      }
+                                      if (color.length === 8) {
+                                        color = color.substring(0, 6);
+                                      }
+                                      color = '#' + color;
+                                      
+                                      weights.push({
+                                        name: key,
+                                        weight: parseFloat(value),
+                                        color: color
+                                      });
+                                      attributeTotal += parseFloat(value);
+                                    }
+                                  }
+                                }
+                                
+                                // Handle case where we have total weight but no attribute breakdown
+                                if (weights.length === 0 && totalWeight > 0) {
+                                  let result = '<div style="margin-bottom: 8px;">';
+                                  result += '<div style="';
+                                  result += 'height: 30px; ';
+                                  result += 'border-radius: 6px; ';
+                                  result += 'background: linear-gradient(135deg, #999 0%, #ccc 50%, #999 100%); ';
+                                  result += 'border: 2px solid var(--divider-color, rgba(127, 127, 127, 0.5)); ';
+                                  result += 'box-shadow: 0 1px 3px rgba(0,0,0,0.1); ';
+                                  result += 'display: flex; ';
+                                  result += 'align-items: center; ';
+                                  result += 'justify-content: center;';
+                                  result += '">';
+                                  result += '<span style="font-size: 11px; font-weight: 600; color: #333; text-shadow: 0 0 2px rgba(255,255,255,0.8);">⚠️ Breakdown unavailable</span>';
+                                  result += '</div>';
+                                  result += '<div style="font-size: 11px; color: #888; margin-top: 4px; font-style: italic;">Filament usage details not available for this print</div>';
+                                  result += '</div>';
+                                  return result;
+                                }
+                                
+                                if (weights.length === 0 || attributeTotal === 0) {
+                                  return '<div style="color: #888; font-size: 12px;">No print active or no weight data available</div>';
+                                }
+                                
+                                // Generate stacked bar HTML
+                                const barHeight = '30px';
+                                const borderRadius = '6px';
+                                
+                                let barHTML = '<div style="margin-bottom: 8px;">';
+                                barHTML += '<div style="';
+                                barHTML += 'display: flex; ';
+                                barHTML += `height: ${barHeight}; `;
+                                barHTML += `border-radius: ${borderRadius}; `;
+                                barHTML += 'overflow: hidden; ';
+                                barHTML += 'border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); ';
+                                barHTML += 'box-shadow: 0 1px 3px rgba(0,0,0,0.1);';
+                                barHTML += '">';
+                                
+                                // Add each segment
+                                weights.forEach((item, index) => {
+                                  const percent = (item.weight / attributeTotal) * 100;
+                                  const isLast = index === weights.length - 1;
+                                  
+                                  // Calculate brightness for text color
+                                  const r = parseInt(item.color.substring(1, 3), 16);
+                                  const g = parseInt(item.color.substring(3, 5), 16);
+                                  const b = parseInt(item.color.substring(5, 7), 16);
+                                  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                  
+                                  // Check if color is very light (near white) or very dark (near black)
+                                  const isVeryLight = brightness > 240;
+                                  const isVeryDark = brightness < 20;
+                                  
+                                  barHTML += '<div style="';
+                                  barHTML += `width: ${percent}%; `;
+                                  barHTML += `background-color: ${item.color}; `;
+                                  barHTML += 'display: flex; ';
+                                  barHTML += 'align-items: center; ';
+                                  barHTML += 'justify-content: center; ';
+                                  barHTML += 'position: relative; ';
+                                  
+                                  // Add extra border for very light or very dark colors for visibility
+                                  if (isVeryLight || isVeryDark) {
+                                    barHTML += 'box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.5); ';
+                                  }
+                                  
+                                  // Add border between segments (but not after last one)
+                                  if (!isLast) {
+                                    barHTML += 'border-right: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); ';
+                                  }
+                                  
+                                  barHTML += '">';
+                                  
+                                  // Add weight text if segment is wide enough
+                                  if (percent > 10) {
+                                    const textColor = brightness > 128 ? '#000000' : '#ffffff';
+                                    
+                                    barHTML += `<span style="font-size: 11px; font-weight: 600; color: ${textColor}; text-shadow: 0 0 2px rgba(0,0,0,0.3);">`;
+                                    barHTML += `${item.weight.toFixed(1)}g`;
+                                    barHTML += '</span>';
+                                  }
+                                  
+                                  barHTML += '</div>';
+                                });
+                                
+                                barHTML += '</div>';
+                                
+                                // Add legend with filament details
+                                barHTML += '<div style="font-size: 11px; color: var(--secondary-text-color, #888); margin-top: 6px; line-height: 1.4;">';
+                                weights.forEach((item, index) => {
+                                  const percent = (item.weight / attributeTotal) * 100;
+                                  barHTML += `<div style="display: flex; align-items: center; margin-bottom: 2px;">`;
+                                  barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px;"></span>`;
+                                  barHTML += `<span>${item.name}: ${item.weight.toFixed(1)}g (${percent.toFixed(1)}%)</span>`;
+                                  barHTML += '</div>';
+                                });
+                                barHTML += '</div>';
+                                barHTML += '</div>';
+                                
+                                return barHTML;
+                              ]]]
+                          styles:
+                            card:
+                              - background: none
+                              - box-shadow: none
+                              - padding: 8px
+                            grid:
+                              - grid-template-areas: '"n" "weight_label" "weight_bar"'
+                              - grid-template-columns: 1fr
+                              - grid-template-rows: auto auto auto
+                            name:
+                              - font-size: 14px
+                              - font-weight: '600'
+                              - justify-self: start
+                              - margin-bottom: 4px
+                            custom_fields:
+                              weight_label:
+                                - justify-self: start
+                              weight_bar:
+                                - width: 100%
+                        - entity: sensor.ntk_ryansoffice_3dprinter_current_stage
+                          name: Stage
+                        - entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+                          name: HMS Notifications
+                          tap_action:
+                            action: more-info
+                          secondary_info: last-changed
+                        - entity: sensor.ntk_ryansoffice_3dprinter_start_time
+                          name: Start Time
+                          secondary_info: last-changed
+                        - entity: sensor.ntk_ryansoffice_3dprinter_end_time
+                          name: End Time
+                        - entity: sensor.ntk_ryansoffice_3dprinter_remaining_time
+                          name: Remaining Time
+                        - entity: sensor.ntk_ryansoffice_3dprinter_active_tray
+                          name: Current Filament
+                          icon: fapro:filament-2
+                attributes:
+                  label: Print Details
+              - card:
+                  type: vertical-stack
+                  cards:
+                    - type: markdown
+                      text_only: true
+                      content: '### AMS 1'
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray A1: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_1_tray_1
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:circle-double
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray A2: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_1_tray_2
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:circle-double
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray A3: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_1_tray_3
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:circle-double
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray A4: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_1_tray_4
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:circle-double
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: markdown
+                      text_only: true
+                      content: '### AMS 2 Pro'
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray B1: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_2_tray_1
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:check
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: blue
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray B2: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_2_tray_2
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:alert-circle
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray B3: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_2_tray_3
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:circle-double
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                    - type: custom:mushroom-template-card
+                      primary: 'Tray B4: {{ states(entity) }}'
+                      secondary: |-
+                        UUID: {{ state_attr(entity, 'tray_uuid') }}
+                        Color: {{ state_attr(entity, 'color') }}
+                      icon: mdi:circle
+                      entity: sensor.p1s_01p00c460102350_ams_2_tray_4
+                      multiline_secondary: true
+                      grid_options:
+                        columns: full
+                        rows: auto
+                      badge_icon: >
+                        {% if states(entity)|default(false, true) and
+                        state_attr(entity, 'active') %}
+
+                        mdi:circle-double
+
+                        {% else %}
+
+
+                        {% endif %}
+                      badge_color: green
+                      hold_action:
+                        action: none
+                      double_tap_action:
+                        action: none
+                      tap_action:
+                        action: more-info
+                      color: '{{ state_attr(entity, ''color'') }}'
+                      features_position: bottom
+                attributes:
+                  label: Spool Details
+    badges:
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.ntk_ryansoffice_3dprinter_print_status
+        show_entity_picture: false
+        icon: mdi:rotate-3d
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.ntk_ryansoffice_3dprinter_current_stage
+        icon: mdi:printer-3d
+        show_entity_picture: false
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.ntk_ryansoffice_3dprinter_task_name
+        icon: mdi:cube-outline
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: sensor.print_layer_progress_formatted
+        icon: fas:layer-group
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+        icon: mdi:progress-helper
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: sensor.print_time_remaining_formatted
+        icon: mdi:progress-clock
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+        name: HMS
+        tap_action:
+          action: more-info
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: camera.ntk_ryansoffice_3dprinter_camera
+        icon: ''
+        show_entity_picture: true
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: camera.3dprintertopcamera_hd_stream
+        show_entity_picture: false
+      - type: custom:config-template-card
+        entities:
+          - sensor.ntk_ryansoffice_3dprinter_remaining_time
+        card:
+          type: entity
+          entity: sensor.ntk_ryansoffice_3dprinter_remaining_time
+          show_name: false
+          show_icon: true
+          show_state: true
+          state: |
+            [[[
+              const total = parseInt(states['sensor.ntk_ryansoffice_3dprinter_remaining_time'].state);
+              const days = Math.floor(total / 1440);
+              const hours = Math.floor((total % 1440) / 60);
+              const minutes = total % 60;
+              if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+              if (hours > 0) return `${hours}h ${minutes}m`;
+              return `${minutes}m`;
+            ]]]
+      - type: entity
+        show_name: false
+        show_state: false
+        show_icon: true
+        entity: image.ntk_ryansoffice_3dprinter_cover_image
+        show_entity_picture: true
+        state_content: name
+    header:
+      card:
+        type: markdown
+        text_only: true
+        content: '# 3D Printer'
+  - type: custom:vertical-layout
+    path: spool
+    icon: fapro:filament-2
+    cards:
+      - type: custom:bubble-card
+        card_type: separator
+        sub_button:
+          main: []
+          bottom: []
+        name: Spool Information
+        icon: fapro:filament-2
+        card_layout: large
+      - type: custom:config-template-card
+        variables:
+          selected_entity: states['sensor.selected_spool'].state
+        entities:
+          - sensor.selected_spool
+        card:
+          type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: ${selected_entity}
+          icon: ''
+          name: ''
+          show_icon: true
+          show_attribute: false
+          show_state: false
+          scrolling_effect: true
+          rows: 1.719
+          styles: |
+            /* Global bump */ 
+            * { 
+              font-size: 18px !important; 
+            } 
+
+            /* Main entity name */ 
+            .bubble-name { 
+              font-size: 22px !important; 
+              font-weight: 700; 
+            } 
+
+            /* Top location attribute */ 
+            .bubble-sub-button-main .bubble-sub-button-text { 
+              font-size: 22px !important; 
+              font-weight: 600; 
+            } 
+
+            /* Bottom ID label */ 
+            .bubble-sub-button-bottom .bubble-sub-button-text, .bubble-state { 
+              font-size: 16px !important; 
+              font-weight: 600; 
+            }
+          sub_button:
+            main: []
+            bottom:
+              - entity: ${selected_entity}
+                icon: fas:location-dot
+                show_background: true
+                state_background: false
+                show_icon: true
+                show_attribute: true
+                attribute: location
+              - entity: ${selected_entity}
+                icon: mdi:weight-gram
+                state_background: false
+                show_state: true
+      - type: custom:bubble-card
+        card_type: separator
+        sub_button:
+          main: []
+          bottom: []
+        name: Change Location
+        icon: mdi:map-marker-distance
+        card_layout: large
+      - type: custom:config-template-card
+        entities:
+          - sensor.selected_spool
+        variables:
+          selected_entity: states['sensor.selected_spool'].state
+          spool_id: states[states['sensor.selected_spool'].state].attributes.id
+        card:
+          type: custom:bubble-card
+          card_type: sub-buttons
+          entity: ${selected_entity}
+          hide_main_background: false
+          rows: 0.938
+          sub_button:
+            main: []
+            bottom:
+              - tap_action:
+                  action: perform-action
+                  perform_action: script.update_spool_location
+                  target: {}
+                  data:
+                    spool_id: ${ spool_id }
+                    location: AMS
+                name: AMS
+                show_name: true
+                icon: fas:arrow-right-to-bracket
+                show_state: false
+                state_background: false
+              - tap_action:
+                  action: perform-action
+                  perform_action: script.update_spool_location
+                  target: {}
+                  data:
+                    spool_id: ${ spool_id }
+                    location: AMS 2
+                name: AMS 2
+                show_name: true
+                icon: fas:arrow-right-to-bracket
+                show_state: false
+                state_background: false
+      - type: custom:layout-card
+        layout_type: custom:grid-layout
+        layout:
+          grid-template-columns: 1fr auto
+          grid-gap: 12px
+        cards:
+          - type: entities
+            entities:
+              - entity: input_select.spool_location_choice
+                name: 'Move to:'
+                secondary_info: none
+            theme: Metro Blue
+            card_mod:
+              style: |
+                ha-card {
+                  font-size: 1.4rem;
+                }
+          - show_name: false
+            show_icon: true
+            type: button
+            icon: mdi:refresh-circle
+            name: ''
+            tap_action:
+              action: perform-action
+              perform_action: automation.trigger
+              target:
+                entity_id: automation.spoolman_location_sync
+              data:
+                skip_condition: true
+            show_state: false
+            theme: Metro Blue
+            card_mod:
+              style: |
+                ha-card {
+                  width: 70px;       /* icon-sized */
+                  height: 55px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                }
+                ha-icon {
+                  width: 48px;
+                  height: 48px;
+                }
+      - type: custom:config-template-card
+        entities:
+          - sensor.selected_spool
+          - input_select.spool_location_choice
+        variables:
+          selected_entity: states['sensor.selected_spool'].state
+          spool_id: states[states['sensor.selected_spool'].state].attributes.id
+          new_location: states['input_select.spool_location_choice'].state
+        card:
+          type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: ${new_location}
+          icon: mdi:tray-arrow-down
+          show_icon: true
+          tap_action:
+            action: call-service
+            service: script.update_spool_location
+            service_data:
+              spool_id: ${spool_id}
+              location: ${new_location}
+      - type: custom:bubble-card
+        card_type: separator
+        sub_button:
+          main: []
+          bottom: []
+        name: Desiccant Container
+        icon: mdi:water-circle
+        rows: '2'
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            show_icon: true
+            show_name: false
+            show_label: true
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+            double_tap_action:
+              action: none
+            icon: mdi:water
+            label: |
+              [[[
+                const selected_entity = states['sensor.selected_spool'].state;
+                const spool_id = states[selected_entity].attributes.id;
+                const spool_entity = states[selected_entity];
+
+                const date = spool_entity?.attributes?.extra_desiccant_filled;
+                if (!date) return '—';
+
+                const filled = new Date(date);
+                const now = new Date();
+                const days = Math.floor((now - filled) / 86400000);
+
+                let ago;
+                if (days < 7) ago = `${days}d ago`;
+                else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;
+                else ago = `${Math.floor(days / 30)}mo ago`;
+
+                return `${filled.toLocaleDateString('en-US')} (${ago})`;
+              ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"i" "l"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: none
+                - box-shadow: none
+                - padding: 4px
+              icon:
+                - width: 25px
+                - height: 25px
+                - margin-bottom: 2px
+                - color: |
+                    [[[
+                      const selected_entity = states['sensor.selected_spool'].state;
+                      const spool_id = states[selected_entity].attributes.id;
+                      const spool_entity = states[selected_entity];
+
+                      const date = spool_entity?.attributes?.extra_desiccant_filled;
+                      if (!date) return 'gray';
+
+                      const months = ((Date.now() - new Date(date)) / 86400000) / 30.437;
+                      if (months > 2.5) return 'red';
+                      if (months > 2.0) return 'orange';
+                      if (months > 1.5) return 'yellow';
+                      return 'green';
+                    ]]]
+              label:
+                - font-size: 14px
+                - text-align: center
+                - white-space: nowrap
+          - type: custom:button-card
+            icon: mdi:clock-check-outline
+            label: Mark as refilled
+            show_icon: true
+            show_name: false
+            show_label: true
+            tap_action:
+              action: call-service
+              service: script.refill_desiccant_update_date
+              service_data:
+                spool_id: |
+                  [[[
+                    const selected_entity = states['sensor.selected_spool'].state;
+                    const spool_id = states[selected_entity].attributes.id;
+                    const spool_entity = states[selected_entity];
+
+                    return spool_id;
+                  ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"i" "l"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - border: 1px solid rgba(0,0,0,0.15)
+                - box-shadow: none
+                - padding: 4px
+              icon:
+                - width: 25px
+                - height: 25px
+                - margin-bottom: 2px
+              label:
+                - font-size: 14px
+                - font-weight: bold
+                - text-align: center
+                - white-space: nowrap
+      - type: custom:bubble-card
+        card_type: separator
+        sub_button:
+          main: []
+          bottom: []
+        name: Other Actions
+        icon: mdi:gesture-tap
+      - type: custom:config-template-card
+        entities: []
+        variables:
+          filament_id: new URLSearchParams(location.search).get("filament_id")
+        card:
+          type: custom:bubble-card
+          card_type: button
+          name: Load from Query String
+          icon: mdi:download
+          tap_action:
+            action: call-service
+            service: input_text.set_value
+            service_data:
+              entity_id: input_text.filament_id
+              value: ${ filament_id }
+          disabled: true
+          button_type: name
+          sub_button:
+            main: []
+            bottom: []
+          button_action:
+            tap_action:
+              action: perform-action
+              perform_action: input_text.set_value
+              target:
+                entity_id: input_text.filament_id
+              data:
+                value: ${ filament_id }
+          card_layout: large
+  - type: sections
+    max_columns: 4
+    title: Filament Catalog
+    path: filaments
+    icon: ''
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Filaments
+            heading_style: title
+          - type: custom:auto-entities
+            card:
+              type: entities
+            filter:
+              include:
+                - options: {}
+                  device: a6938154abe12684b14b6f4781f08c6d
+                  sort:
+                    reverse: false
+                    numeric: true
+                    method: state
+              exclude: []
+            grid_options:
+              columns: full
+        column_span: 1
+    cards: []
