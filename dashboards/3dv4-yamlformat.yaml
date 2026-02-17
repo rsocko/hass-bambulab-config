@@ -381,15 +381,26 @@ views:
                     name: A1
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '1';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -519,15 +530,26 @@ views:
                     name: A2
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '2';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -657,15 +679,26 @@ views:
                     name: A3
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '3';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -795,15 +828,26 @@ views:
                     name: A4
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '4';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -947,15 +991,26 @@ views:
                     name: B1
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '5';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -1085,15 +1140,26 @@ views:
                     name: B2
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '6';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -1223,15 +1289,26 @@ views:
                     name: B3
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '7';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -1361,15 +1438,26 @@ views:
                     name: B4
                     show_icon: false
                     show_state: false
-                    styles:
-                      card:
-                        - background: none
-                        - box-shadow: none
-                        - padding: 4px
-                      name:
-                        - font-size: 14px
-                        - font-weight: bold
-                        - justify-self: center
+                    styles: |
+                      [[[
+                        const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                        const isActive = activeTrayState === '8';
+                        const borderColor = '#2196F3';
+                        
+                        return {
+                          card: [
+                            { 'background': 'none' },
+                            { 'box-shadow': 'none' },
+                            { 'padding': '4px' },
+                            ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                          ],
+                          name: [
+                            { 'font-size': '14px' },
+                            { 'font-weight': 'bold' },
+                            { 'justify-self': 'center' }
+                          ]
+                        };
+                      ]]]
                   - type: custom:button-card
                     entity: |
                       [[[
@@ -1511,15 +1599,26 @@ views:
                         name: External
                         show_icon: false
                         show_state: false
-                        styles:
-                          card:
-                            - background: none
-                            - box-shadow: none
-                            - padding: 4px
-                          name:
-                            - font-size: 14px
-                            - font-weight: bold
-                            - justify-self: center
+                        styles: |
+                          [[[
+                            const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;
+                            const isActive = activeTrayState === '254';
+                            const borderColor = '#2196F3';
+                            
+                            return {
+                              card: [
+                                { 'background': 'none' },
+                                { 'box-shadow': 'none' },
+                                { 'padding': '4px' },
+                                ...(isActive ? [{ 'border': `3px solid ${borderColor}` }, { 'border-radius': '8px' }] : [])
+                              ],
+                              name: [
+                                { 'font-size': '14px' },
+                                { 'font-weight': 'bold' },
+                                { 'justify-self': 'center' }
+                              ]
+                            };
+                          ]]]
                       - type: custom:button-card
                         entity: |
                           [[[
