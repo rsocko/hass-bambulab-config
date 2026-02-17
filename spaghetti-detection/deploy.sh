@@ -100,8 +100,12 @@ if [ "$ENV_EXISTS" != "true" ]; then
     if command -v openssl &> /dev/null; then
         TOKEN=$(openssl rand -hex 32)
     else
-        TOKEN="obico_api_secret_$(date +%s)"
-        print_warning "OpenSSL not found. Using basic token. Consider changing it."
+        print_error "OpenSSL not found. Cannot generate secure token."
+        print_warning "Please install OpenSSL or manually create .env file with a secure token."
+        echo "Example .env file:"
+        echo "ML_API_TOKEN=your_secure_random_token_here"
+        echo "TZ=America/New_York"
+        exit 1
     fi
     
     # Get timezone
@@ -125,9 +129,10 @@ EOF
     
     print_success "Created .env file with random API token"
     echo ""
-    echo "IMPORTANT: Save this API token for Home Assistant configuration:"
+    echo "IMPORTANT: API token has been saved to .env file"
     echo "=========================================="
-    echo "ML_API_TOKEN=$TOKEN"
+    echo "You can retrieve it later with:"
+    echo "  cat .env | grep ML_API_TOKEN"
     echo "=========================================="
     echo ""
     read -p "Press Enter to continue..."
@@ -207,7 +212,7 @@ echo ""
 echo "==================================="
 echo "Configuration Information"
 echo "==================================="
-echo "API Token: $(grep ML_API_TOKEN .env | cut -d= -f2)"
+echo "API Token: <stored in .env file - use: cat .env | grep ML_API_TOKEN>"
 echo "Timezone: $(grep TZ .env | cut -d= -f2)"
 echo "Port: 3333"
 echo "Health Endpoint: http://$(hostname):3333/health"
@@ -221,7 +226,7 @@ echo "1. Configure Home Assistant integration:"
 echo "   - Settings → Devices & Services → Add Integration"
 echo "   - Search: Bambu Lab P1 - Spaghetti Detection"
 echo "   - Host: http://$(hostname):3333"
-echo "   - Token: $(grep ML_API_TOKEN .env | cut -d= -f2)"
+echo "   - Token: Run 'cat .env | grep ML_API_TOKEN | cut -d= -f2' to retrieve"
 echo ""
 echo "2. Import and configure automation blueprint"
 echo "   See QUICK_START.md for details"

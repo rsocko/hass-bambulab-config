@@ -122,7 +122,7 @@ action:
           target:
             entity_id: "{{ device_entities(printer_device) | select('search', 'camera') | list | first }}"
           data:
-            filename: /tmp/bambu_snapshot_{{ now().timestamp() }}.jpg
+            filename: /tmp/bambu_snapshot_latest.jpg
         
         # Send snapshot to Obico ML server for analysis
         # Note: This is a simplified example. The actual implementation
