@@ -40,6 +40,11 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
+- [LED Controls for Bambu Lab Printer](dashboards/LED_CONTROLS_README.md)
+  - Control all printer lights (MagWLED, chamber, AMS, front display)
+  - WLED RGBIC control with effects and palettes
+  - Quick actions and status overview
+  - See [full documentation](dashboards/docs/led-controls.md)
 
 The actual config objects that are used to achieve the above scenarios include:
 
@@ -54,4 +59,6 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update the First and Last used information for a given spool in Spoolman
   
 - **Dashboard / Widgets**
-- 
+  - [LED Controls Card](dashboards/led-controls.yaml) - Control all printer lights with advanced WLED features
+  - AMS Tray Cards - Display filament information and status
+  - Print Status Cards - Monitor print progress and stages
