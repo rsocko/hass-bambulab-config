@@ -7,7 +7,11 @@ This is a collection of Home Assistant automations & scripts I have configured t
 ### 1. Update filament usage in Spoolman
 Upon completing a print, the filament used will be updated in Spoolman. 
 
+**⚠️ IMPORTANT**: If you experience issues with Home Assistant restarting during prints, use the enhanced version with print weight persistence.
+
 [Automation Details](docs/print_complete_update_filament_usage.md) | [Source .YAML](print_complete-update_filament_usage.yaml)
+
+**Enhanced Version with HA Restart Resilience**: [Print Weight Persistence Documentation](docs/print_weight_persistence.md) | [Implementation Summary](PRINT_WEIGHT_PERSISTENCE_IMPLEMENTATION.md)
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
@@ -32,9 +36,21 @@ This script simply forced a reload of the integration on a nightly basis.
 
  
 ## Notes:
+- **New in v2.0**: Print Weight Persistence solution added to handle Home Assistant restarts during prints. See [documentation](docs/print_weight_persistence.md) for details.
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
 - Make sure to review the YAML code examples and update the Entity and Sensor names to match your Home Assistant setup
 
+## Known Issues & Solutions
+### Issue: Print weight attributes lost on HA restart
+**Status**: ✅ **SOLVED** - See [Print Weight Persistence](docs/print_weight_persistence.md)
+
+When Home Assistant restarts during an active print, the print_weight sensor attributes are lost, preventing the automation from updating Spoolman correctly. The new print weight persistence solution provides a robust workaround using backup and restore mechanism.
+
+**Related**: 
+- [Upstream GitHub Issue #1048](https://github.com/greghesp/ha-bambulab/issues/1048)
+- [Implementation Summary](PRINT_WEIGHT_PERSISTENCE_IMPLEMENTATION.md)
+
 ## Version Information
+2026-02-17 - v2.0.0 - Added Print Weight Persistence solution for HA restart resilience
 2025-05-23 - v1.0.0 - Initial public release
