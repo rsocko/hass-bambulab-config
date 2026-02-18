@@ -687,13 +687,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -704,13 +704,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -727,7 +727,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -1119,13 +1119,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -1136,13 +1136,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -1159,7 +1159,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -1551,13 +1551,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -1568,13 +1568,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -1591,7 +1591,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -1983,13 +1983,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -2000,13 +2000,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -2023,7 +2023,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -2434,13 +2434,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -2451,13 +2451,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -2474,7 +2474,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -2866,13 +2866,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -2883,13 +2883,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -2906,7 +2906,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -3298,13 +3298,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -3315,13 +3315,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -3338,7 +3338,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -3730,13 +3730,13 @@ views: [
                       ],
                       grid: [
                       {
-                      grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                      grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                       },
                       {
                       grid-template-columns: "auto 1fr auto"
                       },
                       {
-                      grid-template-rows: "auto auto auto auto"
+                      grid-template-rows: "auto auto auto"
                       }
                       ],
                       name: [
@@ -3747,13 +3747,13 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.2
+                      line-height: "1.2"
                       },
                       {
                       justify-self: "center"
                       },
                       {
-                      padding-bottom: "2px"
+                      padding-bottom: "4px"
                       }
                       ],
                       label: [
@@ -3770,7 +3770,7 @@ views: [
                       white-space: "normal"
                       },
                       {
-                      line-height: 1.1
+                      line-height: "1.1"
                       },
                       {
                       justify-self: "center"
@@ -4180,13 +4180,13 @@ views: [
                           ],
                           grid: [
                           {
-                          grid-template-areas: "\"n n n\" \"l l l\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
+                          grid-template-areas: "\"n n n\" \"desiccant_icon . remaining_weight\" \". . print_weight\""
                           },
                           {
                           grid-template-columns: "auto 1fr auto"
                           },
                           {
-                          grid-template-rows: "auto auto auto auto"
+                          grid-template-rows: "auto auto auto"
                           }
                           ],
                           name: [
@@ -4197,13 +4197,13 @@ views: [
                           white-space: "normal"
                           },
                           {
-                          line-height: 1.2
+                          line-height: "1.2"
                           },
                           {
                           justify-self: "center"
                           },
                           {
-                          padding-bottom: "2px"
+                          padding-bottom: "4px"
                           }
                           ],
                           label: [
@@ -4220,7 +4220,7 @@ views: [
                           white-space: "normal"
                           },
                           {
-                          line-height: 1.1
+                          line-height: "1.1"
                           },
                           {
                           justify-self: "center"
