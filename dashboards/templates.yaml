@@ -51,12 +51,13 @@ sensor:
           
           {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
           {# External spool doesn't have 'type' attribute, check UUID and color instead #}
-          {# Check for empty UUID (not set, empty string, or null UUID value) #}
-          {# Check for empty color (not set, empty string, or 'none' string) #}
-          {% if (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) 
-                and (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR) %}
-            {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
-            {% continue %}
+          {# Only apply this check to the external spool - AMS trays use 'type' above #}
+          {% if tray_name == 'external_spool' %}
+            {% if (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) 
+                  and (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR) %}
+              {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
+              {% continue %}
+            {% endif %}
           {% endif %}
           {# -------------------------------- #}
 
