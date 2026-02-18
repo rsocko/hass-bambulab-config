@@ -37,7 +37,7 @@ Or if you already have `input_text:` section, merge the contents.
 1. **Disable** your existing print_complete automation (don't delete yet!)
 2. Create new automation
 3. Click ⋮ → Edit in YAML
-4. Paste contents of `print_complete-update_filament_usage_v2.yaml`
+4. Paste contents of `print_complete-update_filament_usage.yaml`
 5. Update `device_id` and entity names (see Configuration Notes below)
 6. Save as "Print Complete - Update Filament Usage (Enhanced)"
 
@@ -132,7 +132,7 @@ All operations are logged to the logbook:
 ## Rollback
 
 If you need to go back to the old automation:
-1. Disable the new v2 automation
+1. Disable the enhanced automation
 2. Re-enable the original automation
 3. Clear the input helpers (set to empty)
 4. Restart is not needed

@@ -19,7 +19,7 @@ A **backup and restore mechanism** that:
 ### Configuration Files
 - **print_weight_persistence.yaml** - Input helpers and template sensor
 - **print_started-backup_print_weight.yaml** - Captures attributes on print start
-- **print_complete-update_filament_usage_v2.yaml** - Enhanced automation with backup support
+- **print_complete-update_filament_usage.yaml** - Enhanced automation with backup support
 
 ### Documentation
 - **docs/print_weight_persistence.md** - Complete documentation (9,500+ words)
@@ -33,7 +33,7 @@ A **backup and restore mechanism** that:
 ## Installation (Quick)
 
 1. Add input helpers to configuration.yaml
-2. Import two automations (print_started and print_complete_v2)
+2. Import two automations (print_started and print_complete)
 3. Update device_id and entity names
 4. Restart Home Assistant
 5. Test with a print
@@ -153,13 +153,13 @@ Possible improvements:
 
 **From Existing Automation**:
 1. Keep existing automation enabled
-2. Install new v2 automation (disabled)
-3. Test v2 thoroughly
+2. Install new enhanced automation (disabled)
+3. Test thoroughly
 4. Switch when confident
 5. Backup old automation before removing
 
 **Rollback**:
-1. Disable v2 automation
+1. Disable enhanced automation
 2. Re-enable original
 3. Clear input helpers
 4. No restart needed

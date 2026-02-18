@@ -36,7 +36,7 @@ Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → 
    - Captures and stores print_weight sensor attributes
    - Stores metadata for validation
 
-3. **Enhanced Print Complete Automation** (`print_complete-update_filament_usage_v2.yaml`)
+3. **Enhanced Print Complete Automation** (`print_complete-update_filament_usage.yaml`)
    - Triggers when print finishes
    - Checks if current sensor has attributes
    - Falls back to backup if attributes are missing
@@ -123,7 +123,7 @@ Import `print_started-backup_print_weight.yaml`:
 
 **Option A: Replace Existing** (Recommended)
 1. Disable your current print_complete automation
-2. Import `print_complete-update_filament_usage_v2.yaml`
+2. Import `print_complete-update_filament_usage.yaml`
 3. Update the `device_id` to match your printer
 4. Test thoroughly before deleting old automation
 
