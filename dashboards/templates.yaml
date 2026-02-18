@@ -50,11 +50,15 @@ sensor:
           {% endif %}
           
           {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
-          {# External spool doesn't have 'type' attribute, check UUID and color instead #}
-          {# Only apply this check to the external spool - AMS trays use 'type' above #}
+          {# External spool doesn't have 'type' attribute like AMS trays do #}
+          {# Detection signals: name='Empty', UUID=all zeros, color alpha=00 #}
           {% if tray_name == 'external_spool' %}
-            {% if (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) 
-                  and (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR) %}
+            {% set ext_name = state_attr(tray_entity, 'name') %}
+            {% set has_zero_alpha = (tray_color | length >= 8 and tray_color[-2:] == '00') 
+                  or (tray_color | replace('#','') | length == 8 and tray_color[-2:] == '00') %}
+            {% set is_uuid_empty = (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) %}
+            {% set is_color_empty = (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR or has_zero_alpha) %}
+            {% if ext_name == 'Empty' or (is_uuid_empty and is_color_empty) %}
               {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
               {% continue %}
             {% endif %}
