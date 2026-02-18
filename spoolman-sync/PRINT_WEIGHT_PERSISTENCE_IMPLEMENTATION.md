@@ -123,7 +123,7 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 
 **Location**: `spoolman-sync/print_started-backup_print_weight.yaml`
 
-### 3. print_complete-update_filament_usage_v2.yaml
+### 3. print_complete-update_filament_usage.yaml
 **Purpose**: Enhanced print completion automation with backup support
 
 **Trigger**: `event_print_finished` from Bambu Lab device
@@ -137,7 +137,7 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 6. Log all operations
 7. Clear backup
 
-**Location**: `spoolman-sync/print_complete-update_filament_usage_v2.yaml`
+**Location**: `spoolman-sync/print_complete-update_filament_usage.yaml`
 
 ### 4. print_weight_persistence.md
 **Purpose**: Complete documentation of the solution
