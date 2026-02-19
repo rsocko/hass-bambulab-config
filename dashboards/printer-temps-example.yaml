@@ -19,22 +19,14 @@ cards:
     secondary: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
       {{ current | round(0) }}°C
-    icon: >-
-      {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
-      {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
-      {% if target > current + 2 %}
-        mdi:arrow-up
-      {% elif target < current - 2 %}
-        mdi:arrow-down
-      {% else %}
-        mdi:thermometer
-      {% endif %}
+    icon: mdi:thermometer
     icon_color: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
       {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
-      {% if target > current + 2 %}
+      {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
         red
-      {% elif target < current - 2 %}
+      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
         blue
       {% else %}
         grey
@@ -47,10 +39,11 @@ cards:
         ha-card {
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
           {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
-          {% if target > current + 2 %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             background: rgba(244, 67, 54, 0.08);
             border-left: 3px solid rgba(244, 67, 54, 0.8);
-          {% elif target < current - 2 %}
+          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
             background: rgba(33, 150, 243, 0.08);
             border-left: 3px solid rgba(33, 150, 243, 0.8);
           {% else %}
@@ -67,9 +60,10 @@ cards:
           font-weight: 700;
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
           {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
-          {% if target > current + 2 %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             color: rgb(244, 67, 54) !important;
-          {% elif target < current - 2 %}
+          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
             color: rgb(33, 150, 243) !important;
           {% else %}
             color: rgb(158, 158, 158) !important;
@@ -85,22 +79,14 @@ cards:
     secondary: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
       {{ current | round(0) }}°C
-    icon: >-
-      {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
-      {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
-      {% if target > current + 2 %}
-        mdi:arrow-up
-      {% elif target < current - 2 %}
-        mdi:arrow-down
-      {% else %}
-        mdi:radiator
-      {% endif %}
+    icon: mdi:radiator
     icon_color: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
       {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
-      {% if target > current + 2 %}
+      {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
         red
-      {% elif target < current - 2 %}
+      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
         blue
       {% else %}
         grey
@@ -113,10 +99,11 @@ cards:
         ha-card {
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
           {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
-          {% if target > current + 2 %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             background: rgba(244, 67, 54, 0.08);
             border-left: 3px solid rgba(244, 67, 54, 0.8);
-          {% elif target < current - 2 %}
+          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
             background: rgba(33, 150, 243, 0.08);
             border-left: 3px solid rgba(33, 150, 243, 0.8);
           {% else %}
@@ -133,9 +120,10 @@ cards:
           font-weight: 700;
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
           {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
-          {% if target > current + 2 %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             color: rgb(244, 67, 54) !important;
-          {% elif target < current - 2 %}
+          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
             color: rgb(33, 150, 243) !important;
           {% else %}
             color: rgb(158, 158, 158) !important;
