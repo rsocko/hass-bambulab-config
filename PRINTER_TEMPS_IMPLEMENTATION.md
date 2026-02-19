@@ -4,6 +4,39 @@
 
 Successfully implemented standalone temperature display cards for Bambu Lab 3D printers that show extruder (nozzle) and bed temperatures with color-coded heating/cooling indicators.
 
+**Latest Update**: Enhanced with fixed icons (no arrows) and intelligent idle state detection to prevent misleading color indicators when printer is not actively printing.
+
+## 🔄 Recent Improvements (v2)
+
+### Fixed Icons Instead of Directional Arrows
+- **Before**: Icons changed between `mdi:arrow-up`, `mdi:arrow-down`, and base icon (thermometer/radiator)
+- **After**: Always show `mdi:thermometer` for nozzle and `mdi:radiator` for bed
+- **Rationale**: Color coding is sufficient to indicate heating/cooling state; fixed icons are clearer and less busy
+
+### Intelligent Idle State Detection
+- **Problem**: When printer is idle, target temp is 0°C but actual temp is ambient (e.g., 23°C), causing misleading blue "cooling" indicator
+- **Solution**: Added printer status check - color indicators only active when `print_status` is 'printing' or 'prepare'
+- **Benefit**: More accurate representation of printer state; no false heating/cooling indicators at rest
+
+### Compact Layout Optimization
+- Layout already optimized for horizontal placement
+- Works well alongside other compact cards (e.g., fan controls)
+- Maintains readability on mobile devices
+
+## 🆕 Latest Improvements (v3)
+
+### Nozzle Icon - More Accurate Representation
+- **Before**: Used generic `mdi:thermometer` icon
+- **After**: Now uses `mdi:printer-3d-nozzle-heat` - actual 3D printer nozzle heater icon
+- **Rationale**: More semantically correct and visually representative of what it monitors
+
+### Bold Target Temp When Heating Is On
+- **Problem**: Hard to tell at a glance if heating element is commanded to be on (target > 0) vs off (target = 0)
+- **Solution**: Dynamic styling based on target temperature:
+  - **Target > 0°C**: Bold text (font-weight: 700), high opacity (0.9) - heating element is on
+  - **Target = 0°C**: Normal weight (500), reduced opacity (0.7) - heating element is off
+- **Benefit**: Instant visual distinction between "heater commanded on" vs "heater off", independent of current temperature or printing state
+
 ## ✅ Deliverables
 
 ### Main Files Created
@@ -47,19 +80,25 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 ## 🎨 Features Implemented
 
 ### Visual Design
-- ✅ **Icon next to target temperature** (small, 14px, 70% opacity)
+- ✅ **Icon next to target temperature** (small, 14px, variable opacity based on heating state)
 - ✅ **Current temperature prominently displayed** (large, 28px, bold)
 - ✅ **Color-coded display**:
-  - 🔴 Red when heating (target > current + 2°C)
-  - 🔵 Blue when cooling (target < current - 2°C)
-  - ⚪ Grey when at target (±2°C tolerance)
+  - 🔴 Red when heating (target > current + 2°C) - only when printing/preparing
+  - 🔵 Blue when cooling (target < current - 2°C) - only when printing/preparing
+  - ⚪ Grey when at target (±2°C tolerance) or printer is idle
 - ✅ **Colored icons** matching the heating/cooling state
-- ✅ **Dynamic icons**:
-  - `mdi:arrow-up` when heating
-  - `mdi:arrow-down` when cooling
-  - `mdi:thermometer` for nozzle at target
-  - `mdi:radiator` for bed at target
-- ✅ **Subtle background tint** (8% opacity for heating/cooling, 5% for at target)
+- ✅ **Fixed icons** (Updated v3):
+  - `mdi:printer-3d-nozzle-heat` for nozzle/extruder (3D printer nozzle heater icon)
+  - `mdi:radiator` always for bed
+  - No directional arrows - color coding is sufficient
+- ✅ **Smart heating indicator** (New in v3):
+  - When target > 0°C: Target temp shown bold (font-weight: 700) with high opacity (0.9)
+  - When target = 0°C: Target temp shown normal weight (500) with reduced opacity (0.7)
+  - Makes it immediately clear when heating element is actively commanded to be on
+- ✅ **Idle state handling** (Updated):
+  - Color indicators disabled when printer status is not 'printing' or 'prepare'
+  - Prevents misleading heating/cooling indication when printer is at ambient temp
+- ✅ **Subtle background tint** (8% opacity for heating/cooling, 5% for at target/idle)
 - ✅ **Left border accent** (3px solid for heating/cooling states)
 
 ### Layout
@@ -67,11 +106,13 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 - ✅ **Compact design** - informational, not oversized
 - ✅ **Mobile responsive** - works on small screens
 - ✅ **Flexible placement** - can be used individually or in horizontal/vertical stacks
+- ✅ **Works alongside other cards** - designed to fit next to fan controls or other compact cards
 
 ### Functionality
 - ✅ **Click to see more info** - tap action opens entity details
 - ✅ **Real-time updates** - automatically updates as temperatures change
 - ✅ **Temperature tolerance** - ±2°C buffer prevents constant state changes
+- ✅ **Smart status detection** - uses printer status sensor to determine if actively printing
 
 ### Code Quality
 - ✅ **Valid YAML** - all files validated with Python yaml parser
@@ -91,6 +132,7 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 - `number.[printer]_nozzle_target_temperature` (target)
 - `sensor.[printer]_bed_temperature` (current)
 - `number.[printer]_bed_target_temperature` (target)
+- `sensor.[printer]_print_status` (printer status - for idle state detection)
 
 ## 🚀 Usage Instructions
 
