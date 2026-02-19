@@ -19,7 +19,7 @@ cards:
     secondary: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
       {{ current | round(0) }}°C
-    icon: mdi:thermometer
+    icon: mdi:printer-3d-nozzle-heat
     icon_color: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
       {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
@@ -52,8 +52,14 @@ cards:
         }
         .primary {
           font-size: 14px !important;
-          font-weight: 500;
-          opacity: 0.7;
+          {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% if target > 0 %}
+            font-weight: 700;
+            opacity: 0.9;
+          {% else %}
+            font-weight: 500;
+            opacity: 0.7;
+          {% endif %}
         }
         .secondary {
           font-size: 28px !important;

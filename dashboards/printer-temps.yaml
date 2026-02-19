@@ -21,8 +21,9 @@
 # FEATURES:
 # - Displays current and target temperatures for nozzle and bed
 # - Color-coded display: RED when heating up, BLUE when cooling down, GREY when at target or idle
-# - Fixed icons: thermometer for nozzle, radiator for bed (no directional arrows)
+# - Fixed icons: 3D nozzle heater for nozzle, radiator for bed (no directional arrows)
 # - Color indicators only active when printer is printing
+# - Bold target temp styling when heating is on (target > 0°C)
 # - Horizontal layout for compact display - works alongside other cards
 # - Mobile responsive
 # - Click to see more details
@@ -50,7 +51,7 @@ primary: >-
 secondary: >-
   {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
   {{ current | round(0) }}°C
-icon: mdi:thermometer
+icon: mdi:printer-3d-nozzle-heat
 icon_color: >-
   {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
   {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
@@ -83,8 +84,14 @@ card_mod:
     }
     .primary {
       font-size: 14px !important;
-      font-weight: 500;
-      opacity: 0.7;
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {% if target > 0 %}
+        font-weight: 700;
+        opacity: 0.9;
+      {% else %}
+        font-weight: 500;
+        opacity: 0.7;
+      {% endif %}
     }
     .secondary {
       font-size: 28px !important;
@@ -181,7 +188,7 @@ cards:
     secondary: >-
       {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
       {{ current | round(0) }}°C
-    icon: mdi:thermometer
+    icon: mdi:printer-3d-nozzle-heat
     icon_color: >-
       {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
       {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
@@ -214,8 +221,14 @@ cards:
         }
         .primary {
           font-size: 14px !important;
-          font-weight: 500;
-          opacity: 0.7;
+          {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+          {% if target > 0 %}
+            font-weight: 700;
+            opacity: 0.9;
+          {% else %}
+            font-weight: 500;
+            opacity: 0.7;
+          {% endif %}
         }
         .secondary {
           font-size: 28px !important;
