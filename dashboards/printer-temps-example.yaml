@@ -14,15 +14,15 @@ cards:
   - type: custom:mushroom-template-card
     entity: sensor.ntk_ryansoffice_3dprinter_nozzle_temperature
     primary: >-
-      {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
-      {{ target | round(0) }}°C
-    secondary: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
       {{ current | round(0) }}°C
+    secondary: >-
+      {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+      {{ target | round(0) }}°C
     icon: mdi:printer-3d-nozzle-heat
     icon_color: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
-      {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+      {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
       {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
       {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
         red
@@ -38,7 +38,7 @@ cards:
       style: |
         ha-card {
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
-          {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
           {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             background: rgba(244, 67, 54, 0.08);
@@ -52,7 +52,7 @@ cards:
         }
         .primary {
           font-size: 14px !important;
-          {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
           {% if target > 0 %}
             font-weight: 700;
             opacity: 0.9;
@@ -65,7 +65,7 @@ cards:
           font-size: 28px !important;
           font-weight: 700;
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
-          {% set target = states('number.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
           {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             color: rgb(244, 67, 54) !important;
@@ -80,15 +80,15 @@ cards:
   - type: custom:mushroom-template-card
     entity: sensor.ntk_ryansoffice_3dprinter_bed_temperature
     primary: >-
-      {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
-      {{ target | round(0) }}°C
-    secondary: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
       {{ current | round(0) }}°C
+    secondary: >-
+      {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+      {{ target | round(0) }}°C
     icon: mdi:radiator
     icon_color: >-
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
-      {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+      {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
       {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
       {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
         red
@@ -104,7 +104,7 @@ cards:
       style: |
         ha-card {
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
-          {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
           {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             background: rgba(244, 67, 54, 0.08);
@@ -125,7 +125,7 @@ cards:
           font-size: 28px !important;
           font-weight: 700;
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
-          {% set target = states('number.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
           {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
             color: rgb(244, 67, 54) !important;
