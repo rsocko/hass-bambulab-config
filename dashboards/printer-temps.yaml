@@ -33,7 +33,11 @@
 # - number.YOUR_PRINTER_NAME_nozzle_target_temperature (target nozzle temp)
 # - sensor.YOUR_PRINTER_NAME_bed_temperature (current bed temp)
 # - number.YOUR_PRINTER_NAME_bed_target_temperature (target bed temp)
-# - sensor.YOUR_PRINTER_NAME_print_status (printer status - optional for idle detection)
+# - sensor.YOUR_PRINTER_NAME_print_status (printer status - required for idle detection)
+#
+# NOTE: The printer_status variable is queried multiple times in different template blocks
+# (icon_color, card_mod styles). This is necessary due to Home Assistant's template
+# scoping and cannot be optimized to a single query without custom integrations.
 
 # =============================================================================
 # NOZZLE TEMPERATURE CARD

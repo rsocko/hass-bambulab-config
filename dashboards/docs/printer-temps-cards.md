@@ -45,7 +45,7 @@ Based on the built-in HA Bambu Lab status card design:
    - `number.YOUR_PRINTER_NAME_nozzle_target_temperature`
    - `sensor.YOUR_PRINTER_NAME_bed_temperature`
    - `number.YOUR_PRINTER_NAME_bed_target_temperature`
-   - `sensor.YOUR_PRINTER_NAME_print_status` (optional, for idle state detection)
+   - `sensor.YOUR_PRINTER_NAME_print_status` (required for idle state detection)
 
 ### Setup Steps
 
