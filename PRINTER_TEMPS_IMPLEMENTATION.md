@@ -23,6 +23,20 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 - Works well alongside other compact cards (e.g., fan controls)
 - Maintains readability on mobile devices
 
+## 🆕 Latest Improvements (v3)
+
+### Nozzle Icon - More Accurate Representation
+- **Before**: Used generic `mdi:thermometer` icon
+- **After**: Now uses `mdi:printer-3d-nozzle-heat` - actual 3D printer nozzle heater icon
+- **Rationale**: More semantically correct and visually representative of what it monitors
+
+### Bold Target Temp When Heating Is On
+- **Problem**: Hard to tell at a glance if heating element is commanded to be on (target > 0) vs off (target = 0)
+- **Solution**: Dynamic styling based on target temperature:
+  - **Target > 0°C**: Bold text (font-weight: 700), high opacity (0.9) - heating element is on
+  - **Target = 0°C**: Normal weight (500), reduced opacity (0.7) - heating element is off
+- **Benefit**: Instant visual distinction between "heater commanded on" vs "heater off", independent of current temperature or printing state
+
 ## ✅ Deliverables
 
 ### Main Files Created
@@ -66,17 +80,21 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 ## 🎨 Features Implemented
 
 ### Visual Design
-- ✅ **Icon next to target temperature** (small, 14px, 70% opacity)
+- ✅ **Icon next to target temperature** (small, 14px, variable opacity based on heating state)
 - ✅ **Current temperature prominently displayed** (large, 28px, bold)
 - ✅ **Color-coded display**:
   - 🔴 Red when heating (target > current + 2°C) - only when printing/preparing
   - 🔵 Blue when cooling (target < current - 2°C) - only when printing/preparing
   - ⚪ Grey when at target (±2°C tolerance) or printer is idle
 - ✅ **Colored icons** matching the heating/cooling state
-- ✅ **Fixed icons** (Updated):
-  - `mdi:thermometer` always for nozzle/extruder
+- ✅ **Fixed icons** (Updated v3):
+  - `mdi:printer-3d-nozzle-heat` for nozzle/extruder (3D printer nozzle heater icon)
   - `mdi:radiator` always for bed
   - No directional arrows - color coding is sufficient
+- ✅ **Smart heating indicator** (New in v3):
+  - When target > 0°C: Target temp shown bold (font-weight: 700) with high opacity (0.9)
+  - When target = 0°C: Target temp shown normal weight (500) with reduced opacity (0.7)
+  - Makes it immediately clear when heating element is actively commanded to be on
 - ✅ **Idle state handling** (Updated):
   - Color indicators disabled when printer status is not 'printing' or 'prepare'
   - Prevents misleading heating/cooling indication when printer is at ambient temp

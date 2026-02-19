@@ -12,8 +12,11 @@ These cards display the current and target temperatures for your Bambu Lab 3D pr
   - 🔵 **Blue**: Cooling down (target temperature is lower than current)
   - ⚪ **Grey**: At target (temperatures match within 2°C tolerance) or printer is idle
 - **Fixed Icons**: Clear, consistent iconography
-  - `mdi:thermometer` for nozzle temperature (always)
+  - `mdi:printer-3d-nozzle-heat` for nozzle temperature (3D printer nozzle heater icon)
   - `mdi:radiator` for bed temperature (always)
+- **Smart Heating Indicator**: Target temp styling changes based on heating state
+  - **Bold & prominent** (font-weight: 700, opacity: 0.9) when target > 0°C (heater is on)
+  - **Normal & subtle** (font-weight: 500, opacity: 0.7) when target = 0°C (heater is off)
 - **Intelligent State Detection**: Color indicators only active when printer status is 'printing' or 'prepare'
 - **Horizontal Layout**: Compact design that works well on mobile and desktop
 - **Interactive**: Click any card to see detailed entity information

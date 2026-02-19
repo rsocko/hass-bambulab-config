@@ -2,7 +2,7 @@
 
 This document shows visual examples of how the temperature cards appear in different states.
 
-**Note**: As of v2, icons are fixed (thermometer for nozzle, radiator for bed) and color indicators only appear when the printer is actively printing or preparing to print.
+**Note**: As of v3, nozzle uses 3D printer heater icon, and target temp styling changes based on whether heating is on (target > 0) or off (target = 0). Color indicators only appear when the printer is actively printing or preparing to print.
 
 ## Layout Overview
 
@@ -12,8 +12,8 @@ This document shows visual examples of how the temperature cards appear in diffe
 ├─────────────────────────────┬───────────────────────────────┤
 │     NOZZLE TEMPERATURE      │      BED TEMPERATURE          │
 │  ┌─────────────────────┐    │   ┌─────────────────────┐     │
-│  │  🌡️ Target°C        │    │   │  🔥 Target°C         │     │
-│  │                     │    │   │                     │     │
+│  │  🔥 **Target°C**    │    │   │  🔥 Target°C         │     │
+│  │  (bold if >0)       │    │   │                     │     │
 │  │    Current°C        │    │   │    Current°C        │     │
 │  └─────────────────────┘    │   └─────────────────────┘     │
 └─────────────────────────────┴───────────────────────────────┘
@@ -28,7 +28,7 @@ This document shows visual examples of how the temperature cards appear in diffe
 **Nozzle Example**:
 ```
 ┌──────────────────────┐
-│ 🌡️  220°C           │  ← Red thermometer, target temp (small)
+│ 🔥 **220°C**        │  ← Red nozzle heater, **BOLD** target (heating on)
 │                      │
 │      25°C            │  ← Current temp (large, RED)
 └──────────────────────┘
@@ -39,7 +39,7 @@ This document shows visual examples of how the temperature cards appear in diffe
 **Bed Example**:
 ```
 ┌──────────────────────┐
-│ 🔥  80°C            │  ← Red radiator, target temp (small)
+│ 🔥 **80°C**         │  ← Red radiator, **BOLD** target (heating on)
 │                      │
 │      22°C            │  ← Current temp (large, RED)
 └──────────────────────┘
@@ -48,11 +48,12 @@ This document shows visual examples of how the temperature cards appear in diffe
 ```
 
 **Visual Details**:
-- Icon: `mdi:thermometer` (🌡️) for nozzle or `mdi:radiator` (🔥) for bed - in red
+- Icon: `mdi:printer-3d-nozzle-heat` (🔥) for nozzle or `mdi:radiator` (🔥) for bed - in red
+- **Target temp: BOLD** (font-weight: 700, opacity: 0.9) because target > 0
 - Background: Light red tint `rgba(244, 67, 54, 0.08)`
 - Left border: Solid red `3px solid rgba(244, 67, 54, 0.8)`
 - Current temp color: Red `rgb(244, 67, 54)`
-- Target temp: Small, 14px, opacity 0.7
+- Target temp: Small, 14px
 - Current temp: Large, 28px, bold
 
 ---
@@ -102,7 +103,7 @@ This document shows visual examples of how the temperature cards appear in diffe
 **Nozzle Example (Idle)**:
 ```
 ┌──────────────────────┐
-│ 🌡️  0°C             │  ← Grey thermometer, target temp (small)
+│ 🔥  0°C             │  ← Grey nozzle heater, normal weight (heating off)
 │                      │
 │      23°C            │  ← Current temp (large, GREY) - ambient
 └──────────────────────┘
@@ -112,7 +113,7 @@ This document shows visual examples of how the temperature cards appear in diffe
 **Bed Example (At Target)**:
 ```
 ┌──────────────────────┐
-│ 🔥  80°C            │  ← Grey radiator, target temp (small)
+│ 🔥 **80°C**         │  ← Grey radiator, **BOLD** (heating on but at target)
 │                      │
 │      80°C            │  ← Current temp (large, GREY)
 └──────────────────────┘
@@ -120,12 +121,15 @@ This document shows visual examples of how the temperature cards appear in diffe
 ```
 
 **Visual Details**:
-- Nozzle icon: `mdi:thermometer` (🌡️) in grey
+- Nozzle icon: `mdi:printer-3d-nozzle-heat` (🔥) in grey
 - Bed icon: `mdi:radiator` (🔥) in grey
+- **Target styling varies**:
+  - If target = 0: Normal weight (500), reduced opacity (0.7) - heating off
+  - If target > 0: Bold (700), high opacity (0.9) - heating on but at temp
 - Background: Very subtle grey `rgba(158, 158, 158, 0.05)`
 - No left border
 - Current temp color: Grey `rgb(158, 158, 158)`
-- Target temp: Small, 14px, opacity 0.7
+- Target temp: Small, 14px
 - Current temp: Large, 28px, bold
 
 ---
@@ -234,10 +238,14 @@ On mobile devices (width < 600px), both cards stack vertically but maintain the 
 
 | Component | Icon | MDI Code | Color States |
 |-----------|------|----------|--------------|
-| Nozzle | 🌡️ Thermometer | `mdi:thermometer` | Red/Blue/Grey based on print status |
+| Nozzle | 🔥 3D Nozzle Heater | `mdi:printer-3d-nozzle-heat` | Red/Blue/Grey based on print status |
 | Bed | 🔥 Radiator | `mdi:radiator` | Red/Blue/Grey based on print status |
 
 **Note**: Icons are now fixed per component (no more directional arrows). Color indicates heating/cooling state when printer is actively printing.
+
+**Target Temp Styling**: 
+- **Bold** (weight: 700, opacity: 0.9) when target > 0°C - heating element is commanded on
+- **Normal** (weight: 500, opacity: 0.7) when target = 0°C - heating element is off
 
 ---
 
