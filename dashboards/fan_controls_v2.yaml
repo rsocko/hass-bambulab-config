@@ -1,0 +1,180 @@
+# ============================================================
+# Fan Controls Dashboard Card
+# ============================================================
+# Copy and paste these cards into your Home Assistant dashboard
+# to display and control printer fans and bento box fan.
+#
+# This creates a horizontal layout of 4 fan control cards that:
+# - Display current fan speeds
+# - Allow click to modify fan speeds
+# - Use icons and tooltips for easy identification
+# - Work well on both desktop and mobile (1 section width)
+#
+# REQUIRED CUSTOM CARDS:
+# - mushroom (via HACS)
+# - card-mod (via HACS) - for custom styling
+#
+# SETUP INSTRUCTIONS:
+# 1. Update entity names below to match your actual entities
+# 2. For Bambu Lab printer, update the device name prefix
+#    (replace 'ntk_ryansoffice_3dprinter' with your printer name)
+# 3. For ESP32 Bento Box fan, update the entity name to match yours
+# 4. Copy the entire card configuration below into your dashboard
+#
+# ============================================================
+
+type: horizontal-stack
+cards:
+  # ============================================================
+  # AUXILIARY FAN (Bambu Lab)
+  # ============================================================
+  # High-power cooling for better print quality
+  - type: custom:mushroom-template-card
+    primary: Aux Fan
+    secondary: "{{ states(\"sensor.ntk_ryansoffice_3dprinter_aux_fan_speed\") }}%"
+    icon: mdi:fan
+    icon_color: >-
+      {% set speed = states('sensor.ntk_ryansoffice_3dprinter_aux_fan_speed') |
+      int(0) %}
+
+      {% if speed == 0 %}
+        grey
+      {% elif speed < 30 %}
+        blue
+      {% elif speed < 70 %}
+        amber
+      {% else %}
+        red
+      {% endif %}
+    tap_action:
+      action: more-info
+      entity: fan.ntk_ryansoffice_3dprinter_aux_fan
+    hold_action:
+      action: more-info
+      entity: sensor.ntk_ryansoffice_3dprinter_aux_fan_speed
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(33, 150, 243, 0.05);
+        }
+        ha-card:hover {
+          background: rgba(33, 150, 243, 0.1);
+        }
+
+  # ============================================================
+  # CHAMBER FAN (Bambu Lab)
+  # ============================================================
+  # Circulates air within printer chamber
+  - type: custom:mushroom-template-card
+    primary: Chamber
+    secondary: "{{ states(\"sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed\") }}%"
+    icon: mdi:fan-chevron-up
+    icon_color: >-
+      {% set speed =
+      states('sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed') | int(0) %}
+
+      {% if speed == 0 %}
+        grey
+      {% elif speed < 30 %}
+        blue
+      {% elif speed < 70 %}
+        amber
+      {% else %}
+        red
+      {% endif %}
+    tap_action:
+      action: more-info
+      entity: fan.ntk_ryansoffice_3dprinter_chamber_fan
+    hold_action:
+      action: more-info
+      entity: sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(156, 39, 176, 0.05);
+        }
+        ha-card:hover {
+          background: rgba(156, 39, 176, 0.1);
+        }
+
+  # ============================================================
+  # COOLING FAN (Bambu Lab)
+  # ============================================================
+  # Main part cooling fan for layer cooling 
+  - type: custom:mushroom-template-card
+    primary: Cooling
+    secondary: "{{ states(\"sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed\") }}%"
+    icon: mdi:snowflake
+    icon_color: >-
+      {% set speed =
+      states('sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed') | int(0) %}
+
+      {% if speed == 0 %}
+        grey
+      {% elif speed < 30 %}
+        blue
+      {% elif speed < 70 %}
+        cyan
+      {% else %}
+        light-blue
+      {% endif %}
+    tap_action:
+      action: more-info
+      entity: fan.ntk_ryansoffice_3dprinter_cooling_fan
+    hold_action:
+      action: more-info
+      entity: sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(0, 188, 212, 0.05);
+        }
+        ha-card:hover {
+          background: rgba(0, 188, 212, 0.1);
+        }
+
+  # ============================================================
+  # BENTO BOX FAN (ESP32)
+  # ============================================================
+  # External enclosure/storage fan
+  # UPDATE THE ENTITY NAME BELOW TO MATCH YOUR ESP32 FAN
+  - type: custom:mushroom-template-card
+    primary: Bento Box
+    secondary: |-
+      {% if states('fan.3dprinter_controller_box_bento_box_fan') == 'on' %}
+        {% set speed = state_attr('fan.3dprinter_controller_box_bento_box_fan', 'percentage') | int(0) %}
+        {{ speed }}%
+      {% elif states('fan.3dprinter_controller_box_bento_box_fan') == 'off' %}
+        Off
+      {% else %}
+        N/A
+      {% endif %}
+    icon: mdi:fan-auto
+    icon_color: |-
+      {% set state = states('fan.3dprinter_controller_box_bento_box_fan') %}
+      {% if state == 'off' or state in ['unavailable', 'unknown'] %}
+        grey
+      {% else %}
+        {% set speed = state_attr('fan.3dprinter_controller_box_bento_box_fan', 'percentage') | int(0) %}
+        {% if speed < 30 %}
+          green
+        {% elif speed < 70 %}
+          amber
+        {% else %}
+          orange
+        {% endif %}
+      {% endif %}
+    tap_action:
+      action: more-info
+      entity: fan.3dprinter_controller_box_bento_box_fan
+    hold_action:
+      action: more-info
+      entity: fan.3dprinter_controller_box_bento_box_fan
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(76, 175, 80, 0.05);
+        }
+        ha-card:hover {
+          background: rgba(76, 175, 80, 0.1);
+        }
