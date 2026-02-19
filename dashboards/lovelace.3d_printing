@@ -347,6 +347,9 @@
                   "cards": [
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -389,8 +392,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 1'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_1_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 1'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -403,6 +406,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -414,6 +423,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -471,6 +483,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -479,6 +497,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -488,6 +512,9 @@
                     },
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -530,8 +557,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 2'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_1_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 2'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -544,6 +571,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -555,6 +588,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -612,6 +648,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -620,6 +662,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -629,6 +677,9 @@
                     },
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -671,8 +722,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 3'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_1_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 3'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -685,6 +736,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -696,6 +753,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -753,6 +813,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -761,6 +827,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -770,6 +842,9 @@
                     },
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -812,8 +887,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_1_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 4'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_1_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 1 Tray 4'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -826,6 +901,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -837,6 +918,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -894,6 +978,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -902,6 +992,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -930,6 +1026,9 @@
                   "cards": [
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -972,8 +1071,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_1';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 1'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_2_tray_1';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 1'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -986,6 +1085,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -997,6 +1102,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -1054,6 +1162,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -1062,6 +1176,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -1071,6 +1191,9 @@
                     },
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -1113,8 +1236,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_2';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 2'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_2_tray_2';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 2'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -1127,6 +1250,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -1138,6 +1267,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -1195,6 +1327,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -1203,6 +1341,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -1212,6 +1356,9 @@
                     },
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -1254,8 +1401,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_3';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 3'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_2_tray_3';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 3'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -1268,6 +1415,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -1279,6 +1432,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -1336,6 +1492,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -1344,6 +1506,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -1353,6 +1521,9 @@
                     },
                     {
                       "type": "vertical-stack",
+                      "card_mod": {
+                        "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                      },
                       "cards": [
                         {
                           "type": "custom:button-card",
@@ -1395,8 +1566,8 @@
                           "tap_action": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                           "custom_fields": {
                             "desiccant_icon": "[[[\n  const tray = 'ams_2_tray_4';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                            "print_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 4'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                            "remaining_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                            "print_weight": "[[[\n  const tray = 'ams_2_tray_4';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['AMS 2 Tray 4'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                             "placeholder": "[[[\n  return '';\n]]]\n"
                           },
                           "styles": {
@@ -1409,6 +1580,12 @@
                               },
                               {
                                 "box-shadow": "none"
+                              },
+                              {
+                                "height": "100%"
+                              },
+                              {
+                                "min-height": "80px"
                               }
                             ],
                             "grid": [
@@ -1420,6 +1597,9 @@
                               },
                               {
                                 "grid-template-rows": "auto auto auto auto"
+                              },
+                              {
+                                "align-content": "end"
                               }
                             ],
                             "name": [
@@ -1477,6 +1657,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-bottom": "0"
                                 }
                               ],
                               "print_weight": [
@@ -1485,6 +1671,12 @@
                                 },
                                 {
                                   "padding-right": "4px"
+                                },
+                                {
+                                  "line-height": "1"
+                                },
+                                {
+                                  "padding-top": "0"
                                 }
                               ]
                             }
@@ -1512,6 +1704,9 @@
                       "cards": [
                         {
                           "type": "vertical-stack",
+                          "card_mod": {
+                            "style": ":host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }"
+                          },
                           "cards": [
                             {
                               "type": "custom:button-card",
@@ -1554,8 +1749,8 @@
                               "tap_action": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  return spoolId\n    ? { action: 'more-info', entity: `sensor.spoolman_spool_${spoolId}` }\n    : { action: 'none' };\n]]]\n",
                               "custom_fields": {
                                 "desiccant_icon": "[[[\n  const tray = 'external_spool';\n  const status = states['sensor.spoolman_tray_map']?.attributes?.tray_map?.[tray]?.status;\n\n  // Hide droplet for green OR empty trays\n  if (status === 'green' || status === 'empty') return '';\n\n  const colors = {\n    undefined: '#9e9e9e',\n    yellow: '#ffcc00',\n    orange: '#ff9900',\n    red: '#cc0000'\n  };\n  \n  const color = colors[status] || '#9e9e9e';\n  return `<ha-icon icon=\"mdi:water\" style=\"--mdc-icon-size: 16px; color: ${color};\"></ha-icon>`;\n]]]\n",
-                                "remaining_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<span style=\"font-size: 10px; color: #888;\">${Math.round(weight)}g</span>`;\n]]]\n",
-                                "print_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['External'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  return `<span style=\"font-size: 10px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">(−${printWeight.toFixed(1)}g)</span>`;\n]]]\n",
+                                "remaining_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n  \n  if (!spoolId) return '';\n  \n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const weight = spoolentity?.attributes?.remaining_weight;\n  \n  if (weight === undefined || weight === null) return '';\n  \n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: #888;\">${Math.round(weight)}g</span><ha-icon icon=\"fapro:filament-2\" style=\"--mdc-icon-size: 12px; color: #888;\"></ha-icon></div>`;\n]]]\n",
+                                "print_weight": "[[[\n  const tray = 'external_spool';\n  const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;\n  const spoolId = map?.[tray]?.spool_id;\n\n  // Only show if tray has a spool mapped\n  if (!spoolId) return '';\n\n  // Get print weight from sensor attributes\n  const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];\n  const printWeight = printWeightEntity?.attributes?.['External'];\n\n  if (!printWeight || printWeight === 0) return '';\n\n  // Get remaining weight for color coding\n  const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];\n  const remainingWeight = spoolentity?.attributes?.remaining_weight;\n\n  // Determine color based on remaining vs print weight\n  let color = '#888'; // default\n  if (remainingWeight !== undefined && remainingWeight !== null) {\n    if (remainingWeight < printWeight) {\n      color = '#cc0000'; // red - will run out\n    } else if (remainingWeight < printWeight * 1.1) {\n      color = '#ff9900'; // orange - close\n    } else if (remainingWeight < printWeight * 1.2) {\n      color = '#ffcc00'; // yellow - approaching\n    }\n  }\n\n  const nozzleIcon = (remainingWeight !== undefined && remainingWeight !== null && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';\n  return `<div style=\"display: flex; align-items: center; justify-content: flex-end; gap: 2px;\"><span style=\"font-size: 12px; color: ${color}; font-weight: ${color !== '#888' ? '600' : '400'};\">−${printWeight.toFixed(1)}g</span><ha-icon icon=\"${nozzleIcon}\" style=\"--mdc-icon-size: 12px; color: ${color};\"></ha-icon></div>`;\n]]]\n",
                                 "placeholder": "[[[\n  return '';\n]]]\n"
                               },
                               "styles": {
@@ -1568,6 +1763,12 @@
                                   },
                                   {
                                     "box-shadow": "none"
+                                  },
+                                  {
+                                    "height": "100%"
+                                  },
+                                  {
+                                    "min-height": "80px"
                                   }
                                 ],
                                 "grid": [
@@ -1579,6 +1780,9 @@
                                   },
                                   {
                                     "grid-template-rows": "auto auto auto auto"
+                                  },
+                                  {
+                                    "align-content": "end"
                                   }
                                 ],
                                 "name": [
@@ -1636,6 +1840,26 @@
                                     },
                                     {
                                       "padding-right": "4px"
+                                    },
+                                    {
+                                      "line-height": "1"
+                                    },
+                                    {
+                                      "padding-bottom": "0"
+                                    }
+                                  ],
+                                  "print_weight": [
+                                    {
+                                      "justify-self": "end"
+                                    },
+                                    {
+                                      "padding-right": "4px"
+                                    },
+                                    {
+                                      "line-height": "1"
+                                    },
+                                    {
+                                      "padding-top": "0"
                                     }
                                   ]
                                 }
