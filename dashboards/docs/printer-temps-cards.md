@@ -7,15 +7,14 @@ These cards display the current and target temperatures for your Bambu Lab 3D pr
 ## Features
 
 - **Visual Temperature Display**: Shows both current (large, prominent) and target (small, next to icon) temperatures
-- **Color-Coded States**:
+- **Color-Coded States** (only when actively printing):
   - 🔴 **Red**: Heating up (target temperature is higher than current)
   - 🔵 **Blue**: Cooling down (target temperature is lower than current)
-  - ⚪ **Grey**: At target (temperatures match within 2°C tolerance)
-- **Dynamic Icons**: Icon changes based on heating/cooling state
-  - `mdi:arrow-up` when heating
-  - `mdi:arrow-down` when cooling
-  - `mdi:thermometer` for nozzle at target
-  - `mdi:radiator` for bed at target
+  - ⚪ **Grey**: At target (temperatures match within 2°C tolerance) or printer is idle
+- **Fixed Icons**: Clear, consistent iconography
+  - `mdi:thermometer` for nozzle temperature (always)
+  - `mdi:radiator` for bed temperature (always)
+- **Intelligent State Detection**: Color indicators only active when printer status is 'printing' or 'prepare'
 - **Horizontal Layout**: Compact design that works well on mobile and desktop
 - **Interactive**: Click any card to see detailed entity information
 
@@ -25,11 +24,13 @@ Based on the built-in HA Bambu Lab status card design:
 
 ```
 ┌─────────────────┐
-│ ⬆️  0°C         │  ← Icon + Target Temp (small)
+│ 🌡️  0°C         │  ← Icon + Target Temp (small)
 │                 │
 │     25°C        │  ← Current Temp (large, prominent)
 └─────────────────┘
 ```
+
+**Note**: Icons are now fixed (thermometer for nozzle, radiator for bed) rather than changing based on state. Color coding indicates heating/cooling when printer is active.
 
 ## Installation
 
@@ -44,6 +45,7 @@ Based on the built-in HA Bambu Lab status card design:
    - `number.YOUR_PRINTER_NAME_nozzle_target_temperature`
    - `sensor.YOUR_PRINTER_NAME_bed_temperature`
    - `number.YOUR_PRINTER_NAME_bed_target_temperature`
+   - `sensor.YOUR_PRINTER_NAME_print_status` (optional, for idle state detection)
 
 ### Setup Steps
 
