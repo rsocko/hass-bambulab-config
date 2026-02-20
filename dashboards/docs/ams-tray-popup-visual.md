@@ -1,243 +1,246 @@
-# AMS Tray Popup - Visual Guide
+# AMS Tray & External Spool Popup — Visual Guide
 
-## What It Looks Like
+## Overview
 
-When you click on an AMS tray card in the dashboard, you'll see a popup dialog with the following sections:
-
-### 1. Header Section
-```
-┌─────────────────────────────────────┐
-│  🖨️  Bambu Lab PLA Basic Black     │
-│      Spool ID: 42                   │
-│  [Slightly tinted background]       │
-└─────────────────────────────────────┘
-```
-- Shows spool name or "No Spool Matched"
-- Displays Spool ID or tray location
-- Background tinted with filament color
-
-### 2. Color & Weight Display
-```
-┌──────────────────┬──────────────────┐
-│                  │                  │
-│   🎨 Filament   │   📊 250g        │
-│      Color       │      Remaining   │
-│  [Black color]   │                  │
-│                  │                  │
-└──────────────────┴──────────────────┘
-```
-- Left: Large color swatch with actual filament color
-- Right: Current remaining weight
-
-### 3. Desiccant Status (if applicable)
-```
-┌─────────────────────────────────────┐
-│  💧 Desiccant Status                │
-│     Filled: 2/1/2026                │
-│     [Color: Yellow/Orange/Red]      │
-├─────────────────────────────────────┤
-│  🔄 Reset Desiccant Date            │
-│     [Clickable button]              │
-└─────────────────────────────────────┘
-```
-- Shows when desiccant was last filled
-- Color-coded based on age:
-  - 🟢 Green (< 30 days) - hidden
-  - 🟡 Yellow (30-45 days)
-  - 🟠 Orange (45-60 days)
-  - 🔴 Red (> 60 days)
-- Reset button with confirmation
-
-### 4. Spoolman Link
-```
-┌─────────────────────────────────────┐
-│  🌐 Open in Spoolman                │
-│     [Clickable button]              │
-└─────────────────────────────────────┘
-```
-- Opens Spoolman web interface in new tab
-- Goes directly to this spool's detail page
-
-### 5. Weight History Chart
-```
-┌─────────────────────────────────────┐
-│  Weight History                     │
-│                                     │
-│  300g ┤                             │
-│  250g ┤     ╱─────╲                │
-│  200g ┤   ╱         ╲──            │
-│  150g ┤ ╱                           │
-│       └────────────────────────     │
-│       Mon  Tue  Wed  Thu  Fri       │
-└─────────────────────────────────────┘
-```
-- Shows last 7 days of weight history
-- Line chart with actual weight values
-- Helps track filament usage over time
-
-### 6. More Details Button
-```
-┌─────────────────────────────────────┐
-│  ℹ️  More Details                   │
-│     [Clickable button]              │
-└─────────────────────────────────────┘
-```
-- Opens full entity info dialog
-- Shows all Spoolman attributes
-
-## Fallback Display (No Spool Matched)
-
-When no spool is matched in Spoolman:
-
-```
-┌─────────────────────────────────────┐
-│  🖨️  Unknown Filament               │
-│      Tray: AMS 1 TRAY 1             │
-│  [Default background]               │
-├─────────────────────────────────────┤
-│  AMS Tray Information               │
-│  • Entity: sensor.p1s_...ams_1_1    │
-│  • Color: #FF5733                   │
-│  • UUID: 12345...                   │
-│  • Type: PLA Basic                  │
-└─────────────────────────────────────┘
-```
-
-## Empty Tray Display
-
-When tray is empty:
-
-```
-┌─────────────────────────────────────┐
-│  ⚫ Empty                            │
-│      Tray: AMS 1 TRAY 1             │
-│  [Gray/disabled icon]               │
-└─────────────────────────────────────┘
-```
-
-## Color Examples
-
-### Dark Filament (White Text)
-```
-┌──────────────────┐
-│   🎨 Filament   │  ← White text on
-│      Color      │     dark background
-│  [Black/Navy]   │
-└──────────────────┘
-```
-
-### Light Filament (Black Text)
-```
-┌──────────────────┐
-│   🎨 Filament   │  ← Black text on
-│      Color      │     light background
-│  [White/Yellow] │
-└──────────────────┘
-```
-
-## Interactive Elements
-
-All buttons in the popup are clickable:
-
-1. **Reset Desiccant Date**
-   - Shows confirmation dialog: "Reset desiccant filled date to now?"
-   - On confirm: Updates Spoolman via API
-   - On cancel: No action
-
-2. **Open in Spoolman**
-   - Opens URL: `http://homeassistant.local:7912/spools/{id}`
-   - Opens in new browser tab
-   - Direct access to edit spool
-
-3. **More Details**
-   - Opens standard HA entity info dialog
-   - Shows all attributes
-   - Provides history and more options
-
-## Mobile View
-
-On mobile devices, the popup automatically adjusts:
-- Full-width display
-- Scrollable content
-- Touch-friendly buttons
-- Maintains all functionality
-
-## Customization Examples
-
-### Change History Duration
-
-Default: 7 days
-```javascript
-hours_to_show: 168  // 7 days
-```
-
-Options:
-```javascript
-hours_to_show: 336  // 14 days
-hours_to_show: 720  // 30 days
-hours_to_show: 24   // 1 day
-```
-
-### Change Spoolman URL
-
-Default:
-```javascript
-url_path: `http://homeassistant.local:7912/spools/${spoolId}`
-```
-
-Custom:
-```javascript
-url_path: `http://192.168.1.100:7912/spools/${spoolId}`
-url_path: `https://spoolman.mydomain.com/spools/${spoolId}`
-```
-
-### Adjust Color Brightness Threshold
-
-Current (threshold: 128):
-```javascript
-> 128 ? '#000' : '#fff'  // Black if bright, white if dark
-```
-
-More black text (threshold: 100):
-```javascript
-> 100 ? '#000' : '#fff'
-```
-
-More white text (threshold: 150):
-```javascript
-> 150 ? '#000' : '#fff'
-```
-
-## Browser Compatibility
-
-Tested and working on:
-- ✅ Chrome/Edge (desktop)
-- ✅ Firefox (desktop)
-- ✅ Safari (desktop)
-- ✅ Chrome (Android)
-- ✅ Safari (iOS)
-- ✅ Home Assistant mobile app
-
-Requires:
-- browser-mod installed and configured
-- JavaScript enabled in browser
-
-## Accessibility
-
-- High contrast color combinations
-- Clear icon usage
-- Descriptive button labels
-- Confirmation dialogs for destructive actions
-- Keyboard navigation support (via browser-mod)
-
-## Performance
-
-- Popup loads instantly
-- No API calls until button clicked
-- History chart uses built-in HA functionality
-- Minimal impact on dashboard performance
-- Data cached by Home Assistant
+Clicking any AMS tray card or the External Spool card opens a rich `browser_mod.popup` dialog.  
+The popup is built dynamically in JavaScript at click-time, so all values (color, weight, material, etc.) are live.
 
 ---
 
-For implementation details, see [ams-tray-popup.md](ams-tray-popup.md)
+## Popup Layout (Spool Matched)
+
+```
+╔══════════════════════════════════════════════════════════╗
+║  🧵  Bambu Lab PLA Basic Black                          ║  ← spool name
+║      AMS 1 · Slot 1  •  Spool #42                      ║  ← location + spool ID
+║  ┄ ┄ ┄ ┄ ┄ ┄ left border = filament color ┄ ┄ ┄ ┄ ┄ ┄  ║  ← color-tinted background
+╠══════════════════════════════════════════════════════════╣
+║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
+║  ║ 🧱 PLA       ║ 🏭 Bambu Lab  ║ 📍 Storage B  ║      ║  ← Material / Vendor / Location
+║  ║   Material   ║    Vendor     ║   Location    ║      ║
+║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
+╠══════════════════════════════════════════════════════════╣
+║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
+║  ║               ║  ⚖️  248.3 g  ║  🖨️  12.5 g   ║      ║  ← Color swatch / Remaining / Print
+║  ║  ██  #1A1A1A ║   Remaining  ║   This Print  ║      ║
+║  ║  (filament   ║              ║  (green/red)  ║      ║
+║  ║   color bg)  ║              ║              ║      ║
+║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
+╠══════════════════════════════════════════════════════════╣
+║  ╔════════════════════════════╦═════════════════╗      ║
+║  ║ 💧 Filled 18 days ago     ║  [🔄 Reset Date] ║      ║  ← Desiccant status + reset
+║  ║    Desiccant               ║                 ║      ║
+║  ╚════════════════════════════╩═════════════════╝      ║
+╠══════════════════════════════════════════════════════════╣
+║  ┌──────────────────────────────────────────────────┐   ║
+║  │  🔗  Open in Spoolman  (Spool #42)              │   ║  ← External link button
+║  └──────────────────────────────────────────────────┘   ║
+╠══════════════════════════════════════════════════════════╣
+║  Weight History (14 days)                               ║
+║  300g ┤                                                 ║
+║  250g ┤─────╮                                           ║
+║  200g ┤     ╰─────╮                                     ║
+║  150g ┤           ╰────────                             ║  ← Dynamic history chart
+║       └──────────────────────────────                   ║    duration = days since first_used
+║       Day 1      Day 7       Day 14                     ║
+╠══════════════════════════════════════════════════════════╣
+║  ┌──────────────────────────────────────────────────┐   ║
+║  │  ℹ️  More Details                                │   ║  ← Opens HA entity dialog
+║  └──────────────────────────────────────────────────┘   ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+---
+
+## Section Details
+
+### Row 1 — Header
+| Element | Description |
+|---------|-------------|
+| Icon | `mdi:spool` colored to match filament |
+| Primary | Spool friendly name from Spoolman |
+| Secondary | Tray slot label + Spool ID |
+| Background | Filament color at 15% opacity with left border accent |
+
+### Row 2 — Material / Vendor / Location
+| Card | Icon | Color | Value |
+|------|------|-------|-------|
+| Material | `mdi:texture-box` | Orange | Filament material type (PLA, PETG, ABS…) |
+| Vendor | `mdi:factory` | Purple | Vendor/manufacturer name |
+| Location | `mdi:map-marker` | Blue | Spool storage location from Spoolman |
+
+### Row 3 — Color Swatch / Weight / Print Usage
+| Card | Description |
+|------|-------------|
+| Color Swatch | Full background of filament color hex; text auto-adjusts to black/white for contrast |
+| Remaining | Current remaining weight in grams from Spoolman |
+| This Print | Weight required for current print job (from `sensor.ntk_ryansoffice_3dprinter_print_weight`); icon turns red with alert if spool won't have enough |
+
+### Row 4 — Desiccant
+| Element | Description |
+|---------|-------------|
+| Status text | "Filled N days ago" or "No desiccant data" |
+| Icon color | 🟢 Green (< 30 days), 🟡 Yellow (30-45), 🟠 Orange (45-60), 🔴 Red (> 60) |
+| Reset button | Calls `spoolman.patch_spool` with current ISO timestamp to reset desiccant date |
+
+### Row 5 — Spoolman Link
+Opens `http://homeassistant.local:7912/spools/{id}` in a new tab.  
+Customize the base URL in the JavaScript if your Spoolman runs elsewhere.
+
+### Row 6 — Weight History Chart
+- Uses Home Assistant's built-in `history-graph` card
+- Duration is **dynamic**: if `first_used` attribute exists, shows full history since that date; otherwise defaults to 7 days
+- Title shows: `Weight History (N days)`
+
+### Row 7 — More Details
+Opens the standard HA entity info dialog for `sensor.spoolman_spool_<id>`.
+
+---
+
+## Fallback Popup (No Spool Matched)
+
+When the tray has filament but no Spoolman spool could be matched:
+
+```
+╔══════════════════════════════════════════════════════════╗
+║  ❓  AMS 1 · Slot 2 — No Spool                          ║
+║      No unsealed spool with color #FF5733               ║
+╠══════════════════════════════════════════════════════════╣
+║  Tray Details                                           ║
+║  ┌──────────────────────────────────────────────────┐   ║
+║  │  sensor.p1s_..._ams_1_tray_2                    │   ║  ← Raw tray entity
+║  │  Color: #FF5733                                  │   ║
+║  │  UUID:  a1b2c3d4...                              │   ║
+║  │  Type:  PLA                                      │   ║
+║  └──────────────────────────────────────────────────┘   ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+---
+
+## Color Swatch Examples
+
+### Dark Filament → White Text
+```
+╔══════════════╗
+║              ║
+║  #1A1A1A     ║  ← white text on near-black background
+║              ║
+╚══════════════╝
+```
+
+### Light Filament → Black Text
+```
+╔══════════════╗
+║              ║
+║  #FFFFFF     ║  ← black text on white background
+║              ║
+╚══════════════╝
+```
+
+Brightness formula (NTSC luminance):
+```javascript
+(r * 299 + g * 587 + b * 114) / 1000 > 128  →  black text
+                                           ≤ 128  →  white text
+```
+
+---
+
+## Desiccant Status Color Guide
+
+| Age | Icon | Color | Hex |
+|-----|------|-------|-----|
+| < 30 days | 💧 | Green | `#4caf50` |
+| 30–45 days | 💧 | Yellow | `#ffcc00` |
+| 45–60 days | 💧 | Orange | `#ff9900` |
+| > 60 days  | 💧 | Red | `#cc0000` |
+| No data / empty | 💧 | Grey | `#9e9e9e` |
+
+---
+
+## Print Weight Indicator States
+
+| State | Icon | Color | Meaning |
+|-------|------|-------|---------|
+| Not printing | `mdi:printer-3d-nozzle` | Grey | No active print |
+| Enough filament | `mdi:printer-3d-nozzle` | Green | Remaining > print required |
+| Not enough | `mdi:printer-3d-nozzle-alert` | Red | Remaining < print required |
+
+---
+
+## Customization Reference
+
+### Change Spoolman URL
+
+In the JavaScript tap_action for each card, find and update:
+```javascript
+tap_action: { action: 'url', url_path: 'http://homeassistant.local:7912/spools/' + spoolId }
+```
+
+Common alternatives:
+```javascript
+'http://192.168.1.100:7912/spools/' + spoolId       // by IP
+'https://spoolman.yourdomain.com/spools/' + spoolId  // external
+```
+
+### Change Default History Duration
+
+Modify the fallback `historyHours` value (default: `168` = 7 days):
+```javascript
+let historyHours = 720;  // 30 days default when no first_used
+```
+
+### Adjust Color Contrast Threshold
+
+Modify the brightness comparison (default: `128`):
+```javascript
+// Current
+(r * 299 + g * 587 + b * 114) / 1000 > 128 ? '#000000' : '#ffffff'
+
+// More black text (raise threshold)
+> 150 ? '#000000' : '#ffffff'
+
+// More white text (lower threshold)
+> 100 ? '#000000' : '#ffffff'
+```
+
+---
+
+## Reusing the Popup on Other Dashboards
+
+The popup logic lives entirely within each tray card's `tap_action` JavaScript expression.
+To reuse it on another dashboard:
+
+1. Copy the `tap_action` JavaScript string from any tray's `custom:button-card` in `dashboards/lovelace.3d_printing`
+2. Change the four constants at the top of the function:
+   ```javascript
+   const tray = 'ams_1_tray_1';          // tray key in spoolman_tray_map
+   const trayLabel = 'AMS 1 · Slot 1';   // display label
+   const trayEntityId = 'sensor.p1s_01p00c460102350_ams_1_tray_1';  // raw tray entity
+   const printWeightKey = 'AMS 1 Tray 1'; // attribute key in print_weight sensor
+   ```
+3. Paste as the `tap_action` value in any `custom:button-card` on the target dashboard
+
+**Requirements for the popup to work on any dashboard:**
+- `browser_mod` HACS integration installed and registered
+- `sensor.spoolman_tray_map` template sensor loaded (from `dashboards/templates.yaml`)
+- `sensor.spoolman_spool_*` entities from the Spoolman integration
+- The tray/external spool sensors from the Bambu Lab HA integration
+
+---
+
+## Future Enhancement Ideas
+
+The popup JavaScript is modular and easy to extend. Potential additions:
+
+| Feature | Implementation Notes |
+|---------|---------------------|
+| Location change dropdown | `input_select` calling `spoolman.patch_spool` with new location |
+| Related spools list | Iterate `sensor.spoolman_spool_*` filtering by material/color match |
+| Spool age / quality warning | Compare `first_used` to today; warn if > 12 months |
+| Notes / ratings per spool | Use Spoolman `extra` fields; display in popup |
+| Print estimation comparison | Cross-check `remaining_weight` vs `print_weight` with visual bar |
+
+---
+
+For full implementation details, see [ams-tray-popup.md](ams-tray-popup.md)
