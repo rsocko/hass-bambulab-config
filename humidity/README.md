@@ -112,59 +112,6 @@ If you have a room humidity sensor:
 | **Optimal** | 40-60% | Comfortable for humans |
 | **Too Humid** | > 70% | Risk of condensation, mold |
 
-## Advanced Features
-
-### Integration with Humidity-Intelligence Package
-
-For advanced humidity analysis and automation, you can integrate this card with the [humidity-intelligence](https://github.com/senyo888/humidity-intelligence) package:
-
-#### Additional Features with Humidity-Intelligence:
-
-1. **House-level Intelligence**
-   - Dynamic house average humidity
-   - Season-aware comfort band
-   - 7-day humidity drift tracking
-   - Plain-language ventilation suggestions
-
-2. **Per-room Analysis**
-   - Dew point calculation
-   - Condensation risk assessment
-   - Mould risk scoring
-   - Room-level drift tracking
-
-3. **Smart Summaries**
-   - Worst room identification
-   - Risk level monitoring
-   - Automation-ready binary sensors
-
-4. **Dashboard-Ready Outputs**
-   - Humidity constellation charts
-   - ApexCharts integration
-   - Badge-based UIs
-
-#### Installation Steps:
-
-1. Install humidity-intelligence via HACS:
-   - Add custom repository: `https://github.com/senyo888/humidity-intelligence`
-   - Category: Template
-   - Install and restart Home Assistant
-
-2. Configure your sensors in `packages/humidity_intelligence.yaml`
-
-3. Map your AMS sensors to room names:
-   ```yaml
-   '3D Printer AMS 1': 'sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity'
-   '3D Printer AMS 2': 'sensor.3d_printer_ams_2_humidity_and_temp_humidity'
-   ```
-
-4. Use the additional sensors for automations:
-   - `sensor.house_average_humidity`
-   - `binary_sensor.humidity_danger`
-   - `binary_sensor.condensation_danger`
-   - `binary_sensor.mould_danger`
-
-See the [humidity-intelligence documentation](https://github.com/senyo888/humidity-intelligence) for complete setup instructions.
-
 ## Customization
 
 ### Change Temperature Units
@@ -330,7 +277,6 @@ automation:
 ## Related Resources
 
 - [Bambu Lab Home Assistant Integration](https://github.com/greghesp/ha-bambulab)
-- [Humidity Intelligence Package](https://github.com/senyo888/humidity-intelligence)
 - [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
 - [Card-mod Documentation](https://github.com/thomasloven/lovelace-card-mod)
 - [Home Assistant Lovelace Documentation](https://www.home-assistant.io/lovelace/)
@@ -349,4 +295,3 @@ This configuration is part of the [hass-bambulab-config](https://github.com/rsoc
   - Support for 2 AMS units
   - Optional room sensor
   - Color-coded status indicators
-  - Integration guide for humidity-intelligence package

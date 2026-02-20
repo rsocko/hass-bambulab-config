@@ -138,12 +138,10 @@ See [README.md](../README.md) for:
 - Complete documentation
 - Advanced features
 - Automation examples
-- Integration with humidity-intelligence package
 - Troubleshooting guide
 
 ## Quick Links
 
 - [Full Card Configuration](humidity-card.yaml)
 - [Visual Guide](docs/visual-guide.md)
-- [Humidity-Intelligence Integration](docs/humidity-intelligence-integration.md)
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)

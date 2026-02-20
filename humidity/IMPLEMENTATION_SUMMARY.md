@@ -37,15 +37,6 @@ Successfully implemented a comprehensive humidity monitoring solution for Bambu 
    - Advanced styling examples
    - Tap action customization
 
-5. **docs/humidity-intelligence-integration.md** (453 lines)
-   - Integration guide for humidity-intelligence package
-   - Installation steps
-   - Sensor configuration examples
-   - Advanced features (dew point, condensation risk, mould risk)
-   - Enhanced dashboard cards
-   - Complete automation examples
-   - Troubleshooting guide
-
 ### Total: 1,654 lines of documentation and configuration
 
 ## Key Features
@@ -64,16 +55,6 @@ Successfully implemented a comprehensive humidity monitoring solution for Bambu 
 - Automatic vertical stacking on mobile
 - Grid layout option for multiple sensors
 - Consistent with existing dashboard patterns
-
-### Integration Capabilities
-- Works standalone with basic functionality
-- Optional integration with humidity-intelligence package for:
-  - House average humidity
-  - Dew point calculations
-  - Condensation risk assessment
-  - Mould risk analysis
-  - 7-day humidity drift tracking
-  - Automation-ready binary sensors
 
 ### Documentation
 - **Comprehensive** - Covers all aspects from installation to advanced usage
@@ -125,7 +106,6 @@ humidity/
 ├── QUICK_START.md             # Quick reference guide
 └── docs/
     ├── visual-guide.md        # Visual examples and layouts
-    └── humidity-intelligence-integration.md  # Advanced integration
 ```
 
 ## Testing & Validation
@@ -158,17 +138,6 @@ humidity/
 2. Install required custom cards (mushroom, card-mod)
 3. Configure entity names
 4. Optional: Add room humidity sensor
-5. Optional: Install humidity-intelligence package
-6. Customize colors and thresholds
-7. Test on desktop and mobile
-
-### Advanced Setup (30+ minutes)
-1. Complete full setup
-2. Install and configure humidity-intelligence package
-3. Add advanced cards (house average, risk indicators)
-4. Create automations for alerts
-5. Set up history tracking
-6. Configure humidity constellation chart
 
 ## Best Practices Followed
 
@@ -201,7 +170,6 @@ humidity/
 - Entity names when printer configuration changes
 - Threshold values if filament storage requirements change
 - Icons if better alternatives become available
-- Integration guide when humidity-intelligence package updates
 
 ### No Maintenance Required
 - Color schemes (standard Home Assistant colors)
@@ -218,7 +186,6 @@ humidity/
 
 ### External
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)
-- [Humidity Intelligence Package](https://github.com/senyo888/humidity-intelligence)
 - [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
 - [Card-mod](https://github.com/thomasloven/lovelace-card-mod)
 
