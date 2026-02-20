@@ -6,6 +6,33 @@
 # You can copy this directly into your Home Assistant dashboard for immediate testing.
 
 # =============================================================================
+# STATUS LOGIC
+# =============================================================================
+# The print_status sensor reports: idle, prepare, running, pause, finish, failed
+# We style temperatures for ALL states EXCEPT idle, because:
+#   - prepare: heaters actively ramping up
+#   - running: actively printing
+#   - pause: heaters stay on (including error-triggered pauses like filament runout)
+#   - failed: bed often stays heated awaiting user intervention
+#   - finish: heaters may still be cooling down
+# Only 'idle' means the printer is truly not operating.
+#
+# =============================================================================
+# COLOR LOGIC
+# =============================================================================
+# BACKGROUND: Colored based on CURRENT temperature (how hot it is right now)
+#   - Indicates heat level with yellow → amber → orange → red gradient
+#   - Only shown when target > 0 (heater is active) and printer is not idle
+#   - Nozzle ranges: <50°C yellow, 50-149°C amber, 150-219°C orange, 220°C+ red
+#   - Bed ranges:    <30°C yellow, 30-49°C amber, 50-79°C orange, 80°C+ red
+#
+# ICON: Colored based on DIRECTION (heating vs cooling)
+#   - Red   = heating (target > current + 2°C)
+#   - Blue  = cooling (target < current - 2°C)
+#   - Raspberry Brown (#A24C63) = at target temperature (within ±2°C)
+#   - Grey  = inactive (idle or target = 0)
+#
+# =============================================================================
 # COMBINED HORIZONTAL STACK - READY TO USE
 # =============================================================================
 type: horizontal-stack
@@ -24,12 +51,14 @@ cards:
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
       {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
       {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+      {% if printer_status == 'idle' or target == 0 %}
+        grey
+      {% elif target > current + 2 %}
         red
-      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+      {% elif target < current - 2 %}
         blue
       {% else %}
-        grey
+        #A24C63
       {% endif %}
     layout: horizontal
     tap_action:
@@ -40,12 +69,20 @@ cards:
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
           {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
-            background: rgba(244, 67, 54, 0.08);
-            border-left: 3px solid rgba(244, 67, 54, 0.8);
-          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
-            background: rgba(33, 150, 243, 0.08);
-            border-left: 3px solid rgba(33, 150, 243, 0.8);
+          {% if printer_status != 'idle' and target > 0 %}
+            {% if current < 50 %}
+              background: rgba(255, 235, 59, 0.08);
+              border-left: 3px solid rgba(255, 235, 59, 0.6);
+            {% elif current < 150 %}
+              background: rgba(255, 193, 7, 0.10);
+              border-left: 3px solid rgba(255, 193, 7, 0.7);
+            {% elif current < 220 %}
+              background: rgba(255, 152, 0, 0.12);
+              border-left: 3px solid rgba(255, 152, 0, 0.8);
+            {% else %}
+              background: rgba(244, 67, 54, 0.12);
+              border-left: 3px solid rgba(244, 67, 54, 0.8);
+            {% endif %}
           {% else %}
             background: rgba(158, 158, 158, 0.05);
           {% endif %}
@@ -67,12 +104,14 @@ cards:
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
           {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+          {% if printer_status == 'idle' or target == 0 %}
+            color: rgb(158, 158, 158) !important;
+          {% elif target > current + 2 %}
             color: rgb(244, 67, 54) !important;
-          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+          {% elif target < current - 2 %}
             color: rgb(33, 150, 243) !important;
           {% else %}
-            color: rgb(158, 158, 158) !important;
+            color: rgb(156, 39, 176) !important;
           {% endif %}
         }
 
@@ -90,12 +129,14 @@ cards:
       {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
       {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
       {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+      {% if printer_status == 'idle' or target == 0 %}
+        grey
+      {% elif target > current + 2 %}
         red
-      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+      {% elif target < current - 2 %}
         blue
       {% else %}
-        grey
+        #A24C63
       {% endif %}
     layout: horizontal
     tap_action:
@@ -106,20 +147,34 @@ cards:
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
           {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
-            background: rgba(244, 67, 54, 0.08);
-            border-left: 3px solid rgba(244, 67, 54, 0.8);
-          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
-            background: rgba(33, 150, 243, 0.08);
-            border-left: 3px solid rgba(33, 150, 243, 0.8);
+          {% if printer_status != 'idle' and target > 0 %}
+            {% if current < 30 %}
+              background: rgba(255, 235, 59, 0.08);
+              border-left: 3px solid rgba(255, 235, 59, 0.6);
+            {% elif current < 50 %}
+              background: rgba(255, 193, 7, 0.10);
+              border-left: 3px solid rgba(255, 193, 7, 0.7);
+            {% elif current < 80 %}
+              background: rgba(255, 152, 0, 0.12);
+              border-left: 3px solid rgba(255, 152, 0, 0.8);
+            {% else %}
+              background: rgba(244, 67, 54, 0.12);
+              border-left: 3px solid rgba(244, 67, 54, 0.8);
+            {% endif %}
           {% else %}
             background: rgba(158, 158, 158, 0.05);
           {% endif %}
         }
         .primary {
           font-size: 14px !important;
-          font-weight: 500;
-          opacity: 0.7;
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% if target > 0 %}
+            font-weight: 700;
+            opacity: 0.9;
+          {% else %}
+            font-weight: 500;
+            opacity: 0.7;
+          {% endif %}
         }
         .secondary {
           font-size: 28px !important;
@@ -127,11 +182,13 @@ cards:
           {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
           {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+          {% if printer_status == 'idle' or target == 0 %}
+            color: rgb(158, 158, 158) !important;
+          {% elif target > current + 2 %}
             color: rgb(244, 67, 54) !important;
-          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+          {% elif target < current - 2 %}
             color: rgb(33, 150, 243) !important;
           {% else %}
-            color: rgb(158, 158, 158) !important;
+            color: rgb(156, 39, 176) !important;
           {% endif %}
         }
