@@ -2635,7 +2635,11 @@ views:
       card:
         type: markdown
         text_only: true
-        content: '# 3D Printer'
+        content: >-
+          <img src="https://brands.home-assistant.io/bambu_lab/logo.png"
+          style="height:40px;vertical-align:middle;margin-right:10px;"
+          onerror="this.style.display='none'">
+          **3D Printer:** {{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}
   - type: custom:vertical-layout
     path: spool
     icon: fapro:filament-2
