@@ -2142,7 +2142,7 @@ button_card_templates:
                     show_name: true,
                     show_label: true,
                     name: filamentName,
-                    label: colorHex.toUpperCase() + '  •  rgb(' + r + ', ' + g + ', ' + b + ')',
+                    label: colorHex.toUpperCase() + '  •  RGB(' + r + ', ' + g + ', ' + b + ')',
                     tap_action: { action: 'none' },
                     styles: {
                       card: [
