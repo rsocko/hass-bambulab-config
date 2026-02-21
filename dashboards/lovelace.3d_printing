@@ -1741,7 +1741,7 @@ button_card_templates:
         - box-shadow: |
             [[[
               const active = states[variables.trayEntityId]?.attributes?.active;
-              return active ? 'inset 0 0 0 4px #2196F3' : 'none';
+              return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
             ]]]
       name:
         - font-size: 14px
@@ -1856,7 +1856,7 @@ button_card_templates:
         - box-shadow: |
             [[[
               const active = states[variables.trayEntityId]?.attributes?.active;
-              return active ? 'inset 0 0 0 4px #2196F3' : 'none';
+              return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
             ]]]
         - height: 100%
         - min-height: 80px
