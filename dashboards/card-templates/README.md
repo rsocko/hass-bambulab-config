@@ -101,3 +101,21 @@ To add a new template:
 
 3. The template will be available in any dashboard using
    `!include_dir_merge_named card-templates/` after the next Home Assistant restart.
+
+## Troubleshooting
+
+### "Button-card template '…' is missing!" Error
+
+This error means Home Assistant has not yet loaded the templates from `configuration.yaml`.
+
+1. Confirm `configuration.yaml` contains the following line (adjust the path to your config
+   root, typically `/config/`):
+   ```yaml
+   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+   ```
+2. Confirm this directory exists and contains the three template YAML files
+   (`ams_tray_label.yaml`, `ams_tray_detail.yaml`, `ams_tray_popup.yaml`).
+3. **Restart Home Assistant** — a configuration reload or dashboard reload is not sufficient.
+   `button_card_templates` are only read at startup.
+4. After HA restarts, hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`) to clear
+   any cached dashboard state.

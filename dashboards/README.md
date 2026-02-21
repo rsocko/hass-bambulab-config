@@ -145,6 +145,23 @@ The dashboard automatically adapts to your Home Assistant theme. For best result
 
 ## Troubleshooting
 
+### "Button-card template '…' is missing!" Error
+
+This error appears when Home Assistant has not yet loaded the `button_card_templates` from
+`configuration.yaml`. Work through these steps in order:
+
+1. Confirm `configuration.yaml` contains the following line (using the absolute path to your
+   config directory, typically `/config/`):
+   ```yaml
+   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+   ```
+2. Confirm the directory `/config/dashboards/card-templates/` exists and contains
+   `ams_tray_label.yaml`, `ams_tray_detail.yaml`, and `ams_tray_popup.yaml`.
+3. **Restart Home Assistant** — a configuration reload or dashboard reload is not sufficient.
+   `button_card_templates` are only read at startup.
+4. After HA has fully restarted, hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
+   to clear any cached dashboard state.
+
 ### Cards Not Appearing
 1. Verify all custom cards are installed
 2. Check browser console for errors
