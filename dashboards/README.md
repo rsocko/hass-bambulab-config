@@ -71,13 +71,12 @@ The dashboard uses several custom cards that must be installed via HACS:
 5. **mushroom** - Minimalist cards for sensors
 6. **advanced-camera-card** - Enhanced camera viewing
 7. **config-template-card** - Dynamic card templates
-8. **button-card** - Customizable button cards (used inside the AMS tray slot template)
-9. **declutter-card** - Reusable card structure templates (provides the `ams_tray_slot` template)
-10. **auto-entities** - Dynamic entity lists
-11. **vertical-layout** - Layout control
-12. **grid-layout** - Grid layout control
-13. **card-mod** (optional) - Custom styling
-14. **browser-mod** - Required for AMS tray popup dialogs
+8. **button-card** - Customizable button cards (AMS tray templates and popup action buttons)
+9. **auto-entities** - Dynamic entity lists
+10. **vertical-layout** - Layout control
+11. **grid-layout** - Grid layout control
+12. **card-mod** (optional) - Custom styling
+13. **browser-mod** - Required for AMS tray popup dialogs
 
 ## Installation
 
@@ -87,39 +86,54 @@ The dashboard uses several custom cards that must be installed via HACS:
 4. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
 5. Click **Save** and reload the dashboard
 
-> **No `configuration.yaml` changes are required.** The AMS tray card templates are embedded
-> inline in the `decluttercard:` block at the top of `lovelace.3d_printing`. Only
-> `custom:declutter-card` and `custom:button-card` (both installed via HACS) are needed.
+> **No `configuration.yaml` changes are required.** The AMS tray card templates are defined
+> in the `button_card_templates:` block at the top of `lovelace.3d_printing` and are immediately
+> usable after pasting.
 
-### AMS Tray Slot Template
+### AMS Tray Templates
 
-The AMS tray cards use the `ams_tray_slot` declutter-card template. The full card definitions
-(label card, detail card, and spool popup) are embedded inline in the `decluttercard:` block
-at the top of `lovelace.3d_printing`. No external files or `configuration.yaml` entry are needed.
+The AMS tray cards use three `button-card` templates (`ams_tray_label`, `ams_tray_detail`,
+`ams_tray_popup`) defined in the `button_card_templates:` block at the top of
+`lovelace.3d_printing`. No external files or `configuration.yaml` entry are needed.
 
-The component card definitions are documented in [`card-templates/`](card-templates/):
+**Why `button_card_templates` is dashboard-level (not `configuration.yaml`):**
+button-card reads `button_card_templates` from the Lovelace dashboard config object itself
+(`ll.config`). It is not an HA integration key, so adding it to `configuration.yaml` will
+cause the HA config checker to reject it. The templates must live in the dashboard YAML.
 
-| File | Documents |
-|------|-----------|
-| `card-templates/ams_tray_label.yaml` | Label card — slot name + active-spool highlight |
-| `card-templates/ams_tray_detail.yaml` | Detail card — filament name, weight, desiccant |
-| `card-templates/ams_tray_popup.yaml` | Popup tap-action — spool info dialog |
-| `card-templates/ams_tray_slot.yaml` | Usage guide for the declutter template |
+The source definitions are maintained in [`card-templates/`](card-templates/):
+
+| File | Template Name | Purpose |
+|------|--------------|---------|
+| `card-templates/ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) |
+| `card-templates/ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — appearance and data display |
+| `card-templates/ams_tray_popup.yaml` | `ams_tray_popup` | Popup dialog — tap action with spool details |
 
 Each AMS slot card in the dashboard uses:
 ```yaml
-- type: custom:declutter-card
-  template: ams_tray_slot
-  variables:
-    - trayName: A1
-    - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
-    - tray: ams_1_tray_1
-    - trayLabel: AMS 1 · Slot 1
-    - printWeightKey: AMS 1 Tray 1
+- type: vertical-stack
+  card_mod:
+    style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+  cards:
+    - type: custom:button-card
+      template: ams_tray_label
+      variables:
+        trayName: A1
+        trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+    - type: custom:button-card
+      template: ams_tray_detail
+      variables:
+        tray: ams_1_tray_1
+        trayLabel: AMS 1 · Slot 1
+        trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+        printWeightKey: AMS 1 Tray 1
 ```
 
-See [card-templates/README.md](card-templates/README.md) for the full variable reference and
-cross-dashboard reuse instructions.
+**Cross-dashboard reuse:** Copy the entire `button_card_templates:` block (from
+`button_card_templates:` down to but not including `views:`) to the top of any other
+dashboard YAML.
+
+See [card-templates/README.md](card-templates/README.md) for the full variable reference.
 
 ## Configuration
 
@@ -157,20 +171,14 @@ The dashboard automatically adapts to your Home Assistant theme. For best result
 
 ## Troubleshooting
 
-### "custom:declutter-card is not a valid card"
+### "Button-card template 'ams_tray_label' is missing!"
 
-Install **declutter-card** via HACS → Frontend (search for "declutter-card"), then
-hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`).
-
-### AMS tray slot variables appear literally (`[[trayName]]` shown on card)
-
-The `decluttercard:` block at the top of the dashboard YAML is missing or has been
-accidentally deleted. Confirm the pasted dashboard YAML begins with the `decluttercard:`
-key before `views:`. If it is missing, copy the `decluttercard:` block from the source
-`lovelace.3d_printing` file and paste it back at the top.
+The `button_card_templates:` block at the top of the dashboard YAML is missing or was
+accidentally deleted. Confirm the pasted YAML starts with `button_card_templates:` (before
+`views:`). Copy it back from the `lovelace.3d_printing` file in this repository if needed.
 
 ### Cards Not Appearing
-1. Verify all custom cards are installed (**declutter-card**, **button-card**, **browser-mod** via HACS)
+1. Verify all custom cards are installed (**button-card**, **browser-mod** via HACS)
 2. Check browser console for errors
 3. Verify entity names match your configuration
 4. Clear browser cache and hard reload

@@ -1,121 +1,96 @@
 # Card Templates
 
-This directory contains the card component definitions for the AMS tray slot cards.
-These files document the individual card logic that is **embedded inline** in the
-`decluttercard:` template block in each dashboard. No `configuration.yaml` entry is needed.
+This directory contains the source definitions for the three AMS tray `button-card` templates
+used in the 3D printer dashboards. These files are the single source of truth — when you edit
+a template, update the corresponding file here so the repo stays current.
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `ams_tray_label.yaml` | Label card definition — slot name (A1, A2, B1, etc.) + active-spool highlight |
-| `ams_tray_detail.yaml` | Detail card definition — filament name, desiccant status, remaining weight, print weight |
-| `ams_tray_popup.yaml` | Popup tap-action definition — merged into the detail card (no separate template needed) |
-| `ams_tray_slot.yaml` | Usage guide — documents the `ams_tray_slot` declutter template and cross-dashboard setup |
+| File | Template Name | Purpose |
+|------|--------------|---------|
+| `ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) — shows tray name + active-spool highlight |
+| `ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — filament name, desiccant status, remaining weight, print weight |
+| `ams_tray_popup.yaml` | `ams_tray_popup` | Tap-action popup — spool info dialog (inherited by `ams_tray_detail`) |
 
-## How the Pieces Fit Together
+### Template Inheritance
 
-The `decluttercard:` block in each dashboard YAML embeds the complete card definitions from
-`ams_tray_label.yaml`, `ams_tray_detail.yaml`, and `ams_tray_popup.yaml` inline — merged into
-two `custom:button-card` entries. declutter-card substitutes the per-slot variable values;
-button-card renders each card with the correct data.
+`ams_tray_detail` inherits its `tap_action` from `ams_tray_popup` via button-card's template
+inheritance (`template: - ams_tray_popup`). Both must be defined in the same
+`button_card_templates:` block. To modify the popup, edit `ams_tray_popup.yaml`. To modify
+the card appearance, edit `ams_tray_detail.yaml`.
 
-```
-decluttercard: ams_tray_slot
-├── custom:button-card  ← ams_tray_label.yaml content (label + active highlight)
-└── custom:button-card  ← ams_tray_detail.yaml + ams_tray_popup.yaml merged (detail + popup)
-```
+## How Templates are Loaded
 
-## Usage
+`button_card_templates` is a **Lovelace dashboard-level** key. button-card reads it from the
+dashboard config object (`ll.config`), not from `configuration.yaml`. This is why adding
+`button_card_templates:` to `configuration.yaml` fails the HA config check — HA's config
+validator doesn't know about it because it's not a Home Assistant integration key.
 
-**No `configuration.yaml` changes required.** The template block is pasted directly into the
-dashboard YAML.
+The templates must be defined in the **dashboard YAML** itself, in a `button_card_templates:`
+block before `views:`. They are then available to all cards in that dashboard using
+`template: ams_tray_label` etc.
 
-**Step 1.** Install the required custom cards via HACS → Frontend:
-- **declutter-card** — provides `custom:declutter-card`
-- **button-card** — provides `custom:button-card` (used inside the template)
-- **browser-mod** — required for the spool info popup
+**The `lovelace.3d_printing` file includes the full `button_card_templates:` block** — paste
+the entire file into the Raw Configuration Editor and the templates are immediately usable.
 
-**Step 2.** Copy the entire `decluttercard:` block from `lovelace.3d_printing` (everything
-from line `decluttercard:` down to but not including `views:`) and paste it at the **top** of
-your dashboard YAML, before the `views:` key.
+## Usage — In a Dashboard
 
-**Step 3.** Use `custom:declutter-card` wherever you want an AMS tray slot:
+The `button_card_templates:` block at the top of `lovelace.3d_printing` contains all three
+templates. Each AMS slot card is a `vertical-stack` with two `custom:button-card` entries:
 
 ```yaml
-- type: custom:declutter-card
-  template: ams_tray_slot
-  variables:
-    - trayName: A1
-    - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
-    - tray: ams_1_tray_1
-    - trayLabel: AMS 1 · Slot 1
-    - printWeightKey: AMS 1 Tray 1
-```
-
-A full four-slot AMS row:
-
-```yaml
-- type: horizontal-stack
+- type: vertical-stack
+  card_mod:
+    style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
   cards:
-    - type: custom:declutter-card
-      template: ams_tray_slot
+    - type: custom:button-card
+      template: ams_tray_label
       variables:
-        - trayName: A1
-        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
-        - tray: ams_1_tray_1
-        - trayLabel: AMS 1 · Slot 1
-        - printWeightKey: AMS 1 Tray 1
-    - type: custom:declutter-card
-      template: ams_tray_slot
+        trayName: A1
+        trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+    - type: custom:button-card
+      template: ams_tray_detail
       variables:
-        - trayName: A2
-        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_2
-        - tray: ams_1_tray_2
-        - trayLabel: AMS 1 · Slot 2
-        - printWeightKey: AMS 1 Tray 2
-    - type: custom:declutter-card
-      template: ams_tray_slot
-      variables:
-        - trayName: A3
-        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_3
-        - tray: ams_1_tray_3
-        - trayLabel: AMS 1 · Slot 3
-        - printWeightKey: AMS 1 Tray 3
-    - type: custom:declutter-card
-      template: ams_tray_slot
-      variables:
-        - trayName: A4
-        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_4
-        - tray: ams_1_tray_4
-        - trayLabel: AMS 1 · Slot 4
-        - printWeightKey: AMS 1 Tray 4
+        tray: ams_1_tray_1
+        trayLabel: AMS 1 · Slot 1
+        trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+        printWeightKey: AMS 1 Tray 1
 ```
 
 ## Cross-Dashboard Reuse
 
-Because the `decluttercard:` block is self-contained, adding AMS tray cards to a second
-dashboard requires only:
+To reuse these templates in another dashboard:
 
-1. Copy the `decluttercard:` block to the top of the new dashboard YAML.
-2. Use `custom:declutter-card` with your variables — all card logic is already embedded.
+1. Copy the entire `button_card_templates:` block from `lovelace.3d_printing` (everything
+   from `button_card_templates:` down to but not including `views:`) and paste it at the top
+   of the target dashboard YAML, before `views:`.
+2. Use the cards as shown above — the templates are now available in that dashboard too.
 
-No `configuration.yaml` changes, no HA restart, no file copies needed.
+There is no global/configuration.yaml mechanism for button-card templates in a standard HA
+installation. Each dashboard that uses them must include the `button_card_templates:` block.
 
 ## Template Variables
+
+### `ams_tray_label`
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `trayName` | Yes | Display label for the slot (e.g. `A1`, `B3`, `External`) |
-| `trayEntityId` | Yes | Entity ID of the AMS tray sensor (active-spool highlight + popup fallback) |
+| `trayEntityId` | Yes | Entity ID of the AMS tray sensor (used to detect active spool) |
+
+### `ams_tray_detail` and `ams_tray_popup`
+
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `tray` | Yes | Tray key in the `spoolman_tray_map` (e.g. `ams_1_tray_1`, `external_spool`) |
 | `trayLabel` | Yes | Human-readable label shown in the popup header (e.g. `AMS 1 · Slot 1`) |
+| `trayEntityId` | Yes | Entity ID of the AMS tray sensor |
 | `printWeightKey` | Yes | Attribute key in `sensor.ntk_ryansoffice_3dprinter_print_weight` (e.g. `AMS 1 Tray 1`) |
 
 ## Sensor References
 
-The inline card definitions reference these sensors — update them to match your setup by
-editing the `decluttercard:` block in the dashboard YAML:
+Update these references inside the template files (and the corresponding `button_card_templates:`
+block in your dashboard) to match your setup:
 
 | Reference | Description |
 |-----------|-------------|
@@ -124,29 +99,25 @@ editing the `decluttercard:` block in the dashboard YAML:
 | `sensor.ntk_ryansoffice_3dprinter_print_weight` | Active print weight sensor |
 | `SPOOLMAN_BASE_URL` in tap_action JS | Base URL for Spoolman web UI |
 
-## Modifying the Card Definitions
+## Updating a Template
 
-To change card appearance or behaviour, edit the `decluttercard:` block in your dashboard
-YAML directly. The component files in this directory (`ams_tray_label.yaml`,
-`ams_tray_detail.yaml`, `ams_tray_popup.yaml`) are reference documentation — update them
-to keep them in sync if you make changes to your dashboard.
+1. Edit the appropriate `.yaml` file here.
+2. Copy the updated content into the `button_card_templates:` block in your dashboard YAML
+   (under the matching template name key).
+3. Save the dashboard — the card will update immediately (no HA restart needed).
 
 ## Troubleshooting
 
-### "custom:declutter-card is not a valid card"
+### "Button-card template 'ams_tray_label' is missing!"
 
-Install **declutter-card** via HACS → Frontend. Search for "declutter-card" and install it,
-then hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`).
-
-### Cards show but variables are not substituted (`[[trayName]]` appears literally)
-
-The `decluttercard:` block is missing or malformed. Confirm the YAML anchor matches the
-template name: `- &ams_tray_slot` in the `decluttercard:` list and `template: ams_tray_slot`
-in each `custom:declutter-card` card.
+The `button_card_templates:` block is missing from the dashboard. Confirm the pasted YAML
+starts with `button_card_templates:` (before `views:`). If you accidentally deleted it,
+copy it back from the `lovelace.3d_printing` file in this repository.
 
 ### "custom:button-card is not a valid card"
 
-Install **button-card** via HACS → Frontend (search for "button-card"), then hard-reload.
+Install **button-card** via HACS → Frontend (search for "button-card"), then hard-reload
+your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`).
 
 ### Popup does not open when tapping a tray card
 
