@@ -2446,7 +2446,7 @@ views:
                       entities:
                         - type: custom:button-card
                           entity: sensor.print_cost
-                          name: Current Print Cost
+                          name: Estimated Print Cost
                           show_icon: false
                           show_state: false
                           custom_fields:
@@ -2542,9 +2542,12 @@ views:
                                 entries.forEach((item) => {
                                   const percent = (item.cost / totalCost) * 100;
                                   const sourceLabel = item.priceSource === 'default' ? ' *' : '';
-                                  barHTML += `<div style="display: flex; align-items: center; margin-bottom: 2px;">`;
-                                  barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px;"></span>`;
-                                  barHTML += `<span>${item.name}: $${item.cost.toFixed(2)} &nbsp;<span style="opacity:0.65;">(${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</span></span>`;
+                                  barHTML += `<div style="margin-bottom: 4px;">`;
+                                  barHTML += `<div style="display: flex; align-items: center;">`;
+                                  barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px; flex-shrink: 0;"></span>`;
+                                  barHTML += `<span>${item.name}: $${item.cost.toFixed(2)}</span>`;
+                                  barHTML += `</div>`;
+                                  barHTML += `<div style="padding-left: 18px; opacity: 0.65;">(${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</div>`;
                                   barHTML += '</div>';
                                 });
                                 barHTML += '</div>';
