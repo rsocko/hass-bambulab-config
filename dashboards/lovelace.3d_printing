@@ -520,7 +520,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_1_tray_1']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -685,7 +685,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_1_tray_2']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -850,7 +850,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_1_tray_3']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -1015,7 +1015,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_1_tray_4']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -1199,7 +1199,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_2_tray_1']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -1364,7 +1364,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_2_tray_2']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -1529,7 +1529,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_2_tray_3']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -1694,7 +1694,7 @@
                                 "background": "none"
                               },
                               {
-                                "box-shadow": "none"
+                                "box-shadow": "[[[\n  const active = states['sensor.p1s_01p00c460102350_ams_2_tray_4']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                               },
                               {
                                 "height": "100%"
@@ -1880,7 +1880,7 @@
                                         "background": "none"
                                       },
                                       {
-                                        "box-shadow": "none"
+                                        "box-shadow": "[[[\n  const active = states['sensor.ntk_ryansoffice_3dprinter_external_spool']?.attributes?.active;\n  return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';\n]]]\n"
                                       },
                                       {
                                         "height": "100%"
