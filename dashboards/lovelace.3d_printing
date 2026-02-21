@@ -2581,7 +2581,7 @@ views:
                   label: Print Cost
     badges:
       - type: entity
-        show_name: true
+        show_name: false
         show_state: true
         show_icon: true
         entity: sensor.3d_printer_ip_address
@@ -2590,12 +2590,14 @@ views:
         show_name: true
         show_state: true
         show_icon: true
+        name: MQTT Mode
         entity: sensor.ntk_ryansoffice_3dprinter_mqtt_connection_mode
         icon: mdi:connection
       - type: entity
         show_name: true
         show_state: true
         show_icon: true
+        name: SD Card Status
         entity: sensor.3d_printer_sd_card_status
         icon: mdi:sd
       - type: entity
@@ -2608,18 +2610,21 @@ views:
         show_name: true
         show_state: true
         show_icon: true
+        name: Total Usage
         entity: sensor.ntk_ryansoffice_3dprinter_total_usage
         icon: mdi:timer
       - type: entity
         show_name: true
         show_state: true
         show_icon: true
+        name: Wi-Fi Signal
         entity: sensor.ntk_ryansoffice_3dprinter_wifi_signal
         icon: mdi:wifi
       - type: entity
         show_name: true
         show_state: true
         show_icon: true
+        name: Timelapse
         entity: binary_sensor.ntk_ryansoffice_3dprinter_recording_timelapse
         icon: mdi:video
     header:
