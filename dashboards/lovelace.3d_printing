@@ -2112,8 +2112,7 @@ button_card_templates:
                     type: 'custom:mushroom-chips-card',
                     alignment: 'center',
                     chips: [
-                      { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Color Family: ' + (colorFamily || 'N/A') },
-                      { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails }
+                      { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') }
                     ]
                   },
                   {
@@ -2124,9 +2123,16 @@ button_card_templates:
                     ],
                     card_mod: {
                       style: {
-                        '$': 'mushroom-template-chip::part(icon) { filter: drop-shadow(0 0 1.5px ' + baseColorOutlineColor + '); }'
+                        '$': 'mushroom-template-chip::part(icon) { filter: drop-shadow(0 1px 0 ' + baseColorOutlineColor + ') drop-shadow(0 -1px 0 ' + baseColorOutlineColor + ') drop-shadow(1px 0 0 ' + baseColorOutlineColor + ') drop-shadow(-1px 0 0 ' + baseColorOutlineColor + '); }'
                       }
                     }
+                  },
+                  {
+                    type: 'custom:mushroom-chips-card',
+                    alignment: 'center',
+                    chips: [
+                      { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails }
+                    ]
                   },
                   {
                     type: 'custom:button-card',
