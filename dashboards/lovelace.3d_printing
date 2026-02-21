@@ -2190,7 +2190,7 @@ button_card_templates:
                         type: 'custom:mushroom-template-card',
                         primary: totalWeightText,
                         secondary: 'Total (all spools)',
-                        icon: 'mdi:archive-multiple',
+                        icon: 'mdi:layers-triple',
                         icon_color: 'cyan',
                         layout: 'vertical',
                         fill_container: true

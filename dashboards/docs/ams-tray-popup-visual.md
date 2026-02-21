@@ -85,7 +85,7 @@ Single `custom:mushroom-chips-card` with three compact template chips:
 Four items in one `horizontal-stack`:
 | Item | Icon | Color | Value |
 |------|------|-------|-------|
-| Total (all spools) | `mdi:archive-multiple` | Cyan | Sum of weights for same `filament_id`, with spool count |
+| Total (all spools) | `mdi:layers-triple` | Cyan | Sum of weights for same `filament_id`, with spool count |
 | Last Dried | `mdi:thermometer-lines` | Deep Orange | Date from `extra_last_dried`; shows `Never` if not set |
 | Desiccant | `mdi:water` / `mdi:water-off` | Status color | Age text (e.g. "18 days ago"); `mushroom-template-card` |
 | Mark as Refilled | `mdi:water-plus` | Primary | `custom:button-card` calling `spoolman.patch_spool` |
