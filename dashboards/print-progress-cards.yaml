@@ -66,8 +66,9 @@ cards:
         icon: mdi:layers-triple
         icon_color: >-
           {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% if status in ['printing', 'prepare'] %}blue
-          {% elif status == 'pause' %}orange
+          {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+          {% if status in ['printing', 'prepare'] or stage == 'printing' %}blue
+          {% elif status == 'pause' or stage == 'pause' %}orange
           {% else %}grey{% endif %}
         layout: vertical
         tap_action:
@@ -75,7 +76,8 @@ cards:
         card_mod:
           style: >
             {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-            {% if status in ['printing', 'prepare'] %}
+            {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+            {% if status in ['printing', 'prepare'] or stage == 'printing' %}
             @keyframes layer-stack {
               0%, 60%, 100% { transform: translateY(0px); }
               30% { transform: translateY(-5px); }
@@ -96,8 +98,9 @@ cards:
         icon: mdi:rotate-right
         icon_color: >-
           {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% if status in ['printing', 'prepare'] %}green
-          {% elif status == 'pause' %}orange
+          {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+          {% if status in ['printing', 'prepare'] or stage == 'printing' %}green
+          {% elif status == 'pause' or stage == 'pause' %}orange
           {% else %}grey{% endif %}
         layout: vertical
         tap_action:
@@ -105,7 +108,8 @@ cards:
         card_mod:
           style: >
             {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-            {% if status in ['printing', 'prepare'] %}
+            {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+            {% if status in ['printing', 'prepare'] or stage == 'printing' %}
             @keyframes progress-spin {
               from { transform: rotate(0deg); }
               to { transform: rotate(360deg); }
@@ -132,8 +136,9 @@ cards:
         icon: mdi:clock-time-four
         icon_color: >-
           {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% if status in ['printing', 'prepare'] %}orange
-          {% elif status == 'pause' %}amber
+          {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+          {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
+          {% elif status == 'pause' or stage == 'pause' %}amber
           {% else %}grey{% endif %}
         layout: vertical
         tap_action:
@@ -141,7 +146,8 @@ cards:
         card_mod:
           style: >
             {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-            {% if status in ['printing', 'prepare'] %}
+            {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+            {% if status in ['printing', 'prepare'] or stage == 'printing' %}
             @keyframes clock-spin {
               from { transform: rotate(0deg); }
               to { transform: rotate(360deg); }
@@ -186,9 +192,10 @@ cards:
         icon: mdi:flag-checkered
         icon_color: >-
           {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
           {% if status == 'finish' %}green
-          {% elif status in ['printing', 'prepare'] %}purple
-          {% elif status == 'pause' %}orange
+          {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
+          {% elif status == 'pause' or stage == 'pause' %}orange
           {% else %}grey{% endif %}
         layout: vertical
         tap_action:
@@ -196,7 +203,8 @@ cards:
         card_mod:
           style: >
             {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-            {% if status in ['printing', 'prepare'] %}
+            {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+            {% if status in ['printing', 'prepare'] or stage == 'printing' %}
             @keyframes flag-wave {
               0%, 100% { transform: scale(1) rotate(0deg); }
               25% { transform: scale(1.08) rotate(-4deg); }
@@ -221,8 +229,9 @@ secondary: "{{ states('sensor.print_layer_progress_formatted') }}"
 icon: mdi:layers-triple
 icon_color: >-
   {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-  {% if status in ['printing', 'prepare'] %}blue
-  {% elif status == 'pause' %}orange
+  {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+  {% if status in ['printing', 'prepare'] or stage == 'printing' %}blue
+  {% elif status == 'pause' or stage == 'pause' %}orange
   {% else %}grey{% endif %}
 layout: vertical
 tap_action:
@@ -230,7 +239,8 @@ tap_action:
 card_mod:
   style: >
     {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-    {% if status in ['printing', 'prepare'] %}
+    {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+    {% if status in ['printing', 'prepare'] or stage == 'printing' %}
     @keyframes layer-stack {
       0%, 60%, 100% { transform: translateY(0px); }
       30% { transform: translateY(-5px); }
@@ -250,8 +260,9 @@ secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}"
 icon: mdi:rotate-right
 icon_color: >-
   {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-  {% if status in ['printing', 'prepare'] %}green
-  {% elif status == 'pause' %}orange
+  {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+  {% if status in ['printing', 'prepare'] or stage == 'printing' %}green
+  {% elif status == 'pause' or stage == 'pause' %}orange
   {% else %}grey{% endif %}
 layout: vertical
 tap_action:
@@ -259,7 +270,8 @@ tap_action:
 card_mod:
   style: >
     {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-    {% if status in ['printing', 'prepare'] %}
+    {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+    {% if status in ['printing', 'prepare'] or stage == 'printing' %}
     @keyframes progress-spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -279,8 +291,9 @@ secondary: "{{ states('sensor.print_time_remaining_formatted') }}"
 icon: mdi:clock-time-four
 icon_color: >-
   {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-  {% if status in ['printing', 'prepare'] %}orange
-  {% elif status == 'pause' %}amber
+  {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+  {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
+  {% elif status == 'pause' or stage == 'pause' %}amber
   {% else %}grey{% endif %}
 layout: vertical
 tap_action:
@@ -288,7 +301,8 @@ tap_action:
 card_mod:
   style: >
     {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-    {% if status in ['printing', 'prepare'] %}
+    {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+    {% if status in ['printing', 'prepare'] or stage == 'printing' %}
     @keyframes clock-spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -327,9 +341,10 @@ secondary: >-
 icon: mdi:flag-checkered
 icon_color: >-
   {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+  {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
   {% if status == 'finish' %}green
-  {% elif status in ['printing', 'prepare'] %}purple
-  {% elif status == 'pause' %}orange
+  {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
+  {% elif status == 'pause' or stage == 'pause' %}orange
   {% else %}grey{% endif %}
 layout: vertical
 tap_action:
@@ -337,7 +352,8 @@ tap_action:
 card_mod:
   style: >
     {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-    {% if status in ['printing', 'prepare'] %}
+    {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
+    {% if status in ['printing', 'prepare'] or stage == 'printing' %}
     @keyframes flag-wave {
       0%, 100% { transform: scale(1) rotate(0deg); }
       25% { transform: scale(1.08) rotate(-4deg); }
