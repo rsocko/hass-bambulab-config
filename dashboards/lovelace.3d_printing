@@ -904,6 +904,25 @@ views:
         cards:
           - type: horizontal-stack
             cards:
+              - type: picture-entity
+                entity: image.ntk_ryansoffice_3dprinter_cover_image
+                show_name: false
+                show_state: false
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: #e0e0e0 !important;
+                      border-radius: 8px !important;
+                      padding: 8px !important;
+                      overflow: hidden;
+                    }
+                    img {
+                      object-fit: contain !important;
+                      border-radius: 4px !important;
+                      background: #e0e0e0 !important;
+                    }
               - type: vertical-stack
                 cards:
                   - type: custom:mushroom-template-card
