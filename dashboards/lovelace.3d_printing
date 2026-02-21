@@ -2113,7 +2113,7 @@ button_card_templates:
                     alignment: 'center',
                     chips: [
                       { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Color Family: ' + (colorFamily || 'N/A') },
-                      { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Attr: ' + typeDetails }
+                      { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails }
                     ]
                   },
                   {

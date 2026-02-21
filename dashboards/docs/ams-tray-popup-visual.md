@@ -18,7 +18,7 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ╠══════════════════════════════════════════════════════════╣
 ║  [🧱 Material: PLA] [🏭 Vendor: Bambu] [📍 Location: B] ║  ← compact mushroom chips
 ╠══════════════════════════════════════════════════════════╣
-║  [⚫ Base: Black] [🎨 Family: B&W] [🏷️ Attr: Matte]     ║  ← compact mushroom chips
+║  [⚫ Base: Black] [🎨 Family: B&W] [🏷️ Type: Matte]     ║  ← compact mushroom chips
 ╠══════════════════════════════════════════════════════════╣
 ║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
 ║  ║               ║  ⚖️  248.3 g  ║  🖨️  12.5 g   ║      ║  ← Color swatch / Remaining / Print
@@ -72,7 +72,7 @@ Single `custom:mushroom-chips-card` with three compact template chips:
 |------|------|-------|---------|
 | Base Color | `mdi:circle` | Filament color | `Base: <name>` from `filament_extra_base_color` |
 | Color Family | `mdi:palette-swatch-variant` | Indigo | `Family: <group>` from `filament_extra_color_family` |
-| Attributes | `mdi:tag-multiple` | Green | `Attr: <tag1>, <tag2>` from `filament_extra_type_details` (JSON array parsed to CSV); `N/A` if not set |
+| Attributes | `mdi:tag-multiple` | Green | `Type: <tag1>, <tag2>` from `filament_extra_type_details` (JSON array parsed to CSV); `N/A` if not set |
 
 ### Row 4 — Color Swatch / Weight / Print Usage
 | Card | Description |
