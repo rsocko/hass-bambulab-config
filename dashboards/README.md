@@ -71,7 +71,7 @@ The dashboard uses several custom cards that must be installed via HACS:
 5. **mushroom** - Minimalist cards for sensors
 6. **advanced-camera-card** - Enhanced camera viewing
 7. **config-template-card** - Dynamic card templates
-8. **button-card** - Customizable button cards
+8. **button-card** - Customizable button cards (AMS tray templates and popup action buttons)
 9. **auto-entities** - Dynamic entity lists
 10. **vertical-layout** - Layout control
 11. **grid-layout** - Grid layout control
@@ -81,51 +81,59 @@ The dashboard uses several custom cards that must be installed via HACS:
 ## Installation
 
 1. Install all required custom cards via HACS
-2. Copy the `dashboards/card-templates/` directory from this repository into your HA config
-   directory so the layout looks like this:
-   ```
-   /config/                          ← HA config root (where configuration.yaml lives)
-   ├── configuration.yaml
-   └── dashboards/
-       └── card-templates/
-           ├── ams_tray_label.yaml
-           ├── ams_tray_detail.yaml
-           └── ams_tray_popup.yaml
-   ```
-3. Add the following to your `configuration.yaml` **at the root level** (not nested under
-   another key):
-   ```yaml
-   button_card_templates: !include_dir_merge_named dashboards/card-templates/
-   ```
-   > **Note:** There is no reload service for `button_card_templates`. Any future edits to
-   > files in `dashboards/card-templates/` require another Home Assistant restart for the
-   > changes to appear in Lovelace.
-4. **Before restarting,** go to **Developer Tools → YAML → Check Configuration** and confirm
-   no errors are reported. A YAML or schema error in any template file will cause HA to
-   silently skip loading `button_card_templates`.
-5. **Restart Home Assistant.**
-6. After restart, go to **Settings → System → Logs** and search for `button_card_templates`
-   or `card-templates` to confirm the templates loaded without errors.
-7. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
-8. Paste the contents of **`lovelace.3d_printing`** into the editor
-9. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
-10. Click **Save** and reload the dashboard
+2. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
+3. Paste the contents of **`lovelace.3d_printing`** into the editor
+4. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
+5. Click **Save** and reload the dashboard
 
-### Button-Card Templates
+> **No `configuration.yaml` changes are required.** The AMS tray card templates are defined
+> in the `button_card_templates:` block at the top of `lovelace.3d_printing` and are immediately
+> usable after pasting.
 
-The AMS tray cards use three `custom:button-card` templates defined in
-[`card-templates/`](card-templates/). They are loaded globally via `configuration.yaml`,
-making them available to **all** dashboards including UI-managed ones.
+### AMS Tray Templates
 
-| Template File | Template Name | Purpose |
-|---|---|---|
+The AMS tray cards use three `button-card` templates (`ams_tray_label`, `ams_tray_detail`,
+`ams_tray_popup`) defined in the `button_card_templates:` block at the top of
+`lovelace.3d_printing`. No external files or `configuration.yaml` entry are needed.
+
+**Why `button_card_templates` is dashboard-level (not `configuration.yaml`):**
+button-card reads `button_card_templates` from the Lovelace dashboard config object itself
+(`ll.config`). It is not an HA integration key, so adding it to `configuration.yaml` will
+cause the HA config checker to reject it. The templates must live in the dashboard YAML.
+
+The source definitions are maintained in [`card-templates/`](card-templates/):
+
+| File | Template Name | Purpose |
+|------|--------------|---------|
 | `card-templates/ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) |
-| `card-templates/ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — card appearance and data display |
-| `card-templates/ams_tray_popup.yaml` | `ams_tray_popup` | Popup dialog — tap action that opens the spool details popup |
+| `card-templates/ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — appearance and data display |
+| `card-templates/ams_tray_popup.yaml` | `ams_tray_popup` | Popup dialog — tap action with spool details |
 
-`ams_tray_detail` inherits its `tap_action` from `ams_tray_popup` via template inheritance. To modify the popup appearance or behavior, edit only `ams_tray_popup.yaml`. To modify the card appearance, edit `ams_tray_detail.yaml`.
+Each AMS slot card in the dashboard uses:
+```yaml
+- type: vertical-stack
+  card_mod:
+    style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+  cards:
+    - type: custom:button-card
+      template: ams_tray_label
+      variables:
+        trayName: A1
+        trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+    - type: custom:button-card
+      template: ams_tray_detail
+      variables:
+        tray: ams_1_tray_1
+        trayLabel: AMS 1 · Slot 1
+        trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+        printWeightKey: AMS 1 Tray 1
+```
 
-See [card-templates/README.md](card-templates/README.md) for full variable reference and instructions for reusing these templates in other dashboards.
+**Cross-dashboard reuse:** Copy the entire `button_card_templates:` block (from
+`button_card_templates:` down to but not including `views:`) to the top of any other
+dashboard YAML.
+
+See [card-templates/README.md](card-templates/README.md) for the full variable reference.
 
 ## Configuration
 
@@ -163,51 +171,14 @@ The dashboard automatically adapts to your Home Assistant theme. For best result
 
 ## Troubleshooting
 
-### "Integration error: button_card_templates - Integration 'button_card_templates' not found"
+### "Button-card template 'ams_tray_label' is missing!"
 
-This error appears in **Developer Tools → YAML → Check Configuration** when Home Assistant
-does not recognise `button_card_templates` as a valid configuration key. The key is registered
-by the `button-card` custom component — if that component is not installed, HA reports it as
-an unknown integration.
-
-**Cause:** `button-card` was not installed via HACS, or was installed only as a manual
-frontend resource (a `.js` file copied to `www/`) without the accompanying custom component.
-Installing via HACS is required because the HACS package includes both the frontend resource
-*and* a backend custom component that registers `button_card_templates` as a valid
-configuration key.
-
-**Fix:**
-1. Open **HACS → Frontend** and install **button-card** (search for "button-card").
-2. **Restart Home Assistant** so the custom component is loaded.
-3. Re-run **Developer Tools → YAML → Check Configuration** — the error should be gone.
-4. Continue with the normal [installation](#installation) steps.
-
----
-
-### "Button-card template '…' is missing!" Error
-
-This error appears when Home Assistant has not loaded `button_card_templates` from
-`configuration.yaml`. Work through these steps in order:
-
-1. Confirm your files are laid out correctly (see [Installation](#installation) directory tree above).
-2. Confirm `configuration.yaml` contains the following **at the root level** (not indented
-   under any other key):
-   ```yaml
-   button_card_templates: !include_dir_merge_named dashboards/card-templates/
-   ```
-   Both the relative path above and `/config/dashboards/card-templates/` work.
-3. **Before restarting,** go to **Developer Tools → YAML → Check Configuration**. A YAML or
-   schema error in any template file will cause HA to silently skip loading
-   `button_card_templates` with no warning on the dashboard.
-4. **Restart Home Assistant** — a configuration reload or dashboard reload is not sufficient.
-   `button_card_templates` are only read at startup.
-5. After restart, go to **Settings → System → Logs** and search for `button_card_templates`
-   or `card-templates`. Any error logged here explains why the templates did not load.
-6. After HA has fully restarted, hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
-   to clear any cached dashboard state.
+The `button_card_templates:` block at the top of the dashboard YAML is missing or was
+accidentally deleted. Confirm the pasted YAML starts with `button_card_templates:` (before
+`views:`). Copy it back from the `lovelace.3d_printing` file in this repository if needed.
 
 ### Cards Not Appearing
-1. Verify all custom cards are installed
+1. Verify all custom cards are installed (**button-card**, **browser-mod** via HACS)
 2. Check browser console for errors
 3. Verify entity names match your configuration
 4. Clear browser cache and hard reload
