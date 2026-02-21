@@ -1106,7 +1106,7 @@ views:
           - type: custom:mushroom-template-card
             entity: sensor.ntk_ryansoffice_3dprinter_print_progress
             primary: Print Progress
-            secondary: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') }}"
+            secondary: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') }}%"
             icon: mdi:rotate-right
             icon_color: >-
               {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
