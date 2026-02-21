@@ -23,21 +23,42 @@ card appearance, edit `ams_tray_detail.yaml`.
 Templates are loaded globally via `configuration.yaml`, making them available to all dashboards
 including UI-managed ones.
 
-**Step 1.** Add the following to your `configuration.yaml`:
+**Step 1.** Copy the `dashboards/card-templates/` directory from this repository into your
+Home Assistant config directory so the layout looks like this:
 
-```yaml
-button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+```
+/config/                          ← HA config root (where configuration.yaml lives)
+├── configuration.yaml
+└── dashboards/
+    └── card-templates/
+        ├── ams_tray_label.yaml
+        ├── ams_tray_detail.yaml
+        └── ams_tray_popup.yaml
 ```
 
-> **Note:** Use the absolute path from your Home Assistant config root (usually `/config/`).
+**Step 2.** Add the following to your `configuration.yaml`:
 
-**Step 2.** Restart Home Assistant so the templates are loaded.
+```yaml
+button_card_templates: !include_dir_merge_named dashboards/card-templates/
+```
+
+> **Note:** The path is relative to your config root (`/config/`). If you prefer an absolute
+> path, use `/config/dashboards/card-templates/`. Both forms work.
+
+**Step 3.** Before restarting, validate your configuration: in Home Assistant go to
+**Developer Tools → YAML → Check Configuration**. Fix any errors it reports, then restart.
+
+**Step 4.** Restart Home Assistant so the templates are loaded.
 
 > **Important:** There is no reload service for `button_card_templates`. Any future changes
 > to files in `dashboards/card-templates/` require another Home Assistant restart before the
 > updated templates appear in Lovelace.
 
-**Step 3.** Paste `lovelace.3d_printing` into the Raw Configuration Editor — no
+**Step 5.** Confirm the templates loaded: go to **Settings → System → Logs** immediately
+after restart and search for `button_card_templates` or `card-templates`. Any path or YAML
+error here will prevent the templates from loading.
+
+**Step 6.** Paste `lovelace.3d_printing` into the Raw Configuration Editor — no
 `button_card_templates:` block required in the dashboard YAML.
 
 ---
@@ -107,15 +128,38 @@ To add a new template:
 ### "Button-card template '…' is missing!" Error
 
 This error means Home Assistant has not yet loaded the templates from `configuration.yaml`.
+Work through these steps in order:
 
-1. Confirm `configuration.yaml` contains the following line (adjust the path to your config
-   root, typically `/config/`):
-   ```yaml
-   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+1. Confirm your files are laid out correctly under the HA config root:
+
    ```
-2. Confirm this directory exists and contains the three template YAML files
-   (`ams_tray_label.yaml`, `ams_tray_detail.yaml`, `ams_tray_popup.yaml`).
-3. **Restart Home Assistant** — a configuration reload or dashboard reload is not sufficient.
-   `button_card_templates` are only read at startup.
-4. After HA restarts, hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`) to clear
-   any cached dashboard state.
+   /config/                          ← HA config root (where configuration.yaml lives)
+   ├── configuration.yaml
+   └── dashboards/
+       └── card-templates/
+           ├── ams_tray_label.yaml
+           ├── ams_tray_detail.yaml
+           └── ams_tray_popup.yaml
+   ```
+
+2. Confirm `configuration.yaml` contains (at the root level, not nested):
+   ```yaml
+   button_card_templates: !include_dir_merge_named dashboards/card-templates/
+   ```
+   Both the relative path above and the absolute path
+   `/config/dashboards/card-templates/` work. The line must not be
+   indented under any other key.
+
+3. **Before restarting,** go to **Developer Tools → YAML → Check Configuration**.
+   If it reports any errors, fix them first. A YAML or schema error anywhere in the
+   included files will cause HA to silently skip loading `button_card_templates`.
+
+4. **Restart Home Assistant** — a configuration reload or dashboard reload is not
+   sufficient. `button_card_templates` are only read at startup.
+
+5. After restart, go to **Settings → System → Logs** and search for
+   `button_card_templates` or `card-templates`. Any error logged here explains why
+   the templates did not load.
+
+6. After HA has fully restarted, hard-reload your browser
+   (`Ctrl+Shift+R` / `Cmd+Shift+R`) to clear any cached dashboard state.

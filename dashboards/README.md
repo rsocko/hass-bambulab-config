@@ -81,17 +81,35 @@ The dashboard uses several custom cards that must be installed via HACS:
 ## Installation
 
 1. Install all required custom cards via HACS
-2. Add the following to your `configuration.yaml` and **restart Home Assistant**:
+2. Copy the `dashboards/card-templates/` directory from this repository into your HA config
+   directory so the layout looks like this:
+   ```
+   /config/                          ← HA config root (where configuration.yaml lives)
+   ├── configuration.yaml
+   └── dashboards/
+       └── card-templates/
+           ├── ams_tray_label.yaml
+           ├── ams_tray_detail.yaml
+           └── ams_tray_popup.yaml
+   ```
+3. Add the following to your `configuration.yaml` **at the root level** (not nested under
+   another key):
    ```yaml
-   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+   button_card_templates: !include_dir_merge_named dashboards/card-templates/
    ```
    > **Note:** There is no reload service for `button_card_templates`. Any future edits to
    > files in `dashboards/card-templates/` require another Home Assistant restart for the
    > changes to appear in Lovelace.
-3. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
-4. Paste the contents of **`lovelace.3d_printing`** into the editor
-5. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
-6. Click **Save** and reload the dashboard
+4. **Before restarting,** go to **Developer Tools → YAML → Check Configuration** and confirm
+   no errors are reported. A YAML or schema error in any template file will cause HA to
+   silently skip loading `button_card_templates`.
+5. **Restart Home Assistant.**
+6. After restart, go to **Settings → System → Logs** and search for `button_card_templates`
+   or `card-templates` to confirm the templates loaded without errors.
+7. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
+8. Paste the contents of **`lovelace.3d_printing`** into the editor
+9. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
+10. Click **Save** and reload the dashboard
 
 ### Button-Card Templates
 
@@ -147,19 +165,24 @@ The dashboard automatically adapts to your Home Assistant theme. For best result
 
 ### "Button-card template '…' is missing!" Error
 
-This error appears when Home Assistant has not yet loaded the `button_card_templates` from
+This error appears when Home Assistant has not loaded `button_card_templates` from
 `configuration.yaml`. Work through these steps in order:
 
-1. Confirm `configuration.yaml` contains the following line (using the absolute path to your
-   config directory, typically `/config/`):
+1. Confirm your files are laid out correctly (see [Installation](#installation) directory tree above).
+2. Confirm `configuration.yaml` contains the following **at the root level** (not indented
+   under any other key):
    ```yaml
-   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+   button_card_templates: !include_dir_merge_named dashboards/card-templates/
    ```
-2. Confirm the directory `/config/dashboards/card-templates/` exists and contains
-   `ams_tray_label.yaml`, `ams_tray_detail.yaml`, and `ams_tray_popup.yaml`.
-3. **Restart Home Assistant** — a configuration reload or dashboard reload is not sufficient.
+   Both the relative path above and `/config/dashboards/card-templates/` work.
+3. **Before restarting,** go to **Developer Tools → YAML → Check Configuration**. A YAML or
+   schema error in any template file will cause HA to silently skip loading
+   `button_card_templates` with no warning on the dashboard.
+4. **Restart Home Assistant** — a configuration reload or dashboard reload is not sufficient.
    `button_card_templates` are only read at startup.
-4. After HA has fully restarted, hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
+5. After restart, go to **Settings → System → Logs** and search for `button_card_templates`
+   or `card-templates`. Any error logged here explains why the templates did not load.
+6. After HA has fully restarted, hard-reload your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
    to clear any cached dashboard state.
 
 ### Cards Not Appearing
