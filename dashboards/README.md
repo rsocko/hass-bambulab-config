@@ -85,6 +85,9 @@ The dashboard uses several custom cards that must be installed via HACS:
    ```yaml
    button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
    ```
+   > **Note:** There is no reload service for `button_card_templates`. Any future edits to
+   > files in `dashboards/card-templates/` require another Home Assistant restart for the
+   > changes to appear in Lovelace.
 3. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
 4. Paste the contents of **`lovelace.3d_printing`** into the editor
 5. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)

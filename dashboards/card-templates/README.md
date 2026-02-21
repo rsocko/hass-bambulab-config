@@ -33,6 +33,10 @@ button_card_templates: !include_dir_merge_named /config/dashboards/card-template
 
 **Step 2.** Restart Home Assistant so the templates are loaded.
 
+> **Important:** There is no reload service for `button_card_templates`. Any future changes
+> to files in `dashboards/card-templates/` require another Home Assistant restart before the
+> updated templates appear in Lovelace.
+
 **Step 3.** Paste `lovelace.3d_printing` into the Raw Configuration Editor — no
 `button_card_templates:` block required in the dashboard YAML.
 
@@ -95,5 +99,5 @@ To add a new template:
      # ... template definition
    ```
 
-3. The template is automatically available in any dashboard using
-   `!include_dir_merge_named card-templates/` — no other changes needed.
+3. The template will be available in any dashboard using
+   `!include_dir_merge_named card-templates/` after the next Home Assistant restart.
