@@ -3,14 +3,26 @@
 # USAGE: Paste this entire file into the Home Assistant Raw Dashboard Editor
 # (Dashboard → Edit → three-dot menu → Raw configuration editor)
 #
-# Button-card templates (inline at the bottom of this file under button_card_templates:):
+# Button-card templates — choose ONE of the two loading strategies below:
+#
+#   OPTION A (Recommended — keeps this file smaller):
+#     Add the following line to your Home Assistant configuration.yaml:
+#       button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+#     Then restart Home Assistant. The templates are loaded globally and available to
+#     ALL dashboards (including this one). When using this approach, you can safely
+#     delete the "button_card_templates:" block at the bottom of this file before
+#     pasting into the Raw Configuration Editor.
+#
+#   OPTION B (Standalone — no changes to configuration.yaml needed):
+#     The "button_card_templates:" block at the bottom of this file already contains
+#     the full inline templates. Paste the entire file as-is into the Raw Editor.
+#
+# Template names:
 #   ams_tray_label  - AMS slot label card (A1, A2, B1, etc.)
 #   ams_tray_detail - Full tray info card (references ams_tray_popup)
 #   ams_tray_popup  - Popup dialog with spool details (tap_action logic)
 #
-# The individual template files in card-templates/ can be used for file-based configs
-# via: button_card_templates: !include_dir_merge_named card-templates/
-# See card-templates/README.md for details.
+# See card-templates/README.md for full variable reference.
 #
 # Update entity names in this file to match your Bambu Lab printer:
 #   sensor.ntk_ryansoffice_3dprinter_* → sensor.YOUR_PRINTER_NAME_*

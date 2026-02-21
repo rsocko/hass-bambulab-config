@@ -20,36 +20,46 @@ card appearance, edit `ams_tray_detail.yaml`.
 
 ## Usage
 
-### In the 3D Printing Dashboard (already configured)
+There are two ways to make these templates available to your dashboards. Choose the one
+that fits your workflow.
 
-`dashboards/lovelace.3d_printing` loads all templates automatically:
+---
+
+### Option A — Global templates via `configuration.yaml` (Recommended for UI-editor users)
+
+Adding templates to `configuration.yaml` loads them globally so they are available to
+**all** dashboards, including dashboards managed through the Home Assistant UI/raw editor.
+The `button_card_templates:` block does **not** need to be present inside the dashboard YAML
+at all — you can paste a much smaller dashboard file into the raw editor.
+
+**Step 1.** Add the following to your `configuration.yaml`:
 
 ```yaml
-button_card_templates: !include_dir_merge_named card-templates/
+button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
 ```
 
-Cards in the dashboard reference templates by name:
+> **Note:** Use the absolute path from your Home Assistant config root (usually `/config/`).
 
-```yaml
-- type: custom:button-card
-  template: ams_tray_label
-  variables:
-    trayName: A1
-    trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+**Step 2.** Restart Home Assistant so the templates are loaded.
 
-- type: custom:button-card
-  template: ams_tray_detail
-  variables:
-    tray: ams_1_tray_1
-    trayLabel: AMS 1 · Slot 1
-    trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
-    printWeightKey: AMS 1 Tray 1
-```
+**Step 3.** (Optional) When pasting `lovelace.3d_printing` into the Raw Configuration Editor,
+you can remove the entire `button_card_templates:` block at the bottom of the file — the
+globally-loaded templates will be used instead.
+
+---
+
+### Option B — Inline templates (standalone, no `configuration.yaml` changes)
+
+The `lovelace.3d_printing` file already includes the full inline templates at the bottom
+under `button_card_templates:`. Simply paste the entire file as-is into the Raw
+Configuration Editor — no `configuration.yaml` changes required.
+
+---
 
 ### In Another Dashboard
 
-To reuse these templates in a different dashboard, add the following to that dashboard's
-YAML configuration:
+To reuse these templates in a different dashboard file (not the raw editor), add the
+following to that dashboard's YAML configuration:
 
 ```yaml
 button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
@@ -58,20 +68,6 @@ button_card_templates: !include_dir_merge_named /config/dashboards/card-template
 > **Note:** Use the absolute path from the Home Assistant config root (usually `/config/`).
 > The relative path `card-templates/` only works when the dashboard YAML file is in the
 > same directory as `card-templates/`.
-
-Alternatively, include individual templates:
-
-```yaml
-button_card_templates:
-  ams_tray_label: !include /config/dashboards/card-templates/ams_tray_label.yaml
-  ams_tray_detail: !include /config/dashboards/card-templates/ams_tray_detail.yaml
-  ams_tray_popup: !include /config/dashboards/card-templates/ams_tray_popup.yaml
-```
-
-> **Note:** When using `!include` for individual templates, the file must contain only the
-> template definition body (without the template name key). The current files use the
-> `!include_dir_merge_named` format where each file contains the template name as the
-> top-level key, so use `!include_dir_merge_named` when possible.
 
 ## Template Variables
 
