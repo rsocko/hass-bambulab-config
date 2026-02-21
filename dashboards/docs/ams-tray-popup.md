@@ -23,6 +23,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Spoolman web UI link | "Open in Spoolman" button with Spoolman icon (dashboardicons.com) |
 | Dynamic weight history | `history-graph` auto-scaled from `first_used` date |
 | More Details button | Opens HA entity info dialog |
+| Close button | Closes the popup dialog (mobile-friendly) |
 | Fallback (no spool) | Shows raw tray entity via `entities` card |
 
 ---
@@ -64,8 +65,10 @@ Button labeled **"Open in Spoolman"** that opens `http://spoolman.example.com/sp
 - Falls back to 7 days (168 hours) if `first_used` is not set
 - Title: `Weight History (N days)`
 
-### 7. More Details
-`custom:button-card` that triggers `action: more-info` for `sensor.spoolman_spool_{id}`. Uses `var(--primary-color)` background, icon-on-top layout (consistent with other popup buttons).
+### 7. Bottom Row — More Details & Close
+`custom:layout-card` with `grid-template-columns: 1fr 1fr` containing two `custom:button-card` buttons side-by-side:
+- **More Details** — triggers `action: more-info` for `sensor.spoolman_spool_{id}`; `mdi:information-outline` icon; `var(--primary-color)` background
+- **Close** — fires `browser_mod.close_popup` to dismiss the dialog; `mdi:close-circle-outline` icon; `var(--primary-color)` background; useful on mobile where the standard dismiss gesture may not be available
 
 ---
 
