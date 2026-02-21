@@ -953,7 +953,9 @@ views:
                       action: more-info
                     card_mod:
                       style: >
-                        {% if is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') %}
+                        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+                        {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                        {% if status in ['printing', 'prepare'] or stage == 'printing' %}
                         @keyframes printer-pulse {
                           0%, 100% { opacity: 1; }
                           50% { opacity: 0.5; }
@@ -1081,8 +1083,9 @@ views:
             icon: mdi:layers-triple
             icon_color: >-
               {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% if status in ['printing', 'prepare'] %}blue
-              {% elif status == 'pause' %}orange
+              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+              {% if status in ['printing', 'prepare'] or stage == 'printing' %}blue
+              {% elif status == 'pause' or stage == 'pause' %}orange
               {% else %}grey{% endif %}
             layout: vertical
             tap_action:
@@ -1090,7 +1093,8 @@ views:
             card_mod:
               style: >
                 {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% if status in ['printing', 'prepare'] %}
+                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
                 @keyframes layer-stack {
                   0%, 60%, 100% { transform: translateY(0px); }
                   30% { transform: translateY(-5px); }
@@ -1106,8 +1110,9 @@ views:
             icon: mdi:rotate-right
             icon_color: >-
               {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% if status in ['printing', 'prepare'] %}green
-              {% elif status == 'pause' %}orange
+              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+              {% if status in ['printing', 'prepare'] or stage == 'printing' %}green
+              {% elif status == 'pause' or stage == 'pause' %}orange
               {% else %}grey{% endif %}
             layout: vertical
             tap_action:
@@ -1115,7 +1120,8 @@ views:
             card_mod:
               style: >
                 {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% if status in ['printing', 'prepare'] %}
+                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
                 @keyframes progress-spin {
                   from { transform: rotate(0deg); }
                   to { transform: rotate(360deg); }
@@ -1131,8 +1137,9 @@ views:
             icon: mdi:clock-time-four
             icon_color: >-
               {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% if status in ['printing', 'prepare'] %}orange
-              {% elif status == 'pause' %}amber
+              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+              {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
+              {% elif status == 'pause' or stage == 'pause' %}amber
               {% else %}grey{% endif %}
             layout: vertical
             tap_action:
@@ -1140,7 +1147,8 @@ views:
             card_mod:
               style: >
                 {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% if status in ['printing', 'prepare'] %}
+                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
                 @keyframes clock-spin {
                   from { transform: rotate(0deg); }
                   to { transform: rotate(360deg); }
@@ -1175,9 +1183,10 @@ views:
             icon: mdi:flag-checkered
             icon_color: >-
               {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
               {% if status == 'finish' %}green
-              {% elif status in ['printing', 'prepare'] %}purple
-              {% elif status == 'pause' %}orange
+              {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
+              {% elif status == 'pause' or stage == 'pause' %}orange
               {% else %}grey{% endif %}
             layout: vertical
             tap_action:
@@ -1185,7 +1194,8 @@ views:
             card_mod:
               style: >
                 {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% if status in ['printing', 'prepare'] %}
+                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
                 @keyframes flag-wave {
                   0%, 100% { transform: scale(1) rotate(0deg); }
                   25% { transform: scale(1.08) rotate(-4deg); }
