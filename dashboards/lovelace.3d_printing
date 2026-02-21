@@ -2114,7 +2114,22 @@ button_card_templates:
         const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
         const printWeightText = (printWeight && printWeight > 0) ? printWeight.toFixed(1) + ' g' : 'N/A';
         const printIcon = (remainingWeight !== undefined && printWeight && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';
-        const printIconColor = (remainingWeight !== undefined && printWeight && remainingWeight < printWeight) ? 'red' : ((printWeight && printWeight > 0) ? 'green' : 'grey');
+        let printIconColor = 'grey';
+        if (printWeight && printWeight > 0) {
+          if (remainingWeight !== undefined && remainingWeight !== null) {
+            if (remainingWeight < printWeight) {
+              printIconColor = 'red';
+            } else if (remainingWeight < printWeight * 1.1) {
+              printIconColor = 'orange';
+            } else if (remainingWeight < printWeight * 1.2) {
+              printIconColor = 'yellow';
+            } else {
+              printIconColor = 'green';
+            }
+          } else {
+            printIconColor = 'green';
+          }
+        }
         const nowISO = new Date().toISOString();
         const headerLabel = trayLabel + '  •  Spool #' + spoolId;
         if (!spoolId) {

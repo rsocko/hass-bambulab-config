@@ -171,8 +171,10 @@ Brightness formula (NTSC luminance):
 | State | Icon | Color | Meaning |
 |-------|------|-------|---------|
 | Not printing | `mdi:printer-3d-nozzle` | Grey | No active print |
-| Enough filament | `mdi:printer-3d-nozzle` | Green | Remaining > print required |
-| Not enough | `mdi:printer-3d-nozzle-alert` | Red | Remaining < print required |
+| Sufficient | `mdi:printer-3d-nozzle` | Green | Remaining ≥ print required × 1.2 |
+| Approaching | `mdi:printer-3d-nozzle` | Yellow | Remaining < print required × 1.2 (within 20% buffer) |
+| Close | `mdi:printer-3d-nozzle` | Orange | Remaining < print required × 1.1 (within 10% buffer) |
+| Not enough | `mdi:printer-3d-nozzle-alert` | Red | Remaining < print required — will run out |
 
 ---
 
