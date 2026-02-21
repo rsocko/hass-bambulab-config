@@ -2104,6 +2104,13 @@ button_card_templates:
         const chartBackground = luminance > 128 ? '#2a2a2a' : '#f0f0f0';
         const chartForeColor = luminance > 128 ? '#cccccc' : '#333333';
         const chartTheme = luminance > 128 ? 'dark' : 'light';
+        const xAnnotations = [];
+        const addAnnotation = function(date, color, text) {
+          if (date) xAnnotations.push({ x: new Date(date).getTime(), borderColor: color, label: { text: text, style: { color: '#fff', background: color } } });
+        };
+        addAnnotation(firstUsed, '#4CAF50', 'First Use');
+        addAnnotation(desiccantFilled, '#2196F3', 'Desiccant Filled');
+        addAnnotation(lastDried, '#FF9800', 'Last Dried');
         const desiccantMushColor = { green: 'green', yellow: 'yellow', orange: 'orange', red: 'red' }[status] || 'grey';
         let desiccantText = 'No desiccant data';
         if (desiccantFilled) {
@@ -2484,7 +2491,8 @@ button_card_templates:
                       grid: {
                         padding: { left: 0, right: 8 },
                         row: { colors: ['rgba(128,128,128,0.05)', 'transparent'], opacity: 1 }
-                      }
+                      },
+                      annotations: { xaxis: xAnnotations }
                     }
                   },
                   {
