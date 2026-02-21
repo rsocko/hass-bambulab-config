@@ -28,6 +28,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Bambu Spool UUID | `extra_spool_uuid` attribute — shown as a centered chip card below the header when set (selectable text) |
 | Spoolman web UI link | "Open in Spoolman" button in the bottom row alongside More Details & Close |
 | Dynamic weight history | `history-graph` auto-scaled from `first_used` date |
+| Other spools of same filament | Collapsible section listing all spools sharing the same `filament_id`; each spool is clickable to open a mini-popup with its location and remaining weight |
 | More Details button | Opens HA entity info dialog |
 | Close button | Closes the popup dialog (mobile-friendly) |
 | Fallback (no spool) | Shows raw tray entity via `entities` card |
@@ -84,7 +85,17 @@ Three items in one `horizontal-stack`:
 - Falls back to 7 days (168 hours) if `first_used` is not set
 - Title: `Weight History (N days)`
 
-### 9. Bottom Row — More Details, Open in Spoolman & Close
+### 9. Other Spools of Same Filament (conditional, collapsible)
+Only shown when there are other spools in Spoolman sharing the same `filament_id` as the current spool. Positioned just above the bottom row buttons.
+
+- **Collapsible summary**: A `markdown` card with HTML5 `<details>/<summary>` showing count and text list. Summary shows `📦 N other spool(s) of same filament`; expand to see each spool's name, location, and remaining weight.
+- **Interactive spool cards**: One `custom:button-card` per other spool, showing spool name + 📍 location + remaining weight. Tapping opens a mini-popup for that spool with:
+  - Name header (`mdi:package-variant`)
+  - Location and remaining weight chips
+  - **More Details** button — opens HA entity info dialog for that spool
+  - **Close** button — dismisses the mini-popup
+
+### 10. Bottom Row — More Details, Open in Spoolman & Close
 `custom:layout-card` with `grid-template-columns: 1fr 1fr 1fr` containing three `custom:button-card` buttons side-by-side:
 - **More Details** — triggers `action: more-info` for `sensor.spoolman_spool_{id}`; `mdi:information-outline` icon; `var(--primary-color)` background
 - **Open in Spoolman** — opens `http://spoolman.example.com/spool/show/{id}` in a new tab; Spoolman icon (dashboardicons.com via jsDelivr CDN); `var(--primary-color)` background
@@ -127,6 +138,7 @@ const printWeightKey = 'AMS 1 Tray 1';
 // 3. Compute history duration from first_used
 // 4. Compute desiccant age text + color
 // 5. Compute print weight status / icon
+// 6. Find other spools sharing same filament_id
 
 // --- Return popup action ---
 return {
@@ -281,7 +293,6 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 | Enhancement | Notes |
 |------------|-------|
 | Location dropdown | `input_select` calling `spoolman.patch_spool` to change location in-popup |
-| Related spools | Scan all `sensor.spoolman_spool_*` entities for same material/color |
 | Total inventory | Sum weight across all spools of same material type |
 | Quality/age warnings | Alert when `first_used` > configurable age threshold |
 | Custom notes | Display/edit `extra.notes` field per spool |
