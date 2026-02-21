@@ -2592,11 +2592,14 @@ views:
       card:
         type: markdown
         text_only: true
-        content: >-
-          <img src="https://brands.home-assistant.io/bambu_lab/logo.png"
-          style="height:40px;vertical-align:middle;margin-right:10px;"
-          onerror="this.style.display='none'">
-          **3D Printer:** {{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}
+        content: |
+          <div style="display:flex;justify-content:center;align-items:center;padding:4px 0;">
+            <img src="https://brands.home-assistant.io/bambu_lab/icon.png" style="height:48px;width:48px;margin-right:12px;filter:invert(57%) sepia(75%) saturate(600%) hue-rotate(112deg) brightness(95%) contrast(95%);" onerror="this.style.display='none'">
+            <div style="text-align:left;line-height:1.4;">
+              <div style="font-size:13px;font-weight:500;opacity:0.75;">3D Printer</div>
+              <div style="font-size:18px;font-weight:700;">{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}</div>
+            </div>
+          </div>
   - type: custom:vertical-layout
     path: spool
     icon: fapro:filament-2
