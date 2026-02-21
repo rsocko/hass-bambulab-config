@@ -15,7 +15,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Filament material type | `filament_material` attribute |
 | Vendor / manufacturer | `filament_vendor_name` attribute |
 | Storage location | `location` attribute |
-| Color swatch (auto contrast) | `tray_map.color` → filament name + entity icon + hex/RGB values; auto brightness text contrast |
+| Color swatch (auto contrast) | `tray_map.color` → filament name + entity picture + hex/RGB values (selectable); auto brightness text contrast |
 | Remaining weight | `remaining_weight` attribute |
 | Current print usage | `sensor.ntk_ryansoffice_3dprinter_print_weight` |
 | Desiccant status + age | `extra_desiccant_filled` attribute |
@@ -44,8 +44,8 @@ Three cards side-by-side using `custom:mushroom-template-card`:
 ### 3. Color / Weight / Print Usage (horizontal)
 - **Color swatch** — `custom:button-card` with background in filament color; auto-contrast text (NTSC luminance); centered layout with:
   - Top line: actual filament name from Spoolman (`filament_name` attribute, falls back to material type)
-  - Spoolman entity icon with contrasting circular border/background
-  - Label: hex color code • RGB values
+  - Spool entity picture (28×28px, circular) with contrasting circular border — falls back to entity icon if no entity picture is set
+  - Label: hex color code • RGB values (text is selectable for copy-paste)
 - **Remaining** — current remaining grams
 - **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
 
