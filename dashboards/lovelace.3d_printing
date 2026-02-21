@@ -2594,11 +2594,11 @@ views:
         type: markdown
         text_only: true
         content: |
-          <div style="display:flex;justify-content:center;align-items:center;padding:4px 0;">
-            <img src="https://brands.home-assistant.io/bambu_lab/icon.png" style="height:48px;width:48px;margin-right:12px;filter:invert(57%) sepia(75%) saturate(600%) hue-rotate(112deg) brightness(95%) contrast(95%);" onerror="this.style.display='none'">
-            <div style="text-align:left;line-height:1.4;">
-              <div style="font-size:13px;font-weight:500;opacity:0.75;">3D Printer</div>
-              <div style="font-size:18px;font-weight:700;">{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}</div>
+          <div style="display:flex;align-items:center;padding:4px 0;">
+            <img src="/local/BambuLab-Logo.png" style="width:25%;min-width:40px;max-width:100px;height:auto;margin-right:12px;" onerror="this.style.display='none'">
+            <div style="text-align:right;line-height:1.4;flex:1;">
+              <div style="font-size:11px;font-weight:400;opacity:0.55;">3D Printer</div>
+              <div style="font-size:22px;font-weight:700;">{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}</div>
             </div>
           </div>
   - type: custom:vertical-layout
