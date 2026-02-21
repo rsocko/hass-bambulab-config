@@ -397,7 +397,8 @@ ams_tray_popup:
                       icon: 'mdi:thermometer-lines',
                       icon_color: 'deep-orange',
                       layout: 'vertical',
-                      fill_container: true
+                      fill_container: true,
+                      card_mod: { style: 'mushroom-state-info { overflow: visible !important; } .primary { white-space: normal !important; overflow: visible !important; word-break: break-word; }' }
                     },
                     {
                       type: 'custom:mushroom-template-card',
