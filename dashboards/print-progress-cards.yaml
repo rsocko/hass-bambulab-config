@@ -94,7 +94,7 @@ cards:
       - type: custom:mushroom-template-card
         entity: sensor.YOUR_PRINTER_NAME_print_progress
         primary: Print Progress
-        secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}"
+        secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}%"
         icon: mdi:rotate-right
         icon_color: >-
           {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
@@ -256,7 +256,7 @@ card_mod:
 type: custom:mushroom-template-card
 entity: sensor.YOUR_PRINTER_NAME_print_progress
 primary: Print Progress
-secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}"
+secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}%"
 icon: mdi:rotate-right
 icon_color: >-
   {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
