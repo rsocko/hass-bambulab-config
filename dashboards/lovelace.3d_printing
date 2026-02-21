@@ -913,7 +913,7 @@ views:
                 card_mod:
                   style: |
                     ha-card {
-                      background: #e0e0e0 !important;
+                      background: rgba(255, 255, 255, 0.15) !important;
                       border-radius: 8px !important;
                       padding: 8px !important;
                       overflow: hidden;
@@ -921,7 +921,7 @@ views:
                     img {
                       object-fit: contain !important;
                       border-radius: 4px !important;
-                      background: #e0e0e0 !important;
+                      background: rgba(255, 255, 255, 0.15) !important;
                     }
               - type: vertical-stack
                 cards:
