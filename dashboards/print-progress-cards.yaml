@@ -1,0 +1,349 @@
+# Bambu Lab Print Progress Cards
+#
+# Four cards showing print progress with animated icons:
+#   Row 1 (horizontal): Layer Progress | Print Progress
+#   Row 2 (horizontal): Time Remaining | Est. Completion
+#
+# Animations are active only when the printer is actively printing or preparing.
+# When paused, idle, finished, or failed the icons are static.
+#
+# Icon animations:
+#   Layer Progress  - layers bounce upward, simulating layers piling up
+#   Print Progress  - icon spins, indicating active progress
+#   Time Remaining  - clock rotates, like spinning clock hands
+#   Est. Completion - flag waves gently; turns solid green when the print finishes
+#
+# Estimated Completion smart time format:
+#   Same day      → "4:32 PM"
+#   Next day      → "4:32 PM tomorrow"
+#   Within a week → "4:32 PM on Wednesday"
+#   Farther away  → "4:32 PM on 4/12/26"
+#
+# INSTALLATION:
+#   1. Replace every occurrence of YOUR_PRINTER_NAME with your actual printer
+#      entity prefix (e.g. ntk_ryansoffice_3dprinter).
+#      Use Find & Replace — each card block contains multiple instances.
+#   2. Paste the vertical-stack block below into your Home Assistant dashboard
+#      (Dashboard → Edit → ⋮ → Raw configuration editor).
+#   3. Ensure the following custom cards are installed from HACS:
+#        - mushroom    (required)
+#        - card-mod    (required for animations)
+#
+# REQUIRED ENTITIES:
+#   sensor.YOUR_PRINTER_NAME_print_status          (e.g. printing / pause / idle)
+#   sensor.YOUR_PRINTER_NAME_print_progress        (0–100 % value)
+#   sensor.YOUR_PRINTER_NAME_end_time              (datetime of estimated completion)
+#   sensor.print_layer_progress_formatted          (custom template — see note below)
+#   sensor.print_time_remaining_formatted          (custom template — see note below)
+#
+# NOTE: sensor.print_layer_progress_formatted and sensor.print_time_remaining_formatted
+# are custom Home Assistant template sensors that format the raw layer count and
+# remaining-time values from the Bambu Lab integration into human-readable strings.
+# If you do not already have these, you can substitute:
+#   sensor.YOUR_PRINTER_NAME_current_layer_num     for layer progress
+#   sensor.YOUR_PRINTER_NAME_remaining_time        for time remaining
+# and adjust the secondary template accordingly.
+
+# =============================================================================
+# FULL 2×2 GRID (RECOMMENDED — all four cards in a single vertical-stack)
+# =============================================================================
+type: vertical-stack
+cards:
+  # ---------------------------------------------------------------------------
+  # ROW 1: Layer Progress + Print Progress
+  # ---------------------------------------------------------------------------
+  - type: horizontal-stack
+    cards:
+
+      # -----------------------------------------------------------------------
+      # LAYER PROGRESS CARD
+      # Icon bounces upward while printing, simulating layers piling up.
+      # -----------------------------------------------------------------------
+      - type: custom:mushroom-template-card
+        entity: sensor.print_layer_progress_formatted
+        primary: Layer Progress
+        secondary: "{{ states('sensor.print_layer_progress_formatted') }}"
+        icon: mdi:layers-triple
+        icon_color: >-
+          {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% if status in ['printing', 'prepare'] %}blue
+          {% elif status == 'pause' %}orange
+          {% else %}grey{% endif %}
+        layout: vertical
+        tap_action:
+          action: more-info
+        card_mod:
+          style: >
+            {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+            {% if status in ['printing', 'prepare'] %}
+            @keyframes layer-stack {
+              0%, 60%, 100% { transform: translateY(0px); }
+              30% { transform: translateY(-5px); }
+            }
+            mushroom-shape-icon { animation: layer-stack 1.8s ease-in-out infinite; }
+            {% endif %}
+            .primary { font-size: 18px !important; font-weight: 600; }
+            .secondary { font-size: 22px !important; font-weight: 700; }
+
+      # -----------------------------------------------------------------------
+      # PRINT PROGRESS CARD
+      # Icon spins continuously while printing.
+      # -----------------------------------------------------------------------
+      - type: custom:mushroom-template-card
+        entity: sensor.YOUR_PRINTER_NAME_print_progress
+        primary: Print Progress
+        secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}"
+        icon: mdi:rotate-right
+        icon_color: >-
+          {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% if status in ['printing', 'prepare'] %}green
+          {% elif status == 'pause' %}orange
+          {% else %}grey{% endif %}
+        layout: vertical
+        tap_action:
+          action: more-info
+        card_mod:
+          style: >
+            {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+            {% if status in ['printing', 'prepare'] %}
+            @keyframes progress-spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            mushroom-shape-icon { animation: progress-spin 3s linear infinite; }
+            {% endif %}
+            .primary { font-size: 18px !important; font-weight: 600; }
+            .secondary { font-size: 22px !important; font-weight: 700; }
+
+  # ---------------------------------------------------------------------------
+  # ROW 2: Time Remaining + Estimated Completion
+  # ---------------------------------------------------------------------------
+  - type: horizontal-stack
+    cards:
+
+      # -----------------------------------------------------------------------
+      # TIME REMAINING CARD
+      # Clock icon rotates while printing, simulating spinning clock hands.
+      # -----------------------------------------------------------------------
+      - type: custom:mushroom-template-card
+        entity: sensor.print_time_remaining_formatted
+        primary: Time Remaining
+        secondary: "{{ states('sensor.print_time_remaining_formatted') }}"
+        icon: mdi:clock-time-four
+        icon_color: >-
+          {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% if status in ['printing', 'prepare'] %}orange
+          {% elif status == 'pause' %}amber
+          {% else %}grey{% endif %}
+        layout: vertical
+        tap_action:
+          action: more-info
+        card_mod:
+          style: >
+            {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+            {% if status in ['printing', 'prepare'] %}
+            @keyframes clock-spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            mushroom-shape-icon { animation: clock-spin 4s linear infinite; }
+            {% endif %}
+            .primary { font-size: 18px !important; font-weight: 600; }
+            .secondary { font-size: 22px !important; font-weight: 700; }
+
+      # -----------------------------------------------------------------------
+      # ESTIMATED COMPLETION CARD
+      # Displays a smart human-readable completion time:
+      #   Same day      → "4:32 PM"
+      #   Next day      → "4:32 PM tomorrow"
+      #   Within a week → "4:32 PM on Wednesday"
+      #   Farther away  → "4:32 PM on 4/12/26"
+      # Flag waves gently while printing; turns green when finished.
+      # -----------------------------------------------------------------------
+      - type: custom:mushroom-template-card
+        entity: sensor.YOUR_PRINTER_NAME_end_time
+        primary: Est. Completion
+        secondary: >-
+          {% set state = states('sensor.YOUR_PRINTER_NAME_end_time') %}
+          {% if state not in ['unavailable', 'unknown'] and state is not none and state != '' %}
+            {% set end_ts = as_timestamp(state) | int(0) %}
+            {% set now_ts = as_timestamp(now()) | int(0) %}
+            {% if end_ts > 0 %}
+              {% set time_str = end_ts | timestamp_custom('%-I:%M %p', true) %}
+              {% set end_date = end_ts | timestamp_custom('%Y-%m-%d', true) %}
+              {% set today    = now_ts | timestamp_custom('%Y-%m-%d', true) %}
+              {% set tomorrow = (now_ts + 86400) | timestamp_custom('%Y-%m-%d', true) %}
+              {% set days_diff = ((end_ts - now_ts) / 86400) | int(0) %}
+              {% if end_date == today %}{{ time_str }}
+              {% elif end_date == tomorrow %}{{ time_str }} tomorrow
+              {% elif days_diff < 7 %}{{ time_str }} on {{ end_ts | timestamp_custom('%A', true) }}
+              {% else %}{{ time_str }} on {{ end_ts | timestamp_custom('%-m/%-d/%y', true) }}
+              {% endif %}
+            {% else %}N/A
+            {% endif %}
+          {% else %}N/A
+          {% endif %}
+        icon: mdi:flag-checkered
+        icon_color: >-
+          {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% if status == 'finish' %}green
+          {% elif status in ['printing', 'prepare'] %}purple
+          {% elif status == 'pause' %}orange
+          {% else %}grey{% endif %}
+        layout: vertical
+        tap_action:
+          action: more-info
+        card_mod:
+          style: >
+            {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+            {% if status in ['printing', 'prepare'] %}
+            @keyframes flag-wave {
+              0%, 100% { transform: scale(1) rotate(0deg); }
+              25% { transform: scale(1.08) rotate(-4deg); }
+              75% { transform: scale(1.08) rotate(4deg); }
+            }
+            mushroom-shape-icon { animation: flag-wave 2s ease-in-out infinite; }
+            {% endif %}
+            .primary { font-size: 18px !important; font-weight: 600; }
+            .secondary { font-size: 22px !important; font-weight: 700; }
+
+---
+
+# =============================================================================
+# INDIVIDUAL CARDS (if you prefer to place each card separately)
+# =============================================================================
+
+# LAYER PROGRESS — individual card
+type: custom:mushroom-template-card
+entity: sensor.print_layer_progress_formatted
+primary: Layer Progress
+secondary: "{{ states('sensor.print_layer_progress_formatted') }}"
+icon: mdi:layers-triple
+icon_color: >-
+  {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+  {% if status in ['printing', 'prepare'] %}blue
+  {% elif status == 'pause' %}orange
+  {% else %}grey{% endif %}
+layout: vertical
+tap_action:
+  action: more-info
+card_mod:
+  style: >
+    {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+    {% if status in ['printing', 'prepare'] %}
+    @keyframes layer-stack {
+      0%, 60%, 100% { transform: translateY(0px); }
+      30% { transform: translateY(-5px); }
+    }
+    mushroom-shape-icon { animation: layer-stack 1.8s ease-in-out infinite; }
+    {% endif %}
+    .primary { font-size: 18px !important; font-weight: 600; }
+    .secondary { font-size: 22px !important; font-weight: 700; }
+
+---
+
+# PRINT PROGRESS — individual card
+type: custom:mushroom-template-card
+entity: sensor.YOUR_PRINTER_NAME_print_progress
+primary: Print Progress
+secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}"
+icon: mdi:rotate-right
+icon_color: >-
+  {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+  {% if status in ['printing', 'prepare'] %}green
+  {% elif status == 'pause' %}orange
+  {% else %}grey{% endif %}
+layout: vertical
+tap_action:
+  action: more-info
+card_mod:
+  style: >
+    {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+    {% if status in ['printing', 'prepare'] %}
+    @keyframes progress-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    mushroom-shape-icon { animation: progress-spin 3s linear infinite; }
+    {% endif %}
+    .primary { font-size: 18px !important; font-weight: 600; }
+    .secondary { font-size: 22px !important; font-weight: 700; }
+
+---
+
+# TIME REMAINING — individual card
+type: custom:mushroom-template-card
+entity: sensor.print_time_remaining_formatted
+primary: Time Remaining
+secondary: "{{ states('sensor.print_time_remaining_formatted') }}"
+icon: mdi:clock-time-four
+icon_color: >-
+  {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+  {% if status in ['printing', 'prepare'] %}orange
+  {% elif status == 'pause' %}amber
+  {% else %}grey{% endif %}
+layout: vertical
+tap_action:
+  action: more-info
+card_mod:
+  style: >
+    {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+    {% if status in ['printing', 'prepare'] %}
+    @keyframes clock-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    mushroom-shape-icon { animation: clock-spin 4s linear infinite; }
+    {% endif %}
+    .primary { font-size: 18px !important; font-weight: 600; }
+    .secondary { font-size: 22px !important; font-weight: 700; }
+
+---
+
+# ESTIMATED COMPLETION — individual card
+type: custom:mushroom-template-card
+entity: sensor.YOUR_PRINTER_NAME_end_time
+primary: Est. Completion
+secondary: >-
+  {% set state = states('sensor.YOUR_PRINTER_NAME_end_time') %}
+  {% if state not in ['unavailable', 'unknown'] and state is not none and state != '' %}
+    {% set end_ts = as_timestamp(state) | int(0) %}
+    {% set now_ts = as_timestamp(now()) | int(0) %}
+    {% if end_ts > 0 %}
+      {% set time_str = end_ts | timestamp_custom('%-I:%M %p', true) %}
+      {% set end_date = end_ts | timestamp_custom('%Y-%m-%d', true) %}
+      {% set today    = now_ts | timestamp_custom('%Y-%m-%d', true) %}
+      {% set tomorrow = (now_ts + 86400) | timestamp_custom('%Y-%m-%d', true) %}
+      {% set days_diff = ((end_ts - now_ts) / 86400) | int(0) %}
+      {% if end_date == today %}{{ time_str }}
+      {% elif end_date == tomorrow %}{{ time_str }} tomorrow
+      {% elif days_diff < 7 %}{{ time_str }} on {{ end_ts | timestamp_custom('%A', true) }}
+      {% else %}{{ time_str }} on {{ end_ts | timestamp_custom('%-m/%-d/%y', true) }}
+      {% endif %}
+    {% else %}N/A
+    {% endif %}
+  {% else %}N/A
+  {% endif %}
+icon: mdi:flag-checkered
+icon_color: >-
+  {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+  {% if status == 'finish' %}green
+  {% elif status in ['printing', 'prepare'] %}purple
+  {% elif status == 'pause' %}orange
+  {% else %}grey{% endif %}
+layout: vertical
+tap_action:
+  action: more-info
+card_mod:
+  style: >
+    {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+    {% if status in ['printing', 'prepare'] %}
+    @keyframes flag-wave {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.08) rotate(-4deg); }
+      75% { transform: scale(1.08) rotate(4deg); }
+    }
+    mushroom-shape-icon { animation: flag-wave 2s ease-in-out infinite; }
+    {% endif %}
+    .primary { font-size: 18px !important; font-weight: 600; }
+    .secondary { font-size: 22px !important; font-weight: 700; }
