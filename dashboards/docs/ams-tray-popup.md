@@ -25,7 +25,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Last dried date | `extra_last_dried` attribute |
 | Desiccant status + age | `extra_desiccant_filled` attribute |
 | Mark as Refilled button | `spoolman.patch_spool` service call; combined row with desiccant info |
-| Bambu Spool UUID | `extra_spool_uuid` attribute — shown in header when set (selectable text) |
+| Bambu Spool UUID | `extra_spool_uuid` attribute — shown as a centered chip card below the header when set (selectable text) |
 | Spoolman web UI link | "Open in Spoolman" button in the bottom row alongside More Details & Close |
 | Dynamic weight history | `history-graph` auto-scaled from `first_used` date |
 | More Details button | Opens HA entity info dialog |
@@ -39,45 +39,52 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 ### 1. Header
 - Spool friendly name
 - Tray slot label + Spool ID
-- **Bambu Spool UUID** (only when `extra_spool_uuid` is set) — shown as a second label line; text is selectable for copy-paste
 - Background tinted with filament color (15% opacity)
 - Left border accent in filament color
 
-### 2. Material / Vendor / Location (chips row)
-Single `custom:mushroom-chips-card` with three compact template chips:
+### 2. UUID Chip (conditional)
+Single `custom:mushroom-chips-card` with `alignment: 'center'`; only shown when `extra_spool_uuid` is set:
+- **UUID** — `mdi:identifier` grey — Bambu spool UUID from `extra_spool_uuid`; text is selectable for copy-paste
+
+### 3. Material / Vendor / Location (chips row, centered)
+Single `custom:mushroom-chips-card` with `alignment: 'center'` and three compact template chips:
 - **Material** — `mdi:texture-box` orange — filament type (PLA, PETG, ABS…)
 - **Vendor** — `mdi:factory` purple — brand name
 - **Location** — `mdi:map-marker` blue — spool storage location
 
-### 3. Base Color / Color Family / Attributes (chips row)
-Single `custom:mushroom-chips-card` with three compact template chips:
-- **Base Color** — `mdi:circle` in the filament color — human-readable color name (e.g. Base: Blue) from `filament_extra_base_color`
-- **Color Family** — `mdi:palette-swatch-variant` indigo — color group (e.g. Family: Blacks & Whites) from `filament_extra_color_family`
+### 4. Color Family / Primary Color / Attributes (chips row, centered)
+Single `custom:mushroom-chips-card` with `alignment: 'center'` and three compact template chips:
+- **Color Family** — `mdi:palette-swatch-variant` indigo — color group (e.g. Color Family: Blacks & Whites) from `filament_extra_color_family`
+- **Primary Color** — `mdi:circle` in the filament color — human-readable color name (e.g. Primary Color: Blue) from `filament_extra_base_color`
 - **Attributes** — `mdi:tag-multiple` green — filament finish/type tags (e.g. Matte, Metallic, Silk) from `filament_extra_type_details`; JSON array is parsed to comma-separated values; shows `N/A` when not set
 
-### 4. Color / Weight / Print Usage (horizontal)
-- **Color swatch** — `custom:button-card` with background in filament color; auto-contrast text (NTSC luminance); centered layout with:
-  - Top line: actual filament name from Spoolman (`filament_name` attribute, falls back to material type)
-  - Spool entity picture (28×28px, circular) with contrasting circular border — falls back to entity icon if no entity picture is set
-  - Label: hex color code • RGB values (text is selectable for copy-paste)
-- **Remaining** — current remaining grams for this spool
-- **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
+### 5. Color Swatch (full-width, single row)
+`custom:button-card` spanning full popup width with icon on the left and text towards the right:
+- **Left**: Spool entity picture (40×40px, circular) with contrasting circular border — falls back to entity icon if no entity picture is set
+- **Right top**: actual filament name from Spoolman (`filament_name` attribute, falls back to material type)
+- **Right bottom**: hex color code • RGB values (text is selectable for copy-paste)
+- Background is the filament color with auto-contrast text (NTSC luminance)
 
-### 5. Total Weight / Last Dried / Desiccant / Mark as Refilled (horizontal)
-Four items in one `horizontal-stack`:
+### 6. Remaining / This Print / Total Weight (horizontal)
+Three items in one `horizontal-stack`:
+- **Remaining** — `mdi:weight-gram` teal — current remaining grams for this spool
+- **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
 - **Total (all spools)** — `mdi:archive-multiple` cyan — total remaining weight across all spools sharing the same `filament_id` in Spoolman, with spool count (e.g. `1052.4 g (4 spools)`)
+
+### 7. Last Dried / Desiccant / Mark as Refilled (horizontal)
+Three items in one `horizontal-stack`:
 - **Last Dried** — `mdi:thermometer-lines` deep-orange — date when spool was last dried from `extra_last_dried`; shows `Never` if not set
 - **Desiccant** — `mdi:water` / `mdi:water-off` color-coded — desiccant age text (e.g. "18 days ago"); mushroom-template-card with named color from status
 - **Mark as Refilled** — `custom:button-card` (`mdi:water-plus`) — calls `spoolman.patch_spool` with `extra.desiccant_filled = new Date().toISOString()`; primary-color background
 
-### 6. Weight History Chart
+### 8. Weight History Chart
 `history-graph` card:
 - `hours_to_show` is dynamically calculated from the `first_used` attribute
 - Shows full history since spool was first used (minimum 24 hours)
 - Falls back to 7 days (168 hours) if `first_used` is not set
 - Title: `Weight History (N days)`
 
-### 7. Bottom Row — More Details, Open in Spoolman & Close
+### 9. Bottom Row — More Details, Open in Spoolman & Close
 `custom:layout-card` with `grid-template-columns: 1fr 1fr 1fr` containing three `custom:button-card` buttons side-by-side:
 - **More Details** — triggers `action: more-info` for `sensor.spoolman_spool_{id}`; `mdi:information-outline` icon; `var(--primary-color)` background
 - **Open in Spoolman** — opens `http://spoolman.example.com/spool/show/{id}` in a new tab; Spoolman icon (dashboardicons.com via jsDelivr CDN); `var(--primary-color)` background
