@@ -54,8 +54,8 @@ ams_tray_detail:
         
         if (!spoolId) return '';
         
-        const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
-        const weight = spoolentity?.attributes?.remaining_weight;
+        const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+        const weight = spoolEntity?.attributes?.remaining_weight;
         
         if (weight === undefined || weight === null) return '';
         
@@ -77,8 +77,8 @@ ams_tray_detail:
         if (!printWeight || printWeight === 0) return '';
 
         // Get remaining weight for color coding
-        const spoolentity = states[`sensor.spoolman_spool_${spoolId}`];
-        const remainingWeight = spoolentity?.attributes?.remaining_weight;
+        const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+        const remainingWeight = spoolEntity?.attributes?.remaining_weight;
 
         // Determine color based on remaining vs print weight
         let color = '#888'; // default

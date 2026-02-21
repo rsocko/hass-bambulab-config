@@ -1,51 +1,39 @@
-# ams_tray_slot — Declutter-Card Template
+# ams_tray_slot — Declutter-Card Template (Inline / No configuration.yaml Required)
 #
-# This file documents the declutter-card template that wraps ams_tray_label +
-# ams_tray_detail into a single, reusable slot card. Copy the decluttercard: block
-# below into any dashboard YAML that needs AMS tray slot cards.
+# This file documents the declutter-card template that provides full AMS tray slot cards
+# (label + detail + spool popup) without any entry in configuration.yaml.
+#
+# How it works
+# ------------
+# The declutter-card template (defined in the dashboard YAML decluttercard: section) embeds
+# the complete card definitions inline. No button_card_templates global loading is needed.
+# declutter-card handles variable substitution; button-card handles card rendering.
+#
+# The three card-template files in this directory document the individual card components
+# that are embedded in the decluttercard: block:
+#   ams_tray_label.yaml  — label card definition (slot name + active highlight)
+#   ams_tray_detail.yaml — detail card definition (filament name, weight, desiccant)
+#   ams_tray_popup.yaml  — popup tap_action definition (merged into detail card)
 #
 # Prerequisites
 # -------------
-# 1. button-card templates must be loaded globally via configuration.yaml:
-#      button_card_templates: !include_dir_merge_named dashboards/card-templates/
-#    (ams_tray_label, ams_tray_detail, and ams_tray_popup are used by this template)
+# Install via HACS → Frontend:
+#   - declutter-card  (provides custom:declutter-card)
+#   - button-card     (provides custom:button-card — used inside the template)
+#   - browser-mod     (required for the spool info popup)
+# No changes to configuration.yaml are required.
 #
-# 2. declutter-card must be installed via HACS → Frontend.
-#
-# Usage
+# Setup
 # -----
-# Step 1. Copy the decluttercard: block below to the top of your dashboard YAML
-#         (before the "views:" key):
+# Step 1. Copy the entire decluttercard: block from lovelace.3d_printing (everything
+#         from "decluttercard:" down to but NOT including "views:") and paste it at
+#         the top of your dashboard YAML, before the "views:" key.
 #
-#   decluttercard:
-#     # The YAML anchor (&ams_tray_slot) is required: declutter-card uses it as the
-#     # template name. "template: ams_tray_slot" in each card maps to this anchor.
-#     - &ams_tray_slot
-#       default:
-#         - trayName: Unknown
-#         - trayEntityId: ""
-#         - tray: ""
-#         - trayLabel: ""
-#         - printWeightKey: ""
-#       card:
-#         type: vertical-stack
-#         card_mod:
-#           style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-#         cards:
-#           - type: custom:button-card
-#             template: ams_tray_label
-#             variables:
-#               trayName: "[[trayName]]"
-#               trayEntityId: "[[trayEntityId]]"
-#           - type: custom:button-card
-#             template: ams_tray_detail
-#             variables:
-#               tray: "[[tray]]"
-#               trayLabel: "[[trayLabel]]"
-#               trayEntityId: "[[trayEntityId]]"
-#               printWeightKey: "[[printWeightKey]]"
+#         The block is large (~770 lines) because it embeds the full button-card
+#         definitions inline. This is intentional — it makes the template self-contained
+#         and requires no external files or configuration.yaml changes.
 #
-# Step 2. Use the template in your dashboard:
+# Step 2. Use the template in your dashboard with custom:declutter-card:
 #
 #   - type: custom:declutter-card
 #     template: ams_tray_slot
@@ -55,6 +43,14 @@
 #       - tray: ams_1_tray_1
 #       - trayLabel: AMS 1 · Slot 1
 #       - printWeightKey: AMS 1 Tray 1
+#
+# Cross-Dashboard Reuse
+# ---------------------
+# Because the decluttercard: block is self-contained (no external dependencies), adding
+# AMS tray cards to a second dashboard only requires:
+#   1. Copy the decluttercard: block to the top of the new dashboard YAML.
+#   2. Use custom:declutter-card with just the variables — all card logic is already embedded.
+# No configuration.yaml changes, no file copies, no HA restart needed for the templates.
 #
 # Variables
 # ---------
@@ -67,3 +63,11 @@
 #                 (e.g. "AMS 1 · Slot 1", "External Spool")
 # printWeightKey  Attribute key in sensor.ntk_ryansoffice_3dprinter_print_weight
 #                 (e.g. "AMS 1 Tray 1", "AMS 2 Tray 3", "External")
+#
+# Sensor References (update to match your setup)
+# -----------------------------------------------
+# Inside the embedded card definitions, update these references as needed:
+#   sensor.spoolman_tray_map            — Spoolman tray-to-spool mapping sensor
+#   sensor.spoolman_filament_totals     — Filament weight totals sensor
+#   sensor.ntk_ryansoffice_3dprinter_print_weight  — Active print weight sensor
+#   SPOOLMAN_BASE_URL                   — Base URL for Spoolman web UI (in tap_action JS)
