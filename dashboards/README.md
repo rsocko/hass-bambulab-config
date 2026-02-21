@@ -71,12 +71,13 @@ The dashboard uses several custom cards that must be installed via HACS:
 5. **mushroom** - Minimalist cards for sensors
 6. **advanced-camera-card** - Enhanced camera viewing
 7. **config-template-card** - Dynamic card templates
-8. **button-card** - Customizable button cards
-9. **auto-entities** - Dynamic entity lists
-10. **vertical-layout** - Layout control
-11. **grid-layout** - Grid layout control
-12. **card-mod** (optional) - Custom styling
-13. **browser-mod** - Required for AMS tray popup dialogs
+8. **button-card** - Customizable button cards (also provides the global `button_card_templates` configuration key)
+9. **declutter-card** - Reusable card structure templates (used for the `ams_tray_slot` template that wraps AMS tray cards)
+10. **auto-entities** - Dynamic entity lists
+11. **vertical-layout** - Layout control
+12. **grid-layout** - Grid layout control
+13. **card-mod** (optional) - Custom styling
+14. **browser-mod** - Required for AMS tray popup dialogs
 
 ## Installation
 
@@ -90,7 +91,8 @@ The dashboard uses several custom cards that must be installed via HACS:
        └── card-templates/
            ├── ams_tray_label.yaml
            ├── ams_tray_detail.yaml
-           └── ams_tray_popup.yaml
+           ├── ams_tray_popup.yaml
+           └── ams_tray_slot.yaml
    ```
 3. Add the following to your `configuration.yaml` **at the root level** (not nested under
    another key):
@@ -125,7 +127,26 @@ making them available to **all** dashboards including UI-managed ones.
 
 `ams_tray_detail` inherits its `tap_action` from `ams_tray_popup` via template inheritance. To modify the popup appearance or behavior, edit only `ams_tray_popup.yaml`. To modify the card appearance, edit `ams_tray_detail.yaml`.
 
-See [card-templates/README.md](card-templates/README.md) for full variable reference and instructions for reusing these templates in other dashboards.
+### Declutter-Card Template
+
+The `ams_tray_slot` declutter-card template (documented in
+[`card-templates/ams_tray_slot.yaml`](card-templates/ams_tray_slot.yaml)) wraps the two
+`custom:button-card` calls into a single, concise card reference. It is defined once at the
+top of each dashboard YAML (in a `decluttercard:` block before `views:`) and then referenced
+with `type: custom:declutter-card` wherever an AMS slot card is needed.
+
+**Why both layers?**
+
+- **`button_card_templates`** (global, `configuration.yaml`) — single source of truth for all
+  card logic, styling, and popup behaviour. Defined once; available to every dashboard without
+  any per-dashboard YAML.
+- **`decluttercard`** (per-dashboard `decluttercard:` block) — defines the card *structure*
+  (the `vertical-stack` that wraps label + detail) once per dashboard. Because it only
+  references button-card template *names* (which are already global), the block is small and
+  easy to copy into any new dashboard.
+
+See [card-templates/README.md](card-templates/README.md) for the full template definition,
+variable reference, and cross-dashboard usage instructions.
 
 ## Configuration
 
@@ -207,7 +228,7 @@ This error appears when Home Assistant has not loaded `button_card_templates` fr
    to clear any cached dashboard state.
 
 ### Cards Not Appearing
-1. Verify all custom cards are installed
+1. Verify all custom cards are installed (including **declutter-card** via HACS)
 2. Check browser console for errors
 3. Verify entity names match your configuration
 4. Clear browser cache and hard reload

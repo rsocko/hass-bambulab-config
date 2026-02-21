@@ -6,17 +6,49 @@
 # Button-card templates are loaded globally via configuration.yaml:
 #   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
 #
-# Template names:
+# Template names (globally available — no per-dashboard definition needed):
 #   ams_tray_label  - AMS slot label card (A1, A2, B1, etc.)
 #   ams_tray_detail - Full tray info card (references ams_tray_popup)
 #   ams_tray_popup  - Popup dialog with spool details (tap_action logic)
 #
-# See card-templates/README.md for full variable reference.
+# Declutter-card template defined below (decluttercard: section):
+#   ams_tray_slot   - Wraps ams_tray_label + ams_tray_detail into a single reusable slot card.
+#                     Copy the decluttercard: block into any dashboard to reuse.
+#
+# See card-templates/README.md for full variable reference and cross-dashboard usage.
 #
 # Update entity names in this file to match your Bambu Lab printer:
 #   sensor.ntk_ryansoffice_3dprinter_* → sensor.YOUR_PRINTER_NAME_*
 #   sensor.p1s_01p00c460102350_*       → sensor.YOUR_PRINTER_ID_*
 #
+decluttercard:
+  # The YAML anchor (&ams_tray_slot) is required by declutter-card: it is the template
+  # name referenced by "template: ams_tray_slot" in each custom:declutter-card card below.
+  - &ams_tray_slot
+    default:
+      - trayName: Unknown
+      - trayEntityId: ""
+      - tray: ""
+      - trayLabel: ""
+      - printWeightKey: ""
+    card:
+      type: vertical-stack
+      card_mod:
+        style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+      cards:
+        - type: custom:button-card
+          template: ams_tray_label
+          variables:
+            trayName: "[[trayName]]"
+            trayEntityId: "[[trayEntityId]]"
+        - type: custom:button-card
+          template: ams_tray_detail
+          variables:
+            tray: "[[tray]]"
+            trayLabel: "[[trayLabel]]"
+            trayEntityId: "[[trayEntityId]]"
+            printWeightKey: "[[printWeightKey]]"
+
 views:
   - title: Home
     sections:
@@ -681,70 +713,38 @@ views:
             custom_temperature: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
           - type: horizontal-stack
             cards:
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: A1
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_1_tray_1
-                      trayLabel: AMS 1 · Slot 1
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
-                      printWeightKey: AMS 1 Tray 1
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: A2
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_1_tray_2
-                      trayLabel: AMS 1 · Slot 2
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
-                      printWeightKey: AMS 1 Tray 2
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: A3
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_1_tray_3
-                      trayLabel: AMS 1 · Slot 3
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
-                      printWeightKey: AMS 1 Tray 3
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: A4
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_1_tray_4
-                      trayLabel: AMS 1 · Slot 4
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
-                      printWeightKey: AMS 1 Tray 4
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: A1
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
+                  - tray: ams_1_tray_1
+                  - trayLabel: AMS 1 · Slot 1
+                  - printWeightKey: AMS 1 Tray 1
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: A2
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
+                  - tray: ams_1_tray_2
+                  - trayLabel: AMS 1 · Slot 2
+                  - printWeightKey: AMS 1 Tray 2
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: A3
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
+                  - tray: ams_1_tray_3
+                  - trayLabel: AMS 1 · Slot 3
+                  - printWeightKey: AMS 1 Tray 3
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: A4
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
+                  - tray: ams_1_tray_4
+                  - trayLabel: AMS 1 · Slot 4
+                  - printWeightKey: AMS 1 Tray 4
           - type: custom:ha-bambulab-ams-card
             entity: ''
             header: ''
@@ -759,70 +759,38 @@ views:
             spool_anim_wiggle: true
           - type: horizontal-stack
             cards:
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: B1
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_2_tray_1
-                      trayLabel: AMS 2 · Slot 1
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
-                      printWeightKey: AMS 2 Tray 1
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: B2
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_2_tray_2
-                      trayLabel: AMS 2 · Slot 2
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
-                      printWeightKey: AMS 2 Tray 2
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: B3
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_2_tray_3
-                      trayLabel: AMS 2 · Slot 3
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
-                      printWeightKey: AMS 2 Tray 3
-              - type: vertical-stack
-                card_mod:
-                  style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                cards:
-                  - type: custom:button-card
-                    template: ams_tray_label
-                    variables:
-                      trayName: B4
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
-                  - type: custom:button-card
-                    template: ams_tray_detail
-                    variables:
-                      tray: ams_2_tray_4
-                      trayLabel: AMS 2 · Slot 4
-                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
-                      printWeightKey: AMS 2 Tray 4
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: B1
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
+                  - tray: ams_2_tray_1
+                  - trayLabel: AMS 2 · Slot 1
+                  - printWeightKey: AMS 2 Tray 1
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: B2
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
+                  - tray: ams_2_tray_2
+                  - trayLabel: AMS 2 · Slot 2
+                  - printWeightKey: AMS 2 Tray 2
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: B3
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
+                  - tray: ams_2_tray_3
+                  - trayLabel: AMS 2 · Slot 3
+                  - printWeightKey: AMS 2 Tray 3
+              - type: custom:declutter-card
+                template: ams_tray_slot
+                variables:
+                  - trayName: B4
+                  - trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
+                  - tray: ams_2_tray_4
+                  - trayLabel: AMS 2 · Slot 4
+                  - printWeightKey: AMS 2 Tray 4
           - type: horizontal-stack
             cards:
               - type: vertical-stack
@@ -837,22 +805,14 @@ views:
                     tray: 1
                   - type: horizontal-stack
                     cards:
-                      - type: vertical-stack
-                        card_mod:
-                          style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
-                        cards:
-                          - type: custom:button-card
-                            template: ams_tray_label
-                            variables:
-                              trayName: External
-                              trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
-                          - type: custom:button-card
-                            template: ams_tray_detail
-                            variables:
-                              tray: external_spool
-                              trayLabel: External Spool
-                              trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
-                              printWeightKey: External
+                      - type: custom:declutter-card
+                        template: ams_tray_slot
+                        variables:
+                          - trayName: External
+                          - trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
+                          - tray: external_spool
+                          - trayLabel: External Spool
+                          - printWeightKey: External
                     grid_options:
                       columns: 3
                       rows: 1

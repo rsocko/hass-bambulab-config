@@ -11,6 +11,7 @@ Home Assistant Lovelace dashboard.
 | `ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) — shows the tray name with active-spool highlight |
 | `ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — displays filament name, desiccant status, remaining weight, and print weight |
 | `ams_tray_popup.yaml` | `ams_tray_popup` | Tap-action popup — opens a detailed spool info dialog (inherited by `ams_tray_detail`) |
+| `ams_tray_slot.yaml` | *(declutter template reference)* | Documents the `ams_tray_slot` declutter-card template that wraps `ams_tray_label` + `ams_tray_detail` for use across multiple dashboards |
 
 ### Template Inheritance
 
@@ -33,7 +34,8 @@ Home Assistant config directory so the layout looks like this:
     └── card-templates/
         ├── ams_tray_label.yaml
         ├── ams_tray_detail.yaml
-        └── ams_tray_popup.yaml
+        ├── ams_tray_popup.yaml
+        └── ams_tray_slot.yaml
 ```
 
 **Step 2.** Add the following to your `configuration.yaml`:
@@ -44,6 +46,7 @@ button_card_templates: !include_dir_merge_named dashboards/card-templates/
 
 > **Note:** The path is relative to your config root (`/config/`). If you prefer an absolute
 > path, use `/config/dashboards/card-templates/`. Both forms work.
+> `ams_tray_slot.yaml` contains only comments and is safely ignored by `!include_dir_merge_named`.
 
 **Step 3.** Before restarting, validate your configuration: in Home Assistant go to
 **Developer Tools → YAML → Check Configuration**. Fix any errors it reports, then restart.
@@ -63,9 +66,124 @@ error here will prevent the templates from loading.
 
 ---
 
-### In Another Dashboard
+## Declutter-Card Template: `ams_tray_slot`
 
-To reuse these templates in a different dashboard file (not the raw editor), add the
+The `ams_tray_slot` declutter-card template wraps the two `custom:button-card` calls
+(`ams_tray_label` + `ams_tray_detail`) into a single, concise card reference. This eliminates
+the repetitive `vertical-stack` + two-card pattern for every AMS slot.
+
+### Why Both Layers?
+
+| Layer | Defined in | Scope | Purpose |
+|-------|-----------|-------|---------|
+| `button_card_templates` (`ams_tray_label`, `ams_tray_detail`, `ams_tray_popup`) | `configuration.yaml` | **Global** — all dashboards, loaded at HA startup | Card logic, styling, popup |
+| `decluttercard` (`ams_tray_slot`) | Dashboard YAML `decluttercard:` block | **Per-dashboard** — defined once at the top of each dashboard | Card structure (the vertical-stack wrapper) |
+
+The button-card templates handle the visual and functional logic once globally. The declutter
+template just describes the structure — and since it only references template *names*, the
+template block itself is small and easy to copy into any dashboard.
+
+### Defining the Declutter Template
+
+Add this block **before** the `views:` key at the top of your dashboard YAML:
+
+```yaml
+decluttercard:
+  # The YAML anchor (&ams_tray_slot) is required: declutter-card uses it as the
+  # template name. "template: ams_tray_slot" in each card maps to this anchor.
+  - &ams_tray_slot
+    default:
+      - trayName: Unknown
+      - trayEntityId: ""
+      - tray: ""
+      - trayLabel: ""
+      - printWeightKey: ""
+    card:
+      type: vertical-stack
+      card_mod:
+        style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+      cards:
+        - type: custom:button-card
+          template: ams_tray_label
+          variables:
+            trayName: "[[trayName]]"
+            trayEntityId: "[[trayEntityId]]"
+        - type: custom:button-card
+          template: ams_tray_detail
+          variables:
+            tray: "[[tray]]"
+            trayLabel: "[[trayLabel]]"
+            trayEntityId: "[[trayEntityId]]"
+            printWeightKey: "[[printWeightKey]]"
+```
+
+### Using the Template
+
+Each AMS tray slot card becomes:
+
+```yaml
+- type: custom:declutter-card
+  template: ams_tray_slot
+  variables:
+    - trayName: A1
+    - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+    - tray: ams_1_tray_1
+    - trayLabel: AMS 1 · Slot 1
+    - printWeightKey: AMS 1 Tray 1
+```
+
+A full four-slot AMS row:
+
+```yaml
+- type: horizontal-stack
+  cards:
+    - type: custom:declutter-card
+      template: ams_tray_slot
+      variables:
+        - trayName: A1
+        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+        - tray: ams_1_tray_1
+        - trayLabel: AMS 1 · Slot 1
+        - printWeightKey: AMS 1 Tray 1
+    - type: custom:declutter-card
+      template: ams_tray_slot
+      variables:
+        - trayName: A2
+        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_2
+        - tray: ams_1_tray_2
+        - trayLabel: AMS 1 · Slot 2
+        - printWeightKey: AMS 1 Tray 2
+    - type: custom:declutter-card
+      template: ams_tray_slot
+      variables:
+        - trayName: A3
+        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_3
+        - tray: ams_1_tray_3
+        - trayLabel: AMS 1 · Slot 3
+        - printWeightKey: AMS 1 Tray 3
+    - type: custom:declutter-card
+      template: ams_tray_slot
+      variables:
+        - trayName: A4
+        - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_4
+        - tray: ams_1_tray_4
+        - trayLabel: AMS 1 · Slot 4
+        - printWeightKey: AMS 1 Tray 4
+```
+
+### Cross-Dashboard Reuse
+
+Because the underlying `button_card_templates` are already global (loaded from `configuration.yaml`),
+adding AMS tray cards to a second dashboard only requires:
+
+1. Copy the small `decluttercard:` block above to the top of the new dashboard YAML.
+2. Use `custom:declutter-card` with just the variables — no button-card logic to copy.
+
+---
+
+### In Another Dashboard (button-card only, without declutter-card)
+
+If you prefer to use the button-card templates directly without declutter-card, add the
 following to that dashboard's YAML configuration:
 
 ```yaml

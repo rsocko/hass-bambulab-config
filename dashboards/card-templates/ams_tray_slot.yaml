@@ -1,0 +1,69 @@
+# ams_tray_slot — Declutter-Card Template
+#
+# This file documents the declutter-card template that wraps ams_tray_label +
+# ams_tray_detail into a single, reusable slot card. Copy the decluttercard: block
+# below into any dashboard YAML that needs AMS tray slot cards.
+#
+# Prerequisites
+# -------------
+# 1. button-card templates must be loaded globally via configuration.yaml:
+#      button_card_templates: !include_dir_merge_named dashboards/card-templates/
+#    (ams_tray_label, ams_tray_detail, and ams_tray_popup are used by this template)
+#
+# 2. declutter-card must be installed via HACS → Frontend.
+#
+# Usage
+# -----
+# Step 1. Copy the decluttercard: block below to the top of your dashboard YAML
+#         (before the "views:" key):
+#
+#   decluttercard:
+#     # The YAML anchor (&ams_tray_slot) is required: declutter-card uses it as the
+#     # template name. "template: ams_tray_slot" in each card maps to this anchor.
+#     - &ams_tray_slot
+#       default:
+#         - trayName: Unknown
+#         - trayEntityId: ""
+#         - tray: ""
+#         - trayLabel: ""
+#         - printWeightKey: ""
+#       card:
+#         type: vertical-stack
+#         card_mod:
+#           style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+#         cards:
+#           - type: custom:button-card
+#             template: ams_tray_label
+#             variables:
+#               trayName: "[[trayName]]"
+#               trayEntityId: "[[trayEntityId]]"
+#           - type: custom:button-card
+#             template: ams_tray_detail
+#             variables:
+#               tray: "[[tray]]"
+#               trayLabel: "[[trayLabel]]"
+#               trayEntityId: "[[trayEntityId]]"
+#               printWeightKey: "[[printWeightKey]]"
+#
+# Step 2. Use the template in your dashboard:
+#
+#   - type: custom:declutter-card
+#     template: ams_tray_slot
+#     variables:
+#       - trayName: A1
+#       - trayEntityId: sensor.YOUR_PRINTER_ams_1_tray_1
+#       - tray: ams_1_tray_1
+#       - trayLabel: AMS 1 · Slot 1
+#       - printWeightKey: AMS 1 Tray 1
+#
+# Variables
+# ---------
+# trayName        Display label shown on the slot card (e.g. "A1", "B3", "External")
+# trayEntityId    Entity ID of the AMS tray sensor (used for active-spool highlight
+#                 and popup fallback display)
+# tray            Tray key in the spoolman_tray_map (e.g. "ams_1_tray_1",
+#                 "ams_2_tray_3", "external_spool")
+# trayLabel       Human-readable label shown in the popup header
+#                 (e.g. "AMS 1 · Slot 1", "External Spool")
+# printWeightKey  Attribute key in sensor.ntk_ryansoffice_3dprinter_print_weight
+#                 (e.g. "AMS 1 Tray 1", "AMS 2 Tray 3", "External")
