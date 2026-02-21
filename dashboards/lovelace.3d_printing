@@ -901,97 +901,155 @@ views:
         column_span: 3
       - type: grid
         cards:
-          - type: custom:bubble-card
-            card_type: button
-            button_type: state
-            entity: sensor.ntk_ryansoffice_3dprinter_print_status
-            name: Print Status
-            icon: mdi:rotate-3d
-            show_state: true
-            show_attribute: false
-            tap_action:
-              action: more-info
-            styles: |2
-
-                            .bubble-button-card-container {
-                              background: var(--ha-card-background);
-                            }
-                            .bubble-name {
-                              font-size: 18px !important;
-                              font-weight: 600;
-                            }
-                            .bubble-state {
-                              font-size: 16px !important;
-                            }
-                          
-          - type: custom:bubble-card
-            card_type: button
-            button_type: state
-            entity: sensor.ntk_ryansoffice_3dprinter_current_stage
-            name: Current Stage
-            icon: mdi:printer-3d
-            show_state: true
-            show_attribute: false
-            tap_action:
-              action: more-info
-            styles: |2
-
-                            .bubble-button-card-container {
-                              background: var(--ha-card-background);
-                            }
-                            .bubble-name {
-                              font-size: 18px !important;
-                              font-weight: 600;
-                            }
-                            .bubble-state {
-                              font-size: 16px !important;
-                            }
-                          
-          - type: custom:bubble-card
-            card_type: button
-            button_type: state
-            entity: sensor.ntk_ryansoffice_3dprinter_task_name
-            name: Task Name
-            icon: mdi:cube-outline
-            show_state: true
-            show_attribute: false
-            tap_action:
-              action: more-info
-            styles: |2
-
-                            .bubble-button-card-container {
-                              background: var(--ha-card-background);
-                            }
-                            .bubble-name {
-                              font-size: 18px !important;
-                              font-weight: 600;
-                            }
-                            .bubble-state {
-                              font-size: 16px !important;
-                            }
-                          
-          - type: custom:bubble-card
-            card_type: button
-            button_type: state
-            entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
-            name: HMS Errors
-            show_state: true
-            show_attribute: false
-            tap_action:
-              action: more-info
-            styles: |2
-
-                            .bubble-button-card-container {
-                              background: var(--ha-card-background);
-                            }
-                            .bubble-name {
-                              font-size: 18px !important;
-                              font-weight: 600;
-                            }
-                            .bubble-state {
-                              font-size: 16px !important;
-                            }
-                          
+          - type: horizontal-stack
+            cards:
+              - type: picture-entity
+                entity: image.ntk_ryansoffice_3dprinter_cover_image
+                show_name: false
+                show_state: false
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: #e0e0e0 !important;
+                      border-radius: 8px !important;
+                      padding: 8px !important;
+                      overflow: hidden;
+                    }
+                    img {
+                      object-fit: contain !important;
+                      border-radius: 4px !important;
+                      background: #e0e0e0 !important;
+                    }
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: sensor.ntk_ryansoffice_3dprinter_print_status
+                    primary: >-
+                      {{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | title }} · {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | title }}
+                    secondary: ""
+                    icon: >-
+                      {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                      {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+                      {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
+                      {% if hms == 'on' %}mdi:alert-circle
+                      {% elif status == 'printing' or stage == 'printing' %}mdi:printer-3d-nozzle-heat
+                      {% elif status == 'pause' %}mdi:pause-circle
+                      {% elif stage == 'auto_bed_leveling' %}mdi:grid
+                      {% elif stage in ['heatbed_preheating', 'homing'] %}mdi:thermometer-lines
+                      {% elif status == 'idle' %}mdi:printer-3d
+                      {% else %}mdi:rotate-3d{% endif %}
+                    icon_color: >-
+                      {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
+                      {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+                      {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                      {% if hms == 'on' %}red
+                      {% elif status == 'printing' or stage == 'printing' %}blue
+                      {% elif status == 'pause' %}orange
+                      {% elif status == 'idle' %}grey
+                      {% else %}green{% endif %}
+                    tap_action:
+                      action: more-info
+                    card_mod:
+                      style: >
+                        {% if is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') %}
+                        @keyframes printer-pulse {
+                          0%, 100% { opacity: 1; }
+                          50% { opacity: 0.5; }
+                        }
+                        mushroom-shape-icon {
+                          animation: printer-pulse 1.5s ease-in-out infinite;
+                        }
+                        {% endif %}
+                  - type: custom:mushroom-template-card
+                    entity: sensor.ntk_ryansoffice_3dprinter_task_name
+                    primary: >-
+                      {% set name = states('sensor.ntk_ryansoffice_3dprinter_task_name') %}
+                      {% if name in ['unknown', 'unavailable', ''] %}No Active Print
+                      {% else %}{{ name }}{% endif %}
+                    secondary: >-
+                      {% set plate = state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') %}
+                      {% if plate is not none and plate | int(0) > 0 %}Plate {{ plate }}{% endif %}
+                    icon: mdi:cube-outline
+                    icon_color: >-
+                      {% if states('sensor.ntk_ryansoffice_3dprinter_task_name') in ['unknown', 'unavailable', ''] %}grey{% else %}blue{% endif %}
+                    tap_action:
+                      action: more-info
+                  - type: custom:button-card
+                    entity: sensor.ntk_ryansoffice_3dprinter_task_name
+                    show_name: false
+                    show_state: false
+                    show_icon: false
+                    tap_action:
+                      action: none
+                    custom_fields:
+                      chips: |
+                        [[[
+                          const attrs = states['sensor.ntk_ryansoffice_3dprinter_task_name']?.attributes || {};
+                          const chips = [];
+                          const toTitleCase = s => s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+                          const numObjects = attrs.num_objects ?? attrs.total_objects ?? null;
+                          if (numObjects !== null && parseInt(numObjects, 10) > 1) {
+                            chips.push(`<span class="chip"><ha-icon icon="mdi:shape-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${numObjects} objects</span>`);
+                          }
+                          const skipped = attrs.skipped_objects ?? null;
+                          if (skipped !== null && parseInt(skipped, 10) >= 1) {
+                            chips.push(`<span class="chip chip-warn"><ha-icon icon="mdi:close-circle-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${skipped} skipped</span>`);
+                          }
+                          const nozzleSize = attrs.nozzle_size ?? attrs.nozzle_diameter ?? null;
+                          const nozzleType = attrs.nozzle_type ?? null;
+                          if (nozzleSize !== null) {
+                            const typeLabel = nozzleType ? ` · ${toTitleCase(nozzleType)}` : '';
+                            chips.push(`<span class="chip"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${nozzleSize}mm${typeLabel}</span>`);
+                          }
+                          const bedType = attrs.bed_type ?? attrs.plate_type ?? null;
+                          if (bedType !== null && bedType !== '') {
+                            chips.push(`<span class="chip"><ha-icon icon="mdi:table-furniture" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${toTitleCase(bedType)}</span>`);
+                          }
+                          const printType = attrs.print_type ?? null;
+                          if (printType !== null && printType !== '') {
+                            chips.push(`<span class="chip"><ha-icon icon="mdi:layers-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${printType.toUpperCase()}</span>`);
+                          }
+                          if (chips.length === 0) return `<div></div>`;
+                          return `<div class="chips-row">${chips.join('')}</div>`;
+                        ]]]
+                    styles:
+                      card:
+                        - padding: 4px 8px
+                        - background: transparent
+                        - box-shadow: none
+                        - border: none
+                      custom_fields:
+                        chips:
+                          - width: 100%
+                          - text-align: left
+                    extra_styles: |
+                      .chips-row {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 4px;
+                        padding: 2px 0;
+                      }
+                      .chip {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 2px;
+                        padding: 2px 7px;
+                        border-radius: 12px;
+                        font-size: 11px;
+                        font-weight: 500;
+                        background: rgba(128, 128, 128, 0.15);
+                        color: var(--primary-text-color);
+                        white-space: nowrap;
+                      }
+                      .chip-warn {
+                        background: rgba(255, 152, 0, 0.2);
+                        color: #f57c00;
+                      }
+            grid_options:
+              columns: 2
+              rows: auto
           - type: custom:mushroom-template-card
             entity: sensor.print_layer_progress_formatted
             primary: Layer Progress
