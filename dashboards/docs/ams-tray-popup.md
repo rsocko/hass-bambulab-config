@@ -24,9 +24,9 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Current print usage | `sensor.ntk_ryansoffice_3dprinter_print_weight` |
 | Last dried date | `extra_last_dried` attribute |
 | Desiccant status + age | `extra_desiccant_filled` attribute |
-| Mark as Refilled button | `spoolman.patch_spool` service call; centered row with desiccant info |
-| Bambu Spool UUID | `extra_spool_uuid` attribute (shown when set) |
-| Spoolman web UI link | "Open in Spoolman" button with Spoolman icon (dashboardicons.com) |
+| Mark as Refilled button | `spoolman.patch_spool` service call; combined row with desiccant info |
+| Bambu Spool UUID | `extra_spool_uuid` attribute — shown in header when set (selectable text) |
+| Spoolman web UI link | "Open in Spoolman" button in the bottom row alongside More Details & Close |
 | Dynamic weight history | `history-graph` auto-scaled from `first_used` date |
 | More Details button | Opens HA entity info dialog |
 | Close button | Closes the popup dialog (mobile-friendly) |
@@ -39,20 +39,21 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 ### 1. Header
 - Spool friendly name
 - Tray slot label + Spool ID
+- **Bambu Spool UUID** (only when `extra_spool_uuid` is set) — shown as a second label line; text is selectable for copy-paste
 - Background tinted with filament color (15% opacity)
 - Left border accent in filament color
 
-### 2. Material / Vendor / Location (horizontal)
-Three cards side-by-side using `custom:mushroom-template-card`:
+### 2. Material / Vendor / Location (chips row)
+Single `custom:mushroom-chips-card` with three compact template chips:
 - **Material** — `mdi:texture-box` orange — filament type (PLA, PETG, ABS…)
 - **Vendor** — `mdi:factory` purple — brand name
 - **Location** — `mdi:map-marker` blue — spool storage location
 
-### 3. Base Color / Color Family / Attributes (horizontal)
-Three cards side-by-side using `custom:mushroom-template-card`:
-- **Base Color** — `mdi:circle` in the filament color — human-readable color name (e.g. Blue, Black, Silver) from `filament_extra_base_color`
-- **Color Family** — `mdi:palette-swatch-variant` indigo — color group (e.g. Blacks & Whites, Browns, Rainbow) from `filament_extra_color_family`
-- **Attributes** — `mdi:tag-multiple` green — filament finish/type tags (e.g. Matte, Metallic, Silk) from `filament_extra_type_details`; shows `N/A` when not set
+### 3. Base Color / Color Family / Attributes (chips row)
+Single `custom:mushroom-chips-card` with three compact template chips:
+- **Base Color** — `mdi:circle` in the filament color — human-readable color name (e.g. Base: Blue) from `filament_extra_base_color`
+- **Color Family** — `mdi:palette-swatch-variant` indigo — color group (e.g. Family: Blacks & Whites) from `filament_extra_color_family`
+- **Attributes** — `mdi:tag-multiple` green — filament finish/type tags (e.g. Matte, Metallic, Silk) from `filament_extra_type_details`; JSON array is parsed to comma-separated values; shows `N/A` when not set
 
 ### 4. Color / Weight / Print Usage (horizontal)
 - **Color swatch** — `custom:button-card` with background in filament color; auto-contrast text (NTSC luminance); centered layout with:
@@ -62,33 +63,24 @@ Three cards side-by-side using `custom:mushroom-template-card`:
 - **Remaining** — current remaining grams for this spool
 - **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
 
-### 5. Total Weight / Last Dried (horizontal)
-Two cards side-by-side using `custom:mushroom-template-card`:
+### 5. Total Weight / Last Dried / Desiccant / Mark as Refilled (horizontal)
+Four items in one `horizontal-stack`:
 - **Total (all spools)** — `mdi:archive-multiple` cyan — total remaining weight across all spools sharing the same `filament_id` in Spoolman, with spool count (e.g. `1052.4 g (4 spools)`)
 - **Last Dried** — `mdi:thermometer-lines` deep-orange — date when spool was last dried from `extra_last_dried`; shows `Never` if not set
+- **Desiccant** — `mdi:water` / `mdi:water-off` color-coded — desiccant age text (e.g. "18 days ago"); mushroom-template-card with named color from status
+- **Mark as Refilled** — `custom:button-card` (`mdi:water-plus`) — calls `spoolman.patch_spool` with `extra.desiccant_filled = new Date().toISOString()`; primary-color background
 
-### 6. Desiccant (centered row)
-Two `custom:button-card` buttons displayed side-by-side and centered (not full-width) using `custom:layout-card` with `grid-template-columns: auto auto`:
-- Left: desiccant status text (e.g. "Filled 18 days ago") with color-coded `mdi:water` / `mdi:water-off` icon; icon-on-top, label-below layout; no background
-- Right: **Mark as Refilled** button (`mdi:water-plus`) — calls `spoolman.patch_spool` with `extra.desiccant_filled = new Date().toISOString()`; icon-on-top, name-below layout; primary-color background
-
-### 7. Spoolman Link
-Button labeled **"Open in Spoolman"** that opens `http://spoolman.example.com/spool/show/{id}` in a new tab. Uses the Spoolman icon from dashboardicons.com (loaded via jsDelivr CDN). Icon-on-top, name-below layout; primary-color background.
-
-### 8. Weight History Chart
+### 6. Weight History Chart
 `history-graph` card:
 - `hours_to_show` is dynamically calculated from the `first_used` attribute
 - Shows full history since spool was first used (minimum 24 hours)
 - Falls back to 7 days (168 hours) if `first_used` is not set
 - Title: `Weight History (N days)`
 
-### 9. Bambu Spool UUID (conditional)
-`custom:mushroom-template-card` with `mdi:nfc` blue-grey icon — shows the Bambu RFID spool UUID from `extra_spool_uuid`.  
-**Only displayed when `extra_spool_uuid` is set** on the spool in Spoolman (uses JS spread operator to conditionally include the card).
-
-### 10. Bottom Row — More Details & Close
-`custom:layout-card` with `grid-template-columns: 1fr 1fr` containing two `custom:button-card` buttons side-by-side:
+### 7. Bottom Row — More Details, Open in Spoolman & Close
+`custom:layout-card` with `grid-template-columns: 1fr 1fr 1fr` containing three `custom:button-card` buttons side-by-side:
 - **More Details** — triggers `action: more-info` for `sensor.spoolman_spool_{id}`; `mdi:information-outline` icon; `var(--primary-color)` background
+- **Open in Spoolman** — opens `http://spoolman.example.com/spool/show/{id}` in a new tab; Spoolman icon (dashboardicons.com via jsDelivr CDN); `var(--primary-color)` background
 - **Close** — fires `browser_mod.close_popup` to dismiss the dialog; `mdi:close-circle-outline` icon; `var(--primary-color)` background; useful on mobile where the standard dismiss gesture may not be available
 
 ---

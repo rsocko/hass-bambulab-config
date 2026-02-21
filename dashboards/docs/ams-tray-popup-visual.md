@@ -13,18 +13,12 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ╔══════════════════════════════════════════════════════════╗
 ║  🧵  Bambu Lab PLA Basic Black                          ║  ← spool name
 ║      AMS 1 · Slot 1  •  Spool #42                      ║  ← location + spool ID
+║      UUID: a1b2c3d4-e5f6-...  (selectable)             ║  ← UUID in header (when set)
 ║  ┄ ┄ ┄ ┄ ┄ ┄ left border = filament color ┄ ┄ ┄ ┄ ┄ ┄  ║  ← color-tinted background
 ╠══════════════════════════════════════════════════════════╣
-║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
-║  ║ 🧱 PLA       ║ 🏭 Bambu Lab  ║ 📍 Storage B  ║      ║  ← Material / Vendor / Location
-║  ║   Material   ║    Vendor     ║   Location    ║      ║
-║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
+║  [🧱 Material: PLA] [🏭 Vendor: Bambu] [📍 Location: B] ║  ← compact mushroom chips
 ╠══════════════════════════════════════════════════════════╣
-║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
-║  ║ ⚫ Black      ║ 🎨 Blacks &   ║ 🏷️ Matte      ║      ║  ← Base Color / Color Family / Attributes
-║  ║  Base Color  ║   Whites      ║  Attributes   ║      ║
-║  ║              ║  Color Family ║               ║      ║
-║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
+║  [⚫ Base: Black] [🎨 Family: B&W] [🏷️ Attr: Matte]     ║  ← compact mushroom chips
 ╠══════════════════════════════════════════════════════════╣
 ║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
 ║  ║               ║  ⚖️  248.3 g  ║  🖨️  12.5 g   ║      ║  ← Color swatch / Remaining / Print
@@ -33,19 +27,10 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ║  ║   color bg)  ║              ║              ║      ║
 ║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
 ╠══════════════════════════════════════════════════════════╣
-║  ╔═══════════════════════════╦══════════════════╗       ║
-║  ║ 📦 1052.4 g (4 spools)   ║ 🌡️ Dec 12, 2024  ║       ║  ← Total weight / Last dried
-║  ║  Total (all spools)      ║   Last Dried     ║       ║
-║  ╚═══════════════════════════╩══════════════════╝       ║
-╠══════════════════════════════════════════════════════════╣
-║  ╔════════════════════════════╦═════════════════╗      ║
-║  ║ 💧 Filled 18 days ago     ║  [💧 Mark as   ] ║      ║  ← Desiccant status + reset
-║  ║    (centered row)          ║     Refilled    ║      ║    centered horizontally
-║  ╚════════════════════════════╩═════════════════╝      ║
-╠══════════════════════════════════════════════════════════╣
-║  ┌──────────────────────────────────────────────────┐   ║
-║  │  [🔵 Spoolman icon]  Open in Spoolman           │   ║  ← External link button
-║  └──────────────────────────────────────────────────┘   ║
+║  ╔══════════╦══════════╦═══════════╦══════════════╗     ║
+║  ║ 📦 1052g ║ 🌡️ Dec12 ║ 💧 18 days║ [💧Refilled] ║     ║  ← Total / LastDried / Desiccant / Button
+║  ║ (4 spools)║  Dried  ║ Desiccant ║              ║     ║    all in one row
+║  ╚══════════╩══════════╩═══════════╩══════════════╝     ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Weight History (14 days)                               ║
 ║  300g ┤                                                 ║
@@ -56,11 +41,7 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ║       Day 1      Day 7       Day 14                     ║
 ╠══════════════════════════════════════════════════════════╣
 ║  ┌──────────────────────────────────────────────────┐   ║
-║  │  📶  a1b2c3d4-e5f6-...  Bambu Spool UUID        │   ║  ← (conditional: shown when UUID set)
-║  └──────────────────────────────────────────────────┘   ║
-╠══════════════════════════════════════════════════════════╣
-║  ┌──────────────────────────────────────────────────┐   ║
-║  │  ℹ️  More Details          ✕  Close              │   ║  ← Opens HA entity dialog / close
+║  │ ℹ️ More Details │ 🔵 Open in Spoolman │ ✕ Close  │   ║  ← 3-button bottom row
 ║  └──────────────────────────────────────────────────┘   ║
 ╚══════════════════════════════════════════════════════════╝
 ```
@@ -74,22 +55,24 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 |---------|-------------|
 | Icon | `mdi:spool` colored to match filament |
 | Primary | Spool friendly name from Spoolman |
-| Secondary | Tray slot label + Spool ID |
+| Secondary | Tray slot label + Spool ID; **UUID line** appended when `extra_spool_uuid` is set (text is selectable) |
 | Background | Filament color at 15% opacity with left border accent |
 
 ### Row 2 — Material / Vendor / Location
-| Card | Icon | Color | Value |
-|------|------|-------|-------|
-| Material | `mdi:texture-box` | Orange | Filament material type (PLA, PETG, ABS…) |
-| Vendor | `mdi:factory` | Purple | Vendor/manufacturer name |
-| Location | `mdi:map-marker` | Blue | Spool storage location from Spoolman |
+Single `custom:mushroom-chips-card` with three compact template chips:
+| Chip | Icon | Color | Content |
+|------|------|-------|---------|
+| Material | `mdi:texture-box` | Orange | `Material: <type>` |
+| Vendor | `mdi:factory` | Purple | `Vendor: <name>` |
+| Location | `mdi:map-marker` | Blue | `Location: <place>` |
 
 ### Row 3 — Base Color / Color Family / Attributes
-| Card | Icon | Color | Value |
-|------|------|-------|-------|
-| Base Color | `mdi:circle` | Filament color | Human-readable color name (e.g. Blue, Black, Silver) from `filament_extra_base_color` |
-| Color Family | `mdi:palette-swatch-variant` | Indigo | Color group (e.g. Blacks & Whites, Browns, Rainbow) from `filament_extra_color_family` |
-| Attributes | `mdi:tag-multiple` | Green | Finish/type tags (e.g. Matte, Metallic, Silk) from `filament_extra_type_details`; `N/A` if not set |
+Single `custom:mushroom-chips-card` with three compact template chips:
+| Chip | Icon | Color | Content |
+|------|------|-------|---------|
+| Base Color | `mdi:circle` | Filament color | `Base: <name>` from `filament_extra_base_color` |
+| Color Family | `mdi:palette-swatch-variant` | Indigo | `Family: <group>` from `filament_extra_color_family` |
+| Attributes | `mdi:tag-multiple` | Green | `Attr: <tag1>, <tag2>` from `filament_extra_type_details` (JSON array parsed to CSV); `N/A` if not set |
 
 ### Row 4 — Color Swatch / Weight / Print Usage
 | Card | Description |
@@ -98,34 +81,27 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 | Remaining | Current remaining weight in grams for this spool from Spoolman |
 | This Print | Weight required for current print job (from `sensor.ntk_ryansoffice_3dprinter_print_weight`); icon turns red with alert if spool won't have enough |
 
-### Row 5 — Total Weight / Last Dried
-| Card | Icon | Color | Value |
+### Row 5 — Total Weight / Last Dried / Desiccant / Mark as Refilled
+Four items in one `horizontal-stack`:
+| Item | Icon | Color | Value |
 |------|------|-------|-------|
-| Total (all spools) | `mdi:archive-multiple` | Cyan | Sum of `remaining_weight` for all spools with matching `filament_id`, with count (e.g. `1052.4 g (4 spools)`) |
+| Total (all spools) | `mdi:archive-multiple` | Cyan | Sum of weights for same `filament_id`, with spool count |
 | Last Dried | `mdi:thermometer-lines` | Deep Orange | Date from `extra_last_dried`; shows `Never` if not set |
+| Desiccant | `mdi:water` / `mdi:water-off` | Status color | Age text (e.g. "18 days ago"); `mushroom-template-card` |
+| Mark as Refilled | `mdi:water-plus` | Primary | `custom:button-card` calling `spoolman.patch_spool` |
 
-### Row 6 — Desiccant
-| Element | Description |
-|---------|-------------|
-| Status text | "Filled N days ago" or "No desiccant data" |
-| Icon color | 🟢 Green (< 30 days), 🟡 Yellow (30-45), 🟠 Orange (45-60), 🔴 Red (> 60) |
-| Mark as Refilled button | `mdi:water-plus` icon; calls `spoolman.patch_spool` with current ISO timestamp; centered row layout via `custom:layout-card` |
+Desiccant icon color: 🟢 Green (fresh) → 🟡 Yellow → 🟠 Orange → 🔴 Red (old)
 
-### Row 7 — Spoolman Link
-**"Open in Spoolman"** button with Spoolman icon (from dashboardicons.com via jsDelivr CDN).  
-Opens `{SPOOLMAN_BASE_URL}/{id}` in a new tab. Icon-on-top layout matching spool view button style.
-
-### Row 8 — Weight History Chart
+### Row 6 — Weight History Chart
 - Uses Home Assistant's built-in `history-graph` card
 - Duration is **dynamic**: if `first_used` attribute exists, shows full history since that date; otherwise defaults to 7 days
 - Title shows: `Weight History (N days)`
 
-### Row 9 — Bambu Spool UUID (conditional)
-`custom:mushroom-template-card` displaying the Bambu RFID spool UUID from `extra_spool_uuid`.  
-**Only rendered when `extra_spool_uuid` is non-empty** — uses JS spread operator to conditionally include the card.
-
-### Row 10 — More Details / Close
-Opens the standard HA entity info dialog for `sensor.spoolman_spool_<id>` (More Details) or closes the popup (Close).
+### Row 7 — Bottom Row (More Details / Open in Spoolman / Close)
+Three `custom:button-card` buttons in a `custom:layout-card` with `grid-template-columns: 1fr 1fr 1fr`:
+- **More Details** — opens HA entity info dialog for `sensor.spoolman_spool_<id>`
+- **Open in Spoolman** — opens `{SPOOLMAN_BASE_URL}/{id}` in a new tab; Spoolman icon from dashboardicons.com
+- **Close** — fires `browser_mod.close_popup` to dismiss the dialog
 
 ---
 
