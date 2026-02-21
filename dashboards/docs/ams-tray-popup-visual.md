@@ -28,12 +28,12 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
 ╠══════════════════════════════════════════════════════════╣
 ║  ╔════════════════════════════╦═════════════════╗      ║
-║  ║ 💧 Filled 18 days ago     ║  [🔄 Reset Date] ║      ║  ← Desiccant status + reset
-║  ║    Desiccant               ║                 ║      ║
+║  ║ 💧 Filled 18 days ago     ║  [💧 Mark as   ] ║      ║  ← Desiccant status + reset
+║  ║    (centered row)          ║     Refilled    ║      ║    centered horizontally
 ║  ╚════════════════════════════╩═════════════════╝      ║
 ╠══════════════════════════════════════════════════════════╣
 ║  ┌──────────────────────────────────────────────────┐   ║
-║  │  🔗  Open in Spoolman  (Spool #42)              │   ║  ← External link button
+║  │  [🔵 Spoolman icon]  Open in Spoolman           │   ║  ← External link button
 ║  └──────────────────────────────────────────────────┘   ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Weight History (14 days)                               ║
@@ -81,11 +81,11 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 |---------|-------------|
 | Status text | "Filled N days ago" or "No desiccant data" |
 | Icon color | 🟢 Green (< 30 days), 🟡 Yellow (30-45), 🟠 Orange (45-60), 🔴 Red (> 60) |
-| Reset button | Calls `spoolman.patch_spool` with current ISO timestamp to reset desiccant date |
+| Mark as Refilled button | `mdi:water-plus` icon; calls `spoolman.patch_spool` with current ISO timestamp; centered row layout via `custom:layout-card` |
 
 ### Row 5 — Spoolman Link
-Opens `http://homeassistant.local:7912/spools/{id}` in a new tab.  
-Customize the base URL in the JavaScript if your Spoolman runs elsewhere.
+**"Open in Spoolman"** button with Spoolman icon (from dashboardicons.com via jsDelivr CDN).  
+Opens `{SPOOLMAN_BASE_URL}/{id}` in a new tab. Icon-on-top layout matching spool view button style.
 
 ### Row 6 — Weight History Chart
 - Uses Home Assistant's built-in `history-graph` card
