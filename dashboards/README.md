@@ -8,6 +8,7 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 - **templates.yaml** - Reusable Home Assistant template sensors (spoolman tray map, filament totals)
 - **printer-temps.yaml** - Temperature display cards for nozzle and bed (separate, paste-able YAML)
 - **printer-temps-example.yaml** - Ready-to-use temperature cards with repository entity names
+- **print-progress-cards.yaml** - Animated print progress cards: Layer Progress, Print Progress, Time Remaining, Est. Completion (separate, paste-able YAML)
 - **card-templates/** - Individual `button-card` template files (one per template); see [card-templates/README.md](card-templates/README.md)
 - **docs/** - Documentation for dashboard features and customization
 
@@ -59,6 +60,21 @@ Key features:
 - Dynamic icons showing temperature state
 - Horizontal compact layout for mobile and desktop
 - Easy to paste into any dashboard view
+
+### Print Progress Cards
+Animated progress cards for monitoring active prints. Available as a standalone file (`print-progress-cards.yaml`).
+
+Key features:
+- **Layer Progress** — layers icon bounces upward while printing, simulating layers piling up
+- **Print Progress** — icon spins continuously while printing
+- **Time Remaining** — clock icon rotates like spinning clock hands while printing
+- **Est. Completion** — flag waves gently while printing; turns green when finished; smart human-readable time format:
+  - Same day: `4:32 PM`
+  - Next day: `4:32 PM tomorrow`
+  - Within a week: `4:32 PM on Wednesday`
+  - Farther away: `4:32 PM on 4/12/26`
+- All animations stop automatically when the print is paused, stopped, or complete
+- 2×2 grid layout: Layer Progress + Print Progress (row 1), Time Remaining + Est. Completion (row 2)
 
 ## Custom Cards Required
 
