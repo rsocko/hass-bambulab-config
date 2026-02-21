@@ -976,6 +976,30 @@ views:
                       {% if states('sensor.ntk_ryansoffice_3dprinter_task_name') in ['unknown', 'unavailable', ''] %}grey{% else %}blue{% endif %}
                     tap_action:
                       action: more-info
+                    card_mod:
+                      style: >
+                        {% set name = states('sensor.ntk_ryansoffice_3dprinter_task_name') %}
+                        {% if name | length > 20 %}
+                        mushroom-state-info {
+                          overflow: hidden !important;
+                        }
+                        .primary {
+                          display: inline-block !important;
+                          white-space: nowrap !important;
+                          animation: task-name-scroll 10s ease-in-out infinite alternate !important;
+                        }
+                        @keyframes task-name-scroll {
+                          /* -55% scrolls ~half the text width; covers most overflow for typical filenames */
+                          0%, 20%  { transform: translateX(0%); }
+                          80%, 100% { transform: translateX(-55%); }
+                        }
+                        {% else %}
+                        .primary {
+                          white-space: nowrap !important;
+                          overflow: hidden !important;
+                          text-overflow: ellipsis !important;
+                        }
+                        {% endif %}
                   - type: custom:button-card
                     entity: sensor.ntk_ryansoffice_3dprinter_task_name
                     show_name: false
@@ -1048,7 +1072,7 @@ views:
                         color: #f57c00;
                       }
             grid_options:
-              columns: 2
+              columns: full
               rows: auto
           - type: custom:mushroom-template-card
             entity: sensor.print_layer_progress_formatted
