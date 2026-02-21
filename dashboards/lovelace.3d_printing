@@ -1664,6 +1664,105 @@ views:
                 - font-weight: bold
                 - text-align: center
                 - white-space: nowrap
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            show_icon: true
+            show_name: false
+            show_label: true
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+            double_tap_action:
+              action: none
+            icon: mdi:heat-wave
+            label: |
+              [[[
+                const selected_entity = states['sensor.selected_spool'].state;
+                const spool_entity = states[selected_entity];
+
+                const date = spool_entity?.attributes?.extra_last_dried;
+                if (!date) return '—';
+
+                const dried = new Date(date);
+                const now = new Date();
+                const days = Math.floor((now - dried) / 86400000);
+
+                let ago;
+                if (days < 7) ago = `${days}d ago`;
+                else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;
+                else ago = `${Math.floor(days / 30)}mo ago`;
+
+                return `${dried.toLocaleDateString('en-US')} (${ago})`;
+              ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"i" "l"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: none
+                - box-shadow: none
+                - padding: 4px
+              icon:
+                - width: 25px
+                - height: 25px
+                - margin-bottom: 2px
+                - color: |
+                    [[[
+                      const selected_entity = states['sensor.selected_spool'].state;
+                      const spool_entity = states[selected_entity];
+
+                      const date = spool_entity?.attributes?.extra_last_dried;
+                      if (!date) return 'gray';
+
+                      const months = ((Date.now() - new Date(date)) / 86400000) / 30.437;
+                      if (months > 6) return 'red';
+                      if (months > 3) return 'orange';
+                      return 'green';
+                    ]]]
+              label:
+                - font-size: 14px
+                - text-align: center
+                - white-space: nowrap
+          - type: custom:button-card
+            icon: mdi:heat-wave
+            label: Mark as Dried
+            show_icon: true
+            show_name: false
+            show_label: true
+            tap_action:
+              action: call-service
+              service: script.mark_spool_as_dried
+              service_data:
+                spool_id: |
+                  [[[
+                    const selected_entity = states['sensor.selected_spool'].state;
+                    const spool_id = states[selected_entity].attributes.id;
+
+                    return spool_id;
+                  ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"i" "l"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - border: 1px solid rgba(0,0,0,0.15)
+                - box-shadow: none
+                - padding: 4px
+              icon:
+                - width: 25px
+                - height: 25px
+                - margin-bottom: 2px
+              label:
+                - font-size: 14px
+                - font-weight: bold
+                - text-align: center
+                - white-space: nowrap
       - type: custom:bubble-card
         card_type: separator
         sub_button:
@@ -2261,6 +2360,46 @@ button_card_templates:
                           action: 'call-service',
                           service: 'spoolman.patch_spool',
                           service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
+                        },
+                        styles: {
+                          grid: [
+                            { 'grid-template-areas': '"i" "n"' },
+                            { 'grid-template-rows': 'min-content min-content' },
+                            { 'justify-items': 'center' },
+                            { 'align-items': 'center' }
+                          ],
+                          card: [
+                            { background: 'var(--primary-color)' },
+                            { 'border-radius': '8px' },
+                            { 'box-shadow': 'none' },
+                            { padding: '8px' }
+                          ],
+                          icon: [
+                            { color: 'white' },
+                            { width: '20px' },
+                            { height: '20px' },
+                            { 'margin-bottom': '2px' }
+                          ],
+                          name: [
+                            { color: 'white' },
+                            { 'font-size': '11px' },
+                            { 'font-weight': '600' },
+                            { 'text-align': 'center' },
+                            { 'white-space': 'nowrap' }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'custom:button-card',
+                        name: 'Mark as Dried',
+                        icon: 'mdi:heat-wave',
+                        show_icon: true,
+                        show_name: true,
+                        show_label: false,
+                        tap_action: {
+                          action: 'call-service',
+                          service: 'spoolman.patch_spool',
+                          service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
                         },
                         styles: {
                           grid: [
