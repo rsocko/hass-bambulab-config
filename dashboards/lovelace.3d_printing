@@ -1310,9 +1310,7 @@ views:
                 icon_color: white
                 tap_action:
                   action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.reset_interior_light_to_white
+                  perform_action: script.reset_interior_light_to_white
                 card_mod:
                   style:
                     ha-card: |
