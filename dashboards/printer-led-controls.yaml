@@ -43,6 +43,7 @@ cards:
         mushroom-card$: |
           .container {
             justify-content: center;
+            align-items: center;
           }
           .info {
             display: none;
@@ -100,6 +101,7 @@ cards:
         mushroom-card$: |
           .container {
             justify-content: center;
+            align-items: center;
           }
           .info {
             display: none;
@@ -124,6 +126,7 @@ cards:
         mushroom-card$: |
           .container {
             justify-content: center;
+            align-items: center;
           }
           .info {
             display: none;
@@ -181,6 +184,7 @@ cards:
         mushroom-card$: |
           .container {
             justify-content: center;
+            align-items: center;
           }
           .info {
             display: none;
@@ -238,6 +242,7 @@ cards:
         mushroom-card$: |
           .container {
             justify-content: center;
+            align-items: center;
           }
           .info {
             display: none;

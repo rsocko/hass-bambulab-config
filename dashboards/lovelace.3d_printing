@@ -1238,12 +1238,19 @@ views:
                 double_tap_action:
                   action: more-info
                 card_mod:
-                  style: |
-                    ha-card {
+                  style:
+                    ha-card: |
                       {% if is_state('light.ntk_ryansoffice_3dprinter_chamber_light', 'on') %}
                       box-shadow: 0 0 10px 3px rgba(255, 180, 0, 0.6);
                       {% endif %}
-                    }
+                    mushroom-card$: |
+                      .container {
+                        justify-content: center;
+                        align-items: center;
+                      }
+                      .info {
+                        display: none;
+                      }
               # MagWLED (interior top LED strip)
               - type: custom:mushroom-template-card
                 entity: light.magwled
@@ -1278,8 +1285,8 @@ views:
                 double_tap_action:
                   action: more-info
                 card_mod:
-                  style: |
-                    ha-card {
+                  style:
+                    ha-card: |
                       {% set effect = state_attr('light.magwled', 'effect') %}
                       {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
                       box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
@@ -1287,7 +1294,14 @@ views:
                       {% set rgb = state_attr('light.magwled', 'rgb_color') %}
                       {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
                       {% endif %}
-                    }
+                    mushroom-card$: |
+                      .container {
+                        justify-content: center;
+                        align-items: center;
+                      }
+                      .info {
+                        display: none;
+                      }
               # Reset MagWLED to white (uses existing script)
               - type: custom:mushroom-template-card
                 primary: ""
@@ -1300,11 +1314,18 @@ views:
                   target:
                     entity_id: script.reset_interior_light_to_white
                 card_mod:
-                  style: |
-                    ha-card {
+                  style:
+                    ha-card: |
                       background: rgba(255, 255, 255, 0.08);
                       border: 1px solid rgba(255, 255, 255, 0.35);
-                    }
+                    mushroom-card$: |
+                      .container {
+                        justify-content: center;
+                        align-items: center;
+                      }
+                      .info {
+                        display: none;
+                      }
               # DigQuad bottom progress LED (outside front-bottom of printer)
               - type: custom:mushroom-template-card
                 entity: light.dig_quad_v3
@@ -1339,8 +1360,8 @@ views:
                 double_tap_action:
                   action: more-info
                 card_mod:
-                  style: |
-                    ha-card {
+                  style:
+                    ha-card: |
                       {% set effect = state_attr('light.dig_quad_v3', 'effect') %}
                       {% if is_state('light.dig_quad_v3', 'on') and effect not in ['Solid', 'None', none, ''] %}
                       box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
@@ -1348,7 +1369,14 @@ views:
                       {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
                       {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
                       {% endif %}
-                    }
+                    mushroom-card$: |
+                      .container {
+                        justify-content: center;
+                        align-items: center;
+                      }
+                      .info {
+                        display: none;
+                      }
               # DigQuad segment 1 status LED (outside front-left/top of printer)
               - type: custom:mushroom-template-card
                 entity: light.dig_quad_v3_segment_1
@@ -1383,8 +1411,8 @@ views:
                 double_tap_action:
                   action: more-info
                 card_mod:
-                  style: |
-                    ha-card {
+                  style:
+                    ha-card: |
                       {% set effect = state_attr('light.dig_quad_v3_segment_1', 'effect') %}
                       {% if is_state('light.dig_quad_v3_segment_1', 'on') and effect not in ['Solid', 'None', none, ''] %}
                       box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
@@ -1392,7 +1420,14 @@ views:
                       {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
                       {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
                       {% endif %}
-                    }
+                    mushroom-card$: |
+                      .container {
+                        justify-content: center;
+                        align-items: center;
+                      }
+                      .info {
+                        display: none;
+                      }
           - type: custom:advanced-camera-card
             cameras:
               - camera_entity: camera.ntk_ryansoffice_3dprinter_camera
