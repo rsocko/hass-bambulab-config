@@ -928,14 +928,15 @@ views:
                   - type: custom:mushroom-template-card
                     entity: sensor.ntk_ryansoffice_3dprinter_print_status
                     primary: >-
-                      {{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | title }} · {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | title }}
-                    secondary: ""
+                      {{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | replace('_', ' ') | title }}
+                    secondary: >-
+                      {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | replace('_', ' ') | title }}
                     icon: >-
                       {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
                       {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
                       {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
                       {% if hms == 'on' %}mdi:alert-circle
-                      {% elif status == 'printing' or stage == 'printing' %}mdi:printer-3d-nozzle-heat
+                      {% elif status == 'printing' or stage == 'printing' %}mdi:printer-3d-nozzle
                       {% elif status == 'pause' %}mdi:pause-circle
                       {% elif stage == 'auto_bed_leveling' %}mdi:grid
                       {% elif stage in ['heatbed_preheating', 'homing'] %}mdi:thermometer-lines
