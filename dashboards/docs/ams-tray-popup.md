@@ -19,8 +19,8 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Remaining weight | `remaining_weight` attribute |
 | Current print usage | `sensor.ntk_ryansoffice_3dprinter_print_weight` |
 | Desiccant status + age | `extra_desiccant_filled` attribute |
-| Desiccant reset button | `spoolman.patch_spool` service call |
-| Spoolman web UI link | Direct URL to `homeassistant.local:7912/spools/{id}` |
+| Mark as Refilled button | `spoolman.patch_spool` service call; centered row with desiccant info |
+| Spoolman web UI link | "Open in Spoolman" button with Spoolman icon (dashboardicons.com) |
 | Dynamic weight history | `history-graph` auto-scaled from `first_used` date |
 | More Details button | Opens HA entity info dialog |
 | Fallback (no spool) | Shows raw tray entity via `entities` card |
@@ -49,12 +49,13 @@ Three cards side-by-side using `custom:mushroom-template-card`:
 - **Remaining** — current remaining grams
 - **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
 
-### 4. Desiccant (horizontal)
-- Left: status text (e.g. "Filled 18 days ago") with color-coded water icon
-- Right: **Reset Date** button — calls `spoolman.patch_spool` with `extra.desiccant_filled = new Date().toISOString()`
+### 4. Desiccant (centered row)
+Two `custom:button-card` buttons displayed side-by-side and centered (not full-width) using `custom:layout-card` with `grid-template-columns: auto auto`:
+- Left: desiccant status text (e.g. "Filled 18 days ago") with color-coded `mdi:water` / `mdi:water-off` icon; icon-on-top, label-below layout; no background
+- Right: **Mark as Refilled** button (`mdi:water-plus`) — calls `spoolman.patch_spool` with `extra.desiccant_filled = new Date().toISOString()`; icon-on-top, name-below layout; primary-color background
 
 ### 5. Spoolman Link
-Button that opens `http://homeassistant.local:7912/spools/{id}` in a new tab.
+Button labeled **"Open in Spoolman"** that opens `http://spoolman.example.com/spool/show/{id}` in a new tab. Uses the Spoolman icon from dashboardicons.com (loaded via jsDelivr CDN). Icon-on-top, name-below layout; primary-color background.
 
 ### 6. Weight History Chart
 `history-graph` card:
@@ -64,7 +65,7 @@ Button that opens `http://homeassistant.local:7912/spools/{id}` in a new tab.
 - Title: `Weight History (N days)`
 
 ### 7. More Details
-`custom:button-card` that triggers `action: more-info` for `sensor.spoolman_spool_{id}`.
+`custom:button-card` that triggers `action: more-info` for `sensor.spoolman_spool_{id}`. Uses `var(--primary-color)` background, icon-on-top layout (consistent with other popup buttons).
 
 ---
 
@@ -120,7 +121,7 @@ return {
 
 ### Desiccant Reset Service Call
 
-The Reset Date button uses a static `call-service` tap_action. The ISO timestamp (`nowISO`) is
+The **Mark as Refilled** button (`mdi:water-plus`) uses a static `call-service` tap_action. The ISO timestamp (`nowISO`) is
 computed when the popup opens — this is sufficient since desiccant tracking precision is at the day level,
 and users typically click Reset within seconds of opening the popup.
 
