@@ -102,7 +102,26 @@ ams_tray_detail:
   styles:
     card:
       - padding: 6px
-      - background: none
+      - background: |
+          [[[
+            const tray = variables.tray;
+            const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+            const spoolId = map?.[tray]?.spool_id;
+            if (!spoolId) return 'none';
+            const spoolEntity = states['sensor.spoolman_spool_' + spoolId];
+            const hexes = spoolEntity?.attributes?.filament_multi_color_hexes || '';
+            const dir = spoolEntity?.attributes?.filament_multi_color_direction || '';
+            if (!hexes) return 'none';
+            const colors = hexes.split(',').map(function(h) { return '#' + h.trim().replace(/^#/, ''); });
+            const cssDir = dir === 'coaxial' ? 'to bottom' : 'to right';
+            return 'linear-gradient(' + cssDir + ', ' + colors.map(function(c) {
+              const h = c.replace('#', '');
+              const r = parseInt(h.substring(0, 2), 16) || 128;
+              const g = parseInt(h.substring(2, 4), 16) || 128;
+              const b = parseInt(h.substring(4, 6), 16) || 128;
+              return 'rgba(' + r + ',' + g + ',' + b + ',0.35)';
+            }).join(', ') + ')';
+          ]]]
       - border-radius: 8px
       - box-shadow: |
           [[[
