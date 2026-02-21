@@ -1,0 +1,155 @@
+# ============================================================
+# Power Controls Dashboard Card
+# ============================================================
+# A compact horizontal row of chip-sized power toggle buttons
+# for devices connected to the TP-Link power strip.
+#
+# Buttons (left to right):
+#   1. 3D Printer       - switch.tp_link_power_strip_ab64_ams_heater
+#   2. Front Camera     - switch.tp_link_power_strip_ab64_3d_printer_camera
+#   3. Filament Dryer   - switch.tp_link_power_strip_ab64_3d_printer
+#
+# Each button:
+#   - Chip / small size with icon + label
+#   - RED when the switch is ON
+#   - GREEN when the switch is OFF
+#   - Requires a confirmation dialog (defaults to Cancel) before toggling
+#
+# REQUIRED CUSTOM CARDS:
+#   - mushroom (via HACS)
+#   - card-mod (via HACS) - for compact chip styling
+#
+# ============================================================
+
+type: horizontal-stack
+cards:
+  # ── 3D PRINTER ──────────────────────────────────────────
+  - type: custom:mushroom-template-card
+    entity: switch.tp_link_power_strip_ab64_ams_heater
+    primary: 3D Printer
+    secondary: ""
+    icon: mdi:printer-3d
+    icon_color: >-
+      {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}
+        red
+      {% else %}
+        green
+      {% endif %}
+    tap_action:
+      action: toggle
+      confirmation:
+        text: >-
+          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') else 'on' }} the 3D Printer?
+        exemptions: []
+    hold_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          padding: 4px 8px !important;
+          border-radius: 16px;
+          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.12){% else %}rgba(76, 175, 80, 0.12){% endif %};
+          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.4){% else %}rgba(76, 175, 80, 0.4){% endif %};
+          transition: background 0.2s, border 0.2s;
+          --icon-size: 24px;
+          --card-primary-font-size: 0.8rem;
+          --card-primary-font-weight: 600;
+          --card-secondary-font-size: 0rem;
+        }
+        ha-card:hover {
+          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.22){% else %}rgba(76, 175, 80, 0.22){% endif %};
+        }
+
+  # ── FRONT CAMERA ────────────────────────────────────────
+  - type: custom:mushroom-template-card
+    entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+    primary: Front Camera
+    secondary: ""
+    icon: mdi:cctv
+    icon_color: >-
+      {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}
+        red
+      {% else %}
+        green
+      {% endif %}
+    tap_action:
+      action: toggle
+      confirmation:
+        text: >-
+          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') else 'on' }} the Front Camera?
+        exemptions: []
+    hold_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          padding: 4px 8px !important;
+          border-radius: 16px;
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.12){% else %}rgba(76, 175, 80, 0.12){% endif %};
+          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.4){% else %}rgba(76, 175, 80, 0.4){% endif %};
+          transition: background 0.2s, border 0.2s;
+          --icon-size: 24px;
+          --card-primary-font-size: 0.8rem;
+          --card-primary-font-weight: 600;
+          --card-secondary-font-size: 0rem;
+        }
+        ha-card:hover {
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.22){% else %}rgba(76, 175, 80, 0.22){% endif %};
+        }
+
+  # ── FILAMENT DRYER ──────────────────────────────────────
+  - type: custom:mushroom-template-card
+    entity: switch.tp_link_power_strip_ab64_3d_printer
+    primary: Filament Dryer
+    secondary: ""
+    icon: mdi:heat-wave
+    icon_color: >-
+      {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}
+        red
+      {% else %}
+        green
+      {% endif %}
+    tap_action:
+      action: toggle
+      confirmation:
+        text: >-
+          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') else 'on' }} the Filament Dryer?
+        exemptions: []
+    hold_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          padding: 4px 8px !important;
+          border-radius: 16px;
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.12){% else %}rgba(76, 175, 80, 0.12){% endif %};
+          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.4){% else %}rgba(76, 175, 80, 0.4){% endif %};
+          transition: background 0.2s, border 0.2s;
+          --icon-size: 24px;
+          --card-primary-font-size: 0.8rem;
+          --card-primary-font-weight: 600;
+          --card-secondary-font-size: 0rem;
+        }
+        ha-card:hover {
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.22){% else %}rgba(76, 175, 80, 0.22){% endif %};
+        }
+
+# ============================================================
+# NOTES:
+# ============================================================
+# 1. Confirmation dialog:
+#    Each button shows an "Are you sure?" dialog before toggling.
+#    The dialog defaults to Cancel so accidental taps are safe.
+#
+# 2. Color coding:
+#    RED  (on)  = device is currently powered ON  → tap to turn OFF
+#    GREEN (off) = device is currently powered OFF → tap to turn ON
+#
+# 3. Placement:
+#    Add this card below the fan controls row in your dashboard.
+#
+# 4. Entity IDs:
+#    - switch.tp_link_power_strip_ab64_ams_heater         (3D Printer)
+#    - switch.tp_link_power_strip_ab64_3d_printer_camera  (Front Camera)
+#    - switch.tp_link_power_strip_ab64_3d_printer         (Filament Dryer)
+# ============================================================
