@@ -685,6 +685,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A1
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -700,6 +701,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A2
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -715,6 +717,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A3
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -730,6 +733,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A4
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -759,6 +763,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B1
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -774,6 +779,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B2
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -789,6 +795,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B3
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -804,6 +811,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B4
+                      trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
                   - type: custom:button-card
                     template: ams_tray_detail
                     variables:
@@ -833,6 +841,7 @@ views:
                             template: ams_tray_label
                             variables:
                               trayName: External
+                              trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
                           - type: custom:button-card
                             template: ams_tray_detail
                             variables:
@@ -1727,8 +1736,13 @@ button_card_templates:
     styles:
       card:
         - background: none
-        - box-shadow: none
         - padding: 4px
+        - border-radius: 8px
+        - box-shadow: |
+            [[[
+              const active = states[variables.trayEntityId]?.attributes?.active;
+              return active ? 'inset 0 0 0 4px #2196F3' : 'none';
+            ]]]
       name:
         - font-size: 14px
         - font-weight: bold
@@ -1838,10 +1852,11 @@ button_card_templates:
       card:
         - padding: 6px
         - background: none
+        - border-radius: 8px
         - box-shadow: |
             [[[
               const active = states[variables.trayEntityId]?.attributes?.active;
-              return active ? 'inset 0 0 0 3px var(--primary-color)' : 'none';
+              return active ? 'inset 0 0 0 4px #2196F3' : 'none';
             ]]]
         - height: 100%
         - min-height: 80px
