@@ -2861,7 +2861,7 @@
           "max_columns": 4,
           "title": "Filament Catalog",
           "path": "filaments",
-          "icon": "",
+          "icon": "fapro:filament-2",
           "sections": [
             {
               "type": "grid",
