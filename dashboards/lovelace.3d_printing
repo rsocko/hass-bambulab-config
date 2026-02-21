@@ -2015,6 +2015,7 @@ button_card_templates:
         const textColor = luminance > 128 ? '#000000' : '#ffffff';
         const borderColor = luminance > 128 ? '#333333' : '#ffffff';
         const spoolEntityId = spoolId ? 'sensor.spoolman_spool_' + spoolId : null;
+        const locationEntityId = spoolId ? 'select.spoolman_spool_' + spoolId + '_location' : null;
         const spoolEntity = spoolEntityId ? states[spoolEntityId] : null;
         const trayEntity = states[trayEntityId];
         const spoolName = trayData.name || 'Unknown Filament';
@@ -2219,7 +2220,7 @@ button_card_templates:
                     chips: [
                       { type: 'template', icon: 'mdi:texture-box', icon_color: 'orange', content: 'Material: ' + material },
                       { type: 'template', icon: 'mdi:factory', icon_color: 'purple', content: 'Vendor: ' + vendor },
-                      { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location, entity: spoolEntityId, tap_action: { action: 'more-info' } }
+                      { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location, ...(locationEntityId ? { entity: locationEntityId, tap_action: { action: 'more-info' } } : {}) }
                     ]
                   },
                   {
