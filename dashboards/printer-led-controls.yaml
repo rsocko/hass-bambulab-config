@@ -1,0 +1,196 @@
+# Printer LED Controls Row
+#
+# A compact horizontal row of 5 LED control buttons for the 3D printer dashboard.
+# Designed to be placed above the advanced camera card.
+#
+# Buttons (left to right):
+#   1. Chamber Light   - light.ntk_ryansoffice_3dprinter_chamber_light
+#   2. MagWLED (top)   - light.magwled
+#   3. Reset MagWLED   - script.reset_interior_light_to_white
+#   4. DigQuad bottom  - light.dig_quad_v3  (progress LED)
+#   5. DigQuad seg. 1  - light.dig_quad_v3_segment_1  (status LED)
+#
+# Requirements:
+#   - custom:mushroom-template-card (HACS)
+#   - card_mod (HACS)
+#   - script.reset_interior_light_to_white (interior-light/reset_interior_light_to_white-script.yaml)
+
+type: horizontal-stack
+cards:
+  # Chamber Light (built-in printer chamber LED)
+  - type: custom:mushroom-template-card
+    entity: light.ntk_ryansoffice_3dprinter_chamber_light
+    primary: ""
+    secondary: ""
+    icon: mdi:led-strip-variant
+    badge_icon: mdi:cube-outline
+    badge_color: >-
+      {% if is_state('light.ntk_ryansoffice_3dprinter_chamber_light', 'on') %}amber{% else %}grey{% endif %}
+    icon_color: >-
+      {% if is_state('light.ntk_ryansoffice_3dprinter_chamber_light', 'on') %}amber{% else %}grey{% endif %}
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    double_tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          {% if is_state('light.ntk_ryansoffice_3dprinter_chamber_light', 'on') %}
+          box-shadow: 0 0 10px 3px rgba(255, 180, 0, 0.6);
+          {% endif %}
+        }
+
+  # MagWLED (interior top LED strip)
+  - type: custom:mushroom-template-card
+    entity: light.magwled
+    primary: ""
+    secondary: ""
+    icon: mdi:led-strip-variant
+    badge_icon: >-
+      {% set effect = state_attr('light.magwled', 'effect') %}
+      {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
+      mdi:auto-fix
+      {% else %}
+      mdi:arrow-up-bold-box-outline
+      {% endif %}
+    badge_color: >-
+      {% set effect = state_attr('light.magwled', 'effect') %}
+      {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
+      purple
+      {% elif is_state('light.magwled', 'on') %}
+      white
+      {% else %}
+      grey
+      {% endif %}
+    icon_color: >-
+      {% if is_state('light.magwled', 'on') %}
+        {% set rgb = state_attr('light.magwled', 'rgb_color') %}
+        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}white{% endif %}
+      {% else %}grey{% endif %}
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    double_tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          {% set effect = state_attr('light.magwled', 'effect') %}
+          {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
+          box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
+          {% elif is_state('light.magwled', 'on') %}
+          {% set rgb = state_attr('light.magwled', 'rgb_color') %}
+          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
+          {% endif %}
+        }
+
+  # Reset MagWLED to white (uses existing script)
+  - type: custom:mushroom-template-card
+    primary: ""
+    secondary: ""
+    icon: mdi:restore
+    icon_color: white
+    tap_action:
+      action: perform-action
+      perform_action: script.turn_on
+      target:
+        entity_id: script.reset_interior_light_to_white
+    card_mod:
+      style: |
+        ha-card {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.35);
+        }
+
+  # DigQuad bottom progress LED (outside front-bottom of printer)
+  - type: custom:mushroom-template-card
+    entity: light.dig_quad_v3
+    primary: ""
+    secondary: ""
+    icon: mdi:led-strip-variant
+    badge_icon: >-
+      {% set effect = state_attr('light.dig_quad_v3', 'effect') %}
+      {% if is_state('light.dig_quad_v3', 'on') and effect not in ['Solid', 'None', none, ''] %}
+      mdi:auto-fix
+      {% else %}
+      mdi:progress-download
+      {% endif %}
+    badge_color: >-
+      {% set effect = state_attr('light.dig_quad_v3', 'effect') %}
+      {% if is_state('light.dig_quad_v3', 'on') and effect not in ['Solid', 'None', none, ''] %}
+      purple
+      {% elif is_state('light.dig_quad_v3', 'on') %}
+      green
+      {% else %}
+      grey
+      {% endif %}
+    icon_color: >-
+      {% if is_state('light.dig_quad_v3', 'on') %}
+        {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
+        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}green{% endif %}
+      {% else %}grey{% endif %}
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    double_tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          {% set effect = state_attr('light.dig_quad_v3', 'effect') %}
+          {% if is_state('light.dig_quad_v3', 'on') and effect not in ['Solid', 'None', none, ''] %}
+          box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
+          {% elif is_state('light.dig_quad_v3', 'on') %}
+          {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
+          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
+          {% endif %}
+        }
+
+  # DigQuad segment 1 status LED (outside front-left/top of printer)
+  - type: custom:mushroom-template-card
+    entity: light.dig_quad_v3_segment_1
+    primary: ""
+    secondary: ""
+    icon: mdi:led-strip-variant
+    badge_icon: >-
+      {% set effect = state_attr('light.dig_quad_v3_segment_1', 'effect') %}
+      {% if is_state('light.dig_quad_v3_segment_1', 'on') and effect not in ['Solid', 'None', none, ''] %}
+      mdi:auto-fix
+      {% else %}
+      mdi:list-status
+      {% endif %}
+    badge_color: >-
+      {% set effect = state_attr('light.dig_quad_v3_segment_1', 'effect') %}
+      {% if is_state('light.dig_quad_v3_segment_1', 'on') and effect not in ['Solid', 'None', none, ''] %}
+      purple
+      {% elif is_state('light.dig_quad_v3_segment_1', 'on') %}
+      cyan
+      {% else %}
+      grey
+      {% endif %}
+    icon_color: >-
+      {% if is_state('light.dig_quad_v3_segment_1', 'on') %}
+        {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
+        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}cyan{% endif %}
+      {% else %}grey{% endif %}
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    double_tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        ha-card {
+          {% set effect = state_attr('light.dig_quad_v3_segment_1', 'effect') %}
+          {% if is_state('light.dig_quad_v3_segment_1', 'on') and effect not in ['Solid', 'None', none, ''] %}
+          box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
+          {% elif is_state('light.dig_quad_v3_segment_1', 'on') %}
+          {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
+          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
+          {% endif %}
+        }
