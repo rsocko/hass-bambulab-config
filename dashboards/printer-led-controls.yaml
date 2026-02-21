@@ -35,12 +35,18 @@ cards:
     double_tap_action:
       action: more-info
     card_mod:
-      style: |
-        ha-card {
+      style:
+        ha-card: |
           {% if is_state('light.ntk_ryansoffice_3dprinter_chamber_light', 'on') %}
           box-shadow: 0 0 10px 3px rgba(255, 180, 0, 0.6);
           {% endif %}
-        }
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+          }
+          .info {
+            display: none;
+          }
 
   # MagWLED (interior top LED strip)
   - type: custom:mushroom-template-card
@@ -60,14 +66,14 @@ cards:
       {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
       purple
       {% elif is_state('light.magwled', 'on') %}
-      white
+      amber
       {% else %}
       grey
       {% endif %}
     icon_color: >-
       {% if is_state('light.magwled', 'on') %}
         {% set rgb = state_attr('light.magwled', 'rgb_color') %}
-        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}white{% endif %}
+        {% if rgb and not (rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220) %}rgb({{ rgb | join(', ') }}){% else %}amber{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -76,34 +82,52 @@ cards:
     double_tap_action:
       action: more-info
     card_mod:
-      style: |
-        ha-card {
+      style:
+        ha-card: |
           {% set effect = state_attr('light.magwled', 'effect') %}
           {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
           box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
           {% elif is_state('light.magwled', 'on') %}
           {% set rgb = state_attr('light.magwled', 'rgb_color') %}
-          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
+          {% if rgb %}
+          {% if rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220 %}
+          box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
+          {% else %}
+          box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
           {% endif %}
-        }
+          {% endif %}
+          {% endif %}
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+          }
+          .info {
+            display: none;
+          }
 
   # Reset MagWLED to white (uses existing script)
   - type: custom:mushroom-template-card
     primary: ""
     secondary: ""
     icon: mdi:restore
-    icon_color: white
+    icon_color: grey
     tap_action:
       action: perform-action
       perform_action: script.turn_on
       target:
         entity_id: script.reset_interior_light_to_white
     card_mod:
-      style: |
-        ha-card {
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.35);
-        }
+      style:
+        ha-card: |
+          background: var(--secondary-background-color, rgba(128, 128, 128, 0.1));
+          border: 1px solid var(--divider-color, rgba(128, 128, 128, 0.3));
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+          }
+          .info {
+            display: none;
+          }
 
   # DigQuad bottom progress LED (outside front-bottom of printer)
   - type: custom:mushroom-template-card
@@ -130,7 +154,7 @@ cards:
     icon_color: >-
       {% if is_state('light.dig_quad_v3', 'on') %}
         {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
-        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}green{% endif %}
+        {% if rgb and not (rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220) %}rgb({{ rgb | join(', ') }}){% else %}amber{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -139,16 +163,28 @@ cards:
     double_tap_action:
       action: more-info
     card_mod:
-      style: |
-        ha-card {
+      style:
+        ha-card: |
           {% set effect = state_attr('light.dig_quad_v3', 'effect') %}
           {% if is_state('light.dig_quad_v3', 'on') and effect not in ['Solid', 'None', none, ''] %}
           box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
           {% elif is_state('light.dig_quad_v3', 'on') %}
           {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
-          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
+          {% if rgb %}
+          {% if rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220 %}
+          box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
+          {% else %}
+          box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
           {% endif %}
-        }
+          {% endif %}
+          {% endif %}
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+          }
+          .info {
+            display: none;
+          }
 
   # DigQuad segment 1 status LED (outside front-left/top of printer)
   - type: custom:mushroom-template-card
@@ -175,7 +211,7 @@ cards:
     icon_color: >-
       {% if is_state('light.dig_quad_v3_segment_1', 'on') %}
         {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
-        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}cyan{% endif %}
+        {% if rgb and not (rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220) %}rgb({{ rgb | join(', ') }}){% else %}amber{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -184,13 +220,25 @@ cards:
     double_tap_action:
       action: more-info
     card_mod:
-      style: |
-        ha-card {
+      style:
+        ha-card: |
           {% set effect = state_attr('light.dig_quad_v3_segment_1', 'effect') %}
           {% if is_state('light.dig_quad_v3_segment_1', 'on') and effect not in ['Solid', 'None', none, ''] %}
           box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
           {% elif is_state('light.dig_quad_v3_segment_1', 'on') %}
           {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
-          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
+          {% if rgb %}
+          {% if rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220 %}
+          box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
+          {% else %}
+          box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
           {% endif %}
-        }
+          {% endif %}
+          {% endif %}
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+          }
+          .info {
+            display: none;
+          }
