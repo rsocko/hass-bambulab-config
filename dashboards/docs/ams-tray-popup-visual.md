@@ -21,11 +21,22 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
 ╠══════════════════════════════════════════════════════════╣
 ║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
+║  ║ ⚫ Black      ║ 🎨 Blacks &   ║ 🏷️ Matte      ║      ║  ← Base Color / Color Family / Attributes
+║  ║  Base Color  ║   Whites      ║  Attributes   ║      ║
+║  ║              ║  Color Family ║               ║      ║
+║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
+╠══════════════════════════════════════════════════════════╣
+║  ╔═══════════════╦═══════════════╦═══════════════╗      ║
 ║  ║               ║  ⚖️  248.3 g  ║  🖨️  12.5 g   ║      ║  ← Color swatch / Remaining / Print
 ║  ║  ██  #1A1A1A ║   Remaining  ║   This Print  ║      ║
 ║  ║  (filament   ║              ║  (green/red)  ║      ║
 ║  ║   color bg)  ║              ║              ║      ║
 ║  ╚═══════════════╩═══════════════╩═══════════════╝      ║
+╠══════════════════════════════════════════════════════════╣
+║  ╔═══════════════════════════╦══════════════════╗       ║
+║  ║ 📦 1052.4 g (4 spools)   ║ 🌡️ Dec 12, 2024  ║       ║  ← Total weight / Last dried
+║  ║  Total (all spools)      ║   Last Dried     ║       ║
+║  ╚═══════════════════════════╩══════════════════╝       ║
 ╠══════════════════════════════════════════════════════════╣
 ║  ╔════════════════════════════╦═════════════════╗      ║
 ║  ║ 💧 Filled 18 days ago     ║  [💧 Mark as   ] ║      ║  ← Desiccant status + reset
@@ -45,7 +56,11 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 ║       Day 1      Day 7       Day 14                     ║
 ╠══════════════════════════════════════════════════════════╣
 ║  ┌──────────────────────────────────────────────────┐   ║
-║  │  ℹ️  More Details                                │   ║  ← Opens HA entity dialog
+║  │  📶  a1b2c3d4-e5f6-...  Bambu Spool UUID        │   ║  ← (conditional: shown when UUID set)
+║  └──────────────────────────────────────────────────┘   ║
+╠══════════════════════════════════════════════════════════╣
+║  ┌──────────────────────────────────────────────────┐   ║
+║  │  ℹ️  More Details          ✕  Close              │   ║  ← Opens HA entity dialog / close
 ║  └──────────────────────────────────────────────────┘   ║
 ╚══════════════════════════════════════════════════════════╝
 ```
@@ -69,31 +84,48 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 | Vendor | `mdi:factory` | Purple | Vendor/manufacturer name |
 | Location | `mdi:map-marker` | Blue | Spool storage location from Spoolman |
 
-### Row 3 — Color Swatch / Weight / Print Usage
+### Row 3 — Base Color / Color Family / Attributes
+| Card | Icon | Color | Value |
+|------|------|-------|-------|
+| Base Color | `mdi:circle` | Filament color | Human-readable color name (e.g. Blue, Black, Silver) from `filament_extra_base_color` |
+| Color Family | `mdi:palette-swatch-variant` | Indigo | Color group (e.g. Blacks & Whites, Browns, Rainbow) from `filament_extra_color_family` |
+| Attributes | `mdi:tag-multiple` | Green | Finish/type tags (e.g. Matte, Metallic, Silk) from `filament_extra_type_details`; `N/A` if not set |
+
+### Row 4 — Color Swatch / Weight / Print Usage
 | Card | Description |
 |------|-------------|
 | Color Swatch | Full background of filament color hex; text auto-adjusts to black/white for contrast |
-| Remaining | Current remaining weight in grams from Spoolman |
+| Remaining | Current remaining weight in grams for this spool from Spoolman |
 | This Print | Weight required for current print job (from `sensor.ntk_ryansoffice_3dprinter_print_weight`); icon turns red with alert if spool won't have enough |
 
-### Row 4 — Desiccant
+### Row 5 — Total Weight / Last Dried
+| Card | Icon | Color | Value |
+|------|------|-------|-------|
+| Total (all spools) | `mdi:archive-multiple` | Cyan | Sum of `remaining_weight` for all spools with matching `filament_id`, with count (e.g. `1052.4 g (4 spools)`) |
+| Last Dried | `mdi:thermometer-lines` | Deep Orange | Date from `extra_last_dried`; shows `Never` if not set |
+
+### Row 6 — Desiccant
 | Element | Description |
 |---------|-------------|
 | Status text | "Filled N days ago" or "No desiccant data" |
 | Icon color | 🟢 Green (< 30 days), 🟡 Yellow (30-45), 🟠 Orange (45-60), 🔴 Red (> 60) |
 | Mark as Refilled button | `mdi:water-plus` icon; calls `spoolman.patch_spool` with current ISO timestamp; centered row layout via `custom:layout-card` |
 
-### Row 5 — Spoolman Link
+### Row 7 — Spoolman Link
 **"Open in Spoolman"** button with Spoolman icon (from dashboardicons.com via jsDelivr CDN).  
 Opens `{SPOOLMAN_BASE_URL}/{id}` in a new tab. Icon-on-top layout matching spool view button style.
 
-### Row 6 — Weight History Chart
+### Row 8 — Weight History Chart
 - Uses Home Assistant's built-in `history-graph` card
 - Duration is **dynamic**: if `first_used` attribute exists, shows full history since that date; otherwise defaults to 7 days
 - Title shows: `Weight History (N days)`
 
-### Row 7 — More Details
-Opens the standard HA entity info dialog for `sensor.spoolman_spool_<id>`.
+### Row 9 — Bambu Spool UUID (conditional)
+`custom:mushroom-template-card` displaying the Bambu RFID spool UUID from `extra_spool_uuid`.  
+**Only rendered when `extra_spool_uuid` is non-empty** — uses JS spread operator to conditionally include the card.
+
+### Row 10 — More Details / Close
+Opens the standard HA entity info dialog for `sensor.spoolman_spool_<id>` (More Details) or closes the popup (Close).
 
 ---
 
