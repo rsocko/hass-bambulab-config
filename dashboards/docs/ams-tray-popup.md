@@ -15,7 +15,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Filament material type | `filament_material` attribute |
 | Vendor / manufacturer | `filament_vendor_name` attribute |
 | Storage location | `location` attribute |
-| Color swatch (auto contrast) | `tray_map.color` → auto brightness calculation |
+| Color swatch (auto contrast) | `tray_map.color` → filament name + entity icon + hex/RGB values; auto brightness text contrast |
 | Remaining weight | `remaining_weight` attribute |
 | Current print usage | `sensor.ntk_ryansoffice_3dprinter_print_weight` |
 | Desiccant status + age | `extra_desiccant_filled` attribute |
@@ -42,7 +42,10 @@ Three cards side-by-side using `custom:mushroom-template-card`:
 - **Location** — `mdi:map-marker` blue — spool storage location
 
 ### 3. Color / Weight / Print Usage (horizontal)
-- **Color swatch** — full button-card background in filament color; hex code as label; text auto-adjusts for contrast
+- **Color swatch** — `custom:button-card` with background in filament color; auto-contrast text (NTSC luminance); centered layout with:
+  - Top line: actual filament name from Spoolman (`filament_name` attribute, falls back to material type)
+  - Spoolman entity icon with contrasting circular border/background
+  - Label: hex color code • RGB values
 - **Remaining** — current remaining grams
 - **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
 
@@ -155,9 +158,22 @@ if (firstUsed) {
 
 ```javascript
 // NTSC luminance formula
-const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-const textColor  = brightness > 128 ? '#000000' : '#ffffff';
+const luminance = (r * 299 + g * 587 + b * 114) / 1000;
+const textColor  = luminance > 128 ? '#000000' : '#ffffff';
+const borderColor = luminance > 128 ? '#333333' : '#ffffff';
 ```
+
+### Filament Name
+
+The color swatch top line uses `filament_name` from the Spoolman entity attributes (the actual product name, e.g. "PLA Basic"), falling back to `filament_material` (e.g. "PLA") if not set:
+
+```javascript
+const filamentName = spoolEntity?.attributes?.filament_name || material;
+```
+
+### Swatch Icon
+
+The swatch uses `entity: spoolEntityId` in `custom:button-card` so the card automatically resolves and displays the Spoolman entity's icon. The icon is styled with a circular contrasting background (20% opacity black/white based on luminance) and a matching border.
 
 ---
 
