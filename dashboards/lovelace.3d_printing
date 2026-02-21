@@ -1950,6 +1950,7 @@ button_card_templates:
           const bb = parseInt(hex.substring(4, 6), 16) || 128;
           return (br * 299 + bg * 587 + bb * 114) / 1000;
         })();
+        const baseColorOutlineColor = baseColorLuminance > 180 ? '#333333' : '#cccccc';
         const colorFamily = spoolEntity?.attributes?.filament_extra_color_family || '';
         const typeDetailsRaw = spoolEntity?.attributes?.filament_extra_type_details || '';
         const lastDried = spoolEntity?.attributes?.extra_last_dried || '';
@@ -2112,9 +2113,20 @@ button_card_templates:
                     alignment: 'center',
                     chips: [
                       { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Color Family: ' + (colorFamily || 'N/A') },
-                      { type: 'template', icon: baseColorLuminance > 180 ? 'mdi:circle-outline' : 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') },
                       { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Attr: ' + typeDetails }
                     ]
+                  },
+                  {
+                    type: 'custom:mushroom-chips-card',
+                    alignment: 'center',
+                    chips: [
+                      { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') }
+                    ],
+                    card_mod: {
+                      style: {
+                        '$': 'mushroom-template-chip::part(icon) { filter: drop-shadow(0 0 1.5px ' + baseColorOutlineColor + '); }'
+                      }
+                    }
                   },
                   {
                     type: 'custom:button-card',
