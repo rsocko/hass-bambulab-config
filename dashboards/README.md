@@ -81,39 +81,20 @@ The dashboard uses several custom cards that must be installed via HACS:
 ## Installation
 
 1. Install all required custom cards via HACS
-2. **Choose a template loading strategy** (see [Button-Card Templates](#button-card-templates) below)
+2. Add the following to your `configuration.yaml` and **restart Home Assistant**:
+   ```yaml
+   button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
+   ```
 3. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
 4. Paste the contents of **`lovelace.3d_printing`** into the editor
-   - If using **Option A** (global templates via `configuration.yaml`): remove the `button_card_templates:` block at the bottom of the file before pasting
-   - If using **Option B** (inline templates): paste the entire file as-is
 5. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
 6. Click **Save** and reload the dashboard
 
 ### Button-Card Templates
 
 The AMS tray cards use three `custom:button-card` templates defined in
-[`card-templates/`](card-templates/). There are two ways to load them:
-
-#### Option A — Global templates via `configuration.yaml` (Recommended)
-
-Defining templates in `configuration.yaml` makes them available to **all** dashboards,
-including UI-managed dashboards. The raw editor dashboard YAML stays small.
-
-Add the following to your `configuration.yaml` and **restart Home Assistant**:
-
-```yaml
-button_card_templates: !include_dir_merge_named /config/dashboards/card-templates/
-```
-
-When pasting `lovelace.3d_printing` into the raw editor, you can remove the
-`button_card_templates:` block at the very bottom of the file.
-
-#### Option B — Inline templates (no `configuration.yaml` changes)
-
-The `lovelace.3d_printing` file already contains the full inline template definitions at
-the bottom. Paste the entire file as-is into the raw editor — no other configuration needed.
-
----
+[`card-templates/`](card-templates/). They are loaded globally via `configuration.yaml`,
+making them available to **all** dashboards including UI-managed ones.
 
 | Template File | Template Name | Purpose |
 |---|---|---|
