@@ -70,7 +70,7 @@ Single `custom:mushroom-chips-card` with `alignment: 'center'` and three compact
 Three items in one `horizontal-stack`:
 - **Remaining** — `mdi:weight-gram` teal — current remaining grams for this spool
 - **This Print** — grams required by current print job; icon turns `mdi:printer-3d-nozzle-alert` red when spool won't have enough
-- **Total (all spools)** — `mdi:archive-multiple` cyan — total remaining weight across all spools sharing the same `filament_id` in Spoolman, with spool count (e.g. `1052.4 g (4 spools)`)
+- **Total (all spools)** — `mdi:layers-triple` cyan — total remaining weight across all spools sharing the same `filament_id` in Spoolman, with spool count (e.g. `1052.4 g (4 spools)`)
 
 ### 7. Last Dried / Desiccant / Mark as Refilled (horizontal)
 Three items in one `horizontal-stack`:
