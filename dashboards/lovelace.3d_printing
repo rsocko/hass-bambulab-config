@@ -1195,6 +1195,10 @@ views:
                 {% endif %}
                 .primary { font-size: 18px !important; font-weight: 600; }
                 .secondary { font-size: 22px !important; font-weight: 700; }
+          - type: custom:ha-bambulab-print_control-card
+            printer: 210dfdfa64085e8cf073e50eae757d90
+            grid_options:
+              columns: full
         columns: 2
         square: false
       - type: grid
