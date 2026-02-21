@@ -2361,10 +2361,11 @@ button_card_templates:
                         type: 'custom:button-card',
                         name: 'Open in Spoolman',
                         image: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/spoolman.svg',
+                        show_icon: false,
                         tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId },
                         styles: {
                           grid: [
-                            { 'grid-template-areas': '"i" "n"' },
+                            { 'grid-template-areas': '"img" "n"' },
                             { 'grid-template-rows': 'min-content min-content' },
                             { 'justify-items': 'center' },
                             { 'align-items': 'center' }
@@ -2376,7 +2377,7 @@ button_card_templates:
                             { padding: '10px' }
                           ],
                           name: [{ color: 'white' }, { 'font-size': '13px' }, { 'font-weight': '600' }, { 'text-align': 'center' }],
-                          icon: [{ filter: 'brightness(0) invert(1)' }, { width: '28px' }, { height: '28px' }, { 'margin-bottom': '4px' }]
+                          img: [{ filter: 'brightness(0) invert(1)' }, { width: '28px' }, { height: '28px' }, { 'margin-bottom': '4px' }]
                         }
                       },
                       {
