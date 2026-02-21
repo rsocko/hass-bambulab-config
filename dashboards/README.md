@@ -5,9 +5,10 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 ## Files
 
 - **lovelace.3d_printing** - Main 3D printer dashboard configuration (YAML format, paste directly into the Raw Dashboard Editor)
-- **templates.yaml** - Reusable card templates
+- **templates.yaml** - Reusable Home Assistant template sensors (spoolman tray map, filament totals)
 - **printer-temps.yaml** - Temperature display cards for nozzle and bed (separate, paste-able YAML)
 - **printer-temps-example.yaml** - Ready-to-use temperature cards with repository entity names
+- **card-templates/** - Individual `button-card` template files (one per template); see [card-templates/README.md](card-templates/README.md)
 - **docs/** - Documentation for dashboard features and customization
 
 ## Dashboard Features
@@ -87,15 +88,22 @@ The dashboard uses several custom cards that must be installed via HACS:
 
 ### Button-Card Templates
 
-The dashboard uses three `button_card_templates` defined at the top of the configuration:
+The AMS tray templates are stored as individual files in [`card-templates/`](card-templates/) and
+loaded automatically by `lovelace.3d_printing`:
 
-| Template | Purpose |
-|---|---|
-| `ams_tray_label` | Slot label card (A1, A2, B1, etc.) |
-| `ams_tray_detail` | Full tray info card — card appearance and data display |
-| `ams_tray_popup` | Popup dialog — tap action that opens the spool details popup |
+```yaml
+button_card_templates: !include_dir_merge_named card-templates/
+```
 
-`ams_tray_detail` inherits its `tap_action` from `ams_tray_popup` via template inheritance. To modify the popup appearance or behavior, edit only `ams_tray_popup`. To modify the card appearance, edit `ams_tray_detail`.
+| Template File | Template Name | Purpose |
+|---|---|---|
+| `card-templates/ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) |
+| `card-templates/ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — card appearance and data display |
+| `card-templates/ams_tray_popup.yaml` | `ams_tray_popup` | Popup dialog — tap action that opens the spool details popup |
+
+`ams_tray_detail` inherits its `tap_action` from `ams_tray_popup` via template inheritance. To modify the popup appearance or behavior, edit only `ams_tray_popup.yaml`. To modify the card appearance, edit `ams_tray_detail.yaml`.
+
+See [card-templates/README.md](card-templates/README.md) for full variable reference and instructions for reusing these templates in other dashboards.
 
 ## Configuration
 

@@ -1,0 +1,19 @@
+ams_tray_label:
+  type: custom:button-card
+  name: '[[[ return variables.trayName; ]]]'
+  show_icon: false
+  show_state: false
+  styles:
+    card:
+      - background: none
+      - padding: 4px
+      - border-radius: 8px
+      - box-shadow: |
+          [[[
+            const active = states[variables.trayEntityId]?.attributes?.active;
+            return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
+          ]]]
+    name:
+      - font-size: 14px
+      - font-weight: bold
+      - justify-self: center
