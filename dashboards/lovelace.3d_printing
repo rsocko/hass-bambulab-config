@@ -437,84 +437,89 @@ button_card_templates:
                         fill_container: true
                       },
                       {
-                        type: 'custom:button-card',
-                        name: 'Mark as Refilled',
-                        icon: 'mdi:water-plus',
-                        show_icon: true,
-                        show_name: true,
-                        show_label: false,
-                        tap_action: {
-                          action: 'call-service',
-                          service: 'spoolman.patch_spool',
-                          service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
-                        },
-                        styles: {
-                          grid: [
-                            { 'grid-template-areas': '"i" "n"' },
-                            { 'grid-template-rows': 'min-content min-content' },
-                            { 'justify-items': 'center' },
-                            { 'align-items': 'center' }
-                          ],
-                          card: [
-                            { background: 'var(--primary-color)' },
-                            { 'border-radius': '8px' },
-                            { 'box-shadow': 'none' },
-                            { padding: '8px' }
-                          ],
-                          icon: [
-                            { color: 'white' },
-                            { width: '20px' },
-                            { height: '20px' },
-                            { 'margin-bottom': '2px' }
-                          ],
-                          name: [
-                            { color: 'white' },
-                            { 'font-size': '11px' },
-                            { 'font-weight': '600' },
-                            { 'text-align': 'center' },
-                            { 'white-space': 'nowrap' }
-                          ]
-                        }
-                      },
-                      {
-                        type: 'custom:button-card',
-                        name: 'Mark as Dried',
-                        icon: 'mdi:heat-wave',
-                        show_icon: true,
-                        show_name: true,
-                        show_label: false,
-                        tap_action: {
-                          action: 'call-service',
-                          service: 'spoolman.patch_spool',
-                          service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
-                        },
-                        styles: {
-                          grid: [
-                            { 'grid-template-areas': '"i" "n"' },
-                            { 'grid-template-rows': 'min-content min-content' },
-                            { 'justify-items': 'center' },
-                            { 'align-items': 'center' }
-                          ],
-                          card: [
-                            { background: 'var(--primary-color)' },
-                            { 'border-radius': '8px' },
-                            { 'box-shadow': 'none' },
-                            { padding: '8px' }
-                          ],
-                          icon: [
-                            { color: 'white' },
-                            { width: '20px' },
-                            { height: '20px' },
-                            { 'margin-bottom': '2px' }
-                          ],
-                          name: [
-                            { color: 'white' },
-                            { 'font-size': '11px' },
-                            { 'font-weight': '600' },
-                            { 'text-align': 'center' },
-                            { 'white-space': 'nowrap' }
-                          ]
-                        }
+                        type: 'vertical-stack',
+                        cards: [
+                          {
+                            type: 'custom:button-card',
+                            name: 'Mark as Dried',
+                            icon: 'mdi:heat-wave',
+                            show_icon: true,
+                            show_name: true,
+                            show_label: false,
+                            tap_action: {
+                              action: 'call-service',
+                              service: 'spoolman.patch_spool',
+                              service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i" "n"' },
+                                { 'grid-template-rows': 'min-content min-content' },
+                                { 'justify-items': 'center' },
+                                { 'align-items': 'center' }
+                              ],
+                              card: [
+                                { background: 'var(--primary-color)' },
+                                { 'border-radius': '8px' },
+                                { 'box-shadow': 'none' },
+                                { padding: '8px' }
+                              ],
+                              icon: [
+                                { color: 'white' },
+                                { width: '20px' },
+                                { height: '20px' },
+                                { 'margin-bottom': '2px' }
+                              ],
+                              name: [
+                                { color: 'white' },
+                                { 'font-size': '11px' },
+                                { 'font-weight': '600' },
+                                { 'text-align': 'center' },
+                                { 'white-space': 'nowrap' }
+                              ]
+                            }
+                          },
+                          {
+                            type: 'custom:button-card',
+                            name: 'Mark as Refilled',
+                            icon: 'mdi:water-plus',
+                            show_icon: true,
+                            show_name: true,
+                            show_label: false,
+                            tap_action: {
+                              action: 'call-service',
+                              service: 'spoolman.patch_spool',
+                              service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i" "n"' },
+                                { 'grid-template-rows': 'min-content min-content' },
+                                { 'justify-items': 'center' },
+                                { 'align-items': 'center' }
+                              ],
+                              card: [
+                                { background: 'var(--primary-color)' },
+                                { 'border-radius': '8px' },
+                                { 'box-shadow': 'none' },
+                                { padding: '8px' }
+                              ],
+                              icon: [
+                                { color: 'white' },
+                                { width: '20px' },
+                                { height: '20px' },
+                                { 'margin-bottom': '2px' }
+                              ],
+                              name: [
+                                { color: 'white' },
+                                { 'font-size': '11px' },
+                                { 'font-weight': '600' },
+                                { 'text-align': 'center' },
+                                { 'white-space': 'nowrap' }
+                              ]
+                            }
+                          }
+                        ]
                       }
                     ]
                   },
