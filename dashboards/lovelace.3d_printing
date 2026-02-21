@@ -2219,7 +2219,7 @@ button_card_templates:
                     chips: [
                       { type: 'template', icon: 'mdi:texture-box', icon_color: 'orange', content: 'Material: ' + material },
                       { type: 'template', icon: 'mdi:factory', icon_color: 'purple', content: 'Vendor: ' + vendor },
-                      { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location }
+                      { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location, entity: spoolEntityId, tap_action: { action: 'more-info' } }
                     ]
                   },
                   {
