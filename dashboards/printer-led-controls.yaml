@@ -74,7 +74,7 @@ cards:
     icon_color: >-
       {% if is_state('light.magwled', 'on') %}
         {% set rgb = state_attr('light.magwled', 'rgb_color') %}
-        {% if rgb and not (rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220) %}rgb({{ rgb | join(', ') }}){% else %}amber{% endif %}
+        {% if rgb %}{% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}{% if lum > 200 %}amber{% else %}rgb({{ rgb | join(', ') }}){% endif %}{% else %}amber{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -91,8 +91,10 @@ cards:
           {% elif is_state('light.magwled', 'on') %}
           {% set rgb = state_attr('light.magwled', 'rgb_color') %}
           {% if rgb %}
-          {% if rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220 %}
+          {% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}
+          {% if lum > 200 %}
           box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
+          border: 1px solid rgba(255, 183, 77, 0.6);
           {% else %}
           box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
           {% endif %}
@@ -122,7 +124,7 @@ cards:
       style:
         ha-card: |
           background: var(--secondary-background-color, rgba(128, 128, 128, 0.1));
-          border: 1px solid var(--divider-color, rgba(128, 128, 128, 0.3));
+          border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.2));
         mushroom-card$: |
           .container {
             justify-content: center;
@@ -157,7 +159,7 @@ cards:
     icon_color: >-
       {% if is_state('light.dig_quad_v3', 'on') %}
         {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
-        {% if rgb and not (rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220) %}rgb({{ rgb | join(', ') }}){% else %}amber{% endif %}
+        {% if rgb %}{% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}{% if lum > 200 %}amber{% else %}rgb({{ rgb | join(', ') }}){% endif %}{% else %}amber{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -174,8 +176,10 @@ cards:
           {% elif is_state('light.dig_quad_v3', 'on') %}
           {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
           {% if rgb %}
-          {% if rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220 %}
+          {% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}
+          {% if lum > 200 %}
           box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
+          border: 1px solid rgba(255, 183, 77, 0.6);
           {% else %}
           box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
           {% endif %}
@@ -215,7 +219,7 @@ cards:
     icon_color: >-
       {% if is_state('light.dig_quad_v3_segment_1', 'on') %}
         {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
-        {% if rgb and not (rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220) %}rgb({{ rgb | join(', ') }}){% else %}amber{% endif %}
+        {% if rgb %}{% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}{% if lum > 200 %}amber{% else %}rgb({{ rgb | join(', ') }}){% endif %}{% else %}amber{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -232,8 +236,10 @@ cards:
           {% elif is_state('light.dig_quad_v3_segment_1', 'on') %}
           {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
           {% if rgb %}
-          {% if rgb[0] > 220 and rgb[1] > 220 and rgb[2] > 220 %}
+          {% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}
+          {% if lum > 200 %}
           box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
+          border: 1px solid rgba(255, 183, 77, 0.6);
           {% else %}
           box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
           {% endif %}
