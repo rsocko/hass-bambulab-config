@@ -125,6 +125,27 @@ To add a new template:
 
 ## Troubleshooting
 
+### "Integration error: button_card_templates - Integration 'button_card_templates' not found"
+
+This error appears in **Developer Tools → YAML → Check Configuration** when Home Assistant
+does not recognise `button_card_templates` as a valid configuration key. The key is registered
+by the `button-card` custom component — if that component is not installed, HA reports it as
+an unknown integration.
+
+**Cause:** `button-card` was not installed via HACS, or was installed only as a manual
+frontend resource (a `.js` file copied to `www/`) without the accompanying custom component.
+Installing via HACS is required because the HACS package includes both the frontend resource
+*and* a backend custom component that registers `button_card_templates` as a valid
+configuration key.
+
+**Fix:**
+1. Open **HACS → Frontend** and install **button-card** (search for "button-card").
+2. **Restart Home Assistant** so the custom component is loaded.
+3. Re-run **Developer Tools → YAML → Check Configuration** — the error should be gone.
+4. Continue with the normal setup steps above.
+
+---
+
 ### "Button-card template '…' is missing!" Error
 
 This error means Home Assistant has not yet loaded the templates from `configuration.yaml`.
