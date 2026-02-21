@@ -28,7 +28,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Bambu Spool UUID | `extra_spool_uuid` attribute — shown as a centered chip card below the header when set (selectable text) |
 | Spoolman web UI link | "Open in Spoolman" button in the bottom row alongside More Details & Close |
 | Dynamic weight history | `history-graph` auto-scaled from `first_used` date |
-| Other spools of same filament | Collapsible section listing all spools sharing the same `filament_id`; each spool is clickable to open a mini-popup with its location and remaining weight |
+| Other spools of same filament | Collapsible section listing all spools sharing the same `filament_id`; data pre-computed by `sensor.spoolman_filament_totals`; each spool is clickable to open a mini-popup with its location and remaining weight |
 | More Details button | Opens HA entity info dialog |
 | Close button | Closes the popup dialog (mobile-friendly) |
 | Fallback (no spool) | Shows raw tray entity via `entities` card |
@@ -88,6 +88,8 @@ Three items in one `horizontal-stack`:
 ### 9. Other Spools of Same Filament (conditional, collapsible)
 Only shown when there are other spools in Spoolman sharing the same `filament_id` as the current spool. Positioned just above the bottom row buttons.
 
+Data source: the `spools` list inside `sensor.spoolman_filament_totals.attributes.totals[filament_id]` — computed server-side by the template sensor, so no O(n) state iteration happens in the browser.
+
 - **Collapsible summary**: A `markdown` card with HTML5 `<details>/<summary>` showing count and text list. Summary shows `📦 N other spool(s) of same filament`; expand to see each spool's name, location, and remaining weight.
 - **Interactive spool cards**: One `custom:button-card` per other spool, showing spool name + 📍 location + remaining weight. Tapping opens a mini-popup for that spool with:
   - Name header (`mdi:package-variant`)
@@ -138,7 +140,7 @@ const printWeightKey = 'AMS 1 Tray 1';
 // 3. Compute history duration from first_used
 // 4. Compute desiccant age text + color
 // 5. Compute print weight status / icon
-// 6. Find other spools sharing same filament_id
+// 6. Read other spools from sensor.spoolman_filament_totals (pre-computed, no O(n) state iteration)
 
 // --- Return popup action ---
 return {
