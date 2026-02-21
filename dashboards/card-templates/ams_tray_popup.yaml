@@ -62,6 +62,41 @@ ams_tray_popup:
       const lastDried = spoolEntity?.attributes?.extra_last_dried || '';
       const spoolUUID = spoolEntity?.attributes?.extra_spool_uuid || '';
       const filamentId = spoolEntity?.attributes?.filament_id;
+      // Multi-color spool support
+      const multiColorHexesRaw = spoolEntity?.attributes?.filament_multi_color_hexes || '';
+      const multiColorDirection = spoolEntity?.attributes?.filament_multi_color_direction || '';
+      const isMultiColor = !!multiColorHexesRaw;
+      const multiColorList = isMultiColor
+        ? multiColorHexesRaw.split(',').map(function(h) { return '#' + h.trim().replace(/^#/, ''); })
+        : [];
+      const gradientCSSDir = multiColorDirection === 'coaxial' ? 'to bottom' : 'to right';
+      const backgroundCSS = isMultiColor
+        ? 'linear-gradient(' + gradientCSSDir + ', ' + multiColorList.join(', ') + ')'
+        : colorHex;
+      let headerTextColor = textColor;
+      let headerBorderColor = borderColor;
+      let multiTextShadow = '';
+      if (isMultiColor && multiColorList.length > 0) {
+        const lums = multiColorList.map(function(hex) {
+          const h = hex.replace('#', '');
+          const mr = parseInt(h.substring(0, 2), 16) || 128;
+          const mg = parseInt(h.substring(2, 4), 16) || 128;
+          const mb = parseInt(h.substring(4, 6), 16) || 128;
+          return (mr * 299 + mg * 587 + mb * 114) / 1000;
+        });
+        const avgLum = lums.reduce(function(a, b) { return a + b; }, 0) / lums.length;
+        const hasLight = lums.some(function(l) { return l > 128; });
+        const hasDark = lums.some(function(l) { return l <= 128; });
+        if (hasLight && hasDark) {
+          // Mixed light + dark: white text with drop-shadow for legibility on any band
+          headerTextColor = '#ffffff';
+          headerBorderColor = 'rgba(255,255,255,0.6)';
+          multiTextShadow = '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.5)';
+        } else {
+          headerTextColor = avgLum > 128 ? '#000000' : '#ffffff';
+          headerBorderColor = avgLum > 128 ? '#333333' : '#ffffff';
+        }
+      }
       const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
       const filamentTotal = (filamentId !== undefined && filamentId !== null && filamentTotals)
         ? filamentTotals[String(filamentId)]
@@ -196,26 +231,28 @@ ams_tray_popup:
                   tap_action: { action: 'none' },
                   styles: {
                     card: [
-                      { background: colorHex },
-                      { border: '3px solid ' + borderColor },
+                      { background: backgroundCSS },
+                      { border: '3px solid ' + headerBorderColor },
                       { 'border-radius': '10px' },
                       { padding: '14px 16px' },
                       { cursor: 'default' },
                       { 'user-select': 'text' }
                     ],
                     name: [
-                      { color: textColor },
+                      { color: headerTextColor },
                       { 'font-size': '18px' },
                       { 'font-weight': '700' },
-                      { 'text-align': 'center' }
+                      { 'text-align': 'center' },
+                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
                     ],
                     label: [
-                      { color: textColor },
+                      { color: headerTextColor },
                       { 'font-size': '12px' },
                       { opacity: '0.85' },
                       { 'text-align': 'center' },
                       { 'user-select': 'text' },
-                      { 'white-space': 'pre-wrap' }
+                      { 'white-space': 'pre-wrap' },
+                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
                     ]
                   }
                 },
@@ -242,7 +279,8 @@ ams_tray_popup:
                   chips: [
                     { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') },
                     { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') },
-                    { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails }
+                    { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails },
+                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : [])
                   ],
                   card_mod: {
                     style: {
@@ -258,12 +296,14 @@ ams_tray_popup:
                   show_name: true,
                   show_label: true,
                   name: filamentName,
-                  label: colorHex.toUpperCase() + '  •  RGB(' + r + ', ' + g + ', ' + b + ')',
+                  label: isMultiColor
+                    ? multiColorList.join(' \u00b7 ').toUpperCase() + '  \u2022  ' + multiColorDirection
+                    : colorHex.toUpperCase() + '  \u2022  RGB(' + r + ', ' + g + ', ' + b + ')',
                   tap_action: { action: 'none' },
                   styles: {
                     card: [
-                      { background: colorHex },
-                      { border: '3px solid ' + borderColor },
+                      { background: backgroundCSS },
+                      { border: '3px solid ' + headerBorderColor },
                       { 'border-radius': '8px' },
                       { padding: '10px 16px' },
                       { cursor: 'default' },
@@ -281,21 +321,23 @@ ams_tray_popup:
                       { width: '40px' },
                       { height: '40px' },
                       { 'border-radius': '50%' },
-                      { border: '2px solid ' + borderColor }
+                      { border: '2px solid ' + headerBorderColor }
                     ],
                     name: [
-                      { color: textColor },
+                      { color: headerTextColor },
                       { 'font-size': '14px' },
                       { 'font-weight': '700' },
                       { 'text-align': 'left' },
-                      { 'user-select': 'text' }
+                      { 'user-select': 'text' },
+                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
                     ],
                     label: [
-                      { color: textColor },
+                      { color: headerTextColor },
                       { 'font-size': '12px' },
                       { opacity: '0.85' },
                       { 'text-align': 'left' },
-                      { 'user-select': 'text' }
+                      { 'user-select': 'text' },
+                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
                     ]
                   }
                 },
