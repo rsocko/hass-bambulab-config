@@ -102,7 +102,7 @@ ams_tray_popup:
         ? filamentTotals[String(filamentId)]
         : null;
       const totalWeightText = filamentTotal
-        ? filamentTotal.weight.toFixed(1) + ' g (' + filamentTotal.count + (filamentTotal.count === 1 ? ' spool' : ' spools') + ')'
+        ? filamentTotal.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g (' + filamentTotal.count + (filamentTotal.count === 1 ? ' spool' : ' spools') + ')'
         : 'N/A';
       // Other spools of same filament — read from pre-computed sensor.spoolman_filament_totals
       const otherSpools = (filamentId !== undefined && filamentId !== null && filamentTotal && filamentTotal.spools)
