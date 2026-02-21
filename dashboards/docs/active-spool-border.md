@@ -16,16 +16,16 @@ This feature adds a visual indicator to the AMS tray spool cards and external sp
 2. **Tray Number Matching**: The code compares the active_tray sensor state directly with the tray number to determine if a specific tray is active. This approach works for both Bambu and non-Bambu spools since it doesn't require UUID matching.
 
 3. **Consistent Border Styling**: When a tray is active, the button-card applies:
-   - A 3px solid border in **cyan** (#2196F3) - the same color used by the Bambu AMS card
+   - An inset box-shadow border using **`var(--primary-color)`** - matching the user's Home Assistant theme primary color
    - An 8px border-radius for a rounded appearance
-   - Works consistently on both light and dark backgrounds
+   - Automatically adapts to any Home Assistant theme
 
 ### Code Structure
 
 The implementation uses JavaScript template syntax in the `styles` field of each button-card:
 
 ```javascript
-"styles": "[[[\n  const tray = 'ams_1_tray_1';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '1';\n  \n  // Use cyan border color (matching Bambu AMS card)\n  const borderColor = '#2196F3';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'border': \`3px solid \${borderColor}\` }, { 'border-radius': '8px' }] : [])\n    ],\n    // ... rest of styles\n  };\n]]]\n"
+"styles": "[[[\n  const tray = 'ams_1_tray_1';\n  const activeTrayState = states['sensor.ntk_ryansoffice_3dprinter_active_tray']?.state;\n  const isActive = activeTrayState === '1';\n  \n  return {\n    card: [\n      { 'padding': '6px' },\n      { 'background': 'none' },\n      { 'box-shadow': 'none' },\n      ...(isActive ? [{ 'box-shadow': 'inset 0 0 0 4px var(--primary-color)' }, { 'border-radius': '8px' }] : [])\n    ],\n    // ... rest of styles\n  };\n]]]\n"
 ```
 
 ### Tray Number Mapping
@@ -58,10 +58,10 @@ The feature is implemented for all 9 filament sources:
 ## Visual Behavior
 
 ### When Active
-- The spool card displays a **3px solid border**
-- Border color is **#2196F3** (Material Blue/cyan)
+- The spool card displays a **4px inset box-shadow border**
+- Border color uses **`var(--primary-color)`** (Home Assistant theme primary color)
 - Border has an **8px radius** for smooth corners
-- Color provides excellent contrast on both light and dark Home Assistant themes
+- Color automatically matches the user's chosen Home Assistant theme
 - All existing card styling (padding, background, etc.) is preserved
 
 ### When Inactive
@@ -75,9 +75,9 @@ The new implementation has several improvements over the UUID-based approach:
 
 1. **Works with all spools**: Non-Bambu spools don't have UUIDs but will still show the active border
 2. **Simpler logic**: Direct state comparison is faster and more reliable than UUID matching
-3. **Consistent color**: Cyan border is easily visible regardless of filament color
+3. **Consistent color**: Theme-aware — automatically matches the user's HA primary color
 4. **Better UX**: Matches the visual style of the official Bambu AMS card
-5. **Dark/light theme support**: #2196F3 provides good contrast in all themes
+5. **Theme support**: `var(--primary-color)` automatically adapts to the user's chosen Home Assistant theme
 
 ## Dependencies
 
@@ -93,14 +93,14 @@ The new implementation has several improvements over the UUID-based approach:
 
 ### Changing Border Width
 
-To modify the border thickness, update the border property:
+To modify the border thickness, update the box-shadow spread value:
 
 ```javascript
-// From:
-{ 'border': `3px solid ${borderColor}` }
+// From (4px):
+return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
 
-// To (example: 5px):
-{ 'border': `5px solid ${borderColor}` }
+// To (example: 6px):
+return active ? 'inset 0 0 0 6px var(--primary-color)' : 'none';
 ```
 
 ### Changing Border Radius
@@ -120,21 +120,21 @@ To adjust the corner rounding:
 
 ### Using a Different Color
 
-To use a different highlight color:
+To override with a specific color instead of the theme primary color:
 
 ```javascript
 // Replace:
-const borderColor = '#2196F3';
+return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
 
 // With (example: green):
-const borderColor = '#4CAF50';
+return active ? 'inset 0 0 0 4px #4CAF50' : 'none';
 
 // Or (example: orange):
-const borderColor = '#FF9800';
+return active ? 'inset 0 0 0 4px #FF9800' : 'none';
 ```
 
 Some alternative colors that work well on both light and dark backgrounds:
-- `#2196F3` - Material Blue (current/default)
+- `var(--primary-color)` - Theme primary color (current/default)
 - `#00BCD4` - Cyan
 - `#03A9F4` - Light Blue
 - `#4CAF50` - Green
@@ -146,11 +146,7 @@ Some alternative colors that work well on both light and dark backgrounds:
 To add a subtle glow/shadow to the border:
 
 ```javascript
-...(isActive ? [
-  { 'border': `3px solid ${borderColor}` }, 
-  { 'border-radius': '8px' },
-  { 'box-shadow': `0 0 10px ${borderColor}60` }  // Add 60 for 38% opacity
-] : [])
+return active ? 'inset 0 0 0 4px var(--primary-color), 0 0 10px var(--primary-color)' : 'none';
 ```
 
 ## Troubleshooting
@@ -228,18 +224,18 @@ The tray number approach:
 - **Reliable**: The active_tray sensor always provides a valid state
 - **Efficient**: No need to access multiple sensor attributes
 
-### Why Cyan Color Instead of Filament Color?
+### Why Theme Primary Color Instead of Filament Color?
 
 Using the filament color for the border had issues:
 - **Low contrast**: Dark filaments (black, gray) were hard to see
 - **Similar colors**: Multiple similar-colored spools were difficult to distinguish
 - **Theme issues**: Some colors didn't work well on both light and dark themes
 
-The cyan border (#2196F3):
-- **High visibility**: Stands out on any background
+Using `var(--primary-color)`:
+- **Theme-consistent**: Automatically matches the user's chosen Home Assistant theme
 - **Consistent**: Same visual treatment as the official Bambu AMS card
-- **Theme-agnostic**: Works equally well in light and dark modes
-- **Distinctive**: Clearly different from the gray default border
+- **Adaptive**: Works equally well in light and dark modes
+- **Distinctive**: Clearly different from the default card background
 
 ## Support
 
