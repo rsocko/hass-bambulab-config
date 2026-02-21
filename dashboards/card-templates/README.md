@@ -20,17 +20,8 @@ card appearance, edit `ams_tray_detail.yaml`.
 
 ## Usage
 
-There are two ways to make these templates available to your dashboards. Choose the one
-that fits your workflow.
-
----
-
-### Option A — Global templates via `configuration.yaml` (Recommended for UI-editor users)
-
-Adding templates to `configuration.yaml` loads them globally so they are available to
-**all** dashboards, including dashboards managed through the Home Assistant UI/raw editor.
-The `button_card_templates:` block does **not** need to be present inside the dashboard YAML
-at all — you can paste a much smaller dashboard file into the raw editor.
+Templates are loaded globally via `configuration.yaml`, making them available to all dashboards
+including UI-managed ones.
 
 **Step 1.** Add the following to your `configuration.yaml`:
 
@@ -42,17 +33,8 @@ button_card_templates: !include_dir_merge_named /config/dashboards/card-template
 
 **Step 2.** Restart Home Assistant so the templates are loaded.
 
-**Step 3.** (Optional) When pasting `lovelace.3d_printing` into the Raw Configuration Editor,
-you can remove the entire `button_card_templates:` block at the bottom of the file — the
-globally-loaded templates will be used instead.
-
----
-
-### Option B — Inline templates (standalone, no `configuration.yaml` changes)
-
-The `lovelace.3d_printing` file already includes the full inline templates at the bottom
-under `button_card_templates:`. Simply paste the entire file as-is into the Raw
-Configuration Editor — no `configuration.yaml` changes required.
+**Step 3.** Paste `lovelace.3d_printing` into the Raw Configuration Editor — no
+`button_card_templates:` block required in the dashboard YAML.
 
 ---
 
