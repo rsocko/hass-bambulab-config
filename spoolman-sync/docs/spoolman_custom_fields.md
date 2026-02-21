@@ -13,14 +13,14 @@ Key | Type
 ---------|----------
  profile_name | Text
 
-### Base Color
+### Base Color (Primary Color)
 #### Description:
-A human-readable color name for the filament (e.g. Blue, Red, White, Black, Silver). This is displayed in the AMS tray popup dialog under "Base Color" with a colored circle icon. Common values: Blue, Gray, White, Green, Brown, Black, Purple, Orange, Pink, Red, Gold, Yellow, Tan, Rainbow, Silver.
+A human-readable color name for the filament (e.g. Blue, Red, White, Black, Silver). This is displayed in the AMS tray popup dialog under "Base Color" with a colored circle icon. The icon color is automatically derived from the color name. Common values: Blue, Gray, White, Green, Brown, Black, Purple, Orange, Pink, Red, Gold, Yellow, Tan, Rainbow, Silver.
 
 #### Field Configuration
 Key | Type
 ---------|----------
- base_color | Text
+ primary_color | Text
 
 ### Color Family
 #### Description:
