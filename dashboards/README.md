@@ -4,7 +4,8 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 
 ## Files
 
-- **lovelace.3d_printing** - Main 3D printer dashboard configuration (JSON format)
+- **lovelace-3d-printing.yaml** - Dashboard configuration in **YAML format** — use this for the Raw Dashboard Editor
+- **lovelace.3d_printing** - Same dashboard in HA storage JSON format (for direct `.storage/` restore)
 - **templates.yaml** - Reusable card templates
 - **printer-temps.yaml** - Temperature display cards for nozzle and bed (separate, paste-able YAML)
 - **printer-temps-example.yaml** - Ready-to-use temperature cards with repository entity names
@@ -80,9 +81,24 @@ The dashboard uses several custom cards that must be installed via HACS:
 ## Installation
 
 1. Install all required custom cards via HACS
-2. Copy the dashboard configuration to your Home Assistant instance
-3. Update entity names to match your Bambu Lab printer configuration
-4. Reload the dashboard
+2. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
+3. Paste the contents of **`lovelace-3d-printing.yaml`** into the editor
+4. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
+5. Click **Save** and reload the dashboard
+
+> **Note:** `lovelace.3d_printing` is the HA internal storage JSON format and is **not** intended to be pasted directly into the Raw Dashboard Editor. Always use `lovelace-3d-printing.yaml` for that purpose.
+
+### Button-Card Templates
+
+The dashboard uses three `button_card_templates` defined at the top of the configuration:
+
+| Template | Purpose |
+|---|---|
+| `ams_tray_label` | Slot label card (A1, A2, B1, etc.) |
+| `ams_tray_detail` | Full tray info card — card appearance and data display |
+| `ams_tray_popup` | Popup dialog — tap action that opens the spool details popup |
+
+`ams_tray_detail` inherits its `tap_action` from `ams_tray_popup` via template inheritance. To modify the popup appearance or behavior, edit only `ams_tray_popup`. To modify the card appearance, edit `ams_tray_detail`.
 
 ## Configuration
 
