@@ -45,13 +45,10 @@ actions:
   # Extract attributes from either current sensor or backup
   - variables:
       print_weight_attributes: >
-        {% if current_has_attributes %}
-          {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes }}
-        {% elif backup_available %}
-          {{ states('input_text.print_weight_backup') | from_json }}
-        {% else %}
-          {}
-        {% endif %}
+        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes
+           if current_has_attributes else
+           (states('input_text.print_weight_backup') | from_json
+            if backup_available else {}) }}
 
   # Notify user and log if no per-tray data is available
   - if:
