@@ -1587,10 +1587,6 @@ views:
         square: false
       - type: grid
         cards:
-          - type: custom:ha-bambulab-print_status-card
-            printer: 210dfdfa64085e8cf073e50eae757d90
-            style: simple
-            custom_power: switch.sonoff_10018b4baf
           - type: horizontal-stack
             cards:
               # Chamber Light (built-in printer chamber LED)
@@ -1799,6 +1795,49 @@ views:
                       .info {
                         display: none;
                       }
+              # Show/Hide Printer Controls toggle chip
+              - type: custom:mushroom-template-card
+                entity: input_boolean.show_printer_controls
+                primary: ""
+                secondary: ""
+                icon: >-
+                  {% if is_state('input_boolean.show_printer_controls', 'on') %}
+                  mdi:chevron-up
+                  {% else %}
+                  mdi:chevron-down
+                  {% endif %}
+                icon_color: >-
+                  {% if is_state('input_boolean.show_printer_controls', 'on') %}
+                  blue
+                  {% else %}
+                  grey
+                  {% endif %}
+                tap_action:
+                  action: toggle
+                card_mod:
+                  style:
+                    ha-card: |
+                      {% if is_state('input_boolean.show_printer_controls', 'on') %}
+                      box-shadow: 0 0 10px 3px rgba(33, 150, 243, 0.5);
+                      {% endif %}
+                    mushroom-card$: |
+                      .container {
+                        justify-content: center;
+                        align-items: center;
+                      }
+                      .info {
+                        display: none;
+                      }
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.show_printer_controls
+                state: "on"
+            card:
+              type: custom:ha-bambulab-print_status-card
+              printer: 210dfdfa64085e8cf073e50eae757d90
+              style: simple
+              custom_power: switch.sonoff_10018b4baf
           - type: custom:advanced-camera-card
             cameras:
               - camera_entity: camera.ntk_ryansoffice_3dprinter_camera
