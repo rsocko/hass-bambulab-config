@@ -1,6 +1,25 @@
 # Print Weight Persistence Configuration
-# This file contains input helpers to store print_weight sensor attributes
-# across Home Assistant restarts
+# This file contains input helpers AND a template sensor to store
+# print_weight sensor attributes across Home Assistant restarts.
+#
+# ── Recommended installation ────────────────────────────────────────────────
+# 1. Copy this file to:
+#      /config/packages/bambulab/print_weight_persistence.yaml
+#
+# 2. Add the following to your configuration.yaml
+#    (create the homeassistant.packages block if it does not already exist):
+#
+#      homeassistant:
+#        packages:
+#          bambulab_print_weight: !include packages/bambulab/print_weight_persistence.yaml
+#
+# 3. Restart Home Assistant (or reload the configuration).
+#
+# NOTE: Do NOT use `input_text: !include ...` or `template: !include ...`
+# separately — this file contains both `input_text:` and `template:` top-level
+# keys and must be loaded as a package so Home Assistant can merge all sections
+# correctly.
+# ────────────────────────────────────────────────────────────────────────────
 
 # Input text helper to store print weight attributes JSON
 input_text:

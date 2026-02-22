@@ -30,7 +30,69 @@ This script simply forced a reload of the integration on a nightly basis.
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
 - REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
 
- 
+## Helper YAML Files & Configuration
+
+Several features of this automation set require **input helpers** (input_text,
+input_boolean, input_datetime, input_number) and **template sensors** to be
+registered in Home Assistant. These are defined in three YAML files that ship
+with this repository:
+
+| File | Purpose |
+|------|---------|
+| `print_cost_helpers.yaml` | `input_number` helper for default filament cost per kg |
+| `print_weight_persistence.yaml` | `input_text` helpers + `template` sensor for backup/restore of print-weight attributes across HA restarts |
+| `print_job_tracking_helpers.yaml` | `input_text`, `input_boolean`, and `input_datetime` helpers for persistent error tracking and manual recovery |
+
+### Recommended Folder Structure
+
+Copy the three helper files into a logical location inside your Home Assistant
+`/config` directory. A `packages/bambulab/` sub-folder keeps all Bambu Lab
+related helpers together while leaving room for other groups (e.g. air quality,
+notifications) to be organised in parallel sub-folders:
+
+```
+/config/
+├── configuration.yaml
+└── packages/
+    ├── bambulab/                              ← Bambu Lab / 3D printer group
+    │   ├── print_cost_helpers.yaml
+    │   ├── print_job_tracking_helpers.yaml
+    │   └── print_weight_persistence.yaml
+    └── <other_group>/                         ← e.g. air_quality/, notifications/
+        └── ...
+```
+
+### configuration.yaml Entry
+
+Add the following block to `configuration.yaml`. If you already have a
+`homeassistant:` key, add the `packages:` section inside it; if you already
+have a `packages:` section, add the three lines to it:
+
+```yaml
+homeassistant:
+  packages:
+    bambulab_print_cost:         !include packages/bambulab/print_cost_helpers.yaml
+    bambulab_print_weight:       !include packages/bambulab/print_weight_persistence.yaml
+    bambulab_print_job_tracking: !include packages/bambulab/print_job_tracking_helpers.yaml
+```
+
+Restart Home Assistant (or use **Developer Tools → YAML → Restart**) after
+saving the file.
+
+> **Why packages instead of `input_text: !include ...`?**  Each helper file
+> defines more than one top-level section. For example
+> `print_weight_persistence.yaml` contains both `input_text:` **and**
+> `template:`. Using `input_text: !include ...` would try to nest the file's
+> own section headers inside `input_text:`, producing invalid configuration.
+> The `homeassistant.packages` mechanism is the correct Home Assistant pattern
+> for loading a file that spans multiple integration domains.
+
+> **Have other helpers already in configuration.yaml?**  No changes are
+> needed to existing sections. Packages merge their keys into the overall
+> configuration automatically — if you already have standalone `input_text:`
+> or `input_number:` entries for unrelated helpers, those continue to work
+> unchanged alongside the package-loaded entities.
+
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.

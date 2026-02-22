@@ -2,12 +2,23 @@
 # The default price is applied when a spool has no price set in Spoolman
 # (neither on the spool itself nor on the filament type).
 #
-# To use: add these helpers via the Home Assistant UI (Settings → Devices &
-# Services → Helpers) or by including this file in your configuration.yaml:
+# ── Recommended installation ────────────────────────────────────────────────
+# 1. Copy this file to:
+#      /config/packages/bambulab/print_cost_helpers.yaml
 #
-#   homeassistant:
-#     packages:
-#       print_cost: !include spoolman-sync/print_cost_helpers.yaml
+# 2. Add the following to your configuration.yaml
+#    (create the homeassistant.packages block if it does not already exist):
+#
+#      homeassistant:
+#        packages:
+#          bambulab_print_cost: !include packages/bambulab/print_cost_helpers.yaml
+#
+# 3. Restart Home Assistant (or reload the configuration).
+#
+# NOTE: Do NOT use `input_number: !include ...` — this file contains its own
+# top-level keys and must be loaded as a package so Home Assistant can merge
+# all sections correctly.
+# ────────────────────────────────────────────────────────────────────────────
 
 input_number:
   print_cost_default_per_kg:
