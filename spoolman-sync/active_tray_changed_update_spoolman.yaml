@@ -178,12 +178,14 @@ actions:
             condition: template
             value_template: "{{ not find_spool_response.success }}"
         sequence:
+          - variables:
+              task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
           - action: system_log.write
             metadata: {}
             data:
               message: >-
                 Active Tray Changed ERROR: Cannot find spool in Spoolman for
-                tray {{ active_tray.name }}. UUID: {{ active_tray.uuid }}, Type:
+                tray {{ active_tray.name }}. Print Job: {{ task_name }}. UUID: {{ active_tray.uuid }}, Type:
                 {{ active_tray.type }}, Color: {{ active_tray.color }}. Error:
                 {{ find_spool_response.message }}
               level: error
@@ -193,13 +195,15 @@ actions:
             data:
               name: Spoolman Active Tray
               message: >-
-                ERROR - Cannot find spool for tray {{ active_tray.name }}. Error:
+                ERROR - Cannot find spool for tray {{ active_tray.name }}. Print Job: {{ task_name }}. Error:
                 {{ find_spool_response.message }}
           - action: persistent_notification.create
             metadata: {}
             data:
               title: "Spoolman Update Error: Cannot Find Spool"
               message: >-
+                **Print Job:** {{ task_name }}
+
                 Cannot update Spoolman with last used spool information.
 
                 **Error:** {{ find_spool_response.message }}
