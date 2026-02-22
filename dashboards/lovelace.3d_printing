@@ -1152,81 +1152,102 @@ views:
               .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
             grid_options:
               columns: 6
-          - type: custom:mushroom-template-card
+          - type: custom:button-card
             entity: sensor.print_time_remaining_formatted
-            primary: Time Remaining
-            secondary: "{{ states('sensor.print_time_remaining_formatted') }}"
-            icon: mdi:clock-time-four
-            icon_color: >-
-              {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-              {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
-              {% elif status == 'pause' or stage == 'pause' %}amber
-              {% else %}grey{% endif %}
-            layout: horizontal
+            show_name: false
+            show_state: false
+            show_icon: false
             tap_action:
               action: more-info
-            card_mod:
-              style: >
-                {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-                @keyframes clock-spin {
-                  from { transform: rotate(0deg); }
-                  to { transform: rotate(360deg); }
-                }
-                mushroom-shape-icon { animation: clock-spin 4s linear infinite; }
-                {% endif %}
-                .primary { font-size: 12px !important; font-weight: 600; }
-                .secondary { font-size: 14px !important; font-weight: 700; }
-          - type: custom:mushroom-template-card
+            custom_fields:
+              tr: |
+                [[[
+                  const state = entity?.state;
+                  const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
+                  const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+                  const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isPaused = status === 'pause' || stage === 'pause';
+                  const iconColor = isActive ? '#FF9800' : isPaused ? '#FFB74D' : '#9E9E9E';
+                  const animClass = isActive ? ' tr-clock-anim' : '';
+                  return `<div class="tr-wrap">
+                    <ha-icon icon="mdi:clock-time-four" class="tr-icon${animClass}" style="color:${iconColor};"></ha-icon>
+                    <div class="tr-value">${value}</div>
+                  </div>`;
+                ]]]
+            styles:
+              card:
+                - padding: 8px 12px
+                - min-height: 50px
+              custom_fields:
+                tr:
+                  - width: 100%
+            extra_styles: |
+              .tr-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
+              .tr-icon { --mdc-icon-size:26px; flex-shrink:0; }
+              .tr-value { font-size:24px; font-weight:700; line-height:1; flex-grow:1; }
+              @keyframes clock-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+              .tr-clock-anim { animation:clock-spin 4s linear infinite; }
+          - type: custom:button-card
             entity: sensor.ntk_ryansoffice_3dprinter_end_time
-            primary: Est. Completion
-            secondary: >-
-              {% set state = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
-              {% if state not in ['unavailable', 'unknown'] and state is not none and state != '' %}
-                {% set end_ts = as_timestamp(state) | int(0) %}
-                {% set now_ts = as_timestamp(now()) | int(0) %}
-                {% if end_ts > 0 %}
-                  {% set time_str = end_ts | timestamp_custom('%-I:%M %p', true) %}
-                  {% set end_date = end_ts | timestamp_custom('%Y-%m-%d', true) %}
-                  {% set today    = now_ts | timestamp_custom('%Y-%m-%d', true) %}
-                  {% set tomorrow = (now_ts + 86400) | timestamp_custom('%Y-%m-%d', true) %}
-                  {% set days_diff = ((end_ts - now_ts) / 86400) | int(0) %}
-                  {% if end_date == today %}{{ time_str }}
-                  {% elif end_date == tomorrow %}{{ time_str }} tomorrow
-                  {% elif days_diff < 7 %}{{ time_str }} on {{ end_ts | timestamp_custom('%A', true) }}
-                  {% else %}{{ time_str }} on {{ end_ts | timestamp_custom('%-m/%-d/%y', true) }}
-                  {% endif %}
-                {% else %}N/A
-                {% endif %}
-              {% else %}N/A
-              {% endif %}
-            icon: mdi:flag-checkered
-            icon_color: >-
-              {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-              {% if status == 'finish' %}green
-              {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
-              {% elif status == 'pause' or stage == 'pause' %}orange
-              {% else %}grey{% endif %}
-            layout: horizontal
+            show_name: false
+            show_state: false
+            show_icon: false
             tap_action:
               action: more-info
-            card_mod:
-              style: >
-                {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-                @keyframes flag-wave {
-                  0%, 100% { transform: scale(1) rotate(0deg); }
-                  25% { transform: scale(1.08) rotate(-4deg); }
-                  75% { transform: scale(1.08) rotate(4deg); }
-                }
-                mushroom-shape-icon { animation: flag-wave 2s ease-in-out infinite; }
-                {% endif %}
-                .primary { font-size: 12px !important; font-weight: 600; }
-                .secondary { font-size: 14px !important; font-weight: 700; }
+            custom_fields:
+              ec: |
+                [[[
+                  const state = states['sensor.ntk_ryansoffice_3dprinter_end_time']?.state;
+                  let value = 'N/A';
+                  if (state && state !== 'unavailable' && state !== 'unknown') {
+                    const endTs = new Date(state).getTime();
+                    if (!isNaN(endTs) && endTs > 0) {
+                      const now = Date.now();
+                      const endDate = new Date(endTs);
+                      const todayStr = new Date(now).toDateString();
+                      const tomorrowStr = new Date(now + 86400000).toDateString();
+                      const timeStr = endDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+                      const dayStr = endDate.toDateString();
+                      if (dayStr === todayStr) {
+                        value = timeStr;
+                      } else if (dayStr === tomorrowStr) {
+                        value = timeStr + ' tomorrow';
+                      } else {
+                        const diffDays = Math.floor((endTs - now) / 86400000);
+                        if (diffDays < 7) {
+                          value = timeStr + ' ' + endDate.toLocaleDateString('en-US', {weekday:'long'});
+                        } else {
+                          value = timeStr + ' ' + endDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'});
+                        }
+                      }
+                    }
+                  }
+                  const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+                  const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+                  const isFinished = status === 'finish';
+                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isPaused = status === 'pause' || stage === 'pause';
+                  const iconColor = isFinished ? '#4CAF50' : isActive ? '#9C27B0' : isPaused ? '#FF9800' : '#9E9E9E';
+                  const animClass = isActive ? ' ec-flag-anim' : '';
+                  return `<div class="ec-wrap">
+                    <ha-icon icon="mdi:flag-checkered" class="ec-icon${animClass}" style="color:${iconColor};"></ha-icon>
+                    <div class="ec-value">${value}</div>
+                  </div>`;
+                ]]]
+            styles:
+              card:
+                - padding: 8px 12px
+                - min-height: 50px
+              custom_fields:
+                ec:
+                  - width: 100%
+            extra_styles: |
+              .ec-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
+              .ec-icon { --mdc-icon-size:26px; flex-shrink:0; }
+              .ec-value { font-size:24px; font-weight:700; line-height:1; flex-grow:1; }
+              @keyframes flag-wave { 0%,100% { transform:scale(1) rotate(0deg); } 25% { transform:scale(1.08) rotate(-4deg); } 75% { transform:scale(1.08) rotate(4deg); } }
+              .ec-flag-anim { animation:flag-wave 2s ease-in-out infinite; }
           - type: custom:ha-bambulab-print_control-card
             printer: 210dfdfa64085e8cf073e50eae757d90
             grid_options:
