@@ -665,9 +665,62 @@ button_card_templates:
     name: '[[[ return variables.trayName; ]]]'
     show_icon: false
     show_state: false
+    show_label: true
+    label: |
+      [[[
+        const tray = variables.tray;
+        if (!tray) return '';
+        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+        const spoolId = map?.[tray]?.spool_id;
+        if (!spoolId) return '';
+        const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+        const remaining = spoolEntity?.attributes?.remaining_weight;
+        const initial = spoolEntity?.attributes?.initial_weight || 1000;
+        if (remaining === undefined || remaining === null) return '';
+        const pct = Math.round(Math.min(Math.max(remaining / initial * 100, 0), 100));
+        return `${pct}%`;
+      ]]]
+    custom_fields:
+      weight_bar: |
+        [[[
+          const tray = variables.tray;
+          if (!tray) return '';
+          const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+          const spoolId = map?.[tray]?.spool_id;
+          if (!spoolId) return '';
+          const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+          const remaining = spoolEntity?.attributes?.remaining_weight;
+          const initial = spoolEntity?.attributes?.initial_weight || 1000;
+          if (remaining === undefined || remaining === null) return '';
+          const pct = Math.min(Math.max(remaining / initial * 100, 0), 100);
+          let barColor;
+          if (pct > 50) barColor = '#4CAF50';
+          else if (pct > 25) barColor = '#FFC107';
+          else if (pct > 10) barColor = '#FF9800';
+          else barColor = '#f44336';
+          return `<div style="width:100%;height:3px;background:rgba(128,128,128,0.2);border-radius:2px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:2px;"></div></div>`;
+        ]]]
     styles:
       card:
-        - background: none
+        - background: |
+            [[[
+              const tray = variables.tray;
+              if (!tray) return 'none';
+              const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+              const spoolId = map?.[tray]?.spool_id;
+              if (!spoolId) return 'none';
+              const colorHex = map?.[tray]?.color;
+              if (!colorHex) return 'none';
+              const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+              const remaining = spoolEntity?.attributes?.remaining_weight;
+              const initial = spoolEntity?.attributes?.initial_weight || 1000;
+              if (remaining === undefined || remaining === null) return 'none';
+              const pct = Math.min(Math.max(remaining / initial * 100, 0), 100);
+              const r = parseInt(colorHex.substring(0,2), 16);
+              const g = parseInt(colorHex.substring(2,4), 16);
+              const b = parseInt(colorHex.substring(4,6), 16);
+              return `linear-gradient(to right, rgb(${r},${g},${b}) ${pct}%, rgba(${r},${g},${b},0.25) ${pct}%)`;
+            ]]]
         - padding: 4px
         - border-radius: 8px
         - box-shadow: |
@@ -675,10 +728,52 @@ button_card_templates:
               const active = states[variables.trayEntityId]?.attributes?.active;
               return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
             ]]]
+      grid:
+        - grid-template-areas: '"n" "l" "weight_bar"'
+        - grid-template-columns: 1fr
+        - grid-template-rows: 1fr auto auto
       name:
         - font-size: 14px
         - font-weight: bold
         - justify-self: center
+        - color: |
+            [[[
+              const tray = variables.tray;
+              if (!tray) return 'var(--primary-text-color)';
+              const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+              const spoolId = map?.[tray]?.spool_id;
+              if (!spoolId) return 'var(--primary-text-color)';
+              const colorHex = map?.[tray]?.color;
+              if (!colorHex) return 'var(--primary-text-color)';
+              const r = parseInt(colorHex.substring(0,2), 16);
+              const g = parseInt(colorHex.substring(2,4), 16);
+              const b = parseInt(colorHex.substring(4,6), 16);
+              const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+              return luminance > 0.5 ? '#000000' : '#ffffff';
+            ]]]
+      label:
+        - font-size: 10px
+        - justify-self: center
+        - color: |
+            [[[
+              const tray = variables.tray;
+              if (!tray) return 'var(--secondary-text-color)';
+              const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
+              const spoolId = map?.[tray]?.spool_id;
+              if (!spoolId) return 'var(--secondary-text-color)';
+              const colorHex = map?.[tray]?.color;
+              if (!colorHex) return 'var(--secondary-text-color)';
+              const r = parseInt(colorHex.substring(0,2), 16);
+              const g = parseInt(colorHex.substring(2,4), 16);
+              const b = parseInt(colorHex.substring(4,6), 16);
+              const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+              return luminance > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
+            ]]]
+      custom_fields:
+        weight_bar:
+          - width: 100%
+          - padding: 0 2px 2px 2px
+          - box-sizing: border-box
   ams_tray_detail:
     type: custom:button-card
     template:
@@ -2213,6 +2308,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A1
+                      tray: ams_1_tray_1
                       trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2229,6 +2325,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A2
+                      tray: ams_1_tray_2
                       trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2245,6 +2342,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A3
+                      tray: ams_1_tray_3
                       trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2261,6 +2359,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: A4
+                      tray: ams_1_tray_4
                       trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2291,6 +2390,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B1
+                      tray: ams_2_tray_1
                       trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2307,6 +2407,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B2
+                      tray: ams_2_tray_2
                       trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2323,6 +2424,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B3
+                      tray: ams_2_tray_3
                       trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2339,6 +2441,7 @@ views:
                     template: ams_tray_label
                     variables:
                       trayName: B4
+                      tray: ams_2_tray_4
                       trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
                   - type: custom:button-card
                     template: ams_tray_detail
@@ -2369,6 +2472,7 @@ views:
                             template: ams_tray_label
                             variables:
                               trayName: External
+                              tray: external_spool
                               trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
                           - type: custom:button-card
                             template: ams_tray_detail
