@@ -100,9 +100,9 @@ actions:
         # Get tray details
         - variables:
             selected_tray:
-              uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') }}"
-              type: "{{ state_attr(tray_entity_id, 'type') }}"
-              color: "{{ state_attr(tray_entity_id, 'color') | replace('#', '') }}"
+              uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') | default('') }}"
+              type: "{{ state_attr(tray_entity_id, 'type') | default('') }}"
+              color: "{{ state_attr(tray_entity_id, 'color') | default('') | replace('#', '') }}"
         
         # Find matching spool in Spoolman
         - action: script.find_matching_spool_in_spoolman

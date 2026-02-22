@@ -41,19 +41,19 @@ actions:
       active_tray:
         uuid: >-
           {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray',
-          'tray_uuid') }}
+          'tray_uuid') | default('') }}
         type: >-
           {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type')
-          }}
+          | default('') }}
         color: >-
           {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'color')
-          | replace('#', '')  }}
+          | default('') | replace('#', '')  }}
         name: >-
           {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'name')
-          }}
+          | default('') }}
         remain: >-
           {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray',
-          'remain') }}
+          'remain') | default(0) }}
   - action: script.find_matching_spool_in_spoolman
     metadata: {}
     data:
