@@ -1,0 +1,90 @@
+# Bambuddy Print History Dashboard Card
+# Displays recent print history from Bambuddy in a rich table layout.
+# Requires sensor.bambuddy_print_history and input helpers configured.
+# See bambuddy/README.md for setup instructions.
+
+type: vertical-stack
+cards:
+  # Header row: title + link to full Bambuddy archive
+  - type: custom:button-card
+    name: Print History
+    icon: mdi:history
+    tap_action:
+      action: url
+      url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/archives'; ]]]"
+    styles:
+      card:
+        - background: var(--ha-card-background)
+        - border-radius: 12px 12px 0 0
+        - padding: 8px 16px
+      grid:
+        - grid-template-areas: '"i n"'
+        - grid-template-columns: 40px 1fr
+      name:
+        - font-size: 16px
+        - font-weight: 600
+        - text-align: left
+      icon:
+        - width: 24px
+        - color: "#2196F3"
+
+  # Print history entries rendered from REST sensor attributes
+  - type: custom:button-card
+    entity: sensor.bambuddy_print_history
+    show_name: false
+    show_icon: false
+    show_state: false
+    custom_fields:
+      history_table: |
+        [[[
+          const archives = entity.attributes.archives || [];
+          if (archives.length === 0) {
+            return '<div style="padding:16px;color:var(--secondary-text-color);text-align:center">No print history available</div>';
+          }
+          const rows = archives.slice(0, 10).map(a => {
+            const date = new Date(a.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+            const duration = a.duration_seconds ? Math.round(a.duration_seconds / 3600 * 10) / 10 + 'h' : '-';
+            const weight = a.weight_grams ? Math.round(a.weight_grams) + 'g' : '-';
+            const statusIcon = a.status === 'success' ? '✅' : a.status === 'failed' ? '❌' : a.status === 'cancelled' ? '⛔' : '⏳';
+            const tags = (a.tags || []).map(t => `<span style="background:#1565C0;color:#fff;border-radius:4px;padding:1px 5px;font-size:10px;margin-right:2px">${t}</span>`).join('');
+            const thumb = a.photo_url
+              ? `<img src="${states['input_text.bambuddy_api_base_url'].state}${a.photo_url}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;vertical-align:middle">`
+              : `<div style="width:40px;height:40px;background:#37474F;border-radius:4px;display:inline-flex;align-items:center;justify-content:center">🖨️</div>`;
+            return `
+              <tr style="border-bottom:1px solid var(--divider-color)">
+                <td style="padding:6px 4px;vertical-align:middle">${thumb}</td>
+                <td style="padding:6px 8px;vertical-align:middle">
+                  <div style="font-weight:500;font-size:13px">${a.name || 'Unnamed'}</div>
+                  <div style="font-size:11px;color:var(--secondary-text-color)">${date} · ${duration} · ${weight}</div>
+                  <div style="margin-top:2px">${tags}</div>
+                </td>
+                <td style="padding:6px 4px;text-align:right;vertical-align:middle;font-size:18px">${statusIcon}</td>
+              </tr>`;
+          }).join('');
+          return `<table style="width:100%;border-collapse:collapse">${rows}</table>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 0 0 12px 12px
+        - padding: 0
+      custom_fields:
+        history_table:
+          - width: 100%
+          - display: block
+
+  # Summary bar: total prints, success rate, time
+  - type: horizontal-stack
+    cards:
+      - type: stat
+        entity: sensor.bambuddy_statistics
+        name: Total Prints
+        icon: mdi:printer-3d
+        unit: prints
+      - type: stat
+        entity: sensor.bambuddy_success_rate
+        name: Success Rate
+        icon: mdi:check-circle
+      - type: stat
+        entity: sensor.bambuddy_total_print_time
+        name: Total Time
+        icon: mdi:timer-sand
