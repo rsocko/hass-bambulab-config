@@ -102,14 +102,34 @@ The solution includes multiple validation checks:
 
 ### Step 1: Add Input Helpers
 
-Add the contents of `print_weight_persistence.yaml` to your Home Assistant configuration:
+Copy `print_weight_persistence.yaml` into a logical location inside your Home
+Assistant `/config` directory and register it as a **package**.
+
+**Recommended path:**
+
+```
+/config/packages/bambulab/print_weight_persistence.yaml
+```
+
+Add the following to `configuration.yaml` (create the `homeassistant.packages`
+section if it does not already exist):
 
 ```yaml
-# In configuration.yaml or packages/
-input_text: !include print_weight_persistence.yaml
-
-# OR merge the input_text section if you already have one
+homeassistant:
+  packages:
+    bambulab_print_weight: !include packages/bambulab/print_weight_persistence.yaml
 ```
+
+> **Why packages?**  `print_weight_persistence.yaml` defines two top-level
+> sections — `input_text:` **and** `template:`.  Using
+> `input_text: !include ...` or `template: !include ...` directly would
+> nest the file's own section keys inside the wrong parent key and will not work.
+> The `homeassistant.packages` mechanism is the correct way to include a file
+> that spans more than one integration domain.
+
+> **Other helpers already in configuration.yaml?**  The packages mechanism is
+> additive — it merges cleanly with any existing `input_text:` or other
+> sections you have defined elsewhere.  No changes to those sections are needed.
 
 ### Step 2: Add Print Started Automation
 

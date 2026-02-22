@@ -31,26 +31,45 @@ The input helpers provide persistent storage for error data.
 
 ### Option B: Via Configuration File
 
-If you manage Home Assistant configuration via YAML files:
+If you manage Home Assistant configuration via YAML files, use the **packages**
+mechanism.  This is the only correct approach because `print_job_tracking_helpers.yaml`
+defines multiple top-level sections (`input_text:`, `input_boolean:`,
+`input_datetime:`), and loading it under a single key such as
+`input_text: !include ...` would produce incorrect nested YAML.
 
-1. Copy `print_job_tracking_helpers.yaml` to your Home Assistant config directory
-2. Add to your `configuration.yaml`:
-   ```yaml
-   input_text: !include print_job_tracking_helpers.yaml
-   input_boolean: !include print_job_tracking_helpers.yaml
-   input_datetime: !include print_job_tracking_helpers.yaml
-   ```
-   
-   Or if you already have input helpers configured:
-   ```yaml
-   input_text: !include_dir_merge_named inputs/
-   input_boolean: !include_dir_merge_named inputs/
-   input_datetime: !include_dir_merge_named inputs/
-   ```
-   
-   Then place `print_job_tracking_helpers.yaml` in the `inputs/` directory.
+**Recommended folder structure:**
 
-3. Restart Home Assistant or reload the configuration
+```
+/config/
+├── configuration.yaml
+└── packages/
+    └── bambulab/
+        ├── print_cost_helpers.yaml          ← spoolman-sync/print_cost_helpers.yaml
+        ├── print_job_tracking_helpers.yaml  ← spoolman-sync/print_job_tracking_helpers.yaml
+        └── print_weight_persistence.yaml    ← spoolman-sync/print_weight_persistence.yaml
+```
+
+1. Copy `print_job_tracking_helpers.yaml` (and the other helper files) into
+   `/config/packages/bambulab/`.
+
+2. Add the following to `configuration.yaml` (merge with an existing
+   `homeassistant.packages` block if you already have one):
+
+   ```yaml
+   homeassistant:
+     packages:
+       bambulab_print_cost:         !include packages/bambulab/print_cost_helpers.yaml
+       bambulab_print_weight:       !include packages/bambulab/print_weight_persistence.yaml
+       bambulab_print_job_tracking: !include packages/bambulab/print_job_tracking_helpers.yaml
+   ```
+
+   > **Have other helpers defined elsewhere?**  Packages merge cleanly with any
+   > existing `input_text:` or other sections in `configuration.yaml` — no
+   > changes to those sections are needed.  Each package key (e.g.
+   > `bambulab_print_job_tracking`) simply contributes its sections to the
+   > merged configuration.
+
+3. Restart Home Assistant or reload the configuration.
 
 ## Step 2: Add Print Started Automation
 

@@ -1,6 +1,24 @@
-# Input helpers for tracking print job data and spoolman sync errors
-# These helpers provide persistent storage for print data and error information
-# allowing manual recovery when spoolman sync automation fails
+# Input helpers for tracking print job data and spoolman sync errors.
+# These helpers provide persistent storage for print data and error information,
+# allowing manual recovery when spoolman sync automation fails.
+#
+# ── Recommended installation ────────────────────────────────────────────────
+# 1. Copy this file to:
+#      /config/packages/bambulab/print_job_tracking_helpers.yaml
+#
+# 2. Add the following to your configuration.yaml
+#    (create the homeassistant.packages block if it does not already exist):
+#
+#      homeassistant:
+#        packages:
+#          bambulab_print_job_tracking: !include packages/bambulab/print_job_tracking_helpers.yaml
+#
+# 3. Restart Home Assistant (or reload the configuration).
+#
+# NOTE: Do NOT use separate `input_text: !include ...`, `input_boolean: !include ...`,
+# etc. entries — this file contains multiple top-level keys and must be loaded as
+# a package so Home Assistant can merge all sections correctly.
+# ────────────────────────────────────────────────────────────────────────────
 
 input_text:
   # Stores the current/last print job information

@@ -14,15 +14,46 @@ A backup and restore system that:
 
 ### Step 1: Add Input Helpers (5 minutes)
 
-Add this to your `configuration.yaml`:
+This automation set relies on three YAML helper files.  Copy them to a logical
+location inside your Home Assistant `/config` directory and register them as
+**packages** so that Home Assistant can merge all of their sections (`input_text`,
+`input_boolean`, `input_datetime`, `template`, etc.) correctly.
 
-```yaml
-# Add at the end of configuration.yaml or in a package file
-input_text: !include spoolman-sync/print_weight_persistence.yaml
-template: !include spoolman-sync/print_weight_persistence.yaml
+**Recommended folder structure:**
+
+```
+/config/
+├── configuration.yaml
+└── packages/
+    └── bambulab/
+        ├── print_cost_helpers.yaml          ← spoolman-sync/print_cost_helpers.yaml
+        ├── print_job_tracking_helpers.yaml  ← spoolman-sync/print_job_tracking_helpers.yaml
+        └── print_weight_persistence.yaml    ← spoolman-sync/print_weight_persistence.yaml
 ```
 
-Or if you already have `input_text:` section, merge the contents.
+Add the following block to `configuration.yaml` (create the
+`homeassistant.packages` section if it does not already exist):
+
+```yaml
+homeassistant:
+  packages:
+    bambulab_print_cost:          !include packages/bambulab/print_cost_helpers.yaml
+    bambulab_print_weight:        !include packages/bambulab/print_weight_persistence.yaml
+    bambulab_print_job_tracking:  !include packages/bambulab/print_job_tracking_helpers.yaml
+```
+
+> **Why packages?**  Each helper file contains multiple top-level YAML sections
+> (e.g. `input_text:` **and** `template:`).  Using
+> `input_text: !include ...` or `template: !include ...` directly in
+> `configuration.yaml` would nest the file's own section headers incorrectly and
+> will not work.  The `homeassistant.packages` mechanism is the correct way to
+> load a file that defines more than one integration domain.
+
+> **Existing helper entities:** If you already have `input_text:`, `input_number:`,
+> or other helper sections in `configuration.yaml` for unrelated purposes, the
+> packages approach is safe — Home Assistant merges package keys with your
+> existing configuration automatically.  No entries in those standalone sections
+> need to be moved or modified.
 
 ### Step 2: Add Automations (10 minutes)
 
