@@ -1,0 +1,72 @@
+# Bambu Lab Error Status Dashboard Card
+#
+# Paste this vertical-stack card into your Lovelace dashboard to surface
+# persistent error state from the logging helpers.  The data shown here
+# survives Home Assistant restarts because it is stored in the HA database
+# (input_text / counter entities), unlike volatile persistent notifications.
+#
+# Prerequisites:
+#   - logging/helpers/input_helpers.yaml loaded (input_text entities)
+#   - logging/helpers/counter_helpers.yaml loaded (counter entities)
+#   - logging/automations/error_alerts.yaml loaded (populates the entities)
+#
+# See logging/QUICK_START.md for setup instructions.
+
+type: vertical-stack
+cards:
+  # ── Error summary header ─────────────────────────────────────────────────
+  - type: custom:mushroom-title-card
+    title: 🖨️ Bambu Lab – Error Status
+    subtitle: Errors and warnings detected since midnight
+
+  # ── Counters row (errors | warnings) ────────────────────────────────────
+  - type: horizontal-stack
+    cards:
+      - type: statistic
+        entity: counter.bambulab_error_count
+        name: Errors Today
+        period:
+          calendar:
+            period: day
+        stat_type: state
+        icon: mdi:alert-circle
+      - type: statistic
+        entity: counter.bambulab_warning_count
+        name: Warnings Today
+        period:
+          calendar:
+            period: day
+        stat_type: state
+        icon: mdi:alert
+
+  # ── Last recorded error ──────────────────────────────────────────────────
+  - type: entities
+    title: Last Recorded Error
+    show_header_toggle: false
+    entities:
+      - entity: input_text.last_bambulab_error
+        name: Last Error
+        icon: mdi:alert-circle-outline
+      - entity: input_text.last_bambulab_warning
+        name: Last Warning
+        icon: mdi:alert-outline
+
+  # ── Conditional alert banner (shown only when error count > 0) ──────────
+  - type: conditional
+    conditions:
+      - condition: numeric_state
+        entity: counter.bambulab_error_count
+        above: 0
+    card:
+      type: markdown
+      content: >
+        ## ⚠️ Action Required
+
+        **{{ states('counter.bambulab_error_count') }} error(s) detected today.**
+
+        Last error: `{{ states('input_text.last_bambulab_error') }}`
+
+        Check **Settings › System › Logs** and filter by
+        `homeassistant.components.bambulab` for full details.
+        Errors are also recorded in the **Logbook** (Settings › Logbook,
+        filter: *Bambu Lab Error Alert*).

@@ -52,7 +52,20 @@
                   Time: {{ timestamp }}
                   
                   Check logs for details: Settings > System > Logs
-                notification_id: "print_complete_error_{{ now().timestamp() | int }}"
+                # Fixed notification_id so only the latest error shows (overwrites previous)
+                # and the notification persists across Home Assistant restarts.
+                notification_id: "bambulab_print_complete_error"
+            
+            # Log to system log and logbook for persistent cross-restart record
+            - service: system_log.write
+              data:
+                message: "Error Alert Handler: Print completion error detected — {{ log_message }}"
+                level: error
+                logger: homeassistant.components.bambulab.error_alerts
+            - service: logbook.log
+              data:
+                name: "Bambu Lab Error Alert"
+                message: "Print completion error: {{ log_message }}"
             
             # Flash WLED red for visual alert (if configured)
             - service: light.turn_on
@@ -80,7 +93,19 @@
                   Time: {{ timestamp }}
                   
                   This may indicate duplicate UUIDs or ambiguous spool data.
-                notification_id: "spool_match_error_{{ now().timestamp() | int }}"
+                # Fixed notification_id so only the latest error shows (overwrites previous)
+                notification_id: "bambulab_spool_match_error"
+            
+            # Log to system log and logbook for persistent cross-restart record
+            - service: system_log.write
+              data:
+                message: "Error Alert Handler: Spool matching error detected — {{ log_message }}"
+                level: error
+                logger: homeassistant.components.bambulab.error_alerts
+            - service: logbook.log
+              data:
+                name: "Bambu Lab Error Alert"
+                message: "Spool matching error: {{ log_message }}"
         
         # UUID conflict errors (data integrity)
         - conditions:
@@ -98,7 +123,19 @@
                   Time: {{ timestamp }}
                   
                   **Action Required**: Review and fix duplicate UUIDs in Spoolman database.
-                notification_id: "uuid_conflict_{{ now().timestamp() | int }}"
+                # Fixed notification_id so only the latest alert shows (overwrites previous)
+                notification_id: "bambulab_uuid_conflict"
+            
+            # Log to system log and logbook for persistent cross-restart record
+            - service: system_log.write
+              data:
+                message: "Error Alert Handler: UUID conflict detected — {{ log_message }}"
+                level: error
+                logger: homeassistant.components.bambulab.error_alerts
+            - service: logbook.log
+              data:
+                name: "Bambu Lab Error Alert"
+                message: "UUID conflict: {{ log_message }}"
       
       # Default: Send generic error notification
       default:
@@ -111,7 +148,19 @@
               {{ log_message }}
               
               Time: {{ timestamp }}
-            notification_id: "bambulab_error_{{ now().timestamp() | int }}"
+            # Fixed notification_id so only the latest error shows (overwrites previous)
+            notification_id: "bambulab_error_latest"
+        
+        # Log to system log and logbook for persistent cross-restart record
+        - service: system_log.write
+          data:
+            message: "Error Alert Handler: Error detected from {{ log_source }} — {{ log_message }}"
+            level: error
+            logger: homeassistant.components.bambulab.error_alerts
+        - service: logbook.log
+          data:
+            name: "Bambu Lab Error Alert"
+            message: "Error from {{ log_source }}: {{ log_message }}"
 
 - alias: "Logging: Warning Alert Handler"
   description: "Monitor system logs for warnings that may need attention"
