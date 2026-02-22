@@ -29,31 +29,63 @@ input_text:
     initial: ""
     icon: mdi:printer-3d
 
-  # Stores AMS tray configuration at print start as JSON
-  # This allows manual recovery if spool lookup fails after print completes
-  # Format: JSON array with tray data: [{"tray": 1, "uuid": "...", "color": "...", "type": "...", "name": "..."}]
-  print_job_ams_trays:
-    name: Print Job AMS Tray Data
-    max: 1000
-    initial: "[]"
-    icon: mdi:file-cabinet
-
   # Stores the last spoolman sync error details
   # Format: "timestamp|tray_name|error_message|print_weight|tray_uuid|tray_color|tray_type"
+  # Max realistic length ~160 chars — safe at 255
   spoolman_sync_last_error:
     name: Last Spoolman Sync Error
-    max: 500
+    max: 255
     initial: ""
     icon: mdi:alert-circle
 
-  # Stores a log of recent sync errors (up to ~10 entries)
-  # Each entry on a new line: "timestamp|tray|error|weight|uuid"
-  # This provides a short history for troubleshooting recurring issues
-  spoolman_sync_error_log:
-    name: Spoolman Sync Error Log
-    max: 2000
-    initial: ""
-    icon: mdi:text-box-multiple
+# --- Trigger-based template sensors for large data storage ---
+# HA enforces a hard max of 255 characters for input_text entities.
+# These sensors use trigger-based templates with attributes (no size limit)
+# and persist across restarts via unique_id.
+#
+# To write data, fire the corresponding custom event from automations:
+#   - event: bambulab_store_ams_trays
+#     event_data:
+#       value: "{{ json_data }}"
+#
+# To read data in templates:
+#   {{ state_attr('sensor.print_job_ams_tray_storage', 'data') }}
+#   {{ state_attr('sensor.spoolman_sync_error_log_storage', 'log') }}
+template:
+  - trigger:
+      - trigger: event
+        event_type: bambulab_store_ams_trays
+    sensor:
+      - name: "Print Job AMS Tray Storage"
+        unique_id: print_job_ams_tray_storage
+        icon: mdi:file-cabinet
+        state: >-
+          {% if trigger.event.data.value | default('[]') | length > 2 %}
+            stored
+          {% else %}
+            empty
+          {% endif %}
+        attributes:
+          data: "{{ trigger.event.data.value | default('[]') }}"
+          updated_at: "{{ now().isoformat() }}"
+
+  - trigger:
+      - trigger: event
+        event_type: bambulab_store_error_log
+    sensor:
+      - name: "Spoolman Sync Error Log Storage"
+        unique_id: spoolman_sync_error_log_storage
+        icon: mdi:text-box-multiple
+        state: >-
+          {% set log = trigger.event.data.value | default('') %}
+          {% if log | length > 0 %}
+            {{ log.split('\n') | length }} entries
+          {% else %}
+            empty
+          {% endif %}
+        attributes:
+          log: "{{ trigger.event.data.value | default('') }}"
+          updated_at: "{{ now().isoformat() }}"
 
 input_boolean:
   # Flag indicating if there's an unresolved spoolman sync error

@@ -243,7 +243,7 @@ actions:
                   find_spool_response.message }}|{{ tray_print_weight }}|{{
                   selected_tray.uuid }}|{{ selected_tray.color }}|{{
                   selected_tray.type }}
-                current_error_log: "{{ states('input_text.spoolman_sync_error_log') }}"
+                current_error_log: "{{ state_attr('sensor.spoolman_sync_error_log_storage', 'log') | default('') }}"
             - action: input_boolean.turn_on
               data:
                 entity_id: input_boolean.spoolman_sync_error_active
@@ -255,9 +255,8 @@ actions:
               data:
                 entity_id: input_datetime.spoolman_sync_last_error_time
                 datetime: "{{ error_timestamp }}"
-            - action: input_text.set_value
-              data:
-                entity_id: input_text.spoolman_sync_error_log
+            - event: bambulab_store_error_log
+              event_data:
                 value: >-
                   {% set log_lines = current_error_log.split('\n') if
                   current_error_log else [] %}

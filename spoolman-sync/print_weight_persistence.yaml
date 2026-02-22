@@ -22,10 +22,14 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 # Input text helper to store print weight attributes JSON
+# Note: max 255 is the HA hard limit for input_text.
+# With a single AMS (4 trays), the JSON is ~100 chars — well within 255.
+# For multi-AMS setups (2+ AMS units), consider using a trigger-based
+# template sensor instead (see print_job_tracking_helpers.yaml for examples).
 input_text:
   print_weight_backup:
     name: "Print Weight Backup"
-    max: 1024
+    max: 255
     icon: mdi:weight
 
   print_metadata_backup:

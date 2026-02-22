@@ -37,9 +37,11 @@ actions:
         {% endfor %}
         ]
 
-  - action: text.set_value
-    data:
-      entity_id: input_text.print_job_ams_trays
+  # Fire a custom event to update the trigger-based template sensor.
+  # This avoids the 255-char input_text limit — sensor attributes have no size cap.
+  # The sensor (sensor.print_job_ams_tray_storage) persists across HA restarts.
+  - event: bambulab_store_ams_trays
+    event_data:
       value: "{{ tray_data }}"
 
   - action: logbook.log
