@@ -11,4 +11,16 @@ actions:
     metadata: {}
     data:
       entry_id: 01JPNH7WNWR5TMZ8YSNDHXWR38
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Spoolman integration reloaded (nightly scheduled reload at 11pm).
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
+  - action: logbook.log
+    metadata: {}
+    data:
+      name: Spoolman Integration
+      message: Nightly reload completed.
 mode: single
