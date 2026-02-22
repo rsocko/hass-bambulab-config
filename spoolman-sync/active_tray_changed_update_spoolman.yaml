@@ -2,7 +2,8 @@ alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
 description: >-
   Trigger whenever the printer's Active Tray is updated and currently printing -
   so that it can update Last Used date/time in Spoolman for the corresponding
-  Spool
+  Spool. When printing from the External Spool (active_tray state is 'none' on
+  AMS printers), reads filament details from the external_spool sensor instead.
 triggers:
   - trigger: state
     entity_id:
@@ -37,23 +38,23 @@ actions:
         uuid is {{ active_tray.uuid }}, color is {{ active_tray.color }},
         remaining is {{ active_tray.remain }}
     enabled: false
+  # Determine the data source: when active_tray state is 'none' on an AMS printer,
+  # the external spool is in use - read attributes from the external_spool sensor instead.
+  - variables:
+      active_tray_source: >-
+        {{ 'sensor.ntk_ryansoffice_3dprinter_external_spool'
+           if states('sensor.ntk_ryansoffice_3dprinter_active_tray') == 'none'
+           else 'sensor.ntk_ryansoffice_3dprinter_active_tray' }}
+      is_external_spool: >-
+        {{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') == 'none' }}
   - variables:
       active_tray:
-        uuid: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray',
-          'tray_uuid') }}
-        type: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type')
-          }}
-        color: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'color')
-          | replace('#', '')  }}
-        name: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'name')
-          }}
-        remain: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray',
-          'remain') }}
+        uuid: "{{ state_attr(active_tray_source, 'tray_uuid') }}"
+        type: "{{ state_attr(active_tray_source, 'type') }}"
+        color: "{{ state_attr(active_tray_source, 'color') | replace('#', '') }}"
+        name: "{{ state_attr(active_tray_source, 'name') }}"
+        remain: "{{ state_attr(active_tray_source, 'remain') }}"
+      external_spool_suffix: "{{ ' (External Spool)' if is_external_spool else '' }}"
   - action: script.find_matching_spool_in_spoolman
     metadata: {}
     data:
@@ -126,7 +127,8 @@ actions:
                 Active Tray Changed: Successfully updated last/first used in
                 Spoolman for spool ID {{ find_spool_response.spool.id }} ({{
                 find_spool_response.spool.filament.name }}). Active tray: {{
-                active_tray.name }}, UUID: {{ active_tray.uuid }}.
+                active_tray.name }}{{ external_spool_suffix }},
+                UUID: {{ active_tray.uuid }}.
               level: info
               logger: homeassistant.components.bambulab.spoolman_sync
           - action: logbook.log
@@ -137,7 +139,7 @@ actions:
                 Active tray changed - updated last used for spool ID {{
                 find_spool_response.spool.id }} ({{
                 find_spool_response.spool.filament.name }}). Tray: {{
-                active_tray.name }}.
+                active_tray.name }}{{ external_spool_suffix }}.
           - action: persistent_notification.create
             metadata: {}
             data:
@@ -146,7 +148,7 @@ actions:
                 Active tray changed - updated last used for spool ID {{
                 find_spool_response.spool.id }} ({{
                 find_spool_response.spool.filament.name }}). Tray: {{
-                active_tray.name }}.
+                active_tray.name }}{{ external_spool_suffix }}.
               notification_id: >-
                 spoolman_active_tray_{{ active_tray.uuid if active_tray.uuid and
                 active_tray.uuid | length > 0 and not active_tray.uuid |
@@ -185,7 +187,8 @@ actions:
             data:
               message: >-
                 Active Tray Changed ERROR: Cannot find spool in Spoolman for
-                tray {{ active_tray.name }}. Print Job: {{ task_name }}. UUID: {{ active_tray.uuid }}, Type:
+                tray {{ active_tray.name }}{{ external_spool_suffix }}.
+                Print Job: {{ task_name }}. UUID: {{ active_tray.uuid }}, Type:
                 {{ active_tray.type }}, Color: {{ active_tray.color }}. Error:
                 {{ find_spool_response.message }}
               level: error
@@ -195,7 +198,8 @@ actions:
             data:
               name: Spoolman Active Tray
               message: >-
-                ERROR - Cannot find spool for tray {{ active_tray.name }}. Print Job: {{ task_name }}. Error:
+                ERROR - Cannot find spool for tray {{ active_tray.name }}{{ external_spool_suffix }}.
+                Print Job: {{ task_name }}. Error:
                 {{ find_spool_response.message }}
           - action: persistent_notification.create
             metadata: {}
@@ -209,7 +213,7 @@ actions:
                 **Error:** {{ find_spool_response.message }}
 
 
-                **Active Tray Details:**
+                **Active Tray Details:**{{ external_spool_suffix }}
 
                 - UUID: `{{ active_tray.uuid }}`
 

@@ -3,6 +3,7 @@ description: >-
   Captures print job and AMS tray information when a print starts.
   This data is stored persistently so it can be used for manual recovery
   if the spoolman sync automation fails when the print completes.
+  Also captures external spool data if in use.
 triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
@@ -44,17 +45,40 @@ actions:
     event_data:
       value: "{{ tray_data }}"
 
+  # Capture external spool data (for recovery if printing from external spool)
+  # The active_tray sensor state is 'none' when the external spool is in use on an AMS printer
+  - variables:
+      is_external_spool: >-
+        {{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') == 'none' or
+           state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'active') is true }}
+      external_spool_data: >-
+        {
+          "tray": "external",
+          "uuid": "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'tray_uuid') | default('') }}",
+          "color": "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'color') | default('') | replace('#', '') }}",
+          "type": "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'type') | default('') }}",
+          "name": "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'name') | default('') }}",
+          "is_active": {{ is_external_spool | tojson }}
+        }
+
+  - action: text.set_value
+    data:
+      entity_id: input_text.print_job_external_spool
+      value: "{{ external_spool_data }}"
+
   - action: logbook.log
     data:
       name: Print Started
       message: >-
         Print job "{{ task_name }}" started. AMS tray configuration captured for potential recovery.
+        External spool active: {{ is_external_spool }}.
   - action: system_log.write
     metadata: {}
     data:
       message: >-
         Print Started: Print job "{{ task_name }}" started at {{ start_time }}.
         AMS tray configuration captured for potential recovery.
+        External spool active: {{ is_external_spool }}.
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
 mode: single

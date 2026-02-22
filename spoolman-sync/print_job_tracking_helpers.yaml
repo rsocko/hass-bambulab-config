@@ -29,6 +29,15 @@ input_text:
     initial: ""
     icon: mdi:printer-3d
 
+  # Stores external spool configuration at print start as JSON
+  # Used to identify the spool for manual recovery when printing from external spool
+  # Format: JSON object: {"tray": "external", "uuid": "...", "color": "...", "type": "...", "name": "...", "is_active": true/false}
+  print_job_external_spool:
+    name: Print Job External Spool Data
+    max: 255
+    initial: ""
+    icon: mdi:printer-3d-nozzle
+
   # Stores the last spoolman sync error details
   # Format: "timestamp|tray_name|error_message|print_weight|tray_uuid|tray_color|tray_type"
   # Max realistic length ~160 chars — safe at 255

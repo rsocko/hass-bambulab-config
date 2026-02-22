@@ -114,7 +114,7 @@ actions:
       ams_trays_string: >
         {% set ns = namespace(result='') %}
         {% for key, value in print_weight_attributes.items() %}
-          {% if key.startswith('AMS') or key == 'External Spool' %}
+          {% if key.startswith('AMS') or key.startswith('External') %}
             {% set ns.result = ns.result ~ key ~ ':' ~ value ~ ',' %}
           {% endif %}
         {% endfor %}
@@ -153,7 +153,11 @@ actions:
               {% endif %}
             tray_entity_id: >
               {% if tray_number == 'external' %}
-                sensor.ntk_ryansoffice_3dprinter_external_spool
+                {% if 'External Spool 2' in tray_name %}
+                  sensor.ntk_ryansoffice_3dprinter_external_spool2
+                {% else %}
+                  sensor.ntk_ryansoffice_3dprinter_external_spool
+                {% endif %}
               {% else %}
                 sensor.p1s_01p00c460102350_ams_1_tray_{{ tray_number }}
               {% endif %}
