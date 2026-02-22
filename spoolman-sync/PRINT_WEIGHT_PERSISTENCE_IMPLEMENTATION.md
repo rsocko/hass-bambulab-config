@@ -262,29 +262,6 @@ Once validated, could contribute to:
 - ha_bambulab integration (native persistence)
 - pyBambu library (state recovery)
 
-## Migration Path
-
-### From Existing Automation
-
-1. **Parallel Testing** (Recommended):
-   - Keep existing automation
-   - Add new v2 automation (disabled)
-   - Test v2 thoroughly
-   - Switch when confident
-   
-2. **Direct Replacement**:
-   - Backup existing automation
-   - Disable existing
-   - Enable v2
-   - Monitor closely
-
-### Rollback Plan
-If issues occur:
-1. Disable v2 automation
-2. Re-enable original automation
-3. Clear input helpers
-4. Report issues in GitHub
-
 ## Success Criteria
 
 ✅ Solution prevents data loss on HA restart  
