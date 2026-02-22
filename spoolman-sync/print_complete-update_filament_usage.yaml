@@ -106,7 +106,7 @@ actions:
           choose:
             - conditions:
                 - condition: template
-                  value_template: "{{ find_spool_response.success == true }}"
+                  value_template: "{{ find_spool_response.success }}"
                   alias: Spool found (response from script)
               sequence:
                 - action: spoolman.use_spool_filament
@@ -161,33 +161,45 @@ actions:
                       states('sensor.ntk_ryansoffice_3dprinter_task_name') |
                       slugify }}_{{ tray_name | slugify }}
             - conditions:
-                - condition: not
-                  conditions:
-                    - condition: template
-                      value_template: "{{ find_spool_response.success == false }}"
-                      alias: Spool not found - error (cannot update usage)
+                - condition: template
+                  value_template: "{{ not find_spool_response.success }}"
                   alias: Spool not found - error (cannot update usage)
               sequence:
-                - action: persistent_notification.create
-                  metadata: {}
+                - variables:
+                    error_timestamp: "{{ now().isoformat() }}"
+                    error_details: >-
+                      {{ error_timestamp }}|{{ tray_name }}|{{
+                      find_spool_response.message }}|{{ tray_print_weight }}|{{
+                      selected_tray.uuid }}|{{ selected_tray.color }}|{{
+                      selected_tray.type }}
+                    task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+                    current_error_log: "{{ states('input_text.spoolman_sync_error_log') }}"
+                - action: input_boolean.turn_on
                   data:
-                    title: "Spoolman Update Error: Cannot Find Spool"
-                    message: >-
-                      Cannot update Spoolman with print weight usage information
-                      due to issue finding the correct spool. Error message: "{{
-                      find_spool_response.message }}"
-                    notification_id: >-
-                      spoolman_error_{{ selected_tray.uuid if selected_tray.uuid
-                      and selected_tray.uuid | length > 0 and not
-                      selected_tray.uuid | regex_match('^0+$') else
-                      selected_tray.color ~ '_' ~ selected_tray.type }}
+                    entity_id: input_boolean.spoolman_sync_error_active
+                - action: input_text.set_value
+                  data:
+                    entity_id: input_text.spoolman_sync_last_error
+                    value: "{{ error_details }}"
+                - action: input_datetime.set_datetime
+                  data:
+                    entity_id: input_datetime.spoolman_sync_last_error_time
+                    datetime: "{{ error_timestamp }}"
+                - action: input_text.set_value
+                  data:
+                    entity_id: input_text.spoolman_sync_error_log
+                    value: >-
+                      {% set log_lines = current_error_log.split('\n') if
+                      current_error_log else [] %}
+                      {# Keep last 9 entries + new entry = 10 total max #}
+                      {% set new_log = log_lines[-9:] + [error_details] %}
+                      {{ new_log | join('\n') }}
                 - action: system_log.write
                   metadata: {}
                   data:
                     message: >-
                       Print Complete ERROR: Cannot find spool in Spoolman for {{
-                      tray_name }}. Task: {{
-                      states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+                      tray_name }}. Task: {{ task_name }}.
                       UUID: {{ selected_tray.uuid }}, Type: {{ selected_tray.type
                       }}, Color: {{ selected_tray.color }}. Used {{
                       tray_print_weight }} grams. Error: {{
@@ -197,13 +209,40 @@ actions:
                 - action: logbook.log
                   metadata: {}
                   data:
-                    name: Spoolman {{ tray_name }}
+                    name: Spoolman Sync Error
                     message: >-
-                      Print Complete ERROR - Cannot find spool for {{ tray_name
-                      }}. Task: {{
-                      states('sensor.ntk_ryansoffice_3dprinter_task_name')
-                      }}. Used {{ tray_print_weight }} grams. Error: {{
-                      find_spool_response.message }}
-              alias: Active Tray UUID is NOT empty (eg Bambu Spool)
+                      Failed to update filament usage for {{ tray_name }} after
+                      print "{{ task_name }}". Weight: {{ tray_print_weight }}g.
+                      Error: {{ find_spool_response.message }}
+                - action: persistent_notification.create
+                  metadata: {}
+                  data:
+                    notification_id: >-
+                      spoolman_sync_error_{{ tray_name | replace(' ', '_') }}
+                    title: "Spoolman Update Error: Cannot Find Spool"
+                    message: >-
+                      **Print Job:** {{ task_name }}
+
+                      **Tray:** {{ tray_name }}
+
+                      **Print Weight:** {{ tray_print_weight }} grams
+
+                      **Error:** {{ find_spool_response.message }}
+
+
+                      **Tray Details for Manual Recovery:**
+
+                      - UUID: `{{ selected_tray.uuid }}`
+
+                      - Color: `{{ selected_tray.color }}`
+
+                      - Type: `{{ selected_tray.type }}`
+
+
+                      To manually update Spoolman, find the matching spool and
+                      reduce its weight by {{ tray_print_weight }}g. Error
+                      details stored in `input_text.spoolman_sync_last_error`
+                      for recovery.
+              alias: Spool not found - log error persistently
       for_each: "{{ ams_tray_list }}"
 mode: single
