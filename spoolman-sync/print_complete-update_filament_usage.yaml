@@ -156,6 +156,10 @@ actions:
 
 
                       Used {{ tray_print_weight }} grams.
+                    notification_id: >-
+                      spoolman_print_complete_{{
+                      states('sensor.ntk_ryansoffice_3dprinter_task_name') |
+                      slugify }}_{{ tray_name | slugify }}
             - conditions:
                 - condition: not
                   conditions:
@@ -172,6 +176,11 @@ actions:
                       Cannot update Spoolman with print weight usage information
                       due to issue finding the correct spool. Error message: "{{
                       find_spool_response.message }}"
+                    notification_id: >-
+                      spoolman_error_{{ selected_tray.uuid if selected_tray.uuid
+                      and selected_tray.uuid | length > 0 and not
+                      selected_tray.uuid | regex_match('^0+$') else
+                      selected_tray.color ~ '_' ~ selected_tray.type }}
                 - action: system_log.write
                   metadata: {}
                   data:
