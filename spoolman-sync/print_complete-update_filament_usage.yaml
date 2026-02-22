@@ -1,7 +1,5 @@
-alias: Print Complete - Update Filament Usage (Enhanced)
-description: >
-  Updates Spoolman with filament usage when print completes.
-  Includes fallback to backed-up print_weight attributes if HA restarted during print.
+alias: Print Complete - Update Filament Usage
+description: ""
 triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
@@ -9,102 +7,93 @@ triggers:
     trigger: device
 conditions: []
 actions:
-  # First, determine if we need to use backup data
-  - variables:
-      current_print_weight: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}"
-      backup_available: >
-        {{ states('input_text.print_weight_backup') | length > 2 }}
-      current_has_attributes: >
-        {{ state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') is not none
-           or state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') is not none
-           or state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') is not none
-           or state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') is not none
-           or state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') is not none }}
-  
-  # Log what data source we're using
-  - action: logbook.log
+  - action: persistent_notification.create
     metadata: {}
     data:
-      name: Print Weight Data Source
-      message: >
-        Print complete for: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
-        Current sensor has attributes: {{ current_has_attributes }}.
-        Backup available: {{ backup_available }}.
-        Will use {{ 'backup data' if (not current_has_attributes and backup_available) else 'current sensor data' }}.
-  
-  # Extract attributes from either current sensor or backup
+      message: Print Finished
+    enabled: false
   - variables:
-      print_weight_attributes: >
-        {% if current_has_attributes %}
-          {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes }}
-        {% elif backup_available %}
-          {{ states('input_text.print_weight_backup') | from_json }}
-        {% else %}
-          {}
-        {% endif %}
-  
-  # Validate we have data
-  - condition: template
-    value_template: "{{ print_weight_attributes | length > 0 }}"
-    alias: Ensure we have print weight data
-  
-  # Extract AMS tray usage into a list
+      store_print_weight: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}"
   - variables:
-      ams_trays_string: >
-        {% set ns = namespace(result='') %}
-        {% for key, value in print_weight_attributes.items() %}
-          {% if key.startswith('AMS') or key == 'External Spool' %}
-            {% set ns.result = ns.result ~ key ~ ':' ~ value ~ ',' %}
-          {% endif %}
-        {% endfor %}
-        {{ ns.result }}
-      ams_tray_list: >
-        {{ ams_trays_string.rstrip(',').split(',') | list }}
-  
-  # Log what we found
-  - action: logbook.log
-    metadata: {}
-    data:
-      name: Print Weight Processing
-      message: >
-        Processing {{ ams_tray_list | length }} tray(s) for filament usage update.
-        Data source: {{ 'Backup' if (not current_has_attributes and backup_available) else 'Current' }}.
-  
-  # Process each tray that was used
+      attributes: >-
+        {{
+        states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items()
+        }}
   - repeat:
       sequence:
         - variables:
-            tray_info: "{{ repeat.item.strip() }}"
-            tray_name: "{{ tray_info.split(':')[0].strip() }}"
-            tray_print_weight: "{{ tray_info.split(':')[1] | int }}"
-        
-        # Skip if weight is 0 or tray_name is empty
-        - condition: template
-          value_template: "{{ tray_print_weight > 0 and tray_name | length > 0 }}"
-        
-        # Determine tray entity ID
+            key: "{{ repeat.item[0] }}"
+            value: "{{ repeat.item[1] }}"
+        - if:
+            - condition: template
+              value_template: "\"{{ 'AMS' in key }}\""
+          then:
+            - action: logbook.log
+              metadata: {}
+              data:
+                name: AMS Attribute Logger
+                message: "{{ key }}: {{ value }}"
+      for_each: "{{ attributes }}"
+    enabled: false
+  - repeat:
+      count: >-
+        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes |
+        length }}
+      sequence:
+        - action: logbook.log
+          metadata: {}
+          data:
+            name: index
+            message: "{{ repeat.index }}"
         - variables:
-            tray_number: >
-              {% if 'External Spool' in tray_name %}
-                external
-              {% else %}
-                {{ tray_name.split(' ')[3] }}
-              {% endif %}
-            tray_entity_id: >
-              {% if tray_number == 'external' %}
-                sensor.ntk_ryansoffice_3dprinter_external_spool
-              {% else %}
-                sensor.p1s_01p00c460102350_ams_1_tray_{{ tray_number }}
-              {% endif %}
-        
-        # Get tray details
+            att: >-
+              {{
+              states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes[repeat.index]
+              }}
+    enabled: false
+  - variables:
+      ams_trays_string: >
+        {% for key, value in
+        states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items()
+        %}
+          {% if key.startswith('AMS') %}
+            {{ key }}:{{ value }}, 
+          {% endif %}
+        {% endfor %}
+      ams_tray_list: |
+        {{ ams_trays_string.rstrip(',').split(',') | list }}
+  - repeat:
+      sequence:
+        - variables:
+            tray_name: "{{ repeat.item.split(':')[0] }}"
+            tray_print_weight: "{{ repeat.item.split(':')[1] | int }}"
+            tray_number: "{{ tray_name.split(' ')[3] }}"
+            tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_{{ tray_number }}
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ tray == 1 }}"
+              sequence:
+                - variables:
+                    tray_entity: sensor.p1s_01p00c460102350_ams_1_tray_1
+            - conditions:
+                - condition: template
+                  value_template: "{{ tray == 2 }}"
+              sequence:
+                - variables:
+                    tray_entity: sensor.p1s_01p00c460102350_ams_1_tray_2
+            - conditions:
+                - condition: template
+                  value_template: "{{ tray == 4 }}"
+              sequence:
+                - variables:
+                    tray_entity: sensor.p1s_01p00c460102350_ams_1_tray_4
+          enabled: false
         - variables:
             selected_tray:
-              uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') | default('') }}"
-              type: "{{ state_attr(tray_entity_id, 'type') | default('') }}"
-              color: "{{ state_attr(tray_entity_id, 'color') | default('') | replace('#', '') }}"
-        
-        # Find matching spool in Spoolman
+              uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') }}"
+              type: "{{ state_attr(tray_entity_id, 'type') }}"
+              color: "{{ state_attr(tray_entity_id, 'color') | replace('#', '')  }}"
         - action: script.find_matching_spool_in_spoolman
           metadata: {}
           data:
@@ -113,20 +102,18 @@ actions:
               target_type: "{{ selected_tray.type }}"
               target_uuid: "{{ selected_tray.uuid }}"
           response_variable: find_spool_response
-        
-        # Update Spoolman if spool was found
-        - choose:
+        - alias: Take action if Spool was found (or error if not)
+          choose:
             - conditions:
                 - condition: template
                   value_template: "{{ find_spool_response.success == true }}"
-                  alias: Spool found
+                  alias: Spool found (response from script)
               sequence:
                 - action: spoolman.use_spool_filament
                   metadata: {}
                   data:
                     id: "{{ find_spool_response.spool.id }}"
                     use_weight: "{{ tray_print_weight }}"
-                
                 - action: system_log.write
                   metadata: {}
                   data:
@@ -139,106 +126,52 @@ actions:
                       tray_print_weight }} grams.
                     level: info
                     logger: homeassistant.components.bambulab.spoolman_sync
-                
                 - action: logbook.log
                   metadata: {}
                   data:
                     name: Spoolman {{ tray_name }}
-                    message: >
-                      Print Job complete - {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
-                      Updated Filament Usage for {{ tray_name }}.
-                      Spool ID {{ find_spool_response.spool.id }} ({{ find_spool_response.spool.filament.name }}).
-                      Used {{ tray_print_weight }} grams.
+                    message: >-
+                      Print Job complete - {{
+                      states('sensor.ntk_ryansoffice_3dprinter_task_name')
+                      }}     Updated Filament Usage for {{ tray_name }}. Spool
+                      ID {{ find_spool_response.spool.id }} ({{
+                      find_spool_response.spool.filament.name }}). Used {{
+                      tray_print_weight }} grams.
                   alias: Log the Filament Usage
-                
                 - action: persistent_notification.create
                   metadata: {}
                   data:
-                    title: >
-                      Print Job {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }} Finished
-                    message: >
-                      Print Job complete - **{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}**
-                      
-                      Updated Filament Usage for {{ tray_name }}.
-                      Spool ID {{ find_spool_response.spool.id }} ({{ find_spool_response.spool.filament.name }}).
-                      
+                    title: >-
+                      Print Job {{
+                      states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
+                      Finished
+                    message: >-
+                      Print Job complete - **{{
+                      states('sensor.ntk_ryansoffice_3dprinter_task_name') }}**
+
+
+                      Updated Filament Usage for {{ tray_name }}. Spool ID {{
+                      find_spool_response.spool.id }} ({{
+                      find_spool_response.spool.filament.name }}).
+
+
                       Used {{ tray_print_weight }} grams.
             - conditions:
-                - condition: template
-                  value_template: "{{ not find_spool_response.success }}"
+                - condition: not
+                  conditions:
+                    - condition: template
+                      value_template: "{{ find_spool_response.success == false }}"
+                      alias: Spool not found - error (cannot update usage)
                   alias: Spool not found - error (cannot update usage)
               sequence:
-                # Store error details persistently for manual recovery
-                - variables:
-                    error_timestamp: "{{ now().isoformat() }}"
-                    error_details: >-
-                      {{ error_timestamp }}|{{ tray_name }}|{{ find_spool_response.message }}|{{ tray_print_weight }}|{{ selected_tray.uuid }}|{{ selected_tray.color }}|{{ selected_tray.type }}
-                    task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
-                    current_error_log: "{{ states('input_text.spoolman_sync_error_log') }}"
-
-                # Set error flag
-                - action: input_boolean.turn_on
-                  data:
-                    entity_id: input_boolean.spoolman_sync_error_active
-
-                # Store last error details
-                - action: input_text.set_value
-                  data:
-                    entity_id: input_text.spoolman_sync_last_error
-                    value: "{{ error_details }}"
-
-                # Update error timestamp
-                - action: input_datetime.set_datetime
-                  data:
-                    entity_id: input_datetime.spoolman_sync_last_error_time
-                    datetime: "{{ error_timestamp }}"
-
-                # Append to error log (keep last ~10 entries)
-                - action: input_text.set_value
-                  data:
-                    entity_id: input_text.spoolman_sync_error_log
-                    value: >-
-                      {% set log_lines = current_error_log.split('\n') if current_error_log else [] %}
-                      {% set new_log = log_lines[-9:] + [error_details] %}
-                      {{ new_log | join('\n') }}
-
-                # Log to logbook for visibility
-                - action: logbook.log
-                  data:
-                    name: Spoolman Sync Error
-                    message: >-
-                      Failed to update filament usage for {{ tray_name }} after print "{{ task_name }}".
-                      Weight: {{ tray_print_weight }}g. Error: {{ find_spool_response.message }}
-
-                # Create detailed persistent notification
                 - action: persistent_notification.create
                   metadata: {}
                   data:
-                    notification_id: spoolman_sync_error_{{ tray_name | replace(' ', '_') }}
                     title: "Spoolman Update Error: Cannot Find Spool"
                     message: >-
-                      **Print Job:** {{ task_name }}
-
-                      **Tray:** {{ tray_name }}
-
-                      **Print Weight:** {{ tray_print_weight }} grams
-
-                      **Error:** {{ find_spool_response.message }}
-
-
-                      **Tray Details for Manual Recovery:**
-
-                      - UUID: `{{ selected_tray.uuid }}`
-
-                      - Color: `{{ selected_tray.color }}`
-
-                      - Type: `{{ selected_tray.type }}`
-
-
-                      To manually update Spoolman, find the matching spool and reduce its weight by {{ tray_print_weight }}g.
-
-                      Error details stored in `input_text.spoolman_sync_last_error` for recovery.
-
+                      Cannot update Spoolman with print weight usage information
+                      due to issue finding the correct spool. Error message: "{{
+                      find_spool_response.Message }}"
                 - action: system_log.write
                   metadata: {}
                   data:
@@ -249,30 +182,9 @@ actions:
                       UUID: {{ selected_tray.uuid }}, Type: {{ selected_tray.type
                       }}, Color: {{ selected_tray.color }}. Used {{
                       tray_print_weight }} grams. Error: {{
-                      find_spool_response.message }}
+                      find_spool_response.Message }}
                     level: error
                     logger: homeassistant.components.bambulab.spoolman_sync
-              alias: Spool not found - log error persistently
-      
+              alias: Active Tray UUID is NOT empty (eg Bambu Spool)
       for_each: "{{ ams_tray_list }}"
-  
-  # Clear the backup after successful processing
-  - action: input_text.set_value
-    target:
-      entity_id: input_text.print_weight_backup
-    data:
-      value: ""
-  
-  - action: input_text.set_value
-    target:
-      entity_id: input_text.print_metadata_backup
-    data:
-      value: ""
-  
-  - action: logbook.log
-    metadata: {}
-    data:
-      name: Print Weight Backup Cleared
-      message: Print weight backup cleared after successful processing.
-
 mode: single
