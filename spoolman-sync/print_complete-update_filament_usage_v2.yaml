@@ -13,8 +13,8 @@ actions:
   # Determine which data source to use
   - variables:
       current_has_attributes: >
-        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes |
-           dict2items | selectattr('key', 'match', '^(AMS|External)') | list | length > 0 }}
+        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
+           select('match', '^(AMS|External)') | list | length > 0 }}
       # Length > 2 skips both an empty string ("") and an empty JSON object ("{}")
       backup_available: >
         {{ states('input_text.print_weight_backup') | length > 2 }}
@@ -56,8 +56,8 @@ actions:
   # Stop if no data is available at all
   - condition: template
     value_template: >
-      {{ print_weight_attributes | dict2items |
-         selectattr('key', 'match', '^(AMS|External)') | list | length > 0 }}
+      {{ print_weight_attributes.keys() |
+         select('match', '^(AMS|External)') | list | length > 0 }}
     alias: Ensure we have AMS or External Spool print weight data
 
   # Build list of tray:weight pairs for trays with usage
