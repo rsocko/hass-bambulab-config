@@ -1488,9 +1488,10 @@ views:
                                 entries.forEach((item) => {
                                   const percent = (item.cost / totalCost) * 100;
                                   const sourceLabel = item.priceSource === 'default' ? ' *' : '';
-                                  barHTML += `<div style="display: flex; align-items: flex-start; margin-bottom: 4px;">`;
-                                  barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px; flex-shrink: 0; margin-top: 2px;"></span>`;
-                                  barHTML += `<span style="flex: 1; min-width: 0;">${item.name}: $${item.cost.toFixed(2)} <span style="white-space: nowrap; opacity: 0.65;">(${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</span></span>`;
+                                  barHTML += `<div style="display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">`;
+                                  barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px; flex-shrink: 0;"></span>`;
+                                  barHTML += `<span>${item.name}: $${item.cost.toFixed(2)}</span>`;
+                                  barHTML += `<span style="white-space: nowrap; opacity: 0.65;"> (${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</span>`;
                                   barHTML += `</div>`;
                                 });
                                 barHTML += '</div>';
