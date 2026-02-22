@@ -46,7 +46,7 @@ actions:
       message: "Uploaded latest snapshot to Bambuddy archive {{ archive_id }}"
 
   # Clear the archive ID after upload
-  - action: input_text.set_value
+  - action: text.set_value
     target:
       entity_id: input_text.current_print_archive_id
     data:
