@@ -168,6 +168,7 @@ actions:
               uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') }}"
               type: "{{ state_attr(tray_entity_id, 'type') }}"
               color: "{{ state_attr(tray_entity_id, 'color') | replace('#', '') }}"
+              name: "{{ state_attr(tray_entity_id, 'name') | default('') }}"
 
         # Find matching spool in Spoolman
         - action: script.find_matching_spool_in_spoolman
@@ -177,6 +178,7 @@ actions:
               target_color_hex: "{{ selected_tray.color }}"
               target_type: "{{ selected_tray.type }}"
               target_uuid: "{{ selected_tray.uuid }}"
+              target_name: "{{ selected_tray.name }}"
           response_variable: find_spool_response
 
         # Update Spoolman if spool was found, otherwise log error

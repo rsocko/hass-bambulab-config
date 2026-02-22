@@ -15,7 +15,7 @@ actions:
       seconds: 5
 
   # Store only AMS and External Spool keys from print_weight attributes as JSON
-  # Filtering avoids the 1024 char limit by excluding irrelevant attributes
+  # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
   # (e.g. friendly_name, unit_of_measurement, icon)
   - action: text.set_value
     target:
