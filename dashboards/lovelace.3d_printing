@@ -665,21 +665,6 @@ button_card_templates:
     name: '[[[ return variables.trayName; ]]]'
     show_icon: false
     show_state: false
-    show_label: true
-    label: |
-      [[[
-        const tray = variables.tray;
-        if (!tray) return '';
-        const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
-        const spoolId = map?.[tray]?.spool_id;
-        if (!spoolId) return '';
-        const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
-        const remaining = spoolEntity?.attributes?.remaining_weight;
-        const initial = spoolEntity?.attributes?.initial_weight || 1000;
-        if (remaining === undefined || remaining === null) return '';
-        const pct = Math.round(Math.min(Math.max(remaining / initial * 100, 0), 100));
-        return `${pct}%`;
-      ]]]
     custom_fields:
       weight_bar: |
         [[[
@@ -729,9 +714,9 @@ button_card_templates:
               return active ? 'inset 0 0 0 4px var(--primary-color)' : 'none';
             ]]]
       grid:
-        - grid-template-areas: '"n" "l" "weight_bar"'
+        - grid-template-areas: '"n" "weight_bar"'
         - grid-template-columns: 1fr
-        - grid-template-rows: 1fr auto auto
+        - grid-template-rows: 1fr auto
       name:
         - font-size: 14px
         - font-weight: bold
@@ -750,24 +735,6 @@ button_card_templates:
               const b = parseInt(colorHex.substring(4,6), 16);
               const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
               return luminance > 0.5 ? '#000000' : '#ffffff';
-            ]]]
-      label:
-        - font-size: 10px
-        - justify-self: center
-        - color: |
-            [[[
-              const tray = variables.tray;
-              if (!tray) return 'var(--secondary-text-color)';
-              const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
-              const spoolId = map?.[tray]?.spool_id;
-              if (!spoolId) return 'var(--secondary-text-color)';
-              const colorHex = map?.[tray]?.color;
-              if (!colorHex) return 'var(--secondary-text-color)';
-              const r = parseInt(colorHex.substring(0,2), 16);
-              const g = parseInt(colorHex.substring(2,4), 16);
-              const b = parseInt(colorHex.substring(4,6), 16);
-              const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
-              return luminance > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
             ]]]
       custom_fields:
         weight_bar:
