@@ -23,7 +23,7 @@
         timestamp: "{{ now().isoformat() }}"
         
     # Store error in input_text for dashboard display
-    - service: input_text.set_value
+    - service: text.set_value
       target:
         entity_id: input_text.last_bambulab_error
       data:
@@ -138,7 +138,7 @@
         timestamp: "{{ now().isoformat() }}"
     
     # Store warning in input_text for dashboard display
-    - service: input_text.set_value
+    - service: text.set_value
       target:
         entity_id: input_text.last_bambulab_warning
       data:

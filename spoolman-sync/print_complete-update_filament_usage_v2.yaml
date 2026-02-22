@@ -225,13 +225,13 @@ actions:
       for_each: "{{ ams_tray_list }}"
 
   # Clear the backup after processing to avoid stale data on next print
-  - action: input_text.set_value
+  - action: text.set_value
     target:
       entity_id: input_text.print_weight_backup
     data:
       value: ""
 
-  - action: input_text.set_value
+  - action: text.set_value
     target:
       entity_id: input_text.print_metadata_backup
     data:
