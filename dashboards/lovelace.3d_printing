@@ -1107,6 +1107,8 @@ views:
               .kpi-icon { --mdc-icon-size:18px; }
               @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
               .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
+            grid_options:
+              columns: 6
           - type: custom:button-card
             entity: sensor.ntk_ryansoffice_3dprinter_print_progress
             show_name: false
@@ -1148,6 +1150,8 @@ views:
               .kpi-icon { --mdc-icon-size:18px; }
               @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
               .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
+            grid_options:
+              columns: 6
           - type: custom:mushroom-template-card
             entity: sensor.print_time_remaining_formatted
             primary: Time Remaining
