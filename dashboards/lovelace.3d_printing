@@ -1000,30 +1000,30 @@ views:
                     custom_fields:
                       chips: |
                         [[[
-                          const attrs = states['sensor.ntk_ryansoffice_3dprinter_task_name']?.attributes || {};
                           const chips = [];
                           const toTitleCase = s => s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-                          const numObjects = attrs.num_objects ?? attrs.total_objects ?? null;
-                          if (numObjects !== null && parseInt(numObjects, 10) > 1) {
+                          const validState = v => v !== null && v !== undefined && v !== '' && v !== 'unknown' && v !== 'unavailable';
+                          const numObjects = states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state;
+                          if (validState(numObjects) && parseInt(numObjects, 10) > 1) {
                             chips.push(`<span class="chip"><ha-icon icon="mdi:shape-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${numObjects} objects</span>`);
                           }
-                          const skipped = attrs.skipped_objects ?? null;
-                          if (skipped !== null && parseInt(skipped, 10) >= 1) {
+                          const skipped = states['sensor.ntk_ryansoffice_3dprinter_skipped_objects']?.state;
+                          if (validState(skipped) && parseInt(skipped, 10) >= 1) {
                             chips.push(`<span class="chip chip-warn"><ha-icon icon="mdi:close-circle-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${skipped} skipped</span>`);
                           }
-                          const nozzleSize = attrs.nozzle_size ?? attrs.nozzle_diameter ?? null;
-                          const nozzleType = attrs.nozzle_type ?? null;
-                          if (nozzleSize !== null) {
-                            const typeLabel = nozzleType ? ` · ${toTitleCase(nozzleType)}` : '';
+                          const nozzleSize = states['sensor.ntk_ryansoffice_3dprinter_nozzle_diameter']?.state;
+                          const nozzleType = states['sensor.ntk_ryansoffice_3dprinter_nozzle_type']?.state;
+                          if (validState(nozzleSize)) {
+                            const typeLabel = validState(nozzleType) ? ` · ${toTitleCase(nozzleType)}` : '';
                             chips.push(`<span class="chip"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${nozzleSize}mm${typeLabel}</span>`);
                           }
-                          const bedType = attrs.bed_type ?? attrs.plate_type ?? null;
-                          if (bedType !== null && bedType !== '') {
+                          const bedType = states['sensor.ntk_ryansoffice_3dprinter_print_bed_type']?.state;
+                          if (validState(bedType)) {
                             chips.push(`<span class="chip"><ha-icon icon="mdi:table-furniture" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${toTitleCase(bedType)}</span>`);
                           }
-                          const printType = attrs.print_type ?? null;
-                          if (printType !== null && printType !== '') {
-                            chips.push(`<span class="chip"><ha-icon icon="mdi:layers-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${printType.toUpperCase()}</span>`);
+                          const printType = states['sensor.ntk_ryansoffice_3dprinter_print_type']?.state;
+                          if (validState(printType) && printType !== 'idle') {
+                            chips.push(`<span class="chip"><ha-icon icon="mdi:layers-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${String(printType).toUpperCase()}</span>`);
                           }
                           if (chips.length === 0) return `<div></div>`;
                           return `<div class="chips-row">${chips.join('')}</div>`;
