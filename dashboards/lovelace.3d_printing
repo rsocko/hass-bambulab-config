@@ -1188,6 +1188,8 @@ views:
               .tr-value { font-size:24px; font-weight:700; line-height:1; flex-grow:1; }
               @keyframes clock-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
               .tr-clock-anim { animation:clock-spin 4s linear infinite; }
+            grid_options:
+              columns: 6
           - type: custom:button-card
             entity: sensor.ntk_ryansoffice_3dprinter_end_time
             show_name: false
@@ -1199,7 +1201,8 @@ views:
               ec: |
                 [[[
                   const state = states['sensor.ntk_ryansoffice_3dprinter_end_time']?.state;
-                  let value = 'N/A';
+                  let timeStr = 'N/A';
+                  let descriptor = null;
                   if (state && state !== 'unavailable' && state !== 'unknown') {
                     const endTs = new Date(state).getTime();
                     if (!isNaN(endTs) && endTs > 0) {
@@ -1207,19 +1210,15 @@ views:
                       const endDate = new Date(endTs);
                       const todayStr = new Date(now).toDateString();
                       const tomorrowStr = new Date(now + 86400000).toDateString();
-                      const timeStr = endDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+                      timeStr = endDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
                       const dayStr = endDate.toDateString();
-                      if (dayStr === todayStr) {
-                        value = timeStr;
-                      } else if (dayStr === tomorrowStr) {
-                        value = timeStr + ' tomorrow';
-                      } else {
+                      if (dayStr === tomorrowStr) {
+                        descriptor = 'tomorrow';
+                      } else if (dayStr !== todayStr) {
                         const diffDays = Math.floor((endTs - now) / 86400000);
-                        if (diffDays < 7) {
-                          value = timeStr + ' ' + endDate.toLocaleDateString('en-US', {weekday:'long'});
-                        } else {
-                          value = timeStr + ' ' + endDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'});
-                        }
+                        descriptor = diffDays < 7
+                          ? endDate.toLocaleDateString('en-US', {weekday:'long'})
+                          : endDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'});
                       }
                     }
                   }
@@ -1232,7 +1231,10 @@ views:
                   const animClass = isActive ? ' ec-flag-anim' : '';
                   return `<div class="ec-wrap">
                     <ha-icon icon="mdi:flag-checkered" class="ec-icon${animClass}" style="color:${iconColor};"></ha-icon>
-                    <div class="ec-value">${value}</div>
+                    <div class="ec-text">
+                      <div class="ec-time">${timeStr}</div>
+                      ${descriptor ? `<div class="ec-desc">${descriptor}</div>` : ''}
+                    </div>
                   </div>`;
                 ]]]
             styles:
@@ -1245,9 +1247,13 @@ views:
             extra_styles: |
               .ec-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
               .ec-icon { --mdc-icon-size:26px; flex-shrink:0; }
-              .ec-value { font-size:24px; font-weight:700; line-height:1; flex-grow:1; }
+              .ec-text { flex-grow:1; display:flex; flex-direction:column; }
+              .ec-time { font-size:24px; font-weight:700; line-height:1; }
+              .ec-desc { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:2px; }
               @keyframes flag-wave { 0%,100% { transform:scale(1) rotate(0deg); } 25% { transform:scale(1.08) rotate(-4deg); } 75% { transform:scale(1.08) rotate(4deg); } }
               .ec-flag-anim { animation:flag-wave 2s ease-in-out infinite; }
+            grid_options:
+              columns: 6
           - type: custom:ha-bambulab-print_control-card
             printer: 210dfdfa64085e8cf073e50eae757d90
             grid_options:
