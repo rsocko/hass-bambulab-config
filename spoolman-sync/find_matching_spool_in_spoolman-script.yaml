@@ -2,6 +2,7 @@ sequence:
   - variables:
       spool_found: false
       matching_spool: null
+      bambu_only: false
   - action: rest_command.spoolman_getspools
     metadata: {}
     data: {}
@@ -83,9 +84,13 @@ sequence:
           {% if not loop.last %},{% endif %}
         {% endfor %} ]
       query_hex_lower: >-
-        {{ parameters.target_color_hex[:6] | lower if
-        parameters.target_color_hex | length == 8 else
-        parameters.target_color_hex | lower }}
+        {% if (parameters.target_color_hex | default('')) == '' %}
+          {{ '' }}
+        {% elif parameters.target_color_hex | length == 8 %}
+          {{ parameters.target_color_hex[:6] | lower }}
+        {% else %}
+          {{ parameters.target_color_hex | lower }}
+        {% endif %}
       matched_spools: >-
         {{ spools_lower | selectattr('color_hex_lower', 'equalto',
         query_hex_lower | string)
