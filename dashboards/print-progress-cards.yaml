@@ -103,11 +103,11 @@ cards:
             kpi:
               - width: 100%
         extra_styles: |
-          .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+          .kpi-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
           .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-          .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
-          .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
-          .kpi-icon { --mdc-icon-size:18px; }
+          .kpi-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+          .kpi-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.7; }
+          .kpi-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
           @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
           .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
 
@@ -150,11 +150,11 @@ cards:
             kpi:
               - width: 100%
         extra_styles: |
-          .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+          .kpi-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
           .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-          .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
-          .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
-          .kpi-icon { --mdc-icon-size:18px; }
+          .kpi-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+          .kpi-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.7; }
+          .kpi-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
           @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
           .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
 
@@ -298,11 +298,11 @@ styles:
     kpi:
       - width: 100%
 extra_styles: |
-  .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+  .kpi-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
   .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-  .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
-  .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
-  .kpi-icon { --mdc-icon-size:18px; }
+  .kpi-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+  .kpi-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.7; }
+  .kpi-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
   @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
   .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
 
@@ -343,11 +343,11 @@ styles:
     kpi:
       - width: 100%
 extra_styles: |
-  .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+  .kpi-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
   .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-  .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
-  .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
-  .kpi-icon { --mdc-icon-size:18px; }
+  .kpi-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+  .kpi-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.7; }
+  .kpi-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
   @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
   .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
 
