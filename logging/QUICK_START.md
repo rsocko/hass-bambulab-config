@@ -89,6 +89,14 @@ Get your logging infrastructure up and running in 10 minutes!
 
 ### Via Dashboard (Add cards)
 
+For a ready-to-use Lovelace card that shows the latest error, warning
+counters, and a conditional alert banner (all backed by database-persisted
+helper entities so they survive Home Assistant restarts), paste the contents
+of `logging/dashboard/error-status-card.yaml` into your dashboard via
+**Edit Dashboard › Add Card › Manual card (YAML)**.
+
+Simple individual cards you can also add:
+
 **Error Counter Card**:
 ```yaml
 type: entity
