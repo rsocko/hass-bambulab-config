@@ -53,6 +53,55 @@ actions:
           {}
         {% endif %}
 
+  # Notify user and log if no per-tray data is available (addresses issue: "Post message / action to user")
+  - if:
+      - condition: template
+        value_template: >
+          {{ print_weight_attributes.keys() |
+             select('match', '^(AMS|External)') | list | length == 0 }}
+        alias: No AMS or External Spool weight data available
+    then:
+      - action: persistent_notification.create
+        metadata: {}
+        data:
+          title: "Print Job {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }} Finished - No Filament Data"
+          message: >-
+            Print job **{{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
+            }}** completed, but no per-tray filament weight data was available
+            (sensor had no AMS/External Spool attributes and no backup was found).
+
+
+            Total print weight recorded: {{
+            states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+
+
+            Spoolman filament usage was **NOT updated automatically**. Please
+            update filament usage manually if required.
+          notification_id: "spoolman_no_data_{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | slugify }}"
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Complete WARNING: No per-tray weight data available for "{{
+            states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". Total
+            print weight sensor value: {{
+            states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+            current_has_attributes={{ current_has_attributes }},
+            backup_available={{ backup_available }}. Spoolman NOT updated.
+            Manual update required.
+          level: warning
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - action: logbook.log
+        metadata: {}
+        data:
+          name: Print Weight - No Data
+          message: >-
+            WARNING: Print job "{{
+            states('sensor.ntk_ryansoffice_3dprinter_task_name') }}" completed
+            with no per-tray weight data. Total weight: {{
+            states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+            Spoolman not updated - manual update required.
+
   # Stop if no data is available at all
   - condition: template
     value_template: >
