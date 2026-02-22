@@ -139,6 +139,20 @@ actions:
                 find_spool_response.spool.id }} ({{
                 find_spool_response.spool.filament.name }}). Tray: {{
                 active_tray.name }}.
+          - action: persistent_notification.create
+            metadata: {}
+            data:
+              title: "Spoolman Spool Updated: {{ find_spool_response.spool.filament.name }}"
+              message: >-
+                Active tray changed - updated last used for spool ID {{
+                find_spool_response.spool.id }} ({{
+                find_spool_response.spool.filament.name }}). Tray: {{
+                active_tray.name }}.
+              notification_id: >-
+                spoolman_active_tray_{{ active_tray.uuid if active_tray.uuid and
+                active_tray.uuid | length > 0 and not active_tray.uuid |
+                regex_match('^0+$') else active_tray.color ~ '_' ~
+                active_tray.type }}
           - alias: Update Spoolman UUID if needed (and valid)
             if:
               - alias: >-
@@ -191,7 +205,7 @@ actions:
                 issue finding the correct spool. Error message: "{{
                 find_spool_response.message }}"
               notification_id: >-
-                spoolman_error_{{ active_tray.uuid if active_tray.uuid and
+                spoolman_active_tray_{{ active_tray.uuid if active_tray.uuid and
                 active_tray.uuid | length > 0 and not active_tray.uuid |
                 regex_match('^0+$') else active_tray.color ~ '_' ~
                 active_tray.type }}

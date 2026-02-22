@@ -15,6 +15,7 @@ sequence:
           message: >-
             No spoolman sync error found in storage. The error log may be empty
             or already cleared.
+          notification_id: spoolman_manual_recovery_no_error
       - stop: No error data available
 
   # Extract error details
@@ -57,6 +58,7 @@ sequence:
 
             Please manually find the matching spool in Spoolman and provide its ID
             to this script using the "spool_id" parameter.
+          notification_id: spoolman_manual_recovery_spool_id_required
       - stop: Spool ID required
 
   # Attempt to update the spool
