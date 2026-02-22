@@ -7,6 +7,19 @@ sequence:
       first_used: |
         {{ spool.first_used if 'first_used' in spool else now().isoformat() }}
     alias: Update Spoolman Last Used (and First Used if empty)
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Spool last/first used updated in Spoolman for spool ID {{ spool.id }}.
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
+  - action: logbook.log
+    metadata: {}
+    data:
+      name: Spoolman Spool Updated
+      message: >-
+        Updated last used (and first used if empty) for spool ID {{ spool.id }}.
 alias: Update Spool Last and First Used in Spoolman
 description: >-
   Taking a Spool object as input (with at least an id property) and optionally a

@@ -47,4 +47,12 @@ actions:
       name: Print Started
       message: >-
         Print job "{{ task_name }}" started. AMS tray configuration captured for potential recovery.
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Print Started: Print job "{{ task_name }}" started at {{ start_time }}.
+        AMS tray configuration captured for potential recovery.
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
 mode: single

@@ -39,5 +39,14 @@ actions:
         Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
         Print weight attributes backed up. Total weight: {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
         Backup will be used if HA restarts during print.
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Print Started: Print weight attributes backed up for "{{
+        states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". Total weight:
+        {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
 
 mode: restart

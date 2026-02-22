@@ -72,6 +72,15 @@ sequence:
       message: >-
         Successfully applied manual recovery. Reduced spool {{ spool_id }}
         by {{ print_weight }}g for {{ tray_name }} from error at {{ error_timestamp }}.
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Spoolman Manual Recovery: Successfully updated spool {{ spool_id }} with
+        {{ print_weight }}g usage for {{ tray_name }}. Original error at {{
+        error_timestamp }} resolved.
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
 
   # Clear the error flag if this was the last error
   - action: input_boolean.turn_off
