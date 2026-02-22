@@ -1064,60 +1064,88 @@ views:
             grid_options:
               columns: full
               rows: auto
-          - type: custom:mushroom-template-card
+          - type: custom:button-card
             entity: sensor.print_layer_progress_formatted
-            primary: Layer Progress
-            secondary: "{{ states('sensor.print_layer_progress_formatted') }}"
-            icon: mdi:layers-triple
-            icon_color: >-
-              {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-              {% if status in ['printing', 'prepare'] or stage == 'printing' %}blue
-              {% elif status == 'pause' or stage == 'pause' %}orange
-              {% else %}grey{% endif %}
-            layout: vertical
+            show_name: false
+            show_state: false
+            show_icon: false
             tap_action:
               action: more-info
-            card_mod:
-              style: >
-                {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-                @keyframes layer-stack {
-                  0%, 60%, 100% { transform: translateY(0px); }
-                  30% { transform: translateY(-5px); }
-                }
-                mushroom-shape-icon { animation: layer-stack 1.8s ease-in-out infinite; }
-                {% endif %}
-                .primary { font-size: 18px !important; font-weight: 600; }
-                .secondary { font-size: 22px !important; font-weight: 700; }
-          - type: custom:mushroom-template-card
+            custom_fields:
+              kpi: |
+                [[[
+                  const state = entity?.state;
+                  const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
+                  const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+                  const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isPaused = status === 'pause' || stage === 'pause';
+                  const iconColor = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+                  const animClass = isActive ? ' kpi-layer-anim' : '';
+                  return `<div class="kpi-wrap">
+                    <div class="kpi-value">${value}</div>
+                    <div class="kpi-footer">
+                      <span class="kpi-label">Layer Progress</span>
+                      <ha-icon icon="mdi:layers-triple" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
+                    </div>
+                  </div>`;
+                ]]]
+            styles:
+              card:
+                - padding: 12px
+                - min-height: 100px
+              custom_fields:
+                kpi:
+                  - width: 100%
+            extra_styles: |
+              .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+              .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+              .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+              .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
+              .kpi-icon { --mdc-icon-size:18px; }
+              @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
+              .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
+          - type: custom:button-card
             entity: sensor.ntk_ryansoffice_3dprinter_print_progress
-            primary: Print Progress
-            secondary: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') }}%"
-            icon: mdi:rotate-right
-            icon_color: >-
-              {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-              {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-              {% if status in ['printing', 'prepare'] or stage == 'printing' %}green
-              {% elif status == 'pause' or stage == 'pause' %}orange
-              {% else %}grey{% endif %}
-            layout: vertical
+            show_name: false
+            show_state: false
+            show_icon: false
             tap_action:
               action: more-info
-            card_mod:
-              style: >
-                {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-                {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-                @keyframes progress-spin {
-                  from { transform: rotate(0deg); }
-                  to { transform: rotate(360deg); }
-                }
-                mushroom-shape-icon { animation: progress-spin 3s linear infinite; }
-                {% endif %}
-                .primary { font-size: 18px !important; font-weight: 600; }
-                .secondary { font-size: 22px !important; font-weight: 700; }
+            custom_fields:
+              kpi: |
+                [[[
+                  const state = entity?.state;
+                  const value = (state && state !== 'unavailable' && state !== 'unknown') ? `${state}%` : 'N/A';
+                  const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+                  const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isPaused = status === 'pause' || stage === 'pause';
+                  const iconColor = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+                  const animClass = isActive ? ' kpi-progress-anim' : '';
+                  return `<div class="kpi-wrap">
+                    <div class="kpi-value">${value}</div>
+                    <div class="kpi-footer">
+                      <span class="kpi-label">Print Progress</span>
+                      <ha-icon icon="mdi:rotate-right" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
+                    </div>
+                  </div>`;
+                ]]]
+            styles:
+              card:
+                - padding: 12px
+                - min-height: 100px
+              custom_fields:
+                kpi:
+                  - width: 100%
+            extra_styles: |
+              .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+              .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+              .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+              .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
+              .kpi-icon { --mdc-icon-size:18px; }
+              @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+              .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
           - type: custom:mushroom-template-card
             entity: sensor.print_time_remaining_formatted
             primary: Time Remaining
@@ -1129,7 +1157,7 @@ views:
               {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
               {% elif status == 'pause' or stage == 'pause' %}amber
               {% else %}grey{% endif %}
-            layout: vertical
+            layout: horizontal
             tap_action:
               action: more-info
             card_mod:
@@ -1143,8 +1171,8 @@ views:
                 }
                 mushroom-shape-icon { animation: clock-spin 4s linear infinite; }
                 {% endif %}
-                .primary { font-size: 18px !important; font-weight: 600; }
-                .secondary { font-size: 22px !important; font-weight: 700; }
+                .primary { font-size: 12px !important; font-weight: 600; }
+                .secondary { font-size: 14px !important; font-weight: 700; }
           - type: custom:mushroom-template-card
             entity: sensor.ntk_ryansoffice_3dprinter_end_time
             primary: Est. Completion
@@ -1176,7 +1204,7 @@ views:
               {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
               {% elif status == 'pause' or stage == 'pause' %}orange
               {% else %}grey{% endif %}
-            layout: vertical
+            layout: horizontal
             tap_action:
               action: more-info
             card_mod:
@@ -1191,8 +1219,8 @@ views:
                 }
                 mushroom-shape-icon { animation: flag-wave 2s ease-in-out infinite; }
                 {% endif %}
-                .primary { font-size: 18px !important; font-weight: 600; }
-                .secondary { font-size: 22px !important; font-weight: 700; }
+                .primary { font-size: 12px !important; font-weight: 600; }
+                .secondary { font-size: 14px !important; font-weight: 700; }
           - type: custom:ha-bambulab-print_control-card
             printer: 210dfdfa64085e8cf073e50eae757d90
             grid_options:

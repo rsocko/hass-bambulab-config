@@ -1,8 +1,8 @@
 # Bambu Lab Print Progress Cards
 #
 # Four cards showing print progress with animated icons:
-#   Row 1 (horizontal): Layer Progress | Print Progress
-#   Row 2 (horizontal): Time Remaining | Est. Completion
+#   Row 1 (horizontal): Layer Progress | Print Progress  ← KPI-style (large value)
+#   Row 2 (horizontal): Time Remaining | Est. Completion ← compact horizontal buttons
 #
 # Animations are active only when the printer is actively printing or preparing.
 # When paused, idle, finished, or failed the icons are static.
@@ -12,6 +12,12 @@
 #   Print Progress  - icon spins, indicating active progress
 #   Time Remaining  - clock rotates, like spinning clock hands
 #   Est. Completion - flag waves gently; turns solid green when the print finishes
+#
+# KPI card design (Layer Progress & Print Progress):
+#   - Value displayed large and centred (takes majority of card space)
+#   - Label in small text at the bottom-left
+#   - Status icon at the bottom-right
+#   - Uses custom:button-card (requires button-card from HACS)
 #
 # Estimated Completion smart time format:
 #   Same day      → "4:32 PM"
@@ -26,8 +32,9 @@
 #   2. Paste the vertical-stack block below into your Home Assistant dashboard
 #      (Dashboard → Edit → ⋮ → Raw configuration editor).
 #   3. Ensure the following custom cards are installed from HACS:
-#        - mushroom    (required)
-#        - card-mod    (required for animations)
+#        - button-card (required for Layer Progress & Print Progress KPI cards)
+#        - mushroom    (required for Time Remaining & Est. Completion)
+#        - card-mod    (required for animations on mushroom cards)
 #
 # REQUIRED ENTITIES:
 #   sensor.YOUR_PRINTER_NAME_print_status          (e.g. printing / pause / idle)
@@ -50,84 +57,114 @@
 type: vertical-stack
 cards:
   # ---------------------------------------------------------------------------
-  # ROW 1: Layer Progress + Print Progress
+  # ROW 1: Layer Progress + Print Progress (KPI-style — large value, icon bottom-right)
   # ---------------------------------------------------------------------------
   - type: horizontal-stack
     cards:
 
       # -----------------------------------------------------------------------
       # LAYER PROGRESS CARD
+      # KPI display: large value centred, label small at bottom-left, icon bottom-right.
       # Icon bounces upward while printing, simulating layers piling up.
       # -----------------------------------------------------------------------
-      - type: custom:mushroom-template-card
+      - type: custom:button-card
         entity: sensor.print_layer_progress_formatted
-        primary: Layer Progress
-        secondary: "{{ states('sensor.print_layer_progress_formatted') }}"
-        icon: mdi:layers-triple
-        icon_color: >-
-          {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-          {% if status in ['printing', 'prepare'] or stage == 'printing' %}blue
-          {% elif status == 'pause' or stage == 'pause' %}orange
-          {% else %}grey{% endif %}
-        layout: vertical
+        show_name: false
+        show_state: false
+        show_icon: false
         tap_action:
           action: more-info
-        card_mod:
-          style: >
-            {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-            {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-            {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-            @keyframes layer-stack {
-              0%, 60%, 100% { transform: translateY(0px); }
-              30% { transform: translateY(-5px); }
-            }
-            mushroom-shape-icon { animation: layer-stack 1.8s ease-in-out infinite; }
-            {% endif %}
-            .primary { font-size: 18px !important; font-weight: 600; }
-            .secondary { font-size: 22px !important; font-weight: 700; }
+        custom_fields:
+          kpi: |
+            [[[
+              const state = entity?.state;
+              const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
+              const status = states['sensor.YOUR_PRINTER_NAME_print_status']?.state?.toLowerCase() || '';
+              const stage = states['sensor.YOUR_PRINTER_NAME_current_stage']?.state?.toLowerCase() || '';
+              const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+              const isPaused = status === 'pause' || stage === 'pause';
+              const iconColor = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+              const animClass = isActive ? ' kpi-layer-anim' : '';
+              return `<div class="kpi-wrap">
+                <div class="kpi-value">${value}</div>
+                <div class="kpi-footer">
+                  <span class="kpi-label">Layer Progress</span>
+                  <ha-icon icon="mdi:layers-triple" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
+                </div>
+              </div>`;
+            ]]]
+        styles:
+          card:
+            - padding: 12px
+            - min-height: 100px
+          custom_fields:
+            kpi:
+              - width: 100%
+        extra_styles: |
+          .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+          .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+          .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+          .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
+          .kpi-icon { --mdc-icon-size:18px; }
+          @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
+          .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
 
       # -----------------------------------------------------------------------
       # PRINT PROGRESS CARD
+      # KPI display: large value centred, label small at bottom-left, icon bottom-right.
       # Icon spins continuously while printing.
       # -----------------------------------------------------------------------
-      - type: custom:mushroom-template-card
+      - type: custom:button-card
         entity: sensor.YOUR_PRINTER_NAME_print_progress
-        primary: Print Progress
-        secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}%"
-        icon: mdi:rotate-right
-        icon_color: >-
-          {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-          {% if status in ['printing', 'prepare'] or stage == 'printing' %}green
-          {% elif status == 'pause' or stage == 'pause' %}orange
-          {% else %}grey{% endif %}
-        layout: vertical
+        show_name: false
+        show_state: false
+        show_icon: false
         tap_action:
           action: more-info
-        card_mod:
-          style: >
-            {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-            {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-            {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-            @keyframes progress-spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-            mushroom-shape-icon { animation: progress-spin 3s linear infinite; }
-            {% endif %}
-            .primary { font-size: 18px !important; font-weight: 600; }
-            .secondary { font-size: 22px !important; font-weight: 700; }
+        custom_fields:
+          kpi: |
+            [[[
+              const state = entity?.state;
+              const value = (state && state !== 'unavailable' && state !== 'unknown') ? `${state}%` : 'N/A';
+              const status = states['sensor.YOUR_PRINTER_NAME_print_status']?.state?.toLowerCase() || '';
+              const stage = states['sensor.YOUR_PRINTER_NAME_current_stage']?.state?.toLowerCase() || '';
+              const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+              const isPaused = status === 'pause' || stage === 'pause';
+              const iconColor = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+              const animClass = isActive ? ' kpi-progress-anim' : '';
+              return `<div class="kpi-wrap">
+                <div class="kpi-value">${value}</div>
+                <div class="kpi-footer">
+                  <span class="kpi-label">Print Progress</span>
+                  <ha-icon icon="mdi:rotate-right" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
+                </div>
+              </div>`;
+            ]]]
+        styles:
+          card:
+            - padding: 12px
+            - min-height: 100px
+          custom_fields:
+            kpi:
+              - width: 100%
+        extra_styles: |
+          .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+          .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+          .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+          .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
+          .kpi-icon { --mdc-icon-size:18px; }
+          @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+          .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
 
   # ---------------------------------------------------------------------------
-  # ROW 2: Time Remaining + Estimated Completion
+  # ROW 2: Time Remaining + Estimated Completion (compact horizontal button style)
   # ---------------------------------------------------------------------------
   - type: horizontal-stack
     cards:
 
       # -----------------------------------------------------------------------
       # TIME REMAINING CARD
-      # Clock icon rotates while printing, simulating spinning clock hands.
+      # Compact horizontal button layout. Clock icon rotates while printing.
       # -----------------------------------------------------------------------
       - type: custom:mushroom-template-card
         entity: sensor.print_time_remaining_formatted
@@ -140,7 +177,7 @@ cards:
           {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
           {% elif status == 'pause' or stage == 'pause' %}amber
           {% else %}grey{% endif %}
-        layout: vertical
+        layout: horizontal
         tap_action:
           action: more-info
         card_mod:
@@ -154,11 +191,12 @@ cards:
             }
             mushroom-shape-icon { animation: clock-spin 4s linear infinite; }
             {% endif %}
-            .primary { font-size: 18px !important; font-weight: 600; }
-            .secondary { font-size: 22px !important; font-weight: 700; }
+            .primary { font-size: 12px !important; font-weight: 600; }
+            .secondary { font-size: 14px !important; font-weight: 700; }
 
       # -----------------------------------------------------------------------
       # ESTIMATED COMPLETION CARD
+      # Compact horizontal button layout.
       # Displays a smart human-readable completion time:
       #   Same day      → "4:32 PM"
       #   Next day      → "4:32 PM tomorrow"
@@ -197,7 +235,7 @@ cards:
           {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
           {% elif status == 'pause' or stage == 'pause' %}orange
           {% else %}grey{% endif %}
-        layout: vertical
+        layout: horizontal
         tap_action:
           action: more-info
         card_mod:
@@ -212,8 +250,8 @@ cards:
             }
             mushroom-shape-icon { animation: flag-wave 2s ease-in-out infinite; }
             {% endif %}
-            .primary { font-size: 18px !important; font-weight: 600; }
-            .secondary { font-size: 22px !important; font-weight: 700; }
+            .primary { font-size: 12px !important; font-weight: 600; }
+            .secondary { font-size: 14px !important; font-weight: 700; }
 
 ---
 
@@ -221,69 +259,97 @@ cards:
 # INDIVIDUAL CARDS (if you prefer to place each card separately)
 # =============================================================================
 
-# LAYER PROGRESS — individual card
-type: custom:mushroom-template-card
+# LAYER PROGRESS — individual card (KPI style)
+type: custom:button-card
 entity: sensor.print_layer_progress_formatted
-primary: Layer Progress
-secondary: "{{ states('sensor.print_layer_progress_formatted') }}"
-icon: mdi:layers-triple
-icon_color: >-
-  {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-  {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-  {% if status in ['printing', 'prepare'] or stage == 'printing' %}blue
-  {% elif status == 'pause' or stage == 'pause' %}orange
-  {% else %}grey{% endif %}
-layout: vertical
+show_name: false
+show_state: false
+show_icon: false
 tap_action:
   action: more-info
-card_mod:
-  style: >
-    {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-    {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-    {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-    @keyframes layer-stack {
-      0%, 60%, 100% { transform: translateY(0px); }
-      30% { transform: translateY(-5px); }
-    }
-    mushroom-shape-icon { animation: layer-stack 1.8s ease-in-out infinite; }
-    {% endif %}
-    .primary { font-size: 18px !important; font-weight: 600; }
-    .secondary { font-size: 22px !important; font-weight: 700; }
+custom_fields:
+  kpi: |
+    [[[
+      const state = entity?.state;
+      const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
+      const status = states['sensor.YOUR_PRINTER_NAME_print_status']?.state?.toLowerCase() || '';
+      const stage = states['sensor.YOUR_PRINTER_NAME_current_stage']?.state?.toLowerCase() || '';
+      const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+      const isPaused = status === 'pause' || stage === 'pause';
+      const iconColor = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+      const animClass = isActive ? ' kpi-layer-anim' : '';
+      return `<div class="kpi-wrap">
+        <div class="kpi-value">${value}</div>
+        <div class="kpi-footer">
+          <span class="kpi-label">Layer Progress</span>
+          <ha-icon icon="mdi:layers-triple" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
+        </div>
+      </div>`;
+    ]]]
+styles:
+  card:
+    - padding: 12px
+    - min-height: 100px
+  custom_fields:
+    kpi:
+      - width: 100%
+extra_styles: |
+  .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+  .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+  .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+  .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
+  .kpi-icon { --mdc-icon-size:18px; }
+  @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
+  .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
 
 ---
 
-# PRINT PROGRESS — individual card
-type: custom:mushroom-template-card
+# PRINT PROGRESS — individual card (KPI style)
+type: custom:button-card
 entity: sensor.YOUR_PRINTER_NAME_print_progress
-primary: Print Progress
-secondary: "{{ states('sensor.YOUR_PRINTER_NAME_print_progress') }}%"
-icon: mdi:rotate-right
-icon_color: >-
-  {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-  {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-  {% if status in ['printing', 'prepare'] or stage == 'printing' %}green
-  {% elif status == 'pause' or stage == 'pause' %}orange
-  {% else %}grey{% endif %}
-layout: vertical
+show_name: false
+show_state: false
+show_icon: false
 tap_action:
   action: more-info
-card_mod:
-  style: >
-    {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-    {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
-    {% if status in ['printing', 'prepare'] or stage == 'printing' %}
-    @keyframes progress-spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    mushroom-shape-icon { animation: progress-spin 3s linear infinite; }
-    {% endif %}
-    .primary { font-size: 18px !important; font-weight: 600; }
-    .secondary { font-size: 22px !important; font-weight: 700; }
+custom_fields:
+  kpi: |
+    [[[
+      const state = entity?.state;
+      const value = (state && state !== 'unavailable' && state !== 'unknown') ? `${state}%` : 'N/A';
+      const status = states['sensor.YOUR_PRINTER_NAME_print_status']?.state?.toLowerCase() || '';
+      const stage = states['sensor.YOUR_PRINTER_NAME_current_stage']?.state?.toLowerCase() || '';
+      const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+      const isPaused = status === 'pause' || stage === 'pause';
+      const iconColor = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+      const animClass = isActive ? ' kpi-progress-anim' : '';
+      return `<div class="kpi-wrap">
+        <div class="kpi-value">${value}</div>
+        <div class="kpi-footer">
+          <span class="kpi-label">Print Progress</span>
+          <ha-icon icon="mdi:rotate-right" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
+        </div>
+      </div>`;
+    ]]]
+styles:
+  card:
+    - padding: 12px
+    - min-height: 100px
+  custom_fields:
+    kpi:
+      - width: 100%
+extra_styles: |
+  .kpi-wrap { display:flex; flex-direction:column; min-height:78px; }
+  .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+  .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+  .kpi-label { font-size:11px; font-weight:500; opacity:0.7; }
+  .kpi-icon { --mdc-icon-size:18px; }
+  @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
 
 ---
 
-# TIME REMAINING — individual card
+# TIME REMAINING — individual card (compact horizontal button)
 type: custom:mushroom-template-card
 entity: sensor.print_time_remaining_formatted
 primary: Time Remaining
@@ -295,7 +361,7 @@ icon_color: >-
   {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
   {% elif status == 'pause' or stage == 'pause' %}amber
   {% else %}grey{% endif %}
-layout: vertical
+layout: horizontal
 tap_action:
   action: more-info
 card_mod:
@@ -309,12 +375,12 @@ card_mod:
     }
     mushroom-shape-icon { animation: clock-spin 4s linear infinite; }
     {% endif %}
-    .primary { font-size: 18px !important; font-weight: 600; }
-    .secondary { font-size: 22px !important; font-weight: 700; }
+    .primary { font-size: 12px !important; font-weight: 600; }
+    .secondary { font-size: 14px !important; font-weight: 700; }
 
 ---
 
-# ESTIMATED COMPLETION — individual card
+# ESTIMATED COMPLETION — individual card (compact horizontal button)
 type: custom:mushroom-template-card
 entity: sensor.YOUR_PRINTER_NAME_end_time
 primary: Est. Completion
@@ -346,7 +412,7 @@ icon_color: >-
   {% elif status in ['printing', 'prepare'] or stage == 'printing' %}purple
   {% elif status == 'pause' or stage == 'pause' %}orange
   {% else %}grey{% endif %}
-layout: vertical
+layout: horizontal
 tap_action:
   action: more-info
 card_mod:
@@ -361,5 +427,5 @@ card_mod:
     }
     mushroom-shape-icon { animation: flag-wave 2s ease-in-out infinite; }
     {% endif %}
-    .primary { font-size: 18px !important; font-weight: 600; }
-    .secondary { font-size: 22px !important; font-weight: 700; }
+    .primary { font-size: 12px !important; font-weight: 600; }
+    .secondary { font-size: 14px !important; font-weight: 700; }
