@@ -11,6 +11,9 @@ This represents an active print and an active AMS tray.
 ## Logic
 The automation triggers on filament being actively used. It first uses the Find Spool script to identify the correct spool from your Spoolman inventory. If it finds a match it will update the first and last used datetime in Spoolman. Additionally, if the spool is a Bambu Lab spool, and has a valid UUID (RFID tag) that is being reported by Bambu Lab integration, it will update Spoolman to set the UUID for the matching spool if it is not already on the Spoolman record.
 
+### External Spool Handling
+When printing from the **External Spool** on a printer with an AMS, the `active_tray` sensor state becomes `"none"` (the AMS tray index 254/255 is not part of the AMS data structure). In this case, the automation automatically detects the external spool scenario and reads filament details (UUID, type, color, name) from the `sensor.<printer>_external_spool` entity instead.
+
 ### Error Notifications
 If the automation cannot find a matching spool in Spoolman, it will create a persistent notification in Home Assistant with details about the error. To prevent duplicate notifications during long prints (where the Active Tray sensor may trigger multiple times), the notification uses a unique `notification_id` based on:
 - The spool's UUID (if available and valid)
@@ -29,6 +32,7 @@ This ensures that multiple triggers for the same spool will update the existing 
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
+- External Spool support has been added based on analysis of the ha-bambulab integration source code. The automation correctly detects external spool usage and reads from the appropriate sensor entity.
 
 
 ## Flow of the Logic
