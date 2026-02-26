@@ -1,0 +1,54 @@
+objects:
+  - obj: "p1b2" # Arc
+    properties:
+      "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_progress")  }}'
+  - obj: "p1b3" # Arc
+    properties:
+      "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_layer")  }}'
+      "max": '{{ states("sensor.ntk_ryansoffice_3dprinter_total_layer_count")  }}'
+  - obj: "p1b4" # Arc
+    properties:
+      "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_remaining_time")  }}'
+      "max": '{{ states("sensor.total_estimated_print_time")  }}'
+  - obj: "p1b5" # Label
+    properties:
+      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_progress")  }}%'
+  - obj: "p1b7" # Label
+    properties:
+      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_layer")  }}/{{ states("sensor.ntk_ryansoffice_3dprinter_total_layer_count")  }}'
+  - obj: "p1b14" # Label
+    properties:
+      "text": '{{ states("sensor.print_time_remaining_formatted")  }}'
+  - obj: "p1b29" # Label of end time
+    properties:
+      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_end_time")  }}'
+  - obj: "p1b10" # Spool A1
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
+  - obj: "p1b11" # Spool A2
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
+  - obj: "p1b12" # Spool A3
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
+  - obj: "p1b13" # Spool A4
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
+  - obj: "p1b17" # Spool B1
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
+  - obj: "p1b18" # Spool B2
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
+  - obj: "p1b19" # Spool B3
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
+  - obj: "p1b20" # Spool B4
+    properties:
+      "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
+  - obj: "p1b31" # stage
+    properties:
+      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_stage")  }}'
+  - obj: "p1b32" # status
+    properties:
+      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_status")  }}'

@@ -1,0 +1,29 @@
+alias: Save Camera Snapshot from 3D Printer
+description: >
+  Periodically captures a camera snapshot from the 3D printer's built-in camera
+  and saves it to the Home Assistant www directory. Runs every 2 minutes, but only
+  when the printer is actively powered on.
+
+  The saved snapshot (printer_snapshot.jpg) can be served as a local image for
+  other automations or dashboard cards that need a static image URL.
+
+triggers:
+  - trigger: time_pattern
+    minutes: /2
+
+conditions:
+  - condition: device
+    type: is_on
+    device_id: 210dfdfa64085e8cf073e50eae757d90
+    entity_id: 4ed78be0b3d47d79f3f3993126b880f5
+    domain: switch
+
+actions:
+  - action: camera.snapshot
+    metadata: {}
+    target:
+      entity_id: camera.ntk_ryansoffice_3dprinter_camera
+    data:
+      filename: /config/www/printer_snapshot.jpg
+
+mode: single

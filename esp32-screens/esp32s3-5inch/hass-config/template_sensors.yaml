@@ -1,0 +1,59 @@
+# Template Sensor Helpers for 3D Printer Display
+#
+# Custom template sensors that transform raw Bambu Lab printer data into
+# display-friendly values. These are referenced by the OpenHASP plate
+# configuration (officetouch5.yaml) to populate the touchscreen UI.
+#
+# Deployment Options:
+#   Option A (UI) — Create each sensor via Settings → Devices & Services →
+#                    Helpers → Create Helper → Template → Template a sensor.
+#   Option B (YAML) — Add the block below to your configuration.yaml under
+#                      the "template:" integration key:
+#
+#     template:
+#       - sensor:
+#           ... (paste sensor list below)
+#
+# Source entities come from the Bambu Lab integration:
+#   https://github.com/greghesp/ha-bambulab
+
+sensor:
+  # ---------------------------------------------------------------------------
+  # Print Time Remaining (Formatted)
+  # ---------------------------------------------------------------------------
+  # Converts the raw remaining-time sensor (integer minutes) into a
+  # human-readable "Xh Ym" or "Ym" string for the display label (p1b14).
+  #
+  # Source: sensor.ntk_ryansoffice_3dprinter_remaining_time (unit: min)
+  # Used by: officetouch5.yaml → p1b14 (label text)
+  - name: "Print Time Remaining (Formatted)"
+    unique_id: print_time_remaining_formatted
+    state: >
+      {% set mins = states('sensor.ntk_ryansoffice_3dprinter_remaining_time') | int(0) %}
+      {% if mins >= 60 %}
+        {{ (mins // 60) }}h {{ (mins % 60) }}m
+      {% else %}
+        {{ mins }}m
+      {% endif %}
+
+  # ---------------------------------------------------------------------------
+  # Total Estimated Print Time
+  # ---------------------------------------------------------------------------
+  # Calculates the total estimated print duration (in minutes) from the
+  # printer's reported start and end times. Used as the arc maximum so the
+  # remaining-time arc (p1b4) scales proportionally.
+  #
+  # Source: sensor.ntk_ryansoffice_3dprinter_start_time
+  #         sensor.ntk_ryansoffice_3dprinter_end_time
+  # Used by: officetouch5.yaml → p1b4 (arc max value)
+  - name: "Total Estimated Print Time"
+    unique_id: total_estimated_print_time
+    unit_of_measurement: "min"
+    state: >
+      {% set start = states('sensor.ntk_ryansoffice_3dprinter_start_time') %}
+      {% set end_time = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+      {% if start not in ['unknown', 'unavailable'] and end_time not in ['unknown', 'unavailable'] %}
+        {{ ((as_timestamp(end_time) - as_timestamp(start)) / 60) | round(0) }}
+      {% else %}
+        0
+      {% endif %}
