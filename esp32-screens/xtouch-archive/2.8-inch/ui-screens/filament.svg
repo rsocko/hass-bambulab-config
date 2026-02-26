@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
+  <title>xtouch 2.8" Filament Screen</title>
+  <desc>Reconstructed from LVGL source: ui_comp_filamentcomponent.c - Nozzle temp up/down on left, filament load/unload on right</desc>
+
+  <!-- Screen background -->
+  <rect width="640" height="480" fill="#000000"/>
+
+  <!-- ==================== SIDEBAR (48px * 2 = 96px) ==================== -->
+  <rect x="0" y="0" width="96" height="480" fill="#222222"/>
+
+  <!-- Sidebar nav buttons -->
+  <text x="48" y="58" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">⌂</text>
+  <text x="48" y="154" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">🌡</text>
+  <text x="48" y="250" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">✥</text>
+  <!-- Nozzle/Filament (ACTIVE - green) -->
+  <text x="48" y="346" text-anchor="middle" fill="#2AFF00" font-family="Arial, sans-serif" font-size="24">⬡</text>
+  <text x="48" y="442" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">⚙</text>
+
+  <!-- ==================== CONTENT AREA (544px) ==================== -->
+  <rect x="96" y="0" width="544" height="480" fill="#444444"/>
+
+  <!-- Layout: flex-row with Nozzle panel (flex-grow:2) + Filament panel (flex-grow:2) -->
+  <!-- Each panel: ~264px wide with gaps -->
+
+  <!-- ==================== NOZZLE PANEL (left) ==================== -->
+  <!-- flex-column: NozzleUp (grow:2) | NozzleIcon (grow:1) | NozzleDown (grow:2) -->
+  <!-- Available: x=104, w=260, h=464 -->
+
+  <!-- Nozzle Up button ("s" = up arrow) -->
+  <rect x="104" y="8" width="260" height="176" rx="12" fill="#555555"/>
+  <text x="234" y="122" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="64">▲</text>
+
+  <!-- Nozzle Icon + Temperature display (bg #777777) -->
+  <rect x="104" y="192" width="260" height="96" rx="12" fill="#777777"/>
+  <!-- Nozzle icon "p" on left -->
+  <text x="148" y="256" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="40">⬡</text>
+  <!-- Current nozzle temp (blue when <170°C, orange when >=170°C) -->
+  <!-- Showing cold state: blue #39a1fd -->
+  <text x="290" y="260" text-anchor="middle" fill="#39a1fd" font-family="Arial, sans-serif" font-size="48" font-weight="bold">35</text>
+
+  <!-- Nozzle Down button ("t" = down arrow) -->
+  <rect x="104" y="296" width="260" height="176" rx="12" fill="#555555"/>
+  <text x="234" y="412" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="64">▼</text>
+
+  <!-- ==================== FILAMENT PANEL (right) ==================== -->
+  <!-- flex-column: Unload (grow:2) | FilamentIcon (grow:1) | Load (grow:2) -->
+
+  <!-- Unload button -->
+  <rect x="372" y="8" width="260" height="176" rx="12" fill="#555555"/>
+  <text x="502" y="90" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24" font-weight="bold">UN</text>
+  <text x="502" y="130" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24" font-weight="bold">LOAD</text>
+
+  <!-- Filament Nozzle Icon (center, bg #777777) -->
+  <rect x="372" y="192" width="260" height="96" rx="12" fill="#777777"/>
+  <text x="502" y="256" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="48">⬡</text>
+
+  <!-- Load button -->
+  <rect x="372" y="296" width="260" height="176" rx="12" fill="#555555"/>
+  <text x="502" y="406" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24" font-weight="bold">LOAD</text>
+
+  <!-- ==================== ANNOTATIONS ==================== -->
+  <text x="320" y="476" text-anchor="middle" fill="#666666" font-family="Arial, sans-serif" font-size="11">xtouch 2.8" — Filament Screen (nozzle temp control + load/unload filament)</text>
+</svg>

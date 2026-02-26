@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
+  <title>xtouch 2.8" Temperature Screen (Normal View)</title>
+  <desc>Reconstructed from LVGL source: ui_comp_temperaturecomponent.c - Shows nozzle/bed temp panels and 3 fan speed panels side by side</desc>
+
+  <!-- Screen background -->
+  <rect width="640" height="480" fill="#000000"/>
+
+  <!-- ==================== SIDEBAR (48px * 2 = 96px) ==================== -->
+  <rect x="0" y="0" width="96" height="480" fill="#222222"/>
+
+  <!-- Sidebar nav buttons - 5 buttons evenly spaced -->
+  <!-- Home button -->
+  <text x="48" y="58" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">⌂</text>
+
+  <!-- Temperature button (ACTIVE - green) -->
+  <text x="48" y="154" text-anchor="middle" fill="#2AFF00" font-family="Arial, sans-serif" font-size="28">🌡</text>
+
+  <!-- Control button -->
+  <text x="48" y="250" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">✥</text>
+
+  <!-- Nozzle/Filament button -->
+  <text x="48" y="346" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">⬡</text>
+
+  <!-- Settings button -->
+  <text x="48" y="442" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">⚙</text>
+
+  <!-- ==================== CONTENT AREA (272px * 2 = 544px) ==================== -->
+  <!-- Content background -->
+  <rect x="96" y="0" width="544" height="480" fill="#444444"/>
+
+  <!-- Content has 4px padding (*2=8px), and is flex-row with two panels -->
+  <!-- Temps panel (flex-grow:3) and Fans panel (flex-grow:3) -->
+  <!-- Each panel takes roughly half of (544 - 16 padding - 8 gap) = 260px each -->
+
+  <!-- ==================== TEMPS PANEL (left half) ==================== -->
+  <!-- Temps container: flex-column, bg transparent, contains Nozzle + Bed -->
+  <!-- Available: x=104, width=256, gap=8 -->
+
+  <!-- Nozzle Temperature Panel -->
+  <rect x="104" y="8" width="256" height="226" rx="4" fill="#555555"/>
+  <!-- Nozzle icon "f" -->
+  <text x="232" y="68" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="40">🔥</text>
+  <!-- Nozzle current temp -->
+  <text x="232" y="128" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="48" font-weight="bold">220</text>
+  <!-- Nozzle target temp (placeholder, orange when >0) -->
+  <text x="232" y="176" text-anchor="middle" fill="#FF682A" font-family="Arial, sans-serif" font-size="42" font-weight="bold">220</text>
+  <!-- Target label -->
+  <text x="232" y="210" text-anchor="middle" fill="#888888" font-family="Arial, sans-serif" font-size="16">target</text>
+
+  <!-- Bed Temperature Panel -->
+  <rect x="104" y="242" width="256" height="230" rx="4" fill="#555555"/>
+  <!-- Bed icon "e" -->
+  <text x="232" y="302" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="40">🛏</text>
+  <!-- Bed current temp -->
+  <text x="232" y="362" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="48" font-weight="bold">60</text>
+  <!-- Bed target temp (orange when >0) -->
+  <text x="232" y="410" text-anchor="middle" fill="#FF682A" font-family="Arial, sans-serif" font-size="42" font-weight="bold">60</text>
+  <!-- Target label -->
+  <text x="232" y="444" text-anchor="middle" fill="#888888" font-family="Arial, sans-serif" font-size="16">target</text>
+
+  <!-- ==================== FANS PANEL (right half) ==================== -->
+  <!-- Fans container: flex-column, 3 fan rows with flex-grow:1 each -->
+  <!-- Available: x=368, width=264, 3 rows with 8px gaps -->
+
+  <!-- Part Cooling Fan -->
+  <rect x="368" y="8" width="264" height="148" rx="4" fill="#555555"/>
+  <!-- Fan icon "i" -->
+  <text x="396" y="52" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="28">🌀</text>
+  <!-- Label "PART" -->
+  <text x="520" y="46" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22">PART</text>
+  <!-- Percentage symbol -->
+  <text x="624" y="46" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22">%</text>
+  <!-- Fan speed value -->
+  <text x="580" y="112" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="44" font-weight="bold">75</text>
+
+  <!-- Aux Fan -->
+  <rect x="368" y="164" width="264" height="148" rx="4" fill="#555555"/>
+  <!-- Fan icon -->
+  <text x="396" y="208" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="28">🌀</text>
+  <!-- Label "AUX" -->
+  <text x="520" y="202" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22">AUX</text>
+  <!-- Percentage symbol -->
+  <text x="624" y="202" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22">%</text>
+  <!-- Fan speed value -->
+  <text x="580" y="268" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="44" font-weight="bold">100</text>
+
+  <!-- Chamber Fan -->
+  <rect x="368" y="320" width="264" height="152" rx="4" fill="#555555"/>
+  <!-- Fan icon -->
+  <text x="396" y="364" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="28">🌀</text>
+  <!-- Label "CHAMBER" -->
+  <text x="540" y="358" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22">CHAMBER</text>
+  <!-- Percentage symbol -->
+  <text x="624" y="358" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22">%</text>
+  <!-- Fan speed value -->
+  <text x="580" y="424" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="44" font-weight="bold">50</text>
+
+  <!-- ==================== ANNOTATIONS ==================== -->
+  <text x="320" y="476" text-anchor="middle" fill="#666666" font-family="Arial, sans-serif" font-size="11">xtouch 2.8" — Temperature Screen (tap a panel to enter numpad edit mode)</text>
+</svg>

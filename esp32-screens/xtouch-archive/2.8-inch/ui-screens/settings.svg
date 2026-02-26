@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
+  <title>xtouch 2.8" Settings Screen</title>
+  <desc>Reconstructed from LVGL source: ui_comp_settingscomponent.c - Scrollable settings with sliders, toggle switches, and reboot button</desc>
+
+  <!-- Screen background -->
+  <rect width="640" height="480" fill="#000000"/>
+
+  <!-- ==================== SIDEBAR (48px * 2 = 96px) ==================== -->
+  <rect x="0" y="0" width="96" height="480" fill="#222222"/>
+
+  <!-- Sidebar nav buttons -->
+  <text x="48" y="58" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">⌂</text>
+  <text x="48" y="154" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">🌡</text>
+  <text x="48" y="250" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">✥</text>
+  <text x="48" y="346" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">⬡</text>
+  <!-- Settings (ACTIVE - green) -->
+  <text x="48" y="442" text-anchor="middle" fill="#2AFF00" font-family="Arial, sans-serif" font-size="24">⚙</text>
+
+  <!-- ==================== CONTENT AREA (544px, scrollable) ==================== -->
+  <rect x="96" y="0" width="544" height="480" fill="#444444"/>
+
+  <!-- Green scrollbar on the right edge -->
+  <rect x="628" y="4" width="6" height="120" rx="3" fill="#2AFF00"/>
+
+  <!-- Content is a scrollable column with pad 8/16 -->
+  <!-- Each item positioned sequentially -->
+
+  <!-- ==================== SETTINGS TITLE (orange banner) ==================== -->
+  <rect x="112" y="16" width="512" height="42" rx="12" fill="#FF682A"/>
+  <text x="136" y="44" fill="#000000" font-family="Arial, sans-serif" font-size="22" font-weight="bold">⚙ SETTINGS</text>
+
+  <!-- ==================== LCD SECTION HEADER ==================== -->
+  <rect x="112" y="66" width="512" height="38" rx="12" fill="#333333"/>
+  <text x="136" y="92" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="20">🖼 LCD</text>
+
+  <!-- ==================== BACKLIGHT SLIDER ==================== -->
+  <rect x="112" y="112" width="512" height="62" rx="12" fill="#222222"/>
+  <!-- Label -->
+  <text x="144" y="150" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="20">Back ⚡</text>
+  <!-- Slider track -->
+  <rect x="268" y="140" width="280" height="12" rx="6" fill="#333333"/>
+  <!-- Slider fill (green, ~70% filled for value ~188) -->
+  <rect x="268" y="140" width="196" height="12" rx="6" fill="#00FF00"/>
+  <!-- Slider knob -->
+  <circle cx="464" cy="146" r="10" fill="#FFFFFF"/>
+
+  <!-- ==================== SLEEP TIMER SLIDER ==================== -->
+  <rect x="112" y="182" width="512" height="62" rx="12" fill="#222222"/>
+  <!-- Label -->
+  <text x="144" y="220" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="20">Sleep</text>
+  <!-- Slider track -->
+  <rect x="244" y="210" width="260" height="12" rx="6" fill="#333333"/>
+  <!-- Slider fill (green, ~50% for ~30min) -->
+  <rect x="244" y="210" width="130" height="12" rx="6" fill="#00FF00"/>
+  <!-- Slider knob -->
+  <circle cx="374" cy="216" r="10" fill="#FFFFFF"/>
+  <!-- Value label -->
+  <text x="580" y="222" text-anchor="end" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="20">30m</text>
+
+  <!-- ==================== WAKE ON PRINT TOGGLE ==================== -->
+  <rect x="112" y="252" width="512" height="52" rx="12" fill="#222222"/>
+  <text x="144" y="286" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18">👁 Wake on Print</text>
+  <!-- Switch (ON state) -->
+  <rect x="536" y="266" width="64" height="30" rx="15" fill="#2AFF00"/>
+  <circle cx="584" cy="281" r="12" fill="#000000"/>
+
+  <!-- ==================== INVERT COLORS TOGGLE ==================== -->
+  <rect x="112" y="312" width="512" height="52" rx="12" fill="#222222"/>
+  <text x="144" y="346" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18">🖼 Invert Colors</text>
+  <!-- Switch (OFF state) -->
+  <rect x="536" y="326" width="64" height="30" rx="15" fill="#555555"/>
+  <circle cx="552" cy="341" r="12" fill="#2AFF00"/>
+
+  <!-- ==================== FLIP SCREEN TOGGLE ==================== -->
+  <rect x="112" y="372" width="512" height="52" rx="12" fill="#222222"/>
+  <text x="144" y="406" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18">🔀 Flip Screen</text>
+  <!-- Switch (OFF state) -->
+  <rect x="536" y="386" width="64" height="30" rx="15" fill="#555555"/>
+  <circle cx="552" cy="401" r="12" fill="#2AFF00"/>
+
+  <!-- ==================== BELOW THE FOLD INDICATOR ==================== -->
+  <!-- Items below are visible after scrolling: -->
+  <!-- "XTOUCH v2.x" section, AUX FAN, CHAMBER FAN, CHAMBER TEMP, OTA, Reboot -->
+  <!-- Show fade to indicate scrollability -->
+  <defs>
+    <linearGradient id="fadeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#444444" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#444444" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <rect x="96" y="440" width="544" height="40" fill="url(#fadeGrad)"/>
+  <text x="368" y="470" text-anchor="middle" fill="#888888" font-family="Arial, sans-serif" font-size="14">▼ scroll for more: XTOUCH version, OTA, AUX FAN, Reboot ▼</text>
+
+  <!-- ==================== ANNOTATIONS ==================== -->
+  <text x="320" y="476" text-anchor="middle" fill="#555555" font-family="Arial, sans-serif" font-size="11">xtouch 2.8" — Settings Screen (scrollable list)</text>
+</svg>

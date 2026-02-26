@@ -1,0 +1,320 @@
+// ================================================================
+// xTouch 2.8" TFT → OpenHASP Conversion
+// Display: 320×240 (ILI9341 TFT, landscape)
+// Hardware: ESP32-2432S028R ("Cheap Yellow Display")
+// Source: github.com/xperiments-in/xtouch (LVGL C source)
+// ================================================================
+//
+// Icon Reference (LVGL built-in symbols):
+//   \uF015 = Home       \uF013 = Settings    \uF043 = Tint/Temp
+//   \uF077 = Up         \uF078 = Down        \uF053 = Left
+//   \uF054 = Right      \uF04B = Play        \uF04C = Pause
+//   \uF04D = Stop       \uF1EB = WiFi        \uF008 = Camera
+//   \uF00C = OK/Check   \uF00D = Close       \uF0E7 = Charge
+//   \uF06E = Eye Open   \uF074 = Shuffle     \uF011 = Power
+//   \uF55A = Backspace  \uF8A2 = New Line
+//
+// Font sizes used: 12 (tiny), 16 (body), 24 (icons), 32 (values)
+// State suffixes: (none)=default, 10=checked, 20=pressed, 30=checked+pressed
+// ================================================================
+
+
+// ================================================================
+// PAGE 0: Sidebar Navigation (always visible on all pages)
+// ================================================================
+// Sidebar background - 48px wide, full height
+{"page":0,"id":1,"obj":"obj","x":0,"y":0,"w":48,"h":240,"bg_color":"#222222","radius":0,"border_width":0,"click":false}
+
+// Navigation buttons - grouped (groupid:1) so only one is active at a time
+// Home (Page 1)
+{"page":0,"id":2,"obj":"btn","x":2,"y":2,"w":44,"h":44,"parentid":1,"toggle":true,"groupid":1,"text":"\uF015","text_font":24,"text_color":"#DDDDDD","text_color10":"#2AFF00","bg_color":"#222222","bg_color10":"#222222","bg_color20":"#008800","radius":4,"border_width":0}
+
+// Temperature (Page 2)
+{"page":0,"id":3,"obj":"btn","x":2,"y":50,"w":44,"h":44,"parentid":1,"toggle":true,"groupid":1,"text":"\uF043","text_font":24,"text_color":"#DDDDDD","text_color10":"#2AFF00","bg_color":"#222222","bg_color10":"#222222","bg_color20":"#008800","radius":4,"border_width":0}
+
+// Control (Page 3)
+{"page":0,"id":4,"obj":"btn","x":2,"y":98,"w":44,"h":44,"parentid":1,"toggle":true,"groupid":1,"text":"\uF074","text_font":24,"text_color":"#DDDDDD","text_color10":"#2AFF00","bg_color":"#222222","bg_color10":"#222222","bg_color20":"#008800","radius":4,"border_width":0}
+
+// Filament (Page 4)
+{"page":0,"id":5,"obj":"btn","x":2,"y":146,"w":44,"h":44,"parentid":1,"toggle":true,"groupid":1,"text":"FIL","text_font":12,"text_color":"#DDDDDD","text_color10":"#2AFF00","bg_color":"#222222","bg_color10":"#222222","bg_color20":"#008800","radius":4,"border_width":0}
+
+// Settings (Page 5)
+{"page":0,"id":6,"obj":"btn","x":2,"y":194,"w":44,"h":44,"parentid":1,"toggle":true,"groupid":1,"text":"\uF013","text_font":24,"text_color":"#DDDDDD","text_color10":"#2AFF00","bg_color":"#222222","bg_color10":"#222222","bg_color20":"#008800","radius":4,"border_width":0}
+
+
+// ================================================================
+// PAGE 1: Home Screen
+// ================================================================
+// Layout: Left panel (200px: status + player + speed) | Right panel (72px: light + temps)
+
+// Content area background
+{"page":1,"id":1,"obj":"obj","x":48,"y":0,"w":272,"h":240,"bg_color":"#444444","radius":0,"border_width":0,"click":false}
+
+// --- Status Bar (top of left panel) ---
+{"page":1,"id":10,"obj":"obj","x":4,"y":4,"w":192,"h":24,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+// WiFi icon
+{"page":1,"id":11,"obj":"label","x":4,"y":2,"w":20,"h":20,"parentid":10,"text":"\uF1EB","text_font":16,"text_color":"#888888","align":"center"}
+// Camera icon
+{"page":1,"id":12,"obj":"label","x":26,"y":2,"w":20,"h":20,"parentid":10,"text":"\uF008","text_font":16,"text_color":"#888888","align":"center"}
+// AMS Color Slot 1
+{"page":1,"id":13,"obj":"obj","x":54,"y":5,"w":10,"h":14,"parentid":10,"bg_color":"#444444","radius":2,"border_width":1,"border_color":"#444444"}
+// AMS Color Slot 2
+{"page":1,"id":14,"obj":"obj","x":66,"y":5,"w":10,"h":14,"parentid":10,"bg_color":"#444444","radius":2,"border_width":1,"border_color":"#444444"}
+// AMS Color Slot 3
+{"page":1,"id":15,"obj":"obj","x":78,"y":5,"w":10,"h":14,"parentid":10,"bg_color":"#444444","radius":2,"border_width":1,"border_color":"#444444"}
+// AMS Color Slot 4
+{"page":1,"id":16,"obj":"obj","x":90,"y":5,"w":10,"h":14,"parentid":10,"bg_color":"#444444","radius":2,"border_width":1,"border_color":"#444444"}
+
+// --- Idle Status Panel (visible when NOT printing) ---
+{"page":1,"id":30,"obj":"obj","x":4,"y":32,"w":192,"h":100,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+// Ready label (centered in idle panel)
+{"page":1,"id":31,"obj":"label","x":0,"y":30,"w":192,"h":40,"parentid":30,"text":"Ready","text_font":24,"text_color":"#FFFFFF","align":"center"}
+
+// --- Player Controls (visible when printing, hidden by default) ---
+// Play button
+{"page":1,"id":20,"obj":"btn","x":4,"y":32,"w":62,"h":28,"parentid":1,"text":"\uF04B","text_font":16,"text_color":"#FFFFFF","text_color10":"#2AFF00","bg_color":"#555555","bg_color20":"#777777","radius":0,"border_width":2,"border_color":"#888888","toggle":true,"hidden":true}
+// Pause button
+{"page":1,"id":21,"obj":"btn","x":68,"y":32,"w":62,"h":28,"parentid":1,"text":"\uF04C","text_font":16,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":0,"border_width":2,"border_color":"#888888","hidden":true}
+// Stop button
+{"page":1,"id":22,"obj":"btn","x":132,"y":32,"w":62,"h":28,"parentid":1,"text":"\uF04D","text_font":16,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":0,"border_width":2,"border_color":"#FF682A","hidden":true}
+
+// Progress bar
+{"page":1,"id":23,"obj":"bar","x":4,"y":64,"w":192,"h":12,"parentid":1,"min":0,"max":100,"val":0,"bg_color":"#333333","radius":0,"hidden":true}
+
+// Progress percentage label
+{"page":1,"id":24,"obj":"label","x":4,"y":80,"w":50,"h":16,"parentid":1,"text":"0%","text_font":16,"text_color":"#FFFFFF","align":"left","hidden":true}
+// Time remaining label
+{"page":1,"id":25,"obj":"label","x":56,"y":80,"w":70,"h":16,"parentid":1,"text":"--:--","text_font":16,"text_color":"#FFFFFF","align":"center","hidden":true}
+// Layer count label
+{"page":1,"id":26,"obj":"label","x":128,"y":80,"w":68,"h":16,"parentid":1,"text":"0/0","text_font":16,"text_color":"#FFFFFF","align":"right","hidden":true}
+
+// Speed section
+{"page":1,"id":27,"obj":"label","x":4,"y":100,"w":40,"h":20,"parentid":1,"text":"Spd","text_font":16,"text_color":"#CCCCCC","align":"left","hidden":true}
+{"page":1,"id":28,"obj":"dropdown","x":46,"y":98,"w":150,"h":24,"parentid":1,"options":"Silent\nStandard\nSport\nLudicrous","val":1,"text_font":16,"bg_color":"#555555","text_color":"#FFFFFF","radius":4,"hidden":true}
+
+// --- Right Panel (Light + Temperatures) ---
+// Light toggle button
+{"page":1,"id":40,"obj":"btn","x":200,"y":4,"w":64,"h":54,"parentid":1,"text":"\uF043","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","toggle":true,"radius":6,"border_width":0,"border_color":"#2AFF00"}
+
+// Nozzle temperature panel
+{"page":1,"id":41,"obj":"obj","x":200,"y":62,"w":64,"h":54,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+{"page":1,"id":42,"obj":"label","x":4,"y":4,"w":56,"h":16,"parentid":41,"text":"Noz","text_font":12,"text_color":"#CCCCCC","align":"center"}
+{"page":1,"id":43,"obj":"label","x":4,"y":22,"w":56,"h":28,"parentid":41,"text":"--","text_font":32,"text_color":"#FFFFFF","align":"center"}
+
+// Bed temperature panel
+{"page":1,"id":44,"obj":"obj","x":200,"y":120,"w":64,"h":54,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+{"page":1,"id":45,"obj":"label","x":4,"y":4,"w":56,"h":16,"parentid":44,"text":"Bed","text_font":12,"text_color":"#CCCCCC","align":"center"}
+{"page":1,"id":46,"obj":"label","x":4,"y":22,"w":56,"h":28,"parentid":44,"text":"--","text_font":32,"text_color":"#FFFFFF","align":"center"}
+
+// Chamber temperature panel
+{"page":1,"id":47,"obj":"obj","x":200,"y":178,"w":64,"h":54,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+{"page":1,"id":48,"obj":"label","x":4,"y":4,"w":56,"h":16,"parentid":47,"text":"Chm","text_font":12,"text_color":"#CCCCCC","align":"center"}
+{"page":1,"id":49,"obj":"label","x":4,"y":22,"w":56,"h":28,"parentid":47,"text":"--","text_font":32,"text_color":"#FFFFFF","align":"center"}
+
+
+// ================================================================
+// PAGE 2: Temperature & Fan Control
+// ================================================================
+// Layout: Left half (temps: nozzle + bed) | Right half (fans: part + aux + chamber)
+
+// Content area background
+{"page":2,"id":1,"obj":"obj","x":48,"y":0,"w":272,"h":240,"bg_color":"#444444","radius":0,"border_width":0,"click":false}
+
+// --- Left Column: Temperatures ---
+
+// Nozzle temperature panel
+{"page":2,"id":10,"obj":"btn","x":4,"y":4,"w":128,"h":112,"parentid":1,"bg_color":"#555555","bg_color20":"#2AFF00","radius":0,"border_width":0,"click":true}
+// Nozzle icon label
+{"page":2,"id":11,"obj":"label","x":4,"y":8,"w":120,"h":16,"parentid":10,"text":"Nozzle","text_font":16,"text_color":"#CCCCCC","align":"left"}
+// Nozzle current temperature (large)
+{"page":2,"id":12,"obj":"label","x":4,"y":32,"w":60,"h":36,"parentid":10,"text":"--","text_font":32,"text_color":"#FFFFFF","align":"center"}
+// Nozzle target label
+{"page":2,"id":13,"obj":"label","x":64,"y":32,"w":56,"h":16,"parentid":10,"text":"Target","text_font":12,"text_color":"#888888","align":"center"}
+// Nozzle target value
+{"page":2,"id":14,"obj":"label","x":64,"y":52,"w":56,"h":36,"parentid":10,"text":"--","text_font":32,"text_color":"#FF682A","align":"center"}
+// Nozzle target button (tap to change via HA)
+{"page":2,"id":15,"obj":"btn","x":4,"y":76,"w":120,"h":28,"parentid":10,"text":"Set Target","text_font":12,"text_color":"#FFFFFF","bg_color":"#444444","bg_color20":"#333333","radius":4}
+
+// Bed temperature panel
+{"page":2,"id":20,"obj":"btn","x":4,"y":120,"w":128,"h":112,"parentid":1,"bg_color":"#555555","bg_color20":"#2AFF00","radius":0,"border_width":0,"click":true}
+// Bed icon label
+{"page":2,"id":21,"obj":"label","x":4,"y":8,"w":120,"h":16,"parentid":20,"text":"Bed","text_font":16,"text_color":"#CCCCCC","align":"left"}
+// Bed current temperature (large)
+{"page":2,"id":22,"obj":"label","x":4,"y":32,"w":60,"h":36,"parentid":20,"text":"--","text_font":32,"text_color":"#FFFFFF","align":"center"}
+// Bed target label
+{"page":2,"id":23,"obj":"label","x":64,"y":32,"w":56,"h":16,"parentid":20,"text":"Target","text_font":12,"text_color":"#888888","align":"center"}
+// Bed target value
+{"page":2,"id":24,"obj":"label","x":64,"y":52,"w":56,"h":36,"parentid":20,"text":"--","text_font":32,"text_color":"#FF682A","align":"center"}
+// Bed target button
+{"page":2,"id":25,"obj":"btn","x":4,"y":76,"w":120,"h":28,"parentid":20,"text":"Set Target","text_font":12,"text_color":"#FFFFFF","bg_color":"#444444","bg_color20":"#333333","radius":4}
+
+// --- Right Column: Fan Controls ---
+
+// Part cooling fan panel
+{"page":2,"id":30,"obj":"obj","x":136,"y":4,"w":128,"h":72,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+{"page":2,"id":31,"obj":"label","x":4,"y":4,"w":50,"h":16,"parentid":30,"text":"PART","text_font":16,"text_color":"#CCCCCC","align":"left"}
+{"page":2,"id":32,"obj":"label","x":56,"y":4,"w":64,"h":16,"parentid":30,"text":"Fan","text_font":16,"text_color":"#888888","align":"right"}
+// Part fan percentage (large)
+{"page":2,"id":33,"obj":"label","x":4,"y":28,"w":80,"h":36,"parentid":30,"text":"--%","text_font":32,"text_color":"#FFFFFF","align":"center"}
+// Part fan slider
+{"page":2,"id":34,"obj":"slider","x":4,"y":56,"w":118,"h":10,"parentid":30,"min":0,"max":100,"val":0,"bg_color":"#333333","radius":4}
+
+// Auxiliary fan panel
+{"page":2,"id":40,"obj":"obj","x":136,"y":80,"w":128,"h":72,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+{"page":2,"id":41,"obj":"label","x":4,"y":4,"w":50,"h":16,"parentid":40,"text":"AUX","text_font":16,"text_color":"#CCCCCC","align":"left"}
+{"page":2,"id":42,"obj":"label","x":56,"y":4,"w":64,"h":16,"parentid":40,"text":"Fan","text_font":16,"text_color":"#888888","align":"right"}
+// Aux fan percentage
+{"page":2,"id":43,"obj":"label","x":4,"y":28,"w":80,"h":36,"parentid":40,"text":"--%","text_font":32,"text_color":"#FFFFFF","align":"center"}
+// Aux fan slider
+{"page":2,"id":44,"obj":"slider","x":4,"y":56,"w":118,"h":10,"parentid":40,"min":0,"max":100,"val":0,"bg_color":"#333333","radius":4}
+
+// Chamber fan panel
+{"page":2,"id":50,"obj":"obj","x":136,"y":156,"w":128,"h":76,"parentid":1,"bg_color":"#555555","radius":0,"border_width":0,"click":false}
+{"page":2,"id":51,"obj":"label","x":4,"y":4,"w":70,"h":16,"parentid":50,"text":"CHAMBER","text_font":16,"text_color":"#CCCCCC","align":"left"}
+{"page":2,"id":52,"obj":"label","x":76,"y":4,"w":44,"h":16,"parentid":50,"text":"Fan","text_font":16,"text_color":"#888888","align":"right"}
+// Chamber fan percentage
+{"page":2,"id":53,"obj":"label","x":4,"y":28,"w":80,"h":36,"parentid":50,"text":"--%","text_font":32,"text_color":"#FFFFFF","align":"center"}
+// Chamber fan slider
+{"page":2,"id":54,"obj":"slider","x":4,"y":56,"w":118,"h":10,"parentid":50,"min":0,"max":100,"val":0,"bg_color":"#333333","radius":4}
+
+
+// ================================================================
+// PAGE 3: Control (XY/Z Movement)
+// ================================================================
+// Layout: 3×3 grid with directional controls
+//   [Range]  [  Up  ]  [ Axis ]
+//   [ Left]  [ Home ]  [Right ]
+//   [     ]  [ Down ]  [      ]
+
+// Content area background
+{"page":3,"id":1,"obj":"obj","x":48,"y":0,"w":272,"h":240,"bg_color":"#444444","radius":0,"border_width":0,"click":false}
+
+// Row 1
+// Range toggle button (cycles 1mm / 10mm)
+{"page":3,"id":10,"obj":"btn","x":4,"y":4,"w":84,"h":74,"parentid":1,"text":"1mm","text_font":24,"text_color":"#FFFFFF","bg_color":"#444444","bg_color20":"#777777","radius":6,"toggle":true}
+
+// Up button
+{"page":3,"id":11,"obj":"btn","x":92,"y":4,"w":84,"h":74,"parentid":1,"text":"\uF077","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Axis toggle button (XY / Z mode)
+{"page":3,"id":12,"obj":"btn","x":180,"y":4,"w":84,"h":74,"parentid":1,"text":"XY","text_font":24,"text_color":"#2AFF00","bg_color":"#444444","bg_color20":"#777777","radius":6,"toggle":true}
+
+// Row 2
+// Left button
+{"page":3,"id":13,"obj":"btn","x":4,"y":82,"w":84,"h":74,"parentid":1,"text":"\uF053","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Home button
+{"page":3,"id":14,"obj":"btn","x":92,"y":82,"w":84,"h":74,"parentid":1,"text":"\uF015","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Right button
+{"page":3,"id":15,"obj":"btn","x":180,"y":82,"w":84,"h":74,"parentid":1,"text":"\uF054","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Row 3
+// Spacer (bottom-left, non-clickable)
+{"page":3,"id":16,"obj":"obj","x":4,"y":160,"w":84,"h":74,"parentid":1,"bg_color":"#444444","radius":6,"border_width":0,"click":false}
+
+// Down button
+{"page":3,"id":17,"obj":"btn","x":92,"y":160,"w":84,"h":74,"parentid":1,"text":"\uF078","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Spacer (bottom-right, non-clickable)
+{"page":3,"id":18,"obj":"obj","x":180,"y":160,"w":84,"h":74,"parentid":1,"bg_color":"#444444","radius":6,"border_width":0,"click":false}
+
+
+// ================================================================
+// PAGE 4: Filament Load/Unload
+// ================================================================
+// Layout: Left column (nozzle temp control) | Right column (load/unload)
+
+// Content area background
+{"page":4,"id":1,"obj":"obj","x":48,"y":0,"w":272,"h":240,"bg_color":"#444444","radius":0,"border_width":0,"click":false}
+
+// --- Left Column: Nozzle Temperature Control ---
+
+// Nozzle Up (increase temp) button
+{"page":4,"id":10,"obj":"btn","x":4,"y":4,"w":128,"h":72,"parentid":1,"text":"\uF077","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Nozzle icon + temperature display
+{"page":4,"id":11,"obj":"obj","x":4,"y":80,"w":128,"h":72,"parentid":1,"bg_color":"#777777","radius":6,"border_width":0,"click":true}
+// Nozzle icon
+{"page":4,"id":12,"obj":"label","x":8,"y":8,"w":50,"h":24,"parentid":11,"text":"Noz","text_font":16,"text_color":"#CCCCCC","align":"left"}
+// Nozzle temperature value (blue when cold <170, orange when hot >=170)
+{"page":4,"id":13,"obj":"label","x":4,"y":32,"w":120,"h":36,"parentid":11,"text":"--\u00B0C","text_font":32,"text_color":"#39A1FD","align":"center"}
+
+// Nozzle Down (decrease temp) button
+{"page":4,"id":14,"obj":"btn","x":4,"y":156,"w":128,"h":76,"parentid":1,"text":"\uF078","text_font":24,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// --- Right Column: Filament Load/Unload ---
+
+// Unload button
+{"page":4,"id":20,"obj":"btn","x":136,"y":4,"w":128,"h":72,"parentid":1,"text":"UN\nLOAD","text_font":16,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+// Filament icon display
+{"page":4,"id":21,"obj":"obj","x":136,"y":80,"w":128,"h":72,"parentid":1,"bg_color":"#777777","radius":6,"border_width":0,"click":false}
+{"page":4,"id":22,"obj":"label","x":4,"y":20,"w":120,"h":32,"parentid":21,"text":"Filament","text_font":24,"text_color":"#CCCCCC","align":"center"}
+
+// Load button
+{"page":4,"id":23,"obj":"btn","x":136,"y":156,"w":128,"h":76,"parentid":1,"text":"LOAD","text_font":16,"text_color":"#FFFFFF","bg_color":"#555555","bg_color20":"#777777","radius":6}
+
+
+// ================================================================
+// PAGE 5: Settings
+// ================================================================
+// Vertical list of settings panels
+// Note: xtouch settings was scrollable; here we fit core items in view
+
+// Content area background
+{"page":5,"id":1,"obj":"obj","x":48,"y":0,"w":272,"h":240,"bg_color":"#444444","radius":0,"border_width":0,"click":false}
+
+// Settings title bar
+{"page":5,"id":2,"obj":"label","x":4,"y":2,"w":260,"h":24,"parentid":1,"text":"\uF013 SETTINGS","text_font":16,"text_color":"#000000","bg_color":"#FF682A","bg_opa":255,"radius":6,"pad_left":12,"pad_top":4}
+
+// LCD section header
+{"page":5,"id":3,"obj":"label","x":4,"y":28,"w":260,"h":20,"parentid":1,"text":"LCD","text_font":16,"text_color":"#FFFFFF","bg_color":"#333333","bg_opa":255,"radius":6,"pad_left":12,"pad_top":2}
+
+// --- Backlight Slider ---
+{"page":5,"id":10,"obj":"obj","x":4,"y":50,"w":260,"h":34,"parentid":1,"bg_color":"#222222","radius":6,"border_width":0,"click":false}
+{"page":5,"id":11,"obj":"label","x":8,"y":4,"w":64,"h":16,"parentid":10,"text":"Backlight","text_font":12,"text_color":"#FFFFFF","align":"left"}
+{"page":5,"id":12,"obj":"slider","x":76,"y":8,"w":176,"h":16,"parentid":10,"min":10,"max":255,"val":200,"bg_color":"#333333","radius":4}
+
+// --- Sleep Timer Slider ---
+{"page":5,"id":13,"obj":"obj","x":4,"y":86,"w":260,"h":34,"parentid":1,"bg_color":"#222222","radius":6,"border_width":0,"click":false}
+{"page":5,"id":14,"obj":"label","x":8,"y":4,"w":48,"h":16,"parentid":13,"text":"Sleep","text_font":12,"text_color":"#FFFFFF","align":"left"}
+{"page":5,"id":15,"obj":"slider","x":60,"y":8,"w":150,"h":16,"parentid":13,"min":1,"max":60,"val":30,"bg_color":"#333333","radius":4}
+{"page":5,"id":16,"obj":"label","x":214,"y":4,"w":40,"h":16,"parentid":13,"text":"30m","text_font":12,"text_color":"#FFFFFF","align":"right"}
+
+// --- Wake on Print Switch ---
+{"page":5,"id":20,"obj":"obj","x":4,"y":122,"w":260,"h":28,"parentid":1,"bg_color":"#222222","radius":6,"border_width":0,"click":false}
+{"page":5,"id":21,"obj":"label","x":12,"y":6,"w":170,"h":16,"parentid":20,"text":"\uF06E Wake on Print","text_font":12,"text_color":"#FFFFFF","align":"left"}
+{"page":5,"id":22,"obj":"switch","x":200,"y":2,"w":50,"h":24,"parentid":20,"bg_color":"#555555","bg_color10":"#2AFF00","radius":12}
+
+// --- Invert Colors Switch ---
+{"page":5,"id":23,"obj":"obj","x":4,"y":152,"w":260,"h":28,"parentid":1,"bg_color":"#222222","radius":6,"border_width":0,"click":false}
+{"page":5,"id":24,"obj":"label","x":12,"y":6,"w":170,"h":16,"parentid":23,"text":"Invert Colors","text_font":12,"text_color":"#FFFFFF","align":"left"}
+{"page":5,"id":25,"obj":"switch","x":200,"y":2,"w":50,"h":24,"parentid":23,"bg_color":"#555555","bg_color10":"#2AFF00","radius":12}
+
+// --- AUX Fan Switch (P1P/X1 only - hidden by default) ---
+{"page":5,"id":26,"obj":"obj","x":4,"y":182,"w":260,"h":28,"parentid":1,"bg_color":"#222222","radius":6,"border_width":0,"click":false,"hidden":true}
+{"page":5,"id":27,"obj":"label","x":12,"y":6,"w":170,"h":16,"parentid":26,"text":"AUX FAN","text_font":12,"text_color":"#FFFFFF","align":"left"}
+{"page":5,"id":28,"obj":"switch","x":200,"y":2,"w":50,"h":24,"parentid":26,"bg_color":"#555555","bg_color10":"#2AFF00","radius":12}
+
+// --- Reboot Button ---
+{"page":5,"id":30,"obj":"btn","x":4,"y":212,"w":260,"h":24,"parentid":1,"text":"\uF011 Reboot Device","text_font":12,"text_color":"#000000","bg_color":"#FF682A","bg_color20":"#AA4400","radius":6}
+
+
+// ================================================================
+// PAGE 6: Numpad (for temperature/fan input)
+// ================================================================
+// Full-width layout (no sidebar) - triggered from Page 2
+// Uses btnmatrix for efficient numpad implementation
+
+// Dark background (full screen)
+{"page":6,"id":1,"obj":"obj","x":0,"y":0,"w":320,"h":240,"bg_color":"#444444","radius":0,"border_width":0,"click":false}
+
+// Currently editing label (shows which value is being changed)
+{"page":6,"id":2,"obj":"label","x":8,"y":8,"w":304,"h":24,"text":"Set Nozzle Target:","text_font":16,"text_color":"#FFFFFF","align":"center"}
+
+// Current input value display
+{"page":6,"id":3,"obj":"label","x":80,"y":36,"w":160,"h":40,"text":"---","text_font":32,"text_color":"#2AFF00","align":"center","bg_color":"#333333","bg_opa":255,"radius":6}
+
+// Numpad button matrix (4×3 grid)
+{"page":6,"id":10,"obj":"btnmatrix","x":16,"y":82,"w":288,"h":150,"options":["1","2","3","\n","4","5","6","\n","7","8","9","\n","Back","0","OK"],"text_font":24,"bg_color":"#444444","radius":6}
