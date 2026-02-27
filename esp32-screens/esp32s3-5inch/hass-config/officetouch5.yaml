@@ -692,6 +692,7 @@ objects:
       "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_smart_status")  }}'
   - obj: "p1b84" # Stop button - always visible, color indicates enabled/disabled
     properties:
+      "bg_grad_dir": 0
       "bg_color": >
         {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
         {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
@@ -712,6 +713,7 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
         {{ not (is_active and not is_paused) }}
+      "bg_grad_dir": 0
       "bg_color": "#fb8c00"
       "border_color": "#e65100"
   - obj: "p1b87" # Pause icon - shown with pause button
@@ -729,6 +731,7 @@ objects:
         {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {{ not is_paused }}
+      "bg_grad_dir": 0
       "bg_color": "#43a047"
       "border_color": "#1b5e20"
   - obj: "p1b89" # Resume icon - shown with resume button
