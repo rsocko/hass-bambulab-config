@@ -24,8 +24,8 @@
 {"id":11,"obj":"obj","comment":"A2","x":370,"y":140,"w":50,"h":100,"enabled":false,"bg_color":"#673bb7","border_width":2}
 {"id":12,"obj":"obj","comment":"A3","x":430,"y":140,"w":50,"h":100,"enabled":false,"bg_color":"#f67c01","border_width":2}
 {"id":13,"obj":"obj","comment":"A4","x":490,"y":140,"w":50,"h":100,"enabled":false,"bg_color":"#83c683","border_width":2}
-{"id":14,"obj":"label","comment":"Time Remaining","x":140,"y":25,"w":120,"h":40,"align":"center","text_font":20}
-{"id":15,"obj":"label","x":130,"y":55,"w":140,"h":20,"align":"center","text":"Time Remaining","text_font":17}
+{"id":14,"obj":"label","comment":"Time Remaining","x":130,"y":15,"w":140,"h":40,"align":"center","text_font":20}
+{"id":15,"obj":"label","x":130,"y":45,"w":140,"h":20,"align":"center","text":"Time Remaining","text_font":17}
 {"id":16,"obj":"label","x":300,"y":110,"w":60,"h":20,"align":"center","text":"Progress","text_font":17}
 {"id":17,"obj":"obj","comment":"B1","x":310,"y":300,"w":50,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
 {"id":18,"obj":"obj","comment":"B2","x":370,"y":300,"w":50,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
@@ -33,7 +33,7 @@
 {"id":20,"obj":"obj","comment":"B4","x":490,"y":300,"w":50,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
 {"id":27,"obj":"led","x":45,"y":375,"w":40,"h":40,"enabled":false,"bg_color":"#c3183a","border_color":"#ffffff","border_width":1}
 {"id":28,"obj":"obj","x":40,"y":140,"w":200,"h":200,"radius":8,"bg_color":"#ffffff","bg_opa":0,"border_color":"#dedede","border_width":15}
-{"id":30,"obj":"label","x":110,"y":84,"w":35,"h":20,"align":"left","text":"Est","text_font":16}
+{"id":30,"obj":"label","x":130,"y":95,"w":140,"h":20,"align":"center","text":"Est. Completion","text_font":16}
 {"id":41,"obj":"label","x":315,"y":215,"w":40,"h":25,"align":"center","text":"A1","text_font":20}
 {"id":42,"obj":"label","x":375,"y":215,"w":40,"h":25,"align":"center","text":"A2","text_font":20}
 {"id":33,"obj":"label","x":435,"y":215,"w":40,"h":25,"align":"center","text":"A3","text_font":20}
@@ -66,6 +66,6 @@
 {"id":70,"obj":"obj","comment":"Cost Bar Border","parentid":52,"x":10,"y":40,"w":155,"h":24,"enabled":false,"bg_opa":0,"border_color":"#777777","border_width":2,"radius":4}
 {"id":71,"obj":"label","comment":"Weight Legend","parentid":51,"x":10,"y":72,"w":155,"h":160,"align":"left","text":"A1 A2 A3\nA4 B1 B2\nB3 B4 Ext","text_font":8}
 {"id":72,"obj":"label","comment":"Cost Legend","parentid":52,"x":10,"y":72,"w":155,"h":160,"align":"left","text":"A1 A2 A3\nA4 B1 B2\nB3 B4 Ext","text_font":8}
-{"id":29,"obj":"label","comment":"Estimated Completion","x":145,"y":80,"w":145,"h":35,"align":"left","text_font":16}
+{"id":29,"obj":"label","comment":"Estimated Completion","x":130,"y":67,"w":140,"h":25,"align":"center","text_font":16}
 {"id":31,"obj":"label","x":100,"y":390,"w":180,"h":25,"border_color":"#000000","text":"","text_font":20}
 {"id":32,"obj":"label","x":100,"y":355,"w":180,"h":30,"border_color":"#000000","text":"","text_font":20}
