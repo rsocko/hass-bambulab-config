@@ -10,6 +10,7 @@ Home Assistant
 │   └── officetouch5.yaml          ← Object-to-entity data bindings (MQTT)
 ├── /config/automations.yaml       ← Contains the automations below
 │   ├── Push Printer Image to Screen
+│   ├── OpenHASP Printer Controls (Stop/Pause/Start)
 │   └── Save Camera Snapshot from 3D Printer
 ├── Template Helpers (UI or YAML)
 │   ├── Print Time Remaining (Formatted)   ← "Xh Ym" display string
@@ -49,6 +50,8 @@ For a grouped object ID summary, see the top-level quick reference in [../readme
 | `p1b60`–`p1b68` | Obj | Cost tab stacked segments (x/w/bg_color) |
 | `p1b31` | Label | Smart status detail (`state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail')`) |
 | `p1b32` | Label | Smart status state (`sensor.ntk_ryansoffice_3dprinter_smart_status`) |
+| `p1b84`, `p1b86`, `p1b88` | Obj | Top-right control button colors (`stop`, `pause`, `start`) |
+| `p1b85`, `p1b87`, `p1b89` | Label | Top-right control icon colors (enabled/disabled state) |
 
 > **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in `dashboards/templates.yaml` and must exist in Home Assistant for these two labels to render correctly.
 
@@ -61,6 +64,7 @@ Each automation is stored as a separate YAML file for easy version control and d
 | [push_printer_image_to_screen.yaml](push_printer_image_to_screen.yaml) | `Push Printer Image to Screen` | **Active** | Pushes the 3D printer's model/cover image to the OpenHASP display whenever the image entity updates. Uses `openhasp.push_image` to render the image on object `p1b1`. |
 | [save_camera_snapshot_from_3d_printer.yaml](save_camera_snapshot_from_3d_printer.yaml) | `Save Camera Snapshot from 3D Printer` | **Disabled** | Captures a camera snapshot every 2 minutes (when printer is on) and saves to `/config/www/printer_snapshot.jpg`. Useful for serving static images to dashboards or external tools. |
 | [auto_manage_screen_visibility.yaml](auto_manage_screen_visibility.yaml) | `Auto Manage ESP32 Screen Visibility` | **Active** | Implements issue #46 behavior: keeps screen visibility in sync with print activity, errors, and optional office-presence signals. Uses `openhasp.wakeup` and `openhasp.command` to drive full brightness, low visibility, and delayed full off states. |
+| [printer_control_buttons.yaml](printer_control_buttons.yaml) | `OpenHASP Printer Controls (Stop/Pause/Start)` | **Active** | Listens for touch events from control IDs `p1b84`–`p1b89` and conditionally invokes printer stop/pause/resume button entities. |
 
 **Visibility automation customization:**
 

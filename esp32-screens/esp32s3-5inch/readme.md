@@ -48,6 +48,7 @@ The printer dashboard shows:
 - **Progress arc** with percentage label
 - **Layer arc** showing current/total layers
 - **Time remaining** arc and formatted label
+- **Top-right printer controls** (`Stop`, `Pause`, `Start`) with icon-only buttons and state-driven availability colors
 - **Estimated completion time** (friendly format: same day time, `tomorrow`, weekday, or date)
 - **Tabbed right panel** — `Print Weight` and `Print Cost` tabs with spool indicators and stacked horizontal bars colored by tray/spool color and proportional segment widths
 - **Printer state** and **detail** labels (from smart status template sensor)
@@ -65,6 +66,7 @@ Use this as a fast map of the major object groups. For full object-by-object det
 | `p1b10`–`p1b13`, `p1b17`–`p1b20`, `p1b39` | AMS + external spool indicators |
 | `p1b27` | Smart status LED color indicator |
 | `p1b31`, `p1b32` | Smart status text labels (detail/state) |
+| `p1b84`–`p1b89` | Printer control buttons + icons (`Stop`, `Pause`, `Start`) |
 | `p1b50`–`p1b54` | Right tab panel (`Print Weight` / `Print Cost`) + tab totals |
 | `p1b60`–`p1b68` | Cost tab stacked bar segments |
 | `p1b73`–`p1b81` | Weight tab stacked bar segments |
@@ -81,6 +83,7 @@ esp32s3-5inch/
 │   ├── officetouch5.yaml      ← OpenHASP plate object bindings
 │   ├── template_sensors.yaml  ← Helper template sensor definitions
 │   ├── auto_manage_screen_visibility.yaml
+│   ├── printer_control_buttons.yaml
 │   ├── push_printer_image_to_screen.yaml
 │   └── save_camera_snapshot_from_3d_printer.yaml
 └── openhasp/                  ← Files deployed to the ESP32 device

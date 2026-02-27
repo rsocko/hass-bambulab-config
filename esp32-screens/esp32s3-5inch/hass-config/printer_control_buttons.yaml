@@ -1,0 +1,74 @@
+alias: OpenHASP Printer Controls (Stop/Pause/Start)
+description: >
+  Handles top-right printer control button presses from the ESP32-S3 5" OpenHASP
+  dashboard and triggers stop, pause, or resume actions conditionally based on
+  the printer smart-status state.
+
+triggers:
+  - trigger: mqtt
+    topic: hasp/officetouch5/state/p1b84
+    payload: '{"event":"up"}'
+    id: stop
+  - trigger: mqtt
+    topic: hasp/officetouch5/state/p1b85
+    payload: '{"event":"up"}'
+    id: stop
+  - trigger: mqtt
+    topic: hasp/officetouch5/state/p1b86
+    payload: '{"event":"up"}'
+    id: pause
+  - trigger: mqtt
+    topic: hasp/officetouch5/state/p1b87
+    payload: '{"event":"up"}'
+    id: pause
+  - trigger: mqtt
+    topic: hasp/officetouch5/state/p1b88
+    payload: '{"event":"up"}'
+    id: start
+  - trigger: mqtt
+    topic: hasp/officetouch5/state/p1b89
+    payload: '{"event":"up"}'
+    id: start
+
+conditions: []
+
+actions:
+  - variables:
+      smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
+      status_class: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower }}"
+      is_paused: "{{ status_class == 'paused' or smart_status == 'paused' }}"
+      is_active: >-
+        {{
+          status_class in ['printing', 'active'] or
+          smart_status in ['printing', 'preparing', 'heating', 'leveling']
+        }}
+      can_stop: "{{ is_active or is_paused }}"
+      can_pause: "{{ is_active and not is_paused }}"
+      can_start: "{{ is_paused }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'stop' and can_stop }}"
+        sequence:
+          - action: button.press
+            target:
+              entity_id: button.ntk_ryansoffice_3dprinter_stop_print
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'pause' and can_pause }}"
+        sequence:
+          - action: button.press
+            target:
+              entity_id: button.ntk_ryansoffice_3dprinter_pause_print
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'start' and can_start }}"
+        sequence:
+          - action: button.press
+            target:
+              entity_id: button.ntk_ryansoffice_3dprinter_resume_print
+
+mode: single
