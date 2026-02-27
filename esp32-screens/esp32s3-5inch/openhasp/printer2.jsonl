@@ -6,8 +6,8 @@
 {"id":3,"obj":"arc","comment":"Layer","x":10,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
 {"id":5,"obj":"label","comment":"% Complete","x":300,"y":50,"w":60,"h":40,"align":"center","text_font":20}
 {"id":7,"obj":"label","comment":"Layer (Current / Total)","x":30,"y":50,"w":80,"h":40,"align":"center","text_font":20}
-{"id":82,"obj":"label","comment":"Layers Icon","x":40,"y":84,"w":60,"h":24,"align":"center","text":"\uf00b","text_font":20}
-{"id":83,"obj":"label","comment":"Progress Icon","x":300,"y":84,"w":60,"h":24,"align":"center","text":"\uf021","text_font":20}
+{"id":82,"obj":"img","comment":"Layers Icon","x":54,"y":82,"w":32,"h":32,"src":"L:/layers.png","pivot_x":0,"pivot_y":0}
+{"id":83,"obj":"img","comment":"Progress Icon","x":314,"y":82,"w":32,"h":32,"src":"L:/progress.png","pivot_x":0,"pivot_y":0}
 {"id":84,"obj":"obj","comment":"Stop Button","x":620,"y":20,"w":52,"h":52,"radius":8,"bg_color":"#666666","border_color":"#444444","border_width":2}
 {"id":85,"obj":"label","comment":"Stop Icon","x":620,"y":20,"w":52,"h":52,"align":"center","text":"\uf04d","text_font":24}
 {"id":86,"obj":"obj","comment":"Pause Button","x":680,"y":20,"w":52,"h":52,"radius":8,"bg_color":"#666666","border_color":"#444444","border_width":2}

@@ -49,8 +49,8 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b3` | `arc` | 10,10 120×120 | Layer progress arc (current/total) |
 | `p1b5` | `label` | 300,50 | Progress percentage text |
 | `p1b7` | `label` | 30,50 | Layer count text (current/total) |
-| `p1b82` | `label` | 40,84 | Layer icon centered under layer count |
-| `p1b83` | `label` | 300,84 | Progress icon centered under percentage |
+| `p1b82` | `img` | 54,82 32×32 | Layer icon centered under layer count (`L:/layers.png`) |
+| `p1b83` | `img` | 314,82 32×32 | Progress icon centered under percentage (`L:/progress.png`) |
 | `p1b9` | `label` | 40,110 | "Layers" static label |
 | `p1b16` | `label` | 300,110 | "Progress" static label |
 | `p1b84`, `p1b86`, `p1b88` | `obj` | 620,20 / 680,20 / 740,20 | Top-right printer control buttons (`Stop`, `Pause`, `Start`) |
