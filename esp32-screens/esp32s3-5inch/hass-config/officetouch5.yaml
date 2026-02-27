@@ -25,48 +25,48 @@ objects:
   - obj: "p1b10" # Spool A1
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "1" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "1" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "active") else "#1a1a1a" }}'
   - obj: "p1b11" # Spool A2
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "2" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "2" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "active") else "#1a1a1a" }}'
   - obj: "p1b12" # Spool A3
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "3" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "3" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "active") else "#1a1a1a" }}'
   - obj: "p1b13" # Spool A4
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "4" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "4" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "active") else "#1a1a1a" }}'
   - obj: "p1b17" # Spool B1
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "5" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "5" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "active") else "#1a1a1a" }}'
   - obj: "p1b18" # Spool B2
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "6" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "6" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "active") else "#1a1a1a" }}'
   - obj: "p1b19" # Spool B3
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "7" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "7" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "active") else "#1a1a1a" }}'
   - obj: "p1b20" # Spool B4
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "8" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "8" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "active") else "#1a1a1a" }}'
   - obj: "p1b39" # Spool Ext
     properties:
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
-      "border_width": '{{ 10 if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "254" else 2 }}'
-      "border_color": '{{ "#2097f3" if states("sensor.ntk_ryansoffice_3dprinter_active_tray") == "254" else "#1a1a1a" }}'
+      "border_width": '{{ 10 if state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "active") else 2 }}'
+      "border_color": '{{ "#2097f3" if state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "active") else "#1a1a1a" }}'
   - obj: "p1b31" # stage
     properties:
       "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_stage")  }}'
