@@ -4,6 +4,8 @@ These files are deployed directly to the ESP32 device's flash storage. They are 
 
 > **These files do not live in Home Assistant.** They are stored on the ESP32 itself. Edit them via the openHASP web UI file editor, Telnet, or by uploading through the HTTP interface.
 
+For a grouped object ID summary, see the top-level quick reference in [../readme.md](../readme.md#object-id-quick-reference).
+
 ## Files
 
 ### `config.json` — Device Configuration
@@ -53,20 +55,20 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b15` | `label` | 130,55 | "Time Remaining" static label |
 | `p1b30` | `label` | 110,84 | "Est" static label |
 | `p1b29` | `label` | 145,80 (145×35, font 16) | Estimated completion time value (friendly formatted text) |
-| `p1b10`–`p1b13` | `obj` | 310–490,140 | AMS 1 spool color indicators (A1–A4) |
-| `p1b17`–`p1b20` | `obj` | 310–490,300 | AMS 2 spool color indicators (B1–B4) |
-| `p1b39` | `obj` | 550,215 | External spool color indicator |
-| `p1b41`, `p1b42` | `label` | 315,215 / 375,215 | AMS 1 slot labels (A1, A2) |
-| `p1b33`, `p1b34` | `label` | 435,215 / 495,215 | AMS 1 slot labels (A3, A4) |
-| `p1b35`–`p1b38` | `label` | 315–495,375 | AMS 2 slot labels (B1–B4) |
-| `p1b40` | `label` | 555,290 | "Ext" label |
-| `p1b26` | `label` | 100,355 | "State:" static label |
+| `p1b50` | `tabview` | 615,140 175×275 | Right-side tab container |
+| `p1b51`, `p1b52` | `tab` | child of `p1b50` | `Print Weight` and `Print Cost` tabs |
+| `p1b53`, `p1b54` | `label` | tab-local | Total weight and total cost labels |
+| `p1b10`–`p1b13`, `p1b17`–`p1b20`, `p1b39` | `obj` | main page | AMS spool indicators (A1–A4, B1–B4, Ext) |
+| `p1b41`, `p1b42`, `p1b33`–`p1b38`, `p1b40` | `label` | main page | Static spool slot labels |
+| `p1b73`–`p1b81` | `obj` | tab-local | Weight tab stacked bar segments (A1–A4, B1–B4, Ext) |
+| `p1b60`–`p1b68` | `obj` | tab-local | Cost tab stacked bar segments (A1–A4, B1–B4, Ext) |
+| `p1b69`, `p1b70` | `obj` | tab-local | Weight/cost bar border frames |
+| `p1b71`, `p1b72` | `label` | tab-local | Slot legends (`A1 ... Ext`) |
 | `p1b27` | `led` | 45,375 | Status LED indicator |
-| `p1b43` | `label` | 100,390 | "Detail:" static label |
-| `p1b31` | `label` | 180,390 | Smart status detail value (`detail` attribute) |
-| `p1b32` | `label` | 180,355 | Smart status state value |
+| `p1b31` | `label` | 100,390 | Smart status detail value (`detail` attribute) |
+| `p1b32` | `label` | 100,355 | Smart status state value |
 
-> **Note:** Object IDs in the range 41–43 are used for static slot/state/detail labels that do not need to be controlled by Home Assistant. All object IDs are unique.
+> **Note:** Object IDs in the slot-label range (33–42) plus `p1b40` are static visual labels that do not need to be controlled by Home Assistant. All object IDs are unique.
 
 The values for `p1b31` and `p1b32` are populated by Home Assistant via [../hass-config/officetouch5.yaml](../hass-config/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
 
@@ -76,7 +78,9 @@ The values for `p1b31` and `p1b32` are populated by Home Assistant via [../hass-
 |------|-------------|
 | [`arc`](https://www.openhasp.com/0.7.0/design/objects/arc/) | Circular progress indicator with configurable start/end angles. Used for print %, layer count, and time remaining. |
 | [`label`](https://www.openhasp.com/0.7.0/design/objects/label/) | Text display. Used for all text values and static labels. |
-| [`obj`](https://www.openhasp.com/0.7.0/design/objects/obj/) | Base rectangle object. Used as colored spool indicators (background color set dynamically from HA). |
+| [`obj`](https://www.openhasp.com/0.7.0/design/objects/obj/) | Base rectangle object. Used as stacked bar segments and bar frames (colors and widths set dynamically from HA). |
+| [`tabview`](https://www.openhasp.com/0.7.0/design/objects/tabview/) | Native tab container. Used to switch between `Print Weight` and `Print Cost`. |
+| [`tab`](https://www.openhasp.com/0.7.0/design/objects/tabview/) | Child tab pages inside the tabview. |
 | [`img`](https://www.openhasp.com/0.7.0/design/objects/img/) | Image display. Shows the 3D model preview pushed from Home Assistant. Requires PSRam. |
 | [`led`](https://www.openhasp.com/0.7.0/design/objects/led/) | LED indicator with adjustable brightness and color. Used as a status indicator. |
 

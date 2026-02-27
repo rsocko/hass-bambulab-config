@@ -49,9 +49,27 @@ The printer dashboard shows:
 - **Layer arc** showing current/total layers
 - **Time remaining** arc and formatted label
 - **Estimated completion time** (friendly format: same day time, `tomorrow`, weekday, or date)
-- **AMS spool color indicators** — 8 rectangles (AMS 1: A1–A4, AMS 2: B1–B4) + external spool
+- **Tabbed right panel** — `Print Weight` and `Print Cost` tabs with spool indicators and stacked horizontal bars colored by tray/spool color and proportional segment widths
 - **Printer state** and **detail** labels (from smart status template sensor)
 - **Status LED** indicator
+
+## Object ID Quick Reference
+
+Use this as a fast map of the major object groups. For full object-by-object details (types, coordinates, and static labels), use [openhasp/readme.md](openhasp/readme.md).
+
+| Object IDs | Role |
+|------------|------|
+| `p1b1` | Model/cover image target |
+| `p1b2`–`p1b8` | Progress, layer, time arcs and primary metric labels |
+| `p1b14`, `p1b15`, `p1b16`, `p1b29` | Formatted time/estimate labels |
+| `p1b10`–`p1b13`, `p1b17`–`p1b20`, `p1b39` | AMS + external spool indicators |
+| `p1b27` | Smart status LED color indicator |
+| `p1b31`, `p1b32` | Smart status text labels (detail/state) |
+| `p1b50`–`p1b54` | Right tab panel (`Print Weight` / `Print Cost`) + tab totals |
+| `p1b60`–`p1b68` | Cost tab stacked bar segments |
+| `p1b73`–`p1b81` | Weight tab stacked bar segments |
+
+Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/readme.md](openhasp/readme.md) to maintain a single detailed source of truth.
 
 ## Directory Structure
 

@@ -22,6 +22,8 @@ Home Assistant
 
 ## Files in This Directory
 
+For a grouped object ID summary, see the top-level quick reference in [../readme.md](../readme.md#object-id-quick-reference).
+
 ### OpenHASP Plate Configuration
 
 | File | HA Path | Description |
@@ -39,8 +41,12 @@ Home Assistant
 | `p1b7` | Label | Layer count (current/total) |
 | `p1b14` | Label | Time remaining (formatted) |
 | `p1b29` | Label | Estimated end time (`sensor.print_end_time_friendly`) |
+| `p1b53`, `p1b54` | Label | Weight/cost tab totals (`print_weight`, `print_cost`) |
 | `p1b10`–`p1b13` | Obj | AMS 1 tray 1–4 spool colors |
 | `p1b17`–`p1b20` | Obj | AMS 2 tray 1–4 spool colors |
+| `p1b39` | Obj | External spool color/active highlight |
+| `p1b73`–`p1b81` | Obj | Weight tab stacked segments (x/w/bg_color) |
+| `p1b60`–`p1b68` | Obj | Cost tab stacked segments (x/w/bg_color) |
 | `p1b31` | Label | Smart status detail (`state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail')`) |
 | `p1b32` | Label | Smart status state (`sensor.ntk_ryansoffice_3dprinter_smart_status`) |
 
@@ -85,7 +91,7 @@ Custom template sensors that transform raw Bambu Lab printer data into display-f
 
 1. **OpenHASP Custom Component** — The [openHASP integration](https://www.openhasp.com/0.7.0/integrations/home-assistant/howto/) in Home Assistant communicates with the ESP32 plate over MQTT. The plate configuration YAML (`officetouch5.yaml`) defines which UI objects on the display are bound to which Home Assistant entities.
 
-2. **Data Flow**: When a sensor value changes in Home Assistant (e.g., print progress), the OpenHASP component automatically publishes the new value via MQTT to the plate, which updates the corresponding UI element (arc, label, colored rectangle, etc.).
+2. **Data Flow**: When a sensor value changes in Home Assistant (e.g., print progress), the OpenHASP component automatically publishes the new value via MQTT to the plate, which updates the corresponding UI element (arc, label, colored rectangle, stacked segment geometry, etc.).
 
 3. **Image Pushing**: The `Push Printer Image to Screen` automation watches for changes to the printer's cover image entity and pushes the updated image directly to the display using the `openhasp.push_image` service.
 
