@@ -69,3 +69,10 @@
 {"id":29,"obj":"label","comment":"Estimated Completion","x":130,"y":67,"w":140,"h":25,"align":"center","text_font":16}
 {"id":31,"obj":"label","x":100,"y":390,"w":180,"h":25,"border_color":"#000000","text":"","text_font":20}
 {"id":32,"obj":"label","x":100,"y":355,"w":180,"h":30,"border_color":"#000000","text":"","text_font":20}
+
+{"comment":"--- Stop Confirmation Dialog (Issue #548) ---"}
+{"id":90,"obj":"obj","comment":"Stop Confirm Overlay Dim BG","x":0,"y":0,"w":800,"h":480,"bg_color":"#000000","bg_opa":200,"hidden":true,"click":true}
+{"id":91,"obj":"obj","comment":"Stop Confirm Dialog Box","x":190,"y":130,"w":420,"h":220,"bg_color":"#2d2d2d","radius":12,"border_color":"#555555","border_width":2,"hidden":true}
+{"id":92,"obj":"label","comment":"Stop Confirm Title","x":190,"y":160,"w":420,"h":50,"align":"center","text":"Stop the print?","text_font":24,"text_color":"#ffffff","hidden":true}
+{"id":93,"obj":"btn","comment":"Stop Confirm NO Button (Default/Safe)","x":210,"y":265,"w":180,"h":55,"radius":8,"bg_color":"#424242","border_color":"#616161","border_width":2,"text":"NO","text_font":22,"text_color":"#ffffff","hidden":true}
+{"id":94,"obj":"btn","comment":"Stop Confirm YES Button (Destructive/Red)","x":410,"y":265,"w":180,"h":55,"radius":8,"bg_color":"#f44336","border_color":"#b71c1c","border_width":2,"text":"YES - STOP","text_font":22,"text_color":"#ffffff","hidden":true}
