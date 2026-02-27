@@ -56,14 +56,17 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b10`–`p1b13` | `obj` | 310–490,140 | AMS 1 spool color indicators (A1–A4) |
 | `p1b17`–`p1b20` | `obj` | 310–490,300 | AMS 2 spool color indicators (B1–B4) |
 | `p1b39` | `obj` | 550,215 | External spool color indicator |
-| `p1b31`–`p1b38` | `label` | various | Spool slot labels (A1–A4, B1–B4) |
+| `p1b41`, `p1b42` | `label` | 315,215 / 375,215 | AMS 1 slot labels (A1, A2) |
+| `p1b33`, `p1b34` | `label` | 435,215 / 495,215 | AMS 1 slot labels (A3, A4) |
+| `p1b35`–`p1b38` | `label` | 315–495,375 | AMS 2 slot labels (B1–B4) |
 | `p1b40` | `label` | 555,290 | "Ext" label |
 | `p1b26` | `label` | 100,355 | "Status:" static label |
 | `p1b27` | `led` | 45,375 | Status LED indicator |
+| `p1b43` | `label` | 100,390 | "Stage:" static label |
 | `p1b31` | `label` | 180,390 | Current stage value |
 | `p1b32` | `label` | 180,355 | Print status value |
 
-> **Note:** Some object IDs are reused (e.g., `p1b30`, `p1b31`, `p1b32` appear twice in the file). The later definition overrides the earlier one. This is an artifact of iterative design — later objects override earlier ones with the same ID.
+> **Note:** Object IDs in the range 41–43 are used for static slot/status labels that do not need to be controlled by Home Assistant. All object IDs are unique.
 
 **Object types used** (see [openHASP Objects reference](https://www.openhasp.com/0.7.0/design/objects/)):
 
