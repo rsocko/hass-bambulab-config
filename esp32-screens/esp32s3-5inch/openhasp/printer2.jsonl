@@ -22,8 +22,8 @@
 {"id":27,"obj":"led","x":45,"y":375,"w":40,"h":40,"enabled":false,"bg_color":"#c3183a","border_color":"#ffffff","border_width":1}
 {"id":28,"obj":"obj","x":40,"y":140,"w":200,"h":200,"radius":8,"bg_color":"#ffffff","bg_opa":0,"border_color":"#dedede","border_width":15}
 {"id":30,"obj":"label","x":130,"y":110,"w":140,"h":20,"align":"center","text":"Est. Complete","text_font":17}
-{"id":31,"obj":"label","x":315,"y":215,"w":40,"h":25,"align":"center","text":"A1","text_font":20}
-{"id":32,"obj":"label","x":375,"y":215,"w":40,"h":25,"align":"center","text":"A2","text_font":20}
+{"id":41,"obj":"label","x":315,"y":215,"w":40,"h":25,"align":"center","text":"A1","text_font":20}
+{"id":42,"obj":"label","x":375,"y":215,"w":40,"h":25,"align":"center","text":"A2","text_font":20}
 {"id":33,"obj":"label","x":435,"y":215,"w":40,"h":25,"align":"center","text":"A3","text_font":20}
 {"id":34,"obj":"label","x":495,"y":215,"w":40,"h":25,"align":"center","text":"A4","text_font":20}
 {"id":35,"obj":"label","x":315,"y":375,"w":40,"h":25,"align":"center","text":"B1","text_font":20}
@@ -33,6 +33,6 @@
 {"id":39,"obj":"obj","comment":"Ext","x":550,"y":215,"w":60,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
 {"id":40,"obj":"label","comment":"LblExt","x":555,"y":290,"w":40,"h":20,"align":"center","text":"Ext","text_font":20}
 {"id":29,"obj":"label","comment":"Time Remaining","x":140,"y":80,"w":120,"h":35,"align":"center","text_font":20}
-{"id":30,"obj":"label","x":100,"y":390,"w":100,"h":40,"border_color":"#000000","text":"Stage:","text_font":26}
+{"id":43,"obj":"label","x":100,"y":390,"w":100,"h":40,"border_color":"#000000","text":"Stage:","text_font":26}
 {"id":31,"obj":"label","x":180,"y":390,"w":100,"h":25,"border_color":"#000000","text":"Stage","text_font":20}
 {"id":32,"obj":"label","x":180,"y":355,"w":100,"h":30,"border_color":"#000000","text":"Status","text_font":20}
