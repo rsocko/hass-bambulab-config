@@ -987,38 +987,40 @@ views:
               - type: vertical-stack
                 cards:
                   - type: custom:mushroom-template-card
-                    entity: sensor.ntk_ryansoffice_3dprinter_print_status
+                    entity: sensor.ntk_ryansoffice_3dprinter_smart_status
                     primary: >-
-                      {{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | replace('_', ' ') | title }}
+                      {{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }}
                     secondary: >-
-                      {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | replace('_', ' ') | title }}
+                      {{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail') }}
                     icon: >-
-                      {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-                      {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+                      {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') %}
                       {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
                       {% if hms == 'on' %}mdi:alert-circle
-                      {% elif status == 'printing' or stage == 'printing' %}mdi:printer-3d-nozzle
-                      {% elif status == 'pause' %}mdi:pause-circle
-                      {% elif stage == 'auto_bed_leveling' %}mdi:grid
-                      {% elif stage in ['heatbed_preheating', 'homing'] %}mdi:thermometer-lines
-                      {% elif status == 'idle' %}mdi:printer-3d
+                      {% elif status_class in ['unmapped', 'failed'] %}mdi:alert-octagon
+                      {% elif status_class == 'finished' %}mdi:check-circle
+                      {% elif status_class == 'paused' %}mdi:pause-circle
+                      {% elif status_class == 'printing' %}mdi:printer-3d-nozzle
+                      {% elif status_class == 'heating' %}mdi:thermometer-lines
+                      {% elif status_class == 'leveling' %}mdi:grid
+                      {% elif status_class == 'offline' %}mdi:lan-disconnect
+                      {% elif status_class == 'idle' %}mdi:printer-3d
                       {% else %}mdi:rotate-3d{% endif %}
                     icon_color: >-
                       {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
-                      {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                      {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+                      {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') %}
                       {% if hms == 'on' %}red
-                      {% elif status == 'printing' or stage == 'printing' %}blue
-                      {% elif status == 'pause' %}orange
-                      {% elif status == 'idle' %}grey
+                      {% elif status_class in ['unmapped', 'failed'] %}red
+                      {% elif status_class == 'finished' %}green
+                      {% elif status_class == 'paused' %}orange
+                      {% elif status_class == 'printing' %}blue
+                      {% elif status_class in ['idle', 'offline'] %}grey
                       {% else %}green{% endif %}
                     tap_action:
                       action: more-info
                     card_mod:
                       style: >
-                        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
-                        {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
-                        {% if status in ['printing', 'prepare'] or stage == 'printing' %}
+                        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') %}
+                        {% if status_class in ['printing', 'preparing'] %}
                         @keyframes printer-pulse {
                           0%, 100% { opacity: 1; }
                           50% { opacity: 0.5; }
@@ -1141,7 +1143,7 @@ views:
                   const value = (isValid(currentLayer) && isValid(totalLayer)) ? currentLayer + '/' + totalLayer : 'N/A';
                   const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
                   const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
-                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
                   const isPaused = status === 'pause' || stage === 'pause';
                   const iconColor = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
                   const animClass = isActive ? ' kpi-layer-anim' : '';
@@ -1184,7 +1186,7 @@ views:
                   const value = (state && state !== 'unavailable' && state !== 'unknown') ? `${state}%` : 'N/A';
                   const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
                   const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
-                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
                   const isPaused = status === 'pause' || stage === 'pause';
                   const iconColor = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
                   const animClass = isActive ? ' kpi-progress-anim' : '';
@@ -1227,7 +1229,7 @@ views:
                   const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
                   const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
                   const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
-                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
                   const isPaused = status === 'pause' || stage === 'pause';
                   const iconColor = isActive ? '#FF9800' : isPaused ? '#FFB74D' : '#9E9E9E';
                   const animClass = isActive ? ' tr-clock-anim' : '';
@@ -1286,7 +1288,7 @@ views:
                   const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
                   const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
                   const isFinished = status === 'finish';
-                  const isActive = status === 'printing' || status === 'prepare' || stage === 'printing';
+                  const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
                   const isPaused = status === 'pause' || stage === 'pause';
                   const iconColor = isFinished ? '#4CAF50' : isActive ? '#9C27B0' : isPaused ? '#FF9800' : '#9E9E9E';
                   const animClass = isActive ? ' ec-flag-anim' : '';

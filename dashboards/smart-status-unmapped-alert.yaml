@@ -1,0 +1,78 @@
+alias: "3D Printer - Smart Status: Unmapped Value Alert"
+description: >-
+  Alerts when sensor.ntk_ryansoffice_3dprinter_smart_status enters an unmapped
+  state so new/changed ha_bambulab values can be captured and mapped.
+triggers:
+  - trigger: state
+    entity_id:
+      - sensor.ntk_ryansoffice_3dprinter_smart_status
+    to: Unmapped Printer State
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  - trigger: state
+    entity_id:
+      - sensor.ntk_ryansoffice_3dprinter_smart_status
+    attribute: detail
+conditions:
+  - condition: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
+    state: Unmapped Printer State
+actions:
+  - variables:
+      smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }}"
+      detail: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail') }}"
+      status_raw: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_raw') }}"
+      stage_raw: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'stage_raw') }}"
+      status_class: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+  - action: system_log.write
+    data:
+      level: warning
+      logger: homeassistant.components.bambulab.smart_status
+      message: >-
+        Smart status unmapped value detected. status_raw='{{ status_raw }}',
+        stage_raw='{{ stage_raw }}', status_class='{{ status_class }}',
+        smart_status='{{ smart_status }}', detail='{{ detail }}',
+        task='{{ task_name }}'.
+  - action: logbook.log
+    data:
+      name: 3D Printer Smart Status
+      message: >-
+        Unmapped value detected: {{ detail }}
+  - action: persistent_notification.create
+    data:
+      title: "3D Printer: Unmapped Smart Status"
+      message: >-
+        A new or unexpected printer status/stage combination was detected.
+
+        **Smart Status:** {{ smart_status }}
+
+        **Detail:** {{ detail }}
+
+        **Raw Values:**
+        - print_status: `{{ status_raw }}`
+        - current_stage: `{{ stage_raw }}`
+
+        **Status Class:** `{{ status_class }}`
+
+        **Task:** `{{ task_name }}`
+      notification_id: 3d_printer_smart_status_unmapped
+mode: restart
+---
+alias: "3D Printer - Smart Status: Clear Unmapped Alert"
+description: >-
+  Clears the persistent notification once smart status returns from unmapped to
+  any mapped state.
+triggers:
+  - trigger: state
+    entity_id:
+      - sensor.ntk_ryansoffice_3dprinter_smart_status
+    from: Unmapped Printer State
+conditions: []
+actions:
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: 3d_printer_smart_status_unmapped
+mode: single

@@ -1,4 +1,89 @@
 sensor:
+  - name: "ntk_ryansoffice_3dprinter_smart_status"
+    state: >
+      {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+      {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+      {% set stage_label = stage | replace('_', ' ') | title %}
+      {% if status == 'offline' or stage == 'offline' %}Offline
+      {% elif status == 'failed' %}Print Failed
+      {% elif status == 'finish' %}Print Finished
+      {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}
+        {% if stage == 'paused_filament_runout' %}Paused - Filament Runout
+        {% elif stage == 'paused_nozzle_clog' %}Paused - Nozzle Clog
+        {% elif stage == 'paused_first_layer_error' %}Paused - First Layer Error
+        {% elif stage == 'paused_ams_lost' %}Paused - AMS Lost
+        {% elif stage.startswith('paused_') %}{{ stage_label }}
+        {% else %}Paused{% endif %}
+      {% elif status in ['running', 'printing'] or stage == 'printing' %}Printing
+      {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling'] %}
+        {% if stage == 'heatbed_preheating' %}Heating Bed
+        {% elif stage == 'heating_hotend' %}Heating Nozzle
+        {% elif stage == 'heating_chamber' %}Heating Chamber
+        {% else %}Cooling Bed{% endif %}
+      {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface'] %}Bed Leveling
+      {% elif stage in ['homing_toolhead', 'check_door_and_cover', 'check_quick_release', 'check_plaform'] %}Homing / Checks
+      {% elif stage in ['cleaning_nozzle_tip', 'checking_extruder_temperature'] %}Nozzle Prep
+      {% elif stage in ['changing_filament', 'filament_loading', 'filament_unloading'] %}Filament Change
+      {% elif stage in ['calibrating_extrusion', 'calibrating_extrusion_flow', 'calibrating_micro_lidar', 'calibrating_motor_noise', 'absolute_accuracy_calibration', 'check_absolute_accuracy_before_calibration', 'check_absolute_accuracy_after_calibration', 'calibrate_nozzle_offset', 'laser_calibration', 'calibrate_birdeye_camera'] %}Calibration
+      {% elif stage == 'print_calibration_lines' %}Printing Calibration Lines
+      {% elif stage == 'inspecting_first_layer' %}Inspecting First Layer
+      {% elif status in ['prepare', 'slicing', 'init'] %}Preparing Print
+      {% elif status == 'idle' and stage == 'idle' %}Idle
+      {% elif status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}Unknown Printer State
+      {% else %}Unmapped Printer State{% endif %}
+    attributes:
+      detail: >
+        {% set status_raw = states('sensor.ntk_ryansoffice_3dprinter_print_status') %}
+        {% set stage_raw = states('sensor.ntk_ryansoffice_3dprinter_current_stage') %}
+        {% set status = status_raw | lower %}
+        {% set stage = stage_raw | lower %}
+        {% set stage_label = stage | replace('_', ' ') | title %}
+        {% set known_statuses = ['failed', 'finish', 'idle', 'init', 'offline', 'pause', 'paused', 'prepare', 'running', 'printing', 'slicing', 'unknown', 'unavailable', 'none', ''] %}
+        {% set known_stages = [
+          'offline', 'idle', 'unknown', 'unavailable', 'none', '',
+          'printing', 'auto_bed_leveling', 'heatbed_preheating', 'sweeping_xy_mech_mode', 'changing_filament', 'm400_pause', 'paused_filament_runout',
+          'heating_hotend', 'calibrating_extrusion', 'scanning_bed_surface', 'inspecting_first_layer', 'identifying_build_plate_type', 'calibrating_micro_lidar',
+          'homing_toolhead', 'cleaning_nozzle_tip', 'checking_extruder_temperature', 'paused_user', 'paused_front_cover_falling', 'calibrating_extrusion_flow',
+          'paused_nozzle_temperature_malfunction', 'paused_heat_bed_temperature_malfunction', 'filament_unloading', 'paused_skipped_step', 'filament_loading',
+          'calibrating_motor_noise', 'paused_ams_lost', 'paused_low_fan_speed_heat_break', 'paused_chamber_temperature_control_error', 'cooling_chamber',
+          'paused_user_gcode', 'motor_noise_showoff', 'paused_nozzle_filament_covered_detected', 'paused_cutter_error', 'paused_first_layer_error',
+          'paused_nozzle_clog', 'check_absolute_accuracy_before_calibration', 'absolute_accuracy_calibration', 'check_absolute_accuracy_after_calibration',
+          'calibrate_nozzle_offset', 'bed_level_high_temperature', 'check_quick_release', 'check_door_and_cover', 'laser_calibration', 'check_plaform',
+          'check_birdeye_camera_position', 'calibrate_birdeye_camera', 'bed_level_phase_1', 'bed_level_phase_2', 'heating_chamber', 'heated_bedcooling',
+          'print_calibration_lines'
+        ] %}
+        {% if status not in known_statuses or stage not in known_stages %}
+          Unmapped: status="{{ status_raw }}", stage="{{ stage_raw }}"
+        {% elif status in ['finish'] or (status == 'idle' and stage == 'idle') or status == 'offline' or stage == 'offline' or status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}
+          {{ '' }}
+        {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}
+          {{ stage_label if stage.startswith('paused_') else 'Paused' }}
+        {% elif status in ['running', 'printing', 'prepare', 'slicing', 'init'] and stage not in ['printing', 'idle', 'unknown', 'unavailable'] %}
+          {{ stage_label }}
+        {% else %}
+          {{ status_raw | replace('_', ' ') | title }}
+        {% endif %}
+      status_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') }}"
+      stage_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') }}"
+      status_class: >
+        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+        {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+        {% if status == 'offline' or stage == 'offline' %}offline
+        {% elif status == 'failed' %}failed
+        {% elif status == 'finish' %}finished
+        {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}paused
+        {% elif status in ['running', 'printing'] or stage == 'printing' %}printing
+        {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling'] %}heating
+        {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface'] %}leveling
+        {% elif status in ['prepare', 'slicing', 'init'] %}preparing
+        {% elif status == 'idle' and stage == 'idle' %}idle
+        {% elif status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}unknown
+        {% else %}unmapped{% endif %}
+      is_active: >
+        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+        {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+        {{ status in ['running', 'printing', 'prepare', 'slicing', 'init'] or stage == 'printing' }}
+
   - name: "spoolman_tray_map"
     state: "ok"
     attributes:
