@@ -1,0 +1,58 @@
+- id: '1764048588825'
+  alias: Push Printer Image to Screen
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - image.ntk_ryansoffice_3dprinter_cover_image
+  conditions: []
+  actions:
+  - action: image.snapshot
+    metadata: {}
+    data:
+      filename: /config/www/3dprinter_coverimage.png
+    target:
+      entity_id: image.ntk_ryansoffice_3dprinter_cover_image
+    enabled: false
+  - action: openhasp.push_image
+    metadata: {}
+    data:
+      width: 200
+      height: 191
+      obj: p1b16
+      image: http://192.168.1.5:8123/local/cameraImage.png
+    enabled: false
+    target:
+      entity_id: openhasp.officetouch5
+  - action: openhasp.push_image
+    metadata: {}
+    data:
+      image: http://192.168.1.5:8123{{ state_attr('image.ntk_ryansoffice_3dprinter_cover_image',
+        'entity_picture') }}
+      obj: p1b1
+      width: 200
+      height: 200
+    target:
+      entity_id: openhasp.officetouch5
+    enabled: true
+  mode: single
+- id: '1768101491408'
+  alias: Save Camera Snapshot from 3D Printer
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    minutes: /2
+  conditions:
+  - condition: device
+    type: is_on
+    device_id: 210dfdfa64085e8cf073e50eae757d90
+    entity_id: 4ed78be0b3d47d79f3f3993126b880f5
+    domain: switch
+  actions:
+  - action: camera.snapshot
+    metadata: {}
+    target:
+      entity_id: camera.ntk_ryansoffice_3dprinter_camera
+    data:
+      filename: /config/www/printer_snapshot.jpg
+  mode: single

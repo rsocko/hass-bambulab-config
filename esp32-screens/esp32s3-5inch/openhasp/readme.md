@@ -53,8 +53,12 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b83` | `img` | 314,82 32×32 | Progress icon centered under percentage (`L:/progress.png`) |
 | `p1b9` | `label` | 40,110 | "Layers" static label |
 | `p1b16` | `label` | 300,110 | "Progress" static label |
-| `p1b84`, `p1b86`, `p1b88` | `obj` | 620,20 / 680,20 / 740,20 | Top-right printer control buttons (`Stop`, `Pause`, `Start`) |
-| `p1b85`, `p1b87`, `p1b89` | `label` | aligned with control buttons | FontAwesome control icons (`\uf04d`, `\uf04c`, `\uf04b`) |
+| `p1b84` | `btn` | 692,20 52×52 | **Stop** button — always visible, color indicates enabled (red) or disabled (dark gray) |
+| `p1b85` | `img` | 702,30 32×32 | Stop icon (`L:/stop.png`, `click:false` — touches pass to btn below) |
+| `p1b86` | `btn` | 748,20 52×52 | **Pause** button — visible only when actively printing (hidden when paused/idle) |
+| `p1b87` | `img` | 758,30 32×32 | Pause icon (`L:/pause.png`, shown/hidden with Pause btn) |
+| `p1b88` | `btn` | 748,20 52×52 | **Resume** button — same position as Pause, visible only when paused |
+| `p1b89` | `img` | 758,30 32×32 | Resume/play icon (`L:/play.png`, shown/hidden with Resume btn) |
 | `p1b14` | `label` | 140,25 | Time remaining value |
 | `p1b15` | `label` | 130,55 | "Time Remaining" static label |
 | `p1b30` | `label` | 110,84 | "Est" static label |
@@ -81,6 +85,7 @@ The values for `p1b31` and `p1b32` are populated by Home Assistant via [../hass-
 | Type | Description |
 |------|-------------|
 | [`arc`](https://www.openhasp.com/0.7.0/design/objects/arc/) | Circular progress indicator with configurable start/end angles. Used for print %, layer count, and time remaining. |
+| [`btn`](https://www.openhasp.com/0.7.0/design/objects/btn/) | Clickable button with built-in touch events. Used for printer control buttons (Stop, Pause, Resume). |
 | [`label`](https://www.openhasp.com/0.7.0/design/objects/label/) | Text display. Used for all text values and static labels. |
 | [`obj`](https://www.openhasp.com/0.7.0/design/objects/obj/) | Base rectangle object. Used as stacked bar segments and bar frames (colors and widths set dynamically from HA). |
 | [`tabview`](https://www.openhasp.com/0.7.0/design/objects/tabview/) | Native tab container. Used to switch between `Print Weight` and `Print Cost`. |

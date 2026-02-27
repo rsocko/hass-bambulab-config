@@ -1,8 +1,16 @@
-alias: OpenHASP Printer Controls (Stop/Pause/Start)
+alias: OpenHASP Printer Controls (Stop/Pause/Resume)
 description: >
   Handles top-right printer control button presses from the ESP32-S3 5" OpenHASP
-  dashboard and triggers stop, pause, or resume actions conditionally based on
-  the printer smart-status state.
+  dashboard. Follows xTouch 2.8" pattern: only Pause OR Resume is visible at a
+  time (never both), and the Stop button is always visible but only active when
+  printing or paused.
+
+  Button layout (printer2.jsonl):
+    - p1b84: Stop button (btn) - always visible
+    - p1b86: Pause button (btn) - shown when actively printing
+    - p1b88: Resume button (btn) - shown when paused
+  Icons (p1b85/87/89) are img objects with click:false, so touches pass through
+  to the btn underneath.
 
 triggers:
   - trigger: mqtt
@@ -10,23 +18,11 @@ triggers:
     payload: '{"event":"up"}'
     id: stop
   - trigger: mqtt
-    topic: hasp/officetouch5/state/p1b85
-    payload: '{"event":"up"}'
-    id: stop
-  - trigger: mqtt
     topic: hasp/officetouch5/state/p1b86
     payload: '{"event":"up"}'
     id: pause
   - trigger: mqtt
-    topic: hasp/officetouch5/state/p1b87
-    payload: '{"event":"up"}'
-    id: pause
-  - trigger: mqtt
     topic: hasp/officetouch5/state/p1b88
-    payload: '{"event":"up"}'
-    id: start
-  - trigger: mqtt
-    topic: hasp/officetouch5/state/p1b89
     payload: '{"event":"up"}'
     id: start
 
