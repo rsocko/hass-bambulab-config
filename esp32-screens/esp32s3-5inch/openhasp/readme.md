@@ -51,8 +51,8 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b16` | `label` | 300,110 | "Progress" static label |
 | `p1b14` | `label` | 140,25 | Time remaining value |
 | `p1b15` | `label` | 130,55 | "Time Remaining" static label |
-| `p1b30` | `label` | 130,110 | "Est. Complete" static label |
-| `p1b29` | `label` | 140,80 | Estimated completion time value |
+| `p1b30` | `label` | 110,84 | "Est" static label |
+| `p1b29` | `label` | 145,80 (145×35, font 16) | Estimated completion time value (friendly formatted text) |
 | `p1b10`–`p1b13` | `obj` | 310–490,140 | AMS 1 spool color indicators (A1–A4) |
 | `p1b17`–`p1b20` | `obj` | 310–490,300 | AMS 2 spool color indicators (B1–B4) |
 | `p1b39` | `obj` | 550,215 | External spool color indicator |

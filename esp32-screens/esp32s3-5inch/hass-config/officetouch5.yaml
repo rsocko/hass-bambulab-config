@@ -21,7 +21,7 @@ objects:
       "text": '{{ states("sensor.print_time_remaining_formatted")  }}'
   - obj: "p1b29" # Label of end time
     properties:
-      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_end_time")  }}'
+      "text": '{{ states("sensor.print_end_time_friendly")  }}'
   - obj: "p1b10" # Spool A1
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'

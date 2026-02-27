@@ -48,7 +48,7 @@ The printer dashboard shows:
 - **Progress arc** with percentage label
 - **Layer arc** showing current/total layers
 - **Time remaining** arc and formatted label
-- **Estimated completion time**
+- **Estimated completion time** (friendly format: same day time, `tomorrow`, weekday, or date)
 - **AMS spool color indicators** — 8 rectangles (AMS 1: A1–A4, AMS 2: B1–B4) + external spool
 - **Printer state** and **detail** labels (from smart status template sensor)
 - **Status LED** indicator

@@ -13,7 +13,8 @@ Home Assistant
 │   └── Save Camera Snapshot from 3D Printer
 ├── Template Helpers (UI or YAML)
 │   ├── Print Time Remaining (Formatted)   ← "Xh Ym" display string
-│   └── Total Estimated Print Time         ← Arc max value (minutes)
+│   ├── Total Estimated Print Time         ← Arc max value (minutes)
+│   └── Print End Time Friendly            ← User-friendly estimated completion text
 └── /config/www/
     ├── 3dprinter_coverimage.png   ← Saved cover image (optional)
     └── printer_snapshot.jpg       ← Periodic camera snapshot
@@ -37,7 +38,7 @@ Home Assistant
 | `p1b5` | Label | Print progress % text |
 | `p1b7` | Label | Layer count (current/total) |
 | `p1b14` | Label | Time remaining (formatted) |
-| `p1b29` | Label | Estimated end time |
+| `p1b29` | Label | Estimated end time (`sensor.print_end_time_friendly`) |
 | `p1b10`–`p1b13` | Obj | AMS 1 tray 1–4 spool colors |
 | `p1b17`–`p1b20` | Obj | AMS 2 tray 1–4 spool colors |
 | `p1b31` | Label | Smart status detail (`state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail')`) |
@@ -62,6 +63,7 @@ Custom template sensors that transform raw Bambu Lab printer data into display-f
 |------|-----------|---------|-------------|
 | [template_sensors.yaml](template_sensors.yaml) | `sensor.print_time_remaining_formatted` | `p1b14` label | Converts the raw remaining-time sensor (integer minutes) into a human-readable `Xh Ym` or `Ym` string. Source: `sensor.ntk_ryansoffice_3dprinter_remaining_time`. |
 | [template_sensors.yaml](template_sensors.yaml) | `sensor.total_estimated_print_time` | `p1b4` arc max | Calculates total estimated print duration in minutes from the printer's start/end times. Used as the arc maximum so the remaining-time arc scales correctly. Source: `start_time` and `end_time` sensors. |
+| [template_sensors.yaml](template_sensors.yaml) | `sensor.print_end_time_friendly` | `p1b29` label | Formats estimated completion time for readability: same-day time, `tomorrow`, `on {Day}` within a week, and `on MM/DD/YYYY` beyond one week. Source: `sensor.ntk_ryansoffice_3dprinter_end_time`. |
 
 > **Note:** These sensors can be created via the HA UI (Settings → Helpers → Template) or added to `configuration.yaml` under the `template:` key. See [template_sensors.yaml](template_sensors.yaml) for both approaches.
 
