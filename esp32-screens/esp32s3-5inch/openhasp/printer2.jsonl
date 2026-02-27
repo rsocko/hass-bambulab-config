@@ -42,8 +42,8 @@
 {"id":36,"obj":"label","x":375,"y":375,"w":40,"h":25,"align":"center","text":"B2","text_font":20}
 {"id":37,"obj":"label","x":435,"y":375,"w":40,"h":25,"align":"center","text":"B3","text_font":20}
 {"id":38,"obj":"label","x":495,"y":375,"w":40,"h":20,"align":"center","text":"B4","text_font":20}
-{"id":39,"obj":"obj","comment":"Ext","x":550,"y":215,"w":60,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
-{"id":40,"obj":"label","comment":"LblExt","x":555,"y":290,"w":40,"h":20,"align":"center","text":"Ext","text_font":20}
+{"id":39,"obj":"obj","comment":"Ext","x":550,"y":215,"w":50,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
+{"id":40,"obj":"label","comment":"LblExt","x":555,"y":290,"w":40,"h":25,"align":"center","text":"Ext","text_font":20}
 {"id":73,"obj":"obj","comment":"Weight A1","parentid":51,"x":10,"y":40,"w":0,"h":24,"enabled":false,"bg_color":"#26a59a","border_width":0}
 {"id":74,"obj":"obj","comment":"Weight A2","parentid":51,"x":10,"y":40,"w":0,"h":24,"enabled":false,"bg_color":"#673bb7","border_width":0}
 {"id":75,"obj":"obj","comment":"Weight A3","parentid":51,"x":10,"y":40,"w":0,"h":24,"enabled":false,"bg_color":"#f67c01","border_width":0}
