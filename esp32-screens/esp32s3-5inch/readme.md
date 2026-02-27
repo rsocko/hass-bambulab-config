@@ -1,6 +1,6 @@
 # ESP32-S3 5" Touchscreen – 3D Printer Dashboard
 
-A physical touchscreen display mounted near the 3D printer that shows real-time print status, progress arcs, AMS spool colors, camera images, and more — all driven by [openHASP](https://www.openhasp.com/) and Home Assistant.
+A physical touchscreen display mounted near the 3D printer that shows real-time printer state/detail, progress arcs, AMS spool colors, camera images, and more — all driven by [openHASP](https://www.openhasp.com/) and Home Assistant.
 
 ## Hardware
 
@@ -18,6 +18,15 @@ The system is split into two halves:
 1. **ESP32 Device (openHASP side)** — The `.jsonl` page layout and device configuration files run directly on the ESP32. They define what UI objects (arcs, labels, rectangles, images) appear on screen. See the [openhasp/](openhasp/) folder.
 
 2. **Home Assistant side** — A plate configuration YAML binds those UI objects to HA entities (sensors, images). Automations push camera/model images to the display. See the [hass-config/](hass-config/) folder.
+
+### Smart Status Source
+
+The status text shown on the ESP32 is now sourced from the Home Assistant template sensor defined in [../../dashboards/templates.yaml](../../dashboards/templates.yaml):
+
+- **Primary status (State):** `sensor.ntk_ryansoffice_3dprinter_smart_status`
+- **Secondary status (Detail):** `sensor.ntk_ryansoffice_3dprinter_smart_status` attribute `detail`
+
+These values are bound in [hass-config/officetouch5.yaml](hass-config/officetouch5.yaml) and rendered by label objects in [openhasp/printer2.jsonl](openhasp/printer2.jsonl).
 
 ```
 ┌──────────────────────┐         MQTT          ┌──────────────────────┐
@@ -41,7 +50,7 @@ The printer dashboard shows:
 - **Time remaining** arc and formatted label
 - **Estimated completion time**
 - **AMS spool color indicators** — 8 rectangles (AMS 1: A1–A4, AMS 2: B1–B4) + external spool
-- **Print status** and **current stage** labels
+- **Printer state** and **detail** labels (from smart status template sensor)
 - **Status LED** indicator
 
 ## Directory Structure

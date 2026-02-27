@@ -333,7 +333,9 @@ These entities must exist in your Home Assistant instance:
 - `sensor.ntk_ryansoffice_3dprinter_printer_name` - Printer name
 - `sensor.ntk_ryansoffice_3dprinter_task_name` - Current task name
 - `sensor.ntk_ryansoffice_3dprinter_print_weight` - Print weight
-- `sensor.ntk_ryansoffice_3dprinter_print_status` - Print status
+- `sensor.ntk_ryansoffice_3dprinter_smart_status` - Canonical printer state for UI/notifications (preferred)
+
+> Legacy automations may still reference `sensor.ntk_ryansoffice_3dprinter_print_status`, but new configs should prefer `sensor.ntk_ryansoffice_3dprinter_smart_status` from `dashboards/templates.yaml`.
 
 #### Binary Sensors:
 - `binary_sensor.ntk_ryansoffice_3dprinter_print_error` - Error indicator

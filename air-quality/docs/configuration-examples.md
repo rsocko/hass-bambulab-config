@@ -104,6 +104,9 @@ Replace: sensor.x1_carbon_task_name
 Find: sensor.ntk_ryansoffice_3dprinter_print_status
 Replace: sensor.x1_carbon_print_status
 
+Find: sensor.ntk_ryansoffice_3dprinter_smart_status
+Replace: sensor.x1_carbon_smart_status
+
 Find: sensor.airgradient_pm25
 Replace: sensor.airgradient_one_pm25
 
@@ -116,6 +119,8 @@ Replace: sensor.airgradient_one_tvoc
 Find: fan.govee_air_purifier
 Replace: fan.govee_h7121_air_purifier
 ```
+
+> For new dashboard/notification-style logic, prefer `*_smart_status` entities; keep `*_print_status` only where you explicitly need raw Bambu integration state values.
 
 #### 4. Remove Bento Box Fan (If Not Used)
 

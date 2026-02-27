@@ -40,8 +40,10 @@ Home Assistant
 | `p1b29` | Label | Estimated end time |
 | `p1b10`–`p1b13` | Obj | AMS 1 tray 1–4 spool colors |
 | `p1b17`–`p1b20` | Obj | AMS 2 tray 1–4 spool colors |
-| `p1b31` | Label | Current stage |
-| `p1b32` | Label | Print status |
+| `p1b31` | Label | Smart status detail (`state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail')`) |
+| `p1b32` | Label | Smart status state (`sensor.ntk_ryansoffice_3dprinter_smart_status`) |
+
+> **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in `dashboards/templates.yaml` and must exist in Home Assistant for these two labels to render correctly.
 
 ### Automations
 

@@ -60,13 +60,15 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b33`, `p1b34` | `label` | 435,215 / 495,215 | AMS 1 slot labels (A3, A4) |
 | `p1b35`–`p1b38` | `label` | 315–495,375 | AMS 2 slot labels (B1–B4) |
 | `p1b40` | `label` | 555,290 | "Ext" label |
-| `p1b26` | `label` | 100,355 | "Status:" static label |
+| `p1b26` | `label` | 100,355 | "State:" static label |
 | `p1b27` | `led` | 45,375 | Status LED indicator |
-| `p1b43` | `label` | 100,390 | "Stage:" static label |
-| `p1b31` | `label` | 180,390 | Current stage value |
-| `p1b32` | `label` | 180,355 | Print status value |
+| `p1b43` | `label` | 100,390 | "Detail:" static label |
+| `p1b31` | `label` | 180,390 | Smart status detail value (`detail` attribute) |
+| `p1b32` | `label` | 180,355 | Smart status state value |
 
-> **Note:** Object IDs in the range 41–43 are used for static slot/status labels that do not need to be controlled by Home Assistant. All object IDs are unique.
+> **Note:** Object IDs in the range 41–43 are used for static slot/state/detail labels that do not need to be controlled by Home Assistant. All object IDs are unique.
+
+The values for `p1b31` and `p1b32` are populated by Home Assistant via [../hass-config/officetouch5.yaml](../hass-config/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
 
 **Object types used** (see [openHASP Objects reference](https://www.openhasp.com/0.7.0/design/objects/)):
 

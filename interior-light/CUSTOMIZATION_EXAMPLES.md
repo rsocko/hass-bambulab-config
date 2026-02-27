@@ -151,8 +151,8 @@ automation:
       - condition: not
         conditions:
           - condition: state
-            entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
-            state: "running"
+            entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
+            state: "Printing"
       
       # Only during reasonable hours
       - condition: time
@@ -182,8 +182,8 @@ automation:
     condition:
       # Only if printer is idle
       - condition: state
-        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
-        state: "idle"
+        entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
+        state: "Idle"
     
     action:
       - service: script.reset_interior_light_to_white
@@ -436,8 +436,8 @@ automation:
     
     trigger:
       - platform: state
-        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
-        to: "finish"
+        entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
+        to: "Print Finished"
     
     action:
       - service: notify.mobile_app
@@ -527,8 +527,8 @@ cards:
   
   - type: conditional
     conditions:
-      - entity: sensor.ntk_ryansoffice_3dprinter_print_status
-        state: "running"
+      - entity: sensor.ntk_ryansoffice_3dprinter_smart_status
+        state: "Printing"
     card:
       type: custom:mushroom-chip-card
       chips:
@@ -536,6 +536,8 @@ cards:
           icon: mdi:printer-3d
           content: "Printing - Light auto-managed"
           icon_color: green
+
+> **Tip:** For simple UI and automation conditions, prefer `sensor.ntk_ryansoffice_3dprinter_smart_status` (and optionally its `detail` / `status_class` attributes). Keep using `sensor.ntk_ryansoffice_3dprinter_current_stage` only when you need stage-specific branching.
 ```
 
 ## Summary

@@ -101,7 +101,7 @@ button:
 text_sensor:
   - platform: homeassistant
     id: printer_status
-    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
 
 # Fonts
 font:
@@ -181,7 +181,7 @@ lvgl:
 text_sensor:
   - platform: homeassistant
     id: printer_status
-    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
     on_value:
       - lvgl.label.update:
           id: status_label
@@ -374,7 +374,7 @@ sensor:
 text_sensor:
   - platform: homeassistant
     id: printer_status
-    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
   
   - platform: homeassistant
     id: print_progress

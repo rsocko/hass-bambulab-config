@@ -182,10 +182,12 @@ These must exist in Home Assistant:
 - `sensor.ntk_ryansoffice_3dprinter_printer_name`
 - `sensor.ntk_ryansoffice_3dprinter_task_name`
 - `sensor.ntk_ryansoffice_3dprinter_print_weight`
-- `sensor.ntk_ryansoffice_3dprinter_print_status`
+- `sensor.ntk_ryansoffice_3dprinter_smart_status` (preferred)
 - `binary_sensor.ntk_ryansoffice_3dprinter_print_error`
 - `camera.ntk_ryansoffice_3dprinter_camera`
 - Device ID: `210dfdfa64085e8cf073e50eae757d90`
+
+> `sensor.ntk_ryansoffice_3dprinter_print_status` is still valid for legacy rules, but this repo now standardizes on `sensor.ntk_ryansoffice_3dprinter_smart_status` for user-facing state.
 
 ### Created Entities
 

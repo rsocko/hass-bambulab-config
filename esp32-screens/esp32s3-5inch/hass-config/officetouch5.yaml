@@ -48,7 +48,7 @@ objects:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
   - obj: "p1b31" # stage
     properties:
-      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_stage")  }}'
+      "text": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_smart_status", "detail") if state_attr("sensor.ntk_ryansoffice_3dprinter_smart_status", "detail") else "" }}'
   - obj: "p1b32" # status
     properties:
-      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_status")  }}'
+      "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_smart_status")  }}'

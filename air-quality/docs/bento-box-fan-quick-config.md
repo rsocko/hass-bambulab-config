@@ -42,6 +42,8 @@ sensor.airgradient_tvoc
 sensor.airgradient_co2
 ```
 
+> Prefer `sensor.<printer>_smart_status` (from `dashboards/templates.yaml`) for new state-driven conditions and UI text. Keep `sensor.<printer>_print_status` here only if your automation logic still depends on raw integration values.
+
 ### Step 3: Import Automation
 
 1. Settings > Automations & Scenes
