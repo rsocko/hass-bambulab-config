@@ -62,6 +62,7 @@ esp32s3-5inch/
 │   ├── readme.md              ← Detailed docs for HA-side config
 │   ├── officetouch5.yaml      ← OpenHASP plate object bindings
 │   ├── template_sensors.yaml  ← Helper template sensor definitions
+│   ├── auto_manage_screen_visibility.yaml
 │   ├── push_printer_image_to_screen.yaml
 │   └── save_camera_snapshot_from_3d_printer.yaml
 └── openhasp/                  ← Files deployed to the ESP32 device

@@ -54,6 +54,20 @@ Each automation is stored as a separate YAML file for easy version control and d
 |------|---------------|--------|-------------|
 | [push_printer_image_to_screen.yaml](push_printer_image_to_screen.yaml) | `Push Printer Image to Screen` | **Active** | Pushes the 3D printer's model/cover image to the OpenHASP display whenever the image entity updates. Uses `openhasp.push_image` to render the image on object `p1b1`. |
 | [save_camera_snapshot_from_3d_printer.yaml](save_camera_snapshot_from_3d_printer.yaml) | `Save Camera Snapshot from 3D Printer` | **Disabled** | Captures a camera snapshot every 2 minutes (when printer is on) and saves to `/config/www/printer_snapshot.jpg`. Useful for serving static images to dashboards or external tools. |
+| [auto_manage_screen_visibility.yaml](auto_manage_screen_visibility.yaml) | `Auto Manage ESP32 Screen Visibility` | **Active** | Implements issue #46 behavior: keeps screen visibility in sync with print activity, errors, and optional office-presence signals. Uses `openhasp.wakeup` and `openhasp.command` to drive full brightness, low visibility, and delayed full off states. |
+
+**Visibility automation customization:**
+
+- Targets `openhasp.officetouch5` by default.
+- Optional office-presence entities (replace to match your setup):
+    - `binary_sensor.office_pc_active`
+    - `binary_sensor.office_occupied`
+- If neither presence sensor exists, presence gating is skipped (treated as present).
+- Default brightness profile:
+    - Full visibility: `255`
+    - Low visibility: `45`
+    - Pre-off dim level: `15`
+    - Off delay from low visibility: `10 minutes`
 
 ### Template Sensors (Helpers)
 
