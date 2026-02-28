@@ -38,23 +38,76 @@ actions:
         uuid is {{ active_tray.uuid }}, color is {{ active_tray.color }},
         remaining is {{ active_tray.remain }}
     enabled: false
-  # Determine the data source: when active_tray state is 'none' on an AMS printer,
-  # the external spool is in use - read attributes from the external_spool sensor instead.
+  # Determine the data source. Treat active_tray='none' as External Spool only
+  # when external_spool is explicitly active. This avoids false matches during
+  # AMS tray transition windows where active_tray can briefly be 'none'.
   - variables:
+      active_tray_state: "{{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') }}"
+      external_spool_is_active: >-
+        {{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'active') is true }}
+      is_external_spool: >-
+        {{ active_tray_state == 'none' and external_spool_is_active }}
+      is_transition_none_state: >-
+        {{ active_tray_state == 'none' and not external_spool_is_active }}
       active_tray_source: >-
         {{ 'sensor.ntk_ryansoffice_3dprinter_external_spool'
-           if states('sensor.ntk_ryansoffice_3dprinter_active_tray') == 'none'
+           if is_external_spool
            else 'sensor.ntk_ryansoffice_3dprinter_active_tray' }}
-      is_external_spool: >-
-        {{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') == 'none' }}
   - variables:
       active_tray:
-        uuid: "{{ state_attr(active_tray_source, 'tray_uuid') }}"
-        type: "{{ state_attr(active_tray_source, 'type') }}"
-        color: "{{ state_attr(active_tray_source, 'color') | replace('#', '') }}"
-        name: "{{ state_attr(active_tray_source, 'name') }}"
-        remain: "{{ state_attr(active_tray_source, 'remain') }}"
+        uuid: "{{ state_attr(active_tray_source, 'tray_uuid') | default('') }}"
+        type: "{{ state_attr(active_tray_source, 'type') | default('') }}"
+        color: "{{ state_attr(active_tray_source, 'color') | default('') | replace('#', '') }}"
+        name: "{{ state_attr(active_tray_source, 'name') | default('') }}"
+        remain: "{{ state_attr(active_tray_source, 'remain') | default('') }}"
+      tray_has_valid_uuid: >-
+        {{ active_tray.uuid | length > 0 and not active_tray.uuid | regex_match('^0+$') }}
+      tray_has_matchable_attributes: >-
+        {{ active_tray.color | length > 0 and active_tray.type | length > 0 and active_tray.name | length > 0 }}
+      has_matchable_data: "{{ tray_has_valid_uuid or tray_has_matchable_attributes }}"
       external_spool_suffix: "{{ ' (External Spool)' if is_external_spool else '' }}"
+  - choose:
+      - conditions:
+          - alias: Ignore transient AMS switch state (active_tray='none' but external spool not active)
+            condition: template
+            value_template: "{{ is_transition_none_state }}"
+        sequence:
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Active Tray Changed: Skipping spool sync during AMS transition
+                (active_tray='none' with external spool inactive).
+              level: info
+              logger: homeassistant.components.bambulab.spoolman_sync
+          - action: logbook.log
+            metadata: {}
+            data:
+              name: Spoolman Active Tray
+              message: >-
+                Skipped spool sync during AMS tray transition.
+          - stop: Skip transient AMS none state
+      - conditions:
+          - alias: Ignore events without enough tray data to match a spool
+            condition: template
+            value_template: "{{ not has_matchable_data }}"
+        sequence:
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Active Tray Changed: Skipping spool sync due to incomplete tray
+                data. UUID: {{ active_tray.uuid }}, Type: {{ active_tray.type }},
+                Color: {{ active_tray.color }}, Name: {{ active_tray.name }}.
+              level: warning
+              logger: homeassistant.components.bambulab.spoolman_sync
+          - action: logbook.log
+            metadata: {}
+            data:
+              name: Spoolman Active Tray
+              message: >-
+                Skipped spool sync due to incomplete tray data.
+          - stop: Skip incomplete tray data state
   - action: script.find_matching_spool_in_spoolman
     metadata: {}
     data:

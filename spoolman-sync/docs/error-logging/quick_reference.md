@@ -144,6 +144,7 @@ Search in **History** → **Logbook** for "Spoolman Sync Error"
 ✓ Avoid duplicate color+type without UUID  
 ✓ Archive unused spools  
 ✓ Check color hex codes match exactly  
+✓ External spool detection is transition-safe (`active_tray == none` only counts when external spool `active` is true)  
 
 ## Getting Help
 

@@ -45,12 +45,15 @@ actions:
     event_data:
       value: "{{ tray_data }}"
 
-  # Capture external spool data (for recovery if printing from external spool)
-  # The active_tray sensor state is 'none' when the external spool is in use on an AMS printer
+  # Capture external spool data (for recovery if printing from external spool).
+  # Treat active_tray='none' as external only when external_spool is explicitly active,
+  # to avoid false positives during AMS transition windows.
   - variables:
+      active_tray_state: "{{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') }}"
+      external_spool_is_active: >-
+        {{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'active') is true }}
       is_external_spool: >-
-        {{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') == 'none' or
-           state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'active') is true }}
+        {{ active_tray_state == 'none' and external_spool_is_active }}
       external_spool_data: >-
         {
           "tray": "external",

@@ -23,7 +23,14 @@ These helpers store persistent data that survives Home Assistant restarts:
 **Actions:**
 1. Captures print job name and start time
 2. Records AMS tray configuration for all 4 trays (UUID, color, type, name)
-3. Stores data in input helpers for later reference
+3. Captures external spool data using transition-safe detection logic
+4. Stores data in input helpers for later reference
+
+**External spool transition safety:**
+- Treats external spool as active only when both conditions are true:
+   - `active_tray == "none"`
+   - `sensor.<printer>_external_spool` attribute `active` is `true`
+- This avoids false positives during brief AMS tray-switch transition windows.
 
 This ensures critical data is captured before the print completes, when entities might change.
 
@@ -48,7 +55,12 @@ When spool lookup fails (`find_spool_response.success == false`):
 
 **Modifications to `active_tray_changed_update_spoolman.yaml`:**
 
-When spool lookup fails:
+Transition-safe behavior:
+1. Treats `active_tray == "none"` as External Spool only when external spool is explicitly active
+2. Skips spool matching during transient AMS transition states (`none` + external inactive)
+3. Skips spool matching when tray data is incomplete
+
+When spool lookup fails after valid matching input:
 1. Logs error to logbook
 2. Creates detailed persistent notification with tray information
 
