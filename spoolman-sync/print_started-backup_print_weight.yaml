@@ -10,9 +10,35 @@ triggers:
     trigger: device
 conditions: []
 actions:
-  # Wait a moment for the print_weight sensor to be fully populated
+  # Short initial delay after print-start event
   - delay:
-      seconds: 5
+      seconds: 3
+
+  # Wait for per-tray attributes to populate (timing can vary by print/integration state)
+  - wait_template: >-
+      {{
+        states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys()
+        | select('match', '^(AMS|External)')
+        | list
+        | length > 0
+      }}
+    timeout: "00:00:45"
+    continue_on_timeout: true
+
+  # If still empty, do one final retry after a brief pause
+  - if:
+      - condition: template
+        value_template: >-
+          {{
+            states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys()
+            | select('match', '^(AMS|External)')
+            | list
+            | length == 0
+          }}
+        alias: No per-tray attributes yet after wait
+    then:
+      - delay:
+          seconds: 5
 
   # Store only AMS and External Spool keys from print_weight attributes as JSON
   # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
@@ -28,7 +54,7 @@ actions:
             {% set ns.d = dict(ns.d, **{key: value}) %}
           {% endif %}
         {% endfor %}
-        {{ ns.d | tojson }}
+        {{ ns.d | tojson if (ns.d | count > 0) else '' }}
 
   # Store metadata for validation (task name, start time, total weight)
   - action: input_text.set_value
@@ -70,8 +96,8 @@ actions:
             Print Started: WARNING - print_weight sensor has no AMS or External Spool
             attributes to back up for "{{
             states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". The sensor may
-            not be populated yet. If HA restarts during this print, filament usage
-            cannot be recovered from backup.
+            not be populated yet even after wait/retry. If HA restarts during this
+            print, filament usage cannot be recovered from backup.
           level: warning
           logger: homeassistant.components.bambulab.spoolman_sync
       - action: logbook.log
