@@ -22,8 +22,6 @@ actions:
       # Backup must be a valid JSON object string to be considered usable
       backup_available: >
         {{ backup_present and
-           backup_raw_trimmed[0:1] == '{' and
-           backup_raw_trimmed[-1:] == '}' and
            backup_parsed is mapping }}
       backup_invalid: "{{ backup_present and not backup_available }}"
 
@@ -51,7 +49,7 @@ actions:
           message: >-
             Print Complete WARNING: input_text.print_weight_backup contains
             invalid or non-object JSON and will be ignored. Raw value (first
-            200 chars): {{ backup_raw[:200] }}
+            200 chars): {{ backup_raw | truncate(200, True, '') }}
           level: warning
           logger: homeassistant.components.bambulab.spoolman_sync
       - action: logbook.log
@@ -87,7 +85,9 @@ actions:
   - if:
       - condition: template
         value_template: >
-          {{ (print_weight_attributes_json | from_json({})).keys() |
+          {{ ((print_weight_attributes_json
+               if print_weight_attributes_json is mapping
+               else (print_weight_attributes_json | from_json({}))).keys()) |
              select('match', '^(AMS|External)') | list | length == 0 }}
         alias: No AMS or External Spool weight data available
     then:
@@ -135,7 +135,9 @@ actions:
   # Stop if no data is available at all
   - condition: template
     value_template: >
-      {{ (print_weight_attributes_json | from_json({})).keys() |
+      {{ ((print_weight_attributes_json
+           if print_weight_attributes_json is mapping
+           else (print_weight_attributes_json | from_json({}))).keys()) |
          select('match', '^(AMS|External)') | list | length > 0 }}
     alias: Ensure we have AMS or External Spool print weight data
 
@@ -143,7 +145,11 @@ actions:
   - variables:
       ams_trays_string: >
         {% set ns = namespace(result='') %}
-        {% for key, value in (print_weight_attributes_json | from_json({})).items() %}
+        {% set print_weight_attributes =
+          (print_weight_attributes_json
+           if print_weight_attributes_json is mapping
+           else (print_weight_attributes_json | from_json({}))) %}
+        {% for key, value in print_weight_attributes.items() %}
           {% if key is match('^(AMS|External)') %}
             {% set ns.result = ns.result ~ key ~ ':' ~ value ~ ',' %}
           {% endif %}
