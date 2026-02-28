@@ -8,6 +8,9 @@ This document describes the implementation of prominent HMS (Health Management S
 ### 1. Top Banner Alert (New Section)
 - **Location**: Added as the first section in the Home view
 - **Behavior**: Conditionally displayed only when HMS errors are present (`binary_sensor.ntk_ryansoffice_3dprinter_hms_errors` state is "on")
+- **Responsive behavior**:
+  - Mobile (`max-width: 600px`): compact single-card summary banner
+  - Desktop (`min-width: 601px`): full banner with expanded markdown error details
 - **Features**:
   - Prominent red alert banner with warning icon
   - Shows error count dynamically
@@ -45,10 +48,12 @@ The banner shows:
 ## Technical Implementation
 
 ### Banner Card Structure
-- Uses `conditional` card to only show when errors exist
-- `vertical-stack` containing:
-  - `mushroom-template-card` for the alert header
-  - `markdown` card for error details
+- Uses section-level `visibility` to only render the top section when errors exist
+- Uses two mutually exclusive screen conditions:
+  - Mobile section with `mushroom-template-card` summary only
+  - Desktop section with `vertical-stack`:
+    - `mushroom-template-card` for the alert header
+    - `markdown` card for error details
 - Custom styling with `card_mod` for red theme
 
 ### Template Used
@@ -88,7 +93,7 @@ No error details available
 ## Dependencies
 - `custom:mushroom-template-card` - For the alert header
 - `card_mod` - For custom styling (if available)
-- Standard Home Assistant conditional and markdown cards
+- Standard Home Assistant sections visibility and markdown cards
 
 ## Future Enhancements (Optional)
 - Home Assistant notifications when errors occur
