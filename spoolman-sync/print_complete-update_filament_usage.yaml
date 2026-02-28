@@ -16,11 +16,15 @@ actions:
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
            select('match', '^(AMS|External)') | list | length > 0 }}
       backup_raw: "{{ states('input_text.print_weight_backup') }}"
-      # Length > 2 skips both an empty string ("") and an empty JSON object ("{}")
+      backup_present: "{{ backup_raw not in ['unknown', 'unavailable', 'none', 'None', ''] }}"
+      backup_parsed: "{{ backup_raw | from_json(None) }}"
+      # Backup must be a valid JSON object string to be considered usable
       backup_available: >
-        {{ backup_raw not in ['unknown', 'unavailable', 'none', 'None', ''] and
-           backup_raw | length > 2 and
-           backup_raw.startswith('{') }}
+        {{ backup_present and
+           backup_raw.startswith('{') and
+           backup_raw.endswith('}') and
+           backup_parsed is mapping }}
+      backup_invalid: "{{ backup_present and not backup_available }}"
 
   # Log the data source decision to system log for debugging
   - action: system_log.write
@@ -35,6 +39,28 @@ actions:
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
 
+  - if:
+      - condition: template
+        value_template: "{{ backup_invalid }}"
+        alias: Backup payload exists but is invalid JSON object
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Complete WARNING: input_text.print_weight_backup contains
+            invalid or non-object JSON and will be ignored. Raw value (first
+            200 chars): {{ backup_raw[:200] }}
+          level: warning
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - action: logbook.log
+        metadata: {}
+        data:
+          name: Print Weight Backup Invalid
+          message: >-
+            Found invalid backup payload in input_text.print_weight_backup;
+            ignoring backup and using current sensor data only.
+
   - action: logbook.log
     metadata: {}
     data:
@@ -47,17 +73,20 @@ actions:
 
   # Extract attributes from either current sensor or backup
   - variables:
-      print_weight_attributes: >
-        {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes
-           if current_has_attributes else
-           (backup_raw | from_json({})
-            if backup_available else {}) }}
+      print_weight_attributes_json: >
+        {% if current_has_attributes %}
+          {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes | tojson }}
+        {% elif backup_available %}
+          {{ backup_raw }}
+        {% else %}
+          {}
+        {% endif %}
 
   # Notify user and log if no per-tray data is available
   - if:
       - condition: template
         value_template: >
-          {{ print_weight_attributes.keys() |
+          {{ (print_weight_attributes_json | from_json({})).keys() |
              select('match', '^(AMS|External)') | list | length == 0 }}
         alias: No AMS or External Spool weight data available
     then:
@@ -105,7 +134,7 @@ actions:
   # Stop if no data is available at all
   - condition: template
     value_template: >
-      {{ print_weight_attributes.keys() |
+      {{ (print_weight_attributes_json | from_json({})).keys() |
          select('match', '^(AMS|External)') | list | length > 0 }}
     alias: Ensure we have AMS or External Spool print weight data
 
@@ -113,7 +142,7 @@ actions:
   - variables:
       ams_trays_string: >
         {% set ns = namespace(result='') %}
-        {% for key, value in print_weight_attributes.items() %}
+        {% for key, value in (print_weight_attributes_json | from_json({})).items() %}
           {% if key.startswith('AMS') or key.startswith('External') %}
             {% set ns.result = ns.result ~ key ~ ':' ~ value ~ ',' %}
           {% endif %}
