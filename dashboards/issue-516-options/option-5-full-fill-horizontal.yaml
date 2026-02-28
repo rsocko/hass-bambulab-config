@@ -1,0 +1,107 @@
+# Issue #516 - Option 5
+# Full-card horizontal fill from left to right using a lighter icon shade.
+
+type: horizontal-stack
+cards:
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[ 
+          const currentLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state);
+          const totalLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state);
+          const hasLayerData = Number.isFinite(currentLayer) && Number.isFinite(totalLayer) && totalLayer > 0;
+          const value = hasLayerData ? `${Math.round(currentLayer)}/${Math.round(totalLayer)}` : 'N/A';
+          const pct = hasLayerData ? Math.max(0, Math.min(100, (currentLayer / totalLayer) * 100)) : 0;
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          return `<div class="opt-fill-wrap-x">
+            <div class="opt-fill-layer-x" style="width:${pct}%; --opt-fill-color:${color};"></div>
+            <div class="opt-fill-content-x">
+              <div class="opt-fill-value-x">${value}</div>
+              <div class="opt-fill-footer-x">
+                <span class="opt-fill-label-x">Layer Progress · Option 5</span>
+                <ha-icon icon="mdi:layers-triple" class="opt-fill-icon-x" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 12px
+        - min-height: 102px
+        - overflow: hidden
+      custom_fields:
+        body:
+          - width: 100%
+    extra_styles: |
+      .opt-fill-wrap-x { position:relative; display:flex; flex-direction:column; width:100%; min-height:78px; overflow:hidden; border-radius:10px; }
+      .opt-fill-layer-x { position:absolute; top:0; bottom:0; left:0; background: color-mix(in srgb, var(--opt-fill-color) 28%, transparent); transition: width 0.4s ease; z-index:0; }
+      .opt-fill-content-x { position:relative; z-index:1; display:flex; flex-direction:column; min-height:78px; }
+      .opt-fill-value-x { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .opt-fill-footer-x { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .opt-fill-label-x { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .opt-fill-icon-x { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+    grid_options:
+      columns: 6
+
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[ 
+          const progress = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_print_progress']?.state);
+          const hasProgress = Number.isFinite(progress);
+          const pct = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+          const value = hasProgress ? `${Math.round(pct)}%` : 'N/A';
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          return `<div class="opt-fill-wrap-x">
+            <div class="opt-fill-layer-x" style="width:${pct}%; --opt-fill-color:${color};"></div>
+            <div class="opt-fill-content-x">
+              <div class="opt-fill-value-x">${value}</div>
+              <div class="opt-fill-footer-x">
+                <span class="opt-fill-label-x">Print Progress · Option 5</span>
+                <ha-icon icon="mdi:rotate-right" class="opt-fill-icon-x" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 12px
+        - min-height: 102px
+        - overflow: hidden
+      custom_fields:
+        body:
+          - width: 100%
+    extra_styles: |
+      .opt-fill-wrap-x { position:relative; display:flex; flex-direction:column; width:100%; min-height:78px; overflow:hidden; border-radius:10px; }
+      .opt-fill-layer-x { position:absolute; top:0; bottom:0; left:0; background: color-mix(in srgb, var(--opt-fill-color) 28%, transparent); transition: width 0.4s ease; z-index:0; }
+      .opt-fill-content-x { position:relative; z-index:1; display:flex; flex-direction:column; min-height:78px; }
+      .opt-fill-value-x { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .opt-fill-footer-x { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .opt-fill-label-x { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .opt-fill-icon-x { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+    grid_options:
+      columns: 6

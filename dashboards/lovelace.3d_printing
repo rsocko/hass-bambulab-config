@@ -1246,6 +1246,18 @@ views:
               .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
             grid_options:
               columns: 6
+          - type: markdown
+            content: |
+              ### Progress KPI Variations (Issue #516)
+            grid_options:
+              columns: full
+          - !include dashboards/issue-516-options/option-1-bottom-bar-static.yaml
+          - !include dashboards/issue-516-options/option-2-bottom-bar-color-shift.yaml
+          - !include dashboards/issue-516-options/option-3-bottom-bar-animated.yaml
+          - !include dashboards/issue-516-options/option-4-full-fill-vertical.yaml
+          - !include dashboards/issue-516-options/option-5-full-fill-horizontal.yaml
+          - !include dashboards/issue-516-options/option-6-bottom-bar-milestones.yaml
+          - !include dashboards/issue-516-options/option-7-segmented-progress.yaml
           - type: custom:button-card
             entity: sensor.print_time_remaining_formatted
             show_name: false

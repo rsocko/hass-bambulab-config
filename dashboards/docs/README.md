@@ -24,6 +24,14 @@ Documentation for the HMS (Health Management System) error alert implementation:
   - Troubleshooting common issues
   - Expected entity structure
 
+## Print Progress Options (Issue #516)
+
+- **[print-progress-options-guide.md](print-progress-options-guide.md)** - Comparison and selection guide for options 1-7
+  - Summary table for all implemented variants
+  - Quick option selection checklist
+  - Entity and behavior notes
+  - Validation checklist
+
 ## HMS Error Alert Features
 
 The HMS error alert system provides:

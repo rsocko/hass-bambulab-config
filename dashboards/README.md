@@ -63,6 +63,7 @@ Key features:
 
 ### Print Progress Cards
 Animated progress cards for monitoring active prints. Available as a standalone file (`print-progress-cards.yaml`).
+See [docs/print-progress-options-guide.md](docs/print-progress-options-guide.md) for all seven issue #516 progress design variants.
 
 Key features:
 - **Layer Progress** — layers icon bounces upward while printing, simulating layers piling up
