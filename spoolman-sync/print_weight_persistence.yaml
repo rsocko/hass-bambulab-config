@@ -30,11 +30,13 @@ input_text:
   print_weight_backup:
     name: "Print Weight Backup"
     max: 255
+    initial: ""
     icon: mdi:weight
 
   print_metadata_backup:
     name: "Print Metadata Backup"
     max: 255
+    initial: ""
     icon: mdi:information
 
 # Template sensor to make stored data easily accessible
@@ -43,7 +45,8 @@ template:
       - name: "Print Weight Data Status"
         unique_id: print_weight_data_status
         state: >
-          {% if states('input_text.print_weight_backup') | length > 0 %}
+          {% set backup = states('input_text.print_weight_backup') %}
+          {% if backup not in ['unknown', 'unavailable', 'none', 'None', ''] and backup | length > 2 %}
             stored
           {% else %}
             empty

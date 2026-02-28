@@ -15,9 +15,12 @@ actions:
       current_has_attributes: >
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
            select('match', '^(AMS|External)') | list | length > 0 }}
+      backup_raw: "{{ states('input_text.print_weight_backup') }}"
       # Length > 2 skips both an empty string ("") and an empty JSON object ("{}")
       backup_available: >
-        {{ states('input_text.print_weight_backup') | length > 2 }}
+        {{ backup_raw not in ['unknown', 'unavailable', 'none', 'None', ''] and
+           backup_raw | length > 2 and
+           backup_raw.startswith('{') }}
 
   # Log the data source decision to system log for debugging
   - action: system_log.write
@@ -47,7 +50,7 @@ actions:
       print_weight_attributes: >
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes
            if current_has_attributes else
-           (states('input_text.print_weight_backup') | from_json
+           (backup_raw | from_json({})
             if backup_available else {}) }}
 
   # Notify user and log if no per-tray data is available
@@ -318,13 +321,13 @@ actions:
       for_each: "{{ ams_tray_list }}"
 
   # Clear the backup after processing to avoid stale data on next print
-  - action: text.set_value
+  - action: input_text.set_value
     target:
       entity_id: input_text.print_weight_backup
     data:
       value: ""
 
-  - action: text.set_value
+  - action: input_text.set_value
     target:
       entity_id: input_text.print_metadata_backup
     data:

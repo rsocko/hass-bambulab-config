@@ -133,12 +133,49 @@ Example:
 {"AMS 1 Tray 1": 15, "AMS 1 Tray 3": 10}
 ```
 
+### Run Manual Self-Test Script
+1. Go to **Developer Tools → Services**
+2. Select service: `script.print_weight_persistence_self_test`
+3. Click **Call Service**
+4. Review results in:
+  - Logbook entry: **Print Weight Persistence Self-Test**
+  - Persistent notification: **Print Weight Persistence Self-Test**
+
+### Optional: Auto-Run Self-Test at Print Start/Finish
+1. Create a new automation
+2. Click ⋮ → **Edit in YAML**
+3. Paste contents of `print_weight_persistence_auto_self_test.yaml`
+4. Update `device_id` to match your printer
+5. Save and enable
+
+This creates phase-specific notifications so results do not overwrite each other:
+- `print_weight_persistence_self_test_start`
+- `print_weight_persistence_self_test_finish`
+
 ## Troubleshooting
 
 ### Backup Not Created
 - Check print_started automation is enabled
 - Verify device_id is correct
-- Check Home Assistant logs for errors
+- Confirm the automation uses `input_text.set_value` (not `text.set_value`)
+- Check Home Assistant logs/traces for service call errors
+
+### `from_json got invalid input 'unknown'`
+- This means `input_text.print_weight_backup` contains `unknown` instead of JSON
+- Ensure `print_weight_persistence.yaml` is loaded via `homeassistant.packages`
+- Ensure both backup helpers have `initial: ""` and restart HA
+- Confirm backup automation wrote JSON before print completion
+
+### Verify Backup Data Is Valid JSON
+1. Developer Tools → States → `input_text.print_weight_backup`
+2. Value should look like `{"AMS 1 Tray 1": 12}` (or `{}` when no tray data)
+3. It should never be `unknown`/`unavailable`
+
+### Verify 255-char Limit Is Not Exceeded
+1. Developer Tools → Template
+2. Run: `{{ states('input_text.print_weight_backup') | length }}`
+3. Value must be `<= 255`
+4. If larger, reduce stored keys (store only non-zero tray usage)
 
 ### "No attributes" Error
 - Verify both automations are running

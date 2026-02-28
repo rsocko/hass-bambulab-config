@@ -37,6 +37,30 @@ When the spoolman sync automation fails (e.g., spool not found), the system stor
 - [Updated Print Complete Automation](print_complete-update_filament_usage.yaml)
 - [Updated Active Tray Changed Automation](active_tray_changed_update_spoolman.yaml)
 
+### 5. Print-weight persistence troubleshooting self-test
+Run a manual diagnostic script to validate that restart-safe backup helpers are
+healthy and usable by the print completion automation.
+
+**What it checks:**
+- `input_text.print_weight_backup` exists, looks like JSON, and is within 255 chars
+- `input_text.print_metadata_backup` is present, has `task|time|weight` format, and is within 255 chars
+- AMS/External key count in backup payload for quick sanity check
+
+[Source .YAML](print_weight_persistence_self_test-script.yaml)
+
+### 6. Optional automatic self-test at print start/finish
+If you want proactive protection, enable an optional automation that runs the
+self-test script at both print start and print finish.
+
+**Behavior:**
+- Calls the self-test script with phase `start` on print start
+- Calls the self-test script with phase `finish` on print completion
+- Uses separate persistent notification IDs:
+  - `print_weight_persistence_self_test_start`
+  - `print_weight_persistence_self_test_finish`
+
+[Source .YAML](print_weight_persistence_auto_self_test.yaml)
+
 ## Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant

@@ -16,7 +16,7 @@ actions:
       start_time: "{{ now().isoformat() }}"
 
   # Store basic print job info
-  - action: text.set_value
+  - action: input_text.set_value
     data:
       entity_id: input_text.print_job_current
       value: "{{ task_name }}|{{ start_time }}"
@@ -61,7 +61,7 @@ actions:
           "is_active": {{ is_external_spool | tojson }}
         }
 
-  - action: text.set_value
+  - action: input_text.set_value
     data:
       entity_id: input_text.print_job_external_spool
       value: "{{ external_spool_data }}"

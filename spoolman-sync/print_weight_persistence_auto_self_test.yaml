@@ -1,0 +1,23 @@
+alias: Print Weight Persistence - Auto Self-Test (Optional)
+description: >-
+  Optional automation that runs the print weight persistence self-test script at
+  print start and print finish. Uses phase-specific notification IDs so start
+  and finish diagnostics do not overwrite each other.
+triggers:
+  - trigger: device
+    device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_started
+    id: start
+  - trigger: device
+    device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_finished
+    id: finish
+conditions: []
+actions:
+  - action: script.print_weight_persistence_self_test
+    data:
+      phase: "{{ trigger.id }}"
+
+mode: queued

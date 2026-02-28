@@ -17,21 +17,21 @@ actions:
   # Store only AMS and External Spool keys from print_weight attributes as JSON
   # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
   # (e.g. friendly_name, unit_of_measurement, icon)
-  - action: text.set_value
+  - action: input_text.set_value
     target:
       entity_id: input_text.print_weight_backup
     data:
       value: >
         {% set ns = namespace(d={}) %}
         {% for key, value in states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items() %}
-          {% if key.startswith('AMS') or key.startswith('External') %}
+          {% if (key.startswith('AMS') or key.startswith('External')) and (value | float(0) > 0) %}
             {% set ns.d = dict(ns.d, **{key: value}) %}
           {% endif %}
         {% endfor %}
         {{ ns.d | tojson }}
 
   # Store metadata for validation (task name, start time, total weight)
-  - action: text.set_value
+  - action: input_text.set_value
     target:
       entity_id: input_text.print_metadata_backup
     data:
