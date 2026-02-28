@@ -50,7 +50,7 @@ actions:
       value: >
         {% set ns = namespace(d={}) %}
         {% for key, value in states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items() %}
-          {% if (key.startswith('AMS') or key.startswith('External')) and (value | float(0) > 0) %}
+          {% if (key is match('^(AMS|External)')) and (value | float(0) > 0) %}
             {% set ns.d = dict(ns.d, **{key: value}) %}
           {% endif %}
         {% endfor %}

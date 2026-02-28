@@ -20,21 +20,22 @@ sequence:
   - variables:
       phase: "{{ phase | default('manual') | lower }}"
       phase_label: "{{ phase | upper }}"
-      backup_raw: "{{ states('input_text.print_weight_backup') }}"
-      metadata_raw: "{{ states('input_text.print_metadata_backup') }}"
+      backup_raw: "{{ states('input_text.print_weight_backup') | string }}"
+      backup_raw_trimmed: "{{ backup_raw | trim }}"
+      metadata_raw: "{{ states('input_text.print_metadata_backup') | string }}"
       backup_present: >-
-        {{ backup_raw not in ['unknown', 'unavailable', 'none', 'None', ''] }}
-      backup_len: "{{ backup_raw | length }}"
+        {{ backup_raw_trimmed not in ['unknown', 'unavailable', 'none', 'None', ''] }}
+      backup_len: "{{ backup_raw_trimmed | length }}"
       backup_shape_valid: >-
-        {{ backup_present and backup_raw.startswith('{') and backup_raw.endswith('}') }}
+        {{ backup_present and (backup_raw_trimmed is match('^\\{.*\\}$')) }}
       metadata_present: >-
         {{ metadata_raw not in ['unknown', 'unavailable', 'none', 'None', ''] }}
       metadata_len: "{{ metadata_raw | length }}"
       metadata_format_valid: >-
-        {{ metadata_present and metadata_raw.count('|') >= 2 }}
+        {{ metadata_present and ((metadata_raw | regex_findall('\\|')) | length >= 2) }}
       backup_key_count: >-
         {% if backup_shape_valid %}
-          {{ (backup_raw | from_json({})).keys() | select('match', '^(AMS|External)') | list | length }}
+          {{ (backup_raw_trimmed | from_json({})).keys() | select('match', '^(AMS|External)') | list | length }}
         {% else %}
           0
         {% endif %}

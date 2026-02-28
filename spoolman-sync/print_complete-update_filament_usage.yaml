@@ -15,14 +15,15 @@ actions:
       current_has_attributes: >
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
            select('match', '^(AMS|External)') | list | length > 0 }}
-      backup_raw: "{{ states('input_text.print_weight_backup') }}"
-      backup_present: "{{ backup_raw not in ['unknown', 'unavailable', 'none', 'None', ''] }}"
-      backup_parsed: "{{ backup_raw | from_json(None) }}"
+      backup_raw: "{{ states('input_text.print_weight_backup') | string }}"
+      backup_raw_trimmed: "{{ backup_raw | trim }}"
+      backup_present: "{{ backup_raw_trimmed not in ['unknown', 'unavailable', 'none', 'None', ''] }}"
+      backup_parsed: "{{ backup_raw_trimmed | from_json(None) }}"
       # Backup must be a valid JSON object string to be considered usable
       backup_available: >
         {{ backup_present and
-           backup_raw.startswith('{') and
-           backup_raw.endswith('}') and
+           backup_raw_trimmed[0:1] == '{' and
+           backup_raw_trimmed[-1:] == '}' and
            backup_parsed is mapping }}
       backup_invalid: "{{ backup_present and not backup_available }}"
 
@@ -77,7 +78,7 @@ actions:
         {% if current_has_attributes %}
           {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes | tojson }}
         {% elif backup_available %}
-          {{ backup_raw }}
+          {{ backup_raw_trimmed }}
         {% else %}
           {}
         {% endif %}
@@ -143,7 +144,7 @@ actions:
       ams_trays_string: >
         {% set ns = namespace(result='') %}
         {% for key, value in (print_weight_attributes_json | from_json({})).items() %}
-          {% if key.startswith('AMS') or key.startswith('External') %}
+          {% if key is match('^(AMS|External)') %}
             {% set ns.result = ns.result ~ key ~ ':' ~ value ~ ',' %}
           {% endif %}
         {% endfor %}
