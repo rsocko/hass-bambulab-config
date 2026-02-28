@@ -14,19 +14,21 @@ sensor:
         {% elif stage == 'paused_ams_lost' %}Paused - AMS Lost
         {% elif stage.startswith('paused_') %}{{ stage_label }}
         {% else %}Paused{% endif %}
-      {% elif status in ['running', 'printing'] or stage == 'printing' %}Printing
-      {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling'] %}
+      {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber'] %}
         {% if stage == 'heatbed_preheating' %}Heating Bed
         {% elif stage == 'heating_hotend' %}Heating Nozzle
         {% elif stage == 'heating_chamber' %}Heating Chamber
+        {% elif stage == 'cooling_chamber' %}Cooling Chamber
         {% else %}Cooling Bed{% endif %}
       {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface'] %}Bed Leveling
-      {% elif stage in ['homing_toolhead', 'check_door_and_cover', 'check_quick_release', 'check_plaform'] %}Homing / Checks
+      {% elif stage in ['homing_toolhead', 'check_door_and_cover', 'check_quick_release', 'check_plaform', 'check_birdeye_camera_position'] %}Homing / Checks
       {% elif stage in ['cleaning_nozzle_tip', 'checking_extruder_temperature'] %}Nozzle Prep
       {% elif stage in ['changing_filament', 'filament_loading', 'filament_unloading'] %}Filament Change
-      {% elif stage in ['calibrating_extrusion', 'calibrating_extrusion_flow', 'calibrating_micro_lidar', 'calibrating_motor_noise', 'absolute_accuracy_calibration', 'check_absolute_accuracy_before_calibration', 'check_absolute_accuracy_after_calibration', 'calibrate_nozzle_offset', 'laser_calibration', 'calibrate_birdeye_camera'] %}Calibration
+      {% elif stage in ['calibrating_extrusion', 'calibrating_extrusion_flow', 'calibrating_micro_lidar', 'calibrating_motor_noise', 'absolute_accuracy_calibration', 'check_absolute_accuracy_before_calibration', 'check_absolute_accuracy_after_calibration', 'calibrate_nozzle_offset', 'laser_calibration', 'calibrate_birdeye_camera', 'sweeping_xy_mech_mode', 'motor_noise_showoff'] %}Calibration
+      {% elif stage == 'identifying_build_plate_type' %}Identifying Build Plate
       {% elif stage == 'print_calibration_lines' %}Printing Calibration Lines
       {% elif stage == 'inspecting_first_layer' %}Inspecting First Layer
+      {% elif status in ['running', 'printing'] or stage == 'printing' %}Printing
       {% elif status in ['prepare', 'slicing', 'init'] %}Preparing Print
       {% elif status == 'idle' and stage == 'idle' %}Idle
       {% elif status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}Unknown Printer State
@@ -72,9 +74,9 @@ sensor:
         {% elif status == 'failed' %}failed
         {% elif status == 'finish' %}finished
         {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}paused
-        {% elif status in ['running', 'printing'] or stage == 'printing' %}printing
-        {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling'] %}heating
+        {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber'] %}heating
         {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface'] %}leveling
+        {% elif status in ['running', 'printing'] or stage == 'printing' %}printing
         {% elif status in ['prepare', 'slicing', 'init'] %}preparing
         {% elif status == 'idle' and stage == 'idle' %}idle
         {% elif status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}unknown
