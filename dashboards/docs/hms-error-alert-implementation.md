@@ -36,10 +36,11 @@ The banner shows:
 1. **Primary Alert**: "⚠️ HMS ERROR ALERT"
 2. **Error Summary**: Current state and error count
 3. **Detailed Error Information**:
-   - Error attribute name
-   - Error code
-   - Error description text
-   - Support for multiple errors (displayed sequentially)
+  - Error code
+  - Error description text
+  - Severity (when provided)
+  - Troubleshooting wiki link (when provided)
+  - Support for multiple errors (displayed sequentially)
 
 ## Technical Implementation
 
@@ -52,14 +53,15 @@ The banner shows:
 
 ### Template Used
 ```jinja2
-{% set errors = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'errors') %}
-{% if errors %}
-{% for error in errors %}
-**Error {{ loop.index }}:** {{ error.attr }}
+{% set attrs = states['binary_sensor.ntk_ryansoffice_3dprinter_hms_errors'].attributes %}
+{% set count = attrs['Count'] if attrs['Count'] is defined else 0 %}
+{% if count | int(0) > 0 %}
+{% for i in range(1, (count | int(0)) + 1) %}
+{% set code = attrs[i ~ '-Code'] if attrs[i ~ '-Code'] is defined else 'Unknown' %}
+{% set error_text = attrs[i ~ '-Error'] if attrs[i ~ '-Error'] is defined else 'No description available' %}
+**Error {{ i }}:** {{ error_text }}
 
-**Code:** {{ error.code }}
-
-{{ error.text }}
+**Code:** {{ code }}
 
 ---
 {% endfor %}

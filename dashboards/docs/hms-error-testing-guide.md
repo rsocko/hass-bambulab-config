@@ -108,14 +108,15 @@ The HMS error entity should have this structure when errors exist:
 binary_sensor.ntk_ryansoffice_3dprinter_hms_errors:
   state: "on"
   attributes:
-    count: 1
-    errors:
-      - attr: "Nozzle Temperature Malfunction"
-        code: "0500_0200_0001_0001"
-        text: "The nozzle temperature sensor is not reading correctly..."
-      - attr: "Another Error Name"
-        code: "0700_0100_0002_0001"
-        text: "Error description..."
+    Count: 2
+    1-Code: "HMS_0300_0100_0001_0007"
+    1-Error: "The heatbed temperature is abnormal; the sensor may have an open circuit."
+    1-Wiki: "https://wiki.bambulab.com/en/x1/troubleshooting/hmscode/0300_0100_0001_0007"
+    1-Severity: "fatal"
+    2-Code: "HMS_07FF_7000_0002_0003"
+    2-Error: "Filament runout detected."
+    2-Wiki: "https://wiki.bambulab.com/en/x1/troubleshooting/hmscode/07FF_7000_0002_0003"
+    2-Severity: "warn"
 ```
 
 ## Validation Checklist

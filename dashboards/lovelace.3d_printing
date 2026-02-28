@@ -922,8 +922,12 @@ views:
               cards:
                 - type: custom:mushroom-template-card
                   primary: ⚠️ HMS ERROR ALERT
-                  secondary: "{{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors',
-                    'count') | int }} Error(s)"
+                  secondary: >-
+                    {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count') %}
+                    {% if count is none %}
+                      {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') %}
+                    {% endif %}
+                    {{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ count | int(0) }} Error(s)
                   icon: mdi:alert-circle
                   icon_color: red
                   fill_container: false
@@ -939,19 +943,46 @@ views:
                         }
                 - type: markdown
                   content: |
-                    {% set errors = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'errors') %}
-                    {% if errors %}
-                    {% for error in errors %}
-                    **Error {{ loop.index }}:** {{ error.attr }}
+                    {% set entity = 'binary_sensor.ntk_ryansoffice_3dprinter_hms_errors' %}
+                    {% set attrs = states[entity].attributes %}
+                    {% set legacy_errors = state_attr(entity, 'errors') %}
+                    {% if legacy_errors %}
+                    {% for error in legacy_errors %}
+                    **Error {{ loop.index }}:** {{ error.attr | default('Unknown') }}
 
-                    **Code:** {{ error.code }}
+                    **Code:** {{ error.code | default('Unknown') }}
 
-                    {{ error.text }}
+                    {{ error.text | default('No description available') }}
+
+                    ---
+                    {% endfor %}
+                    {% else %}
+                    {% set count = attrs['Count'] if attrs['Count'] is defined else (attrs['count'] if attrs['count'] is defined else 0) %}
+                    {% if count | int(0) > 0 %}
+                    {% for i in range(1, (count | int(0)) + 1) %}
+                    {% set code_key = i ~ '-Code' %}
+                    {% set error_key = i ~ '-Error' %}
+                    {% set severity_key = i ~ '-Severity' %}
+                    {% set wiki_key = i ~ '-Wiki' %}
+                    {% set code = attrs[code_key] if attrs[code_key] is defined else 'Unknown' %}
+                    {% set error_text = attrs[error_key] if attrs[error_key] is defined else 'No description available' %}
+                    {% set severity = attrs[severity_key] if attrs[severity_key] is defined else none %}
+                    {% set wiki = attrs[wiki_key] if attrs[wiki_key] is defined else none %}
+                    **Error {{ i }}:** {{ error_text }}
+
+                    **Code:** {{ code }}
+                    {% if severity %}
+                    **Severity:** {{ severity | title }}
+                    {% endif %}
+                    {% if wiki %}
+                    **Wiki:** [Troubleshooting Link]({{ wiki }})
+                    {% endif %}
 
                     ---
                     {% endfor %}
                     {% else %}
                     No error details available
+                    {% endif %}
                     {% endif %}
                   card_mod:
                     style: |
