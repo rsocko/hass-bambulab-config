@@ -2109,6 +2109,22 @@ views:
                       0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
                       50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
                     }
+                    @keyframes pulse-yellow {
+                      0%, 100% { background: rgba(255, 235, 59, 0.04); }
+                      50% { background: rgba(255, 235, 59, 0.16); }
+                    }
+                    @keyframes pulse-amber {
+                      0%, 100% { background: rgba(255, 193, 7, 0.05); }
+                      50% { background: rgba(255, 193, 7, 0.18); }
+                    }
+                    @keyframes pulse-orange {
+                      0%, 100% { background: rgba(255, 152, 0, 0.06); }
+                      50% { background: rgba(255, 152, 0, 0.20); }
+                    }
+                    @keyframes pulse-red {
+                      0%, 100% { background: rgba(244, 67, 54, 0.06); }
+                      50% { background: rgba(244, 67, 54, 0.22); }
+                    }
                     @keyframes pulse-at-target {
                       0%, 100% { background: rgba(162, 76, 99, 0.06); }
                       50% { background: rgba(162, 76, 99, 0.20); }
@@ -2118,32 +2134,18 @@ views:
                       {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
                       {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
                       {% if printer_status != 'idle' and target > 0 %}
-                        {% if target > current + 2 %}
+                        {% if target > current + 2 or target < current - 2 %}
                           {% if current < 50 %}
-                            background: rgba(255, 235, 59, 0.08);
-                            border-left: 3px solid rgba(255, 235, 59, 0.6);
+                            animation: pulse-yellow 2s ease-in-out infinite;
+                            border-left: 3px solid rgba(255, 235, 59, 0.7);
                           {% elif current < 150 %}
-                            background: rgba(255, 193, 7, 0.10);
-                            border-left: 3px solid rgba(255, 193, 7, 0.7);
+                            animation: pulse-amber 2s ease-in-out infinite;
+                            border-left: 3px solid rgba(255, 193, 7, 0.8);
                           {% elif current < 220 %}
-                            background: rgba(255, 152, 0, 0.12);
+                            animation: pulse-orange 2s ease-in-out infinite;
                             border-left: 3px solid rgba(255, 152, 0, 0.8);
                           {% else %}
-                            background: rgba(244, 67, 54, 0.12);
-                            border-left: 3px solid rgba(244, 67, 54, 0.8);
-                          {% endif %}
-                        {% elif target < current - 2 %}
-                          {% if current < 50 %}
-                            background: rgba(255, 235, 59, 0.08);
-                            border-left: 3px solid rgba(255, 235, 59, 0.6);
-                          {% elif current < 150 %}
-                            background: rgba(255, 193, 7, 0.10);
-                            border-left: 3px solid rgba(255, 193, 7, 0.7);
-                          {% elif current < 220 %}
-                            background: rgba(255, 152, 0, 0.12);
-                            border-left: 3px solid rgba(255, 152, 0, 0.8);
-                          {% else %}
-                            background: rgba(244, 67, 54, 0.12);
+                            animation: pulse-red 2s ease-in-out infinite;
                             border-left: 3px solid rgba(244, 67, 54, 0.8);
                           {% endif %}
                         {% else %}
@@ -2225,6 +2227,22 @@ views:
                       0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
                       50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
                     }
+                    @keyframes pulse-yellow {
+                      0%, 100% { background: rgba(255, 235, 59, 0.04); }
+                      50% { background: rgba(255, 235, 59, 0.16); }
+                    }
+                    @keyframes pulse-amber {
+                      0%, 100% { background: rgba(255, 193, 7, 0.05); }
+                      50% { background: rgba(255, 193, 7, 0.18); }
+                    }
+                    @keyframes pulse-orange {
+                      0%, 100% { background: rgba(255, 152, 0, 0.06); }
+                      50% { background: rgba(255, 152, 0, 0.20); }
+                    }
+                    @keyframes pulse-red {
+                      0%, 100% { background: rgba(244, 67, 54, 0.06); }
+                      50% { background: rgba(244, 67, 54, 0.22); }
+                    }
                     @keyframes pulse-at-target {
                       0%, 100% { background: rgba(162, 76, 99, 0.06); }
                       50% { background: rgba(162, 76, 99, 0.20); }
@@ -2234,32 +2252,18 @@ views:
                       {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
                       {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
                       {% if printer_status != 'idle' and target > 0 %}
-                        {% if target > current + 2 %}
+                        {% if target > current + 2 or target < current - 2 %}
                           {% if current < 30 %}
-                            background: rgba(255, 235, 59, 0.08);
-                            border-left: 3px solid rgba(255, 235, 59, 0.6);
+                            animation: pulse-yellow 2s ease-in-out infinite;
+                            border-left: 3px solid rgba(255, 235, 59, 0.7);
                           {% elif current < 50 %}
-                            background: rgba(255, 193, 7, 0.10);
-                            border-left: 3px solid rgba(255, 193, 7, 0.7);
+                            animation: pulse-amber 2s ease-in-out infinite;
+                            border-left: 3px solid rgba(255, 193, 7, 0.8);
                           {% elif current < 80 %}
-                            background: rgba(255, 152, 0, 0.12);
+                            animation: pulse-orange 2s ease-in-out infinite;
                             border-left: 3px solid rgba(255, 152, 0, 0.8);
                           {% else %}
-                            background: rgba(244, 67, 54, 0.12);
-                            border-left: 3px solid rgba(244, 67, 54, 0.8);
-                          {% endif %}
-                        {% elif target < current - 2 %}
-                          {% if current < 30 %}
-                            background: rgba(255, 235, 59, 0.08);
-                            border-left: 3px solid rgba(255, 235, 59, 0.6);
-                          {% elif current < 50 %}
-                            background: rgba(255, 193, 7, 0.10);
-                            border-left: 3px solid rgba(255, 193, 7, 0.7);
-                          {% elif current < 80 %}
-                            background: rgba(255, 152, 0, 0.12);
-                            border-left: 3px solid rgba(255, 152, 0, 0.8);
-                          {% else %}
-                            background: rgba(244, 67, 54, 0.12);
+                            animation: pulse-red 2s ease-in-out infinite;
                             border-left: 3px solid rgba(244, 67, 54, 0.8);
                           {% endif %}
                         {% else %}

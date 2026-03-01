@@ -77,6 +77,22 @@ card_mod:
       0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
       50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
     }
+    @keyframes pulse-yellow {
+      0%, 100% { background: rgba(255, 235, 59, 0.04); }
+      50% { background: rgba(255, 235, 59, 0.16); }
+    }
+    @keyframes pulse-amber {
+      0%, 100% { background: rgba(255, 193, 7, 0.05); }
+      50% { background: rgba(255, 193, 7, 0.18); }
+    }
+    @keyframes pulse-orange {
+      0%, 100% { background: rgba(255, 152, 0, 0.06); }
+      50% { background: rgba(255, 152, 0, 0.20); }
+    }
+    @keyframes pulse-red {
+      0%, 100% { background: rgba(244, 67, 54, 0.06); }
+      50% { background: rgba(244, 67, 54, 0.22); }
+    }
     @keyframes pulse-at-target {
       0%, 100% { background: rgba(162, 76, 99, 0.06); }
       50% { background: rgba(162, 76, 99, 0.20); }
@@ -85,15 +101,25 @@ card_mod:
       {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
       {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
       {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
-        background: rgba(244, 67, 54, 0.08);
-        border-left: 3px solid rgba(244, 67, 54, 0.8);
-      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
-        background: rgba(33, 150, 243, 0.08);
-        border-left: 3px solid rgba(33, 150, 243, 0.8);
-      {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
-        animation: pulse-at-target 2.5s ease-in-out infinite;
-        border-left: 3px solid rgba(162, 76, 99, 0.7);
+      {% if printer_status in ['printing', 'prepare'] and target > 0 %}
+        {% if target > current + 2 or target < current - 2 %}
+          {% if current < 50 %}
+            animation: pulse-yellow 2s ease-in-out infinite;
+            border-left: 3px solid rgba(255, 235, 59, 0.7);
+          {% elif current < 150 %}
+            animation: pulse-amber 2s ease-in-out infinite;
+            border-left: 3px solid rgba(255, 193, 7, 0.8);
+          {% elif current < 220 %}
+            animation: pulse-orange 2s ease-in-out infinite;
+            border-left: 3px solid rgba(255, 152, 0, 0.8);
+          {% else %}
+            animation: pulse-red 2s ease-in-out infinite;
+            border-left: 3px solid rgba(244, 67, 54, 0.8);
+          {% endif %}
+        {% else %}
+          animation: pulse-at-target 2.5s ease-in-out infinite;
+          border-left: 3px solid rgba(162, 76, 99, 0.7);
+        {% endif %}
       {% else %}
         background: rgba(158, 158, 158, 0.05);
       {% endif %}
@@ -174,6 +200,22 @@ card_mod:
       0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
       50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
     }
+    @keyframes pulse-yellow {
+      0%, 100% { background: rgba(255, 235, 59, 0.04); }
+      50% { background: rgba(255, 235, 59, 0.16); }
+    }
+    @keyframes pulse-amber {
+      0%, 100% { background: rgba(255, 193, 7, 0.05); }
+      50% { background: rgba(255, 193, 7, 0.18); }
+    }
+    @keyframes pulse-orange {
+      0%, 100% { background: rgba(255, 152, 0, 0.06); }
+      50% { background: rgba(255, 152, 0, 0.20); }
+    }
+    @keyframes pulse-red {
+      0%, 100% { background: rgba(244, 67, 54, 0.06); }
+      50% { background: rgba(244, 67, 54, 0.22); }
+    }
     @keyframes pulse-at-target {
       0%, 100% { background: rgba(162, 76, 99, 0.06); }
       50% { background: rgba(162, 76, 99, 0.20); }
@@ -182,15 +224,25 @@ card_mod:
       {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
       {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
       {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
-        background: rgba(244, 67, 54, 0.08);
-        border-left: 3px solid rgba(244, 67, 54, 0.8);
-      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
-        background: rgba(33, 150, 243, 0.08);
-        border-left: 3px solid rgba(33, 150, 243, 0.8);
-      {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
-        animation: pulse-at-target 2.5s ease-in-out infinite;
-        border-left: 3px solid rgba(162, 76, 99, 0.7);
+      {% if printer_status in ['printing', 'prepare'] and target > 0 %}
+        {% if target > current + 2 or target < current - 2 %}
+          {% if current < 30 %}
+            animation: pulse-yellow 2s ease-in-out infinite;
+            border-left: 3px solid rgba(255, 235, 59, 0.7);
+          {% elif current < 50 %}
+            animation: pulse-amber 2s ease-in-out infinite;
+            border-left: 3px solid rgba(255, 193, 7, 0.8);
+          {% elif current < 80 %}
+            animation: pulse-orange 2s ease-in-out infinite;
+            border-left: 3px solid rgba(255, 152, 0, 0.8);
+          {% else %}
+            animation: pulse-red 2s ease-in-out infinite;
+            border-left: 3px solid rgba(244, 67, 54, 0.8);
+          {% endif %}
+        {% else %}
+          animation: pulse-at-target 2.5s ease-in-out infinite;
+          border-left: 3px solid rgba(162, 76, 99, 0.7);
+        {% endif %}
       {% else %}
         background: rgba(158, 158, 158, 0.05);
       {% endif %}
@@ -268,6 +320,22 @@ cards:
           0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
           50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
         }
+        @keyframes pulse-yellow {
+          0%, 100% { background: rgba(255, 235, 59, 0.04); }
+          50% { background: rgba(255, 235, 59, 0.16); }
+        }
+        @keyframes pulse-amber {
+          0%, 100% { background: rgba(255, 193, 7, 0.05); }
+          50% { background: rgba(255, 193, 7, 0.18); }
+        }
+        @keyframes pulse-orange {
+          0%, 100% { background: rgba(255, 152, 0, 0.06); }
+          50% { background: rgba(255, 152, 0, 0.20); }
+        }
+        @keyframes pulse-red {
+          0%, 100% { background: rgba(244, 67, 54, 0.06); }
+          50% { background: rgba(244, 67, 54, 0.22); }
+        }
         @keyframes pulse-at-target {
           0%, 100% { background: rgba(162, 76, 99, 0.06); }
           50% { background: rgba(162, 76, 99, 0.20); }
@@ -276,15 +344,25 @@ cards:
           {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
           {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
-            background: rgba(244, 67, 54, 0.08);
-            border-left: 3px solid rgba(244, 67, 54, 0.8);
-          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
-            background: rgba(33, 150, 243, 0.08);
-            border-left: 3px solid rgba(33, 150, 243, 0.8);
-          {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
-            animation: pulse-at-target 2.5s ease-in-out infinite;
-            border-left: 3px solid rgba(162, 76, 99, 0.7);
+          {% if printer_status in ['printing', 'prepare'] and target > 0 %}
+            {% if target > current + 2 or target < current - 2 %}
+              {% if current < 50 %}
+                animation: pulse-yellow 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 235, 59, 0.7);
+              {% elif current < 150 %}
+                animation: pulse-amber 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 193, 7, 0.8);
+              {% elif current < 220 %}
+                animation: pulse-orange 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 152, 0, 0.8);
+              {% else %}
+                animation: pulse-red 2s ease-in-out infinite;
+                border-left: 3px solid rgba(244, 67, 54, 0.8);
+              {% endif %}
+            {% else %}
+              animation: pulse-at-target 2.5s ease-in-out infinite;
+              border-left: 3px solid rgba(162, 76, 99, 0.7);
+            {% endif %}
           {% else %}
             background: rgba(158, 158, 158, 0.05);
           {% endif %}
@@ -360,6 +438,22 @@ cards:
           0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
           50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
         }
+        @keyframes pulse-yellow {
+          0%, 100% { background: rgba(255, 235, 59, 0.04); }
+          50% { background: rgba(255, 235, 59, 0.16); }
+        }
+        @keyframes pulse-amber {
+          0%, 100% { background: rgba(255, 193, 7, 0.05); }
+          50% { background: rgba(255, 193, 7, 0.18); }
+        }
+        @keyframes pulse-orange {
+          0%, 100% { background: rgba(255, 152, 0, 0.06); }
+          50% { background: rgba(255, 152, 0, 0.20); }
+        }
+        @keyframes pulse-red {
+          0%, 100% { background: rgba(244, 67, 54, 0.06); }
+          50% { background: rgba(244, 67, 54, 0.22); }
+        }
         @keyframes pulse-at-target {
           0%, 100% { background: rgba(162, 76, 99, 0.06); }
           50% { background: rgba(162, 76, 99, 0.20); }
@@ -368,15 +462,25 @@ cards:
           {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
           {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
           {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
-          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
-            background: rgba(244, 67, 54, 0.08);
-            border-left: 3px solid rgba(244, 67, 54, 0.8);
-          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
-            background: rgba(33, 150, 243, 0.08);
-            border-left: 3px solid rgba(33, 150, 243, 0.8);
-          {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
-            animation: pulse-at-target 2.5s ease-in-out infinite;
-            border-left: 3px solid rgba(162, 76, 99, 0.7);
+          {% if printer_status in ['printing', 'prepare'] and target > 0 %}
+            {% if target > current + 2 or target < current - 2 %}
+              {% if current < 30 %}
+                animation: pulse-yellow 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 235, 59, 0.7);
+              {% elif current < 50 %}
+                animation: pulse-amber 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 193, 7, 0.8);
+              {% elif current < 80 %}
+                animation: pulse-orange 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 152, 0, 0.8);
+              {% else %}
+                animation: pulse-red 2s ease-in-out infinite;
+                border-left: 3px solid rgba(244, 67, 54, 0.8);
+              {% endif %}
+            {% else %}
+              animation: pulse-at-target 2.5s ease-in-out infinite;
+              border-left: 3px solid rgba(162, 76, 99, 0.7);
+            {% endif %}
           {% else %}
             background: rgba(158, 158, 158, 0.05);
           {% endif %}
