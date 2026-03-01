@@ -97,10 +97,11 @@ Data source: the `spools` list inside `sensor.spoolman_filament_totals.attribute
   - **More Details** button — opens HA entity info dialog for that spool
   - **Close** button — dismisses the mini-popup
 
-### 10. Bottom Row — More Details, Open in Spoolman & Close
-`custom:layout-card` with `grid-template-columns: 1fr 1fr 1fr` containing three `custom:button-card` buttons side-by-side:
+### 10. Bottom Row — More Details, Open in Spoolman, Reload & Close
+`custom:layout-card` with `grid-template-columns: 1fr 1fr 1fr 1fr` containing four `custom:button-card` buttons side-by-side:
 - **More Details** — triggers `action: more-info` for `sensor.spoolman_spool_{id}`; `mdi:information-outline` icon; `var(--primary-color)` background
 - **Open in Spoolman** — opens `http://spoolman.example.com/spool/show/{id}` in a new tab; Spoolman icon (dashboardicons.com via jsDelivr CDN); `var(--primary-color)` background
+- **Reload from Spoolman** — calls `homeassistant.update_entity` on `sensor.spoolman_spool_{id}` to force a fresh pull of spool data from Spoolman; `mdi:refresh` icon; `var(--primary-color)` background
 - **Close** — fires `browser_mod.close_popup` to dismiss the dialog; `mdi:close-circle-outline` icon; `var(--primary-color)` background; useful on mobile where the standard dismiss gesture may not be available
 
 ---
