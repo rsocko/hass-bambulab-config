@@ -334,19 +334,24 @@ sensor:
           {% set weight_key = tray_weight_keys.get(tray_key) %}
           {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
 
-          {% if print_weight > 0 and tray_data.spool_id is not none %}
-            {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
-            {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
-            {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
-            {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
-            {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
+          {% if print_weight > 0 %}
+            {% if tray_data.spool_id is not none %}
+              {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
+              {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
+              {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
+              {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
+              {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
 
-            {# Determine price per gram: spool price → filament price → default #}
-            {% if spool_price >= 0 %}
-              {% set price_per_gram = spool_price / initial_weight %}
-            {% elif filament_price >= 0 %}
-              {% set price_per_gram = filament_price / initial_weight %}
+              {# Determine price per gram: spool price → filament price → default #}
+              {% if spool_price >= 0 %}
+                {% set price_per_gram = spool_price / initial_weight %}
+              {% elif filament_price >= 0 %}
+                {% set price_per_gram = filament_price / initial_weight %}
+              {% else %}
+                {% set price_per_gram = default_price_per_kg / 1000 %}
+              {% endif %}
             {% else %}
+              {# No spool match — fall back to default price #}
               {% set price_per_gram = default_price_per_kg / 1000 %}
             {% endif %}
 
@@ -384,21 +389,27 @@ sensor:
             {% set weight_key = tray_weight_keys.get(tray_key) %}
             {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
 
-            {% if print_weight > 0 and tray_data.spool_id is not none %}
-              {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
-              {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
-              {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
-              {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
-              {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
+            {% if print_weight > 0 %}
+              {% if tray_data.spool_id is not none %}
+                {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
+                {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
+                {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
+                {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
+                {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
 
-              {# Determine price per gram: spool price → filament price → default #}
-              {% if spool_price >= 0 %}
-                {% set price_per_gram = spool_price / initial_weight %}
-                {% set price_source = 'spool' %}
-              {% elif filament_price >= 0 %}
-                {% set price_per_gram = filament_price / initial_weight %}
-                {% set price_source = 'filament' %}
+                {# Determine price per gram: spool price → filament price → default #}
+                {% if spool_price >= 0 %}
+                  {% set price_per_gram = spool_price / initial_weight %}
+                  {% set price_source = 'spool' %}
+                {% elif filament_price >= 0 %}
+                  {% set price_per_gram = filament_price / initial_weight %}
+                  {% set price_source = 'filament' %}
+                {% else %}
+                  {% set price_per_gram = default_price_per_kg / 1000 %}
+                  {% set price_source = 'default' %}
+                {% endif %}
               {% else %}
+                {# No spool match — fall back to default price #}
                 {% set price_per_gram = default_price_per_kg / 1000 %}
                 {% set price_source = 'default' %}
               {% endif %}
