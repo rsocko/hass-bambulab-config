@@ -69,6 +69,18 @@ tap_action:
   action: more-info
 card_mod:
   style: |
+    @keyframes glow-heat {
+      0%, 100% { box-shadow: 0 0 3px rgba(244, 67, 54, 0.3); }
+      50% { box-shadow: 0 0 10px rgba(244, 67, 54, 0.8); }
+    }
+    @keyframes glow-cool {
+      0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
+      50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
+    }
+    @keyframes pulse-at-target {
+      0%, 100% { background: rgba(162, 76, 99, 0.06); }
+      50% { background: rgba(162, 76, 99, 0.20); }
+    }
     ha-card {
       {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
       {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
@@ -79,8 +91,23 @@ card_mod:
       {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
         background: rgba(33, 150, 243, 0.08);
         border-left: 3px solid rgba(33, 150, 243, 0.8);
+      {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
+        animation: pulse-at-target 2.5s ease-in-out infinite;
+        border-left: 3px solid rgba(162, 76, 99, 0.7);
       {% else %}
         background: rgba(158, 158, 158, 0.05);
+      {% endif %}
+    }
+    mushroom-shape-icon {
+      {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+      {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+        animation: glow-heat 1.2s ease-in-out infinite;
+      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+        animation: glow-cool 1.5s ease-in-out infinite;
+      {% else %}
+        animation: none;
       {% endif %}
     }
     .primary {
@@ -139,6 +166,18 @@ tap_action:
   action: more-info
 card_mod:
   style: |
+    @keyframes glow-heat {
+      0%, 100% { box-shadow: 0 0 3px rgba(244, 67, 54, 0.3); }
+      50% { box-shadow: 0 0 10px rgba(244, 67, 54, 0.8); }
+    }
+    @keyframes glow-cool {
+      0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
+      50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
+    }
+    @keyframes pulse-at-target {
+      0%, 100% { background: rgba(162, 76, 99, 0.06); }
+      50% { background: rgba(162, 76, 99, 0.20); }
+    }
     ha-card {
       {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
       {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
@@ -149,8 +188,23 @@ card_mod:
       {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
         background: rgba(33, 150, 243, 0.08);
         border-left: 3px solid rgba(33, 150, 243, 0.8);
+      {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
+        animation: pulse-at-target 2.5s ease-in-out infinite;
+        border-left: 3px solid rgba(162, 76, 99, 0.7);
       {% else %}
         background: rgba(158, 158, 158, 0.05);
+      {% endif %}
+    }
+    mushroom-shape-icon {
+      {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+      {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+      {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+      {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+        animation: glow-heat 1.2s ease-in-out infinite;
+      {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+        animation: glow-cool 1.5s ease-in-out infinite;
+      {% else %}
+        animation: none;
       {% endif %}
     }
     .primary {
@@ -206,6 +260,18 @@ cards:
       action: more-info
     card_mod:
       style: |
+        @keyframes glow-heat {
+          0%, 100% { box-shadow: 0 0 3px rgba(244, 67, 54, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(244, 67, 54, 0.8); }
+        }
+        @keyframes glow-cool {
+          0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
+        }
+        @keyframes pulse-at-target {
+          0%, 100% { background: rgba(162, 76, 99, 0.06); }
+          50% { background: rgba(162, 76, 99, 0.20); }
+        }
         ha-card {
           {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
           {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
@@ -216,8 +282,23 @@ cards:
           {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
             background: rgba(33, 150, 243, 0.08);
             border-left: 3px solid rgba(33, 150, 243, 0.8);
+          {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
+            animation: pulse-at-target 2.5s ease-in-out infinite;
+            border-left: 3px solid rgba(162, 76, 99, 0.7);
           {% else %}
             background: rgba(158, 158, 158, 0.05);
+          {% endif %}
+        }
+        mushroom-shape-icon {
+          {% set current = states('sensor.YOUR_PRINTER_NAME_nozzle_temperature') | float(0) %}
+          {% set target = states('number.YOUR_PRINTER_NAME_nozzle_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+            animation: glow-heat 1.2s ease-in-out infinite;
+          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+            animation: glow-cool 1.5s ease-in-out infinite;
+          {% else %}
+            animation: none;
           {% endif %}
         }
         .primary {
@@ -271,6 +352,18 @@ cards:
       action: more-info
     card_mod:
       style: |
+        @keyframes glow-heat {
+          0%, 100% { box-shadow: 0 0 3px rgba(244, 67, 54, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(244, 67, 54, 0.8); }
+        }
+        @keyframes glow-cool {
+          0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
+        }
+        @keyframes pulse-at-target {
+          0%, 100% { background: rgba(162, 76, 99, 0.06); }
+          50% { background: rgba(162, 76, 99, 0.20); }
+        }
         ha-card {
           {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
           {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
@@ -281,8 +374,23 @@ cards:
           {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
             background: rgba(33, 150, 243, 0.08);
             border-left: 3px solid rgba(33, 150, 243, 0.8);
+          {% elif printer_status in ['printing', 'prepare'] and target > 0 %}
+            animation: pulse-at-target 2.5s ease-in-out infinite;
+            border-left: 3px solid rgba(162, 76, 99, 0.7);
           {% else %}
             background: rgba(158, 158, 158, 0.05);
+          {% endif %}
+        }
+        mushroom-shape-icon {
+          {% set current = states('sensor.YOUR_PRINTER_NAME_bed_temperature') | float(0) %}
+          {% set target = states('number.YOUR_PRINTER_NAME_bed_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
+          {% if printer_status in ['printing', 'prepare'] and target > current + 2 %}
+            animation: glow-heat 1.2s ease-in-out infinite;
+          {% elif printer_status in ['printing', 'prepare'] and target < current - 2 %}
+            animation: glow-cool 1.5s ease-in-out infinite;
+          {% else %}
+            animation: none;
           {% endif %}
         }
         .primary {
