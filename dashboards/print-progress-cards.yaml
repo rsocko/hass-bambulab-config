@@ -69,6 +69,10 @@ cards:
       # -----------------------------------------------------------------------
       - type: custom:button-card
         entity: sensor.YOUR_PRINTER_NAME_current_layer
+        triggers_update:
+          - sensor.YOUR_PRINTER_NAME_total_layer_count
+          - sensor.YOUR_PRINTER_NAME_print_status
+          - sensor.YOUR_PRINTER_NAME_current_stage
         show_name: false
         show_state: false
         show_icon: false
@@ -118,6 +122,9 @@ cards:
       # -----------------------------------------------------------------------
       - type: custom:button-card
         entity: sensor.YOUR_PRINTER_NAME_print_progress
+        triggers_update:
+          - sensor.YOUR_PRINTER_NAME_print_status
+          - sensor.YOUR_PRINTER_NAME_current_stage
         show_name: false
         show_state: false
         show_icon: false
@@ -264,6 +271,10 @@ cards:
 # LAYER PROGRESS — individual card (KPI style)
 type: custom:button-card
 entity: sensor.YOUR_PRINTER_NAME_current_layer
+triggers_update:
+  - sensor.YOUR_PRINTER_NAME_total_layer_count
+  - sensor.YOUR_PRINTER_NAME_print_status
+  - sensor.YOUR_PRINTER_NAME_current_stage
 show_name: false
 show_state: false
 show_icon: false
@@ -311,6 +322,9 @@ extra_styles: |
 # PRINT PROGRESS — individual card (KPI style)
 type: custom:button-card
 entity: sensor.YOUR_PRINTER_NAME_print_progress
+triggers_update:
+  - sensor.YOUR_PRINTER_NAME_print_status
+  - sensor.YOUR_PRINTER_NAME_current_stage
 show_name: false
 show_state: false
 show_icon: false

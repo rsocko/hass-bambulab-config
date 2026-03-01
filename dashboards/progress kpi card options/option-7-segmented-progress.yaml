@@ -5,6 +5,10 @@ type: horizontal-stack
 cards:
   - type: custom:button-card
     entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
     show_name: false
     show_state: false
     show_icon: false
@@ -35,7 +39,7 @@ cards:
           return `<div class="opt7-wrap">
             <div class="opt7-value">${value}</div>
             <div class="opt7-footer">
-              <span class="opt7-label">Layer Progress · Option 7</span>
+              <span class="opt7-label">Layer Progress</span>
               <ha-icon icon="mdi:layers-triple" class="opt7-icon" style="color:${color};"></ha-icon>
             </div>
             <div class="opt7-track">${segs}</div>
@@ -43,25 +47,32 @@ cards:
         ]]]
     styles:
       card:
-        - padding: 12px
+        - padding: 0
         - min-height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
       custom_fields:
         body:
           - width: 100%
     extra_styles: |
-      .opt7-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
+      .opt7-wrap { display:flex; flex-direction:column; width:100%; min-height:104px; }
       .opt7-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-      .opt7-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; }
+      .opt7-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; padding:0 12px; }
       .opt7-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
       .opt7-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-      .opt7-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:2px; }
-      .opt7-seg { height:5px; border-radius:2px; background:rgba(120,120,120,0.25); }
-      .opt7-seg-on { background:var(--opt7-color); }
+      .opt7-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; }
+      .opt7-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .opt7-seg-on { background:var(--opt7-color); box-shadow: 0 0 4px color-mix(in srgb, var(--opt7-color) 50%, transparent); }
     grid_options:
       columns: 6
 
   - type: custom:button-card
     entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
     show_name: false
     show_state: false
     show_icon: false
@@ -91,7 +102,7 @@ cards:
           return `<div class="opt7-wrap">
             <div class="opt7-value">${value}</div>
             <div class="opt7-footer">
-              <span class="opt7-label">Print Progress · Option 7</span>
+              <span class="opt7-label">Print Progress</span>
               <ha-icon icon="mdi:rotate-right" class="opt7-icon" style="color:${color};"></ha-icon>
             </div>
             <div class="opt7-track">${segs}</div>
@@ -99,19 +110,23 @@ cards:
         ]]]
     styles:
       card:
-        - padding: 12px
+        - padding: 0
         - min-height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
       custom_fields:
         body:
           - width: 100%
     extra_styles: |
-      .opt7-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
+      .opt7-wrap { display:flex; flex-direction:column; width:100%; min-height:104px; }
       .opt7-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-      .opt7-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; }
+      .opt7-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; padding:0 12px; }
       .opt7-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
       .opt7-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-      .opt7-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:2px; }
-      .opt7-seg { height:5px; border-radius:2px; background:rgba(120,120,120,0.25); }
-      .opt7-seg-on { background:var(--opt7-color); }
+      .opt7-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; }
+      .opt7-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .opt7-seg-on { background:var(--opt7-color); box-shadow: 0 0 4px color-mix(in srgb, var(--opt7-color) 50%, transparent); }
     grid_options:
       columns: 6

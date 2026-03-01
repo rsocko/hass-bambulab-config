@@ -1,0 +1,159 @@
+# Issue #516 - Option 11
+# Layer: Full-card vertical fill + animated segmented progress bar at bottom.
+# Print: Pie chart + animated segmented progress bar at bottom.
+
+type: horizontal-stack
+cards:
+  # --- Layer Progress: bottom-up fill + animated segmented bar ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[
+          const currentLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state);
+          const totalLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state);
+          const hasLayerData = Number.isFinite(currentLayer) && Number.isFinite(totalLayer) && totalLayer > 0;
+          const value = hasLayerData ? `${Math.round(currentLayer)}/${Math.round(totalLayer)}` : 'N/A';
+          const pct = hasLayerData ? Math.max(0, Math.min(100, (currentLayer / totalLayer) * 100)) : 0;
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 12;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            const animCls = on && isActive ? ' o11-seg-anim' : '';
+            const delay = `--o11-delay:${idx * 0.12}s`;
+            return `<span class="o11-seg${on ? ' o11-seg-on' : ''}${animCls}" style="--o11-color:${color}; ${delay}"></span>`;
+          }).join('');
+
+          return `<div class="o11-fill-wrap">
+            <div class="o11-fill-layer" style="height:${pct}%; --o11-color:${color};"></div>
+            <div class="o11-fill-content">
+              <div class="o11-fill-value">${value}</div>
+              <div class="o11-fill-footer">
+                <span class="o11-fill-label">Layer Progress</span>
+                <ha-icon icon="mdi:layers-triple" class="o11-fill-icon" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+            <div class="o11-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 102px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o11-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:102px; overflow:hidden; }
+      .o11-fill-layer { position:absolute; left:0; right:0; bottom:0; background: color-mix(in srgb, var(--o11-color) 28%, transparent); transition: height 0.4s ease; z-index:0; }
+      .o11-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; flex-grow:1; padding:12px 12px 8px; }
+      .o11-fill-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .o11-fill-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .o11-fill-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .o11-fill-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+      .o11-seg-track { position:relative; z-index:2; display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; flex-shrink:0; }
+      .o11-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .o11-seg-on { background:var(--o11-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o11-color) 50%, transparent); }
+      .o11-seg-anim { animation: o11-pulse 1.8s ease-in-out infinite; animation-delay: var(--o11-delay); }
+      @keyframes o11-pulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+    grid_options:
+      columns: 6
+
+  # --- Print Progress: pie chart + animated segmented bar ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[
+          const progress = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_print_progress']?.state);
+          const hasProgress = Number.isFinite(progress);
+          const pct = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+          const value = hasProgress ? `${Math.round(pct)}%` : 'N/A';
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 12;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            const animCls = on && isActive ? ' o11p-seg-anim' : '';
+            const delay = `--o11p-delay:${idx * 0.12}s`;
+            return `<span class="o11p-seg${on ? ' o11p-seg-on' : ''}${animCls}" style="--o11p-color:${color}; ${delay}"></span>`;
+          }).join('');
+
+          return `<div class="o11p-wrap">
+            <div class="o11p-main">
+              <div class="o11p-left">
+                <div class="o11p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+              </div>
+              <div class="o11p-right">
+                <div class="o11p-value">${value}</div>
+                <div class="o11p-footer">
+                  <span class="o11p-label">Print Progress</span>
+                </div>
+              </div>
+            </div>
+            <div class="o11p-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 102px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o11p-wrap { display:flex; flex-direction:column; width:100%; min-height:102px; overflow:hidden; }
+      .o11p-main { display:flex; flex-grow:1; align-items:center; min-height:0; }
+      .o11p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
+      .o11p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .o11p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
+      .o11p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
+      .o11p-footer { display:flex; align-items:center; justify-content:center; }
+      .o11p-label { text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
+      .o11p-seg-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; flex-shrink:0; }
+      .o11p-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .o11p-seg-on { background:var(--o11p-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o11p-color) 50%, transparent); }
+      .o11p-seg-anim { animation: o11p-pulse 1.8s ease-in-out infinite; animation-delay: var(--o11p-delay); }
+      @keyframes o11p-pulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+    grid_options:
+      columns: 6

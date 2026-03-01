@@ -1,0 +1,151 @@
+# Issue #516 - Option 10
+# Layer: Full-card vertical fill + segmented progress bar at bottom.
+# Print: Pie chart + segmented progress bar at bottom.
+
+type: horizontal-stack
+cards:
+  # --- Layer Progress: bottom-up fill + segmented bar ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[
+          const currentLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state);
+          const totalLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state);
+          const hasLayerData = Number.isFinite(currentLayer) && Number.isFinite(totalLayer) && totalLayer > 0;
+          const value = hasLayerData ? `${Math.round(currentLayer)}/${Math.round(totalLayer)}` : 'N/A';
+          const pct = hasLayerData ? Math.max(0, Math.min(100, (currentLayer / totalLayer) * 100)) : 0;
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 12;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            return `<span class="o10-seg${on ? ' o10-seg-on' : ''}" style="--o10-color:${color};"></span>`;
+          }).join('');
+
+          return `<div class="o10-fill-wrap">
+            <div class="o10-fill-layer" style="height:${pct}%; --o10-color:${color};"></div>
+            <div class="o10-fill-content">
+              <div class="o10-fill-value">${value}</div>
+              <div class="o10-fill-footer">
+                <span class="o10-fill-label">Layer Progress</span>
+                <ha-icon icon="mdi:layers-triple" class="o10-fill-icon" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+            <div class="o10-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 102px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o10-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:102px; overflow:hidden; }
+      .o10-fill-layer { position:absolute; left:0; right:0; bottom:0; background: color-mix(in srgb, var(--o10-color) 28%, transparent); transition: height 0.4s ease; z-index:0; }
+      .o10-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; flex-grow:1; padding:12px 12px 8px; }
+      .o10-fill-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .o10-fill-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .o10-fill-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .o10-fill-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+      .o10-seg-track { position:relative; z-index:2; display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; flex-shrink:0; }
+      .o10-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .o10-seg-on { background:var(--o10-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o10-color) 50%, transparent); }
+    grid_options:
+      columns: 6
+
+  # --- Print Progress: pie chart + segmented bar ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[
+          const progress = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_print_progress']?.state);
+          const hasProgress = Number.isFinite(progress);
+          const pct = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+          const value = hasProgress ? `${Math.round(pct)}%` : 'N/A';
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 12;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            return `<span class="o10p-seg${on ? ' o10p-seg-on' : ''}" style="--o10p-color:${color};"></span>`;
+          }).join('');
+
+          return `<div class="o10p-wrap">
+            <div class="o10p-main">
+              <div class="o10p-left">
+                <div class="o10p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+              </div>
+              <div class="o10p-right">
+                <div class="o10p-value">${value}</div>
+                <div class="o10p-footer">
+                  <span class="o10p-label">Print Progress</span>
+                </div>
+              </div>
+            </div>
+            <div class="o10p-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 102px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o10p-wrap { display:flex; flex-direction:column; width:100%; min-height:102px; overflow:hidden; }
+      .o10p-main { display:flex; flex-grow:1; align-items:center; min-height:0; }
+      .o10p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
+      .o10p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .o10p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
+      .o10p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
+      .o10p-footer { display:flex; align-items:center; justify-content:center; }
+      .o10p-label { text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
+      .o10p-seg-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; flex-shrink:0; }
+      .o10p-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .o10p-seg-on { background:var(--o10p-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o10p-color) 50%, transparent); }
+    grid_options:
+      columns: 6

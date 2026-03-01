@@ -5,6 +5,10 @@ type: horizontal-stack
 cards:
   - type: custom:button-card
     entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
     show_name: false
     show_state: false
     show_icon: false
@@ -29,7 +33,7 @@ cards:
           return `<div class="opt-card-wrap">
             <div class="opt-card-value">${value}</div>
             <div class="opt-card-footer">
-              <span class="opt-card-label">Layer Progress · Option 3</span>
+              <span class="opt-card-label">Layer Progress</span>
               <ha-icon icon="mdi:layers-triple" class="opt-card-icon" style="color:${color};"></ha-icon>
             </div>
             <div class="opt-bottom-track">
@@ -39,19 +43,23 @@ cards:
         ]]]
     styles:
       card:
-        - padding: 12px
+        - padding: 0
         - min-height: 102px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
       custom_fields:
         body:
           - width: 100%
     extra_styles: |
-      .opt-card-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
+      .opt-card-wrap { display:flex; flex-direction:column; width:100%; min-height:102px; }
       .opt-card-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-      .opt-card-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; }
+      .opt-card-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; padding:0 12px; }
       .opt-card-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
       .opt-card-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-      .opt-bottom-track { width:100%; height:4px; background:rgba(120,120,120,0.2); border-radius:999px; overflow:hidden; }
-      .opt-bottom-fill { height:100%; border-radius:999px; background:var(--opt-line-color); }
+      .opt-bottom-track { width:100%; height:10px; background:rgba(120,120,120,0.2); overflow:hidden; }
+      .opt-bottom-fill { height:100%; background:var(--opt-line-color); }
       .opt-anim-line {
         background: linear-gradient(90deg,
           color-mix(in srgb, var(--opt-line-color) 55%, white) 0%,
@@ -68,6 +76,9 @@ cards:
 
   - type: custom:button-card
     entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
     show_name: false
     show_state: false
     show_icon: false
@@ -91,7 +102,7 @@ cards:
           return `<div class="opt-card-wrap">
             <div class="opt-card-value">${value}</div>
             <div class="opt-card-footer">
-              <span class="opt-card-label">Print Progress · Option 3</span>
+              <span class="opt-card-label">Print Progress</span>
               <ha-icon icon="mdi:rotate-right" class="opt-card-icon" style="color:${color};"></ha-icon>
             </div>
             <div class="opt-bottom-track">
@@ -101,19 +112,23 @@ cards:
         ]]]
     styles:
       card:
-        - padding: 12px
+        - padding: 0
         - min-height: 102px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
       custom_fields:
         body:
           - width: 100%
     extra_styles: |
-      .opt-card-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
+      .opt-card-wrap { display:flex; flex-direction:column; width:100%; min-height:102px; }
       .opt-card-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-      .opt-card-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; }
+      .opt-card-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; padding:0 12px; }
       .opt-card-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
       .opt-card-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-      .opt-bottom-track { width:100%; height:4px; background:rgba(120,120,120,0.2); border-radius:999px; overflow:hidden; }
-      .opt-bottom-fill { height:100%; border-radius:999px; background:var(--opt-line-color); }
+      .opt-bottom-track { width:100%; height:10px; background:rgba(120,120,120,0.2); overflow:hidden; }
+      .opt-bottom-fill { height:100%; background:var(--opt-line-color); }
       .opt-anim-line {
         background: linear-gradient(90deg,
           color-mix(in srgb, var(--opt-line-color) 55%, white) 0%,
