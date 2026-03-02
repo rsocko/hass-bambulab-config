@@ -168,10 +168,7 @@ sensor:
 
           {% if tray_uuid and tray_uuid != '' and tray_uuid != EMPTY_UUID %}
             {# Match by tray_uuid #}
-            {% set match = spool_entities
-              | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid)
-              | list
-            %}
+            {% set match = spool_entities | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid) | list %}
             {% if match | length > 1 %}
               {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid ~ ' - ensure UUIDs are unique' %}
               {% set match = [] %}
@@ -179,12 +176,15 @@ sensor:
               {% set match_reason = 'No unsealed spool with UUID ' ~ tray_uuid %}
             {% endif %}
           {% else %}
-            {# Fallback: Match by color, exclude Bambu Lab filament #}
-            {% set match = spool_entities
-              | selectattr('attributes.filament_color_hex', 'equalto', tray_color)
-              | rejectattr('attributes.filament_vendor_name', 'equalto', 'Bambu Lab')
-              | list
-            %}
+            {# Fallback: Match by color (case-insensitive), exclude Bambu Lab filament #}
+            {% set ns_color = namespace(spools=[]) %}
+            {% for s in spool_entities %}
+              {% if s.attributes.filament_color_hex | default('') | lower == tray_color
+                  and s.attributes.filament_vendor_name | default('') != 'Bambu Lab' %}
+                {% set ns_color.spools = ns_color.spools + [s] %}
+              {% endif %}
+            {% endfor %}
+            {% set match = ns_color.spools %}
             {% if match | length > 1 %}
               {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color %}
               {% set match = [] %}
