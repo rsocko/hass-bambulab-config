@@ -22,8 +22,14 @@ sequence:
       - variables:
           bambu_only: true
           matched_spools: >-
-            {{ spools.content | selectattr('extra.spool_uuid', 'equalto', '"' ~
-            parameters.target_uuid ~ '"') | list }}
+            {% set target_lower = parameters.target_uuid | lower %}
+            {% set ns = namespace(result=[]) %}
+            {% for spool in spools.content %}
+              {% if spool.extra.spool_uuid | default('') | trim('"') | lower == target_lower %}
+                {% set ns.result = ns.result + [spool] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.result }}
           count: "{{ matched_spools | length }}"
           matched_spools_in_ams: >-
             {{ matched_spools | selectattr('location', 'equalto', 'AMS') | list
