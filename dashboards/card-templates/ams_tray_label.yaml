@@ -46,6 +46,7 @@ ams_tray_label:
           ]]]
       - padding: 4px
       - border-radius: 8px
+      - overflow: hidden
       - box-shadow: |
           [[[
             const active = states[variables.trayEntityId]?.attributes?.active;
