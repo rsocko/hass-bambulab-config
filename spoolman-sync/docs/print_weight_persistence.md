@@ -263,6 +263,11 @@ The solution includes comprehensive error handling:
 - Logs detailed error to system log
 - Continues processing other trays
 
+### Runout/Swap UUID Missing Guard
+- If an AMS tray UUID is missing at print completion (common after mid-print runout or spool swap), the print-complete automation skips automatic decrement for that tray.
+- A user-visible notification and logs explain the skip reason so manual recovery can be performed safely.
+- This fail-safe applies even when backup data is available, to avoid decrementing the wrong spool.
+
 ### Invalid Data
 - Validates weight > 0
 - Skips empty tray names

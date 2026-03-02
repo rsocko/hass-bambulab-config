@@ -6,19 +6,21 @@ This Home Assistant automation triggers upon a successful completion of a print 
 ## Key Features
 - **Backup/restore support**: If Home Assistant restarts during a print, the automation falls back to a backed-up snapshot of print weight attributes (captured at print start) so Spoolman is still updated correctly. See [Print Weight Persistence](print_weight_persistence.md) for details.
 - **Multi-AMS tray mapping**: Dynamically resolves AMS tray entities from the reported tray label (e.g., `AMS 2 Tray 3` → `sensor.[printer]_ams_2_tray_3`) so AMS2+ usage updates the correct spool.
+- **Runout/swap safety guard**: If an AMS tray UUID is missing at print completion (common after runout or spool swap), the automation skips automatic decrement for that tray to avoid updating the wrong spool.
 - **External Spool support**: Handles filament usage for both AMS trays and the External Spool (including "External Spool 2" on dual-nozzle printers like the H2D). The `print_weight` sensor reports external spool usage as `External Spool: <weight>` when the external spool is active.
 - **Zero-weight skip**: Trays that contributed 0 grams are silently skipped.
 - **No-data warning**: If neither the live sensor nor the backup has per-tray data, a persistent notification is created and Spoolman is not modified, so the user can manually recover.
-- **Persistent error logging**: When a spool cannot be found in Spoolman, the error is recorded in `input_text.spoolman_sync_error_log` (rolling 10-entry log), `input_text.spoolman_sync_last_error`, `input_datetime.spoolman_sync_last_error_time`, and `input_boolean.spoolman_sync_error_active`, enabling manual recovery via the [Manual Spoolman Recovery script](../manual_spoolman_recovery-script.yaml).
+- **Persistent error logging with likely-cause context**: When a spool cannot be found in Spoolman, the automation records detailed error context (including likely cause and tray entity) in `input_text.spoolman_sync_error_log` (rolling 10-entry log), `input_text.spoolman_sync_last_error`, `input_datetime.spoolman_sync_last_error_time`, and `input_boolean.spoolman_sync_error_active`, enabling manual recovery via the [Manual Spoolman Recovery script](../manual_spoolman_recovery-script.yaml).
 
 ## Logic
 1. Check whether the live `print_weight` sensor has AMS/External Spool attributes.
 2. If not, fall back to the backup stored in `input_text.print_weight_backup`.
 3. If neither source has per-tray data, notify the user and stop.
-4. For each tray with non-zero usage, call the **Find Matching Spool** script to locate the correct spool in Spoolman and update its filament usage via `spoolman.use_spool_filament`.
-5. On success: log to system log, logbook, and create a persistent notification.
-6. On failure (spool not found): write to the persistent error log helpers and create an actionable notification with tray details for manual recovery.
-7. Clear the print weight backup after processing.
+4. For each tray with non-zero usage, resolve tray entity metadata. If AMS tray UUID is missing, skip update for that tray and notify/log why (runout/swap-safe behavior).
+5. For trays with usable metadata, call the **Find Matching Spool** script to locate the correct spool in Spoolman and update its filament usage via `spoolman.use_spool_filament`.
+6. On success: log to system log, logbook, and create a persistent notification.
+7. On failure (spool not found): write to the persistent error log helpers and create an actionable notification with tray details, tray entity, and likely-cause context for manual recovery.
+8. Clear the print weight backup after processing.
 
 ## Source Code
 [Print Complete - Update Filament Usage - YAML](../print_complete-update_filament_usage.yaml)

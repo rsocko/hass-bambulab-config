@@ -211,6 +211,55 @@ actions:
               type: "{{ state_attr(tray_entity_id, 'type') }}"
               color: "{{ state_attr(tray_entity_id, 'color') | replace('#', '') }}"
               name: "{{ state_attr(tray_entity_id, 'name') | default('') }}"
+            tray_uuid_normalized: "{{ (selected_tray.uuid | string | lower) }}"
+
+        # If AMS tray UUID is missing, skip matching to avoid decrementing wrong spool
+        - if:
+            - condition: template
+              value_template: >-
+                {{ tray_number != 'external' and
+                   tray_uuid_normalized in ['none', 'unknown', 'unavailable', ''] }}
+              alias: AMS tray UUID missing (possible runout/swap)
+          then:
+            - action: persistent_notification.create
+              metadata: {}
+              data:
+                notification_id: >-
+                  spoolman_sync_uuid_missing_{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | slugify }}_{{ tray_name | slugify }}
+                title: "Spoolman Update Skipped: Missing Tray UUID"
+                message: >-
+                  **Print Job:** {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
+
+                  **Tray:** {{ tray_name }}
+
+                  **Weight:** {{ tray_print_weight }}g
+
+                  **Reason:** Tray UUID is missing for AMS tray entity `{{ tray_entity_id }}`.
+                  This commonly happens when a spool runs out or is swapped during print.
+
+                  To avoid decrementing the wrong spool, automatic Spoolman update was skipped for this tray.
+            - action: system_log.write
+              metadata: {}
+              data:
+                message: >-
+                  Print Complete WARNING: Skipping Spoolman update for {{ tray_name }} because tray UUID is missing
+                  (entity: {{ tray_entity_id }}, task: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}).
+                  Possible spool runout/swap during print. Weight {{ tray_print_weight }}g not auto-applied.
+                level: warning
+                logger: homeassistant.components.bambulab.spoolman_sync
+            - action: logbook.log
+              metadata: {}
+              data:
+                name: Spoolman Sync Skipped
+                message: >-
+                  Skipped filament update for {{ tray_name }} ({{ tray_print_weight }}g) because tray UUID was missing.
+                  Possible spool runout/swap during print.
+
+        - condition: template
+          value_template: >-
+            {{ not (tray_number != 'external' and
+                    tray_uuid_normalized in ['none', 'unknown', 'unavailable', '']) }}
+          alias: Continue only when tray UUID is available (or tray is external)
 
         # Find matching spool in Spoolman
         - action: script.find_matching_spool_in_spoolman
@@ -286,11 +335,21 @@ actions:
             - variables:
                 task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
                 error_timestamp: "{{ now().isoformat() }}"
+                probable_cause: >-
+                  {% set msg = (find_spool_response.message | string | lower) %}
+                  {% set tray_uuid = (selected_tray.uuid | string | lower) %}
+                  {% if tray_uuid in ['none', 'unknown', 'unavailable', ''] %}
+                    Tray appears empty or changed (possible spool runout/swap during print).
+                  {% elif 'no spool' in msg or 'not found' in msg %}
+                    No matching spool found in Spoolman (possible runout/swap or tray metadata mismatch).
+                  {% else %}
+                    Spool matching failed due to metadata mismatch or lookup error.
+                  {% endif %}
                 error_details: >-
                   {{ error_timestamp }}|{{ tray_name }}|{{
                   find_spool_response.message }}|{{ tray_print_weight }}|{{
                   selected_tray.uuid }}|{{ selected_tray.color }}|{{
-                  selected_tray.type }}
+                  selected_tray.type }}|{{ tray_entity_id }}|{{ probable_cause }}
                 current_error_log: "{{ state_attr('sensor.spoolman_sync_error_log_storage', 'log') | default('') }}"
             - action: input_boolean.turn_on
               data:
@@ -326,6 +385,8 @@ actions:
 
                   **Error:** {{ find_spool_response.message }}
 
+                  **Likely Cause:** {{ probable_cause }}
+
 
                   **Tray Details for Manual Recovery:**
 
@@ -334,6 +395,8 @@ actions:
                   - Color: `{{ selected_tray.color }}`
 
                   - Type: `{{ selected_tray.type }}`
+
+                  - Tray Entity: `{{ tray_entity_id }}`
 
 
                   To manually update Spoolman, find the matching spool and
@@ -346,8 +409,10 @@ actions:
                 message: >-
                   Print Complete ERROR: Cannot find spool in Spoolman for {{
                   tray_name }}. Task: {{ task_name }}.
+                  Likely cause: {{ probable_cause }}.
                   UUID: {{ selected_tray.uuid }}, Type: {{ selected_tray.type
-                  }}, Color: {{ selected_tray.color }}. Used {{
+                  }}, Color: {{ selected_tray.color }}, Entity: {{
+                  tray_entity_id }}. Used {{
                   tray_print_weight }} grams. Error: {{
                   find_spool_response.message }}
                 level: error
@@ -359,7 +424,8 @@ actions:
                 message: >-
                   Failed to update filament usage for {{ tray_name }} after
                   print "{{ task_name }}". Weight: {{ tray_print_weight }}g.
-                  Error: {{ find_spool_response.message }}
+                  Error: {{ find_spool_response.message }}. Likely cause: {{
+                  probable_cause }}
       for_each: "{{ ams_tray_list }}"
 
   # Clear the backup after processing to avoid stale data on next print
