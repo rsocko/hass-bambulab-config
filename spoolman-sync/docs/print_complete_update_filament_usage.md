@@ -5,6 +5,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 
 ## Key Features
 - **Backup/restore support**: If Home Assistant restarts during a print, the automation falls back to a backed-up snapshot of print weight attributes (captured at print start) so Spoolman is still updated correctly. See [Print Weight Persistence](print_weight_persistence.md) for details.
+- **Multi-AMS tray mapping**: Dynamically resolves AMS tray entities from the reported tray label (e.g., `AMS 2 Tray 3` → `sensor.[printer]_ams_2_tray_3`) so AMS2+ usage updates the correct spool.
 - **External Spool support**: Handles filament usage for both AMS trays and the External Spool (including "External Spool 2" on dual-nozzle printers like the H2D). The `print_weight` sensor reports external spool usage as `External Spool: <weight>` when the external spool is active.
 - **Zero-weight skip**: Trays that contributed 0 grams are silently skipped.
 - **No-data warning**: If neither the live sensor nor the backup has per-tray data, a persistent notification is created and Spoolman is not modified, so the user can manually recover.
@@ -29,7 +30,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 - All other prerequisites as specified in [README](../README.md)
 
 ## Notes
-- I have only tested this on my own setup — a Bambu Lab P1S with a single AMS attached. I have not tested with an AMS Lite, AMS 2, or multiple AMSs.
+- The automation now parses the AMS index from tray labels (for example `AMS 1 Tray 2`, `AMS 2 Tray 2`) instead of hardcoding AMS 1 tray entities.
 - **External Spool behavior**: Based on analysis of the ha-bambulab integration source code, when printing from the External Spool on a printer with an AMS, the `print_weight` sensor's per-tray attributes (`External Spool: <weight>`) may be cleared when the print finishes (because the external spool becomes "inactive" as `tray_now` resets to 255). The backup mechanism in [Print Started - Backup Print Weight](../print_started-backup_print_weight.yaml) captures these attributes at print start and is used as a fallback in this scenario.
 
 ## Flow of the Logic

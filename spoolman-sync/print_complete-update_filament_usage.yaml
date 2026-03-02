@@ -187,6 +187,12 @@ actions:
               {% else %}
                 {{ tray_name.split(' ')[3] }}
               {% endif %}
+            tray_ams_number: >
+              {% if 'External Spool' in tray_name %}
+                external
+              {% else %}
+                {{ tray_name.split(' ')[1] }}
+              {% endif %}
             tray_entity_id: >
               {% if tray_number == 'external' %}
                 {% if 'External Spool 2' in tray_name %}
@@ -195,7 +201,7 @@ actions:
                   sensor.ntk_ryansoffice_3dprinter_external_spool
                 {% endif %}
               {% else %}
-                sensor.p1s_01p00c460102350_ams_1_tray_{{ tray_number }}
+                sensor.p1s_01p00c460102350_ams_{{ tray_ams_number }}_tray_{{ tray_number }}
               {% endif %}
 
         # Get tray details for spool lookup

@@ -85,7 +85,7 @@ homeassistant:
 Replace these with your printer's entities (search and replace):
 - `sensor.ntk_ryansoffice_3dprinter_print_weight` → `sensor.[YOUR_PRINTER]_print_weight`
 - `sensor.ntk_ryansoffice_3dprinter_task_name` → `sensor.[YOUR_PRINTER]_task_name`
-- `sensor.p1s_01p00c460102350_ams_1_tray_1` → `sensor.[YOUR_PRINTER]_ams_1_tray_1`
+- `sensor.p1s_01p00c460102350_ams_[N]_tray_[SLOT]` → `sensor.[YOUR_PRINTER]_ams_[N]_tray_[SLOT]`
 - etc.
 
 ### Step 4: Restart Home Assistant

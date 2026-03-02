@@ -100,7 +100,7 @@ This updates the existing automation to add error logging.
 5. Replace the entire content with `print_complete-update_filament_usage.yaml`
 6. **Important**: Update entity IDs to match your setup:
    - Line 16: `sensor.ntk_ryansoffice_3dprinter_print_weight` → your print weight sensor
-   - Line 71: `sensor.p1s_01p00c460102350_ams_1_tray_` → your AMS tray sensors
+  - AMS tray pattern: `sensor.p1s_01p00c460102350_ams_[N]_tray_[SLOT]` → your AMS tray sensors
    - Line 123: `sensor.ntk_ryansoffice_3dprinter_task_name` → your task name sensor
 7. Save the automation
 
@@ -255,7 +255,7 @@ You need to update entity IDs in multiple places. Here's a quick reference:
 - Line 16: `sensor.[your_printer]_print_weight`
 - Line 20: `sensor.[your_printer]_print_weight`
 - Line 40: `sensor.[your_printer]_print_weight`
-- Line 71: `sensor.p1s_[your_serial]_ams_1_tray_`
+- AMS tray pattern: `sensor.p1s_[your_serial]_ams_[N]_tray_[SLOT]`
 - Line 123: `sensor.[your_printer]_task_name`
 
 **In active_tray_changed_update_spoolman.yaml:**

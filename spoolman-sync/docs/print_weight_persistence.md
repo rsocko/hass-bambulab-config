@@ -176,7 +176,7 @@ The automations reference specific entity IDs. Update these to match your setup:
 
 - `sensor.ntk_ryansoffice_3dprinter_print_weight`
 - `sensor.ntk_ryansoffice_3dprinter_task_name`
-- `sensor.p1s_01p00c460102350_ams_1_tray_1` (etc.)
+- `sensor.p1s_01p00c460102350_ams_[N]_tray_[SLOT]` (e.g., `..._ams_1_tray_1`, `..._ams_2_tray_3`)
 - `sensor.ntk_ryansoffice_3dprinter_external_spool`
 
 Search and replace with your printer's entity prefix.
