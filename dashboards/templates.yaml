@@ -167,15 +167,8 @@ sensor:
           {% set match_reason = none %}
 
           {% if tray_uuid and tray_uuid != '' and tray_uuid != EMPTY_UUID %}
-            {# Match by tray_uuid (case-insensitive) #}
-            {% set tray_uuid_lower = tray_uuid | lower %}
-            {% set ns_uuid = namespace(spools=[]) %}
-            {% for s in spool_entities %}
-              {% if s.attributes.extra_spool_uuid | default('') | lower == tray_uuid_lower %}
-                {% set ns_uuid.spools = ns_uuid.spools + [s] %}
-              {% endif %}
-            {% endfor %}
-            {% set match = ns_uuid.spools %}
+            {# Match by tray_uuid #}
+            {% set match = spool_entities | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid) | list %}
             {% if match | length > 1 %}
               {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid ~ ' - ensure UUIDs are unique' %}
               {% set match = [] %}
