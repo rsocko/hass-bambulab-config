@@ -27,9 +27,10 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
 
-          const segCount = 12;
+          const segCount = 20;
           const filled = Math.round((pct / 100) * segCount);
           const segs = Array.from({ length: segCount }, (_, idx) => {
             const on = idx < filled;
@@ -62,8 +63,8 @@ cards:
       .opt7-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; padding:0 12px; }
       .opt7-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
       .opt7-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-      .opt7-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; }
-      .opt7-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .opt7-track { display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; padding:0 4px 4px; }
+      .opt7-seg { height:8px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
       .opt7-seg-on { background:var(--opt7-color); box-shadow: 0 0 4px color-mix(in srgb, var(--opt7-color) 50%, transparent); }
     grid_options:
       columns: 6
@@ -90,9 +91,10 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
 
-          const segCount = 12;
+          const segCount = 20;
           const filled = Math.round((pct / 100) * segCount);
           const segs = Array.from({ length: segCount }, (_, idx) => {
             const on = idx < filled;
@@ -125,8 +127,8 @@ cards:
       .opt7-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; margin-bottom:8px; padding:0 12px; }
       .opt7-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
       .opt7-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-      .opt7-track { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; padding:0 4px 4px; }
-      .opt7-seg { height:10px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
+      .opt7-track { display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; padding:0 4px 4px; }
+      .opt7-seg { height:8px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease; }
       .opt7-seg-on { background:var(--opt7-color); box-shadow: 0 0 4px color-mix(in srgb, var(--opt7-color) 50%, transparent); }
     grid_options:
       columns: 6

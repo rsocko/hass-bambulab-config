@@ -184,6 +184,7 @@ cards:
           {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
           {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
           {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
+          {% elif status in ['finish', 'finished', 'complete', 'completed', 'success'] or stage in ['finish', 'finished', 'complete', 'completed'] %}orange
           {% elif status == 'pause' or stage == 'pause' %}amber
           {% else %}grey{% endif %}
         layout: horizontal
@@ -377,6 +378,7 @@ icon_color: >-
   {% set status = states('sensor.YOUR_PRINTER_NAME_print_status') | lower %}
   {% set stage = states('sensor.YOUR_PRINTER_NAME_current_stage') | lower %}
   {% if status in ['printing', 'prepare'] or stage == 'printing' %}orange
+  {% elif status in ['finish', 'finished', 'complete', 'completed', 'success'] or stage in ['finish', 'finished', 'complete', 'completed'] %}orange
   {% elif status == 'pause' or stage == 'pause' %}amber
   {% else %}grey{% endif %}
 layout: horizontal

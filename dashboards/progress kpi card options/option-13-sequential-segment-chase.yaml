@@ -1,0 +1,170 @@
+# Issue #516 - Option 13
+# Derived from option 11.
+# Layer: Full-card vertical fill + sequential single-segment chase across filled segments.
+# Print: Pie chart + sequential single-segment chase across filled segments.
+
+type: horizontal-stack
+cards:
+  # --- Layer Progress: bottom-up fill + sequential segmented chase ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[ 
+          const currentLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state);
+          const totalLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state);
+          const hasLayerData = Number.isFinite(currentLayer) && Number.isFinite(totalLayer) && totalLayer > 0;
+          const value = hasLayerData ? `${Math.round(currentLayer)}/${Math.round(totalLayer)}` : 'N/A';
+          const pct = hasLayerData ? Math.max(0, Math.min(100, (currentLayer / totalLayer) * 100)) : 0;
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 20;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            const animCls = on && isActive ? ' o13-seg-chase' : '';
+            const delay = `--o13-delay:${idx * 0.18}s`;
+            return `<span class="o13-seg${on ? ' o13-seg-on' : ''}${animCls}" style="--o13-color:${color}; ${delay}"></span>`;
+          }).join('');
+
+          return `<div class="o13-fill-wrap">
+            <div class="o13-fill-layer" style="height:${pct}%; --o13-color:${color};"></div>
+            <div class="o13-fill-content">
+              <div class="o13-fill-value">${value}</div>
+              <div class="o13-fill-footer">
+                <span class="o13-fill-label">Layer Progress</span>
+                <ha-icon icon="mdi:layers-triple" class="o13-fill-icon" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+            <div class="o13-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 104px
+        - height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o13-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:104px; height:100%; overflow:hidden; }
+      .o13-fill-layer { position:absolute; left:0; right:0; bottom:0; background: color-mix(in srgb, var(--o13-color) 28%, transparent); transition: height 0.4s ease; z-index:0; }
+      .o13-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; flex-grow:1; padding:12px 12px 8px; }
+      .o13-fill-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .o13-fill-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .o13-fill-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .o13-fill-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+      .o13-seg-track { position:relative; z-index:2; display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; padding:0 4px 4px; flex-shrink:0; }
+      .o13-seg { height:8px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease, box-shadow 0.3s ease; }
+      .o13-seg-on { background:var(--o13-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o13-color) 50%, transparent); }
+      .o13-seg-chase { animation: o13-chase 3.6s linear infinite; animation-delay: var(--o13-delay); }
+      @keyframes o13-chase {
+        0%, 88%, 100% { filter: brightness(1); box-shadow: 0 0 4px color-mix(in srgb, var(--o13-color) 50%, transparent); }
+        8% { filter: brightness(1.28); box-shadow: 0 0 9px color-mix(in srgb, var(--o13-color) 85%, transparent); }
+      }
+    grid_options:
+      columns: 6
+
+  # --- Print Progress: pie chart + sequential segmented chase ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[ 
+          const progress = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_print_progress']?.state);
+          const hasProgress = Number.isFinite(progress);
+          const pct = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+          const value = hasProgress ? `${Math.round(pct)}%` : 'N/A';
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 20;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            const animCls = on && isActive ? ' o13p-seg-chase' : '';
+            const delay = `--o13p-delay:${idx * 0.18}s`;
+            return `<span class="o13p-seg${on ? ' o13p-seg-on' : ''}${animCls}" style="--o13p-color:${color}; ${delay}"></span>`;
+          }).join('');
+
+          return `<div class="o13p-wrap">
+            <div class="o13p-main">
+              <div class="o13p-left">
+                <div class="o13p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+              </div>
+              <div class="o13p-right">
+                <div class="o13p-value">${value}</div>
+                <div class="o13p-footer">
+                  <span class="o13p-label">Print Progress</span>
+                </div>
+              </div>
+            </div>
+            <div class="o13p-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 104px
+        - height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o13p-wrap { display:flex; flex-direction:column; width:100%; min-height:104px; height:100%; overflow:hidden; }
+      .o13p-main { display:flex; flex-grow:1; align-items:center; min-height:0; }
+      .o13p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
+      .o13p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .o13p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
+      .o13p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
+      .o13p-footer { display:flex; align-items:center; justify-content:center; }
+      .o13p-label { text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
+      .o13p-seg-track { display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; padding:0 4px 4px; flex-shrink:0; }
+      .o13p-seg { height:8px; background:rgba(120,120,120,0.25); border-radius:2px; transition: background 0.3s ease, box-shadow 0.3s ease; }
+      .o13p-seg-on { background:var(--o13p-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o13p-color) 50%, transparent); }
+      .o13p-seg-chase { animation: o13p-chase 3.6s linear infinite; animation-delay: var(--o13p-delay); }
+      @keyframes o13p-chase {
+        0%, 88%, 100% { filter: brightness(1); box-shadow: 0 0 4px color-mix(in srgb, var(--o13p-color) 50%, transparent); }
+        8% { filter: brightness(1.28); box-shadow: 0 0 9px color-mix(in srgb, var(--o13p-color) 85%, transparent); }
+      }
+    grid_options:
+      columns: 6

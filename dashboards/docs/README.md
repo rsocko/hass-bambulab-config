@@ -26,8 +26,11 @@ Documentation for the HMS (Health Management System) error alert implementation:
 
 ## Print Progress Options (Issue #516)
 
-- **[print-progress-options-guide.md](print-progress-options-guide.md)** - Comparison and selection guide for options 1-7
+- **[print-progress-options-guide.md](print-progress-options-guide.md)** - Comparison and selection guide for options 1-13
   - Summary table for all implemented variants
+  - Finished-state color behavior updates
+  - Segment animation and density updates
+  - Card height consistency updates
   - Quick option selection checklist
   - Entity and behavior notes
   - Validation checklist

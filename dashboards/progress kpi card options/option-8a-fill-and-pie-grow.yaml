@@ -29,7 +29,8 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
 
           return `<div class="opt8-fill-wrap">
             <div class="opt8-fill-layer" style="height:${pct}%; --opt8-color:${color};"></div>
@@ -45,7 +46,8 @@ cards:
     styles:
       card:
         - padding: 0
-        - min-height: 102px
+        - min-height: 104px
+        - height: 104px
         - overflow: hidden
       grid:
         - grid-template-areas: '"body"'
@@ -55,9 +57,9 @@ cards:
           - width: 100%
           - height: 100%
     extra_styles: |
-      .opt8-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:102px; overflow:hidden; }
+      .opt8-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:104px; height:100%; overflow:hidden; }
       .opt8-fill-layer { position:absolute; left:0; right:0; bottom:0; background: color-mix(in srgb, var(--opt8-color) 28%, transparent); transition: height 0.4s ease; z-index:0; }
-      .opt8-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; min-height:102px; padding:12px; }
+      .opt8-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; flex-grow:1; padding:12px; }
       .opt8-fill-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
       .opt8-fill-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
       .opt8-fill-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
@@ -86,11 +88,13 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const pieCls = isFinished ? ' opt8p-pie-finished' : '';
 
           return `<div class="opt8p-wrap">
             <div class="opt8p-left">
-              <div class="opt8p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+              <div class="opt8p-pie${pieCls}" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
             </div>
             <div class="opt8p-right">
               <div class="opt8p-value">${value}</div>
@@ -103,7 +107,8 @@ cards:
     styles:
       card:
         - padding: 0
-        - min-height: 102px
+        - min-height: 104px
+        - height: 104px
         - overflow: hidden
       grid:
         - grid-template-areas: '"body"'
@@ -113,9 +118,10 @@ cards:
           - width: 100%
           - height: 100%
     extra_styles: |
-      .opt8p-wrap { display:flex; width:100%; min-height:102px; height:100%; align-items:center; }
+      .opt8p-wrap { display:flex; width:100%; min-height:104px; height:100%; align-items:center; }
       .opt8p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:4px; }
       .opt8p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .opt8p-pie-finished { width:56px; height:56px; box-shadow: 0 0 8px color-mix(in srgb, #4CAF50 65%, transparent), 0 0 14px color-mix(in srgb, #4CAF50 45%, transparent); }
       .opt8p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
       .opt8p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
       .opt8p-footer { display:flex; align-items:center; justify-content:center; }

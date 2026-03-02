@@ -63,7 +63,7 @@ Key features:
 
 ### Print Progress Cards
 Animated progress cards for monitoring active prints. Available as a standalone file (`print-progress-cards.yaml`).
-See [docs/print-progress-options-guide.md](docs/print-progress-options-guide.md) for all seven issue #516 progress design variants.
+See [docs/print-progress-options-guide.md](docs/print-progress-options-guide.md) for all thirteen issue #516 progress design variants.
 
 Key features:
 - **Layer Progress** — layers icon bounces upward while printing, simulating layers piling up
@@ -75,6 +75,7 @@ Key features:
   - Within a week: `4:32 PM on Wednesday`
   - Farther away: `4:32 PM on 4/12/26`
 - All animations stop automatically when the print is paused, stopped, or complete
+- Finished-state visuals for KPI options now retain semantic colors (instead of gray) for configured icons/progress/fill elements
 - 2×2 grid layout: Layer Progress + Print Progress (row 1), Time Remaining + Est. Completion (row 2)
 
 ## Custom Cards Required

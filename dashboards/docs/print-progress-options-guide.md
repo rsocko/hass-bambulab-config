@@ -12,8 +12,12 @@ This guide covers all implemented Layer Progress + Print Progress card variants.
 - `dashboards/progress kpi card options/option-7-segmented-progress.yaml`
 - `dashboards/progress kpi card options/option-8a-fill-and-pie-grow.yaml`
 - `dashboards/progress kpi card options/option-9-fill-pie-animated-bar.yaml`
+- `dashboards/progress kpi card options/option-10-segmented-fill-pie.yaml`
+- `dashboards/progress kpi card options/option-11-animated-segmented-fill-pie.yaml`
+- `dashboards/progress kpi card options/option-12-animated-fill-pie.yaml`
+- `dashboards/progress kpi card options/option-13-sequential-segment-chase.yaml`
 
-All eight options are included in the main dashboard under the existing KPI cards in `dashboards/lovelace.3d_printing`.
+All thirteen options are included in the main dashboard under the existing KPI cards in `dashboards/lovelace.3d_printing`.
 
 ## Option Summary
 
@@ -24,9 +28,13 @@ All eight options are included in the main dashboard under the existing KPI card
 | 4 | Full-card vertical fill (bottom to top) | Strong fill metaphor for completion |
 | 5 | Full-card horizontal fill (left to right) | Wide directional completion cue |
 | 6 | Bottom bar with 25/50/75/100 milestones | Milestone-aware progress at a glance |
-| 7 | Segmented bar (12 steps) | Discrete, step-like progress perception |
+| 7 | Segmented bar (20 steps) | Discrete, step-like progress perception |
 | 8a | Vertical fill (layer) + borderless pie chart (print) | Mixed metaphor — fill for layers, pie for overall |
 | 9 | Vertical fill + pie chart + animated bottom bar | Combines 8a’s fill/pie with 3’s animated progress bar |
+| 10 | Vertical fill + segmented bar (layer), pie + segmented bar (print) | Dense segmented tracking with mixed fill/pie visuals |
+| 11 | Option 10 with animated segmented bars | Segmented motion emphasis while actively printing |
+| 12 | Animated vertical gradient fill + animated pie overlay | Richer motion styling on both cards |
+| 13 | Option 11 with sequential single-segment chase animation | Left-to-right chase cue over filled segments |
 
 ## Selection Checklist
 
@@ -40,6 +48,10 @@ Use this quick checklist when deciding which option to keep long-term:
 - Prefer chunked/step progress over smooth bars → **Option 7**
 - Want vertical fill for layers + a pie chart for print progress → **Option 8a**
 - Want 8a plus an animated progress bar at the bottom → **Option 9**
+- Want segmented bars paired with vertical fill/pie and no segment animation → **Option 10**
+- Want segmented bars with pulse animation while printing → **Option 11**
+- Want animated gradient fill + rotating pie overlay style → **Option 12**
+- Want segmented bars with a one-segment-at-a-time left-to-right chase → **Option 13**
 
 ## Behavior Notes
 
@@ -51,6 +63,34 @@ Use this quick checklist when deciding which option to keep long-term:
   - `sensor.ntk_ryansoffice_3dprinter_print_status`
   - `sensor.ntk_ryansoffice_3dprinter_current_stage`
 - Active/paused/idle states keep the same color logic pattern used elsewhere in the dashboard.
+
+## Finished-State Color Update
+
+Finished prints now retain semantic KPI colors (instead of turning gray) for the following:
+
+- **Option 1:** icon + progress bar stay colored (blue layer / green print)
+- **Option 3:** icon + progress bar stay colored; active animation stops when finished
+- **Options 4 & 5:** icon + fill background stay colored
+- **Option 6:** icon + progress bar stay colored
+- **Option 7:** icon + segmented progress stay colored
+- **Option 8a:** layer icon + fill background stay colored; print pie becomes slightly smaller with green glow at completion
+- **Option 9:** icon + fill/background/progress stay colored; animations stop when finished; print pie becomes slightly smaller with green glow
+- **Option 10:** icon + segmented bars/fills stay colored
+- **Option 11:** same finish color behavior as option 10; segment animations stop when finished
+- **Option 12:** same finish color behavior as options 10/11; animations stop when finished
+
+Additional update:
+
+- **Time Remaining card:** clock icon remains colored in finished state
+
+## Layout Consistency Update
+
+- KPI card height mismatch was corrected for options **8a, 10, 11, and 12** so Layer Progress and Print Progress cards render at equal heights.
+
+## Segmented Bar Density and Animation Update
+
+- **Options 7, 10, 11, 13** use denser segmented bars (`20` segments) with visible spacing between segments.
+- **Option 11** segment animation timing was slowed for a calmer visual cadence.
 
 ## Quick Validation
 

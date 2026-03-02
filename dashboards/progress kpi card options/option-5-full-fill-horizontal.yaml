@@ -27,7 +27,8 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
 
           return `<div class="opt-fill-wrap-x">
             <div class="opt-fill-layer-x" style="width:${pct}%; --opt-fill-color:${color};"></div>
@@ -85,7 +86,8 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
 
           return `<div class="opt-fill-wrap-x">
             <div class="opt-fill-layer-x" style="width:${pct}%; --opt-fill-color:${color};"></div>

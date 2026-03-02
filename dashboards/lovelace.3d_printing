@@ -1303,6 +1303,7 @@ views:
           - !include dashboards/progress kpi card options/option-9-fill-pie-animated-bar.yaml
           - !include dashboards/progress kpi card options/option-10-segmented-fill-pie.yaml
           - !include dashboards/progress kpi card options/option-11-animated-segmented-fill-pie.yaml
+          - !include dashboards/progress kpi card options/option-13-sequential-segment-chase.yaml
           - !include dashboards/progress kpi card options/option-12-animated-fill-pie.yaml
           - type: custom:button-card
             entity: sensor.print_time_remaining_formatted
@@ -1323,7 +1324,8 @@ views:
                   const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
                   const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
                   const isPaused = status === 'pause' || stage === 'pause';
-                  const iconColor = isActive ? '#FF9800' : isPaused ? '#FFB74D' : '#9E9E9E';
+                  const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+                  const iconColor = (isActive || isFinished) ? '#FF9800' : isPaused ? '#FFB74D' : '#9E9E9E';
                   const animClass = isActive ? ' tr-clock-anim' : '';
                   return `<div class="tr-wrap">
                     <ha-icon icon="mdi:clock-time-four" class="tr-icon${animClass}" style="color:${iconColor};"></ha-icon>

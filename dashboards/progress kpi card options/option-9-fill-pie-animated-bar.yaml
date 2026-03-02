@@ -29,7 +29,8 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
           const lineClass = isActive ? 'opt9-anim-line' : '';
 
           return `<div class="opt9-fill-wrap">
@@ -105,13 +106,15 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
           const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
           const isPaused = status === 'pause' || stage === 'pause';
-          const color = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
           const lineClass = isActive ? 'opt9p-anim-line' : '';
+          const pieCls = isFinished ? ' opt9p-pie-finished' : '';
 
           return `<div class="opt9p-wrap">
             <div class="opt9p-main">
               <div class="opt9p-left">
-                <div class="opt9p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+                <div class="opt9p-pie${pieCls}" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
               </div>
               <div class="opt9p-right">
                 <div class="opt9p-value">${value}</div>
@@ -142,6 +145,7 @@ cards:
       .opt9p-main { display:flex; flex-grow:1; align-items:center; min-height:0; }
       .opt9p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
       .opt9p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .opt9p-pie-finished { width:56px; height:56px; box-shadow: 0 0 8px color-mix(in srgb, #4CAF50 65%, transparent), 0 0 14px color-mix(in srgb, #4CAF50 45%, transparent); }
       .opt9p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
       .opt9p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
       .opt9p-footer { display:flex; align-items:center; justify-content:center; }
