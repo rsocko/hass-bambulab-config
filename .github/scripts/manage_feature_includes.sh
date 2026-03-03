@@ -47,8 +47,14 @@ for feature_name in $(echo "$feature_csv" | tr ',' ' '); do
   feature_name="$(echo "$feature_name" | xargs)"
   [ -z "$feature_name" ] && continue
 
-  loader_rel_path="packages/3d_printing/$feature_name/${feature_name}_loader.yaml"
-  loader_src_path="$SOURCE_ROOT/$loader_rel_path"
+  loader_src_rel_path="packages/3d_printing/$feature_name/${feature_name}_loader.yaml"
+  loader_src_path="$SOURCE_ROOT/$loader_src_rel_path"
+
+  if [ "$FEATURE_INCLUDE_MODE" = "check_include_file" ] || [ "$FEATURE_INCLUDE_MODE" = "auto_update_include_file" ]; then
+    loader_include_path="$feature_name/${feature_name}_loader.yaml"
+  else
+    loader_include_path="$loader_src_rel_path"
+  fi
 
   if [ ! -f "$loader_src_path" ]; then
     if [ -z "$missing_loader_features" ]; then
@@ -60,9 +66,9 @@ for feature_name in $(echo "$feature_csv" | tr ',' ' '); do
   fi
 
   if [ -z "$candidate_includes" ]; then
-    candidate_includes="$feature_name:$loader_rel_path"
+    candidate_includes="$feature_name:$loader_include_path"
   else
-    candidate_includes="$candidate_includes,$feature_name:$loader_rel_path"
+    candidate_includes="$candidate_includes,$feature_name:$loader_include_path"
   fi
 done
 

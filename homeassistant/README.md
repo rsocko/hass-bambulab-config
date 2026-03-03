@@ -25,9 +25,9 @@ homeassistant:
 Example include file (`/config/packages/3d_printing/_feature_loaders.yaml`):
 
 ```yaml
-core_loader: !include packages/3d_printing/core/core_loader.yaml
+core_loader: !include core/core_loader.yaml
 ```
 
-Path note: `!include` and `!include_dir_merge_list` paths are resolved from the Home Assistant config root (`/config`), so references like `packages/3d_printing/core/sensors` are correct.
+Path note: paths are resolved relative to the file containing the include. For example, in `core/core_loader.yaml`, use `!include_dir_merge_list sensors`.
 
 *Note: currently the deployment doesn't allow for www-only files to be deployed. The deployment actions assume everything is package based and optionally includes www related files.*

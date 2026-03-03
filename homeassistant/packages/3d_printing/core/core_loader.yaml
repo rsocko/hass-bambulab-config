@@ -1,2 +1,2 @@
 template:
-  - sensor: !include_dir_merge_list packages/3d_printing/core/sensors
+  - sensor: !include_dir_merge_list sensors
