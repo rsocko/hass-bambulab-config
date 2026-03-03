@@ -403,6 +403,7 @@ jobs:
               return 0
             fi
 
+            set +e
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
               $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
@@ -412,6 +413,24 @@ jobs:
               --exclude='*' \
               -e "ssh $SSH_OPTS" \
               "$src/" "$dst"
+            rsync_exit=$?
+            set -e
+
+            if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
+              echo "Initial rsync failed (exit $rsync_exit); retrying with --rsync-path='sudo -n rsync'"
+              REMOTE_RSYNC_PATH="sudo -n rsync"
+              rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+                $RSYNC_METADATA_FLAGS \
+                --rsync-path="$REMOTE_RSYNC_PATH" \
+                --include='*/' \
+                --include='*.yaml' \
+                --include='*.yml' \
+                --exclude='*' \
+                -e "ssh $SSH_OPTS" \
+                "$src/" "$dst"
+            elif [ $rsync_exit -ne 0 ]; then
+              return $rsync_exit
+            fi
           }
 
           sync_all_files() {
@@ -423,11 +442,26 @@ jobs:
               return 0
             fi
 
+            set +e
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
               $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
               "$src/" "$dst"
+            rsync_exit=$?
+            set -e
+
+            if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
+              echo "Initial rsync failed (exit $rsync_exit); retrying with --rsync-path='sudo -n rsync'"
+              REMOTE_RSYNC_PATH="sudo -n rsync"
+              rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+                $RSYNC_METADATA_FLAGS \
+                --rsync-path="$REMOTE_RSYNC_PATH" \
+                -e "ssh $SSH_OPTS" \
+                "$src/" "$dst"
+            elif [ $rsync_exit -ne 0 ]; then
+              return $rsync_exit
+            fi
           }
 
           sync_single_yaml_file() {
@@ -439,11 +473,26 @@ jobs:
               return 0
             fi
 
+            set +e
             rsync $RSYNC_FLAGS \
               $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
               "$src" "$dst"
+            rsync_exit=$?
+            set -e
+
+            if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
+              echo "Initial rsync failed (exit $rsync_exit); retrying with --rsync-path='sudo -n rsync'"
+              REMOTE_RSYNC_PATH="sudo -n rsync"
+              rsync $RSYNC_FLAGS \
+                $RSYNC_METADATA_FLAGS \
+                --rsync-path="$REMOTE_RSYNC_PATH" \
+                -e "ssh $SSH_OPTS" \
+                "$src" "$dst"
+            elif [ $rsync_exit -ne 0 ]; then
+              return $rsync_exit
+            fi
           }
 
           # Validate HAOS SSH connectivity first.
