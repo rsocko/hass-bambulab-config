@@ -371,10 +371,12 @@ jobs:
           WWW_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/www/3d_printing/"
           FEATURE_INCLUDE_FILE_DST="$HA_SSH_USER@$HA_HOST:$FEATURE_INCLUDE_FILE_REMOTE"
 
-          RSYNC_FLAGS="-avh"
+          RSYNC_FLAGS="-rvh"
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            RSYNC_FLAGS="-avhn"
+            RSYNC_FLAGS="-rvhn"
           fi
+
+          RSYNC_METADATA_FLAGS="--no-owner --no-group --no-perms --omit-dir-times --no-times"
 
           RSYNC_DELETE_FLAG=""
           case "$DELETE_MODE" in
@@ -402,6 +404,7 @@ jobs:
             fi
 
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+              $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               --include='*/' \
               --include='*.yaml' \
@@ -421,6 +424,7 @@ jobs:
             fi
 
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+              $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
               "$src/" "$dst"
@@ -436,6 +440,7 @@ jobs:
             fi
 
             rsync $RSYNC_FLAGS \
+              $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
               "$src" "$dst"
