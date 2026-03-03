@@ -41,4 +41,4 @@ The automation also suppresses persistent error notifications for indeterminate 
 
 ## Flow of the Logic
 
-Flow chart image is not included in this repository snapshot.
+![Flow Chart describing the Active Tray Changed automation](../assets/Bambu%20Printer%20Automations-Tray%20Updated.png)

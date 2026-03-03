@@ -39,4 +39,4 @@ If unsuccessful (cannot find a match): the script will return a failure and erro
 
 ## Flowchart of Logic:
 
-Flowchart image is not included in this repository snapshot.
+![Flowchart showing the script logic](../assets/Bambu%20Printer%20Automations-Find%20Spool.png)

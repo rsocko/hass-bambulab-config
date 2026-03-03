@@ -13,8 +13,8 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "docs/features/air_quality/README.md",
-                "mode": "source",
+                "file": "docs/features/spoolman_sync/README.md",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "spoolman-sync/README.md",
+                "file": "docs/features/spoolman_sync/README.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -113,7 +113,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "spoolman-sync/README.md",
+                "file": "docs/features/spoolman_sync/README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -156,7 +156,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "spoolman-sync/README.md",
+                "file": "docs/features/spoolman_sync/README.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -171,17 +171,16 @@
             "state": {
               "type": "git-view",
               "state": {},
-              "icon": "lucide-ghost",
-              "title": "git-view"
+              "icon": "git-pull-request",
+              "title": "Source Control"
             }
           }
         ],
-        "currentTab": 5
+        "currentTab": 4
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -195,35 +194,44 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "7bd960047c41b65a",
+  "active": "aa9ae67716a21193",
   "lastOpenFiles": [
+    "docs/features/spoolman_sync/docs/reload_spoolman_integration_nightly.md",
+    "docs/features/spoolman_sync/README.md",
+    "docs/features/spoolman_sync/docs/active_tray_changed_update_spoolman.md",
+    "docs/features/spoolman_sync/docs/print_complete_update_filament_usage.md",
+    "README.md",
+    "docs/features/spoolman_sync/assets/script-findspool.png",
+    "docs/features/spoolman_sync/assets/Bambu Printer Automations-Tray Updated.png",
+    "docs/features/spoolman_sync/assets/Bambu Printer Automations-Spoolman Refresh.png",
+    "docs/features/spoolman_sync/assets/Bambu Printer Automations-Print Complete.png",
+    "docs/features/spoolman_sync/assets/Bambu Printer Automations-Find Spool.png",
+    "docs/features/spoolman_sync/assets",
+    "docs/features/air_quality/README.md",
+    "homeassistant/packages/3d_printing/spoolman_sync/sensors/spoolman_tray_map.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/sensors/spoolman_filament_totals.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/sensors/print_cost.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/scripts/update_spool_last_and_first_used-script.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/scripts/print_weight_persistence_self_test-script.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/scripts/mark_spool_as_dried-script.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml",
+    "homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml",
     "docs/README.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Find Spool.png",
     "homeassistant/packages.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Spoolman Refresh.png",
     "docs/repo/DEPLOYMENT_STRUCTURE.md",
-    "README.md",
     "homeassistant/www/3d_printing/wled/README.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Print Complete.png",
     "docs/features/spoolman_sync/SOLUTION_SUMMARY.md",
     "docs/features/spoolman_sync/PRINT_WEIGHT_PERSISTENCE_IMPLEMENTATION.md",
-    "docs/features/spoolman_sync/README.md",
     "docs/features/wled/CONTROLLER_ALLOCATION_RECOMMENDATION.md",
     "docs/features/wled/README.md",
     "docs/features/wled/SUMMARY.md",
     "docs/infrastructure/github-runner-README.md",
-    "homeassistant/www/3d_printing/wled",
     "homeassistant/www/3d_printing/spoolman_sync/assets/script-findspool.png",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Tray Updated.png",
-    "homeassistant/www/3d_printing/spoolman_sync/assets",
-    "homeassistant/www/3d_printing/spoolman_sync",
-    "homeassistant/www/3d_printing/print_progress",
-    "homeassistant/www/3d_printing/printer_temps",
-    "homeassistant/www/3d_printing/printer_led",
-    "homeassistant/www/3d_printing/printer_controls",
-    "homeassistant/www/3d_printing/openhasp_display",
-    "homeassistant/www/3d_printing/notifications",
-    "homeassistant/www/3d_printing/logging",
     "homeassistant/www/wled/README.md",
     "homeassistant/packages/3d_printing/wled/README.md",
     "openhasp/README.md",
@@ -233,14 +241,6 @@
     "docs/features/wled/QUICK_START.md",
     "docs/features/wled/QUICK_REFERENCE.md",
     "docs/features/wled/PRESET_SPECIFICATION.md",
-    "docs/features/wled/PRESET_BASED_SEGMENTS.md",
-    "docs/features/wled/PHASED_IMPLEMENTATION_GUIDE.md",
-    "docs/features/wled/light-scenarios.md",
-    "docs/features/wled/led-functions.md",
-    "homeassistant/www/spoolman_sync/assets/Bambu Printer Automations-Spoolman Refresh.png",
-    "homeassistant/www/spoolman_sync/assets/Bambu Printer Automations-Tray Updated.png",
-    "homeassistant/www/spoolman_sync/assets/script-findspool.png",
-    "homeassistant/www/spoolman_sync/assets/Bambu Printer Automations-Print Complete.png",
-    "homeassistant/www/spoolman_sync/assets/Bambu Printer Automations-Find Spool.png"
+    "docs/features/wled/PRESET_BASED_SEGMENTS.md"
   ]
 }
