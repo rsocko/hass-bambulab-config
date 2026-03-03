@@ -104,7 +104,14 @@ This is intended to catch likely UI-vs-YAML naming collisions early. Keep `fail_
 
 ## Dockhand deployment
 
-Deploy this folder as one stack in Dockhand (same as your other compose stacks). The service is self-contained and only needs the `.env` file.
+Deploy this folder as one stack in Dockhand (same as your other compose stacks). The service is self-contained and uses `.env` placeholders resolved by Dockhand variables.
+
+## Traefik guidance
+
+This service has no HTTP endpoint, so Traefik routing is not applicable.
+
+- Keep Traefik disabled for this service (`traefik.enable=false`).
+- No router/service labels or Traefik network attachment are needed.
 
 ## Example workflow target
 

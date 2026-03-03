@@ -1,7 +1,7 @@
 services:
   github-runner:
     image: myoung34/github-runner:latest
-    container_name: github-runner-ha
+    container_name: ${RUNNER_CONTAINER_NAME:-github-runner-ha}
     restart: unless-stopped
     env_file:
       - .env
@@ -19,5 +19,7 @@ services:
     volumes:
       - ./runner-data:/runner
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=false"
     security_opt:
       - no-new-privileges:true
