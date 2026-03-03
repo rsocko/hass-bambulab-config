@@ -46,6 +46,31 @@ If your SSH shell does not expose the `ha` CLI, keep the deploy sync step and mo
 - Home Assistant UI (Developer Tools -> YAML reloads), or
 - a REST/API call stage with a long-lived access token.
 
+### Deployment safety boundary (important)
+
+The workflow deploy step is intentionally scoped to only these destination paths:
+
+- `/config/packages/3d_printing/`
+- `/config/www/3d_printing/`
+
+Delete operations are controlled by workflow input `delete_mode`:
+
+- `safe` (default): no delete flags are used.
+- `mirror`: `rsync --delete` is used, still scoped to those same paths.
+
+This means the workflow does **not** target or delete files under unrelated Home Assistant directories such as:
+
+- `/config/custom_components/`
+- `/config/.storage/`
+- `/config/blueprints/`
+- `/config/deps/`
+- `/config/media/`
+
+Package scope behavior:
+
+- `package_scope=all`: syncs YAML under `packages/3d_printing`; syncs `www/3d_printing` only when `allowlist_profile=packages_www`.
+- `package_scope=selected`: syncs only selected package folders under `packages/3d_printing/<package>` and optionally matching `www/3d_printing/<package>` folders when `include_www_for_selected=true`.
+
 ### Secure workflow variable/secret setup (recommended)
 
 To avoid hardcoding deployment targets in git, configure the workflow using GitHub Variables/Secrets.
@@ -91,10 +116,13 @@ The workflow `.github/workflows/deploy-homeassistant-template.yml` uses rsync al
 ### Default behavior
 
 - Deploys only files that match the selected allowlist.
+- Workflow dispatch input `delete_mode` controls whether files missing from source are deleted in target scope:
+   - `safe` (default): never delete destination files
+   - `mirror`: delete destination files that no longer exist in source
 - Workflow dispatch input `allowlist_profile` selects behavior:
-   - `yaml_only`: deploy only `*.yaml`/`*.yml`
-   - `packages_only`: deploy only `packages/**/*.yaml` and `packages/**/*.yml`
-   - `packages_www` (default): deploy `*.yaml`/`*.yml` globally, plus all files under `www/`
+   - `yaml_only`: deploy package YAML files under `packages/3d_printing`
+   - `packages_only`: deploy package YAML files under `packages/3d_printing`
+   - `packages_www` (default): deploy package YAML files under `packages/3d_printing` plus files under `www/3d_printing`
 
 ### Selective package deployment (staged rollout)
 
@@ -127,8 +155,9 @@ This is intended to catch likely UI-vs-YAML naming collisions early. Keep `fail_
 2. Edit the matching allowlist file under `.github/deploy/`.
 3. (Optional) pass `allowlist_file` in workflow dispatch to use a custom file path.
 4. (Optional) use `package_scope=selected` and `selected_packages=...` for targeted package rollout.
-5. Re-run workflow in `dry_run=true` mode to preview changes.
-6. Run again with `dry_run=false` when results look correct.
+5. Set `delete_mode=safe` for cautious runs, or `delete_mode=mirror` when you intentionally want destination cleanup.
+6. Run first with `dry_run=true` to preview changes.
+7. Run again with `dry_run=false` when results look correct.
 
 ### Recommendation
 

@@ -4,19 +4,36 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Set true to preview without writing"
+        description: "Dry run: preview only (true) or write changes (false)"
         required: true
+        type: choice
         default: "true"
-      allowlist_profile:
-        description: "Allowlist profile"
+        options:
+          - "true"
+          - "false"
+      delete_mode:
+        description: "Delete behavior in target scope: safe=never delete, mirror=delete missing files"
         required: true
+        type: choice
+        default: "safe"
+        options:
+          - safe
+          - mirror
+      allowlist_profile:
+        description: "Content profile: yaml_only/packages_only = package YAML only, packages_www = package YAML + www assets"
+        required: true
+        type: choice
         default: "packages_www"
+        options:
+          - yaml_only
+          - packages_only
+          - packages_www
       allowlist_file:
-        description: "Optional custom allowlist path (overrides profile)"
+        description: "Advanced/legacy: custom allowlist file path (used for selected package generation context)"
         required: false
         default: ""
       package_scope:
-        description: "Deploy scope: all packages from allowlist profile, or selected package folders only"
+        description: "Package scope: all packages or only selected package folders"
         required: true
         type: choice
         default: all
@@ -24,11 +41,11 @@ on:
           - all
           - selected
       selected_packages:
-        description: "Comma-separated package names when package_scope=selected (for example: core,common or common,humidity)"
+        description: "Comma-separated packages when scope=selected (example: core,common)"
         required: false
         default: ""
       package_preset:
-        description: "Optional preset when package_scope=selected and selected_packages is empty"
+        description: "Optional preset when scope=selected and selected_packages is empty"
         required: true
         type: choice
         default: none
@@ -37,7 +54,7 @@ on:
           - core_only
           - core_common
       include_www_for_selected:
-        description: "When package_scope=selected, also deploy matching www/3d_printing/<package>/ assets"
+        description: "When scope=selected, also deploy matching www/3d_printing/<package>/ assets"
         required: true
         type: choice
         default: "false"
@@ -45,7 +62,7 @@ on:
           - "false"
           - "true"
       check_ui_name_conflicts:
-        description: "Best-effort check for potential UI/storage naming overlaps with selected packages"
+        description: "Run best-effort UI/storage naming conflict check"
         required: true
         type: choice
         default: "true"
@@ -53,7 +70,7 @@ on:
           - "true"
           - "false"
       fail_on_ui_conflict:
-        description: "Fail workflow when potential UI/storage naming overlaps are detected"
+        description: "If conflicts are found, fail the workflow"
         required: true
         type: choice
         default: "false"
@@ -281,17 +298,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          SOURCE_ROOT="./homeassistant/"
+          SOURCE_ROOT="./homeassistant"
 
           SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
           if [ "$SSH_STRICT_MODE" = "yes" ]; then
             SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
-          fi
-          ALLOWLIST_FILE="${{ steps.selection.outputs.effective_allowlist }}"
-
-          if [ ! -f "$ALLOWLIST_FILE" ]; then
-            echo "Missing allowlist file: $ALLOWLIST_FILE"
-            exit 1
           fi
 
           if [ ! -d "$SOURCE_ROOT" ]; then
@@ -299,21 +310,94 @@ jobs:
             exit 1
           fi
 
+          PACKAGE_SCOPE="${{ github.event.inputs.package_scope }}"
+          ALLOWLIST_PROFILE="${{ github.event.inputs.allowlist_profile }}"
+          INCLUDE_WWW_SELECTED="${{ github.event.inputs.include_www_for_selected }}"
+          DELETE_MODE="${{ github.event.inputs.delete_mode }}"
+          SELECTED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+
+          PACKAGES_ROOT_SRC="$SOURCE_ROOT/packages/3d_printing"
+          WWW_ROOT_SRC="$SOURCE_ROOT/www/3d_printing"
+
+          PACKAGES_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/packages/3d_printing/"
+          WWW_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/www/3d_printing/"
+
+          RSYNC_FLAGS="-avh"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            RSYNC_FLAGS="-avhn"
+          fi
+
+          RSYNC_DELETE_FLAG=""
+          case "$DELETE_MODE" in
+            mirror)
+              RSYNC_DELETE_FLAG="--delete"
+              ;;
+            safe)
+              RSYNC_DELETE_FLAG=""
+              ;;
+            *)
+              echo "Unknown delete_mode: $DELETE_MODE"
+              exit 1
+              ;;
+          esac
+
+          sync_yaml_only() {
+            local src="$1"
+            local dst="$2"
+
+            if [ ! -d "$src" ]; then
+              echo "Skipping missing source directory: $src"
+              return 0
+            fi
+
+            rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+              --include='*/' \
+              --include='*.yaml' \
+              --include='*.yml' \
+              --exclude='*' \
+              -e "ssh $SSH_OPTS" \
+              "$src/" "$dst"
+          }
+
+          sync_all_files() {
+            local src="$1"
+            local dst="$2"
+
+            if [ ! -d "$src" ]; then
+              echo "Skipping missing source directory: $src"
+              return 0
+            fi
+
+            rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+              -e "ssh $SSH_OPTS" \
+              "$src/" "$dst"
+          }
+
           # Validate HAOS SSH connectivity first.
           ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected"
 
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            rsync -avhn --delete \
-              --include-from="$ALLOWLIST_FILE" \
-              --exclude='*' \
-              -e "ssh $SSH_OPTS" \
-              "$SOURCE_ROOT" "$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/"
+          if [ "$PACKAGE_SCOPE" = "selected" ]; then
+            if [ "$SELECTED_PACKAGES" = "all" ] || [ -z "$SELECTED_PACKAGES" ]; then
+              echo "selected package scope requested, but selected_packages resolved to: $SELECTED_PACKAGES"
+              exit 1
+            fi
+
+            for package_name in $(echo "$SELECTED_PACKAGES" | tr ',' ' '); do
+              package_name="$(echo "$package_name" | xargs)"
+              [ -z "$package_name" ] && continue
+
+              sync_yaml_only "$PACKAGES_ROOT_SRC/$package_name" "$PACKAGES_ROOT_DST$package_name/"
+
+              if [ "$INCLUDE_WWW_SELECTED" = "true" ]; then
+                sync_all_files "$WWW_ROOT_SRC/$package_name" "$WWW_ROOT_DST$package_name/"
+              fi
+            done
           else
-            rsync -avh --delete \
-              --include-from="$ALLOWLIST_FILE" \
-              --exclude='*' \
-              -e "ssh $SSH_OPTS" \
-              "$SOURCE_ROOT" "$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/"
+            sync_yaml_only "$PACKAGES_ROOT_SRC" "$PACKAGES_ROOT_DST"
+
+            if [ "$ALLOWLIST_PROFILE" = "packages_www" ]; then
+              sync_all_files "$WWW_ROOT_SRC" "$WWW_ROOT_DST"
+            fi
           fi
 
       - name: Validate Home Assistant config (post-sync)
