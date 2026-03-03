@@ -319,6 +319,9 @@ jobs:
           PACKAGES_ROOT_SRC="$SOURCE_ROOT/packages/3d_printing"
           WWW_ROOT_SRC="$SOURCE_ROOT/www/3d_printing"
 
+          PACKAGES_ROOT_REMOTE="$HA_CONFIG_PATH/packages/3d_printing"
+          WWW_ROOT_REMOTE="$HA_CONFIG_PATH/www/3d_printing"
+
           PACKAGES_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/packages/3d_printing/"
           WWW_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/www/3d_printing/"
 
@@ -376,6 +379,41 @@ jobs:
           # Validate HAOS SSH connectivity first.
           ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected"
 
+          ensure_remote_dir() {
+            local remote_dir="$1"
+            ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "mkdir -p \"$remote_dir\""
+          }
+
+          log_remote_targets() {
+            echo "Remote sync plan:"
+            echo "  host: $HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH"
+            echo "  package_scope: $PACKAGE_SCOPE"
+            echo "  delete_mode: $DELETE_MODE"
+            echo "  dry_run: ${{ github.event.inputs.dry_run }}"
+            echo "  packages root: $PACKAGES_ROOT_REMOTE"
+
+            if [ "$PACKAGE_SCOPE" = "selected" ]; then
+              echo "  selected_packages: $SELECTED_PACKAGES"
+              for package_name in $(echo "$SELECTED_PACKAGES" | tr ',' ' '); do
+                package_name="$(echo "$package_name" | xargs)"
+                [ -z "$package_name" ] && continue
+                echo "  - package dir: $PACKAGES_ROOT_REMOTE/$package_name"
+                if [ "$INCLUDE_WWW_SELECTED" = "true" ]; then
+                  echo "  - www dir: $WWW_ROOT_REMOTE/$package_name"
+                fi
+              done
+            else
+              echo "  - package dir: $PACKAGES_ROOT_REMOTE"
+              if [ "$ALLOWLIST_PROFILE" = "packages_www" ]; then
+                echo "  - www dir: $WWW_ROOT_REMOTE"
+              fi
+            fi
+          }
+
+          log_remote_targets
+
+          ensure_remote_dir "$PACKAGES_ROOT_REMOTE"
+
           if [ "$PACKAGE_SCOPE" = "selected" ]; then
             if [ "$SELECTED_PACKAGES" = "all" ] || [ -z "$SELECTED_PACKAGES" ]; then
               echo "selected package scope requested, but selected_packages resolved to: $SELECTED_PACKAGES"
@@ -386,9 +424,12 @@ jobs:
               package_name="$(echo "$package_name" | xargs)"
               [ -z "$package_name" ] && continue
 
+              ensure_remote_dir "$PACKAGES_ROOT_REMOTE/$package_name"
+
               sync_yaml_only "$PACKAGES_ROOT_SRC/$package_name" "$PACKAGES_ROOT_DST$package_name/"
 
               if [ "$INCLUDE_WWW_SELECTED" = "true" ]; then
+                ensure_remote_dir "$WWW_ROOT_REMOTE/$package_name"
                 sync_all_files "$WWW_ROOT_SRC/$package_name" "$WWW_ROOT_DST$package_name/"
               fi
             done
@@ -396,6 +437,7 @@ jobs:
             sync_yaml_only "$PACKAGES_ROOT_SRC" "$PACKAGES_ROOT_DST"
 
             if [ "$ALLOWLIST_PROFILE" = "packages_www" ]; then
+              ensure_remote_dir "$WWW_ROOT_REMOTE"
               sync_all_files "$WWW_ROOT_SRC" "$WWW_ROOT_DST"
             fi
           fi
