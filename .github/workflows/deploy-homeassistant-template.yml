@@ -297,7 +297,8 @@ jobs:
               "$SOURCE_ROOT" "$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/"
           fi
 
-      - name: Validate Home Assistant config
+      - name: Validate Home Assistant config (post-sync)
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           HA_HOST="homeassistant.local"
           HA_SSH_PORT="22"
@@ -307,6 +308,12 @@ jobs:
 
           # Requires HA CLI availability in the SSH shell.
           ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "ha core check"
+
+      - name: Dry-run validation note
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "Dry-run mode skips 'ha core check' to avoid validating the currently deployed config instead of candidate changes."
+          echo "Dry-run still validates selection logic, allowlist generation, SSH connectivity, and rsync candidate file set."
 
       - name: Reload note
         run: |
