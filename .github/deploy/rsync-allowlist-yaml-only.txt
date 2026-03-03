@@ -1,0 +1,10 @@
+# Deploy allowlist profile: yaml_only
+#
+# Includes only YAML/YML files under the deployment source root.
+
+# Traverse all directories
+*/
+
+# Deploy YAML only
+*.yaml
+*.yml

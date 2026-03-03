@@ -1,0 +1,431 @@
+﻿sensor:
+  - name: "ntk_ryansoffice_3dprinter_smart_status"
+    state: >
+      {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+      {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+      {% set stage_label = stage | replace('_', ' ') | title %}
+      {% if status == 'offline' or stage == 'offline' %}Offline
+      {% elif status == 'failed' %}Print Failed
+      {% elif status == 'finish' %}Print Finished
+      {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}
+        {% if stage == 'paused_filament_runout' %}Paused - Filament Runout
+        {% elif stage == 'paused_nozzle_clog' %}Paused - Nozzle Clog
+        {% elif stage == 'paused_first_layer_error' %}Paused - First Layer Error
+        {% elif stage == 'paused_ams_lost' %}Paused - AMS Lost
+        {% elif stage.startswith('paused_') %}{{ stage_label }}
+        {% else %}Paused{% endif %}
+      {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber'] %}
+        {% if stage == 'heatbed_preheating' %}Heating Bed
+        {% elif stage == 'heating_hotend' %}Heating Nozzle
+        {% elif stage == 'heating_chamber' %}Heating Chamber
+        {% elif stage == 'cooling_chamber' %}Cooling Chamber
+        {% else %}Cooling Bed{% endif %}
+      {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface'] %}Bed Leveling
+      {% elif stage in ['homing_toolhead', 'check_door_and_cover', 'check_quick_release', 'check_plaform', 'check_birdeye_camera_position'] %}Homing / Checks
+      {% elif stage in ['cleaning_nozzle_tip', 'checking_extruder_temperature'] %}Nozzle Prep
+      {% elif stage in ['changing_filament', 'filament_loading', 'filament_unloading'] %}Filament Change
+      {% elif stage in ['calibrating_extrusion', 'calibrating_extrusion_flow', 'calibrating_micro_lidar', 'calibrating_motor_noise', 'absolute_accuracy_calibration', 'check_absolute_accuracy_before_calibration', 'check_absolute_accuracy_after_calibration', 'calibrate_nozzle_offset', 'laser_calibration', 'calibrate_birdeye_camera', 'sweeping_xy_mech_mode', 'motor_noise_showoff'] %}Calibration
+      {% elif stage == 'identifying_build_plate_type' %}Identifying Build Plate
+      {% elif stage == 'print_calibration_lines' %}Printing Calibration Lines
+      {% elif stage == 'inspecting_first_layer' %}Inspecting First Layer
+      {% elif status in ['running', 'printing'] or stage == 'printing' %}Printing
+      {% elif status in ['prepare', 'slicing', 'init'] %}Preparing Print
+      {% elif status == 'idle' and stage == 'idle' %}Idle
+      {% elif status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}Unknown Printer State
+      {% else %}Unmapped Printer State{% endif %}
+    attributes:
+      detail: >
+        {% set status_raw = states('sensor.ntk_ryansoffice_3dprinter_print_status') %}
+        {% set stage_raw = states('sensor.ntk_ryansoffice_3dprinter_current_stage') %}
+        {% set status = status_raw | lower %}
+        {% set stage = stage_raw | lower %}
+        {% set stage_label = stage | replace('_', ' ') | title %}
+        {% set known_statuses = ['failed', 'finish', 'idle', 'init', 'offline', 'pause', 'paused', 'prepare', 'running', 'printing', 'slicing', 'unknown', 'unavailable', 'none', ''] %}
+        {% set known_stages = [
+          'offline', 'idle', 'unknown', 'unavailable', 'none', '',
+          'printing', 'auto_bed_leveling', 'heatbed_preheating', 'sweeping_xy_mech_mode', 'changing_filament', 'm400_pause', 'paused_filament_runout',
+          'heating_hotend', 'calibrating_extrusion', 'scanning_bed_surface', 'inspecting_first_layer', 'identifying_build_plate_type', 'calibrating_micro_lidar',
+          'homing_toolhead', 'cleaning_nozzle_tip', 'checking_extruder_temperature', 'paused_user', 'paused_front_cover_falling', 'calibrating_extrusion_flow',
+          'paused_nozzle_temperature_malfunction', 'paused_heat_bed_temperature_malfunction', 'filament_unloading', 'paused_skipped_step', 'filament_loading',
+          'calibrating_motor_noise', 'paused_ams_lost', 'paused_low_fan_speed_heat_break', 'paused_chamber_temperature_control_error', 'cooling_chamber',
+          'paused_user_gcode', 'motor_noise_showoff', 'paused_nozzle_filament_covered_detected', 'paused_cutter_error', 'paused_first_layer_error',
+          'paused_nozzle_clog', 'check_absolute_accuracy_before_calibration', 'absolute_accuracy_calibration', 'check_absolute_accuracy_after_calibration',
+          'calibrate_nozzle_offset', 'bed_level_high_temperature', 'check_quick_release', 'check_door_and_cover', 'laser_calibration', 'check_plaform',
+          'check_birdeye_camera_position', 'calibrate_birdeye_camera', 'bed_level_phase_1', 'bed_level_phase_2', 'heating_chamber', 'heated_bedcooling',
+          'print_calibration_lines'
+        ] %}
+        {% if status not in known_statuses or stage not in known_stages %}
+          Unmapped: status="{{ status_raw }}", stage="{{ stage_raw }}"
+        {% elif status in ['finish'] or (status == 'idle' and stage == 'idle') or status == 'offline' or stage == 'offline' or status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}
+          {{ '' }}
+        {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}
+          {{ stage_label if stage.startswith('paused_') else 'Paused' }}
+        {% elif status in ['running', 'printing', 'prepare', 'slicing', 'init'] and stage not in ['printing', 'idle', 'unknown', 'unavailable'] %}
+          {{ stage_label }}
+        {% else %}
+          {{ status_raw | replace('_', ' ') | title }}
+        {% endif %}
+      status_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') }}"
+      stage_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') }}"
+      status_class: >
+        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+        {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+        {% if status == 'offline' or stage == 'offline' %}offline
+        {% elif status == 'failed' %}failed
+        {% elif status == 'finish' %}finished
+        {% elif status in ['pause', 'paused'] or stage.startswith('paused_') or stage in ['m400_pause', 'paused_filament_runout'] %}paused
+        {% elif stage in ['heatbed_preheating', 'heating_hotend', 'heating_chamber', 'heated_bedcooling', 'cooling_chamber'] %}heating
+        {% elif stage in ['auto_bed_leveling', 'bed_level_phase_1', 'bed_level_phase_2', 'bed_level_high_temperature', 'scanning_bed_surface'] %}leveling
+        {% elif status in ['running', 'printing'] or stage == 'printing' %}printing
+        {% elif status in ['prepare', 'slicing', 'init'] %}preparing
+        {% elif status == 'idle' and stage == 'idle' %}idle
+        {% elif status in ['unknown', 'unavailable', 'none', ''] or stage in ['unknown', 'unavailable', 'none', ''] %}unknown
+        {% else %}unmapped{% endif %}
+      is_active: >
+        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+        {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
+        {{ status in ['running', 'printing', 'prepare', 'slicing', 'init'] or stage == 'printing' }}
+
+  - name: "spoolman_tray_map"
+    state: "ok"
+    attributes:
+      tray_map: >
+        {% set trays = {
+          'ams_1_tray_1': 'sensor.p1s_01p00c460102350_ams_1_tray_1',
+          'ams_1_tray_2': 'sensor.p1s_01p00c460102350_ams_1_tray_2',
+          'ams_1_tray_3': 'sensor.p1s_01p00c460102350_ams_1_tray_3',
+          'ams_1_tray_4': 'sensor.p1s_01p00c460102350_ams_1_tray_4',
+
+          'ams_2_tray_1': 'sensor.p1s_01p00c460102350_ams_2_tray_1',
+          'ams_2_tray_2': 'sensor.p1s_01p00c460102350_ams_2_tray_2',
+          'ams_2_tray_3': 'sensor.p1s_01p00c460102350_ams_2_tray_3',
+          'ams_2_tray_4': 'sensor.p1s_01p00c460102350_ams_2_tray_4',
+
+          'external_spool' : 'sensor.ntk_ryansoffice_3dprinter_external_spool'
+        } %}
+
+        {% set spool_entities = states.sensor
+          | selectattr('entity_id', 'match', 'sensor\\.spoolman_spool_\\d+$')
+          | rejectattr('attributes.extra_sealed', 'equalto', true)
+          | list
+        %}
+
+        {% set EMPTY_UUID = '00000000000000000000000000000000' %}
+        {% set EMPTY_COLOR = 'none' %}
+        {% set empty_tray_result = {
+          'spool_id': none,
+          'name': 'Empty',
+          'desiccant': none,
+          'filled': none,
+          'status': 'empty',
+          'color': none,
+          'reason': none
+        } %}
+        
+        {% set ns = namespace(result={}) %}
+        {% set now_ts = now().timestamp() %}
+
+        {% for tray_name, tray_entity in trays.items() %}
+          {% set tray_type = state_attr(tray_entity, 'type') %}
+          {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') %}
+          {% set tray_color = state_attr(tray_entity, 'color') | lower %}
+          
+          {# --- EMPTY TRAY HANDLING --- #} 
+          {% if tray_type == 'Empty' %}
+            {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
+            {% continue %}
+          {% endif %}
+          
+          {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
+          {# External spool doesn't have 'type' attribute like AMS trays do #}
+          {# Detection signals: name='Empty', UUID=all zeros, color alpha=00 #}
+          {% if tray_name == 'external_spool' %}
+            {% set ext_name = state_attr(tray_entity, 'name') %}
+            {% set has_zero_alpha = (tray_color | length >= 8 and tray_color[-2:] == '00') 
+                  or (tray_color | replace('#','') | length == 8 and tray_color[-2:] == '00') %}
+            {% set is_uuid_empty = (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) %}
+            {% set is_color_empty = (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR or has_zero_alpha) %}
+            {% if ext_name == 'Empty' or (is_uuid_empty and is_color_empty) %}
+              {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
+              {% continue %}
+            {% endif %}
+          {% endif %}
+          {# -------------------------------- #}
+
+          {# Normalize tray color: remove '#' and strip transparency characters if 8 hex digits #}
+          {% if tray_color %}
+            {% if tray_color.startswith('#') %}
+              {% set tray_color = tray_color[1:] %}
+            {% endif %}
+            {% if tray_color | length == 8 %}
+              {% set tray_color = tray_color[0:6] %}
+            {% endif %}
+          {% endif %}
+          
+          {% set match = none %}
+          {% set spool_entity = none %}
+          {% set match_reason = none %}
+
+          {% if tray_uuid and tray_uuid != '' and tray_uuid != EMPTY_UUID %}
+            {# Match by tray_uuid #}
+            {% set match = spool_entities | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid) | list %}
+            {% if match | length > 1 %}
+              {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid ~ ' - ensure UUIDs are unique' %}
+              {% set match = [] %}
+            {% elif match | length == 0 %}
+              {% set match_reason = 'No unsealed spool with UUID ' ~ tray_uuid %}
+            {% endif %}
+          {% else %}
+            {# Fallback: Match by color (case-insensitive), exclude Bambu Lab filament #}
+            {% set ns_color = namespace(spools=[]) %}
+            {% for s in spool_entities %}
+              {% if s.attributes.filament_color_hex | default('') | lower == tray_color
+                  and s.attributes.filament_vendor_name | default('') != 'Bambu Lab' %}
+                {% set ns_color.spools = ns_color.spools + [s] %}
+              {% endif %}
+            {% endfor %}
+            {% set match = ns_color.spools %}
+            {% if match | length > 1 %}
+              {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color %}
+              {% set match = [] %}
+            {% elif match | length == 0 %}
+              {% set match_reason = 'No unsealed spool with color #' ~ tray_color %}
+            {% endif %}
+          {% endif %}
+
+          {% if match %}
+            {% set spool_entity = match[0] %}
+            {% set spool_id = spool_entity.entity_id.split('_')[-1] %}
+            {% set spool_name = spool_entity.attributes.friendly_name %}
+
+            {% set desiccant = spool_entity.attributes.extra_desiccant_in_spool | default(None) %}
+            {% set filled = spool_entity.attributes.extra_desiccant_filled | default(None) %}
+            {% if filled is string
+              and filled != ''
+              and filled != 'unknown'
+              and as_timestamp(filled | default(0)) is number
+              and as_timestamp(filled | default(0)) > 0
+              and as_timestamp(filled | default(0)) < now_ts %}
+
+              {% set filled_ts = as_timestamp(filled) %}
+            {% else %}
+              {% set filled_ts = none %}
+            {% endif %}
+
+            
+            {% if not desiccant or not filled_ts %}
+              {% set status = 'undefined' %}
+            {% else %}
+              {% set age = (now_ts - filled_ts) / 86400 %}
+              {% if age < 30 %}
+                {% set status = 'green' %}
+              {% elif age < 45 %}
+                {% set status = 'yellow' %}
+              {% elif age < 60 %}
+                {% set status = 'orange' %}
+              {% else %}
+                {% set status = 'red' %}
+              {% endif %}
+            {% endif %}
+
+
+            {% set ns.result = ns.result | combine({
+              tray_name: {
+                'spool_id': spool_id,
+                'name': spool_name,
+                'desiccant': desiccant,
+                'filled': filled,
+                'status': status,
+                'color': tray_color,
+                'reason': none
+              }
+            }) %}
+          {% else %}
+            {% set ns.result = ns.result | combine({
+              tray_name: {
+                'spool_id': none,
+                'name': 'Unknown Filament',
+                'desiccant': none,
+                'filled': none,
+                'status': 'undefined',
+                'color': tray_color,
+                'reason': match_reason
+              }
+            }) %}
+          {% endif %}
+        {% endfor %}
+
+        {{ ns.result | tojson | from_json }}
+
+  - name: "spoolman_filament_totals"
+    state: "ok"
+    attributes:
+      totals: >
+        {% set spool_entities = states.sensor
+          | selectattr('entity_id', 'match', 'sensor\\.spoolman_spool_\\d+$')
+          | list
+        %}
+        {% set ns = namespace(result={}) %}
+        {% for spool in spool_entities %}
+          {% set fid = spool.attributes.filament_id | string %}
+          {% if fid and fid != 'None' %}
+            {% set w = spool.attributes.remaining_weight | default(0) | float(0) %}
+            {% set sid = spool.entity_id.split('_') | last %}
+            {% set spool_entry = {
+              'id': sid,
+              'entity_id': spool.entity_id,
+              'name': spool.attributes.friendly_name | default('Spool'),
+              'location': spool.attributes.location | default('N/A'),
+              'remaining': w
+            } %}
+            {% if ns.result[fid] is defined %}
+              {% set existing = ns.result[fid] %}
+              {% set ns.result = ns.result | combine({
+                fid: {
+                  'weight': existing.weight + w,
+                  'count': existing.count + 1,
+                  'spools': existing.spools + [spool_entry]
+                }
+              }) %}
+            {% else %}
+              {% set ns.result = ns.result | combine({
+                fid: {
+                  'weight': w,
+                  'count': 1,
+                  'spools': [spool_entry]
+                }
+              }) %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.result | tojson | from_json }}
+
+  - name: "print_cost"
+    unit_of_measurement: "$"
+    state: >
+      {#
+        NOTE: HA template sensors evaluate state and attributes independently,
+        so the tray_weight_keys mapping and pricing logic are intentionally
+        repeated in the breakdown attribute below.
+      #}
+
+      {# Mapping: tray_map key ΓåÆ print_weight sensor attribute key #}
+      {% set tray_weight_keys = {
+        'ams_1_tray_1': 'AMS 1 Tray 1',
+        'ams_1_tray_2': 'AMS 1 Tray 2',
+        'ams_1_tray_3': 'AMS 1 Tray 3',
+        'ams_1_tray_4': 'AMS 1 Tray 4',
+        'ams_2_tray_1': 'AMS 2 Tray 1',
+        'ams_2_tray_2': 'AMS 2 Tray 2',
+        'ams_2_tray_3': 'AMS 2 Tray 3',
+        'ams_2_tray_4': 'AMS 2 Tray 4',
+        'external_spool': 'External Spool'
+      } %}
+
+      {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
+      {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
+      {# Default initial_weight 1000 g = standard 1 kg spool #}
+      {% set default_spool_weight_g = 1000 %}
+      {% set ns = namespace(total=0.0) %}
+
+      {% if tray_map %}
+        {% for tray_key, tray_data in tray_map.items() %}
+          {% set weight_key = tray_weight_keys.get(tray_key) %}
+          {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
+
+          {% if print_weight > 0 %}
+            {% if tray_data.spool_id is not none %}
+              {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
+              {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
+              {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
+              {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
+              {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
+
+              {# Determine price per gram: spool price ΓåÆ filament price ΓåÆ default #}
+              {% if spool_price >= 0 %}
+                {% set price_per_gram = spool_price / initial_weight %}
+              {% elif filament_price >= 0 %}
+                {% set price_per_gram = filament_price / initial_weight %}
+              {% else %}
+                {% set price_per_gram = default_price_per_kg / 1000 %}
+              {% endif %}
+            {% else %}
+              {# No spool match ΓÇö fall back to default price #}
+              {% set price_per_gram = default_price_per_kg / 1000 %}
+            {% endif %}
+
+            {% set ns.total = ns.total + (print_weight * price_per_gram) %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {{ ns.total | round(2) }}
+
+    attributes:
+      breakdown: >
+        {# Mapping: tray_map key ΓåÆ print_weight sensor attribute key #}
+        {% set tray_weight_keys = {
+          'ams_1_tray_1': 'AMS 1 Tray 1',
+          'ams_1_tray_2': 'AMS 1 Tray 2',
+          'ams_1_tray_3': 'AMS 1 Tray 3',
+          'ams_1_tray_4': 'AMS 1 Tray 4',
+          'ams_2_tray_1': 'AMS 2 Tray 1',
+          'ams_2_tray_2': 'AMS 2 Tray 2',
+          'ams_2_tray_3': 'AMS 2 Tray 3',
+          'ams_2_tray_4': 'AMS 2 Tray 4',
+          'external_spool': 'External Spool'
+        } %}
+
+        {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
+        {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+        {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
+        {# Default initial_weight 1000 g = standard 1 kg spool #}
+        {% set default_spool_weight_g = 1000 %}
+        {% set ns = namespace(result={}) %}
+
+        {% if tray_map %}
+          {% for tray_key, tray_data in tray_map.items() %}
+            {% set weight_key = tray_weight_keys.get(tray_key) %}
+            {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
+
+            {% if print_weight > 0 %}
+              {% if tray_data.spool_id is not none %}
+                {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
+                {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
+                {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
+                {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
+                {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
+
+                {# Determine price per gram: spool price ΓåÆ filament price ΓåÆ default #}
+                {% if spool_price >= 0 %}
+                  {% set price_per_gram = spool_price / initial_weight %}
+                  {% set price_source = 'spool' %}
+                {% elif filament_price >= 0 %}
+                  {% set price_per_gram = filament_price / initial_weight %}
+                  {% set price_source = 'filament' %}
+                {% else %}
+                  {% set price_per_gram = default_price_per_kg / 1000 %}
+                  {% set price_source = 'default' %}
+                {% endif %}
+              {% else %}
+                {# No spool match ΓÇö fall back to default price #}
+                {% set price_per_gram = default_price_per_kg / 1000 %}
+                {% set price_source = 'default' %}
+              {% endif %}
+
+              {% set ns.result = ns.result | combine({
+                weight_key: {
+                  'cost': (print_weight * price_per_gram) | round(4),
+                  'weight': print_weight,
+                  'price_per_kg': (price_per_gram * 1000) | round(2),
+                  'name': tray_data.name,
+                  'color': tray_data.color,
+                  'price_source': price_source
+                }
+              }) %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+
+        {{ ns.result | tojson | from_json }}

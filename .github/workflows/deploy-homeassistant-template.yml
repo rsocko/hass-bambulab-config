@@ -1,0 +1,114 @@
+name: Deploy Home Assistant Config (HAOS Template)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Set true to preview without writing"
+        required: true
+        default: "true"
+      allowlist_profile:
+        description: "Allowlist profile"
+        required: true
+        default: "packages_www"
+      allowlist_file:
+        description: "Optional custom allowlist path (overrides profile)"
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, docker, ha, homelab, dockhand]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show changed files
+        run: |
+          git status --short
+
+      - name: Preflight (HAOS SSH + tools)
+        run: |
+          command -v rsync >/dev/null 2>&1 || { echo "rsync is required"; exit 1; }
+          command -v ssh >/dev/null 2>&1 || { echo "ssh client is required"; exit 1; }
+
+      - name: Deploy sync to HAOS /config (SSH add-on)
+        run: |
+          # Update these values for your environment.
+          HA_HOST="homeassistant.local"
+          HA_SSH_PORT="22"
+          HA_SSH_USER="root"
+          HA_CONFIG_PATH="/config"
+          SOURCE_ROOT="./homeassistant/"
+          SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
+
+          if [ ! -f "$SSH_KEY_PATH" ]; then
+            echo "SSH key not found at $SSH_KEY_PATH"
+            exit 1
+          fi
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=accept-new"
+          PROFILE="${{ github.event.inputs.allowlist_profile }}"
+          CUSTOM_ALLOWLIST="${{ github.event.inputs.allowlist_file }}"
+
+          if [ -n "$CUSTOM_ALLOWLIST" ]; then
+            ALLOWLIST_FILE="$CUSTOM_ALLOWLIST"
+          else
+            case "$PROFILE" in
+              yaml_only)
+                ALLOWLIST_FILE=".github/deploy/rsync-allowlist-yaml-only.txt"
+                ;;
+              packages_only)
+                ALLOWLIST_FILE=".github/deploy/rsync-allowlist-packages-only.txt"
+                ;;
+              packages_www)
+                ALLOWLIST_FILE=".github/deploy/rsync-allowlist-packages-www.txt"
+                ;;
+              *)
+                echo "Unknown allowlist_profile: $PROFILE"
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [ ! -f "$ALLOWLIST_FILE" ]; then
+            echo "Missing allowlist file: $ALLOWLIST_FILE"
+            exit 1
+          fi
+
+          if [ ! -d "$SOURCE_ROOT" ]; then
+            echo "Missing source directory: $SOURCE_ROOT"
+            exit 1
+          fi
+
+          # Validate HAOS SSH connectivity first.
+          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected"
+
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            rsync -avhn --delete \
+              --include-from="$ALLOWLIST_FILE" \
+              --exclude='*' \
+              -e "ssh $SSH_OPTS" \
+              "$SOURCE_ROOT" "$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/"
+          else
+            rsync -avh --delete \
+              --include-from="$ALLOWLIST_FILE" \
+              --exclude='*' \
+              -e "ssh $SSH_OPTS" \
+              "$SOURCE_ROOT" "$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/"
+          fi
+
+      - name: Validate Home Assistant config
+        run: |
+          HA_HOST="homeassistant.local"
+          HA_SSH_PORT="22"
+          HA_SSH_USER="root"
+          SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=accept-new"
+
+          # Requires HA CLI availability in the SSH shell.
+          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "ha core check"
+
+      - name: Reload note
+        run: |
+          echo "After config check, reload target domains (template/automation/script) or restart Core if needed."

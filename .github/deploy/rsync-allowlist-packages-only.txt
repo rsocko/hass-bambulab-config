@@ -1,0 +1,15 @@
+# Deploy allowlist profile: packages_only
+#
+# Behavior:
+# - Deploy only YAML/YML files under packages/
+
+# Traverse directories
+*/
+
+# Include packages directory tree
+packages/
+packages/**/
+
+# YAML only within packages
+packages/**/*.yaml
+packages/**/*.yml
