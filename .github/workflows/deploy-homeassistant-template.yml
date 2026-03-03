@@ -344,6 +344,8 @@ jobs:
               ;;
           esac
 
+              REMOTE_RSYNC_PATH="rsync"
+
           sync_yaml_only() {
             local src="$1"
             local dst="$2"
@@ -354,6 +356,7 @@ jobs:
             fi
 
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+              --rsync-path="$REMOTE_RSYNC_PATH" \
               --include='*/' \
               --include='*.yaml' \
               --include='*.yml' \
@@ -372,6 +375,7 @@ jobs:
             fi
 
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
+              --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
               "$src/" "$dst"
           }
@@ -381,7 +385,24 @@ jobs:
 
           ensure_remote_dir() {
             local remote_dir="$1"
-            ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "mkdir -p \"$remote_dir\""
+
+            if ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "mkdir -p \"$remote_dir\""; then
+              return 0
+            fi
+
+            if ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "sudo -n mkdir -p \"$remote_dir\""; then
+              REMOTE_RSYNC_PATH="sudo -n rsync"
+              echo "Remote mkdir required sudo; using --rsync-path='sudo -n rsync'"
+              return 0
+            fi
+
+            echo "Failed to create remote directory: $remote_dir"
+            echo "SSH user '$HA_SSH_USER' does not have permission (and passwordless sudo is unavailable)."
+            echo "Recommended fixes:"
+            echo "  1) Use HA_SSH_USER=root for the SSH add-on, or"
+            echo "  2) grant this user write access to $HA_CONFIG_PATH, or"
+            echo "  3) disable Protection mode in the SSH add-on if it is blocking /config writes."
+            exit 1
           }
 
           log_remote_targets() {
