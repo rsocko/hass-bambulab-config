@@ -89,6 +89,25 @@ Workflow dispatch includes an optional best-effort overlap check for selected pa
 
 Use warnings-first mode (`fail_on_ui_conflict=false`) during initial migration, then switch to strict mode once names are aligned.
 
+## Feature Include Mode Cheat Sheet
+
+Use workflow input `feature_include_mode` to control how feature loader references are validated or updated.
+
+| Mode | What it expects | What it does | Typical use |
+|---|---|---|---|
+| `off` | Nothing | Skips include checks/updates | Temporary troubleshooting |
+| `check` | Inline `homeassistant.packages` mapping in `configuration.yaml` | Fails if required loader entries are missing | Legacy inline package mapping |
+| `auto_update` | Inline `homeassistant.packages` mapping in `configuration.yaml` | Adds missing inline loader entries in `configuration.yaml` | Legacy inline mapping with auto-fix |
+| `check_include_file` | `configuration.yaml` uses `packages: !include ...` | Checks include-file entries; fails if missing | Static config + strict include-file validation |
+| `auto_update_include_file` | `configuration.yaml` uses `packages: !include ...` | Checks include-file and adds missing loader entries automatically | Recommended for this repo |
+
+Recommended with this repository structure:
+
+- Keep `configuration.yaml` static:
+  - `homeassistant:`
+  - `  packages: !include packages/3d_printing/_feature_loaders.yaml`
+- Use `feature_include_mode=auto_update_include_file` for day-to-day deploys.
+
 ## Runbook (On-Demand GitHub Actions)
 
 This deployment is intended to run manually via GitHub Actions (`workflow_dispatch`).
