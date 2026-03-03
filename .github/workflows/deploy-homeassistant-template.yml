@@ -77,6 +77,15 @@ on:
         options:
           - "false"
           - "true"
+      post_deploy_action:
+        description: "Action after deploy: none, reload domains, or restart core"
+        required: true
+        type: choice
+        default: none
+        options:
+          - none
+          - reload_domains
+          - restart_core
 
 jobs:
   deploy:
@@ -548,6 +557,100 @@ jobs:
           echo "Dry-run mode skips 'ha core check' to avoid validating the currently deployed config instead of candidate changes."
           echo "Dry-run still validates selection logic, allowlist generation, SSH connectivity, and rsync candidate file set."
 
-      - name: Reload note
+      - name: Execute post-deploy action
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
-          echo "After config check, reload target domains (template/automation/script) or restart Core if needed."
+          set -euo pipefail
+
+          POST_DEPLOY_ACTION="${{ github.event.inputs.post_deploy_action }}"
+          HA_SUPERVISOR_TOKEN_INPUT="${{ secrets.HA_SUPERVISOR_TOKEN }}"
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          echo "Selected post_deploy_action: $POST_DEPLOY_ACTION"
+
+          case "$POST_DEPLOY_ACTION" in
+            none)
+              echo "No post-deploy action selected."
+              exit 0
+              ;;
+            reload_domains)
+              REMOTE_COMMAND="ha service call automation.reload; ha service call script.reload; ha service call template.reload"
+              echo "Executing domain reloads: automation, script, template"
+              ;;
+            restart_core)
+              REMOTE_COMMAND="ha core restart"
+              echo "Executing Home Assistant Core restart"
+              ;;
+            *)
+              echo "Unknown post_deploy_action: $POST_DEPLOY_ACTION"
+              exit 1
+              ;;
+          esac
+
+          set +e
+          ACTION_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$HA_SUPERVISOR_TOKEN_INPUT\" \"$REMOTE_COMMAND\"" <<'REMOTE_ACTION'
+          set -euo pipefail
+
+          input_token="${1:-}"
+          command_to_run="${2:-}"
+
+          if [ -n "$input_token" ]; then
+            export SUPERVISOR_TOKEN="$input_token"
+          fi
+
+          if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+            for token_file in \
+              /run/s6/container_environment/SUPERVISOR_TOKEN \
+              /run/secrets/supervisor_token \
+              /data/supervisor_token
+            do
+              if [ -r "$token_file" ]; then
+                export SUPERVISOR_TOKEN="$(cat "$token_file" 2>/dev/null || true)"
+                [ -n "${SUPERVISOR_TOKEN:-}" ] && break
+              fi
+            done
+          fi
+
+          bash -lc "$command_to_run"
+          REMOTE_ACTION
+          2>&1)"
+          ACTION_EXIT=$?
+          set -e
+
+          if [ $ACTION_EXIT -eq 0 ]; then
+            echo "$ACTION_OUTPUT"
+            echo "Post-deploy action completed: $POST_DEPLOY_ACTION"
+            exit 0
+          fi
+
+          echo "$ACTION_OUTPUT"
+
+          if echo "$ACTION_OUTPUT" | grep -qi "missing or invalid API token"; then
+            set +e
+            SUDO_ACTION_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "sudo -n bash -lc '$REMOTE_COMMAND'" 2>&1)"
+            SUDO_ACTION_EXIT=$?
+            set -e
+
+            if [ $SUDO_ACTION_EXIT -eq 0 ]; then
+              echo "$SUDO_ACTION_OUTPUT"
+              echo "Post-deploy action completed with sudo fallback: $POST_DEPLOY_ACTION"
+              exit 0
+            fi
+
+            echo "$SUDO_ACTION_OUTPUT"
+            echo "ERROR: Post-deploy action failed due to auth context and sudo fallback did not succeed."
+            exit 1
+          fi
+
+          echo "ERROR: Post-deploy action failed."
+          exit $ACTION_EXIT
+
+      - name: Post-deploy reminder
+        run: |
+          echo "Selected post_deploy_action: ${{ github.event.inputs.post_deploy_action }}"
+          echo "Reminder: Depending on what changed, you may still need a domain reload or Core restart."
+          echo "This reminder is shown regardless of post_deploy_action selection."
