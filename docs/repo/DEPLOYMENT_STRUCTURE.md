@@ -53,6 +53,11 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
 - [homeassistant/www/3d_printing/](../../homeassistant/www/3d_printing/):
   - Store runtime assets needed by Home Assistant frontend/cards.
   - Use `packages_www` to deploy these assets.
+- Feature loader include map:
+  - Keep shared feature loader mappings in [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../homeassistant/packages/3d_printing/_feature_loaders.yaml).
+  - In Home Assistant `configuration.yaml`, use:
+    - `homeassistant:`
+    - `  packages: !include packages/3d_printing/_feature_loaders.yaml`
 - `openhasp/` and `wled/`:
   - Device/controller-side artifacts; not part of package YAML.
 - `homelab/` and `.github/`:

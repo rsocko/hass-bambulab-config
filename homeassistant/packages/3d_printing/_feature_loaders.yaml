@@ -1,0 +1,1 @@
+core_loader: !include packages/3d_printing/core/core_loader.yaml
