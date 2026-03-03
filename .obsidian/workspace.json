@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "docs/features/spoolman_sync/README.md",
+                "file": "docs/repo/IMPLEMENTATION_NOTES.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "IMPLEMENTATION_NOTES"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "docs/features/spoolman_sync/README.md",
+                "file": "docs/repo/IMPLEMENTATION_NOTES.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for README"
+              "title": "Backlinks for IMPLEMENTATION_NOTES"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "docs/features/spoolman_sync/README.md",
+                "file": "docs/repo/IMPLEMENTATION_NOTES.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from README"
+              "title": "Outgoing links from IMPLEMENTATION_NOTES"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "docs/features/spoolman_sync/README.md",
+                "file": "docs/repo/IMPLEMENTATION_NOTES.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of README"
+              "title": "Outline of IMPLEMENTATION_NOTES"
             }
           },
           {
@@ -194,10 +194,27 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "aa9ae67716a21193",
+  "active": "1aebb63cf73e7c54",
   "lastOpenFiles": [
-    "docs/features/spoolman_sync/docs/reload_spoolman_integration_nightly.md",
+    "homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml",
+    "homeassistant/packages/3d_printing/common/dashboard_views/view_filament_tags.yaml",
+    "homeassistant/packages/3d_printing/common/dashboard_views/view_filament_catalog.yaml",
+    "homeassistant/packages/3d_printing/common/dashboard_views/lovelace.3d_printing",
+    "homeassistant/packages/3d_printing/common/dashboard_views",
+    "homeassistant/packages/3d_printing/common/dashboards/3d_printing_v2.yaml",
+    "homeassistant/packages/3d_printing/common/dashboards",
+    "homeassistant/packages/3d_printing/core/dashboard_views/view_filament_catalog.yaml",
+    "homeassistant/packages/3d_printing/core/dashboard_views/view_filament_tags.yaml",
+    "homeassistant/packages/3d_printing/core/dashboard_views/view_main.yaml",
+    "homeassistant/packages/3d_printing/core/dashboards/3d_printing_v2.yaml",
+    "docs/repo/DEPLOYMENT_STRUCTURE.md",
+    "docs/repo/PR_SUMMARY.md",
+    "docs/repo/QUICK_START.md",
+    "docs/repo/REPO_LAYOUT.md",
+    "docs/README.md",
+    "docs/infrastructure/github-runner-README.md",
     "docs/features/spoolman_sync/README.md",
+    "docs/features/spoolman_sync/docs/reload_spoolman_integration_nightly.md",
     "docs/features/spoolman_sync/docs/active_tray_changed_update_spoolman.md",
     "docs/features/spoolman_sync/docs/print_complete_update_filament_usage.md",
     "README.md",
@@ -206,22 +223,10 @@
     "docs/features/spoolman_sync/assets/Bambu Printer Automations-Spoolman Refresh.png",
     "docs/features/spoolman_sync/assets/Bambu Printer Automations-Print Complete.png",
     "docs/features/spoolman_sync/assets/Bambu Printer Automations-Find Spool.png",
-    "docs/features/spoolman_sync/assets",
     "docs/features/air_quality/README.md",
-    "homeassistant/packages/3d_printing/spoolman_sync/sensors/spoolman_tray_map.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/sensors/spoolman_filament_totals.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/sensors/print_cost.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/scripts/update_spool_last_and_first_used-script.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/scripts/print_weight_persistence_self_test-script.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/scripts/mark_spool_as_dried-script.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml",
-    "homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml",
-    "docs/README.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Find Spool.png",
     "homeassistant/packages.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Spoolman Refresh.png",
-    "docs/repo/DEPLOYMENT_STRUCTURE.md",
     "homeassistant/www/3d_printing/wled/README.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Print Complete.png",
     "docs/features/spoolman_sync/SOLUTION_SUMMARY.md",
@@ -229,18 +234,13 @@
     "docs/features/wled/CONTROLLER_ALLOCATION_RECOMMENDATION.md",
     "docs/features/wled/README.md",
     "docs/features/wled/SUMMARY.md",
-    "docs/infrastructure/github-runner-README.md",
     "homeassistant/www/3d_printing/spoolman_sync/assets/script-findspool.png",
     "homeassistant/www/3d_printing/spoolman_sync/assets/Bambu Printer Automations-Tray Updated.png",
     "homeassistant/www/wled/README.md",
     "homeassistant/packages/3d_printing/wled/README.md",
     "openhasp/README.md",
     "homeassistant/README.md",
-    "docs/repo/REPO_LAYOUT.md",
     "docs/features/wled/QUICK_START_PRESET_BASED.md",
-    "docs/features/wled/QUICK_START.md",
-    "docs/features/wled/QUICK_REFERENCE.md",
-    "docs/features/wled/PRESET_SPECIFICATION.md",
-    "docs/features/wled/PRESET_BASED_SEGMENTS.md"
+    "docs/features/wled/QUICK_START.md"
   ]
 }
