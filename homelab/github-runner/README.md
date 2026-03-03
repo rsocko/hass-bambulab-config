@@ -46,6 +46,40 @@ If your SSH shell does not expose the `ha` CLI, keep the deploy sync step and mo
 - Home Assistant UI (Developer Tools -> YAML reloads), or
 - a REST/API call stage with a long-lived access token.
 
+### Secure workflow variable/secret setup (recommended)
+
+To avoid hardcoding deployment targets in git, configure the workflow using GitHub Variables/Secrets.
+
+Set these **Repository Variables** (or **Environment Variables** if using a protected environment):
+
+- `HA_HOST` (example: `homeassistant.local` or static LAN IP)
+- `HA_SSH_PORT` (SSH add-on port, defaults to `22` if omitted)
+- `HA_SSH_USER` (SSH add-on username)
+- `HA_CONFIG_PATH` (defaults to `/config`)
+- `SSH_KEY_PATH` (example: `/runner/.ssh/id_ed25519`)
+
+Set this optional **Repository Secret** for strict SSH host key verification:
+
+- `HA_SSH_KNOWN_HOSTS`
+
+You can get the host key line from the runner host/container:
+
+```bash
+ssh-keyscan -p <HA_SSH_PORT> <HA_HOST>
+```
+
+Paste the full output line(s) into `HA_SSH_KNOWN_HOSTS`.
+
+- If `HA_SSH_KNOWN_HOSTS` is set, workflow uses strict host key checking (`StrictHostKeyChecking=yes`).
+- If not set, workflow falls back to `StrictHostKeyChecking=accept-new`.
+
+### Protection recommendations
+
+- Use a GitHub Environment (for example `homelab-prod`) with required reviewers.
+- Store deployment values as environment-scoped Variables/Secrets.
+- Restrict who can edit workflow files and who can trigger manual deploys.
+- Keep private SSH keys only on the runner filesystem (never in repository files).
+
 ## Deployment include/exclude behavior
 
 The workflow `.github/workflows/deploy-homeassistant-template.yml` uses rsync allowlist profiles:

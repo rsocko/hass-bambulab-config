@@ -64,6 +64,13 @@ on:
 jobs:
   deploy:
     runs-on: [self-hosted, linux, docker, ha, homelab, dockhand]
+    env:
+      HA_HOST: ${{ vars.HA_HOST }}
+      HA_SSH_PORT: ${{ vars.HA_SSH_PORT || '22' }}
+      HA_SSH_USER: ${{ vars.HA_SSH_USER }}
+      HA_CONFIG_PATH: ${{ vars.HA_CONFIG_PATH || '/config' }}
+      SSH_KEY_PATH: ${{ vars.SSH_KEY_PATH || '/runner/.ssh/id_ed25519' }}
+      HA_SSH_KNOWN_HOSTS: ${{ secrets.HA_SSH_KNOWN_HOSTS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -223,24 +230,44 @@ jobs:
 
       - name: Preflight (HAOS SSH + tools)
         run: |
+          set -euo pipefail
+
           command -v rsync >/dev/null 2>&1 || { echo "rsync is required"; exit 1; }
           command -v ssh >/dev/null 2>&1 || { echo "ssh client is required"; exit 1; }
+
+          [ -n "$HA_HOST" ] || { echo "Missing HA_HOST (set GitHub Variable HA_HOST)"; exit 1; }
+          [ -n "$HA_SSH_USER" ] || { echo "Missing HA_SSH_USER (set GitHub Variable HA_SSH_USER)"; exit 1; }
+          [ -n "$HA_SSH_PORT" ] || { echo "Missing HA_SSH_PORT (set GitHub Variable HA_SSH_PORT)"; exit 1; }
+          [ -n "$SSH_KEY_PATH" ] || { echo "Missing SSH_KEY_PATH (set GitHub Variable SSH_KEY_PATH)"; exit 1; }
+          [ -n "$HA_CONFIG_PATH" ] || { echo "Missing HA_CONFIG_PATH (set GitHub Variable HA_CONFIG_PATH)"; exit 1; }
+
+          if [ ! -f "$SSH_KEY_PATH" ]; then
+            echo "SSH key not found at $SSH_KEY_PATH"
+            exit 1
+          fi
+
+      - name: Prepare SSH host key policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "$HA_SSH_KNOWN_HOSTS" ]; then
+            mkdir -p "$HOME/.ssh"
+            chmod 700 "$HOME/.ssh"
+            printf '%s\n' "$HA_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+            chmod 600 "$HOME/.ssh/known_hosts"
+            echo "SSH_STRICT_MODE=yes" >> "$GITHUB_ENV"
+            echo "Configured strict host key checking using secret HA_SSH_KNOWN_HOSTS"
+          else
+            echo "SSH_STRICT_MODE=accept-new" >> "$GITHUB_ENV"
+            echo "HA_SSH_KNOWN_HOSTS not set; using StrictHostKeyChecking=accept-new"
+          fi
 
       - name: Best-effort UI/storage name conflict check
         if: ${{ github.event.inputs.check_ui_name_conflicts == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-
-          HA_HOST="homeassistant.local"
-          HA_SSH_PORT="22"
-          HA_SSH_USER="root"
-          SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
-
-          if [ ! -f "$SSH_KEY_PATH" ]; then
-            echo "SSH key not found at $SSH_KEY_PATH"
-            exit 1
-          fi
 
           python3 .github/scripts/check_ui_name_conflicts.py \
             --ha-host "$HA_HOST" \
@@ -254,20 +281,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Update these values for your environment.
-          HA_HOST="homeassistant.local"
-          HA_SSH_PORT="22"
-          HA_SSH_USER="root"
-          HA_CONFIG_PATH="/config"
           SOURCE_ROOT="./homeassistant/"
-          SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
 
-          if [ ! -f "$SSH_KEY_PATH" ]; then
-            echo "SSH key not found at $SSH_KEY_PATH"
-            exit 1
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
           fi
-
-          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=accept-new"
           ALLOWLIST_FILE="${{ steps.selection.outputs.effective_allowlist }}"
 
           if [ ! -f "$ALLOWLIST_FILE" ]; then
@@ -300,11 +319,12 @@ jobs:
       - name: Validate Home Assistant config (post-sync)
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
-          HA_HOST="homeassistant.local"
-          HA_SSH_PORT="22"
-          HA_SSH_USER="root"
-          SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
-          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=accept-new"
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
 
           # Requires HA CLI availability in the SSH shell.
           ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "ha core check"
