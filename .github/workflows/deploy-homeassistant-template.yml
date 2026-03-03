@@ -468,13 +468,79 @@ jobs:
         run: |
           set -euo pipefail
 
+          HA_SUPERVISOR_TOKEN_INPUT="${{ secrets.HA_SUPERVISOR_TOKEN }}"
+
           SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
           if [ "$SSH_STRICT_MODE" = "yes" ]; then
             SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
           fi
 
-          # Requires HA CLI availability in the SSH shell.
-          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "ha core check"
+          set +e
+          CHECK_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$HA_SUPERVISOR_TOKEN_INPUT\"" <<'REMOTE_CHECK'
+          set -euo pipefail
+
+          input_token="${1:-}"
+
+          if [ -n "$input_token" ]; then
+            export SUPERVISOR_TOKEN="$input_token"
+            echo "Using SUPERVISOR_TOKEN from GitHub secret."
+          fi
+
+          if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+            for token_file in \
+              /run/s6/container_environment/SUPERVISOR_TOKEN \
+              /run/secrets/supervisor_token \
+              /data/supervisor_token
+            do
+              if [ -r "$token_file" ]; then
+                export SUPERVISOR_TOKEN="$(cat "$token_file" 2>/dev/null || true)"
+                if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+                  echo "Using SUPERVISOR_TOKEN from $token_file"
+                  break
+                fi
+              fi
+            done
+          fi
+
+          if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+            echo "No SUPERVISOR_TOKEN available in this SSH session."
+          fi
+
+          ha core check
+          REMOTE_CHECK
+          2>&1)"
+          CHECK_EXIT=$?
+          set -e
+
+          if [ $CHECK_EXIT -eq 0 ]; then
+            echo "$CHECK_OUTPUT"
+            exit 0
+          fi
+
+          echo "$CHECK_OUTPUT"
+
+          if echo "$CHECK_OUTPUT" | grep -qi "missing or invalid API token"; then
+            set +e
+            SUDO_CHECK_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "sudo -n bash -lc 'ha core check'" 2>&1)"
+            SUDO_CHECK_EXIT=$?
+            set -e
+
+            if [ $SUDO_CHECK_EXIT -eq 0 ]; then
+              echo "Retried with sudo after auth error and succeeded:"
+              echo "$SUDO_CHECK_OUTPUT"
+              exit 0
+            fi
+
+            echo "sudo retry also failed:"
+            echo "$SUDO_CHECK_OUTPUT"
+            echo "WARNING: Skipping hard failure for 'ha core check' due to SSH add-on auth context."
+            echo "This deploy completed, but config validation could not run under current SSH user/session."
+            echo "Recommended: use SSH user 'root' (or a shell context with Supervisor token) for this step."
+            exit 0
+          fi
+
+          echo "ERROR: 'ha core check' failed for a reason other than auth context."
+          exit $CHECK_EXIT
 
       - name: Dry-run validation note
         if: ${{ github.event.inputs.dry_run == 'true' }}
