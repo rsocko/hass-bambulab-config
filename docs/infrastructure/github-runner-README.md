@@ -6,11 +6,11 @@ This stack runs a persistent GitHub Actions self-hosted runner in Docker so you 
 
 - Keeps deployment jobs on your LAN close to Home Assistant.
 - Avoids exposing SSH/file sync endpoints publicly.
-- Fits Dockhand-style stack deployment via `docker-compose.yml`.
+- Fits Dockhand-style stack deployment via `compose.yaml`.
 
 ## Files
 
-- `docker-compose.yml` - runner service definition
+- `compose.yaml` - runner service definition
 - `.env.example` - environment variables template
 
 ## Setup

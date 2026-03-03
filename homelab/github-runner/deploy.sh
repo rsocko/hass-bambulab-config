@@ -8,7 +8,12 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-docker compose pull
-docker compose up -d
+if [ ! -f compose.yaml ]; then
+  echo "Missing compose.yaml in $(pwd)"
+  exit 1
+fi
+
+docker compose -f compose.yaml pull
+docker compose -f compose.yaml up -d
 
 echo "Runner stack deployed. Check GitHub repo Settings -> Actions -> Runners."
