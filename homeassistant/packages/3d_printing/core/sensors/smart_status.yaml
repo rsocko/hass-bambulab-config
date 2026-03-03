@@ -1,4 +1,4 @@
-- name: "ntk_ryansoffice_3dprinter_smart_status"
+- name: "ntk_ryansoffice_3dprinter_smart_status_v2"
   state: >
     {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
     {% set stage = states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower %}
