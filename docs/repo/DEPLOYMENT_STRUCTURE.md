@@ -62,12 +62,27 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
 
 - Small package-only change:
   - Use `allowlist_profile=packages_only`
+- Staged package migration rollout:
+  - Use `package_scope=selected`
+  - Set `selected_packages` to specific folders (for example: `core,common` or `common,humidity`)
+  - Or use `package_preset` (`core_only`, `core_common`)
+  - `selected_packages` always overrides `package_preset`, so you can skip `core` on any run
+  - Optional: `include_www_for_selected=true` for matching `www/3d_printing/<package>/` assets
 - Normal config rollout:
   - Use `allowlist_profile=yaml_only`
 - Config + frontend assets (`www/`):
   - Use `allowlist_profile=packages_www`
 
 Always run a dry run first (`dry_run=true`) before a write deploy.
+
+## Optional UI/Storage Naming Overlap Check
+
+Workflow dispatch includes an optional best-effort overlap check for selected package names against common Home Assistant `.storage` objects:
+
+- `check_ui_name_conflicts=true` enables the check (default)
+- `fail_on_ui_conflict=true` fails the job on detected overlaps
+
+Use warnings-first mode (`fail_on_ui_conflict=false`) during initial migration, then switch to strict mode once names are aligned.
 
 ## If You Need Additional Asset Paths
 

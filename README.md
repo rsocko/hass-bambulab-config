@@ -76,6 +76,14 @@ This repository is organized to work with the HAOS deployment workflow and allow
   - `packages_only`: deploy only `packages/**/*.yaml` / `packages/**/*.yml`
   - `packages_www`: deploy `packages` YAML/YML plus all assets under `www/`
 
+- Selective package rollout (staged migration support):
+  - Set workflow input `package_scope=selected`
+  - Set `selected_packages` to a comma-separated list such as `core,common` or `common,humidity`
+  - Or use `package_preset` (for example `core_only` or `core_common`)
+  - `selected_packages` overrides `package_preset`, so you can omit `core` on any run
+  - Optionally set `include_www_for_selected=true` to sync only matching `www/3d_printing/<package>/` assets
+  - Optional best-effort UI/storage overlap check is available with `check_ui_name_conflicts` and `fail_on_ui_conflict`
+
 For package safety, keep `homeassistant/packages/` YAML-only; place frontend runtime assets in `homeassistant/www/3d_printing/`.
 
 WLED controller/device artifacts stay in the root `wled/` folder, while future HA-deployed WLED config belongs under `homeassistant/packages/3d_printing/wled/` and `homeassistant/www/3d_printing/wled/`.
