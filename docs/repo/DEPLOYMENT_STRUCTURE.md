@@ -4,6 +4,10 @@ This document defines the expected directory structure for this repository so it
 
 - [.github/workflows/deploy-homeassistant-template.yml](../../.github/workflows/deploy-homeassistant-template.yml)
 
+Related operational note:
+
+- [Dashboard Deploy and Reload Behavior](./DASHBOARD_DEPLOYMENT_BEHAVIOR.md)
+
 ## Deployment Profiles
 
 The workflow sync source root is `homeassistant/` and deploys into Home Assistant `/config`.
