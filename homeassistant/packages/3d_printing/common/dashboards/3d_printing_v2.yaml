@@ -2,3 +2,4 @@ views:
   - !include ../dashboard_views/view_main.yaml
   - !include ../dashboard_views/view_filament_tags.yaml
   - !include ../dashboard_views/view_filament_catalog.yaml
+  - !include ../dashboard_views/view_deploy_validation.yaml
