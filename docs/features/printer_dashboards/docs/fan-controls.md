@@ -81,9 +81,13 @@ Install these custom cards via HACS:
    fan.your_esp32_fan_entity_name
    ```
 
-2. **Copy Configuration**
+2. **Use Canonical Configuration**
    
-   Open `/homeassistant/packages/3d_printing/printer_controls/dashboard_cards/fan-controls.yaml` and copy the entire `type: horizontal-stack` section.
+  Canonical card file:
+  `/homeassistant/packages/3d_printing/printer_controls/dashboard_cards/fan_controls_v2.yaml`
+
+  Packaged dashboard include (already wired in `view_main.yaml`):
+  `!include ../../printer_controls/dashboard_cards/fan_controls_v2.yaml`
 
 3. **Add to Dashboard**
    
@@ -132,7 +136,14 @@ cards:
 
 This creates a 2x2 grid that works better on mobile devices.
 
-## Customization
+2. **Use Canonical Configuration**
+   
+  Use `/homeassistant/packages/3d_printing/printer_controls/dashboard_cards/fan_controls_v2.yaml` as the canonical fan controls card.
+
+  If you are using the packaged dashboard view, this card is already included from:
+  `/homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml`
+  via:
+  `!include ../../printer_controls/dashboard_cards/fan_controls_v2.yaml`
 
 ### Changing Colors
 

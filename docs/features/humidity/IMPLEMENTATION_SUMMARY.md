@@ -181,7 +181,7 @@ homeassistant/packages/3d_printing/humidity/
 
 ### Internal
 - [Main Dashboard](../printer_dashboards/README.md)
-- [Fan Controls](../../../homeassistant/packages/3d_printing/printer_controls/dashboard_cards/fan-controls.yaml)
+- [Fan Controls](../../../homeassistant/packages/3d_printing/printer_controls/dashboard_cards/fan_controls_v2.yaml)
 - [Spoolman Sync](../spoolman_sync/README.md)
 
 ### External

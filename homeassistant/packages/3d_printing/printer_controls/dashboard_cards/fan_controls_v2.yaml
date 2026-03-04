@@ -1,41 +1,5 @@
-# ============================================================
-# Fan Controls Dashboard Card (Compact Single-Section Layout)
-# ============================================================
-# Compact badge-style fan controls that fit in a single section.
-# Each card shows:
-#   - Dual icons: main type icon + badge fan indicator
-#   - Speed value (large) on top
-#   - Fan name (small, uppercase) below
-#   - Hover tooltip with full entity name
-#
-# ICONS & ANIMATIONS:
-#   Aux Fan     → mdi:fan (spins when on; faster at higher speed)
-#   Chamber Fan → mdi:fan-chevron-up (spins when on; faster at higher speed)
-#   Cooling Fan → mdi:snowflake (slow constant spin when on) + spinning badge fan
-#   Bento Box   → mdi:air-filter (wavy translate animation when on) + spinning badge fan
-#
-# ANIMATION SPEEDS (Aux / Chamber fans):
-#   0%       → no spin
-#   1-29%    → slow spin (3s per rotation)
-#   30-69%   → medium spin (1.5s per rotation)
-#   70-100%  → fast spin (0.7s per rotation)
-#
-# REQUIRED CUSTOM CARDS:
-# - mushroom (via HACS)
-# - card-mod (via HACS) - for compact styling and animations
-#
-# SETUP:
-# 1. Replace 'ntk_ryansoffice_3dprinter' with your printer name
-# 2. Replace 'fan.3dprinter_controller_box_bento_box_fan'
-#    with your ESP32 Bento Box fan entity
-# 3. Paste into your dashboard
-#
-# ============================================================
-
 type: horizontal-stack
 cards:
-  # ── AUX FAN ─────────────────────────────────────
-  # Icon: Fan (spinning when on) + "A" badge | High-power auxiliary cooling
   - type: custom:mushroom-template-card
     entity: fan.ntk_ryansoffice_3dprinter_aux_fan
     primary: "{{ states('sensor.ntk_ryansoffice_3dprinter_aux_fan_speed') | int(0) }}%"
@@ -94,8 +58,6 @@ cards:
           {% endif %}
         }
 
-  # ── CHAMBER FAN ─────────────────────────────────
-  # Icon: Chamber fan (spinning when on) + cube badge | Circulates air in enclosure
   - type: custom:mushroom-template-card
     entity: fan.ntk_ryansoffice_3dprinter_chamber_fan
     primary: >-
@@ -156,8 +118,6 @@ cards:
           {% endif %}
         }
 
-  # ── COOLING FAN ─────────────────────────────────
-  # Icon: Snowflake (slow constant spin when on) + spinning fan badge | Part cooling fan
   - type: custom:mushroom-template-card
     entity: fan.ntk_ryansoffice_3dprinter_cooling_fan
     primary: >-
@@ -225,9 +185,6 @@ cards:
           {% endif %}
         }
 
-  # ── BENTO BOX FAN (ESP32) ──────────────────────
-  # Icon: Air filter (wavy translate animation when on) + spinning fan badge | HEPA filter fan
-  # UPDATE ENTITY TO MATCH YOUR ESP32 FAN
   - type: custom:mushroom-template-card
     entity: fan.3dprinter_controller_box_bento_box_fan
     primary: |-
