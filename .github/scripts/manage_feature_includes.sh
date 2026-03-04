@@ -42,11 +42,13 @@ fi
 echo "Resolved features for include management: $feature_csv"
 
 missing_loader_features=""
+skipped_dashboard_only_features=""
 candidate_includes=""
 for feature_name in $(echo "$feature_csv" | tr ',' ' '); do
   feature_name="$(echo "$feature_name" | xargs)"
   [ -z "$feature_name" ] && continue
 
+  feature_src_path="$PACKAGES_ROOT/$feature_name"
   loader_src_rel_path="packages/3d_printing/$feature_name/${feature_name}_loader.yaml"
   loader_src_path="$SOURCE_ROOT/$loader_src_rel_path"
 
@@ -57,6 +59,25 @@ for feature_name in $(echo "$feature_csv" | tr ',' ' '); do
   fi
 
   if [ ! -f "$loader_src_path" ]; then
+    has_non_dashboard_yaml="false"
+    if [ -d "$feature_src_path" ]; then
+      if find "$feature_src_path" -type f \( -name "*.yaml" -o -name "*.yml" \) \
+        ! -path "*/dashboard_cards/*" \
+        ! -path "*/dashboard_views/*" \
+        | grep -q .; then
+        has_non_dashboard_yaml="true"
+      fi
+    fi
+
+    if [ "$has_non_dashboard_yaml" = "false" ]; then
+      if [ -z "$skipped_dashboard_only_features" ]; then
+        skipped_dashboard_only_features="$feature_name"
+      else
+        skipped_dashboard_only_features="$skipped_dashboard_only_features,$feature_name"
+      fi
+      continue
+    fi
+
     if [ -z "$missing_loader_features" ]; then
       missing_loader_features="$feature_name"
     else
@@ -71,6 +92,10 @@ for feature_name in $(echo "$feature_csv" | tr ',' ' '); do
     candidate_includes="$candidate_includes,$feature_name:$loader_include_path"
   fi
 done
+
+if [ -n "$skipped_dashboard_only_features" ]; then
+  echo "Skipping loader include checks for dashboard-only feature(s): $skipped_dashboard_only_features"
+fi
 
 if [ -n "$missing_loader_features" ]; then
   echo "Missing loader file(s) for feature(s): $missing_loader_features"

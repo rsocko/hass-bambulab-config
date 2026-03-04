@@ -58,3 +58,20 @@ Typical action: restart Home Assistant after config check.
 2. Run workflow with `dry_run=false`.
 3. If only view/layout content changed: refresh dashboard UI.
 4. If loader or dashboard registration changed: restart HA.
+
+## 6) Feature include automation behavior (selected package deploys)
+
+The deployment workflow step `manage_feature_includes.sh` enforces loader includes for
+features that contain loader-backed YAML domains.
+
+- **Cards/views-only features** (for example a feature folder containing only
+  `dashboard_cards/` and/or `dashboard_views/`) do **not** require `<feature>_loader.yaml`.
+- **Dashboard registration features** (features containing `dashboards/`) **do** require
+  `<feature>_loader.yaml` because dashboard definitions must be wired through package loader
+  includes (for example like `common/common_loader.yaml` referencing dashboards includes).
+- **Loader-backed features** (for example `sensors/`, `automations/`, `helpers/`, `scripts/`,
+  integrations YAML, etc.) still require `<feature>/<feature>_loader.yaml` when include checks
+  are enabled.
+
+This prevents false failures when deploying selected packages such as `print_progress` that are
+consumed via Lovelace includes rather than package-domain loader wiring.
