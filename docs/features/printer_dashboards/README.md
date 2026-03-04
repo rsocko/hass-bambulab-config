@@ -64,6 +64,7 @@ Key features:
 ### Print Progress Cards
 Animated progress cards for monitoring active prints. Available as standalone KPI option files in `homeassistant/packages/3d_printing/print_progress/dashboard_cards/`.
 See [docs/print-progress-options-guide.md](docs/print-progress-options-guide.md) for all thirteen issue #516 progress design variants.
+See [docs/print-progress-dependencies.md](docs/print-progress-dependencies.md) for include wiring, required entities, and deployment caveats.
 
 Key features:
 - **Layer Progress** — layers icon bounces upward while printing, simulating layers piling up

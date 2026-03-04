@@ -35,6 +35,12 @@ Documentation for the HMS (Health Management System) error alert implementation:
   - Entity and behavior notes
   - Validation checklist
 
+- **[print-progress-dependencies.md](print-progress-dependencies.md)** - Runtime dependency map for print progress KPI cards
+  - Include/load chain from package wiring to `view_main.yaml`
+  - Required entities and dependency classification
+  - Custom card dependency (`custom:button-card`)
+  - Selective deployment caveats (`common` + `print_progress`)
+
 ## HMS Error Alert Features
 
 The HMS error alert system provides:
