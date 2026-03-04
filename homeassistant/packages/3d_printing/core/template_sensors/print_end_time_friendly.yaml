@@ -1,0 +1,37 @@
+  # ---------------------------------------------------------------------------
+  # Print End Time (Friendly)
+  # ---------------------------------------------------------------------------
+  # Formats the raw end-time sensor for easier reading on the ESP32 display.
+  #
+  # Rules:
+  # - Same day:   "h:mm AM/PM"
+  # - Tomorrow:   "h:mm AM/PM tomorrow"
+  # - Within week:"h:mm AM/PM on Day"
+  # - Beyond week:"h:mm AM/PM on MM/DD/YYYY"
+  #
+  # Source: sensor.ntk_ryansoffice_3dprinter_end_time
+  # Used by: officetouch5.yaml -> p1b29 (label text)
+- name: "Print End Time Friendly"
+  unique_id: print_end_time_friendly
+  state: >
+    {% set end_time = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+    {% if end_time in ['unknown', 'unavailable', 'none', 'None', ''] %}
+      --
+    {% else %}
+      {% set end_dt = as_datetime(end_time) %}
+      {% if end_dt is none %}
+        --
+      {% else %}
+        {% set today = now().date() %}
+        {% set end_date = end_dt.date() %}
+        {% if end_date == today %}
+          {{ end_dt.strftime('%-I:%M %p') }}
+        {% elif end_date == (today + timedelta(days=1)) %}
+          {{ end_dt.strftime('%-I:%M %p') }} tomorrow
+        {% elif end_date <= (today + timedelta(days=7)) %}
+          {{ end_dt.strftime('%-I:%M %p') }} on {{ end_dt.strftime('%A') }}
+        {% else %}
+          {{ end_dt.strftime('%-I:%M %p') }} on {{ end_dt.strftime('%m/%d/%Y') }}
+        {% endif %}
+      {% endif %}
+    {% endif %}

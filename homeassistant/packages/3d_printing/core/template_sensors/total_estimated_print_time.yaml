@@ -1,0 +1,21 @@
+  # ---------------------------------------------------------------------------
+  # Total Estimated Print Time
+  # ---------------------------------------------------------------------------
+  # Calculates the total estimated print duration (in minutes) from the
+  # printer's reported start and end times. Used as the arc maximum so the
+  # remaining-time arc (p1b4) scales proportionally.
+  #
+  # Source: sensor.ntk_ryansoffice_3dprinter_start_time
+  #         sensor.ntk_ryansoffice_3dprinter_end_time
+  # Used by: officetouch5.yaml -> p1b4 (arc max value)
+- name: "Total Estimated Print Time"
+  unique_id: total_estimated_print_time
+  unit_of_measurement: "min"
+  state: >
+    {% set start = states('sensor.ntk_ryansoffice_3dprinter_start_time') %}
+    {% set end_time = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+    {% if start not in ['unknown', 'unavailable'] and end_time not in ['unknown', 'unavailable'] %}
+      {{ ((as_timestamp(end_time) - as_timestamp(start)) / 60) | round(0) }}
+    {% else %}
+      0
+    {% endif %}

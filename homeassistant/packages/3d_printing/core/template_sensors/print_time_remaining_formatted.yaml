@@ -1,0 +1,17 @@
+  # ---------------------------------------------------------------------------
+  # Print Time Remaining (Formatted)
+  # ---------------------------------------------------------------------------
+  # Converts the raw remaining-time sensor (integer minutes) into a
+  # human-readable "Xh Ym" or "Ym" string for the display label (p1b14).
+  #
+  # Source: sensor.ntk_ryansoffice_3dprinter_remaining_time (unit: min)
+  # Used by: officetouch5.yaml -> p1b14 (label text)
+- name: "Print Time Remaining (Formatted)"
+  unique_id: print_time_remaining_formatted
+  state: >
+    {% set mins = states('sensor.ntk_ryansoffice_3dprinter_remaining_time') | int(0) %}
+    {% if mins >= 60 %}
+      {{ (mins // 60) }}h {{ (mins % 60) }}m
+    {% else %}
+      {{ mins }}m
+    {% endif %}

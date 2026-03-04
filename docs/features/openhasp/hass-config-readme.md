@@ -85,11 +85,11 @@ Custom template sensors that transform raw Bambu Lab printer data into display-f
 
 | File | HA Entity | Used By | Description |
 |------|-----------|---------|-------------|
-| [template_sensors.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/sensors/template_sensors.yaml) | `sensor.print_time_remaining_formatted` | `p1b14` label | Converts the raw remaining-time sensor (integer minutes) into a human-readable `Xh Ym` or `Ym` string. Source: `sensor.ntk_ryansoffice_3dprinter_remaining_time`. |
-| [template_sensors.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/sensors/template_sensors.yaml) | `sensor.total_estimated_print_time` | `p1b4` arc max | Calculates total estimated print duration in minutes from the printer's start/end times. Used as the arc maximum so the remaining-time arc scales correctly. Source: `start_time` and `end_time` sensors. |
-| [template_sensors.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/sensors/template_sensors.yaml) | `sensor.print_end_time_friendly` | `p1b29` label | Formats estimated completion time for readability: same-day time, `tomorrow`, `on {Day}` within a week, and `on MM/DD/YYYY` beyond one week. Source: `sensor.ntk_ryansoffice_3dprinter_end_time`. |
+| [print_time_remaining_formatted.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_time_remaining_formatted.yaml) | `sensor.print_time_remaining_formatted` | `p1b14` label | Converts the raw remaining-time sensor (integer minutes) into a human-readable `Xh Ym` or `Ym` string. Source: `sensor.ntk_ryansoffice_3dprinter_remaining_time`. |
+| [total_estimated_print_time.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/total_estimated_print_time.yaml) | `sensor.total_estimated_print_time` | `p1b4` arc max | Calculates total estimated print duration in minutes from the printer's start/end times. Used as the arc maximum so the remaining-time arc scales correctly. Source: `start_time` and `end_time` sensors. |
+| [print_end_time_friendly.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_end_time_friendly.yaml) | `sensor.print_end_time_friendly` | `p1b29` label | Formats estimated completion time for readability: same-day time, `tomorrow`, `on {Day}` within a week, and `on MM/DD/YYYY` beyond one week. Source: `sensor.ntk_ryansoffice_3dprinter_end_time`. |
 
-> **Note:** These sensors can be created via the HA UI (Settings → Helpers → Template) or added to `configuration.yaml` under the `template:` key. See [template_sensors.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/sensors/template_sensors.yaml) for both approaches.
+> **Note:** These sensors are package-managed and loaded from `core/template_sensors` via `core/core_loader.yaml`. They do not need to be created manually via the UI when this package is deployed.
 
 ## How It Works
 
@@ -105,9 +105,7 @@ To deploy changes from this repo to Home Assistant:
 
 1. **Plate config** — Copy `officetouch5.yaml` to your Home Assistant's `/config/openhasp/` directory.
 2. **Automations** — Add the contents of each automation YAML file into your Home Assistant `automations.yaml` (as a list item with leading `- `), or use the HA UI to import them.
-3. **Template sensors** — Create the helper sensors from `template_sensors.yaml`. Either:
-   - **UI:** Settings → Devices & Services → Helpers → Create Helper → Template → Template a sensor — copy the name, template, and unit from the file.
-   - **YAML:** Add the sensor definitions under the `template:` key in `configuration.yaml`.
+3. **Template sensors** — Included automatically from `homeassistant/packages/3d_printing/core/template_sensors/` via `core/core_loader.yaml`.
 4. **Reload** — In Home Assistant, go to **Developer Tools → YAML** and reload **OpenHASP**, **Automations**, and **Template Entities**.
 
 ## Dependencies
@@ -115,6 +113,6 @@ To deploy changes from this repo to Home Assistant:
 - [OpenHASP Custom Component](https://github.com/HASwitchPlate/openHASP-custom-component) installed in Home Assistant
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) for printer sensor entities
 - MQTT broker (e.g., Mosquitto) for HA ↔ ESP32 communication
-- Template helper sensors defined in [template_sensors.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/sensors/template_sensors.yaml) — must be created in HA before the plate config will work correctly
+- Template helper sensors defined in `core/template_sensors/*.yaml` — loaded by the 3D printing package and required for the plate config bindings
 
 
