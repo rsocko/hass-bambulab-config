@@ -111,7 +111,7 @@ The dashboard uses several custom cards that must be installed via HACS:
 If you want to load the template sensors from `configuration.yaml`, use one of these patterns:
 
 ```yaml
-sensor: !include_dir_merge_list sensors/
+sensor: !include_dir_merge_list template_sensors/
 ```
 
 or point `sensor` directly to this feature folder:
@@ -238,4 +238,5 @@ When making changes to the dashboard:
 - [Home Assistant Lovelace Documentation](https://www.home-assistant.io/lovelace/)
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)
 - [HACS - Custom Card Installation](https://hacs.xyz/)
+
 

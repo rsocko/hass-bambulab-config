@@ -49,7 +49,7 @@
         {% endif %}
 
         {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
-        {# External spool doesn't have 'type' attribute like AMS trays do #}
+        {# External spool does not have 'type' attribute like AMS trays do #}
         {# Detection signals: name='Empty', UUID=all zeros, color alpha=00 #}
         {% if tray_name == 'external_spool' %}
           {% set ext_name = state_attr(tray_entity, 'name') %}
@@ -124,7 +124,6 @@
             {% set filled_ts = none %}
           {% endif %}
 
-
           {% if not desiccant or not filled_ts %}
             {% set status = 'undefined' %}
           {% else %}
@@ -139,7 +138,6 @@
               {% set status = 'red' %}
             {% endif %}
           {% endif %}
-
 
           {% set ns.result = ns.result | combine({
             tray_name: {

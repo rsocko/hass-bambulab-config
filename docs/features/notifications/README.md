@@ -335,7 +335,7 @@ These entities must exist in your Home Assistant instance:
 - `sensor.ntk_ryansoffice_3dprinter_print_weight` - Print weight
 - `sensor.ntk_ryansoffice_3dprinter_smart_status` - Canonical printer state for UI/notifications (preferred)
 
-> Legacy automations may still reference `sensor.ntk_ryansoffice_3dprinter_print_status`, but new configs should prefer `sensor.ntk_ryansoffice_3dprinter_smart_status` from [homeassistant/packages/3d_printing/core/sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/sensors/smart_status.yaml).
+> Legacy automations may still reference `sensor.ntk_ryansoffice_3dprinter_print_status`, but new configs should prefer `sensor.ntk_ryansoffice_3dprinter_smart_status` from [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml).
 
 #### Binary Sensors:
 - `binary_sensor.ntk_ryansoffice_3dprinter_print_error` - Error indicator
@@ -385,5 +385,6 @@ Same as repository license (see root LICENSE file).
 
 - Original blueprint by [HallyAus](https://github.com/HallyAus)
 - Adapted for this repository by [rsocko](https://github.com/rsocko)
+
 
 

@@ -53,7 +53,7 @@ For a grouped object ID summary, see the top-level quick reference in [esp32s3-5
 | `p1b84`, `p1b86`, `p1b88` | Obj | Top-right control button colors (`stop`, `pause`, `start`) |
 | `p1b85`, `p1b87`, `p1b89` | Label | Top-right control icon colors (enabled/disabled state) |
 
-> **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in [homeassistant/packages/3d_printing/core/sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/sensors/smart_status.yaml) and must exist in Home Assistant for these two labels to render correctly.
+> **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and must exist in Home Assistant for these two labels to render correctly.
 
 ### Automations
 
@@ -116,4 +116,5 @@ To deploy changes from this repo to Home Assistant:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) for printer sensor entities
 - MQTT broker (e.g., Mosquitto) for HA ↔ ESP32 communication
 - Template helper sensors defined in [template_sensors.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/sensors/template_sensors.yaml) — must be created in HA before the plate config will work correctly
+
 

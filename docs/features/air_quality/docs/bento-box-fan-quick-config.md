@@ -42,7 +42,7 @@ sensor.airgradient_tvoc
 sensor.airgradient_co2
 ```
 
-> Prefer `sensor.<printer>_smart_status` (from [homeassistant/packages/3d_printing/core/sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/sensors/smart_status.yaml)) for new state-driven conditions and UI text. Keep `sensor.<printer>_print_status` here only if your automation logic still depends on raw integration values.
+> Prefer `sensor.<printer>_smart_status` (from [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml)) for new state-driven conditions and UI text. Keep `sensor.<printer>_print_status` here only if your automation logic still depends on raw integration values.
 
 ### Step 3: Import Automation
 
@@ -247,6 +247,7 @@ Questions? Check:
 - Logbook entries for "Bento Box Fan"
 
 **You're all set! The Bento Box fan will now intelligently manage ventilation based on what you're printing! 🖨️💨**
+
 
 
 

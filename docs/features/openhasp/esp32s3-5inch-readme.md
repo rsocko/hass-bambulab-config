@@ -21,7 +21,7 @@ The system is split into two halves:
 
 ### Smart Status Source
 
-The status text shown on the ESP32 is now sourced from the Home Assistant template sensor defined in [../../../homeassistant/packages/3d_printing/core/sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/sensors/smart_status.yaml):
+The status text shown on the ESP32 is now sourced from the Home Assistant template sensor defined in [../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml):
 
 - **Primary status (State):** `sensor.ntk_ryansoffice_3dprinter_smart_status`
 - **Secondary status (Detail):** `sensor.ntk_ryansoffice_3dprinter_smart_status` attribute `detail`
@@ -101,4 +101,5 @@ esp32s3-5inch/
 - **openHASP documentation** → [openhasp.com](https://www.openhasp.com/)
 - **openHASP HA integration** → [How-To](https://www.openhasp.com/0.7.0/integrations/home-assistant/howto/)
 - **Guition hardware page** → [ESP32-S3 JC8048W550](https://www.openhasp.com/0.7.0/hardware/guition/jc8048w550/)
+
 

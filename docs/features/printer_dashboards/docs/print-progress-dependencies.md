@@ -1,4 +1,4 @@
-# Print Progress Dependency Reference
+﻿# Print Progress Dependency Reference
 
 This document lists runtime dependencies for the print progress KPI option cards under:
 
@@ -61,7 +61,7 @@ Entity role summary:
 
 - These five entities are **consumed** in this repository but are not defined as template entities in `print_progress`.
 - They are expected to be provided by your printer integration/entity model in Home Assistant.
-- Related repository usage exists in other features (for example smart status templates in `core/sensors/smart_status.yaml`), but that file also consumes these entities rather than creating them.
+- Related repository usage exists in other features (for example smart status templates in `core/template_sensors/smart_status.yaml`), but that file also consumes these entities rather than creating them.
 
 ## Custom Card Dependency
 
@@ -84,3 +84,4 @@ After deployment:
 2. Confirm all five required sensors exist and have non-`unavailable` states.
 3. Verify at least one option card updates live during a print.
 4. Verify paused/idle/finished state colors and animation stop behavior.
+

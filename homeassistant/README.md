@@ -1,4 +1,4 @@
-# Home Assistant Deployable Root
+﻿# Home Assistant Deployable Root
 
 This directory is intended to sync directly to Home Assistant `/config`.
 
@@ -28,6 +28,7 @@ Example include file (`/config/packages/3d_printing/_feature_loaders.yaml`):
 core_loader: !include core/core_loader.yaml
 ```
 
-Path note: paths are resolved relative to the file containing the include. For example, in `core/core_loader.yaml`, use `!include_dir_merge_list sensors`.
+Path note: paths are resolved relative to the file containing the include. For example, in `core/core_loader.yaml`, use `!include_dir_merge_list template_sensors`.
 
 *Note: currently the deployment doesn't allow for www-only files to be deployed. The deployment actions assume everything is package based and optionally includes www related files.*
+

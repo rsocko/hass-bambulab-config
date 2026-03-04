@@ -233,7 +233,7 @@ To reuse it on another dashboard:
 
 **Requirements for the popup to work on any dashboard:**
 - `browser_mod` HACS integration installed and registered
-- `sensor.spoolman_tray_map` template sensor loaded (from [homeassistant/packages/3d_printing/spoolman_sync/sensors/spoolman_tray_map.yaml](../../../../homeassistant/packages/3d_printing/spoolman_sync/sensors/spoolman_tray_map.yaml))
+- `sensor.spoolman_tray_map` template sensor loaded (from [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml))
 - `sensor.spoolman_spool_*` entities from the Spoolman integration
 - The tray/external spool sensors from the Bambu Lab HA integration
 
@@ -254,6 +254,7 @@ The popup JavaScript is modular and easy to extend. Potential additions:
 ---
 
 For full implementation details, see [ams-tray-popup.md](ams-tray-popup.md)
+
 
 
 

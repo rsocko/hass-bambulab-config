@@ -7,7 +7,7 @@
       repeated in the breakdown attribute below.
     #}
 
-    {# Mapping: tray_map key → print_weight sensor attribute key #}
+    {# Mapping: tray_map key -> print_weight sensor attribute key #}
     {% set tray_weight_keys = {
       'ams_1_tray_1': 'AMS 1 Tray 1',
       'ams_1_tray_2': 'AMS 1 Tray 2',
@@ -40,7 +40,7 @@
             {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
             {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
 
-            {# Determine price per gram: spool price → filament price → default #}
+            {# Determine price per gram: spool price -> filament price -> default #}
             {% if spool_price >= 0 %}
               {% set price_per_gram = spool_price / initial_weight %}
             {% elif filament_price >= 0 %}
@@ -49,7 +49,7 @@
               {% set price_per_gram = default_price_per_kg / 1000 %}
             {% endif %}
           {% else %}
-            {# No spool match — fall back to default price #}
+            {# No spool match - fall back to default price #}
             {% set price_per_gram = default_price_per_kg / 1000 %}
           {% endif %}
 
@@ -62,7 +62,7 @@
 
   attributes:
     breakdown: >
-      {# Mapping: tray_map key → print_weight sensor attribute key #}
+      {# Mapping: tray_map key -> print_weight sensor attribute key #}
       {% set tray_weight_keys = {
         'ams_1_tray_1': 'AMS 1 Tray 1',
         'ams_1_tray_2': 'AMS 1 Tray 2',
@@ -95,7 +95,7 @@
               {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
               {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
 
-              {# Determine price per gram: spool price → filament price → default #}
+              {# Determine price per gram: spool price -> filament price -> default #}
               {% if spool_price >= 0 %}
                 {% set price_per_gram = spool_price / initial_weight %}
                 {% set price_source = 'spool' %}
@@ -107,7 +107,7 @@
                 {% set price_source = 'default' %}
               {% endif %}
             {% else %}
-              {# No spool match — fall back to default price #}
+              {# No spool match - fall back to default price #}
               {% set price_per_gram = default_price_per_kg / 1000 %}
               {% set price_source = 'default' %}
             {% endif %}
