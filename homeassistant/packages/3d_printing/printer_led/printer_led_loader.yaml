@@ -1,1 +1,1 @@
-printer_led_helpers: !include helpers/input_boolean_show_printer_controls.yaml
+input_boolean: !include helpers/input_boolean_show_printer_controls.yaml
