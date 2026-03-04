@@ -8,7 +8,7 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 - **homeassistant/packages/3d_printing/** - Reusable Home Assistant package files (organized by feature and domain)
 - **printer-temps.yaml** - Temperature display cards for nozzle and bed (separate, paste-able YAML)
 - **printer-temps-example.yaml** - Ready-to-use temperature cards with repository entity names
-- **print-progress-cards.yaml** - Animated print progress cards: Layer Progress, Print Progress, Time Remaining, Est. Completion (separate, paste-able YAML)
+- **print-progress-kpi-option-*.yaml** - Standalone print progress KPI option cards under `homeassistant/packages/3d_printing/print_progress/dashboard_cards/`
 - **card templates** - Individual `button-card` templates are maintained in the `button_card_templates:` block in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing)
 - **docs/** - Documentation for dashboard features and customization
 
@@ -62,7 +62,7 @@ Key features:
 - Easy to paste into any dashboard view
 
 ### Print Progress Cards
-Animated progress cards for monitoring active prints. Available as a standalone file (`print-progress-cards.yaml`).
+Animated progress cards for monitoring active prints. Available as standalone KPI option files in `homeassistant/packages/3d_printing/print_progress/dashboard_cards/`.
 See [docs/print-progress-options-guide.md](docs/print-progress-options-guide.md) for all thirteen issue #516 progress design variants.
 
 Key features:
