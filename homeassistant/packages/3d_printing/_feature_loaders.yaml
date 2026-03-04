@@ -1,2 +1,3 @@
 core_loader: !include core/core_loader.yaml
 common_loader: !include common/common_loader.yaml
+printer_led_loader: !include printer_led/printer_led_loader.yaml

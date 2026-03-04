@@ -101,7 +101,7 @@ The actual config objects that are used to achieve the above scenarios include:
   - Update the First and Last used information for a given spool in Spoolman
   
 - **Dashboard / Widgets**
-  - [LED Controls Card](homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml) - Control all printer lights with advanced WLED features
+  - [LED Controls Card](homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml) - Control all printer lights with advanced WLED features
   - AMS Tray Cards - Display filament information and status
   - Print Status Cards - Monitor print progress and stages
   - Air Quality Monitoring Cards (PM2.5, CO2, VOC, Temperature, Humidity)

@@ -103,7 +103,7 @@ Real-time status card showing:
 
 ### 2. Entity ID Mapping
 
-Replace the placeholder entity IDs in `led-controls.yaml` with your actual entity IDs:
+Replace the placeholder entity IDs in `led-controls-expanded.yaml` with your actual entity IDs:
 
 | Placeholder | Description | Example Actual Entity |
 |-------------|-------------|----------------------|
@@ -137,11 +137,11 @@ If your interior light entity is `light.wled_magwled`, the related entities woul
 
 1. **Copy the configuration file:**
    ```bash
-   cp homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml /config/dashboards/
+   cp homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml /config/dashboards/
    ```
 
 2. **Edit entity IDs:**
-   - Open `led-controls.yaml` in your text editor
+   - Open `led-controls-expanded.yaml` in your text editor
    - Find and replace all placeholder entity IDs with your actual entity IDs
    - Update WLED-related entities (effects, palettes, etc.)
 
@@ -149,7 +149,7 @@ If your interior light entity is `light.wled_magwled`, the related entities woul
    - Open your Home Assistant dashboard in edit mode
    - Add a new card
    - Select "Manual" card type
-   - Copy the entire contents of `led-controls.yaml`
+   - Copy the entire contents of `led-controls-expanded.yaml`
    - Paste into the card YAML editor
    - Save
 

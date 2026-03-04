@@ -1,19 +1,30 @@
-# Printer LED Controls Row
+# Printer LED Controls Row (canonical)
 #
-# A compact horizontal row of 5 LED control buttons for the 3D printer dashboard.
-# Designed to be placed above the advanced camera card.
+# A compact horizontal row of LED control buttons for the 3D printer dashboard.
+# This file is the canonical source used by the Home dashboard view via:
+#   !include ../../printer_led/dashboard_cards/printer-led-controls.yaml
 #
-# Buttons (left to right):
-#   1. Chamber Light   - light.ntk_ryansoffice_3dprinter_chamber_light
-#   2. MagWLED (top)   - light.magwled
-#   3. Reset MagWLED   - script.reset_interior_light_to_white
-#   4. DigQuad bottom  - light.dig_quad_v3  (progress LED)
-#   5. DigQuad seg. 1  - light.dig_quad_v3_segment_1  (status LED)
+# Button order (left to right):
+#   1. Chamber Light     - light.ntk_ryansoffice_3dprinter_chamber_light
+#   2. MagWLED (top)     - light.magwled
+#   3. Reset MagWLED     - script.reset_interior_light_to_white
+#   4. DigQuad progress  - light.dig_quad_v3
+#   5. DigQuad status    - light.dig_quad_v3_segment_1
+#   6. Controls toggle   - input_boolean.show_printer_controls
+#
+# Actions:
+#   - Tap: Toggle light (or toggle controls boolean on button 6)
+#   - Hold: More-info (light buttons)
+#   - Double-tap: More-info (light buttons)
+#
+# Notes:
+#   - This compact row intentionally matches the in-use UI from `view_main.yaml`.
+#   - The expanded/alternative card is `led-controls-expanded.yaml`.
 #
 # Requirements:
 #   - custom:mushroom-template-card (HACS)
 #   - card_mod (HACS)
-#   - script.reset_interior_light_to_white (interior-light/reset_interior_light_to_white-script.yaml)
+#   - script.reset_interior_light_to_white
 
 type: horizontal-stack
 cards:
@@ -48,7 +59,6 @@ cards:
           .info {
             display: none;
           }
-
   # MagWLED (interior top LED strip)
   - type: custom:mushroom-template-card
     entity: light.magwled
@@ -67,14 +77,14 @@ cards:
       {% if is_state('light.magwled', 'on') and effect not in ['Solid', 'None', none, ''] %}
       purple
       {% elif is_state('light.magwled', 'on') %}
-      amber
+      white
       {% else %}
       grey
       {% endif %}
     icon_color: >-
       {% if is_state('light.magwled', 'on') %}
         {% set rgb = state_attr('light.magwled', 'rgb_color') %}
-        {% if rgb %}{% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}{% if lum > 200 %}amber{% else %}rgb({{ rgb | join(', ') }}){% endif %}{% else %}amber{% endif %}
+        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}white{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -90,15 +100,7 @@ cards:
           box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
           {% elif is_state('light.magwled', 'on') %}
           {% set rgb = state_attr('light.magwled', 'rgb_color') %}
-          {% if rgb %}
-          {% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}
-          {% if lum > 200 %}
-          box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
-          border: 1px solid rgba(255, 183, 77, 0.6);
-          {% else %}
-          box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
-          {% endif %}
-          {% endif %}
+          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
           {% endif %}
         mushroom-card$: |
           .container {
@@ -108,21 +110,20 @@ cards:
           .info {
             display: none;
           }
-
   # Reset MagWLED to white (uses existing script)
   - type: custom:mushroom-template-card
     primary: ""
     secondary: ""
     icon: mdi:restore
-    icon_color: grey
+    icon_color: white
     tap_action:
       action: perform-action
       perform_action: script.reset_interior_light_to_white
     card_mod:
       style:
         ha-card: |
-          background: var(--secondary-background-color, rgba(128, 128, 128, 0.1));
-          border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.2));
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.35);
         mushroom-card$: |
           .container {
             justify-content: center;
@@ -131,7 +132,6 @@ cards:
           .info {
             display: none;
           }
-
   # DigQuad bottom progress LED (outside front-bottom of printer)
   - type: custom:mushroom-template-card
     entity: light.dig_quad_v3
@@ -157,7 +157,7 @@ cards:
     icon_color: >-
       {% if is_state('light.dig_quad_v3', 'on') %}
         {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
-        {% if rgb %}{% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}{% if lum > 200 %}amber{% else %}rgb({{ rgb | join(', ') }}){% endif %}{% else %}amber{% endif %}
+        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}green{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -173,15 +173,7 @@ cards:
           box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
           {% elif is_state('light.dig_quad_v3', 'on') %}
           {% set rgb = state_attr('light.dig_quad_v3', 'rgb_color') %}
-          {% if rgb %}
-          {% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}
-          {% if lum > 200 %}
-          box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
-          border: 1px solid rgba(255, 183, 77, 0.6);
-          {% else %}
-          box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
-          {% endif %}
-          {% endif %}
+          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
           {% endif %}
         mushroom-card$: |
           .container {
@@ -191,7 +183,6 @@ cards:
           .info {
             display: none;
           }
-
   # DigQuad segment 1 status LED (outside front-left/top of printer)
   - type: custom:mushroom-template-card
     entity: light.dig_quad_v3_segment_1
@@ -217,7 +208,7 @@ cards:
     icon_color: >-
       {% if is_state('light.dig_quad_v3_segment_1', 'on') %}
         {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
-        {% if rgb %}{% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}{% if lum > 200 %}amber{% else %}rgb({{ rgb | join(', ') }}){% endif %}{% else %}amber{% endif %}
+        {% if rgb %}rgb({{ rgb | join(', ') }}){% else %}cyan{% endif %}
       {% else %}grey{% endif %}
     tap_action:
       action: toggle
@@ -233,15 +224,7 @@ cards:
           box-shadow: 0 0 10px 3px rgba(138, 43, 226, 0.7);
           {% elif is_state('light.dig_quad_v3_segment_1', 'on') %}
           {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
-          {% if rgb %}
-          {% set lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) %}
-          {% if lum > 200 %}
-          box-shadow: 0 0 10px 3px rgba(255, 183, 77, 0.5);
-          border: 1px solid rgba(255, 183, 77, 0.6);
-          {% else %}
-          box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);
-          {% endif %}
-          {% endif %}
+          {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
           {% endif %}
         mushroom-card$: |
           .container {
@@ -251,3 +234,35 @@ cards:
           .info {
             display: none;
           }
+  # Show/Hide Printer Controls toggle chip
+  - type: custom:mushroom-template-card
+    entity: input_boolean.show_printer_controls
+    primary: ""
+    secondary: ""
+    icon: >-
+      {% if is_state('input_boolean.show_printer_controls', 'on') %}
+      mdi:chevron-up
+      {% else %}
+      mdi:chevron-down
+      {% endif %}
+    icon_color: >-
+      {% if is_state('input_boolean.show_printer_controls', 'on') %}
+      blue
+      {% else %}
+      grey
+      {% endif %}
+    tap_action:
+      action: toggle
+    card_mod:
+      style:
+        ha-card: |
+          {% if is_state('input_boolean.show_printer_controls', 'on') %}
+          box-shadow: 0 0 10px 3px rgba(33, 150, 243, 0.5);
+          {% endif %}
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+            align-items: center;
+          }
+          .info {
+            display: none;

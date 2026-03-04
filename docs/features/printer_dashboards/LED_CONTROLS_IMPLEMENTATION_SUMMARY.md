@@ -7,7 +7,7 @@ A comprehensive LED control card has been created for Home Assistant that displa
 ## What Was Implemented
 
 ### Main Configuration File
-**File**: [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml](../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml)
+**File**: [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml](../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml)
 
 A complete Lovelace card configuration featuring:
 
@@ -113,7 +113,8 @@ Beyond the requirements:
 ```
 hass-bambulab-config/
 ├── dashboards/
-│   ├── led-controls.yaml                          # Main configuration (16KB)
+│   ├── led-controls-expanded.yaml                 # Expanded configuration (16KB)
+│   ├── printer-led-controls.yaml                  # Canonical compact row (included in main view)
 │   ├── LED_CONTROLS_README.md                     # Quick start (5KB)
 │   └── docs/
 │       ├── led-controls.md                        # Full documentation (10KB)
@@ -145,7 +146,7 @@ hass-bambulab-config/
 
 ### Quick Setup (5 minutes)
 
-1. **Copy file**: [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml](../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml)
+1. **Copy file**: [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml](../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml)
 2. **Update entities**: Replace 7 placeholder entity IDs
 3. **Add to dashboard**: Copy/paste into dashboard YAML editor
 4. **Test**: Verify all lights respond correctly

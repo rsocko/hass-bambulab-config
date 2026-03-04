@@ -1,6 +1,3 @@
-# Input helpers for printer controls dashboard toggle
-# Add this to your Home Assistant configuration or configuration.yaml under input_boolean:
-
 input_boolean:
   # Toggle to show/hide the ha-bambulab Printer Status card
   # (includes toolhead controls, heat bed controls, and print history)

@@ -2,22 +2,24 @@
 
 This is a comprehensive LED control card for Home Assistant that displays and controls all lights associated with your Bambu Lab 3D printer setup.
 
+The dashboard's canonical compact LED row is now `printer-led-controls.yaml`, included from `view_main.yaml`; this guide covers the expanded variant file.
+
 ## 🚀 Quick Setup
 
 1. **Copy the configuration:**
    ```bash
-   # File location: homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml
+   # File location: homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml
    ```
 
 2. **Update entity IDs:**
-   - Open `led-controls.yaml`
+   - Open `led-controls-expanded.yaml`
    - Find and replace placeholder entity IDs (see table below)
    - Update WLED-related entities (effects, palettes, etc.)
 
 3. **Add to dashboard:**
    - Edit your Home Assistant dashboard
    - Add a new manual card
-   - Copy/paste the entire `led-controls.yaml` content
+   - Copy/paste the entire `led-controls-expanded.yaml` content
    - Save
 
 ## 📋 Entity ID Quick Reference
@@ -140,7 +142,8 @@ All support full RGBIC control:
 ```
 hass-bambulab-config/
 ├── dashboards/
-│   ├── led-controls.yaml          ← Main card configuration
+│   ├── led-controls-expanded.yaml ← Expanded card configuration
+│   ├── printer-led-controls.yaml  ← Canonical compact row (included in main view)
 │   └── docs/
 │       ├── led-controls.md        ← Full documentation
 │       └── led-controls-visual.md ← Visual guide

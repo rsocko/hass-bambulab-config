@@ -4,13 +4,13 @@ This document shows different ways to integrate the LED Controls card into your 
 
 ## Option 1: Direct Copy-Paste
 
-The simplest method - copy the entire `led-controls.yaml` content directly into your dashboard.
+The simplest method - copy the entire `led-controls-expanded.yaml` content directly into your dashboard.
 
 ### Steps:
 1. Open your dashboard in edit mode
 2. Click "+ ADD CARD"
 3. Scroll down and select "Manual"
-4. Copy the entire content of [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml](../../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls.yaml)
+4. Copy the entire content of [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml](../../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml)
 5. Paste into the YAML editor
 6. Click "SAVE"
 
@@ -44,7 +44,7 @@ views:
               - type: grid
                 columns: 2
                 cards:
-                  # Copy all 7 LED cards from led-controls.yaml here
+                  # Copy all 7 LED cards from led-controls-expanded.yaml here
                   - type: custom:mushroom-light-card
                     entity: light.magwled_internal_top_light
                     # ... etc
@@ -68,7 +68,7 @@ views:
     sections:
       - type: grid
         cards:
-          # Paste the entire led-controls.yaml content here
+          # Paste the entire led-controls-expanded.yaml content here
 ```
 
 ---
@@ -85,7 +85,7 @@ conditions:
   - entity: sensor.printer_status
     state_not: "offline"
 card:
-  # Paste the entire led-controls.yaml content here
+  # Paste the entire led-controls-expanded.yaml content here
   type: vertical-stack
   cards:
     - type: custom:mushroom-title-card
@@ -115,7 +115,7 @@ tap_action:
       title: "💡 LED Controls"
       size: large
       content:
-        # Paste the entire led-controls.yaml content here
+        # Paste the entire led-controls-expanded.yaml content here
         type: vertical-stack
         cards:
           # ... LED control cards
@@ -293,7 +293,7 @@ For the **hass-bambulab-config** repository structure, we recommend:
       columns: 2,
       square: false,
       cards: [
-        # All 7 LED control cards from led-controls.yaml
+        # All 7 LED control cards from led-controls-expanded.yaml
         # ...
       ]
     },
