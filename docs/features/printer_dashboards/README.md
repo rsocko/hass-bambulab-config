@@ -6,8 +6,7 @@ This directory contains the Home Assistant dashboards for the 3D Printer monitor
 
 - **lovelace.3d_printing** - Main 3D printer dashboard configuration (YAML format, paste directly into the Raw Dashboard Editor)
 - **homeassistant/packages/3d_printing/** - Reusable Home Assistant package files (organized by feature and domain)
-- **printer-temps.yaml** - Temperature display cards for nozzle and bed (separate, paste-able YAML)
-- **printer-temps-example.yaml** - Ready-to-use temperature cards with repository entity names
+- **printer-temps.yaml** - Canonical temperature cards extracted from `view_main.yaml` and included via `!include`
 - **print-progress-kpi-option-*.yaml** - Standalone print progress KPI option cards under `homeassistant/packages/3d_printing/print_progress/dashboard_cards/`
 - **card templates** - Individual `button-card` templates are maintained in the `button_card_templates:` block in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing)
 - **docs/** - Documentation for dashboard features and customization
@@ -57,7 +56,7 @@ Standalone temperature display cards for nozzle and bed temperatures. See [docs/
 Key features:
 - Real-time current and target temperature display
 - Color-coded heating/cooling indicators (red = heating, blue = cooling, grey = at target)
-- Dynamic icons showing temperature state
+- Fixed semantic icons with color-coded temperature state
 - Horizontal compact layout for mobile and desktop
 - Easy to paste into any dashboard view
 

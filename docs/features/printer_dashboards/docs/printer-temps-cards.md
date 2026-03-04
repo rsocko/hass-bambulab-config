@@ -17,7 +17,7 @@ These cards display the current and target temperatures for your Bambu Lab 3D pr
 - **Smart Heating Indicator**: Target temp styling changes based on heating state
   - **Bold & prominent** (font-weight: 700, opacity: 0.9) when target > 0°C (heater is on)
   - **Normal & subtle** (font-weight: 500, opacity: 0.7) when target = 0°C (heater is off)
-- **Intelligent State Detection**: Color indicators only active when printer status is 'printing' or 'prepare'
+- **Intelligent State Detection**: Color indicators active when printer status is not `idle`
 - **Horizontal Layout**: Compact design that works well on mobile and desktop
 - **Interactive**: Click any card to see detailed entity information
 
@@ -45,9 +45,9 @@ Based on the built-in HA Bambu Lab status card design:
 
 2. **Bambu Lab Integration** with temperature sensors:
    - `sensor.YOUR_PRINTER_NAME_nozzle_temperature`
-   - `number.YOUR_PRINTER_NAME_nozzle_target_temperature`
+  - `sensor.YOUR_PRINTER_NAME_nozzle_target_temperature`
    - `sensor.YOUR_PRINTER_NAME_bed_temperature`
-   - `number.YOUR_PRINTER_NAME_bed_target_temperature`
+  - `sensor.YOUR_PRINTER_NAME_bed_target_temperature`
    - `sensor.YOUR_PRINTER_NAME_print_status` (required for idle state detection)
 
 ### Setup Steps
@@ -59,14 +59,11 @@ Based on the built-in HA Bambu Lab status card design:
 
 2. **Copy Card Configuration**:
   - Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
-   - Choose one of three options:
-     - **Option 1**: Individual nozzle card only
-     - **Option 2**: Individual bed card only
-     - **Option 3**: Combined horizontal stack (recommended - both cards side-by-side)
+  - Copy the full card configuration (single canonical horizontal stack)
 
 3. **Customize Entity Names**:
-   - Replace all instances of `YOUR_PRINTER_NAME` with your actual printer entity prefix
-   - Example: If your entity is `sensor.bambulab_x1c_nozzle_temperature`, replace `YOUR_PRINTER_NAME` with `bambulab_x1c`
+  - Replace the default entity prefix `ntk_ryansoffice_3dprinter` with your printer prefix
+  - Example: replace `sensor.ntk_ryansoffice_3dprinter_nozzle_temperature` with `sensor.bambulab_x1c_nozzle_temperature`
 
 4. **Add to Dashboard**:
    - Go to your Home Assistant dashboard

@@ -15,7 +15,7 @@
 
 ---
 
-### Heater Cards (`printer-temps.yaml`, `printer-temps-example.yaml`)
+### Heater Cards (`printer-temps.yaml`)
 
 | State | Icon Animation | Background Animation |
 |-------|----------------|----------------------|

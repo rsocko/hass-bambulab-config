@@ -41,30 +41,25 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Main Files Created
 
-1. **[homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)** (11.3 KB)
-   - Template YAML configuration with `YOUR_PRINTER_NAME` placeholders
-   - Contains 3 sections: individual nozzle card, individual bed card, and combined horizontal stack
-   - Includes detailed installation instructions and warnings about find-and-replace
-
-2. **[homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps-example.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps-example.yaml)** (5.8 KB)
-   - Ready-to-use version with actual entity names from this repository
-   - Uses `ntk_ryansoffice_3dprinter` entity prefix
-   - Can be copied directly into Home Assistant for immediate use
+1. **[homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)**
+   - Canonical YAML configuration extracted from `view_main.yaml`
+   - Contains the active combined horizontal stack used by the dashboard
+   - Included into `view_main.yaml` via `!include`
 
 ### Documentation Created
 
-3. **[docs/features/printer_dashboards/docs/printer-temps-cards.md](../features/printer_dashboards/docs/printer-temps-cards.md)** (7.6 KB)
+2. **[docs/features/printer_dashboards/docs/printer-temps-cards.md](../features/printer_dashboards/docs/printer-temps-cards.md)** (7.6 KB)
    - Comprehensive guide with installation, usage, and customization
    - Includes troubleshooting section
    - Covers entity types, update frequency, and temperature comparison logic
 
-4. **[docs/features/printer_dashboards/docs/printer-temps-quick-start.md](../features/printer_dashboards/docs/printer-temps-quick-start.md)** (3.7 KB)
+3. **[docs/features/printer_dashboards/docs/printer-temps-quick-start.md](../features/printer_dashboards/docs/printer-temps-quick-start.md)** (3.7 KB)
    - 5-minute setup guide
    - Step-by-step installation with prerequisites
    - Common issues and fixes
    - Layout options comparison
 
-5. **[docs/features/printer_dashboards/docs/printer-temps-visual-reference.md](../features/printer_dashboards/docs/printer-temps-visual-reference.md)** (7.8 KB)
+4. **[docs/features/printer_dashboards/docs/printer-temps-visual-reference.md](../features/printer_dashboards/docs/printer-temps-visual-reference.md)** (7.8 KB)
    - Visual ASCII art examples showing card appearance in different states
    - Color palette reference
    - Icon reference table
@@ -72,9 +67,9 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Updated Files
 
-6. **[docs/features/printer_dashboards/README.md](../features/printer_dashboards/README.md)**
+5. **[docs/features/printer_dashboards/README.md](../features/printer_dashboards/README.md)**
    - Added "Temperature Monitoring" section
-   - Added `printer-temps.yaml` and `printer-temps-example.yaml` to file list
+  - Added `printer-temps.yaml` to file list
    - Links to documentation
 
 ## 🎨 Features Implemented
@@ -129,9 +124,9 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Bambu Lab Integration
 - `sensor.[printer]_nozzle_temperature` (current)
-- `number.[printer]_nozzle_target_temperature` (target)
+- `sensor.[printer]_nozzle_target_temperature` (target)
 - `sensor.[printer]_bed_temperature` (current)
-- `number.[printer]_bed_target_temperature` (target)
+- `sensor.[printer]_bed_target_temperature` (target)
 - `sensor.[printer]_print_status` (printer status - for idle state detection)
 
 ## 🚀 Usage Instructions
@@ -139,17 +134,16 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 ### Quick Start (5 minutes)
 1. Install Mushroom Cards and card-mod from HACS
 2. Restart Home Assistant
-3. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps-example.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps-example.yaml) (for this repo's entities) OR [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml) (customizable template)
-4. Copy the "COMBINED HORIZONTAL STACK" section
-5. If using template, find-and-replace `YOUR_PRINTER_NAME` with your printer entity prefix
-6. Paste into Home Assistant dashboard (Edit Dashboard → Add Card → Manual Card)
-7. Save and enjoy!
+3. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
+4. Copy the full horizontal stack card configuration
+5. Paste into Home Assistant dashboard (Edit Dashboard → Add Card → Manual Card)
+6. Save and enjoy!
 
 ### For This Repository
-Use `printer-temps-example.yaml` directly - it's already configured with the correct entity names (`ntk_ryansoffice_3dprinter`).
+Use `printer-temps.yaml` directly - it's already configured with the correct entity names (`ntk_ryansoffice_3dprinter`).
 
 ### For Other Configurations
-Use `printer-temps.yaml` and replace `YOUR_PRINTER_NAME` with your printer's entity prefix.
+Copy `printer-temps.yaml` and replace the entity prefix if your setup differs.
 
 ## 📐 Layout Examples
 
@@ -221,8 +215,8 @@ All customization options are documented in `printer-temps-cards.md`.
 
 ```
 homeassistant/packages/3d_printing/
-├── printer-temps.yaml                    # Main template file
-├── printer-temps-example.yaml            # Ready-to-use with repo entities
+├── printer_temps/dashboard_cards/
+│   └── printer-temps.yaml                # Canonical include-based card file
 └── docs/
     ├── printer-temps-cards.md            # Comprehensive guide
     ├── printer-temps-quick-start.md      # 5-minute setup
@@ -270,7 +264,7 @@ Potential improvements for future consideration:
 
 **Status**: ✅ **COMPLETE AND READY FOR USE**
 
-All deliverables created, tested, validated, and documented. The temperature cards are ready to be used immediately by copying from `printer-temps-example.yaml` or customizing from `printer-temps.yaml`.
+All deliverables created, tested, validated, and documented. The temperature cards are ready to be used immediately by copying from `printer-temps.yaml`.
 
 ---
 

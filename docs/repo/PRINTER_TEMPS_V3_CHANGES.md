@@ -133,11 +133,10 @@ This is simple, efficient, and provides instant visual feedback.
 
 ## Files Updated
 
-1. [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml) - Template file (all 3 card variants)
-2. [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps-example.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps-example.yaml) - Ready-to-use example
-3. `PRINTER_TEMPS_IMPLEMENTATION.md` - Implementation notes
-4. [docs/features/printer_dashboards/docs/printer-temps-cards.md](../features/printer_dashboards/docs/printer-temps-cards.md) - Feature documentation
-5. [docs/features/printer_dashboards/docs/printer-temps-visual-reference.md](../features/printer_dashboards/docs/printer-temps-visual-reference.md) - Visual examples
+1. [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml) - Canonical include-based card file
+2. `PRINTER_TEMPS_IMPLEMENTATION.md` - Implementation notes
+3. [docs/features/printer_dashboards/docs/printer-temps-cards.md](../features/printer_dashboards/docs/printer-temps-cards.md) - Feature documentation
+4. [docs/features/printer_dashboards/docs/printer-temps-visual-reference.md](../features/printer_dashboards/docs/printer-temps-visual-reference.md) - Visual examples
 
 ## Migration
 

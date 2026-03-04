@@ -24,16 +24,11 @@ Two temperature cards showing:
 3. Find your printer's sensors (example: `sensor.bambulab_x1c_nozzle_temperature`)
 4. Note the printer name part (example: `bambulab_x1c`)
 
-### Step 3: Copy & Customize
+### Step 3: Copy Card Configuration
 
 1. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
-2. **Scroll to bottom** for the "COMBINED HORIZONTAL STACK" section
-3. Copy the entire section (starts with `type: horizontal-stack`)
-4. Replace **all** instances of `YOUR_PRINTER_NAME` with your printer name
-   - ⚠️ **Use Find & Replace** (Ctrl+H) to update all 12+ instances at once
-   - Find: `YOUR_PRINTER_NAME`
-   - Replace: `your_actual_printer_name` (e.g., `bambulab_x1c`)
-5. Paste into your Home Assistant dashboard:
+2. Copy the full configuration (starts with `type: horizontal-stack`)
+3. Paste into your Home Assistant dashboard:
    - Edit Dashboard → Add Card → Manual Card → Paste → Save
 
 ## 📱 Example Configuration
@@ -46,7 +41,7 @@ cards:
   - type: custom:mushroom-template-card
     entity: sensor.bambulab_x1c_nozzle_temperature
     primary: >-
-      {% set target = states('number.bambulab_x1c_nozzle_target_temperature') | float(0) %}
+      {% set target = states('sensor.bambulab_x1c_nozzle_target_temperature') | float(0) %}
       {{ target | round(0) }}°C
     # ... (rest of configuration)
 ```
@@ -94,9 +89,9 @@ Place each card independently in your dashboard
 ```bash
 # In Developer Tools → States, search for:
 - sensor.YOUR_PRINTER_nozzle_temperature
-- number.YOUR_PRINTER_nozzle_target_temperature
+- sensor.YOUR_PRINTER_nozzle_target_temperature
 - sensor.YOUR_PRINTER_bed_temperature
-- number.YOUR_PRINTER_bed_target_temperature
+- sensor.YOUR_PRINTER_bed_target_temperature
 ```
 
 ### Colors Not Showing
