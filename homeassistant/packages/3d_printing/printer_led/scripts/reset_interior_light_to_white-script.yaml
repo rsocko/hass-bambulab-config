@@ -1,0 +1,18 @@
+reset_interior_light_to_white:
+  alias: "Reset Interior Light to White"
+  description: "Reset the printer interior LED light to bright white for viewing the model"
+  icon: mdi:lightbulb-on
+  mode: single
+  sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.magwled
+      data:
+        brightness_pct: 100
+        rgb_color: [255, 255, 255]
+
+    - action: system_log.write
+      data:
+        message: "Interior light reset to white via script"
+        level: info
+        logger: homeassistant.components.script.reset_interior_light_to_white
