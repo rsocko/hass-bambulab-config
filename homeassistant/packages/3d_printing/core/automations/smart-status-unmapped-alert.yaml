@@ -1,4 +1,5 @@
 - alias: "3D Printer - Smart Status: Unmapped Value Alert"
+  id: 3d_printer_smart_status_unmapped_value_alert
   description: >-
     Alerts when sensor.ntk_ryansoffice_3dprinter_smart_status enters an unmapped
     state so new/changed ha_bambulab values can be captured and mapped.
@@ -62,6 +63,7 @@
   mode: restart
 
 - alias: "3D Printer - Smart Status: Clear Unmapped Alert"
+  id: 3d_printer_smart_status_clear_unmapped_alert
   description: >-
     Clears the persistent notification once smart status returns from unmapped to
     any mapped state.
