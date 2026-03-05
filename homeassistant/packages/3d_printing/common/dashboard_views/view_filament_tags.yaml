@@ -1,4 +1,424 @@
-title: Filament Tags
-path: filament-tags
-icon: mdi:tag-multiple
-cards: []
+type: custom:vertical-layout
+path: spool
+icon: fapro:filament-2
+cards:
+- type: custom:bubble-card
+  card_type: separator
+  sub_button:
+    main: []
+    bottom: []
+  name: Spool Information
+  icon: fapro:filament-2
+  card_layout: large
+- type: custom:config-template-card
+  variables:
+    selected_entity: states['sensor.selected_spool'].state
+  entities:
+    - sensor.selected_spool
+  card:
+    type: custom:bubble-card
+    card_type: button
+    button_type: state
+    entity: ${selected_entity}
+    icon: ''
+    name: ''
+    show_icon: true
+    show_attribute: false
+    show_state: false
+    scrolling_effect: true
+    rows: 1.719
+    styles: |
+      /* Global bump */ 
+      * { 
+        font-size: 18px !important; 
+      } 
+
+      /* Main entity name */ 
+      .bubble-name { 
+        font-size: 22px !important; 
+        font-weight: 700; 
+      } 
+
+      /* Top location attribute */ 
+      .bubble-sub-button-main .bubble-sub-button-text { 
+        font-size: 22px !important; 
+        font-weight: 600; 
+      } 
+
+      /* Bottom ID label */ 
+      .bubble-sub-button-bottom .bubble-sub-button-text, .bubble-state { 
+        font-size: 16px !important; 
+        font-weight: 600; 
+      }
+    sub_button:
+      main: []
+      bottom:
+        - entity: ${selected_entity}
+          icon: fas:location-dot
+          show_background: true
+          state_background: false
+          show_icon: true
+          show_attribute: true
+          attribute: location
+        - entity: ${selected_entity}
+          icon: mdi:weight-gram
+          state_background: false
+          show_state: true
+- type: custom:bubble-card
+  card_type: separator
+  sub_button:
+    main: []
+    bottom: []
+  name: Change Location
+  icon: mdi:map-marker-distance
+  card_layout: large
+- type: custom:config-template-card
+  entities:
+    - sensor.selected_spool
+  variables:
+    selected_entity: states['sensor.selected_spool'].state
+    spool_id: states[states['sensor.selected_spool'].state].attributes.id
+  card:
+    type: custom:bubble-card
+    card_type: sub-buttons
+    entity: ${selected_entity}
+    hide_main_background: false
+    rows: 0.938
+    sub_button:
+      main: []
+      bottom:
+        - tap_action:
+            action: perform-action
+            perform_action: script.update_spool_location
+            target: {}
+            data:
+              spool_id: ${ spool_id }
+              location: AMS
+          name: AMS
+          show_name: true
+          icon: fas:arrow-right-to-bracket
+          show_state: false
+          state_background: false
+        - tap_action:
+            action: perform-action
+            perform_action: script.update_spool_location
+            target: {}
+            data:
+              spool_id: ${ spool_id }
+              location: AMS 2
+          name: AMS 2
+          show_name: true
+          icon: fas:arrow-right-to-bracket
+          show_state: false
+          state_background: false
+- type: custom:layout-card
+  layout_type: custom:grid-layout
+  layout:
+    grid-template-columns: 1fr auto
+    grid-gap: 12px
+  cards:
+    - type: entities
+      entities:
+        - entity: input_select.spool_location_choice
+          name: 'Move to:'
+          secondary_info: none
+      theme: Metro Blue
+      card_mod:
+        style: |
+          ha-card {
+            font-size: 1.4rem;
+          }
+    - show_name: false
+      show_icon: true
+      type: button
+      icon: mdi:refresh-circle
+      name: ''
+      tap_action:
+        action: perform-action
+        perform_action: automation.trigger
+        target:
+          entity_id: automation.spoolman_location_sync
+        data:
+          skip_condition: true
+      show_state: false
+      theme: Metro Blue
+      card_mod:
+        style: |
+          ha-card {
+            width: 70px;       /* icon-sized */
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          ha-icon {
+            width: 48px;
+            height: 48px;
+          }
+- type: custom:config-template-card
+  entities:
+    - sensor.selected_spool
+    - input_select.spool_location_choice
+  variables:
+    selected_entity: states['sensor.selected_spool'].state
+    spool_id: states[states['sensor.selected_spool'].state].attributes.id
+    new_location: states['input_select.spool_location_choice'].state
+  card:
+    type: custom:bubble-card
+    card_type: button
+    button_type: name
+    name: ${new_location}
+    icon: mdi:tray-arrow-down
+    show_icon: true
+    tap_action:
+      action: call-service
+      service: script.update_spool_location
+      service_data:
+        spool_id: ${spool_id}
+        location: ${new_location}
+- type: custom:bubble-card
+  card_type: separator
+  sub_button:
+    main: []
+    bottom: []
+  name: Desiccant Container
+  icon: mdi:water-circle
+  rows: '2'
+- type: horizontal-stack
+  cards:
+    - type: custom:button-card
+      show_icon: true
+      show_name: false
+      show_label: true
+      tap_action:
+        action: none
+      hold_action:
+        action: none
+      double_tap_action:
+        action: none
+      icon: mdi:water
+      label: |
+        [[[
+          const selected_entity = states['sensor.selected_spool'].state;
+          const spool_id = states[selected_entity].attributes.id;
+          const spool_entity = states[selected_entity];
+
+          const date = spool_entity?.attributes?.extra_desiccant_filled;
+          if (!date) return '—';
+
+          const filled = new Date(date);
+          const now = new Date();
+          const days = Math.floor((now - filled) / 86400000);
+
+          let ago;
+          if (days < 7) ago = `${days}d ago`;
+          else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;
+          else ago = `${Math.floor(days / 30)}mo ago`;
+
+          return `${filled.toLocaleDateString('en-US')} (${ago})`;
+        ]]]
+      styles:
+        grid:
+          - grid-template-areas: '"i" "l"'
+          - grid-template-rows: min-content min-content
+          - justify-items: center
+          - align-items: center
+        card:
+          - background: none
+          - box-shadow: none
+          - padding: 4px
+        icon:
+          - width: 25px
+          - height: 25px
+          - margin-bottom: 2px
+          - color: |
+              [[[
+                const selected_entity = states['sensor.selected_spool'].state;
+                const spool_id = states[selected_entity].attributes.id;
+                const spool_entity = states[selected_entity];
+
+                const date = spool_entity?.attributes?.extra_desiccant_filled;
+                if (!date) return 'gray';
+
+                const months = ((Date.now() - new Date(date)) / 86400000) / 30.437;
+                if (months > 2.5) return 'red';
+                if (months > 2.0) return 'orange';
+                if (months > 1.5) return 'yellow';
+                return 'green';
+              ]]]
+        label:
+          - font-size: 14px
+          - text-align: center
+          - white-space: nowrap
+    - type: custom:button-card
+      icon: mdi:clock-check-outline
+      label: Mark as refilled
+      show_icon: true
+      show_name: false
+      show_label: true
+      tap_action:
+        action: call-service
+        service: script.refill_desiccant_update_date
+        service_data:
+          spool_id: |
+            [[[
+              const selected_entity = states['sensor.selected_spool'].state;
+              const spool_id = states[selected_entity].attributes.id;
+              const spool_entity = states[selected_entity];
+
+              return spool_id;
+            ]]]
+      styles:
+        grid:
+          - grid-template-areas: '"i" "l"'
+          - grid-template-rows: min-content min-content
+          - justify-items: center
+          - align-items: center
+        card:
+          - border: 1px solid rgba(0,0,0,0.15)
+          - box-shadow: none
+          - padding: 4px
+        icon:
+          - width: 25px
+          - height: 25px
+          - margin-bottom: 2px
+        label:
+          - font-size: 14px
+          - font-weight: bold
+          - text-align: center
+          - white-space: nowrap
+- type: horizontal-stack
+  cards:
+    - type: custom:button-card
+      show_icon: true
+      show_name: false
+      show_label: true
+      tap_action:
+        action: none
+      hold_action:
+        action: none
+      double_tap_action:
+        action: none
+      icon: mdi:heat-wave
+      label: |
+        [[[
+          const selected_entity = states['sensor.selected_spool'].state;
+          const spool_entity = states[selected_entity];
+
+          const date = spool_entity?.attributes?.extra_last_dried;
+          if (!date) return '—';
+
+          const dried = new Date(date);
+          const now = new Date();
+          const days = Math.floor((now - dried) / 86400000);
+
+          let ago;
+          if (days < 7) ago = `${days}d ago`;
+          else if (days < 30) ago = `${Math.floor(days / 7)}w ago`;
+          else ago = `${Math.floor(days / 30)}mo ago`;
+
+          return `${dried.toLocaleDateString('en-US')} (${ago})`;
+        ]]]
+      styles:
+        grid:
+          - grid-template-areas: '"i" "l"'
+          - grid-template-rows: min-content min-content
+          - justify-items: center
+          - align-items: center
+        card:
+          - background: none
+          - box-shadow: none
+          - padding: 4px
+        icon:
+          - width: 25px
+          - height: 25px
+          - margin-bottom: 2px
+          - color: |
+              [[[
+                const selected_entity = states['sensor.selected_spool'].state;
+                const spool_entity = states[selected_entity];
+
+                const date = spool_entity?.attributes?.extra_last_dried;
+                if (!date) return 'gray';
+
+                const months = ((Date.now() - new Date(date)) / 86400000) / 30.437;
+                if (months > 6) return 'red';
+                if (months > 3) return 'orange';
+                return 'green';
+              ]]]
+        label:
+          - font-size: 14px
+          - text-align: center
+          - white-space: nowrap
+    - type: custom:button-card
+      icon: mdi:heat-wave
+      label: Mark as Dried
+      show_icon: true
+      show_name: false
+      show_label: true
+      tap_action:
+        action: call-service
+        service: script.mark_spool_as_dried
+        service_data:
+          spool_id: |
+            [[[
+              const selected_entity = states['sensor.selected_spool'].state;
+              const spool_id = states[selected_entity].attributes.id;
+
+              return spool_id;
+            ]]]
+      styles:
+        grid:
+          - grid-template-areas: '"i" "l"'
+          - grid-template-rows: min-content min-content
+          - justify-items: center
+          - align-items: center
+        card:
+          - border: 1px solid rgba(0,0,0,0.15)
+          - box-shadow: none
+          - padding: 4px
+        icon:
+          - width: 25px
+          - height: 25px
+          - margin-bottom: 2px
+        label:
+          - font-size: 14px
+          - font-weight: bold
+          - text-align: center
+          - white-space: nowrap
+- type: custom:bubble-card
+  card_type: separator
+  sub_button:
+    main: []
+    bottom: []
+  name: Other Actions
+  icon: mdi:gesture-tap
+- type: custom:config-template-card
+  entities: []
+  variables:
+    filament_id: new URLSearchParams(location.search).get("filament_id")
+  card:
+    type: custom:bubble-card
+    card_type: button
+    name: Load from Query String
+    icon: mdi:download
+    tap_action:
+      action: call-service
+      service: input_text.set_value
+      service_data:
+        entity_id: input_text.filament_id
+        value: ${ filament_id }
+    disabled: true
+    button_type: name
+    sub_button:
+      main: []
+      bottom: []
+    button_action:
+      tap_action:
+        action: perform-action
+        perform_action: input_text.set_value
+        target:
+          entity_id: input_text.filament_id
+        data:
+          value: ${ filament_id }
+    card_layout: large
