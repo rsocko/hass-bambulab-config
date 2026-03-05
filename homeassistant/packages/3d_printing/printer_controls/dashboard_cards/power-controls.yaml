@@ -22,7 +22,10 @@ cards:
         green
       {% endif %}
     tap_action:
-      action: toggle
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.tp_link_power_strip_ab64_ams_heater
       confirmation:
         text: >-
           Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') else 'on' }} the 3D Printer?
@@ -78,7 +81,10 @@ cards:
         green
       {% endif %}
     tap_action:
-      action: toggle
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.tp_link_power_strip_ab64_3d_printer_camera
       confirmation:
         text: >-
           Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') else 'on' }} the Front Camera?
@@ -134,7 +140,10 @@ cards:
         green
       {% endif %}
     tap_action:
-      action: toggle
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.tp_link_power_strip_ab64_3d_printer
       confirmation:
         text: >-
           Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') else 'on' }} the Filament Dryer?
