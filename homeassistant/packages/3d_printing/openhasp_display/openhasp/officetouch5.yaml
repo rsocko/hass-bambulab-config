@@ -1,79 +1,79 @@
 objects:
-  "p1b2": # Arc
+  - obj: p1b2 # Arc
     properties:
       "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_progress")  }}'
-  "p1b3": # Arc
+  - obj: p1b3 # Arc
     properties:
       "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_layer")  }}'
       "max": '{{ states("sensor.ntk_ryansoffice_3dprinter_total_layer_count")  }}'
-  "p1b4": # Arc
+  - obj: p1b4 # Arc
     properties:
       "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_remaining_time")  }}'
       "max": '{{ states("sensor.total_estimated_print_time")  }}'
-  "p1b5": # Label
+  - obj: p1b5 # Label
     properties:
       "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_progress")  }}%'
-  "p1b7": # Label
+  - obj: p1b7 # Label
     properties:
       "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_current_layer")  }}/{{ states("sensor.ntk_ryansoffice_3dprinter_total_layer_count")  }}'
-  "p1b14": # Label
+  - obj: p1b14 # Label
     properties:
       "text": '{{ states("sensor.print_time_remaining_formatted")  }}'
-  "p1b29": # Label of end time
+  - obj: p1b29 # Label of end time
     properties:
       "text": '{{ states("sensor.print_end_time_friendly")  }}'
-  "p1b53": # Weight tab total label
+  - obj: p1b53 # Weight tab total label
     properties:
       "text": 'Total: {{ states("sensor.ntk_ryansoffice_3dprinter_print_weight") | float(0) | round(1) }}g'
-  "p1b54": # Cost tab total label
+  - obj: p1b54 # Cost tab total label
     properties:
       "text": 'Total: ${{ states("sensor.print_cost") | float(0) | round(2) }}'
-  "p1b10": # Spool A1
+  - obj: p1b10 # Spool A1
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "active") else "#1a1a1a" }}'
-  "p1b11": # Spool A2
+  - obj: p1b11 # Spool A2
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "active") else "#1a1a1a" }}'
-  "p1b12": # Spool A3
+  - obj: p1b12 # Spool A3
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "active") else "#1a1a1a" }}'
-  "p1b13": # Spool A4
+  - obj: p1b13 # Spool A4
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "active") else "#1a1a1a" }}'
-  "p1b17": # Spool B1
+  - obj: p1b17 # Spool B1
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "active") else "#1a1a1a" }}'
-  "p1b18": # Spool B2
+  - obj: p1b18 # Spool B2
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "active") else "#1a1a1a" }}'
-  "p1b19": # Spool B3
+  - obj: p1b19 # Spool B3
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "active") else "#1a1a1a" }}'
-  "p1b20": # Spool B4
+  - obj: p1b20 # Spool B4
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "active") else "#1a1a1a" }}'
-  "p1b39": # Spool Ext
+  - obj: p1b39 # Spool Ext
     properties:
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "active") else "#1a1a1a" }}'
-  "p1b73": # Weight A1 segment
+  - obj: p1b73 # Weight A1 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
       "x": >
@@ -92,7 +92,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a1 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b74": # Weight A2 segment
+  - obj: p1b74 # Weight A2 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
       "x": >
@@ -122,7 +122,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a2 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b75": # Weight A3 segment
+  - obj: p1b75 # Weight A3 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
       "x": >
@@ -153,7 +153,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a3 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b76": # Weight A4 segment
+  - obj: p1b76 # Weight A4 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
       "x": >
@@ -185,7 +185,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a4 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b77": # Weight B1 segment
+  - obj: p1b77 # Weight B1 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
       "x": >
@@ -218,7 +218,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b1 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b78": # Weight B2 segment
+  - obj: p1b78 # Weight B2 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
       "x": >
@@ -252,7 +252,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b2 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b79": # Weight B3 segment
+  - obj: p1b79 # Weight B3 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
       "x": >
@@ -287,7 +287,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b3 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b80": # Weight B4 segment
+  - obj: p1b80 # Weight B4 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
       "x": >
@@ -323,7 +323,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b4 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b81": # Weight Ext segment
+  - obj: p1b81 # Weight Ext segment
     properties:
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
       "x": >
@@ -360,7 +360,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((ext / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  "p1b60": # Cost A1 segment
+  - obj: p1b60 # Cost A1 segment
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -392,7 +392,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c1 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b61":
+  - obj: p1b61
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -425,7 +425,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c2 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b62":
+  - obj: p1b62
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -459,7 +459,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c3 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b63":
+  - obj: p1b63
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -494,7 +494,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c4 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b64":
+  - obj: p1b64
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -530,7 +530,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c5 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b65":
+  - obj: p1b65
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -567,7 +567,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c6 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b66":
+  - obj: p1b66
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -605,7 +605,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c7 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b67":
+  - obj: p1b67
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -644,7 +644,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c8 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b68":
+  - obj: p1b68
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -684,13 +684,13 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {{ ((c9 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  "p1b31": # stage
+  - obj: p1b31 # stage
     properties:
       "text": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_smart_status", "detail") if state_attr("sensor.ntk_ryansoffice_3dprinter_smart_status", "detail") else "" }}'
-  "p1b32": # status
+  - obj: p1b32 # status
     properties:
       "text": '{{ states("sensor.ntk_ryansoffice_3dprinter_smart_status")  }}'
-  "p1b84": # Stop button - always visible, color indicates enabled/disabled
+  - obj: p1b84 # Stop button - always visible, color indicates enabled/disabled
     properties:
       "bg_grad_dir": 0
       "bg_color": >
@@ -705,7 +705,7 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
         {{ '#b71c1c' if (is_active or is_paused) else '#333333' }}
-  "p1b86": # Pause button - shown when actively printing (not paused)
+  - obj: p1b86 # Pause button - shown when actively printing (not paused)
     properties:
       "hidden": >
         {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
@@ -716,7 +716,7 @@ objects:
       "bg_grad_dir": 0
       "bg_color": "#fb8c00"
       "border_color": "#e65100"
-  "p1b87": # Pause icon - shown with pause button
+  - obj: p1b87 # Pause icon - shown with pause button
     properties:
       "hidden": >
         {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
@@ -724,7 +724,7 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
         {{ not (is_active and not is_paused) }}
-  "p1b88": # Resume button - shown when paused
+  - obj: p1b88 # Resume button - shown when paused
     properties:
       "hidden": >
         {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
@@ -734,13 +734,14 @@ objects:
       "bg_grad_dir": 0
       "bg_color": "#43a047"
       "border_color": "#1b5e20"
-  "p1b89": # Resume icon - shown with resume button
+  - obj: p1b89 # Resume icon - shown with resume button
     properties:
       "hidden": >
         {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
         {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {{ not is_paused }}
+
 
 
 
