@@ -1,4 +1,27 @@
+type: sections
+max_columns: 4
 title: Filament Catalog
 path: filament-catalog
 icon: mdi:format-list-bulleted
+sections:
+- type: grid
+  cards:
+    - type: heading
+      heading: Filaments
+      heading_style: title
+    - type: custom:auto-entities
+      card:
+        type: entities
+      filter:
+        include:
+          - options: {}
+            device: a6938154abe12684b14b6f4781f08c6d
+            sort:
+              reverse: false
+              numeric: true
+              method: state
+        exclude: []
+      grid_options:
+        columns: full
+  column_span: 1
 cards: []
