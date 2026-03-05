@@ -23,9 +23,9 @@ update_spool_last_and_first_used:
         Updated last used (and first used if empty) for spool ID {{ spool.id }}.
   alias: Update Spool Last and First Used in Spoolman
   description: >-
-  Taking a Spool object as input (with at least an id property) and optionally a
-  first_used property - will update Spoolman with the current time as last used
-  and update first used if not already populated.
+    Taking a Spool object as input (with at least an id property) and optionally a
+    first_used property - will update Spoolman with the current time as last used
+    and update first used if not already populated.
   fields:
   spool:
     selector:

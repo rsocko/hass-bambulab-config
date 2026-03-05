@@ -1,9 +1,9 @@
 - alias: Print Started - Capture Print Data
   description: >-
-  Captures print job and AMS tray information when a print starts.
-  This data is stored persistently so it can be used for manual recovery
-  if the spoolman sync automation fails when the print completes.
-  Also captures external spool data if in use.
+    Captures print job and AMS tray information when a print starts.
+    This data is stored persistently so it can be used for manual recovery
+    if the spoolman sync automation fails when the print completes.
+    Also captures external spool data if in use.
   triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab

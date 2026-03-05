@@ -1,8 +1,8 @@
 - alias: Print Complete - Update Filament Usage
   description: >
-  Updates Spoolman with filament usage when print completes.
-  Includes fallback to backed-up print_weight attributes if HA restarted during print.
-  Includes persistent error logging when a spool cannot be found in Spoolman.
+    Updates Spoolman with filament usage when print completes.
+    Includes fallback to backed-up print_weight attributes if HA restarted during print.
+    Includes persistent error logging when a spool cannot be found in Spoolman.
   triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab

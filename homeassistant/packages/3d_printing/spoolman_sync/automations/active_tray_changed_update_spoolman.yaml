@@ -1,9 +1,9 @@
 - alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
   description: >-
-  Trigger whenever the printer's Active Tray is updated and currently printing -
-  so that it can update Last Used date/time in Spoolman for the corresponding
-  Spool. When printing from the External Spool (active_tray state is 'none' on
-  AMS printers), reads filament details from the external_spool sensor instead.
+    Trigger whenever the printer's Active Tray is updated and currently printing -
+    so that it can update Last Used date/time in Spoolman for the corresponding
+    Spool. When printing from the External Spool (active_tray state is 'none' on
+    AMS printers), reads filament details from the external_spool sensor instead.
   triggers:
   - trigger: state
     entity_id:

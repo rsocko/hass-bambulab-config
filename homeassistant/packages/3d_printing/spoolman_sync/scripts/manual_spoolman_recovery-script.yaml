@@ -103,8 +103,8 @@ manual_spoolman_recovery:
   
   alias: Manual Spoolman Recovery
   description: >-
-  Manually apply a stored spoolman sync error to update filament usage.
-  Requires the spool_id parameter to identify which spool to update.
+    Manually apply a stored spoolman sync error to update filament usage.
+    Requires the spool_id parameter to identify which spool to update.
   fields:
   spool_id:
     selector:

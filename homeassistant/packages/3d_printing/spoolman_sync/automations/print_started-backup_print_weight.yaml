@@ -1,8 +1,8 @@
 - alias: Print Started - Backup Print Weight Attributes
   description: >
-  Captures and stores print_weight sensor attributes when a print starts.
-  This backup allows the print completion automation to work correctly
-  even if Home Assistant restarts during the print job.
+    Captures and stores print_weight sensor attributes when a print starts.
+    This backup allows the print completion automation to work correctly
+    even if Home Assistant restarts during the print job.
   triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab

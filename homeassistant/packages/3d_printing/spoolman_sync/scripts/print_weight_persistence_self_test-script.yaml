@@ -1,9 +1,9 @@
 print_weight_persistence_self_test:
   alias: Print Weight Persistence Self-Test
   description: >-
-  Manual or automation-triggered troubleshooting script for print weight
-  persistence. Validates backup and metadata helper content, checks 255-char
-  limits, and logs PASS/WARN with diagnostic details.
+    Manual or automation-triggered troubleshooting script for print weight
+    persistence. Validates backup and metadata helper content, checks 255-char
+    limits, and logs PASS/WARN with diagnostic details.
   icon: mdi:test-tube
   fields:
   phase:

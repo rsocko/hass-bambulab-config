@@ -21,8 +21,8 @@ mark_spool_as_dried_in_spoolman:
       message: "Spool {{ spool_id }} marked as dried."
   alias: Mark Spool as Dried in Spoolman
   description: >-
-  Takes a spool_id as input and updates Spoolman with the current time as the
-  last dried date (extra field: last_dried).
+    Takes a spool_id as input and updates Spoolman with the current time as the
+    last dried date (extra field: last_dried).
   fields:
   spool_id:
     selector:
