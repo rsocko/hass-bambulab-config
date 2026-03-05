@@ -100,9 +100,9 @@ match_inserted_tray_spool_in_spoolman:
         sequence:
           - variables:
               should_update_uuid: >-
-                {{ tray_has_valid_uuid and
-                   find_spool_response.spool.extra.spool_uuid | string | trim('"') | length == 0 and
-                   find_spool_response.spool.filament.vendor.name == 'Bambu Lab' }}
+               {{ tray_has_valid_uuid and
+                 (find_spool_response.spool.extra.spool_uuid | default('') | string | replace('"', '') | trim | length == 0) and
+                 find_spool_response.spool.filament.vendor.name == 'Bambu Lab' }}
           - if:
               - condition: template
                 value_template: "{{ should_update_uuid }}"
@@ -212,6 +212,6 @@ match_inserted_tray_spool_in_spoolman:
                   color: "{{ active_tray.color }}"
                   name: "{{ active_tray.name }}"
                 spool: null
-                all_matches: "{{ find_spool_response.all_matches | default(null) }}"
+                all_matches: "{{ find_spool_response.all_matches | default(none) }}"
           - stop: Manual tray match failed
             response_variable: response_object
