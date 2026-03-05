@@ -73,9 +73,6 @@ self-test script at both print start and print finish.
 
 ## Helper YAML Files & Configuration
 
-For migrating from UI-created objects to YAML-managed package loading, use the
-[YAML Migration Runbook](YAML_MIGRATION_RUNBOOK.md).
-
 Several features of this automation set require **input helpers** (input_text,
 input_boolean, input_datetime, input_number) and **template sensors** to be
 registered in Home Assistant. These are now loaded through one package loader

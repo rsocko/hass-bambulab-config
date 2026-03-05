@@ -10,12 +10,12 @@ This folder contains all repository documentation organized by topic.
 
 ## Feature Docs
 
-- `features/air_quality/`
-- `features/humidity/`
-- `features/interior_light/`
-- `features/logging/`
-- `features/notifications/`
-- `features/openhasp/`
+- [[docs/features/air_quality/README|Air Quality]]
+- [[docs/features/humidity/README|Humidity]]
+- [[docs/features/interior_light/README|Interior Light]]
+- [[docs/features/logging/README|Logging]]
+- [[docs/features/notifications/README|Notifications]]
+- [[hass-config-readme]]`features/openhasp/`
 - `features/printer_dashboards/`
 - `features/spoolman_sync/`
 - `features/wled/`
