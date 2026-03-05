@@ -5,16 +5,19 @@ This system provides persistent storage and logging of print job data and spoolm
 
 ## Components
 
-### 1. Input Helpers (`print_job_tracking_helpers.yaml`)
+### 1. Input Helpers (`spoolman_sync_loader.yaml`)
 
 These helpers store persistent data that survives Home Assistant restarts:
 
 - **`input_text.print_job_current`**: Current/last print job name and start time
-- **`input_text.print_job_ams_trays`**: JSON array of AMS tray configurations at print start
+- **`input_text.print_job_external_spool`**: External spool snapshot at print start
 - **`input_text.spoolman_sync_last_error`**: Most recent sync error with all recovery details
-- **`input_text.spoolman_sync_error_log`**: Rolling log of recent errors (last ~10)
 - **`input_boolean.spoolman_sync_error_active`**: Flag indicating unresolved errors
 - **`input_datetime.spoolman_sync_last_error_time`**: Timestamp of last error
+
+Template-sensor storage used by automations:
+- **`sensor.print_job_ams_tray_storage`**: AMS tray JSON stored in the `data` attribute
+- **`sensor.spoolman_sync_error_log_storage`**: Rolling error log stored in the `log` attribute
 
 ### 2. Print Started Automation (`print_started-capture_print_data.yaml`)
 
@@ -84,10 +87,10 @@ Example:
 2026-02-17T16:30:45.123456|AMS 1 Tray 2|No spools found by Color & Type|45|abc123def456|FF5733|PLA
 ```
 
-### Error Log (`input_text.spoolman_sync_error_log`)
+### Error Log (`sensor.spoolman_sync_error_log_storage` attribute `log`)
 Multiple entries, one per line, same format as above. Keeps last ~10 errors.
 
-### AMS Tray Data (`input_text.print_job_ams_trays`)
+### AMS Tray Data (`sensor.print_job_ams_tray_storage` attribute `data`)
 JSON array format:
 ```json
 [
@@ -188,7 +191,7 @@ Error data can be accessed via Home Assistant REST API or templates:
 {{ is_state('input_boolean.spoolman_sync_error_active', 'on') }}
 
 {# Get error log #}
-{{ states('input_text.spoolman_sync_error_log') }}
+{{ state_attr('sensor.spoolman_sync_error_log_storage', 'log') }}
 ```
 
 ## Troubleshooting
@@ -199,7 +202,7 @@ Error data can be accessed via Home Assistant REST API or templates:
 - Review Home Assistant logs for errors
 
 ### Can't find matching spool
-- Use print_job_ams_trays data to see what was in the AMS at print start
+- Use `sensor.print_job_ams_tray_storage` attribute `data` to see what was in the AMS at print start
 - Cross-reference with Spoolman spool list
 - Consider if spool was added/removed during print
 

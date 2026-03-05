@@ -1,4 +1,5 @@
-sequence:
+find_matching_spool_in_spoolman:
+  sequence:
   - variables:
       spool_found: false
       matching_spool: null
@@ -289,9 +290,9 @@ sequence:
         alias: >-
           More than 1 match unsealed or more than 1 match and none are
           opened/unsealed
-alias: Find Matching Spool in Spoolman
-description: Find a spool in Spoolman based on UUID or Color (hex code) and Type (eg PLA).
-fields:
+  alias: Find Matching Spool in Spoolman
+  description: Find a spool in Spoolman based on UUID or Color (hex code) and Type (eg PLA).
+  fields:
   parameters:
     selector:
       object: {}
@@ -303,4 +304,4 @@ fields:
       remaining_percent: 51
       tray_weight: 1000
       target_name: Bambu PLA Matte
-icon: fapro:filament-1
+  icon: fapro:filament-1

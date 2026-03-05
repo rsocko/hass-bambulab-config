@@ -100,15 +100,18 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 
 ## Implementation Files
 
-### 1. print_weight_persistence.yaml
-**Purpose**: Configuration for input helpers and template sensor
+### 1. Helper + Template Definitions
+**Purpose**: Input helpers and template sensor definitions loaded via `spoolman_sync_loader.yaml`
 
 **Contents**:
-- `input_text.print_weight_backup`: Stores JSON of attributes (max 1024 chars)
+- `input_text.print_weight_backup`: Stores JSON of attributes (max 255 chars)
 - `input_text.print_metadata_backup`: Stores validation data (max 255 chars)
 - `sensor.print_weight_data_status`: Template sensor for monitoring
 
-**Location**: [homeassistant/packages/3d_printing/spoolman_sync/automations/print_weight_persistence.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_weight_persistence.yaml)
+**Locations**:
+- [homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/input_text_print_weight_backup.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/input_text_print_weight_backup.yaml)
+- [homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/input_text_print_metadata_backup.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/input_text_print_metadata_backup.yaml)
+- [homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_sensor_print_weight_data_status.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_sensor_print_weight_data_status.yaml)
 
 ### 2. print_started-backup_print_weight.yaml
 **Purpose**: Automation to capture attributes when print starts
@@ -237,14 +240,14 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 ### Optional Adjustments
 
 1. **Delay**: Increase if sensor needs more time (default 5s)
-2. **Storage Size**: Increase max chars if needed (default 1024)
+2. **Storage Size**: Keep payload compact to stay within `input_text` limits (255)
 3. **Notifications**: Add mobile notifications if desired
 4. **Metadata**: Add more validation fields
 
 ## Limitations
 
 1. **Single Print**: Only stores most recent print
-2. **Storage Size**: Limited to input_text max (1024 chars)
+2. **Storage Size**: Limited to input_text max (255 chars)
 3. **AMS Configuration**: Assumes AMS 1 (Tray 1-4)
 4. **External Spool**: Included but less tested
 

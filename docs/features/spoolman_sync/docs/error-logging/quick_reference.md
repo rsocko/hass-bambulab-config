@@ -11,9 +11,9 @@
 | Component | Purpose |
 |-----------|---------|
 | `input_text.print_job_current` | Current print name and start time |
-| `input_text.print_job_ams_trays` | AMS tray config at print start (JSON) |
+| `sensor.print_job_ams_tray_storage` | AMS tray config at print start (`data` attribute) |
 | `input_text.spoolman_sync_last_error` | Latest error with all recovery data |
-| `input_text.spoolman_sync_error_log` | Rolling log of last ~10 errors |
+| `sensor.spoolman_sync_error_log_storage` | Rolling log of last ~10 errors (`log` attribute) |
 | `input_boolean.spoolman_sync_error_active` | Error flag (ON = unresolved) |
 | `input_datetime.spoolman_sync_last_error_time` | Error timestamp |
 | Script: `manual_spoolman_recovery` | Apply stored error to Spoolman |
@@ -42,7 +42,7 @@ Format: `timestamp|tray|error|weight|uuid|color|type`
 Required parameter: `spool_id` (from Spoolman)
 
 ### View Error History
-**Developer Tools** → **States** → `input_text.spoolman_sync_error_log`
+**Developer Tools** → **States** → `sensor.spoolman_sync_error_log_storage`
 
 ### Clear Error Flag (After Manual Recovery)
 **Developer Tools** → **Services** → `input_boolean.turn_off`
@@ -67,7 +67,8 @@ Target: `input_boolean.spoolman_sync_error_active`
 
 ### Dashboard: Error count
 ```yaml
-{{ states('input_text.spoolman_sync_error_log').count('\n') + 1 if states('input_text.spoolman_sync_error_log') else 0 }}
+{% set log = state_attr('sensor.spoolman_sync_error_log_storage', 'log') | default('') %}
+{{ log.count('\n') + 1 if log else 0 }}
 ```
 
 ### Dashboard: Last error tray
@@ -120,7 +121,7 @@ action:
 
 | File | Purpose |
 |------|---------|
-| `print_job_tracking_helpers.yaml` | Input helper definitions |
+| `spoolman_sync_loader.yaml` | Input helper definitions |
 | `print_started-capture_print_data.yaml` | Captures data at print start |
 | `print_complete-update_filament_usage.yaml` | Updated with error logging |
 | `active_tray_changed_update_spoolman.yaml` | Updated with error messaging |
@@ -173,7 +174,7 @@ error = hass.states.get('input_text.spoolman_sync_last_error').state
 timestamp, tray, msg, weight, uuid, color, type = error.split('|')
 
 # Get AMS tray data
-tray_data = json.loads(hass.states.get('input_text.print_job_ams_trays').state)
+tray_data = json.loads(hass.states.get('sensor.print_job_ams_tray_storage').attributes.get('data', '[]'))
 ```
 
 ### REST API

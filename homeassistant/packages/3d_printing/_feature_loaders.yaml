@@ -2,3 +2,4 @@ core_loader: !include core/core_loader.yaml
 common_loader: !include common/common_loader.yaml
 printer_led_loader: !include printer_led/printer_led_loader.yaml
 openhasp_display_loader: !include openhasp_display/openhasp_display_loader.yaml
+spoolman_sync_loader: !include spoolman_sync/spoolman_sync_loader.yaml

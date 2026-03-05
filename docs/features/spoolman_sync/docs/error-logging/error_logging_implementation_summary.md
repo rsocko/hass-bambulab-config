@@ -13,15 +13,18 @@ This PR implements a comprehensive error logging and recovery system for when Sp
 ## What's New
 
 ### 1. Input Helpers for Persistent Storage
-**File**: [homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml)
+**File**: [homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
 
 Six new input helpers that survive Home Assistant restarts:
 - `input_text.print_job_current` - Current print job name and timestamp
-- `input_text.print_job_ams_trays` - AMS tray configuration snapshot (JSON)
+- `input_text.print_job_external_spool` - External spool snapshot (JSON)
 - `input_text.spoolman_sync_last_error` - Last error with full recovery details
-- `input_text.spoolman_sync_error_log` - Rolling log of recent errors (~10)
 - `input_boolean.spoolman_sync_error_active` - Error flag for dashboard/automation use
 - `input_datetime.spoolman_sync_last_error_time` - Timestamp of last error
+
+Template-sensor storage entities:
+- `sensor.print_job_ams_tray_storage` - AMS tray configuration snapshot in `data` attribute
+- `sensor.spoolman_sync_error_log_storage` - Rolling error log in `log` attribute
 
 ### 2. Print Started Automation
 **File**: [homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml)
@@ -164,9 +167,10 @@ All files validated with:
 
 ### Storage Limits
 - `print_job_current`: 255 chars (sufficient for name + timestamp)
-- `print_job_ams_trays`: 1000 chars (JSON for 4 trays)
-- `spoolman_sync_last_error`: 500 chars (full error details)
-- `spoolman_sync_error_log`: 2000 chars (~10 error entries)
+- `print_job_external_spool`: 255 chars (external spool snapshot)
+- `spoolman_sync_last_error`: 255 chars (full error details)
+- `print_weight_backup`: 255 chars (per-tray usage backup JSON)
+- `print_metadata_backup`: 255 chars (task/time/weight metadata)
 
 ### Performance Impact
 - Minimal: Only writes to input helpers on print start and errors
@@ -204,7 +208,7 @@ Detailed in [Installation Guide](installation_guide.md).
 ## Files Changed
 
 **New Files** (8):
-- [homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml)
+- [homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
 - [homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml)
 - [homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml](../../../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml)
 - [docs/features/spoolman_sync/docs/error-logging/installation_guide.md](installation_guide.md)

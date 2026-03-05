@@ -1,10 +1,10 @@
-alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
-description: >-
+- alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
+  description: >-
   Trigger whenever the printer's Active Tray is updated and currently printing -
   so that it can update Last Used date/time in Spoolman for the corresponding
   Spool. When printing from the External Spool (active_tray state is 'none' on
   AMS printers), reads filament details from the external_spool sensor instead.
-triggers:
+  triggers:
   - trigger: state
     entity_id:
       - sensor.ntk_ryansoffice_3dprinter_active_tray
@@ -12,7 +12,7 @@ triggers:
     entity_id:
       - sensor.ntk_ryansoffice_3dprinter_current_stage
     to: printing
-conditions:
+  conditions:
   - condition: and
     conditions:
       - condition: state
@@ -30,7 +30,7 @@ conditions:
             entity_id: sensor.ntk_ryansoffice_3dprinter_active_tray
             state: unknown
         alias: Active Tray is NOT Unknown
-actions:
+  actions:
   - action: persistent_notification.create
     data:
       title: debug active tray info
@@ -260,23 +260,23 @@ actions:
               title: "Spoolman Update Error: Cannot Find Spool"
               message: >-
                 **Print Job:** {{ task_name }}
-
+  
                 Cannot update Spoolman with last used spool information.
-
+  
                 **Error:** {{ find_spool_response.message }}
-
-
+  
+  
                 **Active Tray Details:**{{ external_spool_suffix }}
-
+  
                 - UUID: `{{ active_tray.uuid }}`
-
+  
                 - Color: `{{ active_tray.color }}`
-
+  
                 - Type: `{{ active_tray.type }}`
-
+  
                 - Name: `{{ active_tray.name }}`
-
-
+  
+  
                 This may indicate the spool is not registered in Spoolman or
                 multiple spools match.
               notification_id: >-
@@ -297,4 +297,4 @@ actions:
       spoolHasNoUUIDv2: "{{ find_spool_response.spool.extra.spool_uuid | length == 0 }}"
       isBambuLab: "{{ find_spool_response.spool.filament.vendor.name == 'Bambu Lab'  }}"
     enabled: false
-mode: single
+  mode: single

@@ -19,8 +19,8 @@
           ├─► Store print job name & timestamp
           │   (input_text.print_job_current)
           │
-          └─► Store AMS tray configuration (all 4 trays)
-              (input_text.print_job_ams_trays)
+                                   └─► Store AMS tray configuration (all 4 trays)
+                                                 (sensor.print_job_ams_tray_storage attribute `data`)
               - UUID, Color, Type, Name for each tray
 
           │
@@ -73,7 +73,7 @@
                   │   (input_datetime.spoolman_sync_last_error_time)
                   │
                   ├─► Append to error log (last ~10)
-                  │   (input_text.spoolman_sync_error_log)
+                  │   (sensor.spoolman_sync_error_log_storage attribute `log`)
                   │
                   ├─► Log to logbook
                   │
@@ -134,7 +134,7 @@ Input Helpers (survive HA restart):
 └───────────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────────┐
-│  input_text.print_job_ams_trays                                   │
+│  sensor.print_job_ams_tray_storage (attribute: data)              │
 │  Format: JSON array                                               │
 │  [{"tray":1,"uuid":"abc...","color":"FF5733","type":"PLA",...}]   │
 └───────────────────────────────────────────────────────────────────┘
@@ -146,7 +146,7 @@ Input Helpers (survive HA restart):
 └───────────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────────┐
-│  input_text.spoolman_sync_error_log                               │
+│  sensor.spoolman_sync_error_log_storage (attribute: log)          │
 │  Format: Multiple lines, one error per line                       │
 │  Keeps last ~10 errors for historical tracking                    │
 └───────────────────────────────────────────────────────────────────┘

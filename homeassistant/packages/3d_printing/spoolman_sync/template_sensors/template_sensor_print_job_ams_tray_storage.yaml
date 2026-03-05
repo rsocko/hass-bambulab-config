@@ -1,0 +1,16 @@
+- trigger:
+    - trigger: event
+      event_type: bambulab_store_ams_trays
+  sensor:
+    - name: Print Job AMS Tray Storage
+      unique_id: print_job_ams_tray_storage
+      icon: mdi:file-cabinet
+      state: >-
+        {% if trigger.event.data.value | default('[]') | length > 2 %}
+          stored
+        {% else %}
+          empty
+        {% endif %}
+      attributes:
+        data: "{{ trigger.event.data.value | default('[]') }}"
+        updated_at: "{{ now().isoformat() }}"

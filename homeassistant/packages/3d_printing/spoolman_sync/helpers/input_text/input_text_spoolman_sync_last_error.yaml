@@ -1,0 +1,5 @@
+spoolman_sync_last_error:
+  name: Last Spoolman Sync Error
+  max: 255
+  initial: ""
+  icon: mdi:alert-circle

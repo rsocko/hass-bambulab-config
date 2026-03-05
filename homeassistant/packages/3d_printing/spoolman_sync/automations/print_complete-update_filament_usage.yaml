@@ -1,15 +1,15 @@
-alias: Print Complete - Update Filament Usage
-description: >
+- alias: Print Complete - Update Filament Usage
+  description: >
   Updates Spoolman with filament usage when print completes.
   Includes fallback to backed-up print_weight attributes if HA restarted during print.
   Includes persistent error logging when a spool cannot be found in Spoolman.
-triggers:
+  triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
     type: event_print_finished
     trigger: device
-conditions: []
-actions:
+  conditions: []
+  actions:
   # Determine which data source to use
   - variables:
       current_has_attributes: >
@@ -24,7 +24,7 @@ actions:
         {{ backup_present and
            backup_parsed is mapping }}
       backup_invalid: "{{ backup_present and not backup_available }}"
-
+  
   # Log the data source decision to system log for debugging
   - action: system_log.write
     metadata: {}
@@ -37,7 +37,7 @@ actions:
         Will use {{ 'backup data (HA was restarted during print)' if (not current_has_attributes and backup_available) else 'current sensor data' }}.
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
-
+  
   - if:
       - condition: template
         value_template: "{{ backup_invalid }}"
@@ -59,7 +59,7 @@ actions:
           message: >-
             Found invalid backup payload in input_text.print_weight_backup;
             ignoring backup and using current sensor data only.
-
+  
   - action: logbook.log
     metadata: {}
     data:
@@ -69,7 +69,7 @@ actions:
         Current sensor has attributes: {{ current_has_attributes }}.
         Backup available: {{ backup_available }}.
         Will use {{ 'backup data' if (not current_has_attributes and backup_available) else 'current sensor data' }}.
-
+  
   # Extract attributes from either current sensor or backup
   - variables:
       print_weight_attributes_json: >
@@ -80,7 +80,7 @@ actions:
         {% else %}
           {}
         {% endif %}
-
+  
   # Notify user and log if no per-tray data is available
   - if:
       - condition: template
@@ -99,12 +99,12 @@ actions:
             Print job **{{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
             }}** completed, but no per-tray filament weight data was available
             (sensor had no AMS/External Spool attributes and no backup was found).
-
-
+  
+  
             Total print weight recorded: {{
             states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
-
-
+  
+  
             Spoolman filament usage was **NOT updated automatically**. Please
             update filament usage manually if required.
           notification_id: "spoolman_no_data_{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | slugify }}"
@@ -131,7 +131,7 @@ actions:
             with no per-tray weight data. Total weight: {{
             states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
             Spoolman not updated - manual update required.
-
+  
   # Stop if no data is available at all
   - condition: template
     value_template: >
@@ -140,7 +140,7 @@ actions:
            else (print_weight_attributes_json | from_json({}))).keys()) |
          select('match', '^(AMS|External)') | list | length > 0 }}
     alias: Ensure we have AMS or External Spool print weight data
-
+  
   # Build list of tray:weight pairs for trays with usage
   - variables:
       ams_trays_string: >
@@ -157,7 +157,7 @@ actions:
         {{ ns.result }}
       ams_tray_list: |
         {{ ams_trays_string.rstrip(',').split(',') | list }}
-
+  
   - action: logbook.log
     metadata: {}
     data:
@@ -166,7 +166,7 @@ actions:
         Processing {{ ams_tray_list | length }} tray(s) for "{{
         states('sensor.ntk_ryansoffice_3dprinter_task_name') }}".
         Data source: {{ 'Backup (HA restarted during print)' if (not current_has_attributes and backup_available) else 'Current sensor' }}.
-
+  
   # Process each tray
   - repeat:
       sequence:
@@ -174,11 +174,11 @@ actions:
             tray_info: "{{ repeat.item.strip() }}"
             tray_name: "{{ tray_info.split(':')[0].strip() }}"
             tray_print_weight: "{{ tray_info.split(':')[1] | int }}"
-
+  
         # Skip empty items and trays with zero weight
         - condition: template
           value_template: "{{ tray_print_weight > 0 and tray_name | length > 0 }}"
-
+  
         # Determine tray entity ID
         - variables:
             tray_number: >
@@ -203,7 +203,7 @@ actions:
               {% else %}
                 sensor.p1s_01p00c460102350_ams_{{ tray_ams_number }}_tray_{{ tray_number }}
               {% endif %}
-
+  
         # Get tray details for spool lookup
         - variables:
             selected_tray:
@@ -212,7 +212,7 @@ actions:
               color: "{{ state_attr(tray_entity_id, 'color') | replace('#', '') }}"
               name: "{{ state_attr(tray_entity_id, 'name') | default('') }}"
             tray_uuid_normalized: "{{ (selected_tray.uuid | string | lower) }}"
-
+  
         # If AMS tray UUID is missing, skip matching to avoid decrementing wrong spool
         - if:
             - condition: template
@@ -229,14 +229,14 @@ actions:
                 title: "Spoolman Update Skipped: Missing Tray UUID"
                 message: >-
                   **Print Job:** {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
-
+  
                   **Tray:** {{ tray_name }}
-
+  
                   **Weight:** {{ tray_print_weight }}g
-
+  
                   **Reason:** Tray UUID is missing for AMS tray entity `{{ tray_entity_id }}`.
                   This commonly happens when a spool runs out or is swapped during print.
-
+  
                   To avoid decrementing the wrong spool, automatic Spoolman update was skipped for this tray.
             - action: system_log.write
               metadata: {}
@@ -254,13 +254,13 @@ actions:
                 message: >-
                   Skipped filament update for {{ tray_name }} ({{ tray_print_weight }}g) because tray UUID was missing.
                   Possible spool runout/swap during print.
-
+  
         - condition: template
           value_template: >-
             {{ not (tray_number != 'external' and
                     tray_uuid_normalized in ['none', 'unknown', 'unavailable', '']) }}
           alias: Continue only when tray UUID is available (or tray is external)
-
+  
         # Find matching spool in Spoolman
         - action: script.find_matching_spool_in_spoolman
           metadata: {}
@@ -271,7 +271,7 @@ actions:
               target_uuid: "{{ selected_tray.uuid }}"
               target_name: "{{ selected_tray.name }}"
           response_variable: find_spool_response
-
+  
         # Update Spoolman if spool was found, otherwise log error
         - alias: Take action if Spool was found (or error if not)
           choose:
@@ -319,13 +319,13 @@ actions:
                     message: >-
                       Print Job complete - **{{
                       states('sensor.ntk_ryansoffice_3dprinter_task_name') }}**
-
-
+  
+  
                       Updated Filament Usage for {{ tray_name }}. Spool ID {{
                       find_spool_response.spool.id }} ({{
                       find_spool_response.spool.filament.name }}).
-
-
+  
+  
                       Used {{ tray_print_weight }} grams.
                     notification_id: >-
                       spoolman_print_complete_{{
@@ -378,27 +378,27 @@ actions:
                 title: "Spoolman Update Error: Cannot Find Spool"
                 message: >-
                   **Print Job:** {{ task_name }}
-
+  
                   **Tray:** {{ tray_name }}
-
+  
                   **Print Weight:** {{ tray_print_weight }} grams
-
+  
                   **Error:** {{ find_spool_response.message }}
-
+  
                   **Likely Cause:** {{ probable_cause }}
-
-
+  
+  
                   **Tray Details for Manual Recovery:**
-
+  
                   - UUID: `{{ selected_tray.uuid }}`
-
+  
                   - Color: `{{ selected_tray.color }}`
-
+  
                   - Type: `{{ selected_tray.type }}`
-
+  
                   - Tray Entity: `{{ tray_entity_id }}`
-
-
+  
+  
                   To manually update Spoolman, find the matching spool and
                   reduce its weight by {{ tray_print_weight }}g. Error
                   details stored in `input_text.spoolman_sync_last_error`
@@ -427,24 +427,24 @@ actions:
                   Error: {{ find_spool_response.message }}. Likely cause: {{
                   probable_cause }}
       for_each: "{{ ams_tray_list }}"
-
+  
   # Clear the backup after processing to avoid stale data on next print
   - action: input_text.set_value
     target:
       entity_id: input_text.print_weight_backup
     data:
       value: ""
-
+  
   - action: input_text.set_value
     target:
       entity_id: input_text.print_metadata_backup
     data:
       value: ""
-
+  
   - action: logbook.log
     metadata: {}
     data:
       name: Print Weight Backup Cleared
       message: Print weight backup cleared after processing.
-
-mode: single
+  
+  mode: single

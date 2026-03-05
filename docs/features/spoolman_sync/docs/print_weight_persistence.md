@@ -27,7 +27,7 @@ Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → 
 
 ### Components
 
-1. **Input Helpers** (`print_weight_persistence.yaml`)
+1. **Input Helpers** (`helpers/input_text/*.yaml`, loaded by `spoolman_sync_loader.yaml`)
    - `input_text.print_weight_backup`: Stores JSON of print_weight attributes
    - `input_text.print_metadata_backup`: Stores validation data (task name, start time, total weight)
 
@@ -44,7 +44,7 @@ Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → 
    - Updates Spoolman with filament usage
    - Clears backup after successful processing
 
-4. **Template Sensor** (`print_weight_persistence.yaml`)
+4. **Template Sensor** (`template_sensors/template_sensor_print_weight_data_status.yaml`, loaded by `spoolman_sync_loader.yaml`)
    - Provides easy access to backup status
    - Exposes metadata for troubleshooting
 
@@ -102,13 +102,13 @@ The solution includes multiple validation checks:
 
 ### Step 1: Add Input Helpers
 
-Copy `print_weight_persistence.yaml` into a logical location inside your Home
-Assistant `/config` directory and register it as a **package**.
+Copy the `spoolman_sync` package folder and `_feature_loaders.yaml` into your
+Home Assistant `/config/packages/3d_printing/` directory and register package loading.
 
 **Recommended path:**
 
 ```
-/config/packages/bambulab/print_weight_persistence.yaml
+/config/packages/3d_printing/_feature_loaders.yaml
 ```
 
 Add the following to `configuration.yaml` (create the `homeassistant.packages`
@@ -116,12 +116,11 @@ section if it does not already exist):
 
 ```yaml
 homeassistant:
-  packages:
-    bambulab_print_weight: !include packages/bambulab/print_weight_persistence.yaml
+   packages: !include packages/3d_printing/_feature_loaders.yaml
 ```
 
-> **Why packages?**  `print_weight_persistence.yaml` defines two top-level
-> sections — `input_text:` **and** `template:`.  Using
+> **Why packages?**  `spoolman_sync_loader.yaml` spans multiple top-level
+> domains (`automation`, `script`, `input_*`, `template`). Using
 > `input_text: !include ...` or `template: !include ...` directly would
 > nest the file's own section keys inside the wrong parent key and will not work.
 > The `homeassistant.packages` mechanism is the correct way to include a file
@@ -352,7 +351,7 @@ Add notification to print_started automation:
 
 1. **Single Printer**: Currently configured for one printer
 2. **AMS Only**: External spool support included but not extensively tested
-3. **Storage Size**: Input text limited to 1024 characters (sufficient for most prints)
+3. **Storage Size**: Input text limited to 255 characters (sufficient for 1 AMS + external spool keys)
 4. **No History**: Only stores most recent print data
 
 ## Future Enhancements

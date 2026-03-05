@@ -14,10 +14,9 @@ A backup and restore system that:
 
 ### Step 1: Add Input Helpers (5 minutes)
 
-This automation set relies on three YAML helper files.  Copy them to a logical
-location inside your Home Assistant `/config` directory and register them as
-**packages** so that Home Assistant can merge all of their sections (`input_text`,
-`input_boolean`, `input_datetime`, `template`, etc.) correctly.
+This automation set relies on the `spoolman_sync` package loader plus split
+helper/template files. Copy the package folder into your Home Assistant
+`/config` directory and register package loading.
 
 **Recommended folder structure:**
 
@@ -25,10 +24,12 @@ location inside your Home Assistant `/config` directory and register them as
 /config/
 ├── configuration.yaml
 └── packages/
-    └── bambulab/
-        ├── print_cost_helpers.yaml          ← homeassistant/packages/3d_printing/spoolman_sync/print_cost_helpers.yaml
-        ├── print_job_tracking_helpers.yaml  ← homeassistant/packages/3d_printing/spoolman_sync/print_job_tracking_helpers.yaml
-        └── print_weight_persistence.yaml    ← homeassistant/packages/3d_printing/spoolman_sync/print_weight_persistence.yaml
+  └── 3d_printing/
+    ├── _feature_loaders.yaml
+    └── spoolman_sync/
+      ├── spoolman_sync_loader.yaml
+      ├── helpers/
+      └── template_sensors/
 ```
 
 Add the following block to `configuration.yaml` (create the
@@ -36,10 +37,7 @@ Add the following block to `configuration.yaml` (create the
 
 ```yaml
 homeassistant:
-  packages:
-    bambulab_print_cost:          !include packages/bambulab/print_cost_helpers.yaml
-    bambulab_print_weight:        !include packages/bambulab/print_weight_persistence.yaml
-    bambulab_print_job_tracking:  !include packages/bambulab/print_job_tracking_helpers.yaml
+  packages: !include packages/3d_printing/_feature_loaders.yaml
 ```
 
 > **Why packages?**  Each helper file contains multiple top-level YAML sections
@@ -162,7 +160,7 @@ This creates phase-specific notifications so results do not overwrite each other
 
 ### `from_json got invalid input 'unknown'`
 - This means `input_text.print_weight_backup` contains `unknown` instead of JSON
-- Ensure `print_weight_persistence.yaml` is loaded via `homeassistant.packages`
+- Ensure `spoolman_sync_loader.yaml` is loaded via `homeassistant.packages`
 - Ensure both backup helpers have `initial: ""` and restart HA
 - Confirm backup automation wrote JSON before print completion
 

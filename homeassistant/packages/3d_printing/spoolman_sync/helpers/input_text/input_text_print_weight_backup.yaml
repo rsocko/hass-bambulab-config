@@ -1,0 +1,5 @@
+print_weight_backup:
+  name: Print Weight Backup
+  max: 255
+  initial: ""
+  icon: mdi:weight

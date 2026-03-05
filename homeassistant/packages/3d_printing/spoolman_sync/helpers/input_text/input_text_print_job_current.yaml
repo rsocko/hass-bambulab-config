@@ -1,0 +1,5 @@
+print_job_current:
+  name: Current Print Job Info
+  max: 255
+  initial: ""
+  icon: mdi:printer-3d

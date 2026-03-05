@@ -1,26 +1,26 @@
-alias: Print Started - Capture Print Data
-description: >-
+- alias: Print Started - Capture Print Data
+  description: >-
   Captures print job and AMS tray information when a print starts.
   This data is stored persistently so it can be used for manual recovery
   if the spoolman sync automation fails when the print completes.
   Also captures external spool data if in use.
-triggers:
+  triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
     type: event_print_started
     trigger: device
-conditions: []
-actions:
+  conditions: []
+  actions:
   - variables:
       task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"  # Update to your printer's task name sensor
       start_time: "{{ now().isoformat() }}"
-
+  
   # Store basic print job info
   - action: input_text.set_value
     data:
       entity_id: input_text.print_job_current
       value: "{{ task_name }}|{{ start_time }}"
-
+  
   # Capture AMS tray configuration for all 4 trays
   - variables:
       tray_data: >-
@@ -37,14 +37,14 @@ actions:
           }{% if not loop.last %},{% endif %}
         {% endfor %}
         ]
-
+  
   # Fire a custom event to update the trigger-based template sensor.
   # This avoids the 255-char input_text limit — sensor attributes have no size cap.
   # The sensor (sensor.print_job_ams_tray_storage) persists across HA restarts.
   - event: bambulab_store_ams_trays
     event_data:
       value: "{{ tray_data }}"
-
+  
   # Capture external spool data (for recovery if printing from external spool).
   # Treat active_tray='none' as external only when external_spool is explicitly active,
   # to avoid false positives during AMS transition windows.
@@ -63,12 +63,12 @@ actions:
           "name": "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'name') | default('') }}",
           "is_active": {{ is_external_spool | tojson }}
         }
-
+  
   - action: input_text.set_value
     data:
       entity_id: input_text.print_job_external_spool
       value: "{{ external_spool_data }}"
-
+  
   - action: logbook.log
     data:
       name: Print Started
@@ -84,4 +84,4 @@ actions:
         External spool active: {{ is_external_spool }}.
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
-mode: single
+  mode: single

@@ -1,0 +1,4 @@
+spoolman_sync_error_active:
+  name: Spoolman Sync Error Active
+  initial: false
+  icon: mdi:alert

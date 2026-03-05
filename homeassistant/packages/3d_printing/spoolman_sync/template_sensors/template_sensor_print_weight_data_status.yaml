@@ -1,0 +1,34 @@
+- sensor:
+    - name: Print Weight Data Status
+      unique_id: print_weight_data_status
+      state: >
+        {% set backup = states('input_text.print_weight_backup') %}
+        {% if backup not in ['unknown', 'unavailable', 'none', 'None', ''] and backup | length > 2 %}
+          stored
+        {% else %}
+          empty
+        {% endif %}
+      attributes:
+        last_stored_at: >
+          {{ state_attr('input_text.print_metadata_backup', 'last_update') }}
+        task_name: >
+          {% set metadata = states('input_text.print_metadata_backup') %}
+          {% if metadata and metadata != 'unknown' %}
+            {{ metadata.split('|')[0] if '|' in metadata else '' }}
+          {% else %}
+            unavailable
+          {% endif %}
+        print_start_time: >
+          {% set metadata = states('input_text.print_metadata_backup') %}
+          {% if metadata and metadata != 'unknown' %}
+            {{ metadata.split('|')[1] if '|' in metadata and metadata.count('|') >= 1 else '' }}
+          {% else %}
+            unavailable
+          {% endif %}
+        total_weight: >
+          {% set metadata = states('input_text.print_metadata_backup') %}
+          {% if metadata and metadata != 'unknown' %}
+            {{ metadata.split('|')[2] if '|' in metadata and metadata.count('|') >= 2 else '' }}
+          {% else %}
+            unavailable
+          {% endif %}

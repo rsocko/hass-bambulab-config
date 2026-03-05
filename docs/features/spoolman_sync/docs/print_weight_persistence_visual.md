@@ -40,7 +40,7 @@
 │  │                                                                 │          │
 │  │  ┌────────────────────────────────────────────────────────┐   │          │
 │  │  │ input_text.print_weight_backup                         │   │          │
-│  │  │   Max: 1024 chars                                      │   │          │
+│  │  │   Max: 255 chars                                       │   │          │
 │  │  │   Value: JSON of attributes                            │   │          │
 │  │  │   Example: {"AMS 1 Tray 1": 15, "AMS 1 Tray 3": 10}  │   │          │
 │  │  │   ✅ SURVIVES HA RESTART ✅                             │   │          │

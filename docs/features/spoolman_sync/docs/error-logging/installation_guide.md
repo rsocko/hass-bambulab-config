@@ -10,9 +10,9 @@ Before installing, ensure you have:
 - Spoolman integration installed and configured
 - Existing Spoolman sync automations working (from this repository)
 
-## Step 1: Add Input Helpers
+## Step 1: Add Helpers and Template Sensors
 
-The input helpers provide persistent storage for error data.
+The helpers and template sensors provide persistent storage for error data and AMS snapshots.
 
 ### Option A: Via Home Assistant UI (Recommended)
 
@@ -23,16 +23,22 @@ The input helpers provide persistent storage for error data.
 | Type | Name | Entity ID | Max Length | Icon |
 |------|------|-----------|------------|------|
 | Text | Current Print Job Info | `input_text.print_job_current` | 255 | mdi:printer-3d |
-| Text | Print Job AMS Tray Data | `input_text.print_job_ams_trays` | 1000 | mdi:file-cabinet |
-| Text | Last Spoolman Sync Error | `input_text.spoolman_sync_last_error` | 500 | mdi:alert-circle |
-| Text | Spoolman Sync Error Log | `input_text.spoolman_sync_error_log` | 2000 | mdi:text-box-multiple |
+| Text | Print Job External Spool Data | `input_text.print_job_external_spool` | 255 | mdi:printer-3d-nozzle |
+| Text | Last Spoolman Sync Error | `input_text.spoolman_sync_last_error` | 255 | mdi:alert-circle |
+| Text | Print Weight Backup | `input_text.print_weight_backup` | 255 | mdi:weight |
+| Text | Print Metadata Backup | `input_text.print_metadata_backup` | 255 | mdi:information |
 | Toggle | Spoolman Sync Error Active | `input_boolean.spoolman_sync_error_active` | - | mdi:alert |
 | Date/Time | Last Sync Error Time | `input_datetime.spoolman_sync_last_error_time` | - | mdi:clock-alert |
+
+Template sensors (created via YAML package loading):
+- `sensor.print_job_ams_tray_storage`
+- `sensor.spoolman_sync_error_log_storage`
+- `sensor.print_weight_data_status`
 
 ### Option B: Via Configuration File
 
 If you manage Home Assistant configuration via YAML files, use the **packages**
-mechanism.  This is the only correct approach because `print_job_tracking_helpers.yaml`
+mechanism.  This is the only correct approach because `spoolman_sync_loader.yaml`
 defines multiple top-level sections (`input_text:`, `input_boolean:`,
 `input_datetime:`), and loading it under a single key such as
 `input_text: !include ...` would produce incorrect nested YAML.
@@ -43,31 +49,29 @@ defines multiple top-level sections (`input_text:`, `input_boolean:`,
 /config/
 ├── configuration.yaml
 └── packages/
-    └── bambulab/
-        ├── print_cost_helpers.yaml          ← homeassistant/packages/3d_printing/spoolman_sync/print_cost_helpers.yaml
-        ├── print_job_tracking_helpers.yaml  ← homeassistant/packages/3d_printing/spoolman_sync/print_job_tracking_helpers.yaml
-        └── print_weight_persistence.yaml    ← homeassistant/packages/3d_printing/spoolman_sync/print_weight_persistence.yaml
+  └── 3d_printing/
+    ├── _feature_loaders.yaml
+    └── spoolman_sync/
+      ├── spoolman_sync_loader.yaml
+      ├── helpers/
+      └── template_sensors/
 ```
 
-1. Copy `print_job_tracking_helpers.yaml` (and the other helper files) into
-   `/config/packages/bambulab/`.
+1. Copy the `spoolman_sync` package folder (and `_feature_loaders.yaml`) into
+   `/config/packages/3d_printing/`.
 
 2. Add the following to `configuration.yaml` (merge with an existing
    `homeassistant.packages` block if you already have one):
 
    ```yaml
    homeassistant:
-     packages:
-       bambulab_print_cost:         !include packages/bambulab/print_cost_helpers.yaml
-       bambulab_print_weight:       !include packages/bambulab/print_weight_persistence.yaml
-       bambulab_print_job_tracking: !include packages/bambulab/print_job_tracking_helpers.yaml
+     packages: !include packages/3d_printing/_feature_loaders.yaml
    ```
 
-   > **Have other helpers defined elsewhere?**  Packages merge cleanly with any
-   > existing `input_text:` or other sections in `configuration.yaml` — no
-   > changes to those sections are needed.  Each package key (e.g.
-   > `bambulab_print_job_tracking`) simply contributes its sections to the
-   > merged configuration.
+  > **Have other helpers defined elsewhere?**  Packages merge cleanly with any
+  > existing `input_text:` or other sections in `configuration.yaml` — no
+  > changes to those sections are needed. Package files are merged into the
+  > overall configuration automatically.
 
 3. Restart Home Assistant or reload the configuration.
 
@@ -135,7 +139,7 @@ This script allows manual application of stored error data.
 After installing all components:
 
 1. **Check Helpers**: Go to **Settings** → **Devices & Services** → **Helpers**
-   - Verify all 6 new helpers appear in the list
+  - Verify all helper entities appear in the list
    - Check they are in the correct state (empty/false initially)
 
 2. **Check Automations**: Go to **Settings** → **Automations & Scenes** → **Automations**
@@ -150,7 +154,7 @@ After installing all components:
    - Start a print job
    - After print starts, check:
      - `input_text.print_job_current` should contain print name and timestamp
-     - `input_text.print_job_ams_trays` should contain JSON with tray data
+     - `sensor.print_job_ams_tray_storage` attribute `data` should contain JSON tray data
    - You can view these in **Developer Tools** → **States**
 
 ## Step 7: Optional Dashboard Card

@@ -10,7 +10,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 - **External Spool support**: Handles filament usage for both AMS trays and the External Spool (including "External Spool 2" on dual-nozzle printers like the H2D). The `print_weight` sensor reports external spool usage as `External Spool: <weight>` when the external spool is active.
 - **Zero-weight skip**: Trays that contributed 0 grams are silently skipped.
 - **No-data warning**: If neither the live sensor nor the backup has per-tray data, a persistent notification is created and Spoolman is not modified, so the user can manually recover.
-- **Persistent error logging with likely-cause context**: When a spool cannot be found in Spoolman, the automation records detailed error context (including likely cause and tray entity) in `input_text.spoolman_sync_error_log` (rolling 10-entry log), `input_text.spoolman_sync_last_error`, `input_datetime.spoolman_sync_last_error_time`, and `input_boolean.spoolman_sync_error_active`, enabling manual recovery via the [Manual Spoolman Recovery script](../../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml).
+- **Persistent error logging with likely-cause context**: When a spool cannot be found in Spoolman, the automation records detailed error context (including likely cause and tray entity) in `sensor.spoolman_sync_error_log_storage` (attribute `log`, rolling 10-entry log), `input_text.spoolman_sync_last_error`, `input_datetime.spoolman_sync_last_error_time`, and `input_boolean.spoolman_sync_error_active`, enabling manual recovery via the [Manual Spoolman Recovery script](../../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml).
 
 ## Logic
 1. Check whether the live `print_weight` sensor has AMS/External Spool attributes.
@@ -28,7 +28,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 ## Prerequisites
 - [Find Matching Spool Home Assistant script](find_matching_spools.md) setup and working
 - [Print Started - Backup Print Weight automation](../../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml) enabled (for backup/restore support)
-- Input helpers from [print_weight_persistence.yaml](../../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_weight_persistence.yaml) and [print_job_tracking_helpers.yaml](../../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml) registered in Home Assistant
+- Helper entities and template sensors loaded via [spoolman_sync_loader.yaml](../../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
 - All other prerequisites as specified in [README](../README.md)
 
 ## Notes

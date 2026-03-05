@@ -1,19 +1,19 @@
-alias: Print Started - Backup Print Weight Attributes
-description: >
+- alias: Print Started - Backup Print Weight Attributes
+  description: >
   Captures and stores print_weight sensor attributes when a print starts.
   This backup allows the print completion automation to work correctly
   even if Home Assistant restarts during the print job.
-triggers:
+  triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
     type: event_print_started
     trigger: device
-conditions: []
-actions:
+  conditions: []
+  actions:
   # Short initial delay after print-start event
   - delay:
       seconds: 3
-
+  
   # Wait for per-tray attributes to populate (timing can vary by print/integration state)
   - wait_template: >-
       {{
@@ -24,7 +24,7 @@ actions:
       }}
     timeout: "00:00:45"
     continue_on_timeout: true
-
+  
   # If still empty, do one final retry after a brief pause
   - if:
       - condition: template
@@ -39,7 +39,7 @@ actions:
     then:
       - delay:
           seconds: 5
-
+  
   # Store only AMS and External Spool keys from print_weight attributes as JSON
   # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
   # (e.g. friendly_name, unit_of_measurement, icon)
@@ -55,7 +55,7 @@ actions:
           {% endif %}
         {% endfor %}
         {{ ns.d | tojson if (ns.d | count > 0) else '' }}
-
+  
   # Store metadata for validation (task name, start time, total weight)
   - action: input_text.set_value
     target:
@@ -63,7 +63,7 @@ actions:
     data:
       value: >
         {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}|{{ now().isoformat() }}|{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}
-
+  
   # Log the backup result - warn if no AMS attributes were found
   # Length > 2 skips both an empty string ("") and an empty JSON object ("{}")
   - if:
@@ -108,5 +108,5 @@ actions:
             WARNING: Print started but no print_weight attributes available to back up
             for {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}. HA restart
             during this print may cause filament usage update to fail.
-
-mode: restart
+  
+  mode: restart

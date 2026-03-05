@@ -17,7 +17,7 @@ A **backup and restore mechanism** that:
 ## What's Included
 
 ### Configuration Files
-- **print_weight_persistence.yaml** - Input helpers and template sensor
+- **spoolman_sync_loader.yaml** - Package loader for automations, scripts, helpers, and template sensors
 - **print_started-backup_print_weight.yaml** - Captures attributes on print start
 - **print_complete-update_filament_usage.yaml** - Enhanced automation with backup support
 
@@ -32,7 +32,7 @@ A **backup and restore mechanism** that:
 
 ## Installation (Quick)
 
-1. Add input helpers to configuration.yaml
+1. Enable package loading via `homeassistant.packages`
 2. Import two automations (print_started and print_complete)
 3. Update device_id and entity names
 4. Restart Home Assistant
@@ -118,7 +118,7 @@ The solution handles:
 ## Limitations
 
 1. **Single Print**: Only stores most recent print
-2. **Storage Size**: Limited to 1024 characters (sufficient for most prints)
+2. **Storage Size**: Limited to 255 characters for `input_text` helpers
 3. **Single Printer**: Configured for one printer (easily extensible)
 
 ## Future Enhancements

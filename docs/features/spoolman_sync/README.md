@@ -31,7 +31,7 @@ When the spoolman sync automation fails (e.g., spool not found), the system stor
 - [Error Flow Diagram](docs/error-logging/error_logging_flow.md) - Visual flow and scenarios
 
 **📄 Files:**
-- [Input Helpers Configuration](../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml)
+- [Input Helpers Configuration](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
 - [Print Started Automation](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-capture_print_data.yaml)
 - [Manual Recovery Script](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/manual_spoolman_recovery-script.yaml)
 - [Updated Print Complete Automation](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
@@ -69,64 +69,56 @@ self-test script at both print start and print finish.
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
 - REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
-- Input helpers configured for error logging ([configuration file](../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/print_job_tracking_helpers.yaml)) - Add this to your Home Assistant configuration
+- Input helpers configured for error logging ([configuration file](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)) - Add this to your Home Assistant configuration
 
 ## Helper YAML Files & Configuration
 
+For migrating from UI-created objects to YAML-managed package loading, use the
+[YAML Migration Runbook](YAML_MIGRATION_RUNBOOK.md).
+
 Several features of this automation set require **input helpers** (input_text,
 input_boolean, input_datetime, input_number) and **template sensors** to be
-registered in Home Assistant. These are defined in three YAML files that ship
-with this repository:
+registered in Home Assistant. These are now loaded through one package loader
+file in this repository:
 
 | File | Purpose |
 |------|---------|
-| `print_cost_helpers.yaml` | `input_number` helper for default filament cost per kg |
-| `print_weight_persistence.yaml` | `input_text` helpers + `template` sensor for backup/restore of print-weight attributes across HA restarts |
-| `print_job_tracking_helpers.yaml` | `input_text`, `input_boolean`, and `input_datetime` helpers for persistent error tracking and manual recovery |
+| `spoolman_sync_loader.yaml` | Loads all spoolman sync domains (`automation`, `script`, `input_*`, and `template`) via directory-merge includes |
 
 ### Recommended Folder Structure
 
-Copy the three helper files into a logical location inside your Home Assistant
-`/config` directory. A `packages/bambulab/` sub-folder keeps all Bambu Lab
-related helpers together while leaving room for other groups (e.g. air quality,
-notifications) to be organised in parallel sub-folders:
+Copy the `spoolman_sync` package folder into your Home Assistant `/config`
+packages path so the loader and all referenced files are present.
 
 ```
 /config/
 ├── configuration.yaml
 └── packages/
-    ├── bambulab/                              ← Bambu Lab / 3D printer group
-    │   ├── print_cost_helpers.yaml
-    │   ├── print_job_tracking_helpers.yaml
-    │   └── print_weight_persistence.yaml
-    └── <other_group>/                         ← e.g. air_quality/, homeassistant/packages/3d_printing/notifications/
-        └── ...
+    └── 3d_printing/
+        ├── _feature_loaders.yaml
+        └── spoolman_sync/
+            ├── spoolman_sync_loader.yaml
+            ├── automations/
+            ├── scripts/
+            ├── helpers/
+            └── template_sensors/
 ```
 
 ### configuration.yaml Entry
 
-Add the following block to `configuration.yaml`. If you already have a
-`homeassistant:` key, add the `packages:` section inside it; if you already
-have a `packages:` section, add the three lines to it:
+Add the following block to `configuration.yaml` (or confirm it already exists):
 
 ```yaml
 homeassistant:
-  packages:
-    bambulab_print_cost:         !include packages/bambulab/print_cost_helpers.yaml
-    bambulab_print_weight:       !include packages/bambulab/print_weight_persistence.yaml
-    bambulab_print_job_tracking: !include packages/bambulab/print_job_tracking_helpers.yaml
+  packages: !include packages/3d_printing/_feature_loaders.yaml
 ```
 
 Restart Home Assistant (or use **Developer Tools → YAML → Restart**) after
 saving the file.
 
-> **Why packages instead of `input_text: !include ...`?**  Each helper file
-> defines more than one top-level section. For example
-> `print_weight_persistence.yaml` contains both `input_text:` **and**
-> `template:`. Using `input_text: !include ...` would try to nest the file's
-> own section headers inside `input_text:`, producing invalid configuration.
-> The `homeassistant.packages` mechanism is the correct Home Assistant pattern
-> for loading a file that spans multiple integration domains.
+> **Why packages?** `spoolman_sync_loader.yaml` spans multiple integration
+> domains and delegates to domain-specific files. Using
+> `homeassistant.packages` is the correct merge mechanism for this structure.
 
 > **Have other helpers already in configuration.yaml?**  No changes are
 > needed to existing sections. Packages merge their keys into the overall
