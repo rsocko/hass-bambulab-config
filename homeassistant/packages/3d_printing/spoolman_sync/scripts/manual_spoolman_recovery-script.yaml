@@ -106,13 +106,13 @@ manual_spoolman_recovery:
     Manually apply a stored spoolman sync error to update filament usage.
     Requires the spool_id parameter to identify which spool to update.
   fields:
-  spool_id:
-    selector:
-      number:
-        min: 1
-        max: 10000
-        mode: box
-    name: Spool ID
-    description: The Spoolman spool ID to update with the stored print weight
-    required: true
+    spool_id:
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+      name: Spool ID
+      description: The Spoolman spool ID to update with the stored print weight
+      required: true
   icon: mdi:tools

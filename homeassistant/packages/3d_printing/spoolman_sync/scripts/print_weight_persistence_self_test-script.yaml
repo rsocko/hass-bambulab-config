@@ -6,17 +6,17 @@ print_weight_persistence_self_test:
     limits, and logs PASS/WARN with diagnostic details.
   icon: mdi:test-tube
   fields:
-  phase:
-    name: Phase
-    description: Run context label used in logs and notification ID (manual/start/finish)
-    required: false
-    default: manual
-    selector:
-      select:
-        options:
-          - manual
-          - start
-          - finish
+    phase:
+      name: Phase
+      description: Run context label used in logs and notification ID (manual/start/finish)
+      required: false
+      default: manual
+      selector:
+        select:
+          options:
+            - manual
+            - start
+            - finish
   sequence:
   - variables:
       phase: "{{ phase | default('manual') | lower }}"

@@ -27,14 +27,14 @@ update_spool_last_and_first_used:
     first_used property - will update Spoolman with the current time as last used
     and update first used if not already populated.
   fields:
-  spool:
-    selector:
-      object: {}
-    default:
-      id: null
-    required: true
-    name: Spool
-    description: >-
-      Spool Object - must contain an id property and optionally the first_used
-      datetime. Can include any other properties.
+    spool:
+      selector:
+        object: {}
+      default:
+        id: null
+      required: true
+      name: Spool
+      description: >-
+        Spool Object - must contain an id property and optionally the first_used
+        datetime. Can include any other properties.
   icon: fapro:filament-1
