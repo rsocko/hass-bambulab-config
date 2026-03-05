@@ -293,15 +293,17 @@ find_matching_spool_in_spoolman:
   alias: Find Matching Spool in Spoolman
   description: Find a spool in Spoolman based on UUID or Color (hex code) and Type (eg PLA).
   fields:
-  parameters:
-    selector:
-      object: {}
-    default:
-      target_color_hex: 3F8E43
-      target_type: PLA
-      target_uuid: "000000000"
-      remaining_enabled: false
-      remaining_percent: 51
-      tray_weight: 1000
-      target_name: Bambu PLA Matte
+    parameters:
+      name: Matching Parameters
+      description: Input object containing spool metadata used for matching.
+      selector:
+        object: {}
+      default:
+        target_color_hex: 3F8E43
+        target_type: PLA
+        target_uuid: "000000000"
+        remaining_enabled: false
+        remaining_percent: 51
+        tray_weight: 1000
+        target_name: Bambu PLA Matte
   icon: fapro:filament-1
