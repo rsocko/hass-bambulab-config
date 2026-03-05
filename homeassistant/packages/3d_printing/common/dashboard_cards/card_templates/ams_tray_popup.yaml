@@ -606,7 +606,7 @@ ams_tray_popup:
                     {
                       type: 'custom:button-card',
                       entity: spoolEntityId,
-                      name: 'Reload from Spoolman',
+                      name: 'Spoolman: Reload',
                       icon: 'mdi:refresh',
                       tap_action: { action: 'call-service', service: 'homeassistant.update_entity', service_data: { entity_id: spoolEntityId } },
                       styles: {
