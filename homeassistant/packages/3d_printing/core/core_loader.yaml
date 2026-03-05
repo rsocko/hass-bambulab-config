@@ -1,2 +1,4 @@
 template:
   - sensor: !include_dir_merge_list template_sensors
+
+automation: !include_dir_merge_list automations

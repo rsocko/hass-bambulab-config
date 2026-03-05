@@ -160,7 +160,7 @@ The sensor is designed to degrade gracefully when the ha-bambulab integration or
 
 2. **Main `state`** falls through to `Unmapped Printer State` for any combination not matched by an explicit branch.
 
-3. **Automation alert**: [homeassistant/packages/3d_printing/core/dashboard_cards/smart-status-unmapped-alert.yaml](../../../../homeassistant/packages/3d_printing/common/dashboard_cards/smart-status-unmapped-alert.yaml) triggers a persistent notification whenever the sensor enters `Unmapped Printer State`, with a 30-second debounce, system log entry, and auto-dismiss when the state clears.
+3. **Automation alert**: [homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml](../../../../homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml) triggers a persistent notification whenever the sensor enters `Unmapped Printer State`, with a 30-second debounce, system log entry, and auto-dismiss when the state clears.
 
 To add support for a new value, either:
 - Add it to the relevant display branch in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml), **and** add it to `known_stages` in the `detail` block.

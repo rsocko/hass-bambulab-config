@@ -55,7 +55,7 @@ action:
 
 Or use the ready-made file in this repo:
 
-- [homeassistant/packages/3d_printing/core/dashboard_cards/smart-status-unmapped-alert.yaml](../../../../homeassistant/packages/3d_printing/common/dashboard_cards/smart-status-unmapped-alert.yaml)
+- [homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml](../../../../homeassistant/packages/3d_printing/core/automations/smart-status-unmapped-alert.yaml)
 
 It includes:
 
