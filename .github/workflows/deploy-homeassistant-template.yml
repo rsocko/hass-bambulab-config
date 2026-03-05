@@ -701,7 +701,7 @@ jobs:
               exit 0
               ;;
             reload_domains)
-              REMOTE_COMMAND="ha service call automation.reload; ha service call script.reload; ha service call template.reload"
+              REMOTE_COMMAND="ha core api post --raw-json '{}' /api/services/automation/reload; ha core api post --raw-json '{}' /api/services/script/reload; ha core api post --raw-json '{}' /api/services/template/reload"
               echo "Executing domain reloads: automation, script, template"
               ;;
             restart_core)
