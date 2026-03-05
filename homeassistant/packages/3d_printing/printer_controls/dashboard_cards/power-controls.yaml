@@ -26,12 +26,15 @@ cards:
   # ── 3D PRINTER ──────────────────────────────────────────
   - type: custom:mushroom-template-card
     entity: switch.tp_link_power_strip_ab64_ams_heater
+    layout: vertical
     primary: 3D Printer
     secondary: ""
     icon: mdi:printer-3d
     icon_color: >-
       {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}
         red
+      {% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}
+        grey
       {% else %}
         green
       {% endif %}
@@ -46,29 +49,41 @@ cards:
     card_mod:
       style: |
         ha-card {
-          padding: 4px 8px !important;
+          padding: 6px 4px !important;
           border-radius: 16px;
-          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.12){% else %}rgba(76, 175, 80, 0.12){% endif %};
-          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.4){% else %}rgba(76, 175, 80, 0.4){% endif %};
+          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
+          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
           transition: background 0.2s, border 0.2s;
-          --icon-size: 24px;
-          --card-primary-font-size: 0.8rem;
+          --icon-size: 22px;
+          --card-primary-font-size: 0.68rem;
           --card-primary-font-weight: 600;
           --card-secondary-font-size: 0rem;
+          min-height: 82px;
+        }
+        mushroom-state-info {
+          text-align: center;
+          align-items: center;
+        }
+        .container {
+          justify-content: center;
+          gap: 4px;
         }
         ha-card:hover {
-          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.22){% else %}rgba(76, 175, 80, 0.22){% endif %};
+          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.22){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.2){% else %}rgba(76, 175, 80, 0.22){% endif %};
         }
 
   # ── FRONT CAMERA ────────────────────────────────────────
   - type: custom:mushroom-template-card
     entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+    layout: vertical
     primary: Front Camera
     secondary: ""
     icon: mdi:cctv
     icon_color: >-
       {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}
         red
+      {% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}
+        grey
       {% else %}
         green
       {% endif %}
@@ -83,29 +98,41 @@ cards:
     card_mod:
       style: |
         ha-card {
-          padding: 4px 8px !important;
+          padding: 6px 4px !important;
           border-radius: 16px;
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.12){% else %}rgba(76, 175, 80, 0.12){% endif %};
-          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.4){% else %}rgba(76, 175, 80, 0.4){% endif %};
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
+          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
           transition: background 0.2s, border 0.2s;
-          --icon-size: 24px;
-          --card-primary-font-size: 0.8rem;
+          --icon-size: 22px;
+          --card-primary-font-size: 0.68rem;
           --card-primary-font-weight: 600;
           --card-secondary-font-size: 0rem;
+          min-height: 82px;
+        }
+        mushroom-state-info {
+          text-align: center;
+          align-items: center;
+        }
+        .container {
+          justify-content: center;
+          gap: 4px;
         }
         ha-card:hover {
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.22){% else %}rgba(76, 175, 80, 0.22){% endif %};
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.22){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.2){% else %}rgba(76, 175, 80, 0.22){% endif %};
         }
 
   # ── FILAMENT DRYER ──────────────────────────────────────
   - type: custom:mushroom-template-card
     entity: switch.tp_link_power_strip_ab64_3d_printer
+    layout: vertical
     primary: Filament Dryer
     secondary: ""
     icon: mdi:heat-wave
     icon_color: >-
       {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}
         red
+      {% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}
+        grey
       {% else %}
         green
       {% endif %}
@@ -120,18 +147,27 @@ cards:
     card_mod:
       style: |
         ha-card {
-          padding: 4px 8px !important;
+          padding: 6px 4px !important;
           border-radius: 16px;
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.12){% else %}rgba(76, 175, 80, 0.12){% endif %};
-          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.4){% else %}rgba(76, 175, 80, 0.4){% endif %};
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
+          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
           transition: background 0.2s, border 0.2s;
-          --icon-size: 24px;
-          --card-primary-font-size: 0.8rem;
+          --icon-size: 22px;
+          --card-primary-font-size: 0.68rem;
           --card-primary-font-weight: 600;
           --card-secondary-font-size: 0rem;
+          min-height: 82px;
+        }
+        mushroom-state-info {
+          text-align: center;
+          align-items: center;
+        }
+        .container {
+          justify-content: center;
+          gap: 4px;
         }
         ha-card:hover {
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.22){% else %}rgba(76, 175, 80, 0.22){% endif %};
+          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.22){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.2){% else %}rgba(76, 175, 80, 0.22){% endif %};
         }
 
 # ============================================================

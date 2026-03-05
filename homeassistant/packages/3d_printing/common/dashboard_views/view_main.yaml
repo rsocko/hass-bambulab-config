@@ -563,10 +563,7 @@ sections:
         .ec-flag-anim { animation:flag-wave 2s ease-in-out infinite; }
       grid_options:
         columns: 6
-    - type: custom:ha-bambulab-print_control-card
-      printer: 210dfdfa64085e8cf073e50eae757d90
-      grid_options:
-        columns: full
+    - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
     - type: custom:tabbed-card
       options: {}
       tabs:
