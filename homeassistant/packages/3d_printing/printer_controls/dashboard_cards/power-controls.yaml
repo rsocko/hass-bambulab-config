@@ -1,191 +1,650 @@
 # ============================================================
 # Power Controls Dashboard Card
 # ============================================================
-# A compact horizontal row of chip-sized power toggle buttons
-# for devices connected to the TP-Link power strip.
-#
-# Buttons (left to right):
-#   1. 3D Printer       - switch.tp_link_power_strip_ab64_ams_heater
-#   2. Front Camera     - switch.tp_link_power_strip_ab64_3d_printer_camera
-#   3. Filament Dryer   - switch.tp_link_power_strip_ab64_3d_printer
-#
-# Each button:
-#   - Chip / small size with icon + label
-#   - RED when the switch is ON
-#   - GREEN when the switch is OFF
-#   - Requires a confirmation dialog (defaults to Cancel) before toggling
-#
-# REQUIRED CUSTOM CARDS:
-#   - mushroom (via HACS)
-#   - card-mod (via HACS) - for compact chip styling
-#
+# Three compact power cards with:
+# - Label centered below icon (smaller font)
+# - Standalone power icon in top-right (not a badge)
+# - Confirmation shown only when turning OFF
+# - Gray visual state for unavailable/unknown entities
 # ============================================================
 
 type: horizontal-stack
 cards:
   # ── 3D PRINTER ──────────────────────────────────────────
-  - type: custom:mushroom-template-card
-    entity: switch.tp_link_power_strip_ab64_ams_heater
-    layout: vertical
-    primary: 3D Printer
-    secondary: ""
-    icon: mdi:printer-3d
-    icon_color: >-
-      {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}
-        red
-      {% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}
-        grey
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: toggle
-      confirmation:
-        text: >-
-          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') else 'on' }} the 3D Printer?
-        exemptions: []
-    hold_action:
-      action: more-info
-    card_mod:
-      style: |
-        ha-card {
-          padding: 6px 4px !important;
-          border-radius: 16px;
-          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
-          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
-          transition: background 0.2s, border 0.2s;
-          --icon-size: 22px;
-          --card-primary-font-size: 0.68rem;
-          --card-primary-font-weight: 600;
-          --card-secondary-font-size: 0rem;
-          min-height: 82px;
-        }
-        mushroom-state-info {
-          text-align: center;
-          align-items: center;
-        }
-        .container {
-          justify-content: center;
-          gap: 4px;
-        }
-        ha-card:hover {
-          background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.22){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.2){% else %}rgba(76, 175, 80, 0.22){% endif %};
-        }
+  - type: vertical-stack
+    cards:
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_ams_heater
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_ams_heater
+          layout: vertical
+          primary: 3D Printer
+          secondary: ""
+          icon: mdi:printer-3d
+          icon_color: red
+          tap_action:
+            action: call-service
+            service: switch.turn_off
+            target:
+              entity_id: switch.tp_link_power_strip_ab64_ams_heater
+            confirmation:
+              text: Turn off the 3D Printer?
+              exemptions: []
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(244, 67, 54, 0.12);
+                border: 1px solid rgba(244, 67, 54, 0.4);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #F44336;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_ams_heater
+            state: "off"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_ams_heater
+          layout: vertical
+          primary: 3D Printer
+          secondary: ""
+          icon: mdi:printer-3d
+          icon_color: green
+          tap_action:
+            action: call-service
+            service: switch.turn_on
+            target:
+              entity_id: switch.tp_link_power_strip_ab64_ams_heater
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(76, 175, 80, 0.12);
+                border: 1px solid rgba(76, 175, 80, 0.4);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #4CAF50;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_ams_heater
+            state: "unknown"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_ams_heater
+          layout: vertical
+          primary: 3D Printer
+          secondary: ""
+          icon: mdi:printer-3d
+          icon_color: grey
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(158, 158, 158, 0.14);
+                border: 1px solid rgba(158, 158, 158, 0.45);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #9E9E9E;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_ams_heater
+            state: "unavailable"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_ams_heater
+          layout: vertical
+          primary: 3D Printer
+          secondary: ""
+          icon: mdi:printer-3d
+          icon_color: grey
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(158, 158, 158, 0.14);
+                border: 1px solid rgba(158, 158, 158, 0.45);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #9E9E9E;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
 
   # ── FRONT CAMERA ────────────────────────────────────────
-  - type: custom:mushroom-template-card
-    entity: switch.tp_link_power_strip_ab64_3d_printer_camera
-    layout: vertical
-    primary: Front Camera
-    secondary: ""
-    icon: mdi:cctv
-    icon_color: >-
-      {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}
-        red
-      {% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}
-        grey
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: toggle
-      confirmation:
-        text: >-
-          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') else 'on' }} the Front Camera?
-        exemptions: []
-    hold_action:
-      action: more-info
-    card_mod:
-      style: |
-        ha-card {
-          padding: 6px 4px !important;
-          border-radius: 16px;
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
-          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
-          transition: background 0.2s, border 0.2s;
-          --icon-size: 22px;
-          --card-primary-font-size: 0.68rem;
-          --card-primary-font-weight: 600;
-          --card-secondary-font-size: 0rem;
-          min-height: 82px;
-        }
-        mushroom-state-info {
-          text-align: center;
-          align-items: center;
-        }
-        .container {
-          justify-content: center;
-          gap: 4px;
-        }
-        ha-card:hover {
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.22){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.2){% else %}rgba(76, 175, 80, 0.22){% endif %};
-        }
+  - type: vertical-stack
+    cards:
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+          layout: vertical
+          primary: Front Camera
+          secondary: ""
+          icon: mdi:cctv
+          icon_color: red
+          tap_action:
+            action: call-service
+            service: switch.turn_off
+            target:
+              entity_id: switch.tp_link_power_strip_ab64_3d_printer_camera
+            confirmation:
+              text: Turn off the Front Camera?
+              exemptions: []
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(244, 67, 54, 0.12);
+                border: 1px solid rgba(244, 67, 54, 0.4);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #F44336;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+            state: "off"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+          layout: vertical
+          primary: Front Camera
+          secondary: ""
+          icon: mdi:cctv
+          icon_color: green
+          tap_action:
+            action: call-service
+            service: switch.turn_on
+            target:
+              entity_id: switch.tp_link_power_strip_ab64_3d_printer_camera
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(76, 175, 80, 0.12);
+                border: 1px solid rgba(76, 175, 80, 0.4);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #4CAF50;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+            state: "unknown"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+          layout: vertical
+          primary: Front Camera
+          secondary: ""
+          icon: mdi:cctv
+          icon_color: grey
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(158, 158, 158, 0.14);
+                border: 1px solid rgba(158, 158, 158, 0.45);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #9E9E9E;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+            state: "unavailable"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer_camera
+          layout: vertical
+          primary: Front Camera
+          secondary: ""
+          icon: mdi:cctv
+          icon_color: grey
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(158, 158, 158, 0.14);
+                border: 1px solid rgba(158, 158, 158, 0.45);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #9E9E9E;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
 
   # ── FILAMENT DRYER ──────────────────────────────────────
-  - type: custom:mushroom-template-card
-    entity: switch.tp_link_power_strip_ab64_3d_printer
-    layout: vertical
-    primary: Filament Dryer
-    secondary: ""
-    icon: mdi:heat-wave
-    icon_color: >-
-      {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}
-        red
-      {% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}
-        grey
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: toggle
-      confirmation:
-        text: >-
-          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') else 'on' }} the Filament Dryer?
-        exemptions: []
-    hold_action:
-      action: more-info
-    card_mod:
-      style: |
-        ha-card {
-          padding: 6px 4px !important;
-          border-radius: 16px;
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
-          border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
-          transition: background 0.2s, border 0.2s;
-          --icon-size: 22px;
-          --card-primary-font-size: 0.68rem;
-          --card-primary-font-weight: 600;
-          --card-secondary-font-size: 0rem;
-          min-height: 82px;
-        }
-        mushroom-state-info {
-          text-align: center;
-          align-items: center;
-        }
-        .container {
-          justify-content: center;
-          gap: 4px;
-        }
-        ha-card:hover {
-          background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.22){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.2){% else %}rgba(76, 175, 80, 0.22){% endif %};
-        }
-
-# ============================================================
-# NOTES:
-# ============================================================
-# 1. Confirmation dialog:
-#    Each button shows an "Are you sure?" dialog before toggling.
-#    The dialog defaults to Cancel so accidental taps are safe.
-#
-# 2. Color coding:
-#    RED  (on)  = device is currently powered ON  → tap to turn OFF
-#    GREEN (off) = device is currently powered OFF → tap to turn ON
-#
-# 3. Placement:
-#    Add this card below the fan controls row in your dashboard.
-#
-# 4. Entity IDs:
-#    - switch.tp_link_power_strip_ab64_ams_heater         (3D Printer)
-#    - switch.tp_link_power_strip_ab64_3d_printer_camera  (Front Camera)
-#    - switch.tp_link_power_strip_ab64_3d_printer         (Filament Dryer)
-# ============================================================
+  - type: vertical-stack
+    cards:
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer
+          layout: vertical
+          primary: Filament Dryer
+          secondary: ""
+          icon: mdi:heat-wave
+          icon_color: red
+          tap_action:
+            action: call-service
+            service: switch.turn_off
+            target:
+              entity_id: switch.tp_link_power_strip_ab64_3d_printer
+            confirmation:
+              text: Turn off the Filament Dryer?
+              exemptions: []
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(244, 67, 54, 0.12);
+                border: 1px solid rgba(244, 67, 54, 0.4);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #F44336;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer
+            state: "off"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer
+          layout: vertical
+          primary: Filament Dryer
+          secondary: ""
+          icon: mdi:heat-wave
+          icon_color: green
+          tap_action:
+            action: call-service
+            service: switch.turn_on
+            target:
+              entity_id: switch.tp_link_power_strip_ab64_3d_printer
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(76, 175, 80, 0.12);
+                border: 1px solid rgba(76, 175, 80, 0.4);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #4CAF50;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer
+            state: "unknown"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer
+          layout: vertical
+          primary: Filament Dryer
+          secondary: ""
+          icon: mdi:heat-wave
+          icon_color: grey
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(158, 158, 158, 0.14);
+                border: 1px solid rgba(158, 158, 158, 0.45);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #9E9E9E;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.tp_link_power_strip_ab64_3d_printer
+            state: "unavailable"
+        card:
+          type: custom:mushroom-template-card
+          entity: switch.tp_link_power_strip_ab64_3d_printer
+          layout: vertical
+          primary: Filament Dryer
+          secondary: ""
+          icon: mdi:heat-wave
+          icon_color: grey
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                position: relative;
+                padding: 6px 4px !important;
+                border-radius: 16px;
+                min-height: 84px;
+                background: rgba(158, 158, 158, 0.14);
+                border: 1px solid rgba(158, 158, 158, 0.45);
+              }
+              ha-card::after {
+                content: "\23FB";
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #9E9E9E;
+              }
+              mushroom-state-info {
+                text-align: center;
+                align-items: center;
+              }
+              .container {
+                justify-content: center;
+                gap: 4px;
+              }
+              .primary {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                white-space: normal !important;
+              }

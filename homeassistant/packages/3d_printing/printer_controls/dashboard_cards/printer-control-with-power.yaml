@@ -3,6 +3,11 @@
 type: vertical-stack
 cards:
   - type: horizontal-stack
+    card_mod:
+      style: |
+        #root {
+          align-items: stretch;
+        }
     cards:
       - type: custom:ha-bambulab-print_control-card
         printer: 210dfdfa64085e8cf073e50eae757d90
@@ -37,9 +42,9 @@ cards:
             ]]]
         styles:
           card:
-            - min-width: 64px
-            - width: 64px
-            - height: 64px
+            - min-width: 58px
+            - width: 58px
+            - height: 100%
             - padding: 8px 4px
             - border-radius: 16px
             - justify-self: end
@@ -79,8 +84,13 @@ cards:
         card_mod:
           style: |
             :host {
-              flex: 0 0 72px !important;
-              max-width: 72px;
+              display: flex;
+              flex: 0 0 58px !important;
+              max-width: 58px;
+              align-self: stretch;
+            }
+            ha-card {
+              height: 100%;
             }
   - type: conditional
     conditions:
