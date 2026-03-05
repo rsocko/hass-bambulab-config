@@ -17,14 +17,10 @@ match_inserted_tray_spool_in_spoolman:
       name: Tray Label
       description: Optional human-friendly tray label used in logs and notifications.
       required: false
-      selector:
-        text: {}
     tray_key:
       name: Tray Key
       description: Optional internal tray key (for notification IDs).
       required: false
-      selector:
-        text: {}
   sequence:
   - variables:
       label: "{{ tray_label | default(tray_entity_id) }}"
