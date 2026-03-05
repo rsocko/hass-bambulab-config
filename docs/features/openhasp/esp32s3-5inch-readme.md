@@ -32,8 +32,8 @@ These values are bound in [../../../homeassistant/packages/3d_printing/openhasp_
 ┌──────────────────────┐         MQTT          ┌──────────────────────┐
 │   Home Assistant      │◄─────────────────────►│   ESP32-S3 Display   │
 │                       │                       │                       │
-│  openhasp/            │   entity state →      │  printer2.jsonl       │
-│   officetouch5.yaml   │   → object property   │  (page layout)        │
+│  packages/3d_printing │   entity state →      │  printer2.jsonl       │
+│   /openhasp_display/  │   → object property   │  (page layout)        │
 │                       │                       │                       │
 │  automations:         │   push_image →        │  UI renders arcs,     │
 │   push image to screen│   → display bitmap    │  labels, spool colors │
@@ -76,22 +76,21 @@ Maintenance note: keep this section as a grouped summary only; update exact obje
 ## Directory Structure
 
 ```
-esp32s3-5inch/
-├── readme.md                  ← You are here
-├── hass-config/               ← Home Assistant configuration files
-│   ├── readme.md              ← Detailed docs for HA-side config
-│   ├── officetouch5.yaml      ← OpenHASP plate object bindings
-│   ├── template_sensors.yaml  ← Helper template sensor definitions
-│   ├── auto_manage_screen_visibility.yaml
-│   ├── printer_control_buttons.yaml
-│   ├── push_printer_image_to_screen.yaml
-│   └── save_camera_snapshot_from_3d_printer.yaml
-└── openhasp/                  ← Files deployed to the ESP32 device
-    ├── readme.md              ← Detailed docs for device-side files
-    ├── config.json            ← Device configuration (Wi-Fi, MQTT, GUI)
-    ├── printer2.jsonl         ← Page layout (UI objects)
-    ├── online.cmd             ← Command executed when MQTT connects
-    └── offline.cmd            ← Command executed when MQTT disconnects
+homeassistant/packages/3d_printing/openhasp_display/
+├── openhasp_display_loader.yaml      ← Feature loader referenced by _feature_loaders.yaml
+├── openhasp/
+│   └── officetouch5.yaml             ← OpenHASP plate object bindings
+└── automations/
+    ├── auto_manage_screen_visibility.yaml
+    ├── printer_control_buttons.yaml
+    ├── push_printer_image_to_screen.yaml
+    └── save_camera_snapshot_from_3d_printer.yaml
+
+openhasp/esp32s3-5inch/device/
+├── config.json                       ← Device configuration (Wi-Fi, MQTT, GUI)
+├── printer2.jsonl                    ← Page layout (UI objects)
+├── online.cmd                        ← Command executed when MQTT connects
+└── offline.cmd                       ← Command executed when MQTT disconnects
 ```
 
 ## Quick Links

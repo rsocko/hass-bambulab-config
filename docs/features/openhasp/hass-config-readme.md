@@ -1,17 +1,22 @@
 # Home Assistant Configuration for OpenHASP Touchscreen
 
-Configuration files that define the bridge between Home Assistant and the OpenHASP-powered ESP32-S3 5" touchscreen display. These files live in Home Assistant's `/config/` directory and manage data binding, image pushing, and camera snapshot capture for the 3D printer dashboard.
+Configuration files that define the bridge between Home Assistant and the OpenHASP-powered ESP32-S3 5" touchscreen display. In this repo, they are package-managed under `homeassistant/packages/3d_printing/openhasp_display/` and loaded into Home Assistant via feature loaders.
 
 ## Architecture Overview
 
 ```
 Home Assistant
-├── /config/openhasp/
-│   └── officetouch5.yaml          ← Object-to-entity data bindings (MQTT)
-├── /config/automations.yaml       ← Contains the automations below
-│   ├── Push Printer Image to Screen
-│   ├── OpenHASP Printer Controls (Stop/Pause/Start)
-│   └── Save Camera Snapshot from 3D Printer
+├── /config/packages/3d_printing/_feature_loaders.yaml
+│   └── openhasp_display_loader: !include openhasp_display/openhasp_display_loader.yaml
+├── /config/packages/3d_printing/openhasp_display/
+│   ├── openhasp_display_loader.yaml  ← Loads openhasp + automation domains
+│   ├── openhasp/
+│   │   └── officetouch5.yaml         ← Plate object bindings (`openhasp.officetouch5`)
+│   └── automations/
+│       ├── auto_manage_screen_visibility.yaml
+│       ├── printer_control_buttons.yaml
+│       ├── push_printer_image_to_screen.yaml
+│       └── save_camera_snapshot_from_3d_printer.yaml
 ├── Template Helpers (UI or YAML)
 │   ├── Print Time Remaining (Formatted)   ← "Xh Ym" display string
 │   ├── Total Estimated Print Time         ← Arc max value (minutes)
@@ -29,7 +34,7 @@ For a grouped object ID summary, see the top-level quick reference in [esp32s3-5
 
 | File | HA Path | Description |
 |------|---------|-------------|
-| [officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml) | `/config/openhasp/officetouch5.yaml` | Defines the object-to-entity mappings for the `officetouch5` plate. Maps JSONL UI objects on the ESP32 to Home Assistant sensor values via the OpenHASP custom component. |
+| [officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml) | `/config/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml` (loaded as `openhasp.officetouch5`) | Defines the object-to-entity mappings for the `officetouch5` plate. Maps JSONL UI objects on the ESP32 to Home Assistant sensor values via the OpenHASP custom component. |
 
 **Key bindings in `officetouch5.yaml`:**
 
@@ -64,7 +69,7 @@ Each automation is stored as a separate YAML file for easy version control and d
 | [push_printer_image_to_screen.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/push_printer_image_to_screen.yaml) | `Push Printer Image to Screen` | **Active** | Pushes the 3D printer's model/cover image to the OpenHASP display whenever the image entity updates. Uses `openhasp.push_image` to render the image on object `p1b1`. |
 | [save_camera_snapshot_from_3d_printer.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/save_camera_snapshot_from_3d_printer.yaml) | `Save Camera Snapshot from 3D Printer` | **Disabled** | Captures a camera snapshot every 2 minutes (when printer is on) and saves to `/config/www/printer_snapshot.jpg`. Useful for serving static images to dashboards or external tools. |
 | [auto_manage_screen_visibility.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/auto_manage_screen_visibility.yaml) | `Auto Manage ESP32 Screen Visibility` | **Active** | Implements issue #46 behavior: keeps screen visibility in sync with print activity, errors, and optional office-presence signals. Uses `openhasp.wakeup` and `openhasp.command` to drive full brightness, low visibility, and delayed full off states. |
-| [printer_control_buttons.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_control_buttons.yaml) | `OpenHASP Printer Controls (Stop/Pause/Start)` | **Active** | Listens for touch events from control IDs `p1b84`–`p1b89` and conditionally invokes printer stop/pause/resume button entities. |
+| [printer_control_buttons.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_control_buttons.yaml) | `OpenHASP Printer Controls (Stop/Pause/Resume)` | **Active** | Listens for touch events from control IDs `p1b84`–`p1b89` and conditionally invokes printer stop/pause/resume button entities. |
 
 **Visibility automation customization:**
 
@@ -103,10 +108,14 @@ Custom template sensors that transform raw Bambu Lab printer data into display-f
 
 To deploy changes from this repo to Home Assistant:
 
-1. **Plate config** — Copy `officetouch5.yaml` to your Home Assistant's `/config/openhasp/` directory.
-2. **Automations** — Add the contents of each automation YAML file into your Home Assistant `automations.yaml` (as a list item with leading `- `), or use the HA UI to import them.
-3. **Template sensors** — Included automatically from `homeassistant/packages/3d_printing/core/template_sensors/` via `core/core_loader.yaml`.
-4. **Reload** — In Home Assistant, go to **Developer Tools → YAML** and reload **OpenHASP**, **Automations**, and **Template Entities**.
+1. **Feature loader mapping** — Ensure `homeassistant/packages/3d_printing/_feature_loaders.yaml` includes:
+    - `openhasp_display_loader: !include openhasp_display/openhasp_display_loader.yaml`
+2. **Feature domains** — `openhasp_display/openhasp_display_loader.yaml` loads:
+    - `openhasp: !include_dir_merge_named openhasp`
+    - `automation: !include_dir_merge_list automations`
+3. **One automation per file** — Keep each automation as a standalone YAML file under `openhasp_display/automations/` (no combined `automations.yaml` file).
+4. **Template sensors** — Included automatically from `homeassistant/packages/3d_printing/core/template_sensors/` via `core/core_loader.yaml`.
+5. **Reload** — In Home Assistant, go to **Developer Tools → YAML** and reload **Automations** and **Template Entities**, then reload the OpenHASP integration/entities as needed.
 
 ## Dependencies
 
