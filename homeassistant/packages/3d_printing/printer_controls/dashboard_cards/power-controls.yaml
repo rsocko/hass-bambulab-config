@@ -27,8 +27,7 @@ cards:
       target:
         entity_id: switch.tp_link_power_strip_ab64_ams_heater
       confirmation:
-        text: >-
-          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') else 'on' }} the 3D Printer?
+        text: Confirm power change for 3D Printer?
         exemptions: []
     hold_action:
       action: more-info
@@ -86,8 +85,7 @@ cards:
       target:
         entity_id: switch.tp_link_power_strip_ab64_3d_printer_camera
       confirmation:
-        text: >-
-          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') else 'on' }} the Front Camera?
+        text: Confirm power change for Front Camera?
         exemptions: []
     hold_action:
       action: more-info
@@ -145,8 +143,7 @@ cards:
       target:
         entity_id: switch.tp_link_power_strip_ab64_3d_printer
       confirmation:
-        text: >-
-          Turn {{ 'off' if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') else 'on' }} the Filament Dryer?
+        text: Confirm power change for Filament Dryer?
         exemptions: []
     hold_action:
       action: more-info
