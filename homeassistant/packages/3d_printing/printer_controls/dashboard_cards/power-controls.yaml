@@ -29,6 +29,14 @@ cards:
       confirmation:
         text: Confirm power change for 3D Printer?
         exemptions: []
+    icon_tap_action:
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.tp_link_power_strip_ab64_ams_heater
+      confirmation:
+        text: Confirm power change for 3D Printer?
+        exemptions: []
     hold_action:
       action: more-info
     card_mod:
@@ -87,6 +95,14 @@ cards:
       confirmation:
         text: Confirm power change for Front Camera?
         exemptions: []
+    icon_tap_action:
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.tp_link_power_strip_ab64_3d_printer_camera
+      confirmation:
+        text: Confirm power change for Front Camera?
+        exemptions: []
     hold_action:
       action: more-info
     card_mod:
@@ -138,6 +154,14 @@ cards:
         green
       {% endif %}
     tap_action:
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.tp_link_power_strip_ab64_3d_printer
+      confirmation:
+        text: Confirm power change for Filament Dryer?
+        exemptions: []
+    icon_tap_action:
       action: call-service
       service: switch.toggle
       target:
