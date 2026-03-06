@@ -456,6 +456,12 @@ sections:
     - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-14-full-bar-runner-chase.yaml
     - type: markdown
       content: |
+        #### Option 15 — Sweep & Hold Chase
+      grid_options:
+        columns: full
+    - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-15-sweep-hold-chase.yaml
+    - type: markdown
+      content: |
         #### Option 12 — Animated Fill + Pie
       grid_options:
         columns: full

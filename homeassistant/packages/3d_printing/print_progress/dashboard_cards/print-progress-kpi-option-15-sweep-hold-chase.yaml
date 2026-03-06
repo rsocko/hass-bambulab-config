@@ -1,0 +1,204 @@
+# Issue #516 - Option 15
+# Derived from options 13 + 14.
+# Layer: Full-card vertical fill + sweep-and-hold chase with trailing fade across full bar.
+# Print: Pie chart + sweep-and-hold chase with trailing fade across full bar.
+#
+# Combines:
+#   - Option 13's "brighten and hold" on filled segments (sequential left-to-right brightening
+#     that stays glowing then slowly fades back from the left first).
+#   - Option 14's full-bar runner that continues through unfilled segments as a dim glow.
+#
+# Filled segments: brighten sharply when the chase arrives, hold the glow, then slowly fade
+# back to their base lit state. Left segments fade first since they were lit first.
+# Unfilled segments: brief dim colored glow travels through then fades.
+# The fade-out completing at the right end creates a natural pause before the next dramatic sweep.
+
+type: horizontal-stack
+cards:
+  # --- Layer Progress: bottom-up fill + sweep-and-hold chase ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[ 
+          const currentLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state);
+          const totalLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state);
+          const hasLayerData = Number.isFinite(currentLayer) && Number.isFinite(totalLayer) && totalLayer > 0;
+          const value = hasLayerData ? `${Math.round(currentLayer)}/${Math.round(totalLayer)}` : 'N/A';
+          const pct = hasLayerData ? Math.max(0, Math.min(100, (currentLayer / totalLayer) * 100)) : 0;
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 20;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            const runnerCls = isActive ? (on ? ' o15-runner-on' : ' o15-runner-off') : '';
+            const delay = `--o15-delay:${idx * 0.18}s`;
+            return `<span class="o15-seg${on ? ' o15-seg-on' : ''}${runnerCls}" style="--o15-color:${color}; ${delay}"></span>`;
+          }).join('');
+
+          return `<div class="o15-fill-wrap">
+            <div class="o15-fill-layer" style="height:${pct}%; --o15-color:${color};"></div>
+            <div class="o15-fill-content">
+              <div class="o15-fill-value">${value}</div>
+              <div class="o15-fill-footer">
+                <span class="o15-fill-label">Layer Progress</span>
+                <ha-icon icon="mdi:layers-triple" class="o15-fill-icon" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+            <div class="o15-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 104px
+        - height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o15-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:104px; height:100%; overflow:hidden; }
+      .o15-fill-layer { position:absolute; left:0; right:0; bottom:0; background: color-mix(in srgb, var(--o15-color) 28%, transparent); transition: height 0.4s ease; z-index:0; }
+      .o15-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; flex-grow:1; padding:12px 12px 8px; }
+      .o15-fill-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .o15-fill-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .o15-fill-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .o15-fill-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+      .o15-seg-track { position:relative; z-index:2; display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; padding:0 4px 4px; flex-shrink:0; }
+      .o15-seg { height:8px; background:rgba(120,120,120,0.25); border-radius:2px; }
+      .o15-seg-on { background:var(--o15-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o15-color) 50%, transparent); }
+      /* Filled segments: sharp brighten on arrival, hold glow, slow fade back to base */
+      .o15-runner-on { animation: o15-chase-on 3.6s linear infinite; animation-delay: var(--o15-delay); }
+      @keyframes o15-chase-on {
+        0%   { filter: brightness(1);   box-shadow: 0 0 4px  color-mix(in srgb, var(--o15-color) 50%, transparent); }
+        4%   { filter: brightness(1.6); box-shadow: 0 0 14px color-mix(in srgb, var(--o15-color) 90%, transparent); }
+        18%  { filter: brightness(1.4); box-shadow: 0 0 10px color-mix(in srgb, var(--o15-color) 75%, transparent); }
+        50%  { filter: brightness(1);   box-shadow: 0 0 4px  color-mix(in srgb, var(--o15-color) 50%, transparent); }
+        100% { filter: brightness(1);   box-shadow: 0 0 4px  color-mix(in srgb, var(--o15-color) 50%, transparent); }
+      }
+      /* Unfilled segments: dim colored glow sweeps through then fades */
+      .o15-runner-off { animation: o15-chase-off 3.6s linear infinite; animation-delay: var(--o15-delay); }
+      @keyframes o15-chase-off {
+        0%   { background: rgba(120,120,120,0.25); box-shadow: none; }
+        4%   { background: color-mix(in srgb, var(--o15-color) 35%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--o15-color) 30%, transparent); }
+        12%  { background: rgba(120,120,120,0.25); box-shadow: none; }
+        100% { background: rgba(120,120,120,0.25); box-shadow: none; }
+      }
+    grid_options:
+      columns: 6
+
+  # --- Print Progress: pie chart + sweep-and-hold chase ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[ 
+          const progress = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_print_progress']?.state);
+          const hasProgress = Number.isFinite(progress);
+          const pct = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+          const value = hasProgress ? `${Math.round(pct)}%` : 'N/A';
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+
+          const segCount = 20;
+          const filled = Math.round((pct / 100) * segCount);
+          const segs = Array.from({ length: segCount }, (_, idx) => {
+            const on = idx < filled;
+            const runnerCls = isActive ? (on ? ' o15p-runner-on' : ' o15p-runner-off') : '';
+            const delay = `--o15p-delay:${idx * 0.18}s`;
+            return `<span class="o15p-seg${on ? ' o15p-seg-on' : ''}${runnerCls}" style="--o15p-color:${color}; ${delay}"></span>`;
+          }).join('');
+
+          return `<div class="o15p-wrap">
+            <div class="o15p-main">
+              <div class="o15p-left">
+                <div class="o15p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+              </div>
+              <div class="o15p-right">
+                <div class="o15p-value">${value}</div>
+                <div class="o15p-footer">
+                  <span class="o15p-label">Print Progress</span>
+                </div>
+              </div>
+            </div>
+            <div class="o15p-seg-track">${segs}</div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 104px
+        - height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o15p-wrap { display:flex; flex-direction:column; width:100%; min-height:104px; height:100%; overflow:hidden; }
+      .o15p-main { display:flex; flex-grow:1; align-items:center; min-height:0; }
+      .o15p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
+      .o15p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .o15p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
+      .o15p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
+      .o15p-footer { display:flex; align-items:center; justify-content:center; }
+      .o15p-label { text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
+      .o15p-seg-track { display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; padding:0 4px 4px; flex-shrink:0; }
+      .o15p-seg { height:8px; background:rgba(120,120,120,0.25); border-radius:2px; }
+      .o15p-seg-on { background:var(--o15p-color); box-shadow: 0 0 4px color-mix(in srgb, var(--o15p-color) 50%, transparent); }
+      /* Filled segments: sharp brighten on arrival, hold glow, slow fade back to base */
+      .o15p-runner-on { animation: o15p-chase-on 3.6s linear infinite; animation-delay: var(--o15p-delay); }
+      @keyframes o15p-chase-on {
+        0%   { filter: brightness(1);   box-shadow: 0 0 4px  color-mix(in srgb, var(--o15p-color) 50%, transparent); }
+        4%   { filter: brightness(1.6); box-shadow: 0 0 14px color-mix(in srgb, var(--o15p-color) 90%, transparent); }
+        18%  { filter: brightness(1.4); box-shadow: 0 0 10px color-mix(in srgb, var(--o15p-color) 75%, transparent); }
+        50%  { filter: brightness(1);   box-shadow: 0 0 4px  color-mix(in srgb, var(--o15p-color) 50%, transparent); }
+        100% { filter: brightness(1);   box-shadow: 0 0 4px  color-mix(in srgb, var(--o15p-color) 50%, transparent); }
+      }
+      /* Unfilled segments: dim colored glow sweeps through then fades */
+      .o15p-runner-off { animation: o15p-chase-off 3.6s linear infinite; animation-delay: var(--o15p-delay); }
+      @keyframes o15p-chase-off {
+        0%   { background: rgba(120,120,120,0.25); box-shadow: none; }
+        4%   { background: color-mix(in srgb, var(--o15p-color) 35%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--o15p-color) 30%, transparent); }
+        12%  { background: rgba(120,120,120,0.25); box-shadow: none; }
+        100% { background: rgba(120,120,120,0.25); box-shadow: none; }
+      }
+    grid_options:
+      columns: 6
