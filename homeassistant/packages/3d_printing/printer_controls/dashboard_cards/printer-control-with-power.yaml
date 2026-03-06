@@ -42,8 +42,8 @@ cards:
             ]]]
         styles:
           card:
-            - min-width: 58px
-            - width: 58px
+            - min-width: 46px
+            - width: 46px
             - height: 100%
             - padding: 8px 4px
             - border-radius: 16px
@@ -85,8 +85,8 @@ cards:
           style: |
             :host {
               display: flex;
-              flex: 0 0 58px !important;
-              max-width: 58px;
+              flex: 0 0 46px !important;
+              max-width: 46px;
               align-self: stretch;
             }
             ha-card {
