@@ -227,3 +227,151 @@ Option B — toggle-visible (via `input_boolean.show_movement_controls`):
 - No automatic "controls blocked" detection when MQTT encryption is enabled.
   The service call will simply fail silently.  Add a conditional card if you
   want to hide the controls when `binary_sensor.*_mqtt_encryption` is `on`.
+
+---
+
+## Feature 3 – Safety Controls & Guards
+
+### Is movement blocked during an active print?
+
+**Short answer: the ha-bambulab-cards card does NOT check print status — the
+only software guard it enforces is the MQTT encryption check.  The Bambu
+printer firmware is the real safety net.**
+
+### What ha-bambulab-cards checks
+
+#### Controls page access (`#isControlsPageDisabled`)
+
+```typescript
+#isControlsPageDisabled() {
+  return this.#isMqttEncryptionEnabled();
+}
+```
+
+The camera-control button that opens the Controls page is disabled **only**
+when MQTT encryption is active (i.e. the printer is on a cloud-only
+connection).  There is **no check for active printing state** — the user can
+open the Controls page and send axis movement commands even while a print is
+running.
+
+#### Home confirmation dialog
+
+The *only* mid-operation safety UX in the Controls page is a confirmation
+dialog shown before issuing the HOME command:
+
+> "This will bring the heat bed to the nozzle.  If there is a model on the
+> heat bed it will collide, possibly resulting in damage to the model or the
+> printer."
+
+All other axis movements (X/Y/Z) are issued immediately with no
+confirmation.
+
+#### Extruder error display
+
+Extruder calls use `returnResponse: true` so the result is awaited.  If the
+printer firmware returns an `Error` field the card shows it in a dialog.
+There is no pre-flight state check in the card itself.
+
+#### Print Again (`controlBlocked` prop)
+
+In the `<print-history-popup>`, the **Print Again** button is blocked when:
+
+```typescript
+controlBlocked = this.#isMqttEncryptionEnabled() || this.#isHybridMqttConnection()
+```
+
+This means Print Again is disabled when:
+1. MQTT encryption is on (cloud-only connection — no local MQTT write access)
+2. Hybrid mode is active (MQTT + cloud — partial control only)
+
+There is also **no active-print check** on Print Again.  The Bambu printer
+firmware will reject a new print job if one is already running; the card
+itself does not prevent the attempt.
+
+---
+
+### What the ha-bambulab integration checks
+
+In `coordinator.py`, `_handle_service_call_event` runs this check before
+executing **any write action** (move, extrude, skip, print, etc.):
+
+```python
+if self.get_model().print_fun.mqtt_signature_required:
+    LOGGER.error("Printer firmware requires mqtt encryption.  All control actions are blocked.")
+    return False
+```
+
+Beyond that gate, individual service handlers do minimal validation:
+
+| Service | Integration-level guard |
+|---------|------------------------|
+| `move_axis` | Validates `axis` is X/Y/Z/HOME and `abs(distance) ≤ 100` |
+| `extrude_retract` | Has an optional `force` parameter; if `force=False` (default) the printer firmware rejects below 170 °C |
+| `print_project_file` | No active-print check; firmware rejects if already printing |
+| All others | No print-state guard |
+
+**There is no integration-level guard that prevents movement or extrusion
+while a print is in progress.**
+
+---
+
+### Does the Bambu printer firmware enforce the guard?
+
+Yes, to a limited degree.  The `move_axis` service sends raw GCode via the
+`gcode_line` MQTT command:
+
+```python
+MOVE_AXIS_GCODE = (
+    "M211 S\n"          # save current endstop state
+    "M211 X1 Y1 Z1\n"   # enable software endstops
+    "M1002 push_ref_mode\n"
+    "G91 \n"             # relative positioning
+    "G1 {axis}{distance}.0 F{speed}\n"
+    "M1002 pop_ref_mode\n"
+    "M211 R\n"           # restore endstop state
+)
+```
+
+The `M1002 push_ref_mode` / `pop_ref_mode` pair is Bambu-specific GCode.  In
+practice:
+
+- **During an active print**, the Bambu firmware *may* queue the GCode behind
+  the print buffer rather than executing it immediately, which means the
+  move will be delayed until the current print command finishes — potentially
+  interrupting the layer.  Community testing indicates behaviour varies by
+  printer model and firmware version.
+- **Extrusion** is blocked by the firmware below 170 °C unless `force: true`
+  is passed.  This is a firmware-enforced temperature floor, not an
+  integration or card check.
+- **Homing (G28)** during a print will almost certainly crash the nozzle into
+  the model.  There is no firmware guard preventing this — the confirmation
+  dialog in the card is the only warning.
+
+**In summary: do not use the movement controls while printing.  The
+responsibility for safe operation is entirely on the user; neither the card
+nor the integration will prevent you from issuing a potentially damaging
+command.**
+
+---
+
+### How the standalone YAML card compares
+
+| Safety check | ha-bambulab-cards | YAML `printer-movement-controls.yaml` |
+|---|---|---|
+| MQTT encryption → disable all | ✅ Disables Controls page button | ⚠️ Warning banner only |
+| Active print → disable movement | ❌ Not checked | ⚠️ Warning banner only |
+| Home → confirmation dialog | ✅ Yes | ✅ Yes (button-card `confirmation:`) |
+| Extruder temperature floor | ✅ Firmware + error dialog | ✅ Firmware enforced |
+| Print Again blocked during print | ❌ Not checked | N/A (Print Again not replicable in YAML) |
+
+To make the YAML controls page more conservative, you can wrap it in a
+`conditional` card that hides it while printing:
+
+```yaml
+- type: conditional
+  conditions:
+    - condition: state
+      entity: sensor.YOUR_PRINTER_current_stage
+      state_not: printing
+  card: !include ../../printer_controls/dashboard_cards/printer-movement-controls.yaml
+```
