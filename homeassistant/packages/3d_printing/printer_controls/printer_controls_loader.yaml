@@ -1,1 +1,2 @@
 input_boolean: !include helpers/input_boolean_show_power_controls.yaml
+script: !include_dir_merge_named scripts
