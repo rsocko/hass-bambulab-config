@@ -564,36 +564,7 @@ sections:
       grid_options:
         columns: 6
     - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
-    - type: vertical-stack
-      cards:
-        - type: custom:button-card
-          entity: input_boolean.show_movement_controls
-          show_name: true
-          name: Movement Controls
-          show_state: false
-          show_icon: true
-          icon: mdi:camera-control
-          tap_action:
-            action: toggle
-          styles:
-            card:
-              - border-radius: 16px
-              - padding: 8px 12px
-            icon:
-              - width: 20px
-              - color: |
-                  [[[ return entity.state === 'on' ? '#2196F3' : 'var(--primary-text-color)'; ]]]
-            name:
-              - font-size: 13px
-            grid:
-              - grid-template-areas: '"i n"'
-              - grid-template-columns: 28px auto
-        - type: conditional
-          conditions:
-            - condition: state
-              entity: input_boolean.show_movement_controls
-              state: "on"
-          card: !include ../../printer_controls/dashboard_cards/printer-movement-controls.yaml
+    - !include ../../printer_controls/dashboard_cards/printer-movement-controls-with-toggle.yaml
     - type: custom:tabbed-card
       options: {}
       tabs:

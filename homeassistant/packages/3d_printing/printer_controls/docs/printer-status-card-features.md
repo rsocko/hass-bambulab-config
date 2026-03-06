@@ -9,6 +9,36 @@ Assistant YAML dashboard cards.
 
 ## Feature 1 – Print History & Timelapse Videos Popup
 
+### Where does the API come from?
+
+The API is **not** built into the Bambu Lab printer itself. It is provided
+entirely by the **ha-bambulab Home Assistant integration**
+([greghesp/ha-bambulab](https://github.com/greghesp/ha-bambulab)).
+
+When the integration is installed it registers two custom HTTP views inside
+Home Assistant's own web server (`custom_components/bambu_lab/__init__.py`):
+
+```python
+class PrintHistoryAPIView(HomeAssistantView):
+    url = "/api/bambu_lab/print_history"
+    requires_auth = True          # ← HA long-lived access token required
+
+class VideoAPIView(HomeAssistantView):
+    url = "/api/bambu_lab/videos"
+    requires_auth = True
+```
+
+Both views:
+1. Iterate over every configured Bambu Lab printer in `hass.data["bambu_lab"]`.
+2. Call `coordinator.get_cached_files(file_type='prints'|'timelapse')` — this
+   reads files that the integration has **already downloaded and cached to disk**
+   from the printer over the local network (MQTT + FTP).
+3. Return a JSON response sorted newest-first.
+
+The **files are cached by the integration**, not fetched live from the printer on
+each API request. The integration must have the *file cache* feature enabled in its
+configuration settings for print history and timelapse files to appear.
+
 ### How it works in ha-bambulab-cards
 
 The **Print History** button (list icon) in the status card opens a popup implemented
@@ -23,7 +53,8 @@ The popup has two tabs:
 | Timelapse Videos | `GET /api/bambu_lab/videos` | JSON — `{ videos: [...], total_size_bytes }` |
 
 Both endpoints require an `Authorization: Bearer <access_token>` header and are
-provided by the **ha-bambulab** integration (not a standard HA API).
+provided by the **ha-bambulab** integration (not a standard HA API and not by the
+printer).
 
 Each call is authenticated using `this._hass.auth.data.access_token` — a token that
 is only available inside a Lit-based custom card running in the HA frontend context.
