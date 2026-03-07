@@ -38,6 +38,7 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 **Page structure:**
 - **Page 0** — Common objects (visible on all pages) — currently empty
 - **Page 1** — 3D Printer Dashboard (main and only page)
+- **Page 2** — Printer motion + filament controls
 
 **Object map for Page 1:**
 
@@ -59,6 +60,7 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b87` | `img` | 758,30 32×32 | Pause icon (`L:/pause.png`, shown/hidden with Pause btn) |
 | `p1b88` | `btn` | 748,20 52×52 | **Resume** button — same position as Pause, visible only when paused |
 | `p1b89` | `img` | 758,30 32×32 | Resume/play icon (`L:/play.png`, shown/hidden with Resume btn) |
+| `p1b95` | `btn` | 636,20 52×52 | Opens controls page (page 2) |
 | `p1b14` | `label` | 140,25 | Time remaining value |
 | `p1b15` | `label` | 130,55 | "Time Remaining" static label |
 | `p1b30` | `label` | 110,84 | "Est" static label |
@@ -76,9 +78,27 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b31` | `label` | 100,390 | Smart status detail value (`detail` attribute) |
 | `p1b32` | `label` | 100,355 | Smart status state value |
 
+**Object map for Page 2 (controls):**
+
+| ID | Object Type | Position | Description |
+|----|------------|----------|-------------|
+| `p2b5`–`p2b8` | `btn` | XY center cluster | XY jog by 1 step (`^`, `v`, `<`, `>`) |
+| `p2b9`–`p2b12` | `btn` | XY outer cluster | XY jog by 10 steps (`^^`, `vv`, `<<`, `>>`) |
+| `p2b13` | `btn` | XY center | Home action |
+| `p2b20`–`p2b23` | `btn` | Right column | Z jog (`-10`, `-1`, `+1`, `+10`) |
+| `p2b30` | `btn` | Far-right column | Retract filament |
+| `p2b31` | `btn` | Far-right column | Extrude filament |
+| `p2b40` | `btn` | Top-right | Close page and return to page 1 |
+| `p2b41` | `label` | Top-right area | Safety/status hint text |
+
 > **Note:** Object IDs in the slot-label range (33–42) plus `p1b40` are static visual labels that do not need to be controlled by Home Assistant. All object IDs are unique.
 
 The values for `p1b31` and `p1b32` are populated by Home Assistant via [officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
+
+Page-2 touch events are consumed by [printer_motion_controls.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_motion_controls.yaml), which calls:
+
+- `bambu_lab.move_axis` for X/Y/Z/home actions
+- `bambu_lab.extrude_retract` for filament retract/extrude
 
 **Object types used** (see [openHASP Objects reference](https://www.openhasp.com/0.7.0/design/objects/)):
 

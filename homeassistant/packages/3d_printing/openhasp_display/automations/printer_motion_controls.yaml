@@ -1,0 +1,148 @@
+- alias: OpenHASP Printer Motion Controls (XY/Z/Extruder)
+  description: >
+    Handles page navigation and motion controls for the ESP32-S3 5in OpenHASP
+    control page in printer2.jsonl:
+      - p1b95 opens controls page (page 2)
+      - p2b40 returns to dashboard (page 1)
+      - p2b9/5/10/6/11/7/12/8: XY move in 10/1 increments
+      - p2b13: home
+      - p2b20/21/22/23: Z move in 10/1 increments
+      - p2b30/31: retract/extrude
+
+    Uses Bambu integration services:
+      - bambu_lab.move_axis (axis + distance)
+      - bambu_lab.extrude_retract (type)
+
+  triggers:
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p1b95
+      payload: '{"event":"up"}'
+      id: open_controls
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b40
+      payload: '{"event":"up"}'
+      id: close_controls
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b9
+      payload: '{"event":"up"}'
+      id: move_y_neg_10
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b5
+      payload: '{"event":"up"}'
+      id: move_y_neg_1
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b10
+      payload: '{"event":"up"}'
+      id: move_y_pos_10
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b6
+      payload: '{"event":"up"}'
+      id: move_y_pos_1
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b11
+      payload: '{"event":"up"}'
+      id: move_x_neg_10
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b7
+      payload: '{"event":"up"}'
+      id: move_x_neg_1
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b12
+      payload: '{"event":"up"}'
+      id: move_x_pos_10
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b8
+      payload: '{"event":"up"}'
+      id: move_x_pos_1
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b13
+      payload: '{"event":"up"}'
+      id: home
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b20
+      payload: '{"event":"up"}'
+      id: move_z_neg_10
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b21
+      payload: '{"event":"up"}'
+      id: move_z_neg_1
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b22
+      payload: '{"event":"up"}'
+      id: move_z_pos_1
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b23
+      payload: '{"event":"up"}'
+      id: move_z_pos_10
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b30
+      payload: '{"event":"up"}'
+      id: retract
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p2b31
+      payload: '{"event":"up"}'
+      id: extrude
+
+  conditions: []
+
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'open_controls' }}"
+          sequence:
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/page
+                payload: "2"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'close_controls' }}"
+          sequence:
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/page
+                payload: "1"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id in ['move_x_neg_10','move_x_neg_1','move_x_pos_10','move_x_pos_1','move_y_neg_10','move_y_neg_1','move_y_pos_10','move_y_pos_1','move_z_neg_10','move_z_neg_1','move_z_pos_1','move_z_pos_10','home'] }}"
+          sequence:
+            - variables:
+                axis: >-
+                  {% if trigger.id.startswith('move_x_') %}X
+                  {% elif trigger.id.startswith('move_y_') %}Y
+                  {% elif trigger.id.startswith('move_z_') %}Z
+                  {% else %}HOME{% endif %}
+                distance: >-
+                  {% if trigger.id == 'home' %}0
+                  {% elif trigger.id.endswith('_neg_10') %}-10
+                  {% elif trigger.id.endswith('_neg_1') %}-1
+                  {% elif trigger.id.endswith('_pos_10') %}10
+                  {% else %}1{% endif %}
+            - action: bambu_lab.move_axis
+              data:
+                device_id: 210dfdfa64085e8cf073e50eae757d90
+                axis: "{{ axis }}"
+                distance: "{{ distance | int }}"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id in ['retract','extrude'] }}"
+          sequence:
+            - variables:
+                action_type: "{{ 'retract' if trigger.id == 'retract' else 'extrude' }}"
+            - action: bambu_lab.extrude_retract
+              data:
+                device_id: 210dfdfa64085e8cf073e50eae757d90
+                type: "{{ action_type }}"
+
+  mode: queued
+  max: 20

@@ -742,6 +742,104 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {{ not is_paused }}
 
+  - obj: p1b95 # Open controls page button
+    properties:
+      "bg_grad_dir": 0
+      "bg_color": >
+        {% set plate_state = states('openhasp.officetouch5') | lower %}
+        {{ '#546e7a' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#444444' }}
+      "border_color": >
+        {% set plate_state = states('openhasp.officetouch5') | lower %}
+        {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
+
+  - obj: p2b41 # Controls page hint text
+    properties:
+      "text": >
+        {% set detail = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail') %}
+        {{ detail if detail else 'Use with caution while printing' }}
+
+  - obj: p2b5
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#455a64' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#3a3a3a' }}
+  - obj: p2b6
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#455a64' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#3a3a3a' }}
+  - obj: p2b7
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#455a64' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#3a3a3a' }}
+  - obj: p2b8
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#455a64' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#3a3a3a' }}
+  - obj: p2b9
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#37474f' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#353535' }}
+  - obj: p2b10
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#37474f' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#353535' }}
+  - obj: p2b11
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#37474f' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#353535' }}
+  - obj: p2b12
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#37474f' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#353535' }}
+  - obj: p2b13
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
+        {% set risky = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
+        {{ '#ffcc80' if risky else '#90a4ae' }}
+  - obj: p2b20
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#37474f' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#353535' }}
+  - obj: p2b21
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#455a64' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#3a3a3a' }}
+  - obj: p2b22
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#455a64' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#3a3a3a' }}
+  - obj: p2b23
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {{ '#37474f' if smart_status not in ['unknown', 'unavailable', 'none', ''] else '#353535' }}
+  - obj: p2b30
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
+        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
+        {{ '#546e7a' if is_paused else '#455a64' }}
+  - obj: p2b31
+    properties:
+      "bg_color": >
+        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
+        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
+        {{ '#546e7a' if is_paused else '#455a64' }}
+
 
 
 

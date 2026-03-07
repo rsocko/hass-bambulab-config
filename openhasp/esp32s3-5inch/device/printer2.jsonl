@@ -14,6 +14,7 @@
 {"id":87,"obj":"img","comment":"Pause Icon","x":758,"y":30,"w":32,"h":32,"src":"L:/pause.png","click":false,"hidden":true}
 {"id":88,"obj":"btn","comment":"Resume Button - visible when paused (same position as Pause)","x":748,"y":20,"w":52,"h":52,"radius":8,"bg_color":"#666666","bg_grad_dir":0,"border_color":"#444444","border_width":2,"hidden":true,"text":""}
 {"id":89,"obj":"img","comment":"Resume Icon","x":758,"y":30,"w":32,"h":32,"src":"L:/play.png","click":false,"hidden":true}
+{"id":95,"obj":"btn","comment":"Controls Page Button","x":636,"y":20,"w":52,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"CTL","text_font":14,"text_color":"#ffffff"}
 {"id":9,"obj":"label","comment":"Total Weight","x":40,"y":110,"w":60,"h":20,"align":"center","text":"Layers","text_font":17}
 {"id":50,"obj":"tabview","x":615,"y":140,"w":175,"h":275,"btn_pos":1,"text_font":8}
 {"id":51,"obj":"tab","parentid":50,"text":"Weight"}
@@ -76,3 +77,33 @@
 {"id":92,"obj":"label","comment":"Stop Confirm Title","x":190,"y":160,"w":420,"h":50,"align":"center","text":"Stop the print?","text_font":24,"text_color":"#ffffff","hidden":true}
 {"id":93,"obj":"btn","comment":"Stop Confirm NO Button (Default/Safe)","x":210,"y":265,"w":180,"h":55,"radius":8,"bg_color":"#424242","border_color":"#616161","border_width":2,"text":"NO","text_font":22,"text_color":"#ffffff","hidden":true}
 {"id":94,"obj":"btn","comment":"Stop Confirm YES Button (Destructive/Red)","x":410,"y":265,"w":180,"h":55,"radius":8,"bg_color":"#f44336","border_color":"#b71c1c","border_width":2,"text":"YES - STOP","text_font":22,"text_color":"#ffffff","hidden":true}
+
+{"page":2,"comment":"Page 2 - Printer Controls"}
+{"id":1,"obj":"obj","comment":"Controls Page Container","x":20,"y":20,"w":760,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
+{"id":2,"obj":"obj","comment":"XY Outer Ring","x":70,"y":80,"w":320,"h":320,"radius":160,"bg_color":"#90a4ae","border_color":"#263238","border_width":2}
+{"id":3,"obj":"obj","comment":"XY Inner Ring","x":130,"y":140,"w":200,"h":200,"radius":100,"bg_color":"#cfd8dc","border_color":"#263238","border_width":2}
+{"id":4,"obj":"label","comment":"Page Title","x":34,"y":30,"w":360,"h":36,"align":"left","text":"Printer Motion Controls","text_font":24,"text_color":"#ffffff"}
+{"id":5,"obj":"btn","comment":"XY Up 1","x":205,"y":158,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"^","text_font":22,"text_color":"#ffffff"}
+{"id":6,"obj":"btn","comment":"XY Down 1","x":205,"y":272,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"v","text_font":22,"text_color":"#ffffff"}
+{"id":7,"obj":"btn","comment":"XY Left 1","x":148,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"<","text_font":22,"text_color":"#ffffff"}
+{"id":8,"obj":"btn","comment":"XY Right 1","x":262,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":">","text_font":22,"text_color":"#ffffff"}
+{"id":9,"obj":"btn","comment":"XY Up 10","x":205,"y":100,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":"^^","text_font":20,"text_color":"#ffffff"}
+{"id":10,"obj":"btn","comment":"XY Down 10","x":205,"y":330,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":"vv","text_font":20,"text_color":"#ffffff"}
+{"id":11,"obj":"btn","comment":"XY Left 10","x":90,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":"<<","text_font":18,"text_color":"#ffffff"}
+{"id":12,"obj":"btn","comment":"XY Right 10","x":320,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":">>","text_font":18,"text_color":"#ffffff"}
+{"id":13,"obj":"btn","comment":"XY Home","x":196,"y":206,"w":68,"h":68,"radius":34,"bg_color":"#90a4ae","border_color":"#263238","border_width":2,"text":"HOME","text_font":14,"text_color":"#000000"}
+{"id":14,"obj":"label","comment":"XY Section Label","x":135,"y":402,"w":190,"h":26,"align":"center","text":"X/Y Axis (1 and 10)","text_font":14,"text_color":"#eceff1"}
+{"id":20,"obj":"btn","comment":"Z -10","x":460,"y":100,"w":100,"h":52,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":"-10","text_font":20,"text_color":"#ffffff"}
+{"id":21,"obj":"btn","comment":"Z -1","x":460,"y":158,"w":100,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"-1","text_font":20,"text_color":"#ffffff"}
+{"id":22,"obj":"btn","comment":"Z +1","x":460,"y":270,"w":100,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"+1","text_font":20,"text_color":"#ffffff"}
+{"id":23,"obj":"btn","comment":"Z +10","x":460,"y":328,"w":100,"h":52,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":"+10","text_font":20,"text_color":"#ffffff"}
+{"id":24,"obj":"obj","comment":"Z Axis Icon Holder","x":460,"y":214,"w":100,"h":52,"radius":8,"bg_color":"#90a4ae","border_color":"#263238","border_width":2}
+{"id":25,"obj":"label","comment":"Z Axis Label","x":460,"y":225,"w":100,"h":30,"align":"center","text":"BED Z","text_font":16,"text_color":"#000000"}
+{"id":26,"obj":"label","comment":"Z Section Label","x":460,"y":402,"w":100,"h":26,"align":"center","text":"Z Axis","text_font":14,"text_color":"#eceff1"}
+{"id":30,"obj":"btn","comment":"Retract","x":618,"y":146,"w":120,"h":60,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"RETR ^","text_font":18,"text_color":"#ffffff"}
+{"id":31,"obj":"btn","comment":"Extrude","x":618,"y":274,"w":120,"h":60,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":"EXTR v","text_font":18,"text_color":"#ffffff"}
+{"id":32,"obj":"obj","comment":"Extruder Icon Holder","x":618,"y":214,"w":120,"h":52,"radius":8,"bg_color":"#90a4ae","border_color":"#263238","border_width":2}
+{"id":33,"obj":"label","comment":"Extruder Label","x":618,"y":225,"w":120,"h":30,"align":"center","text":"EXTRUDER","text_font":14,"text_color":"#000000"}
+{"id":34,"obj":"label","comment":"Extruder Section Label","x":618,"y":402,"w":120,"h":26,"align":"center","text":"Filament","text_font":14,"text_color":"#eceff1"}
+{"id":40,"obj":"btn","comment":"Back to Main Page","x":736,"y":30,"w":36,"h":36,"radius":6,"bg_color":"#424242","border_color":"#616161","border_width":2,"text":"X","text_font":20,"text_color":"#ffffff"}
+{"id":41,"obj":"label","comment":"Safety Hint","x":410,"y":68,"w":350,"h":28,"align":"right","text":"Use with caution while printing","text_font":12,"text_color":"#b0bec5"}
