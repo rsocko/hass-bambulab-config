@@ -155,7 +155,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {{ bar_x }}
       "w": >
         {% set bar_w = 320 %}
@@ -174,7 +174,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -204,7 +204,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -235,7 +235,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -267,7 +267,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -300,7 +300,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -334,7 +334,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -369,7 +369,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -405,7 +405,7 @@ objects:
     properties:
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
       "x": >
-        {% set bar_x = 50 %}
+        {% set bar_x = 70 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -456,7 +456,7 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        422
+        442
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -489,7 +489,7 @@ objects:
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 }}
+        {{ 442 + w1 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -523,7 +523,7 @@ objects:
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
         {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 }}
+        {{ 442 + w1 + w2 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -558,7 +558,7 @@ objects:
         {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 + w3 }}
+        {{ 442 + w1 + w2 + w3 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -594,7 +594,7 @@ objects:
         {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 + w3 + w4 }}
+        {{ 442 + w1 + w2 + w3 + w4 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -631,7 +631,7 @@ objects:
         {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 + w3 + w4 + w5 }}
+        {{ 442 + w1 + w2 + w3 + w4 + w5 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -669,7 +669,7 @@ objects:
         {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w6 = ((c6 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 + w3 + w4 + w5 + w6 }}
+        {{ 442 + w1 + w2 + w3 + w4 + w5 + w6 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -708,7 +708,7 @@ objects:
         {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w6 = ((c6 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w7 = ((c7 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 + w3 + w4 + w5 + w6 + w7 }}
+        {{ 442 + w1 + w2 + w3 + w4 + w5 + w6 + w7 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -748,7 +748,7 @@ objects:
         {% set w6 = ((c6 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w7 = ((c7 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {% set w8 = ((c8 / total) * 320) | round(0) | int if total > 0 else 0 %}
-        {{ 422 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 }}
+        {{ 442 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -820,19 +820,19 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {{ not is_paused }}
 
-  - obj: p0b2 # Open dashboard page button
+  - obj: p0b3 # Open dashboard page button
     properties:
       "radius": 0
       "border_width": 0
       "bg_opa": 0
 
-  - obj: p0b3 # Open controls page button
+  - obj: p0b5 # Open controls page button
     properties:
       "radius": 0
       "border_width": 0
       "bg_opa": 0
 
-  - obj: p0b4 # Open weight/cost page button
+  - obj: p0b7 # Open weight/cost page button
     properties:
       "radius": 0
       "border_width": 0

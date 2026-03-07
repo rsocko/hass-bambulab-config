@@ -1,10 +1,10 @@
 {"page":1,"comment":"Page 1 - Printer Dashboard"}
 {"id":1,"obj":"img","comment":"model image","x":90,"y":140,"w":200,"h":200,"src":"L:/haspImage.png","pivot_x":0,"pivot_y":0}
 {"id":2,"obj":"arc","comment":"% Complete","x":270,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
-{"id":3,"obj":"arc","comment":"Layer","x":60,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
+{"id":3,"obj":"arc","comment":"Layer","x":80,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
 {"id":5,"obj":"label","comment":"% Complete","x":300,"y":50,"w":60,"h":40,"align":"center","text_font":20}
-{"id":7,"obj":"label","comment":"Layer (Current / Total)","x":80,"y":50,"w":80,"h":40,"align":"center","text_font":20}
-{"id":82,"obj":"img","comment":"Layers Icon","x":104,"y":82,"w":32,"h":32,"src":"L:/layers.png","pivot_x":0,"pivot_y":0}
+{"id":7,"obj":"label","comment":"Layer (Current / Total)","x":100,"y":50,"w":80,"h":40,"align":"center","text_font":20}
+{"id":82,"obj":"img","comment":"Layers Icon","x":124,"y":82,"w":32,"h":32,"src":"L:/layers.png","pivot_x":0,"pivot_y":0}
 {"id":83,"obj":"img","comment":"Progress Icon","x":314,"y":82,"w":32,"h":32,"src":"L:/progress.png","pivot_x":0,"pivot_y":0}
 {"id":84,"obj":"btn","comment":"Stop Button - always visible, enabled/disabled by color","x":692,"y":20,"w":52,"h":52,"radius":8,"bg_color":"#666666","border_color":"#444444","border_width":2,"text":""}
 {"id":85,"obj":"img","comment":"Stop Icon","x":702,"y":30,"w":32,"h":32,"src":"L:/stop.png","click":false}
@@ -12,7 +12,7 @@
 {"id":87,"obj":"img","comment":"Pause Icon","x":758,"y":30,"w":32,"h":32,"src":"L:/pause.png","click":false,"hidden":true}
 {"id":88,"obj":"btn","comment":"Resume Button - visible when paused (same position as Pause)","x":748,"y":20,"w":52,"h":52,"radius":8,"bg_color":"#666666","bg_grad_dir":0,"border_color":"#444444","border_width":2,"hidden":true,"text":""}
 {"id":89,"obj":"img","comment":"Resume Icon","x":758,"y":30,"w":32,"h":32,"src":"L:/play.png","click":false,"hidden":true}
-{"id":9,"obj":"label","comment":"Total Weight","x":90,"y":110,"w":60,"h":20,"align":"center","text":"Layers","text_font":17}
+{"id":9,"obj":"label","comment":"Total Weight","x":110,"y":110,"w":60,"h":20,"align":"center","text":"Layers","text_font":17}
 {"id":10,"obj":"obj","comment":"A1","x":310,"y":140,"w":50,"h":100,"enabled":false,"bg_color":"#26a59a","border_width":2}
 {"id":11,"obj":"obj","comment":"A2","x":370,"y":140,"w":50,"h":100,"enabled":false,"bg_color":"#673bb7","border_width":2}
 {"id":12,"obj":"obj","comment":"A3","x":430,"y":140,"w":50,"h":100,"enabled":false,"bg_color":"#f67c01","border_width":2}
@@ -42,7 +42,7 @@
 {"id":32,"obj":"label","x":100,"y":355,"w":180,"h":30,"border_color":"#000000","text":"","text_font":20}
 
 {"comment":"--- Stop Confirmation Dialog (Issue #548) ---"}
-{"id":90,"obj":"obj","comment":"Stop Confirm Overlay Dim BG","x":56,"y":0,"w":744,"h":480,"bg_color":"#000000","bg_opa":200,"hidden":true,"click":true}
+{"id":90,"obj":"obj","comment":"Stop Confirm Overlay Dim BG","x":80,"y":0,"w":720,"h":480,"bg_color":"#000000","bg_opa":200,"hidden":true,"click":true}
 {"id":91,"obj":"obj","comment":"Stop Confirm Dialog Box","x":218,"y":130,"w":420,"h":220,"bg_color":"#2d2d2d","radius":12,"border_color":"#555555","border_width":2,"hidden":true}
 {"id":92,"obj":"label","comment":"Stop Confirm Title","x":218,"y":160,"w":420,"h":50,"align":"center","text":"Stop the print?","text_font":24,"text_color":"#ffffff","hidden":true}
 {"id":93,"obj":"btn","comment":"Stop Confirm NO Button (Default/Safe)","x":238,"y":265,"w":180,"h":55,"radius":8,"bg_color":"#424242","border_color":"#616161","border_width":2,"text":"NO","text_font":22,"text_color":"#ffffff","hidden":true}
