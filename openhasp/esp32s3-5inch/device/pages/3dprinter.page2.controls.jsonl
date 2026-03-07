@@ -14,10 +14,10 @@
 {"id":13,"obj":"btn","comment":"XY Home","x":196,"y":206,"w":68,"h":68,"radius":34,"bg_color":"#90a4ae","border_color":"#263238","border_width":2,"text":""}
 {"id":14,"obj":"label","comment":"XY Section Label","x":135,"y":408,"w":190,"h":30,"align":"center","text":"X/Y Axis","text_font":20,"text_color":"#eceff1"}
 {"id":15,"obj":"img","comment":"XY Home Icon","x":214,"y":224,"w":32,"h":32,"src":"L:/home_icon.png","click":false}
-{"id":20,"obj":"btn","comment":"Z -10","x":460,"y":96,"w":100,"h":52,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
-{"id":21,"obj":"btn","comment":"Z -1","x":460,"y":154,"w":100,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
-{"id":22,"obj":"btn","comment":"Z +1","x":460,"y":274,"w":100,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
-{"id":23,"obj":"btn","comment":"Z +10","x":460,"y":332,"w":100,"h":52,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":20,"obj":"btn","comment":"Z -10","x":460,"y":80,"w":100,"h":60,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":21,"obj":"btn","comment":"Z -1","x":460,"y":146,"w":100,"h":60,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":22,"obj":"btn","comment":"Z +1","x":460,"y":274,"w":100,"h":60,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":23,"obj":"btn","comment":"Z +10","x":460,"y":340,"w":100,"h":60,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
 {"id":24,"obj":"obj","comment":"Z Axis Icon Holder","x":460,"y":214,"w":100,"h":52,"radius":4,"bg_color":"#1f2529","border_width":0}
 {"id":25,"obj":"img","comment":"Z Axis Bed Icon","x":494,"y":230,"w":32,"h":32,"src":"L:/bed_flatbed_icon.png","click":false}
 {"id":56,"obj":"label","comment":"Z Axis Bed Text","x":460,"y":220,"w":100,"h":18,"align":"center","text":"Bed","text_font":16,"text_color":"#b0bec5"}
@@ -36,9 +36,9 @@
 {"id":47,"obj":"img","comment":"XY Down 10 Icon","x":214,"y":354,"w":32,"h":32,"src":"L:/arrow_down_double.png","click":false}
 {"id":48,"obj":"img","comment":"XY Left 10 Icon","x":84,"y":224,"w":32,"h":32,"src":"L:/arrow_left_double.png","click":false}
 {"id":49,"obj":"img","comment":"XY Right 10 Icon","x":344,"y":224,"w":32,"h":32,"src":"L:/arrow_right_double.png","click":false}
-{"id":50,"obj":"img","comment":"Z -10 Icon","x":494,"y":106,"w":32,"h":32,"src":"L:/arrow_up_double.png","click":false}
-{"id":51,"obj":"img","comment":"Z -1 Icon","x":494,"y":164,"w":32,"h":32,"src":"L:/arrow_up.png","click":false}
-{"id":52,"obj":"img","comment":"Z +1 Icon","x":494,"y":284,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
-{"id":53,"obj":"img","comment":"Z +10 Icon","x":494,"y":342,"w":32,"h":32,"src":"L:/arrow_down_double.png","click":false}
+{"id":50,"obj":"img","comment":"Z -10 Icon","x":494,"y":94,"w":32,"h":32,"src":"L:/arrow_up_double.png","click":false}
+{"id":51,"obj":"img","comment":"Z -1 Icon","x":494,"y":160,"w":32,"h":32,"src":"L:/arrow_up.png","click":false}
+{"id":52,"obj":"img","comment":"Z +1 Icon","x":494,"y":288,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
+{"id":53,"obj":"img","comment":"Z +10 Icon","x":494,"y":354,"w":32,"h":32,"src":"L:/arrow_down_double.png","click":false}
 {"id":54,"obj":"img","comment":"Extruder Retract Icon","x":662,"y":160,"w":32,"h":32,"src":"L:/arrow_up.png","click":false}
 {"id":55,"obj":"img","comment":"Extruder Extrude Icon","x":662,"y":288,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
