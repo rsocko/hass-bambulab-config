@@ -111,6 +111,7 @@ cards:
           const isPaused = status === 'pause' || stage === 'pause';
           const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
           const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const pieCls = isFinished ? ' o13p-pie-finished' : '';
 
           const segCount = 20;
           const filled = Math.round((pct / 100) * segCount);
@@ -124,7 +125,7 @@ cards:
           return `<div class="o13p-wrap">
             <div class="o13p-main">
               <div class="o13p-left">
-                <div class="o13p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+                <div class="o13p-pie${pieCls}" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
               </div>
               <div class="o13p-right">
                 <div class="o13p-value">${value}</div>
@@ -154,6 +155,7 @@ cards:
       .o13p-main { display:flex; flex-grow:1; align-items:center; min-height:0; }
       .o13p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
       .o13p-pie { width:64px; height:64px; border-radius:50%; transition: background 0.35s ease; }
+      .o13p-pie-finished { width:56px; height:56px; box-shadow: 0 0 8px color-mix(in srgb, #4CAF50 65%, transparent), 0 0 14px color-mix(in srgb, #4CAF50 45%, transparent); }
       .o13p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
       .o13p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
       .o13p-footer { display:flex; align-items:center; justify-content:center; }
