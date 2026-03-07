@@ -22,12 +22,90 @@ objects:
   - obj: p1b29 # Label of end time
     properties:
       "text": '{{ states("sensor.print_end_time_friendly")  }}'
-  - obj: p1b53 # Weight tab total label
+  - obj: p3b53 # Weight panel total label
     properties:
       "text": 'Total: {{ states("sensor.ntk_ryansoffice_3dprinter_print_weight") | float(0) | round(1) }}g'
-  - obj: p1b54 # Cost tab total label
+  - obj: p3b54 # Cost panel total label
     properties:
       "text": 'Total: ${{ states("sensor.print_cost") | float(0) | round(2) }}'
+  - obj: p3b71 # Weight panel legend/detail
+    properties:
+      "text": >
+        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
+        A1: {{ a1 | round(1) }}g ({{ ((a1 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        A2: {{ a2 | round(1) }}g ({{ ((a2 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        A3: {{ a3 | round(1) }}g ({{ ((a3 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        A4: {{ a4 | round(1) }}g ({{ ((a4 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        B1: {{ b1 | round(1) }}g ({{ ((b1 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        B2: {{ b2 | round(1) }}g ({{ ((b2 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        B3: {{ b3 | round(1) }}g ({{ ((b3 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        B4: {{ b4 | round(1) }}g ({{ ((b4 / total) * 100) | round(1) if total > 0 else 0 }}%)
+        Ext: {{ ext | round(1) }}g ({{ ((ext / total) * 100) | round(1) if total > 0 else 0 }}%)
+  - obj: p3b72 # Cost panel legend/detail
+    properties:
+      "text": >
+        {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
+        {% if breakdown is mapping %}
+        {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) %}
+        {% set c2 = (breakdown.get('ams_1_tray_2', {}).get('cost', 0) | float(0)) %}
+        {% set c3 = (breakdown.get('ams_1_tray_3', {}).get('cost', 0) | float(0)) %}
+        {% set c4 = (breakdown.get('ams_1_tray_4', {}).get('cost', 0) | float(0)) %}
+        {% set c5 = (breakdown.get('ams_2_tray_1', {}).get('cost', 0) | float(0)) %}
+        {% set c6 = (breakdown.get('ams_2_tray_2', {}).get('cost', 0) | float(0)) %}
+        {% set c7 = (breakdown.get('ams_2_tray_3', {}).get('cost', 0) | float(0)) %}
+        {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) %}
+        {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) %}
+        {% set w1 = (breakdown.get('ams_1_tray_1', {}).get('weight', 0) | float(0)) %}
+        {% set w2 = (breakdown.get('ams_1_tray_2', {}).get('weight', 0) | float(0)) %}
+        {% set w3 = (breakdown.get('ams_1_tray_3', {}).get('weight', 0) | float(0)) %}
+        {% set w4 = (breakdown.get('ams_1_tray_4', {}).get('weight', 0) | float(0)) %}
+        {% set w5 = (breakdown.get('ams_2_tray_1', {}).get('weight', 0) | float(0)) %}
+        {% set w6 = (breakdown.get('ams_2_tray_2', {}).get('weight', 0) | float(0)) %}
+        {% set w7 = (breakdown.get('ams_2_tray_3', {}).get('weight', 0) | float(0)) %}
+        {% set w8 = (breakdown.get('ams_2_tray_4', {}).get('weight', 0) | float(0)) %}
+        {% set w9 = (breakdown.get('external_spool', {}).get('weight', 0) | float(0)) %}
+        {% set p1 = (breakdown.get('ams_1_tray_1', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p2 = (breakdown.get('ams_1_tray_2', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p3 = (breakdown.get('ams_1_tray_3', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p4 = (breakdown.get('ams_1_tray_4', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p5 = (breakdown.get('ams_2_tray_1', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p6 = (breakdown.get('ams_2_tray_2', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p7 = (breakdown.get('ams_2_tray_3', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p8 = (breakdown.get('ams_2_tray_4', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set p9 = (breakdown.get('external_spool', {}).get('price_per_kg', 0) | float(0)) %}
+        {% set s1 = breakdown.get('ams_1_tray_1', {}).get('price_source', '') %}
+        {% set s2 = breakdown.get('ams_1_tray_2', {}).get('price_source', '') %}
+        {% set s3 = breakdown.get('ams_1_tray_3', {}).get('price_source', '') %}
+        {% set s4 = breakdown.get('ams_1_tray_4', {}).get('price_source', '') %}
+        {% set s5 = breakdown.get('ams_2_tray_1', {}).get('price_source', '') %}
+        {% set s6 = breakdown.get('ams_2_tray_2', {}).get('price_source', '') %}
+        {% set s7 = breakdown.get('ams_2_tray_3', {}).get('price_source', '') %}
+        {% set s8 = breakdown.get('ams_2_tray_4', {}).get('price_source', '') %}
+        {% set s9 = breakdown.get('external_spool', {}).get('price_source', '') %}
+        {% set has_default = s1 == 'default' or s2 == 'default' or s3 == 'default' or s4 == 'default' or s5 == 'default' or s6 == 'default' or s7 == 'default' or s8 == 'default' or s9 == 'default' %}
+        {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
+        A1: ${{ c1 | round(2) }} ({{ w1 | round(1) }}g @ ${{ p1 | round(2) }}/kg{{ ' *' if s1 == 'default' else '' }})
+        A2: ${{ c2 | round(2) }} ({{ w2 | round(1) }}g @ ${{ p2 | round(2) }}/kg{{ ' *' if s2 == 'default' else '' }})
+        A3: ${{ c3 | round(2) }} ({{ w3 | round(1) }}g @ ${{ p3 | round(2) }}/kg{{ ' *' if s3 == 'default' else '' }})
+        A4: ${{ c4 | round(2) }} ({{ w4 | round(1) }}g @ ${{ p4 | round(2) }}/kg{{ ' *' if s4 == 'default' else '' }})
+        B1: ${{ c5 | round(2) }} ({{ w5 | round(1) }}g @ ${{ p5 | round(2) }}/kg{{ ' *' if s5 == 'default' else '' }})
+        B2: ${{ c6 | round(2) }} ({{ w6 | round(1) }}g @ ${{ p6 | round(2) }}/kg{{ ' *' if s6 == 'default' else '' }})
+        B3: ${{ c7 | round(2) }} ({{ w7 | round(1) }}g @ ${{ p7 | round(2) }}/kg{{ ' *' if s7 == 'default' else '' }})
+        B4: ${{ c8 | round(2) }} ({{ w8 | round(1) }}g @ ${{ p8 | round(2) }}/kg{{ ' *' if s8 == 'default' else '' }})
+        Ext: ${{ c9 | round(2) }} ({{ w9 | round(1) }}g @ ${{ p9 | round(2) }}/kg{{ ' *' if s9 == 'default' else '' }})
+        {{ '* default price in use for one or more spools' if has_default else '' }}
+        {% else %}
+        No print active or no cost data available
+        {% endif %}
   - obj: p1b10 # Spool A1
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
@@ -73,14 +151,14 @@ objects:
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
       "border_width": '{{ 10 if state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "active") else 2 }}'
       "border_color": '{{ "#2097f3" if state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "active") else "#1a1a1a" }}'
-  - obj: p1b73 # Weight A1 segment
+  - obj: p3b73 # Weight A1 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_1", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {{ bar_x }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -92,11 +170,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a1 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b74 # Weight A2 segment
+  - obj: p3b74 # Weight A2 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -107,10 +185,10 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -122,11 +200,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a2 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b75 # Weight A3 segment
+  - obj: p3b75 # Weight A3 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -137,11 +215,11 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -153,11 +231,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a3 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b76 # Weight A4 segment
+  - obj: p3b76 # Weight A4 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -168,12 +246,12 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((a3 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((a3 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 + w3 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -185,11 +263,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a4 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b77 # Weight B1 segment
+  - obj: p3b77 # Weight B1 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -200,13 +278,13 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((a3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((a4 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((a3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((a4 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 + w3 + w4 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -218,11 +296,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b1 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b78 # Weight B2 segment
+  - obj: p3b78 # Weight B2 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -233,14 +311,14 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((a3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((a4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((b1 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((a3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((a4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((b1 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 + w3 + w4 + w5 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -252,11 +330,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b2 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b79 # Weight B3 segment
+  - obj: p3b79 # Weight B3 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -267,15 +345,15 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((a3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((a4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((b1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w6 = ((b2 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((a3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((a4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((b1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w6 = ((b2 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 + w3 + w4 + w5 + w6 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -287,11 +365,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b3 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b80 # Weight B4 segment
+  - obj: p3b80 # Weight B4 segment
     properties:
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -302,16 +380,16 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((a3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((a4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((b1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w6 = ((b2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w7 = ((b3 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((a3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((a4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((b1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w6 = ((b2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w7 = ((b3 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 + w3 + w4 + w5 + w6 + w7 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -323,11 +401,11 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b4 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b81 # Weight Ext segment
+  - obj: p3b81 # Weight Ext segment
     properties:
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
       "x": >
-        {% set bar_x = 10 %}
+        {% set bar_x = 50 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -338,17 +416,17 @@ objects:
         {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
-        {% set w1 = ((a1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((a2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((a3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((a4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((b1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w6 = ((b2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w7 = ((b3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w8 = ((b4 / total) * 155) | round(0) | int if total > 0 else 0 %}
+        {% set w1 = ((a1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((a2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((a3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((a4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((b1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w6 = ((b2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w7 = ((b3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w8 = ((b4 / total) * 320) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 }}
       "w": >
-        {% set bar_w = 155 %}
+        {% set bar_w = 320 %}
         {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
         {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
         {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
@@ -360,7 +438,7 @@ objects:
         {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((ext / total) * bar_w) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b60 # Cost A1 segment
+  - obj: p3b60 # Cost A1 segment
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -378,7 +456,7 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        20
+        422
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -391,8 +469,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c1 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b61
+        {{ ((c1 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b61
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -410,8 +488,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -424,8 +502,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c2 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b62
+        {{ ((c2 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b62
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -443,9 +521,9 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -458,8 +536,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c3 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b63
+        {{ ((c3 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b63
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -477,10 +555,10 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((c3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 + w3 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 + w3 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -493,8 +571,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c4 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b64
+        {{ ((c4 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b64
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -512,11 +590,11 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((c3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((c4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 + w3 + w4 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 + w3 + w4 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -529,8 +607,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c5 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b65
+        {{ ((c5 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b65
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -548,12 +626,12 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((c3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((c4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((c5 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 + w3 + w4 + w5 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 + w3 + w4 + w5 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -566,8 +644,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c6 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b66
+        {{ ((c6 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b66
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -585,13 +663,13 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((c3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((c4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((c5 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w6 = ((c6 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 + w3 + w4 + w5 + w6 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w6 = ((c6 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 + w3 + w4 + w5 + w6 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -604,8 +682,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c7 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b67
+        {{ ((c7 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b67
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -623,14 +701,14 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((c3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((c4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((c5 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w6 = ((c6 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w7 = ((c7 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 + w3 + w4 + w5 + w6 + w7 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w6 = ((c6 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w7 = ((c7 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 + w3 + w4 + w5 + w6 + w7 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -643,8 +721,8 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c8 / total) * 155) | round(0) | int if total > 0 else 0 }}
-  - obj: p1b68
+        {{ ((c8 / total) * 320) | round(0) | int if total > 0 else 0 }}
+  - obj: p3b68
     properties:
       "bg_color": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
@@ -662,15 +740,15 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {% set w1 = ((c1 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w2 = ((c2 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w3 = ((c3 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w4 = ((c4 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w5 = ((c5 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w6 = ((c6 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w7 = ((c7 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {% set w8 = ((c8 / total) * 155) | round(0) | int if total > 0 else 0 %}
-        {{ 10 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 }}
+        {% set w1 = ((c1 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w2 = ((c2 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w3 = ((c3 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w4 = ((c4 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w5 = ((c5 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w6 = ((c6 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w7 = ((c7 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {% set w8 = ((c8 / total) * 320) | round(0) | int if total > 0 else 0 %}
+        {{ 422 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 }}
       "w": >
         {% set breakdown = state_attr('sensor.print_cost', 'breakdown') %}
         {% set c1 = (breakdown.get('ams_1_tray_1', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
@@ -683,7 +761,7 @@ objects:
         {% set c8 = (breakdown.get('ams_2_tray_4', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set c9 = (breakdown.get('external_spool', {}).get('cost', 0) | float(0)) if breakdown is mapping else 0 %}
         {% set total = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 %}
-        {{ ((c9 / total) * 155) | round(0) | int if total > 0 else 0 }}
+        {{ ((c9 / total) * 320) | round(0) | int if total > 0 else 0 }}
   - obj: p1b31 # stage
     properties:
       "text": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_smart_status", "detail") if state_attr("sensor.ntk_ryansoffice_3dprinter_smart_status", "detail") else "" }}'
@@ -743,6 +821,16 @@ objects:
         {{ not is_paused }}
 
   - obj: p1b95 # Open controls page button
+    properties:
+      "bg_grad_dir": 0
+      "bg_color": >
+        {% set plate_state = states('openhasp.officetouch5') | lower %}
+        {{ '#546e7a' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#444444' }}
+      "border_color": >
+        {% set plate_state = states('openhasp.officetouch5') | lower %}
+        {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
+
+  - obj: p1b96 # Open weight/cost page button
     properties:
       "bg_grad_dir": 0
       "bg_color": >

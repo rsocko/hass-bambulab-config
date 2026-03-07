@@ -3,7 +3,10 @@
     Handles page navigation and motion controls for the ESP32-S3 5in OpenHASP
     control page in printer2.jsonl:
       - p1b95 opens controls page (page 2)
+      - p1b96 opens weight/cost page (page 3)
       - p2b40 returns to dashboard (page 1)
+      - p3b40 returns to dashboard (page 1)
+      - p3b41 opens controls page (page 2)
       - p2b9/5/10/6/11/7/12/8: XY move in 10/1 increments (icon-only buttons)
       - p2b13: home
       - p2b20/21/22/23: Z move in 10/1 increments (up/down icon buttons)
@@ -20,9 +23,24 @@
       id: open_controls
 
     - trigger: mqtt
+      topic: hasp/officetouch5/state/p1b96
+      payload: '{"event":"up"}'
+      id: open_filament
+
+    - trigger: mqtt
       topic: hasp/officetouch5/state/p2b40
       payload: '{"event":"up"}'
       id: close_controls
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p3b40
+      payload: '{"event":"up"}'
+      id: close_filament
+
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/p3b41
+      payload: '{"event":"up"}'
+      id: open_controls_from_filament
 
     - trigger: mqtt
       topic: hasp/officetouch5/state/p2b9
@@ -104,12 +122,39 @@
 
         - conditions:
             - condition: template
+              value_template: "{{ trigger.id == 'open_filament' }}"
+          sequence:
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/page
+                payload: "3"
+
+        - conditions:
+            - condition: template
               value_template: "{{ trigger.id == 'close_controls' }}"
           sequence:
             - action: mqtt.publish
               data:
                 topic: hasp/officetouch5/command/page
                 payload: "1"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'close_filament' }}"
+          sequence:
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/page
+                payload: "1"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'open_controls_from_filament' }}"
+          sequence:
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/page
+                payload: "2"
 
         - conditions:
             - condition: template

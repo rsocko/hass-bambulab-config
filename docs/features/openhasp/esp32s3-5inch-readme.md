@@ -51,7 +51,7 @@ The printer dashboard shows:
 - **Top-right printer controls** (`Stop`, `Pause`, `Start`) with icon-only buttons and state-driven availability colors
 - **Controls page shortcut** (`CTL`) that opens a dedicated motion/filament page
 - **Estimated completion time** (friendly format: same day time, `tomorrow`, weekday, or date)
-- **Tabbed right panel** — `Print Weight` and `Print Cost` tabs with spool indicators and stacked horizontal bars colored by tray/spool color and proportional segment widths
+- **Filament analytics shortcut** (`FIL`) opening a dedicated page with side-by-side `Print Weight` and `Print Cost` panels
 - **Printer state** and **detail** labels (from smart status template sensor)
 - **Status LED** indicator
 
@@ -79,14 +79,17 @@ Use this as a fast map of the major object groups. For full object-by-object det
 | `p1b31`, `p1b32` | Smart status text labels (detail/state) |
 | `p1b95` | Controls page launcher (`CTL`) |
 | `p1b84`–`p1b89` | Printer control buttons + icons (`Stop`, `Pause`, `Start`) |
-| `p1b50`–`p1b54` | Right tab panel (`Print Weight` / `Print Cost`) + tab totals |
-| `p1b60`–`p1b68` | Cost tab stacked bar segments |
-| `p1b73`–`p1b81` | Weight tab stacked bar segments |
+| `p1b96` | Filament analytics page launcher (`FIL`) |
 | `p2b5`–`p2b13` | XY controls (icon-based 1-step, stacked-arrow 10-step, home) |
 | `p2b20`–`p2b23` | Z-axis controls (up/down icon-based 1-step and 10-step) |
 | `p2b30`, `p2b31` | Filament retract/extrude |
 | `p2b40` | Back/close controls page |
 | `p2b41` | Safety hint placeholder (hidden) |
+| `p3b53`, `p3b54` | Weight/cost panel totals |
+| `p3b60`–`p3b68` | Cost panel stacked bar segments |
+| `p3b73`–`p3b81` | Weight panel stacked bar segments |
+| `p3b71`, `p3b72` | Multiline legend/detail labels (per-slot values and percentages) |
+| `p3b40`, `p3b41` | Back to dashboard / open controls page |
 
 Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/README.md](../../../openhasp/README.md) to maintain a single detailed source of truth.
 
