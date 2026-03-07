@@ -282,101 +282,12 @@ sections:
       grid_options:
         columns: full
         rows: auto
-    - type: custom:button-card
-      entity: sensor.ntk_ryansoffice_3dprinter_current_layer
-      triggers_update:
-        - sensor.ntk_ryansoffice_3dprinter_total_layer_count
-        - sensor.ntk_ryansoffice_3dprinter_print_status
-        - sensor.ntk_ryansoffice_3dprinter_current_stage
-      show_name: false
-      show_state: false
-      show_icon: false
-      tap_action:
-        action: more-info
-      custom_fields:
-        kpi: |
-          [[[
-            const currentLayer = states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state;
-            const totalLayer = states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state;
-            const isValid = s => s && s !== 'unavailable' && s !== 'unknown';
-            const value = (isValid(currentLayer) && isValid(totalLayer)) ? currentLayer + '/' + totalLayer : 'N/A';
-            const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
-            const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
-            const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
-            const isPaused = status === 'pause' || stage === 'pause';
-            const iconColor = isActive ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
-            const animClass = isActive ? ' kpi-layer-anim' : '';
-            return `<div class="kpi-wrap">
-              <div class="kpi-value">${value}</div>
-              <div class="kpi-footer">
-                <span class="kpi-label">Layer Progress</span>
-                <ha-icon icon="mdi:layers-triple" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
-              </div>
-            </div>`;
-          ]]]
-      styles:
-        card:
-          - padding: 12px
-          - min-height: 100px
-        custom_fields:
-          kpi:
-            - width: 100%
-      extra_styles: |
-        .kpi-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
-        .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-        .kpi-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
-        .kpi-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.7; }
-        .kpi-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-        @keyframes layer-stack { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
-        .kpi-layer-anim { animation:layer-stack 1.8s ease-in-out infinite; }
+    - type: markdown
+      content: |
+        #### Option 2 — Simple Text KPI
       grid_options:
-        columns: 6
-    - type: custom:button-card
-      entity: sensor.ntk_ryansoffice_3dprinter_print_progress
-      triggers_update:
-        - sensor.ntk_ryansoffice_3dprinter_print_status
-        - sensor.ntk_ryansoffice_3dprinter_current_stage
-      show_name: false
-      show_state: false
-      show_icon: false
-      tap_action:
-        action: more-info
-      custom_fields:
-        kpi: |
-          [[[
-            const state = entity?.state;
-            const value = (state && state !== 'unavailable' && state !== 'unknown') ? `${state}%` : 'N/A';
-            const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
-            const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
-            const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
-            const isPaused = status === 'pause' || stage === 'pause';
-            const iconColor = isActive ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
-            const animClass = isActive ? ' kpi-progress-anim' : '';
-            return `<div class="kpi-wrap">
-              <div class="kpi-value">${value}</div>
-              <div class="kpi-footer">
-                <span class="kpi-label">Print Progress</span>
-                <ha-icon icon="mdi:rotate-right" class="kpi-icon${animClass}" style="color:${iconColor};"></ha-icon>
-              </div>
-            </div>`;
-          ]]]
-      styles:
-        card:
-          - padding: 12px
-          - min-height: 100px
-        custom_fields:
-          kpi:
-            - width: 100%
-      extra_styles: |
-        .kpi-wrap { display:flex; flex-direction:column; width:100%; min-height:78px; }
-        .kpi-value { font-size:40px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
-        .kpi-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
-        .kpi-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.7; }
-        .kpi-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
-        @keyframes progress-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-        .kpi-progress-anim { animation:progress-spin 3s linear infinite; }
-      grid_options:
-        columns: 6
+        columns: full
+    - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-2-simple-text.yaml
     - type: markdown
       content: |
         ### Progress KPI Variations (Issue #516)
