@@ -24,41 +24,39 @@ cards:
       action: more-info
       entity: sensor.ntk_ryansoffice_3dprinter_aux_fan_speed
     card_mod:
-      style:
-        mushroom-shape-icon$: |
-          @keyframes fan-spin {
-            100% { transform: rotate(360deg); }
-          }
-          ha-icon {
-            {% set s = states('sensor.ntk_ryansoffice_3dprinter_aux_fan_speed') | int(0) %}
-            {% if s >= 70 %}
-              animation: fan-spin 0.7s linear infinite;
-            {% elif s >= 30 %}
-              animation: fan-spin 1.5s linear infinite;
-            {% elif s > 0 %}
-              animation: fan-spin 3s linear infinite;
-            {% else %}
-              animation: none;
-            {% endif %}
-          }
-        .: |
-          ha-card {
-            padding: 4px 4px !important;
-            background: transparent;
-            border-radius: 12px;
-            transition: background 0.2s;
-            --icon-size: 28px;
-            --card-primary-font-size: 1.1rem;
-            --card-primary-font-weight: bold;
-            --card-secondary-font-size: 0.65rem;
-          }
-          ha-card:hover {
-            background: rgba(var(--rgb-primary-text-color), 0.05);
-          }
-          mushroom-state-info {
-            text-align: center;
-            --card-secondary-letter-spacing: 0.5px;
-          }
+      style: |
+        @keyframes fan-spin {
+          100% { transform: rotate(360deg); }
+        }
+        ha-state-icon {
+          {% set s = states('sensor.ntk_ryansoffice_3dprinter_aux_fan_speed') | int(0) %}
+          {% if s >= 70 %}
+            animation: fan-spin 0.7s linear infinite;
+          {% elif s >= 30 %}
+            animation: fan-spin 1.5s linear infinite;
+          {% elif s > 0 %}
+            animation: fan-spin 3s linear infinite;
+          {% else %}
+            animation: none;
+          {% endif %}
+        }
+        ha-card {
+          padding: 4px 4px !important;
+          background: transparent;
+          border-radius: 12px;
+          transition: background 0.2s;
+          --icon-size: 28px;
+          --card-primary-font-size: 1.1rem;
+          --card-primary-font-weight: bold;
+          --card-secondary-font-size: 0.65rem;
+        }
+        ha-card:hover {
+          background: rgba(var(--rgb-primary-text-color), 0.05);
+        }
+        mushroom-state-info {
+          text-align: center;
+          --card-secondary-letter-spacing: 0.5px;
+        }
 
   - type: custom:mushroom-template-card
     entity: fan.ntk_ryansoffice_3dprinter_chamber_fan
@@ -86,41 +84,39 @@ cards:
       action: more-info
       entity: sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed
     card_mod:
-      style:
-        mushroom-shape-icon$: |
-          @keyframes fan-spin {
-            100% { transform: rotate(360deg); }
-          }
-          ha-icon {
-            {% set s = states('sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed') | int(0) %}
-            {% if s >= 70 %}
-              animation: fan-spin 0.7s linear infinite;
-            {% elif s >= 30 %}
-              animation: fan-spin 1.5s linear infinite;
-            {% elif s > 0 %}
-              animation: fan-spin 3s linear infinite;
-            {% else %}
-              animation: none;
-            {% endif %}
-          }
-        .: |
-          ha-card {
-            padding: 4px 4px !important;
-            background: transparent;
-            border-radius: 12px;
-            transition: background 0.2s;
-            --icon-size: 28px;
-            --card-primary-font-size: 1.1rem;
-            --card-primary-font-weight: bold;
-            --card-secondary-font-size: 0.65rem;
-          }
-          ha-card:hover {
-            background: rgba(var(--rgb-primary-text-color), 0.05);
-          }
-          mushroom-state-info {
-            text-align: center;
-            --card-secondary-letter-spacing: 0.5px;
-          }
+      style: |
+        @keyframes fan-spin {
+          100% { transform: rotate(360deg); }
+        }
+        ha-state-icon {
+          {% set s = states('sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed') | int(0) %}
+          {% if s >= 70 %}
+            animation: fan-spin 0.7s linear infinite;
+          {% elif s >= 30 %}
+            animation: fan-spin 1.5s linear infinite;
+          {% elif s > 0 %}
+            animation: fan-spin 3s linear infinite;
+          {% else %}
+            animation: none;
+          {% endif %}
+        }
+        ha-card {
+          padding: 4px 4px !important;
+          background: transparent;
+          border-radius: 12px;
+          transition: background 0.2s;
+          --icon-size: 28px;
+          --card-primary-font-size: 1.1rem;
+          --card-primary-font-weight: bold;
+          --card-secondary-font-size: 0.65rem;
+        }
+        ha-card:hover {
+          background: rgba(var(--rgb-primary-text-color), 0.05);
+        }
+        mushroom-state-info {
+          text-align: center;
+          --card-secondary-letter-spacing: 0.5px;
+        }
 
   - type: custom:mushroom-template-card
     entity: fan.ntk_ryansoffice_3dprinter_cooling_fan
@@ -148,49 +144,46 @@ cards:
       action: more-info
       entity: sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed
     card_mod:
-      style:
-        mushroom-shape-icon$: |
-          @keyframes snowflake-spin {
-            100% { transform: rotate(360deg); }
-          }
-          ha-icon {
-            {% set s = states('sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed') | int(0) %}
-            {% if s > 0 %}
-              animation: snowflake-spin 4s linear infinite;
-            {% else %}
-              animation: none;
-            {% endif %}
-          }
-        mushroom-badge-icon$: |
-          @keyframes badge-spin {
-            100% { transform: rotate(360deg); }
-          }
-          ha-icon {
-            {% set s = states('sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed') | int(0) %}
-            {% if s > 0 %}
-              animation: badge-spin 1s linear infinite;
-            {% else %}
-              animation: none;
-            {% endif %}
-          }
-        .: |
-          ha-card {
-            padding: 4px 4px !important;
-            background: transparent;
-            border-radius: 12px;
-            transition: background 0.2s;
-            --icon-size: 28px;
-            --card-primary-font-size: 1.1rem;
-            --card-primary-font-weight: bold;
-            --card-secondary-font-size: 0.65rem;
-          }
-          ha-card:hover {
-            background: rgba(var(--rgb-primary-text-color), 0.05);
-          }
-          mushroom-state-info {
-            text-align: center;
-            --card-secondary-letter-spacing: 0.5px;
-          }
+      style: |
+        @keyframes snowflake-spin {
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes badge-spin {
+          100% { transform: rotate(360deg); }
+        }
+        ha-state-icon {
+          {% set s = states('sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed') | int(0) %}
+          {% if s > 0 %}
+            animation: snowflake-spin 4s linear infinite;
+          {% else %}
+            animation: none;
+          {% endif %}
+        }
+        ha-tile-badge ha-icon {
+          {% set s = states('sensor.ntk_ryansoffice_3dprinter_cooling_fan_speed') | int(0) %}
+          {% if s > 0 %}
+            animation: badge-spin 1s linear infinite;
+          {% else %}
+            animation: none;
+          {% endif %}
+        }
+        ha-card {
+          padding: 4px 4px !important;
+          background: transparent;
+          border-radius: 12px;
+          transition: background 0.2s;
+          --icon-size: 28px;
+          --card-primary-font-size: 1.1rem;
+          --card-primary-font-weight: bold;
+          --card-secondary-font-size: 0.65rem;
+        }
+        ha-card:hover {
+          background: rgba(var(--rgb-primary-text-color), 0.05);
+        }
+        mushroom-state-info {
+          text-align: center;
+          --card-secondary-letter-spacing: 0.5px;
+        }
 
   - type: custom:mushroom-template-card
     entity: fan.3dprinter_controller_box_bento_box_fan
@@ -231,43 +224,40 @@ cards:
       action: more-info
       entity: fan.3dprinter_controller_box_bento_box_fan
     card_mod:
-      style:
-        mushroom-shape-icon$: |
-          @keyframes filter-wave {
-            0%, 100% { transform: translateY(0); }
-            33% { transform: translateY(-1.5px); }
-            66% { transform: translateY(1px); }
-          }
-          ha-icon {
-            {% if states('fan.3dprinter_controller_box_bento_box_fan') == 'on' %}
-              animation: filter-wave 2.5s ease-in-out infinite;
-            {% else %}
-              animation: none;
-            {% endif %}
-          }
-        mushroom-badge-icon$: |
-          @keyframes badge-spin {
-            100% { transform: rotate(360deg); }
-          }
-          ha-icon {
-            {% if states('fan.3dprinter_controller_box_bento_box_fan') == 'on' %}
-              animation: badge-spin 1.5s linear infinite;
-            {% else %}
-              animation: none;
-            {% endif %}
-          }
-        .: |
-          ha-card {
-            padding: 4px 4px !important;
-            background: transparent;
-            border-radius: 12px;
-            transition: background 0.2s;
-            --icon-size: 28px;
-            --card-primary-font-size: 1.1rem;
-            --card-primary-font-weight: bold;
-            --card-secondary-font-size: 0.65rem;
-          }
-          ha-card:hover {
+      style: |
+        @keyframes filter-wave {
+          0%, 100% { transform: translateY(0); }
+          33% { transform: translateY(-1.5px); }
+          66% { transform: translateY(1px); }
+        }
+        @keyframes badge-spin {
+          100% { transform: rotate(360deg); }
+        }
+        ha-state-icon {
+          {% if states('fan.3dprinter_controller_box_bento_box_fan') == 'on' %}
+            animation: filter-wave 2.5s ease-in-out infinite;
+          {% else %}
+            animation: none;
+          {% endif %}
+        }
+        ha-tile-badge ha-icon {
+          {% if states('fan.3dprinter_controller_box_bento_box_fan') == 'on' %}
+            animation: badge-spin 1.5s linear infinite;
+          {% else %}
+            animation: none;
+          {% endif %}
+        }
+        ha-card {
+          padding: 4px 4px !important;
+          background: transparent;
+          border-radius: 12px;
+          transition: background 0.2s;
+          --icon-size: 28px;
+          --card-primary-font-size: 1.1rem;
+          --card-primary-font-weight: bold;
+          --card-secondary-font-size: 0.65rem;
+        }
+        ha-card:hover {
             background: rgba(var(--rgb-primary-text-color), 0.05);
           }
           mushroom-state-info {
