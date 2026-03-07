@@ -822,33 +822,21 @@ objects:
 
   - obj: p0b2 # Open dashboard page button
     properties:
-      "bg_grad_dir": 0
-      "bg_color": >
-        {% set plate_state = states('openhasp.officetouch5') | lower %}
-        {{ '#546e7a' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#444444' }}
-      "border_color": >
-        {% set plate_state = states('openhasp.officetouch5') | lower %}
-        {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
+      "radius": 0
+      "border_width": 0
+      "bg_opa": 0
 
   - obj: p0b3 # Open controls page button
     properties:
-      "bg_grad_dir": 0
-      "bg_color": >
-        {% set plate_state = states('openhasp.officetouch5') | lower %}
-        {{ '#546e7a' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#444444' }}
-      "border_color": >
-        {% set plate_state = states('openhasp.officetouch5') | lower %}
-        {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
+      "radius": 0
+      "border_width": 0
+      "bg_opa": 0
 
   - obj: p0b4 # Open weight/cost page button
     properties:
-      "bg_grad_dir": 0
-      "bg_color": >
-        {% set plate_state = states('openhasp.officetouch5') | lower %}
-        {{ '#546e7a' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#444444' }}
-      "border_color": >
-        {% set plate_state = states('openhasp.officetouch5') | lower %}
-        {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
+      "radius": 0
+      "border_width": 0
+      "bg_opa": 0
 
   - obj: p2b41 # Controls page hint text
     properties:
