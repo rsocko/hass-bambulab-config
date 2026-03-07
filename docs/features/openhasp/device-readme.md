@@ -82,16 +82,17 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 
 | ID | Object Type | Position | Description |
 |----|------------|----------|-------------|
-| `p2b5`–`p2b8` | `btn` | XY center cluster | XY jog by 1 step (`^`, `v`, `<`, `>`) |
-| `p2b9`–`p2b12` | `btn` | XY outer cluster | XY jog by 10 steps (`^^`, `vv`, `<<`, `>>`) |
-| `p2b13` | `btn` | XY center | Home action |
-| `p2b20`–`p2b23` | `btn` | Right column | Z jog (`-10`, `-1`, `+1`, `+10`) |
-| `p2b30` | `btn` | Far-right column | Retract filament |
-| `p2b31` | `btn` | Far-right column | Extrude filament |
+| `p2b5`–`p2b8` | `btn` | XY center ring | XY jog by 1 step (icon buttons) |
+| `p2b9`–`p2b12` | `btn` | XY outer ring | XY jog by 10 steps (stacked-arrow icons) |
+| `p2b13` | `btn` | XY center | Home action (home icon overlay) |
+| `p2b20`–`p2b23` | `btn` | Right column | Z jog (up/down arrow icons for 1 and 10) |
+| `p2b30` | `btn` | Far-right column | Retract filament (up-arrow icon button) |
+| `p2b31` | `btn` | Far-right column | Extrude filament (down-arrow icon button) |
+| `p2b42`–`p2b55` | `img` | Page 2 overlays | Directional icon overlays for XY/Z + extruder controls |
 | `p2b40` | `btn` | Top-right | Close page and return to page 1 |
-| `p2b41` | `label` | Top-right area | Safety/status hint text |
+| `p2b41` | `label` | Top-right area | Safety hint placeholder (hidden) |
 
-> **Note:** Object IDs in the slot-label range (33–42) plus `p1b40` are static visual labels that do not need to be controlled by Home Assistant. All object IDs are unique.
+> **Note:** Static visual-only IDs (for labels/icons) do not require Home Assistant bindings. On page 2 this includes icon overlays such as `p2b15`, `p2b25`, `p2b33`, and `p2b42`–`p2b55`.
 
 The values for `p1b31` and `p1b32` are populated by Home Assistant via [officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
 

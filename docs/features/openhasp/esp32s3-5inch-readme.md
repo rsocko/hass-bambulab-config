@@ -59,10 +59,11 @@ The printer dashboard shows:
 
 The controls page provides direct machine movement actions inspired by the ha-bambulab controls popup:
 
-- **XY directional control cluster** with 1-step and 10-step moves plus a centered **HOME** action
-- **Z axis controls** with `-10`, `-1`, `+1`, `+10` bed movement buttons
-- **Filament controls** for **Retract** and **Extrude**
+- **XY directional control cluster** with icon-based 1-step and stacked-arrow 10-step moves plus a centered home icon action
+- **Z axis controls** that reuse the same up/down single and stacked arrow icons as XY, plus a center bed icon
+- **Filament controls** using up/down arrow icon buttons for retract/extrude
 - **Close button** (`X`) to return to the main dashboard page
+- Safety hint text is hidden to reduce visual clutter on this page
 
 ## Object ID Quick Reference
 
@@ -81,11 +82,11 @@ Use this as a fast map of the major object groups. For full object-by-object det
 | `p1b50`–`p1b54` | Right tab panel (`Print Weight` / `Print Cost`) + tab totals |
 | `p1b60`–`p1b68` | Cost tab stacked bar segments |
 | `p1b73`–`p1b81` | Weight tab stacked bar segments |
-| `p2b5`–`p2b13` | XY controls (1-step, 10-step, home) |
-| `p2b20`–`p2b23` | Z-axis controls (`-10`, `-1`, `+1`, `+10`) |
+| `p2b5`–`p2b13` | XY controls (icon-based 1-step, stacked-arrow 10-step, home) |
+| `p2b20`–`p2b23` | Z-axis controls (up/down icon-based 1-step and 10-step) |
 | `p2b30`, `p2b31` | Filament retract/extrude |
 | `p2b40` | Back/close controls page |
-| `p2b41` | Safety/status hint label |
+| `p2b41` | Safety hint placeholder (hidden) |
 
 Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/README.md](../../../openhasp/README.md) to maintain a single detailed source of truth.
 

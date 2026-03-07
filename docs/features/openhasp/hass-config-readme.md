@@ -59,11 +59,11 @@ For a grouped object ID summary, see the top-level quick reference in [esp32s3-5
 | `p1b95` | Btn | Opens controls page (page 2) |
 | `p1b84`, `p1b86`, `p1b88` | Obj | Top-right control button colors (`stop`, `pause`, `start`) |
 | `p1b85`, `p1b87`, `p1b89` | Label | Top-right control icon colors (enabled/disabled state) |
-| `p2b5`–`p2b13` | Btn | XY jog controls (1/10 increments + home) |
-| `p2b20`–`p2b23` | Btn | Z jog controls (1/10 increments) |
-| `p2b30`, `p2b31` | Btn | Filament retract / extrude |
+| `p2b5`–`p2b13` | Btn | XY jog controls (icon-based 1/10 increments + home) |
+| `p2b20`–`p2b23` | Btn | Z jog controls (icon-based 1/10 increments) |
+| `p2b30`, `p2b31` | Btn | Filament retract / extrude (arrow icon buttons) |
 | `p2b40` | Btn | Return to main dashboard page |
-| `p2b41` | Label | Controls page safety/status hint |
+| `p2b41` | Label | Controls page safety hint placeholder (hidden) |
 
 > **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and must exist in Home Assistant for these two labels to render correctly.
 
