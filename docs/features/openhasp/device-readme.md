@@ -31,12 +31,15 @@ hasp/officetouch5/command/p1b5  → {"text":"55%"}     (commands IN)
 homeassistant/status            → online/offline      (HA birth/will)
 ```
 
-### `printer2.jsonl` — Page Layout (UI Design)
+### `printer2.jsonl` + `pages/*.jsonl` — Page Layout (UI Design)
 
 The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all visual objects on the touchscreen. Each line is a JSON object that creates or configures one UI element. The file is loaded at boot via the `hasp.pages` setting in `config.json`.
 
+- `printer2.jsonl` is the deployable combined file loaded by openHASP.
+- `pages/3dprinter.page0.nav.jsonl`, `pages/3dprinter.page1.home.jsonl`, `pages/3dprinter.page2.controls.jsonl`, and `pages/3dprinter.page3.filament.jsonl` are per-page source files for easier editing.
+
 **Page structure:**
-- **Page 0** — Common objects (visible on all pages) — currently empty
+- **Page 0** — Shared left-side navigation (Home, Controls, Filament icons)
 - **Page 1** — 3D Printer Dashboard (main and only page)
 - **Page 2** — Printer motion + filament controls
 - **Page 3** — Filament weight/cost breakdown (side-by-side panels)
@@ -61,8 +64,9 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b87` | `img` | 758,30 32×32 | Pause icon (`L:/pause.png`, shown/hidden with Pause btn) |
 | `p1b88` | `btn` | 748,20 52×52 | **Resume** button — same position as Pause, visible only when paused |
 | `p1b89` | `img` | 758,30 32×32 | Resume/play icon (`L:/play.png`, shown/hidden with Resume btn) |
-| `p1b95` | `btn` | 636,20 52×52 | Opens controls page (page 2) |
-| `p1b96` | `btn` | 636,80 52×52 | Opens filament analytics page (page 3) |
+| `p0b2` | `btn` | 6,20 44×44 | Shared nav: opens dashboard page (page 1) |
+| `p0b3` | `btn` | 6,80 44×44 | Shared nav: opens controls page (page 2) |
+| `p0b4` | `btn` | 6,140 44×44 | Shared nav: opens filament analytics page (page 3) |
 | `p1b14` | `label` | 140,25 | Time remaining value |
 | `p1b15` | `label` | 130,55 | "Time Remaining" static label |
 | `p1b30` | `label` | 110,84 | "Est" static label |
@@ -84,15 +88,12 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p2b30` | `btn` | Far-right column | Retract filament (up-arrow icon button) |
 | `p2b31` | `btn` | Far-right column | Extrude filament (down-arrow icon button) |
 | `p2b42`–`p2b55` | `img` | Page 2 overlays | Directional icon overlays for XY/Z + extruder controls |
-| `p2b40` | `btn` | Top-right | Close page and return to page 1 |
 | `p2b41` | `label` | Top-right area | Safety hint placeholder (hidden) |
 
 **Object map for Page 3 (filament analytics):**
 
 | ID | Object Type | Position | Description |
 |----|------------|----------|-------------|
-| `p3b40` | `btn` | Top-right | Close page and return to page 1 |
-| `p3b41` | `btn` | Top-right | Open controls page (page 2) |
 | `p3b53`, `p3b54` | `label` | top of each panel | Total weight and total cost labels |
 | `p3b73`–`p3b81` | `obj` | left panel | Weight stacked bar segments (A1–A4, B1–B4, Ext) |
 | `p3b60`–`p3b68` | `obj` | right panel | Cost stacked bar segments (A1–A4, B1–B4, Ext) |

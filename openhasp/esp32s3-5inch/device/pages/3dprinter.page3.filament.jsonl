@@ -1,0 +1,33 @@
+{"page":3,"comment":"Page 3 - Filament Weight and Cost"}
+{"id":1,"obj":"obj","comment":"Analytics Page Container","x":60,"y":20,"w":720,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
+{"id":2,"obj":"label","comment":"Page Title","x":74,"y":30,"w":460,"h":36,"align":"left","text":"Filament Weight and Cost","text_font":24,"text_color":"#ffffff"}
+{"id":3,"obj":"obj","comment":"Weight Panel","x":74,"y":82,"w":320,"h":360,"radius":8,"bg_color":"#263238","border_color":"#37474f","border_width":2}
+{"id":4,"obj":"obj","comment":"Cost Panel","x":406,"y":82,"w":360,"h":360,"radius":8,"bg_color":"#263238","border_color":"#37474f","border_width":2}
+{"id":5,"obj":"label","comment":"Weight Panel Title","x":90,"y":96,"w":290,"h":24,"align":"left","text":"Current Print Weight","text_font":16,"text_color":"#eceff1"}
+{"id":6,"obj":"label","comment":"Cost Panel Title","x":422,"y":96,"w":320,"h":24,"align":"left","text":"Estimated Print Cost","text_font":16,"text_color":"#eceff1"}
+
+{"id":53,"obj":"label","comment":"Weight total label","x":90,"y":126,"w":290,"h":24,"align":"left","text":"Total: 0.0g","text_font":14}
+{"id":69,"obj":"obj","comment":"Weight Bar Border","x":90,"y":154,"w":290,"h":30,"enabled":false,"bg_opa":0,"border_color":"#777777","border_width":2,"radius":6}
+{"id":73,"obj":"obj","comment":"Weight A1","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":74,"obj":"obj","comment":"Weight A2","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#673bb7","border_width":0}
+{"id":75,"obj":"obj","comment":"Weight A3","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#f67c01","border_width":0}
+{"id":76,"obj":"obj","comment":"Weight A4","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#83c683","border_width":0}
+{"id":77,"obj":"obj","comment":"Weight B1","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":78,"obj":"obj","comment":"Weight B2","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":79,"obj":"obj","comment":"Weight B3","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":80,"obj":"obj","comment":"Weight B4","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":81,"obj":"obj","comment":"Weight Ext","x":90,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":71,"obj":"label","comment":"Weight Legend","x":90,"y":192,"w":290,"h":236,"align":"left","text":"Loading...","text_font":12}
+
+{"id":54,"obj":"label","comment":"Cost total label","x":422,"y":126,"w":320,"h":24,"align":"left","text":"Total: $0.00","text_font":14}
+{"id":70,"obj":"obj","comment":"Cost Bar Border","x":422,"y":154,"w":320,"h":30,"enabled":false,"bg_opa":0,"border_color":"#777777","border_width":2,"radius":6}
+{"id":60,"obj":"obj","comment":"Cost A1","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":61,"obj":"obj","comment":"Cost A2","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#673bb7","border_width":0}
+{"id":62,"obj":"obj","comment":"Cost A3","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#f67c01","border_width":0}
+{"id":63,"obj":"obj","comment":"Cost A4","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#83c683","border_width":0}
+{"id":64,"obj":"obj","comment":"Cost B1","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":65,"obj":"obj","comment":"Cost B2","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":66,"obj":"obj","comment":"Cost B3","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":67,"obj":"obj","comment":"Cost B4","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":68,"obj":"obj","comment":"Cost Ext","x":422,"y":154,"w":0,"h":30,"enabled":false,"bg_color":"#26a59a","border_width":0}
+{"id":72,"obj":"label","comment":"Cost Legend","x":422,"y":192,"w":320,"h":236,"align":"left","text":"Loading...","text_font":12}

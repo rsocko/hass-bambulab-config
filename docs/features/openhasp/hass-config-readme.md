@@ -57,15 +57,14 @@ For a grouped object ID summary, see the top-level quick reference in [esp32s3-5
 | `p3b71`, `p3b72` | Label | Weight/cost multiline legend details (per-slot values + percentages) |
 | `p1b31` | Label | Smart status detail (`state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail')`) |
 | `p1b32` | Label | Smart status state (`sensor.ntk_ryansoffice_3dprinter_smart_status`) |
-| `p1b95` | Btn | Opens controls page (page 2) |
-| `p1b96` | Btn | Opens filament analytics page (page 3) |
+| `p0b2` | Btn | Shared nav: opens dashboard page (page 1) |
+| `p0b3` | Btn | Shared nav: opens controls page (page 2) |
+| `p0b4` | Btn | Shared nav: opens filament analytics page (page 3) |
 | `p1b84`, `p1b86`, `p1b88` | Obj | Top-right control button colors (`stop`, `pause`, `start`) |
 | `p1b85`, `p1b87`, `p1b89` | Label | Top-right control icon colors (enabled/disabled state) |
 | `p2b5`–`p2b13` | Btn | XY jog controls (icon-based 1/10 increments + home) |
 | `p2b20`–`p2b23` | Btn | Z jog controls (icon-based 1/10 increments) |
 | `p2b30`, `p2b31` | Btn | Filament retract / extrude (arrow icon buttons) |
-| `p2b40` | Btn | Return to main dashboard page |
-| `p3b40`, `p3b41` | Btn | Page-3 navigation (back to dashboard / open controls page) |
 | `p2b41` | Label | Controls page safety hint placeholder (hidden) |
 
 > **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and must exist in Home Assistant for these two labels to render correctly.
@@ -80,7 +79,7 @@ Each automation is stored as a separate YAML file for easy version control and d
 | [save_camera_snapshot_from_3d_printer.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/save_camera_snapshot_from_3d_printer.yaml) | `Save Camera Snapshot from 3D Printer` | **Disabled** | Captures a camera snapshot every 2 minutes (when printer is on) and saves to `/config/www/printer_snapshot.jpg`. Useful for serving static images to dashboards or external tools. |
 | [auto_manage_screen_visibility.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/auto_manage_screen_visibility.yaml) | `Auto Manage ESP32 Screen Visibility` | **Active** | Implements issue #46 behavior: keeps screen visibility in sync with print activity, errors, and optional office-presence signals. Uses `openhasp.wakeup` and `openhasp.command` to drive full brightness, low visibility, and delayed full off states. |
 | [printer_control_buttons.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_control_buttons.yaml) | `OpenHASP Printer Controls (Stop/Pause/Resume)` | **Active** | Listens for touch events from control IDs `p1b84`–`p1b89` and conditionally invokes printer stop/pause/resume button entities. |
-| [printer_motion_controls.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_motion_controls.yaml) | `OpenHASP Printer Motion Controls (XY/Z/Extruder)` | **Active** | Listens for touch events (`p1b95`, `p1b96`, `p2b5`–`p2b13`, `p2b20`–`p2b23`, `p2b30`, `p2b31`, `p2b40`, `p3b40`, `p3b41`) and calls `bambu_lab.move_axis` / `bambu_lab.extrude_retract`, plus page navigation MQTT commands. |
+| [printer_motion_controls.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_motion_controls.yaml) | `OpenHASP Printer Motion Controls (XY/Z/Extruder)` | **Active** | Listens for touch events (`p0b2`, `p0b3`, `p0b4`, `p2b5`–`p2b13`, `p2b20`–`p2b23`, `p2b30`, `p2b31`) and calls `bambu_lab.move_axis` / `bambu_lab.extrude_retract`, plus page navigation MQTT commands. |
 
 **Visibility automation customization:**
 

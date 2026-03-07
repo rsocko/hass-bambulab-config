@@ -77,19 +77,16 @@ Use this as a fast map of the major object groups. For full object-by-object det
 | `p1b10`–`p1b13`, `p1b17`–`p1b20`, `p1b39` | AMS + external spool indicators |
 | `p1b27` | Smart status LED color indicator |
 | `p1b31`, `p1b32` | Smart status text labels (detail/state) |
-| `p1b95` | Controls page launcher (`CTL`) |
+| `p0b2`–`p0b4` | Shared left-nav launchers (home, controls, filament) |
 | `p1b84`–`p1b89` | Printer control buttons + icons (`Stop`, `Pause`, `Start`) |
-| `p1b96` | Filament analytics page launcher (`FIL`) |
 | `p2b5`–`p2b13` | XY controls (icon-based 1-step, stacked-arrow 10-step, home) |
 | `p2b20`–`p2b23` | Z-axis controls (up/down icon-based 1-step and 10-step) |
 | `p2b30`, `p2b31` | Filament retract/extrude |
-| `p2b40` | Back/close controls page |
 | `p2b41` | Safety hint placeholder (hidden) |
 | `p3b53`, `p3b54` | Weight/cost panel totals |
 | `p3b60`–`p3b68` | Cost panel stacked bar segments |
 | `p3b73`–`p3b81` | Weight panel stacked bar segments |
 | `p3b71`, `p3b72` | Multiline legend/detail labels (per-slot values and percentages) |
-| `p3b40`, `p3b41` | Back to dashboard / open controls page |
 
 Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/README.md](../../../openhasp/README.md) to maintain a single detailed source of truth.
 
@@ -109,7 +106,8 @@ homeassistant/packages/3d_printing/openhasp_display/
 
 openhasp/esp32s3-5inch/device/
 ├── config.json                       ← Device configuration (Wi-Fi, MQTT, GUI)
-├── printer2.jsonl                    ← Page layout (UI objects)
+├── pages/                            ← Per-page source JSONL files (page0..page3)
+├── printer2.jsonl                    ← Combined deploy file loaded by openHASP
 ├── online.cmd                        ← Command executed when MQTT connects
 └── offline.cmd                       ← Command executed when MQTT disconnects
 ```

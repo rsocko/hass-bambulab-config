@@ -820,7 +820,7 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {{ not is_paused }}
 
-  - obj: p1b95 # Open controls page button
+  - obj: p0b2 # Open dashboard page button
     properties:
       "bg_grad_dir": 0
       "bg_color": >
@@ -830,7 +830,17 @@ objects:
         {% set plate_state = states('openhasp.officetouch5') | lower %}
         {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
 
-  - obj: p1b96 # Open weight/cost page button
+  - obj: p0b3 # Open controls page button
+    properties:
+      "bg_grad_dir": 0
+      "bg_color": >
+        {% set plate_state = states('openhasp.officetouch5') | lower %}
+        {{ '#546e7a' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#444444' }}
+      "border_color": >
+        {% set plate_state = states('openhasp.officetouch5') | lower %}
+        {{ '#263238' if plate_state not in ['unknown', 'unavailable', 'none', ''] else '#333333' }}
+
+  - obj: p0b4 # Open weight/cost page button
     properties:
       "bg_grad_dir": 0
       "bg_color": >

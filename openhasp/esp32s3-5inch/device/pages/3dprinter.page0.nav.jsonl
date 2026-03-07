@@ -1,0 +1,12 @@
+{"page":0,"comment":"Shared Left Navigation"}
+{"id":1,"obj":"obj","comment":"Navigation Sidebar","x":0,"y":0,"w":56,"h":480,"bg_color":"#1f2529","border_width":0,"click":false}
+{"id":2,"obj":"obj","comment":"Navigation Divider","x":55,"y":0,"w":1,"h":480,"bg_color":"#384248","border_width":0,"click":false}
+
+{"id":3,"obj":"btn","comment":"Home Page Button (Page 1)","x":6,"y":20,"w":44,"h":44,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":4,"obj":"img","comment":"Home Icon","x":12,"y":26,"w":32,"h":32,"src":"L:/home_icon.png","click":false}
+
+{"id":5,"obj":"btn","comment":"Controls Page Button (Page 2)","x":6,"y":80,"w":44,"h":44,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":6,"obj":"img","comment":"Controls Icon","x":12,"y":86,"w":32,"h":32,"src":"L:/bed_flatbed_icon.png","click":false}
+
+{"id":7,"obj":"btn","comment":"Filament Page Button (Page 3)","x":6,"y":140,"w":44,"h":44,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":8,"obj":"img","comment":"Filament Icon","x":12,"y":146,"w":32,"h":32,"src":"L:/extruder_icon.png","click":false}

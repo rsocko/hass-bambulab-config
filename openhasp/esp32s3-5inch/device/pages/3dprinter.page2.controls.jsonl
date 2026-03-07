@@ -1,0 +1,44 @@
+{"page":2,"comment":"Page 2 - Printer Controls"}
+{"id":1,"obj":"obj","comment":"Controls Page Container","x":60,"y":20,"w":720,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
+{"id":2,"obj":"obj","comment":"XY Outer Ring","x":70,"y":80,"w":320,"h":320,"radius":160,"bg_color":"#90a4ae","border_color":"#263238","border_width":2}
+{"id":3,"obj":"obj","comment":"XY Inner Ring","x":130,"y":140,"w":200,"h":200,"radius":100,"bg_color":"#cfd8dc","border_color":"#263238","border_width":2}
+{"id":4,"obj":"label","comment":"Page Title","x":74,"y":30,"w":360,"h":36,"align":"left","text":"Printer Motion Controls","text_font":24,"text_color":"#ffffff"}
+{"id":5,"obj":"btn","comment":"XY Up 1","x":205,"y":148,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":6,"obj":"btn","comment":"XY Down 1","x":205,"y":282,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":7,"obj":"btn","comment":"XY Left 1","x":138,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":8,"obj":"btn","comment":"XY Right 1","x":272,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":9,"obj":"btn","comment":"XY Up 10","x":205,"y":85,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":10,"obj":"btn","comment":"XY Down 10","x":205,"y":345,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":11,"obj":"btn","comment":"XY Left 10","x":75,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":12,"obj":"btn","comment":"XY Right 10","x":335,"y":215,"w":50,"h":50,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":13,"obj":"btn","comment":"XY Home","x":196,"y":206,"w":68,"h":68,"radius":34,"bg_color":"#90a4ae","border_color":"#263238","border_width":2,"text":""}
+{"id":14,"obj":"label","comment":"XY Section Label","x":135,"y":408,"w":190,"h":30,"align":"center","text":"X/Y Axis","text_font":20,"text_color":"#eceff1"}
+{"id":15,"obj":"img","comment":"XY Home Icon","x":214,"y":224,"w":32,"h":32,"src":"L:/home_icon.png","click":false}
+{"id":20,"obj":"btn","comment":"Z -10","x":460,"y":96,"w":100,"h":52,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":21,"obj":"btn","comment":"Z -1","x":460,"y":154,"w":100,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":22,"obj":"btn","comment":"Z +1","x":460,"y":274,"w":100,"h":52,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":23,"obj":"btn","comment":"Z +10","x":460,"y":332,"w":100,"h":52,"radius":8,"bg_color":"#37474f","border_color":"#263238","border_width":2,"text":""}
+{"id":24,"obj":"obj","comment":"Z Axis Icon Holder","x":460,"y":214,"w":100,"h":52,"radius":4,"bg_color":"#1f2529","border_width":0}
+{"id":25,"obj":"img","comment":"Z Axis Bed Icon","x":494,"y":230,"w":32,"h":32,"src":"L:/bed_flatbed_icon.png","click":false}
+{"id":56,"obj":"label","comment":"Z Axis Bed Text","x":460,"y":220,"w":100,"h":18,"align":"center","text":"Bed","text_font":16,"text_color":"#b0bec5"}
+{"id":26,"obj":"label","comment":"Z Section Label","x":460,"y":408,"w":100,"h":30,"align":"center","text":"Z Axis","text_font":20,"text_color":"#eceff1"}
+{"id":30,"obj":"btn","comment":"Retract","x":618,"y":146,"w":120,"h":60,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":31,"obj":"btn","comment":"Extrude","x":618,"y":274,"w":120,"h":60,"radius":8,"bg_color":"#455a64","border_color":"#263238","border_width":2,"text":""}
+{"id":32,"obj":"obj","comment":"Extruder Icon Holder","x":618,"y":214,"w":120,"h":52,"radius":4,"bg_color":"#1f2529","border_width":0}
+{"id":33,"obj":"img","comment":"Extruder Icon","x":662,"y":224,"w":32,"h":32,"src":"L:/extruder_icon.png","click":false}
+{"id":34,"obj":"label","comment":"Extruder Section Label","x":618,"y":408,"w":120,"h":30,"align":"center","text":"Filament","text_font":20,"text_color":"#eceff1"}
+{"id":41,"obj":"label","comment":"Safety Hint","x":410,"y":68,"w":350,"h":28,"align":"right","text":"","text_font":12,"text_color":"#b0bec5","hidden":true}
+{"id":42,"obj":"img","comment":"XY Up 1 Icon","x":214,"y":157,"w":32,"h":32,"src":"L:/arrow_up.png","click":false}
+{"id":43,"obj":"img","comment":"XY Down 1 Icon","x":214,"y":291,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
+{"id":44,"obj":"img","comment":"XY Left 1 Icon","x":147,"y":224,"w":32,"h":32,"src":"L:/arrow_left.png","click":false}
+{"id":45,"obj":"img","comment":"XY Right 1 Icon","x":281,"y":224,"w":32,"h":32,"src":"L:/arrow_right.png","click":false}
+{"id":46,"obj":"img","comment":"XY Up 10 Icon","x":214,"y":94,"w":32,"h":32,"src":"L:/arrow_up_double.png","click":false}
+{"id":47,"obj":"img","comment":"XY Down 10 Icon","x":214,"y":354,"w":32,"h":32,"src":"L:/arrow_down_double.png","click":false}
+{"id":48,"obj":"img","comment":"XY Left 10 Icon","x":84,"y":224,"w":32,"h":32,"src":"L:/arrow_left_double.png","click":false}
+{"id":49,"obj":"img","comment":"XY Right 10 Icon","x":344,"y":224,"w":32,"h":32,"src":"L:/arrow_right_double.png","click":false}
+{"id":50,"obj":"img","comment":"Z -10 Icon","x":494,"y":106,"w":32,"h":32,"src":"L:/arrow_up_double.png","click":false}
+{"id":51,"obj":"img","comment":"Z -1 Icon","x":494,"y":164,"w":32,"h":32,"src":"L:/arrow_up.png","click":false}
+{"id":52,"obj":"img","comment":"Z +1 Icon","x":494,"y":284,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
+{"id":53,"obj":"img","comment":"Z +10 Icon","x":494,"y":342,"w":32,"h":32,"src":"L:/arrow_down_double.png","click":false}
+{"id":54,"obj":"img","comment":"Extruder Retract Icon","x":662,"y":160,"w":32,"h":32,"src":"L:/arrow_up.png","click":false}
+{"id":55,"obj":"img","comment":"Extruder Extrude Icon","x":662,"y":288,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
