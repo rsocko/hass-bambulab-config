@@ -820,24 +820,6 @@ objects:
         {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
         {{ not is_paused }}
 
-  - obj: p0b3 # Open dashboard page button
-    properties:
-      "radius": 0
-      "border_width": 0
-      "bg_opa": 0
-
-  - obj: p0b5 # Open controls page button
-    properties:
-      "radius": 0
-      "border_width": 0
-      "bg_opa": 0
-
-  - obj: p0b7 # Open weight/cost page button
-    properties:
-      "radius": 0
-      "border_width": 0
-      "bg_opa": 0
-
   - obj: p2b41 # Controls page hint text
     properties:
       "text": >

@@ -1,3 +1,30 @@
+- alias: OpenHASP Sidebar Sync Page
+  description: >
+    Keep sidebar button states in sync when page changes.
+    Listens to hasp/officetouch5/state/page and sets
+    p0b3/p0b5/p0b7 checked state to match the current page.
+  triggers:
+    - trigger: mqtt
+      topic: hasp/officetouch5/state/page
+  conditions: []
+  actions:
+    - variables:
+        current_page: "{{ trigger.payload | int(1) }}"
+    - action: mqtt.publish
+      data:
+        topic: hasp/officetouch5/command/p0b3.val
+        payload: "{{ 1 if current_page == 1 else 0 }}"
+    - action: mqtt.publish
+      data:
+        topic: hasp/officetouch5/command/p0b5.val
+        payload: "{{ 1 if current_page == 2 else 0 }}"
+    - action: mqtt.publish
+      data:
+        topic: hasp/officetouch5/command/p0b7.val
+        payload: "{{ 1 if current_page == 3 else 0 }}"
+  mode: queued
+  max: 5
+
 - alias: OpenHASP Printer Motion Controls (XY/Z/Extruder)
   description: >
     Handles page navigation and motion controls for the ESP32-S3 5in OpenHASP
@@ -17,17 +44,17 @@
   triggers:
     - trigger: mqtt
       topic: hasp/officetouch5/state/p0b3
-      payload: '{"event":"up"}'
+      payload: '{"event":"up","val":1}'
       id: open_dashboard
 
     - trigger: mqtt
       topic: hasp/officetouch5/state/p0b5
-      payload: '{"event":"up"}'
+      payload: '{"event":"up","val":1}'
       id: open_controls
 
     - trigger: mqtt
       topic: hasp/officetouch5/state/p0b7
-      payload: '{"event":"up"}'
+      payload: '{"event":"up","val":1}'
       id: open_filament
 
     - trigger: mqtt
@@ -107,6 +134,18 @@
               data:
                 topic: hasp/officetouch5/command/page
                 payload: "1"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b3.val
+                payload: "1"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b5.val
+                payload: "0"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b7.val
+                payload: "0"
 
         - conditions:
             - condition: template
@@ -116,6 +155,18 @@
               data:
                 topic: hasp/officetouch5/command/page
                 payload: "2"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b3.val
+                payload: "0"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b5.val
+                payload: "1"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b7.val
+                payload: "0"
 
         - conditions:
             - condition: template
@@ -125,6 +176,18 @@
               data:
                 topic: hasp/officetouch5/command/page
                 payload: "3"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b3.val
+                payload: "0"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b5.val
+                payload: "0"
+            - action: mqtt.publish
+              data:
+                topic: hasp/officetouch5/command/p0b7.val
+                payload: "1"
 
         - conditions:
             - condition: template
