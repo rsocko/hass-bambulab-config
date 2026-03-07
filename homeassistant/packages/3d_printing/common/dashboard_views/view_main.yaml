@@ -284,21 +284,16 @@ sections:
         rows: auto
     - type: markdown
       content: |
-        #### Option 2 — Simple Text KPI
-      grid_options:
-        columns: full
-    - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-2-simple-text.yaml
-    - type: markdown
-      content: |
-        ### Progress KPI Variations (Issue #516)
-      grid_options:
-        columns: full
-    - type: markdown
-      content: |
         #### Option 1 — Bottom Bar (Static)
       grid_options:
         columns: full
     - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-1-bottom-bar-static.yaml
+    - type: markdown
+      content: |
+        #### Option 2 — Simple Text KPI
+      grid_options:
+        columns: full
+    - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-2-simple-text.yaml
     - type: markdown
       content: |
         #### Option 3 — Bottom Bar (Animated)
