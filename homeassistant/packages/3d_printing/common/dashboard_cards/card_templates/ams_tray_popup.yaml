@@ -638,7 +638,19 @@ ams_tray_popup:
                       entity: spoolEntityId,
                       name: 'Spoolman: Reload',
                       icon: 'mdi:refresh',
-                      tap_action: { action: 'call-service', service: 'homeassistant.update_entity', service_data: { entity_id: spoolEntityId } },
+                      tap_action: {
+                        action: 'fire-dom-event',
+                        browser_mod: {
+                          service: 'browser_mod.sequence',
+                          data: {
+                            sequence: [
+                              { service: 'homeassistant.update_entity', data: { entity_id: spoolEntityId } },
+                              { service: 'browser_mod.delay', data: { time: 1500 } },
+                              { service: 'browser_mod.close_popup' }
+                            ]
+                          }
+                        }
+                      },
                       styles: {
                         grid: [
                           { 'grid-template-areas': '"i" "n"' },
