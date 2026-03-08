@@ -40,6 +40,16 @@ Key features:
 - Direct link to Spoolman web interface
 - Fallback display for unmatched or empty trays
 
+### AMS Header Cards
+Custom bubble-card separator headers placed above each AMS unit, replacing the built-in
+`ha-bambulab-ams-card` header and info bar. See [card-templates-README.md](card-templates-README.md) for template variables.
+
+Key features:
+- Reusable `ams_header` button-card template with configurable variables
+- Humidity sub-button with dynamic icon and color based on Bambu Lab's 1–5 rating (mapped to percentage thresholds)
+- Temperature sub-button with color-coded background (blue → green → amber → orange → red)
+- Replaces `subtitle` and `show_info_bar` on the AMS card for a cleaner, more informative display
+
 ### Print Details
 The Print Details section includes an enhanced print weight visualization. See [docs/print-weight-bar-chart.md](docs/print-weight-bar-chart.md) for detailed information.
 
@@ -125,7 +135,7 @@ sensor: !include_dir_merge_list homeassistant/packages/3d_printing/
 ### AMS Tray Templates
 
 The AMS tray cards use three `button-card` templates (`ams_tray_label`, `ams_tray_detail`,
-`ams_tray_popup`) defined in the `button_card_templates:` block at the top of
+`ams_tray_popup`) and the `ams_header` template defined in the `button_card_templates:` block at the top of
 `lovelace.3d_printing`. No external files or `configuration.yaml` entry are needed.
 
 **Why `button_card_templates` is dashboard-level (not `configuration.yaml`):**
@@ -137,11 +147,12 @@ The source definitions are maintained directly in [homeassistant/packages/3d_pri
 
 | File | Template Name | Purpose |
 |------|--------------|---------|
+| `button_card_templates` in `lovelace.3d_printing` | `ams_header` | AMS unit header with humidity/temp indicators |
 | `button_card_templates` in `lovelace.3d_printing` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) |
 | `button_card_templates` in `lovelace.3d_printing` | `ams_tray_detail` | Full tray info card — appearance and data display |
 | `button_card_templates` in `lovelace.3d_printing` | `ams_tray_popup` | Popup dialog — tap action with spool details |
 
-Each AMS slot card in the dashboard uses:
+Each AMS section in the dashboard uses:
 ```yaml
 - type: vertical-stack
   card_mod:

@@ -17,6 +17,7 @@
 # source of truth when editing the block.
 #
 # Template names (defined in button_card_templates: below):
+#   ams_header      - AMS unit header separator with humidity/temperature indicators
 #   ams_tray_label  - AMS slot label card (A1, A2, B1, etc.)
 #   ams_tray_detail - Full tray info card (inherits tap_action from ams_tray_popup)
 #   ams_tray_popup  - Popup dialog with spool details (tap_action logic)
@@ -932,6 +933,66 @@ button_card_templates:
           - padding-right: 4px
           - line-height: '1'
           - padding-top: '0'
+
+  # AMS Header - bubble-card separator with dynamic humidity/temperature indicators.
+  # Humidity icons and colors follow Bambu Lab's 1-5 rating mapped to percentage thresholds.
+  # Variables: amsName, amsIcon, humidityEntity, temperatureEntity
+  ams_header:
+    type: custom:button-card
+    entity: '[[[ return variables.humidityEntity; ]]]'
+    show_icon: false
+    show_name: false
+    show_state: false
+    styles:
+      card:
+        - background: none
+        - border: none
+        - box-shadow: none
+        - padding: 0
+        - margin: 0
+      grid:
+        - display: contents
+    custom_fields:
+      header:
+        card:
+          type: custom:bubble-card
+          card_type: separator
+          name: '[[[ return variables.amsName || "AMS"; ]]]'
+          icon: '[[[ return variables.amsIcon || "fapro:filament-2"; ]]]'
+          sub_button:
+            main:
+              - entity: '[[[ return variables.humidityEntity; ]]]'
+                icon: '[[[ const h = parseFloat(states[variables.humidityEntity]?.state) || 0; if (h >= 70) return "mdi:water-alert"; if (h >= 60) return "mdi:water-plus"; if (h >= 40) return "mdi:water"; if (h >= 20) return "mdi:water-minus"; return "mdi:water-outline"; ]]]'
+                show_state: true
+                show_icon: true
+                state_background: true
+                show_last_changed: false
+                show_attribute: false
+              - entity: '[[[ return variables.temperatureEntity; ]]]'
+                show_state: true
+                show_icon: true
+                state_background: true
+                show_last_changed: false
+                show_attribute: false
+            bottom: []
+          styles: |
+            [[[
+              const hVal = parseFloat(states[variables.humidityEntity]?.state) || 0;
+              const tVal = parseFloat(states[variables.temperatureEntity]?.state) || 0;
+              let hColor, hBg;
+              if (hVal < 20) { hColor = '#4CAF50'; hBg = 'rgba(76,175,80,0.2)'; }
+              else if (hVal < 40) { hColor = '#8BC34A'; hBg = 'rgba(139,195,74,0.2)'; }
+              else if (hVal < 60) { hColor = '#FFC107'; hBg = 'rgba(255,193,7,0.25)'; }
+              else if (hVal < 70) { hColor = '#FF9800'; hBg = 'rgba(255,152,0,0.25)'; }
+              else { hColor = '#F44336'; hBg = 'rgba(244,67,54,0.25)'; }
+              let tColor, tBg;
+              if (tVal < 20) { tColor = '#42A5F5'; tBg = 'rgba(66,165,245,0.2)'; }
+              else if (tVal < 25) { tColor = '#4CAF50'; tBg = 'rgba(76,175,80,0.2)'; }
+              else if (tVal < 30) { tColor = '#FFC107'; tBg = 'rgba(255,193,7,0.25)'; }
+              else if (tVal < 35) { tColor = '#FF9800'; tBg = 'rgba(255,152,0,0.25)'; }
+              else { tColor = '#F44336'; tBg = 'rgba(244,67,54,0.25)'; }
+              return `.bubble-sub-button-1 { background-color: ${hBg} !important; } .bubble-sub-button-1 ha-icon { color: ${hColor} !important; } .bubble-sub-button-1 .bubble-sub-button-state { color: ${hColor} !important; font-weight: 600; } .bubble-sub-button-2 { background-color: ${tBg} !important; } .bubble-sub-button-2 ha-icon { color: ${tColor} !important; } .bubble-sub-button-2 .bubble-sub-button-state { color: ${tColor} !important; font-weight: 600; }`;
+            ]]]
 
 views:
   - title: Home
@@ -2591,14 +2652,21 @@ views:
                     }
       - type: grid
         cards:
+          - type: custom:button-card
+            template: ams_header
+            variables:
+              amsName: AMS 1
+              amsIcon: fapro:filament-2
+              humidityEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+              temperatureEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
           - type: custom:ha-bambulab-ams-card
             entity: ''
             header: ''
-            subtitle: AMS 1
+            subtitle: ''
             style: vector
             ams: bb6d8ff7b5587a848196c105ca8920c3
             show_type: false
-            show_info_bar: true
+            show_info_bar: false
             custom_humidity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
             custom_temperature: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
           - type: horizontal-stack
@@ -2671,13 +2739,20 @@ views:
                       trayLabel: AMS 1 · Slot 4
                       trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
                       printWeightKey: AMS 1 Tray 4
+          - type: custom:button-card
+            template: ams_header
+            variables:
+              amsName: AMS 2 Pro
+              amsIcon: fapro:filament-2
+              humidityEntity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+              temperatureEntity: sensor.3d_printer_ams_2_humidity_and_temp_temperature
           - type: custom:ha-bambulab-ams-card
             entity: ''
             header: ''
-            subtitle: AMS 2 Pro
+            subtitle: ''
             style: vector
             ams: e8499b3326385f02079f3c382558ded2
-            show_info_bar: true
+            show_info_bar: false
             custom_humidity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
             custom_temperature: sensor.3d_printer_ams_2_humidity_and_temp_temperature
             show_type: false

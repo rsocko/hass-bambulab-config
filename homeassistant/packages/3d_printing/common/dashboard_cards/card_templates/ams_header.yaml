@@ -1,0 +1,91 @@
+# ams_header.yaml
+# Button-card template wrapping a bubble-card separator for AMS unit headers.
+#
+# Uses button-card's [[[...]]] template engine to pass variables into the nested
+# bubble-card configuration and dynamically compute colors and icons.
+#
+# Humidity color thresholds (Bambu Lab 1-5 rating mapped to percentages):
+#   Level 1 - Optimal  (<20%):  Green        mdi:water-outline
+#   Level 2 - Good     (20-40%): Light Green  mdi:water-minus
+#   Level 3 - Monitor  (40-60%): Amber        mdi:water
+#   Level 4 - Concern  (60-70%): Orange       mdi:water-plus
+#   Level 5 - Critical (>70%):  Red           mdi:water-alert
+#
+# Temperature color thresholds:
+#   <20°C:   Blue   (Cool)
+#   20-25°C: Green  (Ideal)
+#   25-30°C: Amber  (Warm)
+#   30-35°C: Orange (Hot)
+#   >35°C:   Red    (Too hot)
+#
+# Variables:
+#   amsName           - Display name (e.g., "AMS 1", "AMS 2 Pro")
+#   amsIcon           - Header icon (default: "fapro:filament-2")
+#   humidityEntity    - Humidity sensor entity ID (percentage-based)
+#   temperatureEntity - Temperature sensor entity ID (°C)
+#
+# Usage:
+#   - type: custom:button-card
+#     template: ams_header
+#     variables:
+#       amsName: AMS 1
+#       amsIcon: fapro:filament-2
+#       humidityEntity: sensor.my_ams_humidity
+#       temperatureEntity: sensor.my_ams_temperature
+
+ams_header:
+  type: custom:button-card
+  entity: '[[[ return variables.humidityEntity; ]]]'
+  show_icon: false
+  show_name: false
+  show_state: false
+  styles:
+    card:
+      - background: none
+      - border: none
+      - box-shadow: none
+      - padding: 0
+      - margin: 0
+    grid:
+      - display: contents
+  custom_fields:
+    header:
+      card:
+        type: custom:bubble-card
+        card_type: separator
+        name: '[[[ return variables.amsName || "AMS"; ]]]'
+        icon: '[[[ return variables.amsIcon || "fapro:filament-2"; ]]]'
+        sub_button:
+          main:
+            - entity: '[[[ return variables.humidityEntity; ]]]'
+              icon: '[[[ const h = parseFloat(states[variables.humidityEntity]?.state) || 0; if (h >= 70) return "mdi:water-alert"; if (h >= 60) return "mdi:water-plus"; if (h >= 40) return "mdi:water"; if (h >= 20) return "mdi:water-minus"; return "mdi:water-outline"; ]]]'
+              show_state: true
+              show_icon: true
+              state_background: true
+              show_last_changed: false
+              show_attribute: false
+            - entity: '[[[ return variables.temperatureEntity; ]]]'
+              show_state: true
+              show_icon: true
+              state_background: true
+              show_last_changed: false
+              show_attribute: false
+          bottom: []
+        styles: |
+          [[[
+            const hVal = parseFloat(states[variables.humidityEntity]?.state) || 0;
+            const tVal = parseFloat(states[variables.temperatureEntity]?.state) || 0;
+            let hColor, hBg;
+            if (hVal < 20) { hColor = '#4CAF50'; hBg = 'rgba(76,175,80,0.2)'; }
+            else if (hVal < 40) { hColor = '#8BC34A'; hBg = 'rgba(139,195,74,0.2)'; }
+            else if (hVal < 60) { hColor = '#FFC107'; hBg = 'rgba(255,193,7,0.25)'; }
+            else if (hVal < 70) { hColor = '#FF9800'; hBg = 'rgba(255,152,0,0.25)'; }
+            else { hColor = '#F44336'; hBg = 'rgba(244,67,54,0.25)'; }
+            let tColor, tBg;
+            if (tVal < 20) { tColor = '#42A5F5'; tBg = 'rgba(66,165,245,0.2)'; }
+            else if (tVal < 25) { tColor = '#4CAF50'; tBg = 'rgba(76,175,80,0.2)'; }
+            else if (tVal < 30) { tColor = '#FFC107'; tBg = 'rgba(255,193,7,0.25)'; }
+            else if (tVal < 35) { tColor = '#FF9800'; tBg = 'rgba(255,152,0,0.25)'; }
+            else { tColor = '#F44336'; tBg = 'rgba(244,67,54,0.25)'; }
+            return `.bubble-sub-button-1 { background-color: ${hBg} !important; } .bubble-sub-button-1 ha-icon { color: ${hColor} !important; } .bubble-sub-button-1 .bubble-sub-button-state { color: ${hColor} !important; font-weight: 600; } .bubble-sub-button-2 { background-color: ${tBg} !important; } .bubble-sub-button-2 ha-icon { color: ${tColor} !important; } .bubble-sub-button-2 .bubble-sub-button-state { color: ${tColor} !important; font-weight: 600; }`;
+          ]]]

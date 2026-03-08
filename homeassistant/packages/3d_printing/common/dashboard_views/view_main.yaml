@@ -488,14 +488,21 @@ sections:
     - !include ../../printer_controls/dashboard_cards/fan_controls_v2.yaml
 - type: grid
   cards:
+    - type: custom:button-card
+      template: ams_header
+      variables:
+        amsName: AMS 1
+        amsIcon: fapro:filament-2
+        humidityEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+        temperatureEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
     - type: custom:ha-bambulab-ams-card
       entity: ''
       header: ''
-      subtitle: AMS 1
+      subtitle: ''
       style: vector
       ams: bb6d8ff7b5587a848196c105ca8920c3
       show_type: false
-      show_info_bar: true
+      show_info_bar: false
       custom_humidity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
       custom_temperature: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
     - type: horizontal-stack
@@ -568,13 +575,20 @@ sections:
                 trayLabel: AMS 1 · Slot 4
                 trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
                 printWeightKey: AMS 1 Tray 4
+    - type: custom:button-card
+      template: ams_header
+      variables:
+        amsName: AMS 2 Pro
+        amsIcon: fapro:filament-2
+        humidityEntity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+        temperatureEntity: sensor.3d_printer_ams_2_humidity_and_temp_temperature
     - type: custom:ha-bambulab-ams-card
       entity: ''
       header: ''
-      subtitle: AMS 2 Pro
+      subtitle: ''
       style: vector
       ams: e8499b3326385f02079f3c382558ded2
-      show_info_bar: true
+      show_info_bar: false
       custom_humidity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
       custom_temperature: sensor.3d_printer_ams_2_humidity_and_temp_temperature
       show_type: false

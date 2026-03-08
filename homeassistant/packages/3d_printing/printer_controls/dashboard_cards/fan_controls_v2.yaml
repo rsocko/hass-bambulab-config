@@ -64,7 +64,7 @@ cards:
       {{ states('sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed') | int(0)
       }}%
     secondary: Chamber
-    icon: mdi:fan-chevron-up
+    icon: mdi:fan
     badge_icon: mdi:cube-outline
     badge_color: >-
       {% set s = states('sensor.ntk_ryansoffice_3dprinter_chamber_fan_speed') |

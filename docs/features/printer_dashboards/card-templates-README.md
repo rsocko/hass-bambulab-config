@@ -1,6 +1,6 @@
 # Card Templates
 
-This directory contains the source definitions for the three AMS tray `button-card` templates
+This directory contains the source definitions for the four AMS `button-card` templates
 used in the 3D printer dashboards. These files are the single source of truth — when you edit
 a template, update the corresponding file here so the repo stays current.
 
@@ -8,6 +8,7 @@ a template, update the corresponding file here so the repo stays current.
 
 | File | Template Name | Purpose |
 |------|--------------|---------|
+| `ams_header.yaml` | `ams_header` | AMS unit header separator — bubble-card with dynamic humidity/temperature indicators |
 | `ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) — shows tray name + active-spool highlight |
 | `ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — filament name, desiccant status, remaining weight, print weight |
 | `ams_tray_popup.yaml` | `ams_tray_popup` | Tap-action popup — spool info dialog (inherited by `ams_tray_detail`) |
@@ -18,6 +19,10 @@ a template, update the corresponding file here so the repo stays current.
 inheritance (`template: - ams_tray_popup`). Both must be defined in the same
 `button_card_templates:` block. To modify the popup, edit `ams_tray_popup.yaml`. To modify
 the card appearance, edit `ams_tray_detail.yaml`.
+
+`ams_header` is a standalone template — it wraps a `bubble-card` separator inside a
+transparent `button-card` shell so that variables can be passed via button-card's
+`[[[...]]]` template engine.
 
 ## How Templates are Loaded
 
@@ -35,8 +40,31 @@ the entire file into the Raw Configuration Editor and the templates are immediat
 
 ## Usage — In a Dashboard
 
-The `button_card_templates:` block at the top of `lovelace.3d_printing` contains all three
-templates. Each AMS slot card is a `vertical-stack` with two `custom:button-card` entries:
+The `button_card_templates:` block at the top of `lovelace.3d_printing` contains all four
+templates.
+
+### AMS Header (above each AMS unit)
+
+Place one `ams_header` card above each `ha-bambulab-ams-card` to replace the built-in
+header/subtitle and info bar. The header shows the AMS name with humidity and temperature
+sub-buttons that change icon and background color based on the current readings.
+
+```yaml
+- type: custom:button-card
+  template: ams_header
+  variables:
+    amsName: AMS 1
+    amsIcon: fapro:filament-2
+    humidityEntity: sensor.YOUR_AMS_HUMIDITY
+    temperatureEntity: sensor.YOUR_AMS_TEMPERATURE
+```
+
+Then set `subtitle: ''` and `show_info_bar: false` on the `ha-bambulab-ams-card` to remove
+the built-in header since the `ams_header` card now handles it.
+
+### AMS Tray Slot Cards
+
+Each AMS slot card is a `vertical-stack` with two `custom:button-card` entries:
 
 ```yaml
 - type: vertical-stack
@@ -70,6 +98,39 @@ There is no global/configuration.yaml mechanism for button-card templates in a s
 installation. Each dashboard that uses them must include the `button_card_templates:` block.
 
 ## Template Variables
+
+### `ams_header`
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `amsName` | Yes | Display name for the AMS unit (e.g. `AMS 1`, `AMS 2 Pro`) |
+| `amsIcon` | No | Header icon (default: `fapro:filament-2`) |
+| `humidityEntity` | Yes | Entity ID of the AMS humidity sensor (percentage-based) |
+| `temperatureEntity` | Yes | Entity ID of the AMS temperature sensor (°C) |
+
+#### Humidity Thresholds (Bambu Lab 1–5 Rating)
+
+The humidity sub-button icon and background color change dynamically:
+
+| Level | Range | Color | Icon | Background |
+|-------|-------|-------|------|------------|
+| 1 — Optimal | < 20% | Green | `mdi:water-outline` | Green tint |
+| 2 — Good | 20–40% | Light Green | `mdi:water-minus` | Light green tint |
+| 3 — Monitor | 40–60% | Amber | `mdi:water` | Amber tint |
+| 4 — Concern | 60–70% | Orange | `mdi:water-plus` | Orange tint |
+| 5 — Critical | > 70% | Red | `mdi:water-alert` | Red tint |
+
+#### Temperature Thresholds
+
+The temperature sub-button background color changes dynamically:
+
+| Range | Color | Status |
+|-------|-------|--------|
+| < 20°C | Blue | Cool |
+| 20–25°C | Green | Ideal |
+| 25–30°C | Amber | Warm |
+| 30–35°C | Orange | Hot |
+| > 35°C | Red | Too hot |
 
 ### `ams_tray_label`
 
