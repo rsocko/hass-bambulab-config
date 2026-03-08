@@ -950,13 +950,22 @@ button_card_templates:
         - box-shadow: none
         - padding: 0
         - margin: 0
+        - width: 100%
+        - overflow: visible
       grid:
         - display: contents
+      custom_fields:
+        header:
+          - width: 100%
+          - padding: 0
+          - margin: 0
+          - overflow: visible
     custom_fields:
       header:
         card:
           type: custom:bubble-card
           card_type: separator
+          card_layout: large
           name: '[[[ return variables.amsName || "AMS"; ]]]'
           icon: '[[[ return variables.amsIcon || "fapro:filament-2"; ]]]'
           sub_button:
