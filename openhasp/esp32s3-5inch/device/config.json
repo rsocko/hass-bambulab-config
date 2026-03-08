@@ -76,8 +76,6 @@
         "color1": "#00b6ff",
         "color2": "#ff9962",
         "font": "",
-        "pages": "/printer2.jsonl",
-        "anim": 0,
-        "atime": 0
+        "pages": "/printer2.jsonl"
     }
 }
