@@ -1,4 +1,5 @@
 {"page":2,"comment":"Page 2 - Printer Controls"}
+{"id":0,"obj":"obj","comment":"Page Background","x":0,"y":0,"w":800,"h":480,"bg_color":"#1f2529","bg_opa":255,"border_width":0,"radius":0,"click":false}
 {"id":1,"obj":"obj","comment":"Controls Page Container","x":90,"y":20,"w":690,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
 {"id":2,"obj":"obj","comment":"XY Outer Ring","x":100,"y":80,"w":320,"h":320,"radius":160,"bg_color":"#90a4ae","border_color":"#263238","border_width":2}
 {"id":3,"obj":"obj","comment":"XY Inner Ring","x":160,"y":140,"w":200,"h":200,"radius":100,"bg_color":"#cfd8dc","border_color":"#263238","border_width":2}

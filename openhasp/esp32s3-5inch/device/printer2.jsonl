@@ -14,6 +14,7 @@
 {"id":8,"obj":"img","comment":"Filament Icon","x":12,"y":146,"w":32,"h":32,"src":"L:/extruder_icon.png","click":false}
 
 {"page":1,"comment":"Page 1 - Printer Dashboard"}
+{"id":0,"obj":"obj","comment":"Page Background","x":0,"y":0,"w":800,"h":480,"bg_color":"#1f2529","bg_opa":255,"border_width":0,"radius":0,"click":false}
 {"id":1,"obj":"img","comment":"model image","x":90,"y":140,"w":200,"h":200,"src":"L:/haspImage.png","pivot_x":0,"pivot_y":0}
 {"id":2,"obj":"arc","comment":"% Complete","x":270,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
 {"id":3,"obj":"arc","comment":"Layer","x":60,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
@@ -64,6 +65,7 @@
 {"id":94,"obj":"btn","comment":"Stop Confirm YES Button (Destructive/Red)","x":438,"y":265,"w":180,"h":55,"radius":8,"bg_color":"#f44336","border_color":"#b71c1c","border_width":2,"text":"YES - STOP","text_font":22,"text_color":"#ffffff","hidden":true}
 
 {"page":2,"comment":"Page 2 - Printer Controls"}
+{"id":0,"obj":"obj","comment":"Page Background","x":0,"y":0,"w":800,"h":480,"bg_color":"#1f2529","bg_opa":255,"border_width":0,"radius":0,"click":false}
 {"id":1,"obj":"obj","comment":"Controls Page Container","x":60,"y":20,"w":720,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
 {"id":2,"obj":"obj","comment":"XY Outer Ring","x":70,"y":80,"w":320,"h":320,"radius":160,"bg_color":"#90a4ae","border_color":"#263238","border_width":2}
 {"id":3,"obj":"obj","comment":"XY Inner Ring","x":130,"y":140,"w":200,"h":200,"radius":100,"bg_color":"#cfd8dc","border_color":"#263238","border_width":2}
@@ -109,6 +111,7 @@
 {"id":55,"obj":"img","comment":"Extruder Extrude Icon","x":662,"y":288,"w":32,"h":32,"src":"L:/arrow_down.png","click":false}
 
 {"page":3,"comment":"Page 3 - Filament Weight and Cost"}
+{"id":0,"obj":"obj","comment":"Page Background","x":0,"y":0,"w":800,"h":480,"bg_color":"#1f2529","bg_opa":255,"border_width":0,"radius":0,"click":false}
 {"id":1,"obj":"obj","comment":"Analytics Page Container","x":60,"y":20,"w":720,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
 {"id":2,"obj":"label","comment":"Page Title","x":74,"y":30,"w":460,"h":36,"align":"left","text":"Filament Weight and Cost","text_font":24,"text_color":"#ffffff"}
 {"id":3,"obj":"obj","comment":"Weight Panel","x":74,"y":82,"w":320,"h":360,"radius":8,"bg_color":"#263238","border_color":"#37474f","border_width":2}

@@ -1,4 +1,5 @@
 {"page":1,"comment":"Page 1 - Printer Dashboard"}
+{"id":0,"obj":"obj","comment":"Page Background","x":0,"y":0,"w":800,"h":480,"bg_color":"#1f2529","bg_opa":255,"border_width":0,"radius":0,"click":false}
 {"id":1,"obj":"img","comment":"model image","x":100,"y":140,"w":200,"h":200,"src":"L:/haspImage.png","pivot_x":0,"pivot_y":0}
 {"id":2,"obj":"arc","comment":"% Complete","x":350,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}
 {"id":3,"obj":"arc","comment":"Layer","x":100,"y":10,"w":120,"h":120,"enabled":false,"start_angle":135,"end_angle":45,"type":0}

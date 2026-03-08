@@ -128,66 +128,17 @@
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ trigger.id == 'open_dashboard' }}"
+              value_template: "{{ trigger.id in ['open_dashboard','open_controls','open_filament'] }}"
           sequence:
+            - variables:
+                target_page: >-
+                  {% if trigger.id == 'open_dashboard' %}1
+                  {% elif trigger.id == 'open_controls' %}2
+                  {% else %}3{% endif %}
             - action: mqtt.publish
               data:
                 topic: hasp/officetouch5/command/page
-                payload: "1"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b3.val
-                payload: "1"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b5.val
-                payload: "0"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b7.val
-                payload: "0"
-
-        - conditions:
-            - condition: template
-              value_template: "{{ trigger.id == 'open_controls' }}"
-          sequence:
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/page
-                payload: "2"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b3.val
-                payload: "0"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b5.val
-                payload: "1"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b7.val
-                payload: "0"
-
-        - conditions:
-            - condition: template
-              value_template: "{{ trigger.id == 'open_filament' }}"
-          sequence:
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/page
-                payload: "3"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b3.val
-                payload: "0"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b5.val
-                payload: "0"
-            - action: mqtt.publish
-              data:
-                topic: hasp/officetouch5/command/p0b7.val
-                payload: "1"
+                payload: "{{ target_page }}"
 
         - conditions:
             - condition: template

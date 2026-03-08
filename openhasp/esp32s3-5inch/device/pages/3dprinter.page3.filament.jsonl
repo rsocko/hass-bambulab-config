@@ -1,4 +1,5 @@
 {"page":3,"comment":"Page 3 - Filament Weight and Cost"}
+{"id":0,"obj":"obj","comment":"Page Background","x":0,"y":0,"w":800,"h":480,"bg_color":"#1f2529","bg_opa":255,"border_width":0,"radius":0,"click":false}
 {"id":1,"obj":"obj","comment":"Analytics Page Container","x":90,"y":20,"w":690,"h":440,"radius":10,"bg_color":"#1f2529","border_color":"#384248","border_width":2}
 {"id":2,"obj":"label","comment":"Page Title","x":104,"y":30,"w":460,"h":36,"align":"left","text":"Filament Weight and Cost","text_font":24,"text_color":"#ffffff"}
 {"id":3,"obj":"obj","comment":"Weight Panel","x":104,"y":82,"w":320,"h":360,"radius":8,"bg_color":"#263238","border_color":"#37474f","border_width":2}
