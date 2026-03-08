@@ -1,8 +1,7 @@
 # ams_header.yaml
-# Button-card template wrapping a bubble-card separator for AMS unit headers.
-#
-# Uses button-card's [[[...]]] template engine to pass variables into the nested
-# bubble-card configuration and dynamically compute colors and icons.
+# Pure button-card template for AMS unit header separators.
+# Renders icon, title, separator line, and humidity/temperature pills
+# entirely via button-card custom HTML — no nested bubble-card needed.
 #
 # Humidity color thresholds (Bambu Lab 1-5 rating mapped to percentages):
 #   Level 1 - Optimal  (<20%):  Green        mdi:water-outline
@@ -44,10 +43,9 @@ ams_header:
       - background: none
       - border: none
       - box-shadow: none
-      - padding: 0
+      - padding: 6px 0
       - margin: 0
       - width: 100%
-      - overflow: visible
     grid:
       - display: contents
     custom_fields:
@@ -55,45 +53,52 @@ ams_header:
         - width: 100%
         - padding: 0
         - margin: 0
-        - overflow: visible
   custom_fields:
-    header:
-      card:
-        type: custom:bubble-card
-        card_type: separator
-        name: '[[[ return variables.amsName || "AMS"; ]]]'
-        icon: '[[[ return variables.amsIcon || "fapro:filament-2"; ]]]'
-        sub_button:
-          main:
-            - entity: '[[[ return variables.humidityEntity; ]]]'
-              icon: '[[[ const h = parseFloat(states[variables.humidityEntity]?.state) || 0; if (h >= 70) return "mdi:water-alert"; if (h >= 60) return "mdi:water-plus"; if (h >= 40) return "mdi:water"; if (h >= 20) return "mdi:water-minus"; return "mdi:water-outline"; ]]]'
-              show_state: true
-              show_icon: true
-              state_background: true
-              show_last_changed: false
-              show_attribute: false
-            - entity: '[[[ return variables.temperatureEntity; ]]]'
-              show_state: true
-              show_icon: true
-              state_background: true
-              show_last_changed: false
-              show_attribute: false
-          bottom: []
-        styles: |
-          [[[
-            const hVal = parseFloat(states[variables.humidityEntity]?.state) || 0;
-            const tVal = parseFloat(states[variables.temperatureEntity]?.state) || 0;
-            let hColor, hBg;
-            if (hVal < 20) { hColor = '#4CAF50'; hBg = 'rgba(76,175,80,0.2)'; }
-            else if (hVal < 40) { hColor = '#8BC34A'; hBg = 'rgba(139,195,74,0.2)'; }
-            else if (hVal < 60) { hColor = '#FFC107'; hBg = 'rgba(255,193,7,0.25)'; }
-            else if (hVal < 70) { hColor = '#FF9800'; hBg = 'rgba(255,152,0,0.25)'; }
-            else { hColor = '#F44336'; hBg = 'rgba(244,67,54,0.25)'; }
-            let tColor, tBg;
-            if (tVal < 20) { tColor = '#42A5F5'; tBg = 'rgba(66,165,245,0.2)'; }
-            else if (tVal < 25) { tColor = '#4CAF50'; tBg = 'rgba(76,175,80,0.2)'; }
-            else if (tVal < 30) { tColor = '#FFC107'; tBg = 'rgba(255,193,7,0.25)'; }
-            else if (tVal < 35) { tColor = '#FF9800'; tBg = 'rgba(255,152,0,0.25)'; }
-            else { tColor = '#F44336'; tBg = 'rgba(244,67,54,0.25)'; }
-            return `:host { width: 100% !important; } .bubble-header-container { width: 100% !important; } .bubble-header { display: flex !important; align-items: center !important; width: 100% !important; } .bubble-icon-container { margin-right: 0px !important; flex-shrink: 0 !important; } .bubble-name-container { flex-shrink: 0 !important; margin-right: 0 !important; } .bubble-line { display: block !important; visibility: visible !important; opacity: 1 !important; flex: 1 1 auto !important; height: 2px !important; min-width: 20px !important; background: rgba(255, 255, 255, 0.15) !important; margin: 0 12px 0 6px !important; border-radius: 1px !important; } .bubble-sub-button-container { margin-left: auto !important; flex-shrink: 0 !important; flex-wrap: nowrap !important; justify-content: flex-end !important; } .bubble-sub-button-1 { background-color: ${hBg} !important; } .bubble-sub-button-1 ha-icon { color: ${hColor} !important; } .bubble-sub-button-1 .bubble-sub-button-state { color: ${hColor} !important; font-weight: 600; } .bubble-sub-button-2 { background-color: ${tBg} !important; } .bubble-sub-button-2 ha-icon { color: ${tColor} !important; } .bubble-sub-button-2 .bubble-sub-button-state { color: ${tColor} !important; font-weight: 600; }`;
-          ]]]
+    header: |
+      [[[
+        const amsName = variables.amsName || 'AMS';
+        const amsIcon = variables.amsIcon || 'fapro:filament-2';
+        const hEntity = variables.humidityEntity;
+        const tEntity = variables.temperatureEntity;
+        const hVal = parseFloat(states[hEntity]?.state) || 0;
+        const tVal = parseFloat(states[tEntity]?.state) || 0;
+        const hState = states[hEntity]?.state || '0';
+        const tState = states[tEntity]?.state || '0';
+        const hUnit = states[hEntity]?.attributes?.unit_of_measurement || '%';
+        const tUnit = states[tEntity]?.attributes?.unit_of_measurement || '°C';
+        let hIcon;
+        if (hVal >= 70) hIcon = 'mdi:water-alert';
+        else if (hVal >= 60) hIcon = 'mdi:water-plus';
+        else if (hVal >= 40) hIcon = 'mdi:water';
+        else if (hVal >= 20) hIcon = 'mdi:water-minus';
+        else hIcon = 'mdi:water-outline';
+        let hColor, hBg;
+        if (hVal < 20) { hColor = '#4CAF50'; hBg = 'rgba(76,175,80,0.2)'; }
+        else if (hVal < 40) { hColor = '#8BC34A'; hBg = 'rgba(139,195,74,0.2)'; }
+        else if (hVal < 60) { hColor = '#FFC107'; hBg = 'rgba(255,193,7,0.25)'; }
+        else if (hVal < 70) { hColor = '#FF9800'; hBg = 'rgba(255,152,0,0.25)'; }
+        else { hColor = '#F44336'; hBg = 'rgba(244,67,54,0.25)'; }
+        let tColor, tBg;
+        if (tVal < 20) { tColor = '#42A5F5'; tBg = 'rgba(66,165,245,0.2)'; }
+        else if (tVal < 25) { tColor = '#4CAF50'; tBg = 'rgba(76,175,80,0.2)'; }
+        else if (tVal < 30) { tColor = '#FFC107'; tBg = 'rgba(255,193,7,0.25)'; }
+        else if (tVal < 35) { tColor = '#FF9800'; tBg = 'rgba(255,152,0,0.25)'; }
+        else { tColor = '#F44336'; tBg = 'rgba(244,67,54,0.25)'; }
+        return `
+          <div style="display:flex; align-items:center; width:100%; padding:0 12px; box-sizing:border-box;">
+            <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:var(--primary-text-color); flex-shrink:0;"></ha-icon>
+            <span style="font-size:14px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; flex-shrink:0; margin-left:4px;">${amsName}</span>
+            <div style="flex:1; height:3px; background:rgba(255,255,255,0.12); margin:0 12px 0 8px; border-radius:1.5px; min-width:10px;"></div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+              <div style="display:flex; align-items:center; gap:4px; background:${hBg}; border-radius:20px; padding:4px 10px 4px 6px;">
+                <ha-icon icon="${hIcon}" style="--mdc-icon-size:16px; color:${hColor};"></ha-icon>
+                <span style="font-size:12px; font-weight:600; color:${hColor}; white-space:nowrap;">${hState}${hUnit}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; background:${tBg}; border-radius:20px; padding:4px 10px 4px 6px;">
+                <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:16px; color:${tColor};"></ha-icon>
+                <span style="font-size:12px; font-weight:600; color:${tColor}; white-space:nowrap;">${tState} ${tUnit}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      ]]]
