@@ -62,8 +62,8 @@ ams_header:
         const tEntity = variables.temperatureEntity;
         const hVal = parseFloat(states[hEntity]?.state) || 0;
         const tVal = parseFloat(states[tEntity]?.state) || 0;
-        const hState = states[hEntity]?.state || '0';
-        const tState = states[tEntity]?.state || '0';
+        const hState = Math.round(hVal);
+        const tState = Math.round(tVal);
         const hUnit = states[hEntity]?.attributes?.unit_of_measurement || '%';
         const tUnit = states[tEntity]?.attributes?.unit_of_measurement || '°C';
         let hIcon;
@@ -89,14 +89,14 @@ ams_header:
             <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:var(--primary-text-color); flex-shrink:0;"></ha-icon>
             <span style="font-size:14px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; flex-shrink:0; margin-left:4px;">${amsName}</span>
             <div style="flex:1; height:3px; background:rgba(255,255,255,0.12); margin:0 12px 0 8px; border-radius:1.5px; min-width:10px;"></div>
-            <div style="display:flex; gap:6px; flex-shrink:0;">
-              <div style="display:flex; align-items:center; gap:4px; background:${hBg}; border-radius:20px; padding:4px 10px 4px 6px;">
-                <ha-icon icon="${hIcon}" style="--mdc-icon-size:16px; color:${hColor};"></ha-icon>
-                <span style="font-size:12px; font-weight:600; color:${hColor}; white-space:nowrap;">${hState}${hUnit}</span>
+            <div style="display:flex; gap:6px; flex-shrink:0; margin-left:auto;">
+              <div style="display:inline-flex; align-items:center; gap:4px; background:${hBg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1;">
+                <ha-icon icon="${hIcon}" style="--mdc-icon-size:16px; color:${hColor}; display:flex;"></ha-icon>
+                <span style="font-size:12px; font-weight:600; color:#ffffff; white-space:nowrap; line-height:16px;">${hState}${hUnit}</span>
               </div>
-              <div style="display:flex; align-items:center; gap:4px; background:${tBg}; border-radius:20px; padding:4px 10px 4px 6px;">
-                <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:16px; color:${tColor};"></ha-icon>
-                <span style="font-size:12px; font-weight:600; color:${tColor}; white-space:nowrap;">${tState} ${tUnit}</span>
+              <div style="display:inline-flex; align-items:center; gap:4px; background:${tBg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1;">
+                <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:16px; color:${tColor}; display:flex;"></ha-icon>
+                <span style="font-size:12px; font-weight:600; color:#ffffff; white-space:nowrap; line-height:16px;">${tState} ${tUnit}</span>
               </div>
             </div>
           </div>
