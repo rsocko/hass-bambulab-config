@@ -418,13 +418,14 @@ sections:
             disable: []
           always_error_if_entity_unavailable: false
           image:
+            mode: camera
             # mode: url with a custom image replaces the default "flowers"
             # screensaver shown while the live stream is loading.
             # Place your image at /config/www/bambu-printer.jpg in HA.
             #mode: url
             #url: /local/bambu-printer.jpg
         - camera_entity: camera.3dprintertopcamera_hd_stream
-          image:
+          #image:
             # mode: url with a custom image replaces the default "flowers"
             # screensaver shown while the live stream is loading.
             # Place your image at /config/www/bambu-printer.jpg in HA.
