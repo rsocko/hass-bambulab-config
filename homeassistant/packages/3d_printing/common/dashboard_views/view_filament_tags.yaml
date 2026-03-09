@@ -12,7 +12,7 @@ cards:
   card_layout: large
 - type: custom:config-template-card
   variables:
-    selected_entity: states['sensor.selected_spool'].state
+    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
   entities:
     - sensor.selected_spool
   card:
@@ -76,8 +76,8 @@ cards:
   entities:
     - sensor.selected_spool
   variables:
-    selected_entity: states['sensor.selected_spool'].state
-    spool_id: states[states['sensor.selected_spool'].state].attributes.id
+    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
+    spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
   card:
     type: custom:bubble-card
     card_type: sub-buttons
@@ -88,7 +88,7 @@ cards:
       main: []
       bottom:
         - tap_action:
-            action: perform-action
+            action: "${ spool_id ? 'perform-action' : 'none' }"
             perform_action: script.update_spool_location
             target: {}
             data:
@@ -100,7 +100,7 @@ cards:
           show_state: false
           state_background: false
         - tap_action:
-            action: perform-action
+            action: "${ spool_id ? 'perform-action' : 'none' }"
             perform_action: script.update_spool_location
             target: {}
             data:
@@ -160,8 +160,8 @@ cards:
     - sensor.selected_spool
     - input_select.spool_location_choice
   variables:
-    selected_entity: states['sensor.selected_spool'].state
-    spool_id: states[states['sensor.selected_spool'].state].attributes.id
+    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
+    spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
     new_location: states['input_select.spool_location_choice'].state
   card:
     type: custom:bubble-card
@@ -171,7 +171,7 @@ cards:
     icon: mdi:tray-arrow-down
     show_icon: true
     tap_action:
-      action: call-service
+      action: "${spool_id ? 'call-service' : 'none'}"
       service: script.update_spool_location
       service_data:
         spool_id: ${spool_id}
@@ -199,9 +199,9 @@ cards:
       icon: mdi:water
       label: |
         [[[
-          const selected_entity = states['sensor.selected_spool'].state;
-          const spool_id = states[selected_entity].attributes.id;
-          const spool_entity = states[selected_entity];
+          const selected_entity = states['sensor.selected_spool']?.state;
+          const spool_entity = selected_entity ? states[selected_entity] : null;
+          if (!spool_entity) return 'No spool selected';
 
           const date = spool_entity?.attributes?.extra_desiccant_filled;
           if (!date) return '—';
@@ -233,9 +233,9 @@ cards:
           - margin-bottom: 2px
           - color: |
               [[[
-                const selected_entity = states['sensor.selected_spool'].state;
-                const spool_id = states[selected_entity].attributes.id;
-                const spool_entity = states[selected_entity];
+                const selected_entity = states['sensor.selected_spool']?.state;
+                const spool_entity = selected_entity ? states[selected_entity] : null;
+                if (!spool_entity) return 'gray';
 
                 const date = spool_entity?.attributes?.extra_desiccant_filled;
                 if (!date) return 'gray';
@@ -252,21 +252,30 @@ cards:
           - white-space: nowrap
     - type: custom:button-card
       icon: mdi:clock-check-outline
-      label: Mark as refilled
+      label: |
+        [[[
+          const selected_entity = states['sensor.selected_spool']?.state;
+          const spool_entity = selected_entity ? states[selected_entity] : null;
+          return spool_entity?.attributes?.id ? 'Mark as refilled' : 'Select spool first';
+        ]]]
       show_icon: true
       show_name: false
       show_label: true
+      triggers_update: all
       tap_action:
-        action: call-service
+        action: |
+          [[[
+            const selected_entity = states['sensor.selected_spool']?.state;
+            const spool_entity = selected_entity ? states[selected_entity] : null;
+            return spool_entity?.attributes?.id ? 'call-service' : 'none';
+          ]]]
         service: script.refill_desiccant_update_date
         service_data:
           spool_id: |
             [[[
-              const selected_entity = states['sensor.selected_spool'].state;
-              const spool_id = states[selected_entity].attributes.id;
-              const spool_entity = states[selected_entity];
-
-              return spool_id;
+              const selected_entity = states['sensor.selected_spool']?.state;
+              const spool_entity = selected_entity ? states[selected_entity] : null;
+              return spool_entity?.attributes?.id || '';
             ]]]
       styles:
         grid:
@@ -278,6 +287,12 @@ cards:
           - border: 1px solid rgba(0,0,0,0.15)
           - box-shadow: none
           - padding: 4px
+          - opacity: |
+              [[[
+                const selected_entity = states['sensor.selected_spool']?.state;
+                const spool_entity = selected_entity ? states[selected_entity] : null;
+                return spool_entity?.attributes?.id ? '1' : '0.45';
+              ]]]
         icon:
           - width: 25px
           - height: 25px
@@ -302,8 +317,9 @@ cards:
       icon: mdi:heat-wave
       label: |
         [[[
-          const selected_entity = states['sensor.selected_spool'].state;
-          const spool_entity = states[selected_entity];
+          const selected_entity = states['sensor.selected_spool']?.state;
+          const spool_entity = selected_entity ? states[selected_entity] : null;
+          if (!spool_entity) return 'No spool selected';
 
           const date = spool_entity?.attributes?.extra_last_dried;
           if (!date) return '—';
@@ -335,8 +351,9 @@ cards:
           - margin-bottom: 2px
           - color: |
               [[[
-                const selected_entity = states['sensor.selected_spool'].state;
-                const spool_entity = states[selected_entity];
+                const selected_entity = states['sensor.selected_spool']?.state;
+                const spool_entity = selected_entity ? states[selected_entity] : null;
+                if (!spool_entity) return 'gray';
 
                 const date = spool_entity?.attributes?.extra_last_dried;
                 if (!date) return 'gray';
@@ -352,20 +369,30 @@ cards:
           - white-space: nowrap
     - type: custom:button-card
       icon: mdi:heat-wave
-      label: Mark as Dried
+      label: |
+        [[[
+          const selected_entity = states['sensor.selected_spool']?.state;
+          const spool_entity = selected_entity ? states[selected_entity] : null;
+          return spool_entity?.attributes?.id ? 'Mark as Dried' : 'Select spool first';
+        ]]]
       show_icon: true
       show_name: false
       show_label: true
+      triggers_update: all
       tap_action:
-        action: call-service
+        action: |
+          [[[
+            const selected_entity = states['sensor.selected_spool']?.state;
+            const spool_entity = selected_entity ? states[selected_entity] : null;
+            return spool_entity?.attributes?.id ? 'call-service' : 'none';
+          ]]]
         service: script.mark_spool_as_dried_in_spoolman
         service_data:
           spool_id: |
             [[[
-              const selected_entity = states['sensor.selected_spool'].state;
-              const spool_id = states[selected_entity].attributes.id;
-
-              return spool_id;
+              const selected_entity = states['sensor.selected_spool']?.state;
+              const spool_entity = selected_entity ? states[selected_entity] : null;
+              return spool_entity?.attributes?.id || '';
             ]]]
       styles:
         grid:
@@ -377,6 +404,12 @@ cards:
           - border: 1px solid rgba(0,0,0,0.15)
           - box-shadow: none
           - padding: 4px
+          - opacity: |
+              [[[
+                const selected_entity = states['sensor.selected_spool']?.state;
+                const spool_entity = selected_entity ? states[selected_entity] : null;
+                return spool_entity?.attributes?.id ? '1' : '0.45';
+              ]]]
         icon:
           - width: 25px
           - height: 25px
