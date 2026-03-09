@@ -358,7 +358,7 @@ cards:
       show_label: true
       tap_action:
         action: call-service
-        service: script.mark_spool_as_dried
+        service: script.mark_spool_as_dried_in_spoolman
         service_data:
           spool_id: |
             [[[

@@ -1,0 +1,8 @@
+# Filament Tag package entities used by the filament tag dashboard view.
+automation: !include_dir_merge_list automations
+script: !include_dir_merge_named scripts
+
+input_select: !include_dir_merge_named helpers/input_select
+input_text: !include_dir_merge_named helpers/input_text
+input_boolean: !include_dir_merge_named helpers/input_boolean
+template: !include_dir_merge_list template_sensors

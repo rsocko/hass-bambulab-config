@@ -1,5 +1,6 @@
 core_loader: !include core/core_loader.yaml
 common_loader: !include common/common_loader.yaml
+filament_tag_loader: !include filament_tag/filament_tag_loader.yaml
 printer_led_loader: !include printer_led/printer_led_loader.yaml
 printer_controls_loader: !include printer_controls/printer_controls_loader.yaml
 openhasp_display_loader: !include openhasp_display/openhasp_display_loader.yaml

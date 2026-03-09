@@ -1,0 +1,18 @@
+update_spool_location:
+  alias: Update Spool Location
+  description: ""
+  mode: single
+  icon: mdi:map-marker-distance
+  fields:
+    spool_id:
+      description: Spool ID to update
+      example: 123
+    location:
+      description: new location for the spool
+      example: AMS
+  sequence:
+    - action: spoolman.patch_spool
+      metadata: {}
+      data:
+        id: "{{ spool_id }}"
+        location: "{{ location }}"

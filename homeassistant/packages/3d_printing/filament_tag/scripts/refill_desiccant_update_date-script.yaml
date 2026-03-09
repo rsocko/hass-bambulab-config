@@ -1,0 +1,17 @@
+refill_desiccant_update_date:
+  alias: Refill Desiccant (Update Date)
+  description: ""
+  mode: single
+  icon: fas:droplet
+  fields:
+    spool_id:
+      description: Spool ID to update
+      example: 123
+  sequence:
+    - action: spoolman.patch_spool
+      metadata: {}
+      data:
+        id: "{{ spool_id }}"
+        extra:
+          desiccant_filled: "{{ now().isoformat() }}"
+          desiccant_in_spool: true

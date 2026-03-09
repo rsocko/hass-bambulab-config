@@ -1,0 +1,4 @@
+spool_location_refresh:
+  name: spool_location_refresh
+  initial: true
+  icon: mdi:refresh

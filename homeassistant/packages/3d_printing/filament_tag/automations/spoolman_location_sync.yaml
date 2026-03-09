@@ -1,0 +1,29 @@
+- alias: spoolman location sync
+  description: ""
+  triggers:
+    - trigger: state
+      entity_id:
+        - select.spoolman_unique_locations
+  actions:
+    - variables:
+        new_options: "{{ state_attr('select.spoolman_unique_locations', 'options') or [] }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ new_options | count > 0 }}"
+          sequence:
+            - data:
+                entity_id: input_select.spool_location_choice
+                options: "{{ new_options }}"
+              action: input_select.set_options
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: >
+                        {{ not states('input_select.spool_location_choice') in new_options }}
+                  sequence:
+                    - data:
+                        entity_id: input_select.spool_location_choice
+                        option: "{{ new_options[0] }}"
+                      action: input_select.select_option
+      default: []

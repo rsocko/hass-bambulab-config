@@ -1,0 +1,5 @@
+filament_id:
+  name: filament_id
+  max: 100
+  initial: ""
+  icon: fapro:filament-2
