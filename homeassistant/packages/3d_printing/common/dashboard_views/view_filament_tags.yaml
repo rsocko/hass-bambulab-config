@@ -448,11 +448,11 @@ cards:
       service_data:
         entity_id: input_text.filament_id
         value: "${ filament_id || '' }"
-    disabled: true
     card_mod:
       style: |
         ha-card {
           opacity: ${ filament_id ? 1 : 0.5 };
+          pointer-events: ${ filament_id ? 'auto' : 'none' };
         }
     button_type: name
     sub_button:
