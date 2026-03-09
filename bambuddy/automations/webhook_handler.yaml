@@ -1,0 +1,79 @@
+alias: "Bambuddy - Webhook Handler"
+description: >
+  Receives webhook events from Bambuddy and acts on them in Home Assistant.
+  Supports print_started, print_finished, print_failed, and queue_ready events.
+  Configure a webhook in Bambuddy pointing to:
+    http(s)://your-ha-instance/api/webhook/bambuddy_events
+  See bambuddy/README.md for setup instructions.
+
+triggers:
+  - trigger: webhook
+    webhook_id: "bambuddy_events"
+    allowed_methods:
+      - POST
+    local_only: false
+
+conditions: []
+
+actions:
+  - variables:
+      event_type: "{{ trigger.json.event | default('unknown') }}"
+      print_name: "{{ trigger.json.print_name | default('') }}"
+      printer_name: "{{ trigger.json.printer_name | default('') }}"
+      archive_id: "{{ trigger.json.archive_id | default('') }}"
+      status: "{{ trigger.json.status | default('') }}"
+      photo_url: "{{ trigger.json.photo_url | default('') }}"
+
+  - action: logbook.log
+    data:
+      name: Bambuddy Webhook
+      message: "Received event '{{ event_type }}' for '{{ print_name }}' on {{ printer_name }}"
+
+  # Handle: print_finished — update history sensor and send notification if needed
+  - if:
+      - condition: template
+        value_template: "{{ event_type == 'print_finished' }}"
+    then:
+      - action: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.bambuddy_print_history
+            - sensor.bambuddy_statistics
+
+  # Handle: print_failed — trigger maintenance check alert
+  - if:
+      - condition: template
+        value_template: "{{ event_type == 'print_failed' }}"
+    then:
+      - action: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.bambuddy_print_history
+            - sensor.bambuddy_statistics
+      - action: persistent_notification.create
+        data:
+          notification_id: "bambuddy_print_failed_{{ archive_id }}"
+          title: "🖨️ Bambuddy: Print Failed"
+          message: >-
+            Print '{{ print_name }}' on {{ printer_name }} has failed.
+            {% if photo_url != '' %}View photo: {{ states('input_text.bambuddy_api_base_url') }}{{ photo_url }}{% endif %}
+            [Open Bambuddy Archive]({{ states('input_text.bambuddy_api_base_url') }}/archives)
+
+  # Handle: queue_ready — notify that next print in queue is ready to start
+  - if:
+      - condition: template
+        value_template: "{{ event_type == 'queue_ready' }}"
+    then:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.bambuddy_print_queue
+      - action: persistent_notification.create
+        data:
+          notification_id: bambuddy_queue_ready
+          title: "📋 Bambuddy: Print Queue Ready"
+          message: >-
+            The next print job '{{ print_name }}' is ready to start on {{ printer_name }}.
+            [Open Bambuddy Queue]({{ states('input_text.bambuddy_api_base_url') }}/queue)
+
+mode: queued
+max: 10

@@ -1,0 +1,61 @@
+alias: "Bambuddy - Create Archive and Link Print on Start"
+description: >
+  When a print job starts, creates a Bambuddy archive entry and stores the returned
+  archive ID so that the photo and result can be linked back to it on completion.
+  Requires Bambuddy integration helpers and rest_commands configured.
+  See bambuddy/README.md for setup instructions.
+
+triggers:
+  # Replace device_id with your printer's device ID (found in Settings → Devices)
+  # Replace entity prefix 'ntk_ryansoffice_3dprinter' below with your printer's entity prefix
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_started
+    trigger: device
+
+conditions:
+  - condition: state
+    entity_id: input_boolean.bambuddy_integration_enabled
+    state: "on"
+
+actions:
+  - variables:
+      printer_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      print_weight: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | float(0) }}"
+      filament_type: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | default('Unknown') }}"
+      printer_id: "{{ states('input_text.bambuddy_printer_id') }}"
+
+  # Create archive entry in Bambuddy
+  - action: rest_command.bambuddy_create_archive
+    data:
+      name: "{{ task_name }}"
+      printer_id: "{{ printer_id }}"
+      filament: "{{ filament_type }}"
+      weight_grams: "{{ print_weight }}"
+      tags: []
+    response_variable: archive_response
+
+  # Store the returned archive ID for later use
+  - if:
+      - condition: template
+        value_template: "{{ archive_response is defined and archive_response.content is defined }}"
+    then:
+      - variables:
+          archive_id: "{{ (archive_response.content | from_json).id | default('') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.bambuddy_current_archive_id
+        data:
+          value: "{{ archive_id }}"
+      - action: logbook.log
+        data:
+          name: Bambuddy Integration
+          message: "Created archive {{ archive_id }} for print '{{ task_name }}'"
+    else:
+      - action: system_log.write
+        data:
+          level: warning
+          message: "Bambuddy - Failed to create archive for '{{ task_name }}'. Check API key and base URL."
+
+mode: single

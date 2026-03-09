@@ -1,0 +1,188 @@
+# Bambuddy Statistics Dashboard Card
+# Displays overall printing statistics from Bambuddy in a rich stat layout.
+# Requires sensor.bambuddy_statistics and template sensors configured.
+# See bambuddy/README.md for setup instructions.
+
+type: vertical-stack
+cards:
+  # Section header
+  - type: markdown
+    content: |
+      ## 📊 Printing Statistics
+      *Powered by [Bambuddy]({{states('input_text.bambuddy_api_base_url')}}/statistics)*
+
+  # Key stats row 1: prints this week, this month, total
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_prints_this_week
+        name: This Week
+        icon: mdi:calendar-week
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 24px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_statistics
+        name: This Month
+        icon: mdi:calendar-month
+        show_state: false
+        custom_fields:
+          value: >
+            [[[
+              const val = entity.attributes.prints_this_month;
+              return `<span style="font-size:24px;font-weight:700">${val ?? '–'}</span>`;
+            ]]]
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          custom_fields:
+            value:
+              - text-align: center
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_statistics
+        name: All Time
+        icon: mdi:counter
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 24px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+  # Key stats row 2: success rate, filament used, total hours
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_success_rate
+        name: Success Rate
+        icon: mdi:check-circle-outline
+        show_state: true
+        color_type: card
+        color: >
+          [[[
+            const rate = parseFloat(entity.state);
+            if (rate >= 90) return '#1B5E20';
+            if (rate >= 75) return '#E65100';
+            return '#B71C1C';
+          ]]]
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_filament_used
+        name: Filament Used
+        icon: mdi:weight-gram
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_print_time
+        name: Print Hours
+        icon: mdi:timer-sand
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+  # Failed vs cancelled bar
+  - type: custom:button-card
+    entity: sensor.bambuddy_statistics
+    name: "Print Outcomes"
+    icon: mdi:chart-pie
+    show_state: false
+    custom_fields:
+      outcome_bar: |
+        [[[
+          const attrs = entity.attributes;
+          const total = attrs.total_prints || 1;
+          const success = attrs.successful_prints || 0;
+          const failed = attrs.failed_prints || 0;
+          const cancelled = attrs.cancelled_prints || 0;
+          const sp = (success / total * 100).toFixed(1);
+          const fp = (failed / total * 100).toFixed(1);
+          const cp = (cancelled / total * 100).toFixed(1);
+          return `
+            <div style="padding:4px 0 8px">
+              <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:6px">
+                <div style="width:${sp}%;background:#2E7D32" title="Success: ${success}"></div>
+                <div style="width:${fp}%;background:#C62828" title="Failed: ${failed}"></div>
+                <div style="width:${cp}%;background:#795548" title="Cancelled: ${cancelled}"></div>
+              </div>
+              <div style="display:flex;gap:12px;font-size:11px">
+                <span>✅ Success: ${success} (${sp}%)</span>
+                <span>❌ Failed: ${failed} (${fp}%)</span>
+                <span>⛔ Cancelled: ${cancelled} (${cp}%)</span>
+              </div>
+            </div>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 12px 16px
+      name:
+        - font-size: 14px
+        - font-weight: 600
+        - text-align: left
+      custom_fields:
+        outcome_bar:
+          - width: 100%
+
+  # Open Bambuddy button
+  - type: custom:button-card
+    name: Open Full Statistics in Bambuddy
+    icon: mdi:open-in-new
+    tap_action:
+      action: url
+      url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/statistics'; ]]]"
+    styles:
+      card:
+        - border-radius: 12px
+        - background: "#1565C0"
+        - color: white
+      name:
+        - color: white
+        - font-size: 14px
+      icon:
+        - color: white

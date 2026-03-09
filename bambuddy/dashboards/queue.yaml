@@ -1,0 +1,107 @@
+# Bambuddy Print Queue Dashboard Card
+# Displays the current print queue from Bambuddy with job counts and details.
+# Provides a quick link to the full queue management UI in Bambuddy.
+# See bambuddy/README.md for setup instructions.
+
+type: vertical-stack
+cards:
+  # Header with queue count badge
+  - type: custom:button-card
+    entity: sensor.bambuddy_queue_count
+    name: Print Queue
+    icon: mdi:playlist-play
+    show_state: false
+    custom_fields:
+      badge: |
+        [[[
+          const count = parseInt(entity.state) || 0;
+          const color = count > 0 ? '#1565C0' : '#546E7A';
+          return `<span style="background:${color};color:white;border-radius:12px;padding:2px 10px;font-size:14px;font-weight:700">${count} job${count !== 1 ? 's' : ''}</span>`;
+        ]]]
+    tap_action:
+      action: url
+      url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/queue'; ]]]"
+    styles:
+      card:
+        - border-radius: 12px 12px 0 0
+        - padding: 8px 16px
+      grid:
+        - grid-template-areas: '"i n badge"'
+        - grid-template-columns: 40px 1fr auto
+      name:
+        - font-size: 16px
+        - font-weight: 600
+        - text-align: left
+      icon:
+        - width: 24px
+        - color: "#2196F3"
+      custom_fields:
+        badge:
+          - justify-self: end
+          - align-self: center
+
+  # Queue job list
+  - type: custom:button-card
+    entity: sensor.bambuddy_print_queue
+    show_name: false
+    show_icon: false
+    show_state: false
+    custom_fields:
+      queue_list: |
+        [[[
+          const jobs = entity.attributes.jobs || [];
+          if (jobs.length === 0) {
+            return `
+              <div style="padding:20px;text-align:center;color:var(--secondary-text-color)">
+                <div style="font-size:32px;margin-bottom:8px">📭</div>
+                <div>Print queue is empty</div>
+                <div style="font-size:12px;margin-top:4px">Add jobs in Bambuddy to see them here</div>
+              </div>`;
+          }
+
+          const rows = jobs.map((job, idx) => {
+            const statusIcon = job.status === 'printing' ? '🖨️'
+              : job.status === 'waiting' ? '⏳'
+              : job.status === 'paused' ? '⏸️'
+              : '📋';
+            const copies = job.copies > 1 ? ` × ${job.copies}` : '';
+            const printer = job.printer_name ? `<br><span style="font-size:11px;color:var(--secondary-text-color)">${job.printer_name}</span>` : '';
+            return `
+              <tr style="border-bottom:1px solid var(--divider-color)">
+                <td style="padding:8px 4px;text-align:center;font-size:18px">${idx + 1}</td>
+                <td style="padding:8px 8px">
+                  <span style="font-size:13px;font-weight:500">${job.name || 'Unnamed'}${copies}</span>
+                  ${printer}
+                </td>
+                <td style="padding:8px 4px;text-align:right;font-size:18px">${statusIcon}</td>
+              </tr>`;
+          }).join('');
+
+          return `<table style="width:100%;border-collapse:collapse">${rows}</table>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 0
+        - padding: 0
+      custom_fields:
+        queue_list:
+          - width: 100%
+          - display: block
+
+  # Open Queue button
+  - type: custom:button-card
+    name: Manage Queue in Bambuddy
+    icon: mdi:open-in-new
+    tap_action:
+      action: url
+      url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/queue'; ]]]"
+    styles:
+      card:
+        - border-radius: 0 0 12px 12px
+        - background: "#1565C0"
+        - color: white
+      name:
+        - color: white
+        - font-size: 14px
+      icon:
+        - color: white

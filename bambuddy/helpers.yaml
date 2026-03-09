@@ -1,0 +1,57 @@
+# Bambuddy Integration Helpers
+# Configuration and state helpers for Bambuddy API integration
+# See README.md for setup instructions
+
+input_text:
+  # --- Bambuddy Server Configuration ---
+  bambuddy_api_base_url:
+    name: Bambuddy API Base URL
+    max: 255
+    initial: "http://localhost:8000"
+    icon: mdi:server
+
+  bambuddy_api_key:
+    name: Bambuddy API Key
+    max: 255
+    initial: ""
+    icon: mdi:key
+
+  bambuddy_printer_id:
+    name: Bambuddy Printer ID
+    max: 100
+    initial: ""
+    icon: mdi:printer-3d
+
+  # --- State Storage ---
+  # Stores the Bambuddy archive ID of the current/last print job for photo upload and history linking
+  bambuddy_current_archive_id:
+    name: Bambuddy Current Archive ID
+    max: 100
+    initial: ""
+    icon: mdi:archive
+
+input_boolean:
+  # Master switch for the entire Bambuddy integration
+  bambuddy_integration_enabled:
+    name: Bambuddy Integration Enabled
+    icon: mdi:archive-check
+
+  # Enable pulling print history via REST sensor (polls every 5 minutes)
+  bambuddy_history_fetch_enabled:
+    name: Bambuddy History Fetch Enabled
+    icon: mdi:history
+
+  # Enable maintenance alerts from Bambuddy statistics
+  bambuddy_maintenance_alerts_enabled:
+    name: Bambuddy Maintenance Alerts Enabled
+    icon: mdi:wrench-clock
+
+input_number:
+  # Maximum number of print history entries to display on the dashboard
+  bambuddy_history_limit:
+    name: Bambuddy History Display Limit
+    min: 5
+    max: 50
+    step: 5
+    initial: 10
+    icon: mdi:format-list-numbered

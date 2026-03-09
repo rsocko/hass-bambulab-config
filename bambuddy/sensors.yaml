@@ -1,0 +1,208 @@
+# Bambuddy REST Sensors and Template Sensors
+# Pulls print history, queue, statistics, and printer status from Bambuddy API.
+# See README.md for setup and entity reference.
+#
+# Add to configuration.yaml:
+#   sensor: !include bambuddy/sensors.yaml
+# Or as a package:
+#   homeassistant:
+#     packages:
+#       bambuddy_sensors: !include bambuddy/sensors.yaml
+
+# ---------------------------------------------------------------------------
+# REST sensors — these poll the Bambuddy API on a schedule
+# ---------------------------------------------------------------------------
+
+- platform: rest
+  name: "Bambuddy Print History"
+  unique_id: bambuddy_print_history
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{
+      states('input_number.bambuddy_history_limit') | int(10)
+    }}&sort=created_at&order=desc
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.total | default(0) }}
+  json_attributes:
+    - archives
+    - total
+    - page
+  scan_interval: 300  # 5 minutes
+  icon: mdi:history
+
+- platform: rest
+  name: "Bambuddy Print Queue"
+  unique_id: bambuddy_print_queue
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/queue
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json | length | default(0) }}
+  json_attributes_path: "$"
+  json_attributes:
+    - jobs
+    - total
+  scan_interval: 60  # 1 minute
+  icon: mdi:playlist-play
+
+- platform: rest
+  name: "Bambuddy Statistics"
+  unique_id: bambuddy_statistics
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/statistics
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.total_prints | default(0) }}
+  json_attributes:
+    - total_prints
+    - successful_prints
+    - failed_prints
+    - cancelled_prints
+    - total_print_time_hours
+    - total_filament_used_grams
+    - success_rate_percent
+    - prints_this_month
+    - prints_this_week
+    - avg_print_time_hours
+    - most_used_filament
+    - top_models
+  scan_interval: 600  # 10 minutes
+  icon: mdi:chart-bar
+
+- platform: rest
+  name: "Bambuddy Printer Status"
+  unique_id: bambuddy_printer_status
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/printers/{{
+      states('input_text.bambuddy_printer_id')
+    }}/status
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.status | default('unknown') }}
+  json_attributes:
+    - status
+    - current_print
+    - maintenance
+    - error
+    - nozzle_temp
+    - bed_temp
+    - chamber_temp
+    - print_progress
+    - time_remaining_minutes
+    - fan_speed
+    - filament
+  scan_interval: 30  # 30 seconds
+  icon: mdi:printer-3d
+
+# ---------------------------------------------------------------------------
+# Template sensors — derived from REST sensor attributes
+# ---------------------------------------------------------------------------
+
+- platform: template
+  sensors:
+    bambuddy_last_print_name:
+      friendly_name: "Bambuddy Last Print Name"
+      unique_id: bambuddy_last_print_name
+      icon_template: mdi:printer-3d
+      value_template: >-
+        {% set archives = state_attr('sensor.bambuddy_print_history', 'archives') %}
+        {% if archives and archives | length > 0 %}
+          {{ archives[0].name | default('Unknown') }}
+        {% else %}
+          None
+        {% endif %}
+
+    bambuddy_last_print_status:
+      friendly_name: "Bambuddy Last Print Status"
+      unique_id: bambuddy_last_print_status
+      icon_template: >-
+        {% set status = states('sensor.bambuddy_last_print_status') %}
+        {% if status == 'success' %}mdi:check-circle
+        {% elif status == 'failed' %}mdi:alert-circle
+        {% elif status == 'cancelled' %}mdi:cancel
+        {% else %}mdi:help-circle
+        {% endif %}
+      value_template: >-
+        {% set archives = state_attr('sensor.bambuddy_print_history', 'archives') %}
+        {% if archives and archives | length > 0 %}
+          {{ archives[0].status | default('unknown') }}
+        {% else %}
+          None
+        {% endif %}
+
+    bambuddy_last_print_duration:
+      friendly_name: "Bambuddy Last Print Duration"
+      unique_id: bambuddy_last_print_duration
+      icon_template: mdi:timer-outline
+      unit_of_measurement: "h"
+      value_template: >-
+        {% set archives = state_attr('sensor.bambuddy_print_history', 'archives') %}
+        {% if archives and archives | length > 0 %}
+          {{ (archives[0].duration_seconds | default(0) / 3600) | round(1) }}
+        {% else %}
+          0
+        {% endif %}
+
+    bambuddy_last_print_image_url:
+      friendly_name: "Bambuddy Last Print Image URL"
+      unique_id: bambuddy_last_print_image_url
+      icon_template: mdi:image
+      value_template: >-
+        {% set archives = state_attr('sensor.bambuddy_print_history', 'archives') %}
+        {% if archives and archives | length > 0 and archives[0].photo_url is defined %}
+          {{ states('input_text.bambuddy_api_base_url') }}{{ archives[0].photo_url }}
+        {% else %}
+          None
+        {% endif %}
+
+    bambuddy_success_rate:
+      friendly_name: "Bambuddy Print Success Rate"
+      unique_id: bambuddy_success_rate
+      icon_template: mdi:percent
+      unit_of_measurement: "%"
+      value_template: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'success_rate_percent') | default(0) | round(1) }}
+
+    bambuddy_total_print_time:
+      friendly_name: "Bambuddy Total Print Time"
+      unique_id: bambuddy_total_print_time
+      icon_template: mdi:timer-sand
+      unit_of_measurement: "h"
+      value_template: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_print_time_hours') | default(0) | round(1) }}
+
+    bambuddy_total_filament_used:
+      friendly_name: "Bambuddy Total Filament Used"
+      unique_id: bambuddy_total_filament_used
+      icon_template: mdi:weight-gram
+      unit_of_measurement: "g"
+      value_template: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_filament_used_grams') | default(0) | round(0) }}
+
+    bambuddy_prints_this_week:
+      friendly_name: "Bambuddy Prints This Week"
+      unique_id: bambuddy_prints_this_week
+      icon_template: mdi:calendar-week
+      unit_of_measurement: "prints"
+      value_template: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'prints_this_week') | default(0) }}
+
+    bambuddy_queue_count:
+      friendly_name: "Bambuddy Queue Count"
+      unique_id: bambuddy_queue_count
+      icon_template: mdi:playlist-play
+      unit_of_measurement: "jobs"
+      value_template: >-
+        {{ states('sensor.bambuddy_print_queue') | int(0) }}

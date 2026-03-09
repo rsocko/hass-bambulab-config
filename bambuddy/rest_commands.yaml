@@ -1,0 +1,107 @@
+# Bambuddy REST Commands
+# Provides Home Assistant services for interacting with the Bambuddy API.
+# See README.md for setup and usage examples.
+#
+# Add to configuration.yaml:
+#   rest_command: !include bambuddy/rest_commands.yaml
+
+# ---------------------------------------------------------------------------
+# Archive Management
+# ---------------------------------------------------------------------------
+
+# Create a new archive entry for the current print job
+# Usage: service: rest_command.bambuddy_create_archive
+# Data: { "name": "My Print", "printer_id": "abc123", "filament": "PLA",
+#          "weight_grams": 45.2, "tags": ["functional"] }
+bambuddy_create_archive:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives"
+  method: POST
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  payload: >-
+    {
+      "name": "{{ name | default('') }}",
+      "printer_id": "{{ printer_id | default(states('input_text.bambuddy_printer_id')) }}",
+      "filament": "{{ filament | default('') }}",
+      "weight_grams": {{ weight_grams | default(0) }},
+      "tags": {{ tags | default([]) | tojson }}
+    }
+  content_type: "application/json"
+
+# Upload a photo/snapshot to an existing archive entry
+# Usage: service: rest_command.bambuddy_upload_archive_photo
+# Data: { "archive_id": "abc123", "photo_url": "/local/printer_snapshots/file.jpg" }
+bambuddy_upload_archive_photo:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/photos"
+  method: POST
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+  payload: '{"photo_url": "{{ photo_url }}"}'
+  content_type: "application/json"
+
+# Update the result/status of an archive entry (success, failed, cancelled)
+# Usage: service: rest_command.bambuddy_update_archive_status
+# Data: { "archive_id": "abc123", "status": "success" }
+bambuddy_update_archive_status:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}"
+  method: PATCH
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  payload: '{"status": "{{ status }}"}'
+  content_type: "application/json"
+
+# Add tags to an archive entry
+# Usage: service: rest_command.bambuddy_add_archive_tags
+# Data: { "archive_id": "abc123", "tags": ["functional", "prototype"] }
+bambuddy_add_archive_tags:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/tags"
+  method: POST
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  payload: '{"tags": {{ tags | tojson }}}'
+  content_type: "application/json"
+
+# ---------------------------------------------------------------------------
+# Print Queue
+# ---------------------------------------------------------------------------
+
+# Add a print job to the Bambuddy queue
+# Usage: service: rest_command.bambuddy_queue_add
+# Data: { "file_id": "abc123", "printer_id": "xyz789", "copies": 1 }
+bambuddy_queue_add:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/queue"
+  method: POST
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+    Content-Type: application/json
+  payload: >-
+    {
+      "file_id": "{{ file_id }}",
+      "printer_id": "{{ printer_id | default(states('input_text.bambuddy_printer_id')) }}",
+      "copies": {{ copies | default(1) }}
+    }
+  content_type: "application/json"
+
+# Remove a job from the Bambuddy queue
+# Usage: service: rest_command.bambuddy_queue_remove
+# Data: { "job_id": "abc123" }
+bambuddy_queue_remove:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/queue/{{ job_id }}"
+  method: DELETE
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"
+
+# ---------------------------------------------------------------------------
+# Printer Control
+# ---------------------------------------------------------------------------
+
+# Trigger a manual printer status refresh in Bambuddy
+# Usage: service: rest_command.bambuddy_refresh_printer_status
+bambuddy_refresh_printer_status:
+  url: "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/printers/{{ states('input_text.bambuddy_printer_id') }}/refresh-status"
+  method: POST
+  headers:
+    X-API-Key: "{{ states('input_text.bambuddy_api_key') }}"

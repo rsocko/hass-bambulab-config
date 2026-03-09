@@ -1,0 +1,74 @@
+alias: "Bambuddy - Update Archive on Print Completion"
+description: >
+  When a print finishes, updates the Bambuddy archive entry with the result status
+  (success, failed, or cancelled) and uploads the camera snapshot if available.
+  The archive entry must have been created by sync_print_history.yaml on print start.
+  See bambuddy/README.md for setup instructions.
+
+triggers:
+  # Replace device_id with your printer's device ID (found in Settings → Devices)
+  # Replace entity prefix 'ntk_ryansoffice_3dprinter' below with your printer's entity prefix
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_finished
+    trigger: device
+    id: "success"
+  - platform: state
+    entity_id: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+    to: "on"
+    id: "failed"
+
+conditions:
+  - condition: state
+    entity_id: input_boolean.bambuddy_integration_enabled
+    state: "on"
+  - condition: template
+    value_template: "{{ states('input_text.bambuddy_current_archive_id') != '' }}"
+
+actions:
+  - variables:
+      archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      print_status: "{{ 'failed' if trigger.id == 'failed' else 'success' }}"
+      # Wait a few seconds for snapshot to be ready (taken by print_complete_notification)
+      snapshot_dir: "/config/www/printer_snapshots"
+
+  # Wait for camera snapshot automation to complete
+  - delay:
+      seconds: 8
+
+  # Update Bambuddy archive with final status
+  - action: rest_command.bambuddy_update_archive_status
+    data:
+      archive_id: "{{ archive_id }}"
+      status: "{{ print_status }}"
+    continue_on_error: true
+
+  # Find and upload the latest snapshot (if one exists)
+  - action: shell_command.bambuddy_upload_latest_snapshot
+    data:
+      archive_id: "{{ archive_id }}"
+      api_key: "{{ states('input_text.bambuddy_api_key') }}"
+      base_url: "{{ states('input_text.bambuddy_api_base_url') }}"
+    continue_on_error: true
+
+  # Force refresh the history sensor so the dashboard updates immediately
+  - action: homeassistant.update_entity
+    target:
+      entity_id: sensor.bambuddy_print_history
+
+  - action: logbook.log
+    data:
+      name: Bambuddy Integration
+      message: >-
+        Archive {{ archive_id }} updated: status={{ print_status }}, print='{{ task_name }}'
+
+  # Clear archive ID now that the print cycle is complete
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.bambuddy_current_archive_id
+    data:
+      value: ""
+
+mode: queued
+max: 3

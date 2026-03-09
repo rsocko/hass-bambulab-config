@@ -1,0 +1,71 @@
+alias: "Bambuddy - Maintenance Alerts"
+description: >
+  Checks Bambuddy statistics to surface maintenance reminders in Home Assistant.
+  Sends a persistent notification when the success rate drops below threshold,
+  when the print count crosses a maintenance milestone, or when the printer
+  reports a maintenance-related status.
+  See bambuddy/README.md for setup instructions.
+
+triggers:
+  # Check every 6 hours
+  - trigger: time_pattern
+    hours: "/6"
+  # Also check whenever statistics sensor updates
+  - trigger: state
+    entity_id: sensor.bambuddy_statistics
+
+conditions:
+  - condition: state
+    entity_id: input_boolean.bambuddy_maintenance_alerts_enabled
+    state: "on"
+  - condition: state
+    entity_id: input_boolean.bambuddy_integration_enabled
+    state: "on"
+
+actions:
+  - variables:
+      success_rate: "{{ states('sensor.bambuddy_success_rate') | float(100) }}"
+      total_prints: "{{ state_attr('sensor.bambuddy_statistics', 'total_prints') | int(0) }}"
+      failed_prints: "{{ state_attr('sensor.bambuddy_statistics', 'failed_prints') | int(0) }}"
+      total_print_hours: "{{ states('sensor.bambuddy_total_print_time') | float(0) }}"
+      # Alert thresholds
+      low_success_rate_threshold: 80
+      # Maintenance milestone every 500 prints
+      maintenance_milestone_interval: 500
+
+  # Alert: Success rate has dropped below threshold
+  - if:
+      - condition: template
+        value_template: >-
+          {{ success_rate < low_success_rate_threshold and total_prints > 10 }}
+    then:
+      - action: persistent_notification.create
+        data:
+          notification_id: bambuddy_low_success_rate
+          title: "⚠️ Printer Maintenance May Be Needed"
+          message: >-
+            Your print success rate has dropped to {{ success_rate }}% (threshold: {{ low_success_rate_threshold }}%).
+            Consider checking nozzle condition, bed leveling, and filament quality.
+            Recent failures: {{ failed_prints }} total.
+            [View full history in Bambuddy]({{ states('input_text.bambuddy_api_base_url') }}/archives)
+
+  # Alert: Reached a maintenance milestone (every 500 prints)
+  - if:
+      - condition: template
+        value_template: >-
+          {{ total_prints > 0 and (total_prints % maintenance_milestone_interval) < 10 }}
+    then:
+      - action: persistent_notification.create
+        data:
+          notification_id: bambuddy_maintenance_milestone
+          title: "🔧 Maintenance Milestone Reached"
+          message: >-
+            You've reached {{ total_prints }} total prints!
+            This is a good time to perform routine maintenance:
+            • Clean nozzle and check for wear
+            • Check bed surface and re-level if needed
+            • Lubricate motion components
+            • Inspect belts and tensioners
+            [View Bambuddy Statistics]({{ states('input_text.bambuddy_api_base_url') }}/statistics)
+
+mode: single

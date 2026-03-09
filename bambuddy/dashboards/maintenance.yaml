@@ -1,0 +1,192 @@
+# Bambuddy Maintenance Dashboard Card
+# Surfaces maintenance information derived from Bambuddy statistics.
+# Shows maintenance milestones, success rate health, and links to Bambuddy.
+# See bambuddy/README.md for setup instructions.
+
+type: vertical-stack
+cards:
+  # Section header
+  - type: markdown
+    content: |
+      ## 🔧 Printer Maintenance
+      *Tracking from Bambuddy statistics*
+
+  # Maintenance health indicator
+  - type: custom:button-card
+    entity: sensor.bambuddy_success_rate
+    name: Print Health
+    show_state: false
+    custom_fields:
+      health_indicator: |
+        [[[
+          const rate = parseFloat(entity.state) || 0;
+          const total = parseFloat(states['sensor.bambuddy_statistics'].attributes?.total_prints) || 0;
+          const failed = parseFloat(states['sensor.bambuddy_statistics'].attributes?.failed_prints) || 0;
+          const nextMilestone = Math.ceil((total + 1) / 500) * 500;
+          const printsUntilMaintenance = nextMilestone - total;
+
+          let healthColor, healthLabel, healthIcon;
+          if (rate >= 90) {
+            healthColor = '#2E7D32'; healthLabel = 'Excellent'; healthIcon = '💚';
+          } else if (rate >= 75) {
+            healthColor = '#E65100'; healthLabel = 'Fair – check printer'; healthIcon = '🟡';
+          } else {
+            healthColor = '#C62828'; healthLabel = 'Poor – maintenance needed'; healthIcon = '🔴';
+          }
+
+          return `
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+              <div style="font-size:36px">${healthIcon}</div>
+              <div>
+                <div style="font-size:18px;font-weight:700;color:${healthColor}">${healthLabel}</div>
+                <div style="font-size:13px;color:var(--secondary-text-color)">
+                  Success rate: ${rate}% · ${total} total prints
+                </div>
+                <div style="font-size:12px;color:var(--secondary-text-color)">
+                  Next maintenance milestone in ${printsUntilMaintenance} prints
+                </div>
+              </div>
+            </div>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 12px 16px
+      name:
+        - font-size: 14px
+        - font-weight: 600
+        - text-align: left
+      custom_fields:
+        health_indicator:
+          - width: 100%
+
+  # Maintenance checklist reminder (based on print milestones)
+  - type: custom:button-card
+    entity: sensor.bambuddy_statistics
+    name: "Routine Maintenance Checklist"
+    icon: mdi:clipboard-check-outline
+    show_state: false
+    custom_fields:
+      checklist: |
+        [[[
+          const total = entity.attributes.total_prints || 0;
+          const hours = parseFloat(states['sensor.bambuddy_total_print_time'].state) || 0;
+          const lastMilestone = Math.floor(total / 500) * 500;
+
+          const tasks = [
+            { label: 'Clean nozzle tip', interval: 'Every 50 prints', due: (total % 50) > 40 },
+            { label: 'Wipe print bed', interval: 'Every 25 prints', due: (total % 25) > 20 },
+            { label: 'Check bed leveling', interval: 'Every 100 prints', due: (total % 100) > 90 },
+            { label: 'Lubricate X/Y rails', interval: 'Every 200 prints', due: (total % 200) > 180 },
+            { label: 'Inspect and replace nozzle', interval: 'Every 500 prints', due: (total % 500) > 450 },
+            { label: 'Check belt tension', interval: 'Every 500 prints', due: (total % 500) > 450 },
+            { label: 'Clean extruder gears', interval: 'Every 250 prints', due: (total % 250) > 230 },
+          ];
+
+          const rows = tasks.map(t => {
+            const icon = t.due ? '⚠️' : '✅';
+            const style = t.due ? 'color:#FF6F00;font-weight:600' : 'color:var(--secondary-text-color)';
+            return `<tr>
+              <td style="padding:4px 8px;font-size:13px">${icon}</td>
+              <td style="padding:4px 8px;font-size:13px;${style}">${t.label}</td>
+              <td style="padding:4px 8px;font-size:11px;color:var(--secondary-text-color)">${t.interval}</td>
+            </tr>`;
+          }).join('');
+
+          return `<table style="width:100%;border-collapse:collapse">${rows}</table>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 12px 16px
+      name:
+        - font-size: 14px
+        - font-weight: 600
+        - text-align: left
+      icon:
+        - color: "#FF6F00"
+        - width: 20px
+      custom_fields:
+        checklist:
+          - width: 100%
+
+  # Last print details
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_last_print_name
+        name: Last Print
+        icon: mdi:printer-3d
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 13px
+            - white-space: normal
+            - word-break: break-word
+          name:
+            - font-size: 11px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_last_print_status
+        name: Result
+        icon: >
+          [[[
+            const s = entity.state;
+            if (s === 'success') return 'mdi:check-circle';
+            if (s === 'failed') return 'mdi:alert-circle';
+            return 'mdi:help-circle';
+          ]]]
+        show_state: true
+        color: >
+          [[[
+            const s = entity.state;
+            if (s === 'success') return '#2E7D32';
+            if (s === 'failed') return '#C62828';
+            return 'var(--secondary-text-color)';
+          ]]]
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 13px
+          name:
+            - font-size: 11px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_last_print_duration
+        name: Duration
+        icon: mdi:timer-outline
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 13px
+          name:
+            - font-size: 11px
+            - color: var(--secondary-text-color)
+
+  # Open Bambuddy button
+  - type: custom:button-card
+    name: View Maintenance History in Bambuddy
+    icon: mdi:open-in-new
+    tap_action:
+      action: url
+      url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/statistics'; ]]]"
+    styles:
+      card:
+        - border-radius: 12px
+        - background: "#37474F"
+        - color: white
+      name:
+        - color: white
+        - font-size: 14px
+      icon:
+        - color: white
