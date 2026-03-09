@@ -440,15 +440,20 @@ cards:
   card:
     type: custom:bubble-card
     card_type: button
-    name: Load from Query String
+    name: "${ filament_id ? 'Load from Query String' : 'No filament_id in URL' }"
     icon: mdi:download
     tap_action:
-      action: call-service
+      action: "${ filament_id ? 'call-service' : 'none' }"
       service: input_text.set_value
       service_data:
         entity_id: input_text.filament_id
-        value: ${ filament_id }
+        value: "${ filament_id || '' }"
     disabled: true
+    card_mod:
+      style: |
+        ha-card {
+          opacity: ${ filament_id ? 1 : 0.5 };
+        }
     button_type: name
     sub_button:
       main: []
@@ -460,5 +465,5 @@ cards:
         target:
           entity_id: input_text.filament_id
         data:
-          value: ${ filament_id }
+          value: "${ filament_id || '' }"
     card_layout: large
