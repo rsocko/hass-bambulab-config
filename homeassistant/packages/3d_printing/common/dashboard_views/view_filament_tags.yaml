@@ -13,18 +13,21 @@ cards:
 - type: custom:config-template-card
   variables:
     selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
+    has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
   entities:
     - sensor.selected_spool
   card:
     type: custom:bubble-card
     card_type: button
-    button_type: state
+    button_type: "${ has_spool ? 'state' : 'name' }"
     entity: ${selected_entity}
     icon: ''
-    name: ''
+    name: "${ has_spool ? '' : 'No spool selected' }"
     show_icon: true
     show_attribute: false
     show_state: false
+    tap_action:
+      action: "${ has_spool ? 'more-info' : 'none' }"
     scrolling_effect: true
     rows: 1.719
     styles: |
@@ -55,15 +58,19 @@ cards:
       bottom:
         - entity: ${selected_entity}
           icon: fas:location-dot
+          tap_action:
+            action: "${ has_spool ? 'more-info' : 'none' }"
           show_background: true
           state_background: false
           show_icon: true
-          show_attribute: true
+          show_attribute: ${ has_spool }
           attribute: location
         - entity: ${selected_entity}
           icon: mdi:weight-gram
+          tap_action:
+            action: "${ has_spool ? 'more-info' : 'none' }"
           state_background: false
-          show_state: true
+          show_state: ${ has_spool }
 - type: custom:bubble-card
   card_type: separator
   sub_button:
