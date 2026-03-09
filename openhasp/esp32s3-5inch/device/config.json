@@ -1,0 +1,81 @@
+{
+    "wifi": {
+        "ssid": "IoT",
+        "pass": "********"
+    },
+    "mqtt": {
+        "host": "192.168.1.5",
+        "user": "mqtt-user",
+        "pass": "********",
+        "topic": {
+            "node": "hasp/%hostname%/%topic%",
+            "group": "hasp/plates/%topic%",
+            "broadcast": "hasp/broadcast/%topic%",
+            "hass": "homeassistant/status"
+        },
+        "port": 1883,
+        "name": "officetouch5"
+    },
+    "telnet": {
+        "enable": 1,
+        "port": 23
+    },
+    "mdns": {
+        "enable": 1
+    },
+    "http": {
+        "enable": true,
+        "port": 80,
+        "user": "",
+        "pass": "********"
+    },
+    "gpio": {
+        "config": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "debug": {
+        "ansi": 0,
+        "baud": 115200,
+        "tele": 300,
+        "host": "",
+        "port": 514,
+        "proto": 0,
+        "log": 0
+    },
+    "gui": {
+        "idle1": 60,
+        "idle2": 120,
+        "bckl": 2,
+        "bcklinv": 0,
+        "rotate": 0,
+        "cursor": 0,
+        "invert": 0,
+        "calibration": [
+            0,
+            65535,
+            0,
+            65535,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "hasp": {
+        "startpage": 1,
+        "startdim": 255,
+        "theme": 2,
+        "color1": "#00b6ff",
+        "color2": "#ff9962",
+        "font": "",
+        "pages": "/printer2.jsonl"
+    }
+}

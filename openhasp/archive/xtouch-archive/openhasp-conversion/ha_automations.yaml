@@ -1,0 +1,642 @@
+# ================================================================
+# xTouch 2.8" → OpenHASP — Home Assistant Automations
+# ================================================================
+# These automations bridge the OpenHASP plate with Bambu Lab
+# printer entities in Home Assistant.
+#
+# Prerequisites:
+#   - OpenHASP custom component installed in HA
+#   - Bambu Lab integration (HACS) configured
+#   - OpenHASP plate configured and connected via MQTT
+#
+# Naming convention:
+#   - Plate name: "xtouch" (change to match your config)
+#   - Printer name: "x1c" (change to match your Bambu Lab printer)
+#
+# MQTT topics (auto-managed by HA OpenHASP component):
+#   - hasp/xtouch/state/pXbY  → object state updates FROM plate
+#   - hasp/xtouch/command/pXbY → object commands TO plate
+#   - hasp/xtouch/command/page → page navigation commands
+# ================================================================
+
+# ============================================================
+# SIDEBAR NAVIGATION
+# ============================================================
+# When a sidebar button is pressed, navigate to the correct page
+# and update the sidebar button states
+
+automation:
+
+  # ----------------------------------------------------------
+  # Sidebar: Navigate to page on button press
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Sidebar Navigation"
+    id: openhasp_xtouch_sidebar_nav
+    description: "Navigate pages when sidebar buttons are pressed"
+    trigger:
+      # Home button (p0b2)
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p0b2"
+        payload: '{"event":"up","val":1}'
+        id: nav_home
+      # Temperature button (p0b3)
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p0b3"
+        payload: '{"event":"up","val":1}'
+        id: nav_temp
+      # Control button (p0b4)
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p0b4"
+        payload: '{"event":"up","val":1}'
+        id: nav_control
+      # Filament button (p0b5)
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p0b5"
+        payload: '{"event":"up","val":1}'
+        id: nav_filament
+      # Settings button (p0b6)
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p0b6"
+        payload: '{"event":"up","val":1}'
+        id: nav_settings
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: nav_home
+            sequence:
+              - service: mqtt.publish
+                data:
+                  topic: "hasp/xtouch/command/page"
+                  payload: "1"
+          - conditions:
+              - condition: trigger
+                id: nav_temp
+            sequence:
+              - service: mqtt.publish
+                data:
+                  topic: "hasp/xtouch/command/page"
+                  payload: "2"
+          - conditions:
+              - condition: trigger
+                id: nav_control
+            sequence:
+              - service: mqtt.publish
+                data:
+                  topic: "hasp/xtouch/command/page"
+                  payload: "3"
+          - conditions:
+              - condition: trigger
+                id: nav_filament
+            sequence:
+              - service: mqtt.publish
+                data:
+                  topic: "hasp/xtouch/command/page"
+                  payload: "4"
+          - conditions:
+              - condition: trigger
+                id: nav_settings
+            sequence:
+              - service: mqtt.publish
+                data:
+                  topic: "hasp/xtouch/command/page"
+                  payload: "5"
+
+  # ----------------------------------------------------------
+  # Sidebar: Sync active button with current page
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Sidebar Sync Page"
+    id: openhasp_xtouch_sidebar_sync
+    description: "Keep sidebar button states in sync when page changes"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/page"
+    action:
+      - variables:
+          current_page: "{{ trigger.payload | int(1) }}"
+      # Reset all sidebar buttons, then activate the correct one
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p0b2.val"
+          payload: "{{ 1 if current_page == 1 else 0 }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p0b3.val"
+          payload: "{{ 1 if current_page == 2 else 0 }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p0b4.val"
+          payload: "{{ 1 if current_page == 3 else 0 }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p0b5.val"
+          payload: "{{ 1 if current_page == 4 else 0 }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p0b6.val"
+          payload: "{{ 1 if current_page == 5 else 0 }}"
+
+
+# ============================================================
+# PAGE 1: HOME SCREEN — Sensor Updates
+# ============================================================
+
+  # ----------------------------------------------------------
+  # Home: Update temperatures from Bambu Lab sensors
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Home Temperature Update"
+    id: openhasp_xtouch_home_temps
+    description: "Update nozzle, bed, and chamber temperatures on home screen"
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.x1c_nozzle_temperature
+          - sensor.x1c_bed_temperature
+          - sensor.x1c_chamber_temperature
+    action:
+      # Nozzle temperature
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b43.text"
+          payload: >-
+            {{ states('sensor.x1c_nozzle_temperature') | round(0) if
+               states('sensor.x1c_nozzle_temperature') not in ['unknown', 'unavailable']
+               else '--' }}
+      # Bed temperature
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b46.text"
+          payload: >-
+            {{ states('sensor.x1c_bed_temperature') | round(0) if
+               states('sensor.x1c_bed_temperature') not in ['unknown', 'unavailable']
+               else '--' }}
+      # Chamber temperature
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b49.text"
+          payload: >-
+            {{ states('sensor.x1c_chamber_temperature') | round(0) if
+               states('sensor.x1c_chamber_temperature') not in ['unknown', 'unavailable']
+               else '--' }}
+
+  # ----------------------------------------------------------
+  # Home: Update print progress and status
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Home Print Progress"
+    id: openhasp_xtouch_home_progress
+    description: "Update progress bar and labels during printing"
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.x1c_print_percentage
+          - sensor.x1c_remaining_time
+          - sensor.x1c_current_layer
+          - sensor.x1c_total_layers
+    action:
+      # Progress bar value
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b23.val"
+          payload: >-
+            {{ states('sensor.x1c_print_percentage') | int(0) }}
+      # Progress percentage text
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b24.text"
+          payload: >-
+            {{ states('sensor.x1c_print_percentage') | int(0) }}%
+      # Remaining time
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b25.text"
+          payload: >-
+            {% set mins = states('sensor.x1c_remaining_time') | int(0) %}
+            {% if mins > 60 %}{{ (mins // 60) }}h {{ mins % 60 }}m{% else %}{{ mins }}m{% endif %}
+      # Layer count
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b26.text"
+          payload: >-
+            {{ states('sensor.x1c_current_layer') | int(0) }}/{{ states('sensor.x1c_total_layers') | int(0) }}
+
+  # ----------------------------------------------------------
+  # Home: Toggle between idle and printing views
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Home Print State Toggle"
+    id: openhasp_xtouch_home_state
+    description: "Show/hide player controls vs idle panel based on print state"
+    trigger:
+      - platform: state
+        entity_id: sensor.x1c_current_stage
+    action:
+      - variables:
+          is_printing: >-
+            {{ states('sensor.x1c_current_stage') not in
+               ['idle', 'unknown', 'unavailable', 'offline'] }}
+      # Idle panel: visible when NOT printing
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b30.hidden"
+          payload: "{{ is_printing | lower }}"
+      # Player controls: visible when printing
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b20.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b21.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b22.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b23.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b24.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b25.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b26.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b27.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b28.hidden"
+          payload: "{{ (not is_printing) | lower }}"
+
+  # ----------------------------------------------------------
+  # Home: Light toggle button
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Toggle Chamber Light"
+    id: openhasp_xtouch_light_toggle
+    description: "Toggle chamber light when light button pressed"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p1b40"
+        payload: '{"event":"up"}'
+    action:
+      - service: light.toggle
+        target:
+          entity_id: light.x1c_chamber_light
+
+  # ----------------------------------------------------------
+  # Home: Sync light button state from HA
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Sync Light State"
+    id: openhasp_xtouch_light_sync
+    description: "Keep light button visual in sync with actual light state"
+    trigger:
+      - platform: state
+        entity_id: light.x1c_chamber_light
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b40.val"
+          payload: "{{ 1 if is_state('light.x1c_chamber_light', 'on') else 0 }}"
+      # Update border to show green when on
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b40.border_width"
+          payload: "{{ 2 if is_state('light.x1c_chamber_light', 'on') else 0 }}"
+
+  # ----------------------------------------------------------
+  # Home: Player control actions (play/pause/stop)
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Player Pause"
+    id: openhasp_xtouch_player_pause
+    description: "Pause print when pause button pressed"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p1b21"
+        payload: '{"event":"up"}'
+    action:
+      - service: button.press
+        target:
+          entity_id: button.x1c_pause
+
+  - alias: "OpenHASP xTouch - Player Resume"
+    id: openhasp_xtouch_player_resume
+    description: "Resume print when play button pressed"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p1b20"
+        payload: '{"event":"up"}'
+    action:
+      - service: button.press
+        target:
+          entity_id: button.x1c_resume
+
+  - alias: "OpenHASP xTouch - Player Stop"
+    id: openhasp_xtouch_player_stop
+    description: "Stop print when stop button pressed"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p1b22"
+        payload: '{"event":"up"}'
+    action:
+      - service: button.press
+        target:
+          entity_id: button.x1c_stop
+
+
+# ============================================================
+# PAGE 2: TEMPERATURE SCREEN — Sensor Updates
+# ============================================================
+
+  # ----------------------------------------------------------
+  # Temperature: Update current + target temps from sensors
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Temp Screen Update"
+    id: openhasp_xtouch_temp_update
+    description: "Update temperature and fan values on temperature page"
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.x1c_nozzle_temperature
+          - sensor.x1c_target_nozzle_temperature
+          - sensor.x1c_bed_temperature
+          - sensor.x1c_target_bed_temperature
+    action:
+      # Nozzle current
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b12.text"
+          payload: >-
+            {{ states('sensor.x1c_nozzle_temperature') | round(0)
+               if states('sensor.x1c_nozzle_temperature') not in ['unknown','unavailable']
+               else '--' }}
+      # Nozzle target
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b14.text"
+          payload: >-
+            {{ states('sensor.x1c_target_nozzle_temperature') | round(0)
+               if states('sensor.x1c_target_nozzle_temperature') not in ['unknown','unavailable','0']
+               else '--' }}
+      # Bed current
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b22.text"
+          payload: >-
+            {{ states('sensor.x1c_bed_temperature') | round(0)
+               if states('sensor.x1c_bed_temperature') not in ['unknown','unavailable']
+               else '--' }}
+      # Bed target
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b24.text"
+          payload: >-
+            {{ states('sensor.x1c_target_bed_temperature') | round(0)
+               if states('sensor.x1c_target_bed_temperature') not in ['unknown','unavailable','0']
+               else '--' }}
+
+  # ----------------------------------------------------------
+  # Temperature: Update fan percentages
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Fan Update"
+    id: openhasp_xtouch_fan_update
+    description: "Update fan speed values and sliders on temperature page"
+    trigger:
+      - platform: state
+        entity_id:
+          - fan.x1c_part_fan
+          - fan.x1c_aux_fan
+          - fan.x1c_chamber_fan
+    action:
+      # Part fan
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b33.text"
+          payload: >-
+            {{ state_attr('fan.x1c_part_fan', 'percentage') | int(0) }}%
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b34.val"
+          payload: >-
+            {{ state_attr('fan.x1c_part_fan', 'percentage') | int(0) }}
+      # Aux fan
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b43.text"
+          payload: >-
+            {{ state_attr('fan.x1c_aux_fan', 'percentage') | int(0) }}%
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b44.val"
+          payload: >-
+            {{ state_attr('fan.x1c_aux_fan', 'percentage') | int(0) }}
+      # Chamber fan
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b53.text"
+          payload: >-
+            {{ state_attr('fan.x1c_chamber_fan', 'percentage') | int(0) }}%
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p2b54.val"
+          payload: >-
+            {{ state_attr('fan.x1c_chamber_fan', 'percentage') | int(0) }}
+
+  # ----------------------------------------------------------
+  # Temperature: Fan slider changed on plate → update HA
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Part Fan Slider Changed"
+    id: openhasp_xtouch_part_fan_slider
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p2b34"
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.event == 'changed' }}"
+    action:
+      - service: fan.set_percentage
+        target:
+          entity_id: fan.x1c_part_fan
+        data:
+          percentage: "{{ trigger.payload_json.val | int }}"
+
+  - alias: "OpenHASP xTouch - Aux Fan Slider Changed"
+    id: openhasp_xtouch_aux_fan_slider
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p2b44"
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.event == 'changed' }}"
+    action:
+      - service: fan.set_percentage
+        target:
+          entity_id: fan.x1c_aux_fan
+        data:
+          percentage: "{{ trigger.payload_json.val | int }}"
+
+  - alias: "OpenHASP xTouch - Chamber Fan Slider Changed"
+    id: openhasp_xtouch_chamber_fan_slider
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p2b54"
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.event == 'changed' }}"
+    action:
+      - service: fan.set_percentage
+        target:
+          entity_id: fan.x1c_chamber_fan
+        data:
+          percentage: "{{ trigger.payload_json.val | int }}"
+
+
+# ============================================================
+# PAGE 4: FILAMENT — Nozzle Temp Display
+# ============================================================
+
+  # ----------------------------------------------------------
+  # Filament: Update nozzle temp with color coding
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Filament Nozzle Temp"
+    id: openhasp_xtouch_filament_nozzle
+    description: "Update nozzle temp on filament page (blue <170°C, orange >=170°C)"
+    trigger:
+      - platform: state
+        entity_id: sensor.x1c_nozzle_temperature
+    action:
+      - variables:
+          nozzle_temp: "{{ states('sensor.x1c_nozzle_temperature') | float(0) }}"
+          temp_color: "{{ '#FAA61E' if nozzle_temp >= 170 else '#39A1FD' }}"
+      # Update temperature text
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p4b13.text"
+          payload: "{{ nozzle_temp | round(0) }}°C"
+      # Update text color (blue=cold, orange=hot)
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p4b13.text_color"
+          payload: "{{ temp_color }}"
+
+
+# ============================================================
+# PAGE 5: SETTINGS — Backlight & Sleep
+# ============================================================
+
+  # ----------------------------------------------------------
+  # Settings: Backlight slider changed
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Backlight Changed"
+    id: openhasp_xtouch_backlight
+    description: "Apply backlight brightness when slider is adjusted"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p5b12"
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.event == 'changed' }}"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/backlight"
+          payload: '{"state":"on","brightness":{{ trigger.payload_json.val | int }}}'
+
+  # ----------------------------------------------------------
+  # Settings: Sleep timeout slider changed
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Sleep Timer Changed"
+    id: openhasp_xtouch_sleep
+    description: "Update sleep timeout and display label when slider adjusted"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p5b15"
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.event == 'changed' }}"
+    action:
+      # Update the value label
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p5b16.text"
+          payload: "{{ trigger.payload_json.val | int }}m"
+      # Apply idle timeout (convert minutes to seconds)
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/idle"
+          payload: '{"state":"on","time":{{ (trigger.payload_json.val | int) * 60 }}}'
+
+  # ----------------------------------------------------------
+  # Settings: Reboot button
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - Reboot"
+    id: openhasp_xtouch_reboot
+    description: "Reboot the plate when reboot button pressed"
+    trigger:
+      - platform: mqtt
+        topic: "hasp/xtouch/state/p5b30"
+        payload: '{"event":"up"}'
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/reboot"
+          payload: "1"
+
+
+# ============================================================
+# AMS COLOR STRIP UPDATE
+# ============================================================
+
+  # ----------------------------------------------------------
+  # Home: Update AMS slot colors
+  # ----------------------------------------------------------
+  - alias: "OpenHASP xTouch - AMS Color Update"
+    id: openhasp_xtouch_ams_colors
+    description: "Update AMS tray color indicators on home screen"
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.x1c_ams_tray_1_color
+          - sensor.x1c_ams_tray_2_color
+          - sensor.x1c_ams_tray_3_color
+          - sensor.x1c_ams_tray_4_color
+    action:
+      # Slot 1
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b13.bg_color"
+          payload: >-
+            #{{ states('sensor.x1c_ams_tray_1_color')
+               if states('sensor.x1c_ams_tray_1_color') not in ['unknown','unavailable']
+               else '444444' }}
+      # Slot 2
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b14.bg_color"
+          payload: >-
+            #{{ states('sensor.x1c_ams_tray_2_color')
+               if states('sensor.x1c_ams_tray_2_color') not in ['unknown','unavailable']
+               else '444444' }}
+      # Slot 3
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b15.bg_color"
+          payload: >-
+            #{{ states('sensor.x1c_ams_tray_3_color')
+               if states('sensor.x1c_ams_tray_3_color') not in ['unknown','unavailable']
+               else '444444' }}
+      # Slot 4
+      - service: mqtt.publish
+        data:
+          topic: "hasp/xtouch/command/p1b16.bg_color"
+          payload: >-
+            #{{ states('sensor.x1c_ams_tray_4_color')
+               if states('sensor.x1c_ams_tray_4_color') not in ['unknown','unavailable']
+               else '444444' }}

@@ -1,0 +1,42 @@
+- name: "spoolman_filament_totals"
+  state: "ok"
+  attributes:
+    totals: >
+      {% set spool_entities = states.sensor
+        | selectattr('entity_id', 'match', 'sensor\\.spoolman_spool_\\d+$')
+        | list
+      %}
+      {% set ns = namespace(result={}) %}
+      {% for spool in spool_entities %}
+        {% set fid = spool.attributes.filament_id | string %}
+        {% if fid and fid != 'None' %}
+          {% set w = spool.attributes.remaining_weight | default(0) | float(0) %}
+          {% set sid = spool.entity_id.split('_') | last %}
+          {% set spool_entry = {
+            'id': sid,
+            'entity_id': spool.entity_id,
+            'name': spool.attributes.friendly_name | default('Spool'),
+            'location': spool.attributes.location | default('N/A'),
+            'remaining': w
+          } %}
+          {% if ns.result[fid] is defined %}
+            {% set existing = ns.result[fid] %}
+            {% set ns.result = ns.result | combine({
+              fid: {
+                'weight': existing.weight + w,
+                'count': existing.count + 1,
+                'spools': existing.spools + [spool_entry]
+              }
+            }) %}
+          {% else %}
+            {% set ns.result = ns.result | combine({
+              fid: {
+                'weight': w,
+                'count': 1,
+                'spools': [spool_entry]
+              }
+            }) %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.result | tojson | from_json }}

@@ -1,0 +1,5 @@
+# Toggle to show/hide the printer power controls row
+show_power_controls:
+  name: "Show Power Controls"
+  icon: mdi:power
+  initial: false

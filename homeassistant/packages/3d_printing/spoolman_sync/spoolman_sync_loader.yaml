@@ -1,0 +1,10 @@
+# spoolman_sync automations and scripts.
+# Keep explicit includes so ordering is clear and loader behavior is predictable.
+automation: !include_dir_merge_list automations
+script: !include_dir_merge_named scripts
+
+input_number: !include_dir_merge_named helpers/input_number
+input_text: !include_dir_merge_named helpers/input_text
+input_boolean: !include_dir_merge_named helpers/input_boolean
+input_datetime: !include_dir_merge_named helpers/input_datetime
+template: !include_dir_merge_list template_sensors

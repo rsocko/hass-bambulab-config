@@ -1,0 +1,17 @@
+- trigger:
+    - trigger: event
+      event_type: bambulab_store_error_log
+  sensor:
+    - name: Spoolman Sync Error Log Storage
+      unique_id: spoolman_sync_error_log_storage
+      icon: mdi:text-box-multiple
+      state: >-
+        {% set log = trigger.event.data.value | default('') %}
+        {% if log | length > 0 %}
+          {{ log.split('\n') | length }} entries
+        {% else %}
+          empty
+        {% endif %}
+      attributes:
+        log: "{{ trigger.event.data.value | default('') }}"
+        updated_at: "{{ now().isoformat() }}"

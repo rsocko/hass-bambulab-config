@@ -1,0 +1,17 @@
+type: custom:tabbed-card
+options: {}
+tabs:
+  - card:
+      type: vertical-stack
+      cards:
+        - !include print-weight.yaml
+    attributes:
+      label: Print Weight
+  - card:
+      type: vertical-stack
+      cards:
+        - !include print-cost.yaml
+    attributes:
+      label: Print Cost
+grid_options:
+  columns: full

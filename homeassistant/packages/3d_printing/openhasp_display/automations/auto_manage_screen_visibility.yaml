@@ -1,0 +1,155 @@
+- alias: Auto Manage ESP32 Screen Visibility
+  description: >
+    Implements issue #46 visibility behavior for the OpenHASP printer touchscreen.
+    The display is kept fully visible during active printing when office presence is
+    detected, lowered to a low-visibility level in lower-priority states, and turned
+    fully off after a short low-visibility period when there is no active reason to
+    keep it on.
+
+    Triggers include print status/progress updates, a 5-minute heartbeat during
+    longer prints, and immediate wake-on-error handling.
+
+    Optional office presence entities (customize for your environment):
+    - binary_sensor.office_pc_active
+    - binary_sensor.office_occupied
+
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinter_smart_status
+      id: smart_status_changed
+
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinter_print_progress
+      id: print_progress_changed
+
+    - trigger: time_pattern
+      minutes: "/5"
+      id: five_min_heartbeat
+
+    - trigger: state
+      entity_id:
+        - binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+        - binary_sensor.ntk_ryansoffice_3dprinter_print_error
+      to: "on"
+      id: printer_error
+
+    - trigger: state
+      entity_id:
+        - openhasp.officetouch5
+      from: unavailable
+      id: plate_back_online
+
+  conditions: []
+
+  actions:
+    - variables:
+        smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
+        status_class: "{{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower }}"
+        has_hms_error: "{{ is_state('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'on') }}"
+        has_print_error: "{{ is_state('binary_sensor.ntk_ryansoffice_3dprinter_print_error', 'on') }}"
+        plate_available: "{{ states('openhasp.officetouch5') not in ['unknown', 'unavailable', 'none', ''] }}"
+
+        office_pc_state: "{{ states('binary_sensor.office_pc_active') | lower }}"
+        office_occupancy_state: "{{ states('binary_sensor.office_occupied') | lower }}"
+        office_pc_known: "{{ office_pc_state not in ['unknown', 'unavailable', 'none', ''] }}"
+        office_occupancy_known: "{{ office_occupancy_state not in ['unknown', 'unavailable', 'none', ''] }}"
+        office_presence_known: "{{ office_pc_known or office_occupancy_known }}"
+        office_present: >-
+          {{
+            (office_pc_known and office_pc_state in ['on', 'home']) or
+            (office_occupancy_known and office_occupancy_state in ['on', 'home'])
+          }}
+        is_present_in_office: "{{ office_present if office_presence_known else true }}"
+
+        is_printing_active: >-
+          {{
+            status_class in ['printing', 'active'] or
+            smart_status in ['printing', 'preparing', 'heating', 'leveling']
+          }}
+        is_print_recently_finished: "{{ smart_status in ['finished', 'finish'] }}"
+        has_any_error: "{{ has_hms_error or has_print_error }}"
+
+        visibility_mode: >-
+          {% if has_any_error %}
+            full
+          {% elif is_printing_active and is_present_in_office %}
+            full
+          {% elif is_printing_active %}
+            low
+          {% elif is_print_recently_finished %}
+            low
+          {% elif smart_status in ['paused'] %}
+            low
+          {% else %}
+            off
+          {% endif %}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ plate_available and visibility_mode == 'full' }}"
+          sequence:
+            - action: openhasp.wakeup
+              target:
+                entity_id: openhasp.officetouch5
+            - action: openhasp.command
+              target:
+                entity_id: openhasp.officetouch5
+              data:
+                keyword: backlight
+                parameters: '{"state":"on","brightness":255}'
+            - action: openhasp.command
+              target:
+                entity_id: openhasp.officetouch5
+              data:
+                keyword: idle
+                parameters: "off"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ plate_available and visibility_mode == 'low' }}"
+          sequence:
+            - action: openhasp.wakeup
+              target:
+                entity_id: openhasp.officetouch5
+            - action: openhasp.command
+              target:
+                entity_id: openhasp.officetouch5
+              data:
+                keyword: backlight
+                parameters: '{"state":"on","brightness":45}'
+            - action: openhasp.command
+              target:
+                entity_id: openhasp.officetouch5
+              data:
+                keyword: idle
+                parameters: "off"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ plate_available and visibility_mode == 'off' }}"
+          sequence:
+            - action: openhasp.command
+              target:
+                entity_id: openhasp.officetouch5
+              data:
+                keyword: backlight
+                parameters: '{"state":"on","brightness":15}'
+            - delay: "00:10:00"
+            - condition: template
+              value_template: >-
+                {% set status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+                {% set status_class_now = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
+                {% set still_active = status_class_now in ['printing', 'active'] or status in ['printing', 'preparing', 'heating', 'leveling', 'paused', 'finished', 'finish'] %}
+                {% set has_error_now = is_state('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'on') or is_state('binary_sensor.ntk_ryansoffice_3dprinter_print_error', 'on') %}
+                {{ (not still_active) and (not has_error_now) }}
+            - action: openhasp.command
+              target:
+                entity_id: openhasp.officetouch5
+              data:
+                keyword: backlight
+                parameters: "off"
+
+  mode: restart

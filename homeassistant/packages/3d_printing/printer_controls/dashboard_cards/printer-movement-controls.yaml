@@ -1,0 +1,553 @@
+# ============================================================
+# Printer Movement Controls Card
+# ============================================================
+# Replicates the "Show Controls" page from ha-bambulab-cards (a1-screen-card)
+# independently of the full Print Status card.
+#
+# Uses two bambu_lab services (from the ha-bambulab integration):
+#   - bambu_lab.move_axis  { device_id, axis: X|Y|Z|HOME, distance: number }
+#   - bambu_lab.extrude_retract  { device_id, type: retract|extrude }
+#
+# Layout:
+#   [ Z-axis (Bed) ] | [ XY Joypad ] | [ Extruder ]
+#
+# ⚠ WARNING: Moving axes while a print is in progress can damage your model
+# or printer.  These controls are only safe when the printer is idle.
+# ============================================================
+
+type: vertical-stack
+cards:
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: none
+    custom_fields:
+      content: |
+        [[[
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state ?? '';
+          const isPrinting = ['printing', 'running', 'prepare', 'init'].includes(stage.toLowerCase());
+          const warn = isPrinting
+            ? `<div class="warn">⚠️ Printer is active — use movement controls with caution</div>`
+            : '';
+          return `<div class="heading">Printer Movement Controls</div>${warn}`;
+        ]]]
+    styles:
+      card:
+        - padding: 8px 12px 4px
+        - background: transparent
+        - box-shadow: none
+        - border: none
+      custom_fields:
+        content:
+          - width: 100%
+    extra_styles: |
+      .heading { font-size: 13px; font-weight: 600; opacity: 0.7; text-align: center; }
+      .warn { font-size: 11px; color: #FF9800; text-align: center; margin-top: 2px; }
+
+  - type: horizontal-stack
+    cards:
+      # ── Z-axis (Bed) Controls ──────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            custom_fields:
+              label: Bed (Z)
+            styles:
+              card:
+                - padding: 2px
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 28px
+              custom_fields:
+                label:
+                  - font-size: 11px
+                  - opacity: '0.6'
+                  - text-align: center
+                  - width: 100%
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-double-up
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: -10
+            styles:
+              card:
+                - padding: 8px
+                - border-radius: 12px
+                - height: 52px
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-up
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: -1
+            styles:
+              card:
+                - padding: 8px
+                - border-radius: 12px
+                - height: 52px
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            custom_fields:
+              label: |
+                [[[return `<ha-icon icon="mdi:train-car-flatbed" style="--mdc-icon-size:22px;opacity:0.6;"></ha-icon>`]]]
+            styles:
+              card:
+                - padding: 4px
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 40px
+              custom_fields:
+                label:
+                  - text-align: center
+                  - width: 100%
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-down
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: 1
+            styles:
+              card:
+                - padding: 8px
+                - border-radius: 12px
+                - height: 52px
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-double-down
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: 10
+            styles:
+              card:
+                - padding: 8px
+                - border-radius: 12px
+                - height: 52px
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+
+      # ── XY Joypad ─────────────────────────────────────────
+      - type: vertical-stack
+        cards:
+          # Row: label
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            custom_fields:
+              label: X / Y Axis
+            styles:
+              card:
+                - padding: 2px
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 28px
+              custom_fields:
+                label:
+                  - font-size: 11px
+                  - opacity: '0.6'
+                  - text-align: center
+                  - width: 100%
+          # Row 1: Y+10 (top)
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-double-up
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "Y"
+                    distance: 10
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+          # Row 2: X-10, Y+1, X+10
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-double-left
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: -10
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-up
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "Y"
+                    distance: 1
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-double-right
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: 10
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+          # Row 3: X-1, HOME, X+1
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-left
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: -1
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:home
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "HOME"
+                    distance: 0
+                  confirmation:
+                    text: >-
+                      Home the printer? This brings the heat bed to the nozzle —
+                      remove any model from the bed first to avoid damage.
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                    - background: rgba(33, 150, 243, 0.15)
+                    - border: 1px solid rgba(33, 150, 243, 0.4)
+                  icon:
+                    - color: '#2196F3'
+                    - width: 22px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-right
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: 1
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+          # Row 4: empty, Y-1, empty (X-10/X+10 only appear once in Row 2)
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-down
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "Y"
+                    distance: -1
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+          # Row 5: Y-10 (bottom)
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-double-down
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "Y"
+                    distance: -10
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: 12px
+                    - height: 52px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+
+      # ── Extruder Controls ──────────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            custom_fields:
+              label: Extruder
+            styles:
+              card:
+                - padding: 2px
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 28px
+              custom_fields:
+                label:
+                  - font-size: 11px
+                  - opacity: '0.6'
+                  - text-align: center
+                  - width: 100%
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-up
+            tap_action:
+              action: call-service
+              service: bambu_lab.extrude_retract
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                type: "retract"
+            styles:
+              card:
+                - padding: 8px
+                - border-radius: 12px
+                - height: 52px
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            custom_fields:
+              label: |
+                [[[return `<ha-icon icon="mdi:printer-3d-nozzle-outline" style="--mdc-icon-size:22px;opacity:0.6;"></ha-icon>`]]]
+            styles:
+              card:
+                - padding: 4px
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 144px
+              custom_fields:
+                label:
+                  - text-align: center
+                  - width: 100%
+                  - display: flex
+                  - align-items: center
+                  - justify-content: center
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-down
+            tap_action:
+              action: call-service
+              service: bambu_lab.extrude_retract
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                type: "extrude"
+            styles:
+              card:
+                - padding: 8px
+                - border-radius: 12px
+                - height: 52px
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+
+  - type: custom:button-card
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: none
+    custom_fields:
+      legend: |
+        [[[return `
+          <div class="legend">
+            <span><ha-icon icon="mdi:chevron-double-up" style="--mdc-icon-size:14px;"></ha-icon>/<ha-icon icon="mdi:chevron-up" style="--mdc-icon-size:14px;"></ha-icon> = 10mm / 1mm movement</span>
+            <span><ha-icon icon="mdi:home" style="--mdc-icon-size:14px;"></ha-icon> = Home axes (requires confirmation)</span>
+          </div>
+        `]]]
+    styles:
+      card:
+        - padding: 4px 12px 8px
+        - background: transparent
+        - box-shadow: none
+        - border: none
+      custom_fields:
+        legend:
+          - width: 100%
+    extra_styles: |
+      .legend { display:flex; flex-direction:column; gap:2px; font-size:10px; opacity:0.5; text-align:center; }

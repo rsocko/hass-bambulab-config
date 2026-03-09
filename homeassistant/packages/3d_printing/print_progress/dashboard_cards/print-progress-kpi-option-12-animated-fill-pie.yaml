@@ -1,0 +1,158 @@
+# Issue #516 - Option 12
+# Layer: Full-card vertical fill with animated vertical gradient shimmer.
+# Print: Pie chart with animated clockwise rotating gradient overlay.
+
+type: horizontal-stack
+cards:
+  # --- Layer Progress: animated vertical gradient fill ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_current_layer
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[
+          const currentLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_current_layer']?.state);
+          const totalLayer = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_total_layer_count']?.state);
+          const hasLayerData = Number.isFinite(currentLayer) && Number.isFinite(totalLayer) && totalLayer > 0;
+          const value = hasLayerData ? `${Math.round(currentLayer)}/${Math.round(totalLayer)}` : 'N/A';
+          const pct = hasLayerData ? Math.max(0, Math.min(100, (currentLayer / totalLayer) * 100)) : 0;
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#2196F3' : isPaused ? '#FF9800' : '#9E9E9E';
+          const animCls = isActive ? ' o12-fill-anim' : '';
+
+          return `<div class="o12-fill-wrap">
+            <div class="o12-fill-layer${animCls}" style="height:${pct}%; --o12-color:${color};"></div>
+            <div class="o12-fill-content">
+              <div class="o12-fill-value">${value}</div>
+              <div class="o12-fill-footer">
+                <span class="o12-fill-label">Layer Progress</span>
+                <ha-icon icon="mdi:layers-triple" class="o12-fill-icon" style="color:${color};"></ha-icon>
+              </div>
+            </div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 104px
+        - height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o12-fill-wrap { position:relative; display:flex; flex-direction:column; width:100%; min-height:104px; height:100%; overflow:hidden; }
+      .o12-fill-layer {
+        position:absolute; left:0; right:0; bottom:0;
+        background: linear-gradient(180deg,
+          color-mix(in srgb, var(--o12-color) 18%, transparent) 0%,
+          color-mix(in srgb, var(--o12-color) 32%, transparent) 50%,
+          color-mix(in srgb, var(--o12-color) 18%, transparent) 100%);
+        background-size: 100% 200%;
+        transition: height 0.4s ease; z-index:0;
+      }
+      .o12-fill-anim { animation: o12-gradient-move 3s ease-in-out infinite; }
+      @keyframes o12-gradient-move { 0% { background-position: 0% 0%; } 50% { background-position: 0% 100%; } 100% { background-position: 0% 0%; } }
+      .o12-fill-content { position:relative; z-index:1; display:flex; flex-direction:column; flex-grow:1; padding:12px; }
+      .o12-fill-value { font-size:34px; font-weight:700; text-align:center; line-height:1; padding:8px 0; flex-grow:1; display:flex; align-items:center; justify-content:center; }
+      .o12-fill-footer { display:grid; grid-template-columns:18px 1fr 18px; align-items:center; }
+      .o12-fill-label { grid-column:2; text-align:center; font-size:11px; font-weight:500; opacity:0.8; }
+      .o12-fill-icon { grid-column:3; justify-self:end; --mdc-icon-size:18px; }
+    grid_options:
+      columns: 6
+
+  # --- Print Progress: pie chart with rotating gradient ---
+  - type: custom:button-card
+    entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    triggers_update:
+      - sensor.ntk_ryansoffice_3dprinter_print_status
+      - sensor.ntk_ryansoffice_3dprinter_current_stage
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: more-info
+    custom_fields:
+      body: |
+        [[[
+          const progress = parseFloat(states['sensor.ntk_ryansoffice_3dprinter_print_progress']?.state);
+          const hasProgress = Number.isFinite(progress);
+          const pct = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+          const value = hasProgress ? `${Math.round(pct)}%` : 'N/A';
+
+          const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+          const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+          const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+          const isPaused = status === 'pause' || stage === 'pause';
+          const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+          const color = (isActive || isFinished) ? '#4CAF50' : isPaused ? '#FF9800' : '#9E9E9E';
+          const animCls = isActive ? ' o12p-pie-anim' : '';
+
+          return `<div class="o12p-wrap">
+            <div class="o12p-left">
+              <div class="o12p-pie-outer${animCls}" style="--o12p-color:${color}; --o12p-pct:${pct}%;">
+                <div class="o12p-pie" style="background: conic-gradient(${color} ${pct}%, rgba(128,128,128,0.12) ${pct}%);"></div>
+              </div>
+            </div>
+            <div class="o12p-right">
+              <div class="o12p-value">${value}</div>
+              <div class="o12p-footer">
+                <span class="o12p-label">Print Progress</span>
+              </div>
+            </div>
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - padding: 0
+        - min-height: 104px
+        - height: 104px
+        - overflow: hidden
+      grid:
+        - grid-template-areas: '"body"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        body:
+          - width: 100%
+          - height: 100%
+    extra_styles: |
+      .o12p-wrap { display:flex; width:100%; min-height:104px; height:100%; align-items:center; }
+      .o12p-left { display:flex; align-items:center; justify-content:center; width:45%; padding:8px; }
+      .o12p-pie-outer { position:relative; width:64px; height:64px; border-radius:50%; overflow:hidden; }
+      .o12p-pie { width:100%; height:100%; border-radius:50%; transition: background 0.35s ease; }
+      .o12p-pie-outer::after {
+        content:''; position:absolute; inset:0; border-radius:50%;
+        background: conic-gradient(
+          transparent 0%,
+          color-mix(in srgb, var(--o12p-color) 25%, transparent) 25%,
+          transparent 50%,
+          color-mix(in srgb, var(--o12p-color) 15%, transparent) 75%,
+          transparent 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .o12p-pie-anim::after { opacity:1; animation: o12p-spin 4s linear infinite; }
+      @keyframes o12p-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      .o12p-right { display:flex; flex-direction:column; width:55%; justify-content:center; padding:8px 8px 8px 0; }
+      .o12p-value { font-size:34px; font-weight:700; text-align:center; line-height:1; flex-grow:1; display:flex; align-items:center; justify-content:center; padding:4px 0; }
+      .o12p-footer { display:flex; align-items:center; justify-content:center; }
+      .o12p-label { text-align:center; font-size:11px; font-weight:500; opacity:0.75; }
+    grid_options:
+      columns: 6

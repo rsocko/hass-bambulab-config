@@ -1,0 +1,777 @@
+title: Home
+# Keep at 3 so HMS sections with column_span: 3 always render full-width
+max_columns: 3
+sections:
+- type: grid
+  visibility:
+    - condition: state
+      entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+      state: 'on'
+    - condition: screen
+      media_query: "(max-width: 600px)"
+  cards:
+    - type: custom:mushroom-template-card
+      primary: ⚠️ HMS ERROR ALERT
+      secondary: >-
+        {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count') %}
+        {% if count is none %}
+          {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') %}
+        {% endif %}
+        {{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ count | int(0) }} Error(s)
+      icon: mdi:alert-circle
+      icon_color: red
+      fill_container: false
+      tap_action:
+        action: more-info
+      card_mod:
+        style: |
+          : |
+            ha-card {
+              background: rgba(244, 67, 54, 0.15);
+              border: 2px solid var(--red-color);
+              --card-mod-icon-color: red;
+            }
+      grid_options:
+        columns: full
+  column_span: 3
+- type: grid
+  visibility:
+    - condition: state
+      entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+      state: 'on'
+    - condition: screen
+      media_query: "(min-width: 601px)"
+  cards:
+    - type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          primary: ⚠️ HMS ERROR ALERT
+          secondary: >-
+            {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count') %}
+            {% if count is none %}
+              {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') %}
+            {% endif %}
+            {{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | title }} - {{ count | int(0) }} Error(s)
+          icon: mdi:alert-circle
+          icon_color: red
+          fill_container: false
+          tap_action:
+            action: more-info
+          card_mod:
+            style: |
+              : |
+                ha-card {
+                  background: rgba(244, 67, 54, 0.15);
+                  border: 2px solid var(--red-color);
+                  --card-mod-icon-color: red;
+                }
+        - type: markdown
+          content: |
+            {% set entity = 'binary_sensor.ntk_ryansoffice_3dprinter_hms_errors' %}
+            {% set attrs = states[entity].attributes %}
+            {% set legacy_errors = state_attr(entity, 'errors') %}
+            {% if legacy_errors %}
+            {% for error in legacy_errors %}
+            **Error {{ loop.index }}:** {{ error.attr | default('Unknown') }}
+
+            **Code:** {{ error.code | default('Unknown') }}
+
+            {{ error.text | default('No description available') }}
+
+            ---
+            {% endfor %}
+            {% else %}
+            {% set count = attrs['Count'] if attrs['Count'] is defined else (attrs['count'] if attrs['count'] is defined else 0) %}
+            {% if count | int(0) > 0 %}
+            {% for i in range(1, (count | int(0)) + 1) %}
+            {% set code_key = i ~ '-Code' %}
+            {% set error_key = i ~ '-Error' %}
+            {% set severity_key = i ~ '-Severity' %}
+            {% set wiki_key = i ~ '-Wiki' %}
+            {% set code = attrs[code_key] if attrs[code_key] is defined else 'Unknown' %}
+            {% set error_text = attrs[error_key] if attrs[error_key] is defined else 'No description available' %}
+            {% set severity = attrs[severity_key] if attrs[severity_key] is defined else none %}
+            {% set wiki = attrs[wiki_key] if attrs[wiki_key] is defined else none %}
+            **Error {{ i }}:** {{ error_text }}
+
+            **Code:** {{ code }}
+            {% if severity %}
+            **Severity:** {{ severity | title }}
+            {% endif %}
+            {% if wiki %}
+            **Wiki:** [Troubleshooting Link]({{ wiki }})
+            {% endif %}
+
+            ---
+            {% endfor %}
+            {% else %}
+            No error details available
+            {% endif %}
+            {% endif %}
+          card_mod:
+            style: |
+              : |
+                ha-card {
+                  background: rgba(244, 67, 54, 0.08);
+                  border-left: 4px solid var(--red-color);
+                }
+      grid_options:
+        columns: full
+  column_span: 3
+- type: grid
+  cards:
+    - type: horizontal-stack
+      cards:
+        - type: picture-entity
+          entity: image.ntk_ryansoffice_3dprinter_cover_image
+          show_name: false
+          show_state: false
+          tap_action:
+            action: more-info
+          card_mod:
+            style: |
+              ha-card {
+                border-radius: 8px !important;
+                padding: 8px !important;
+                overflow: hidden;
+              }
+              img {
+                object-fit: contain !important;
+                border-radius: 4px !important;
+              }
+        - type: vertical-stack
+          cards:
+            - type: custom:mushroom-template-card
+              entity: sensor.ntk_ryansoffice_3dprinter_smart_status
+              primary: >-
+                {{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }}
+              secondary: >-
+                {{ state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'detail') }}
+              icon: >-
+                {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') %}
+                {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
+                {% if hms == 'on' %}mdi:alert-circle
+                {% elif status_class in ['unmapped', 'failed'] %}mdi:alert-octagon
+                {% elif status_class == 'finished' %}mdi:check-circle
+                {% elif status_class == 'paused' %}mdi:pause-circle
+                {% elif status_class == 'printing' %}mdi:printer-3d-nozzle
+                {% elif status_class == 'heating' %}mdi:thermometer-lines
+                {% elif status_class == 'leveling' %}mdi:grid
+                {% elif status_class == 'offline' %}mdi:lan-disconnect
+                {% elif status_class == 'idle' %}mdi:printer-3d
+                {% else %}mdi:rotate-3d{% endif %}
+              icon_color: >-
+                {% set hms = states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') %}
+                {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') %}
+                {% if hms == 'on' %}red
+                {% elif status_class in ['unmapped', 'failed'] %}red
+                {% elif status_class == 'finished' %}green
+                {% elif status_class == 'paused' %}orange
+                {% elif status_class == 'printing' %}blue
+                {% elif status_class in ['idle', 'offline'] %}grey
+                {% else %}green{% endif %}
+              tap_action:
+                action: more-info
+              card_mod:
+                style: >
+                  {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') %}
+                  {% if status_class in ['printing', 'preparing'] %}
+                  @keyframes printer-pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                  }
+                  mushroom-shape-icon {
+                    animation: printer-pulse 1.5s ease-in-out infinite;
+                  }
+                  {% endif %}
+            - type: custom:mushroom-template-card
+              entity: sensor.ntk_ryansoffice_3dprinter_task_name
+              primary: >-
+                {% set name = states('sensor.ntk_ryansoffice_3dprinter_task_name') %}
+                {% if name in ['unknown', 'unavailable', ''] %}No Active Print
+                {% else %}{{ name }}{% endif %}
+              secondary: >-
+                {% set plate = state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') %}
+                {% if plate is not none and plate | int(0) > 0 %}Plate {{ plate }}{% endif %}
+              icon: mdi:cube-outline
+              icon_color: >-
+                {% if states('sensor.ntk_ryansoffice_3dprinter_task_name') in ['unknown', 'unavailable', ''] %}grey{% else %}blue{% endif %}
+              tap_action:
+                action: more-info
+              card_mod:
+                style: |
+                  .primary {
+                    white-space: normal !important;
+                    overflow: visible !important;
+                    text-overflow: unset !important;
+                    font-size: 12px !important;
+                    line-height: 1.3 !important;
+                    word-break: break-word !important;
+                  }
+            - type: custom:button-card
+              entity: sensor.ntk_ryansoffice_3dprinter_task_name
+              show_name: false
+              show_state: false
+              show_icon: false
+              tap_action:
+                action: none
+              custom_fields:
+                chips: |
+                  [[[
+                    const chips = [];
+                    const toTitleCase = s => s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+                    const validState = v => v !== null && v !== undefined && v !== '' && v !== 'unknown' && v !== 'unavailable';
+                    const numObjects = states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state;
+                    if (validState(numObjects) && parseInt(numObjects, 10) > 1) {
+                      chips.push(`<span class="chip"><ha-icon icon="mdi:shape-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${numObjects} objects</span>`);
+                    }
+                    const skipped = states['sensor.ntk_ryansoffice_3dprinter_skipped_objects']?.state;
+                    if (validState(skipped) && parseInt(skipped, 10) >= 1) {
+                      chips.push(`<span class="chip chip-warn"><ha-icon icon="mdi:close-circle-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${skipped} skipped</span>`);
+                    }
+                    const nozzleSize = states['sensor.ntk_ryansoffice_3dprinter_nozzle_diameter']?.state;
+                    const nozzleType = states['sensor.ntk_ryansoffice_3dprinter_nozzle_type']?.state;
+                    if (validState(nozzleSize)) {
+                      const typeLabel = validState(nozzleType) ? ` · ${toTitleCase(nozzleType)}` : '';
+                      chips.push(`<span class="chip"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${nozzleSize}mm${typeLabel}</span>`);
+                    }
+                    const bedType = states['sensor.ntk_ryansoffice_3dprinter_print_bed_type']?.state;
+                    if (validState(bedType)) {
+                      chips.push(`<span class="chip"><ha-icon icon="mdi:table-furniture" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${toTitleCase(bedType)}</span>`);
+                    }
+                    const printType = states['sensor.ntk_ryansoffice_3dprinter_print_type']?.state;
+                    if (validState(printType) && printType !== 'idle') {
+                      chips.push(`<span class="chip"><ha-icon icon="mdi:layers-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${String(printType).toUpperCase()}</span>`);
+                    }
+                    if (chips.length === 0) return `<div></div>`;
+                    return `<div class="chips-row">${chips.join('')}</div>`;
+                  ]]]
+              styles:
+                card:
+                  - padding: 4px 8px
+                  - background: transparent
+                  - box-shadow: none
+                  - border: none
+                custom_fields:
+                  chips:
+                    - width: 100%
+                    - text-align: left
+              extra_styles: |
+                .chips-row {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 4px;
+                  padding: 2px 0;
+                }
+                .chip {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 2px 7px;
+                  border-radius: 12px;
+                  font-size: 11px;
+                  font-weight: 500;
+                  background: rgba(128, 128, 128, 0.15);
+                  color: var(--primary-text-color);
+                  white-space: nowrap;
+                }
+                .chip-warn {
+                  background: rgba(255, 152, 0, 0.2);
+                  color: #f57c00;
+                }
+      grid_options:
+        columns: full
+        rows: auto
+    - !include ../../print_progress/dashboard_cards/print-progress-kpi-option-15-sweep-hold-chase.yaml
+    - type: custom:button-card
+      entity: sensor.print_time_remaining_formatted
+      triggers_update:
+        - sensor.ntk_ryansoffice_3dprinter_print_status
+        - sensor.ntk_ryansoffice_3dprinter_current_stage
+      show_name: false
+      show_state: false
+      show_icon: false
+      tap_action:
+        action: more-info
+      custom_fields:
+        tr: |
+          [[[
+            const state = entity?.state;
+            const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
+            const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+            const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+            const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+            const isPaused = status === 'pause' || stage === 'pause';
+            const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+            const iconColor = (isActive || isFinished) ? '#FF9800' : isPaused ? '#FFB74D' : '#9E9E9E';
+            const animClass = isActive ? ' tr-clock-anim' : '';
+            return `<div class="tr-wrap">
+              <ha-icon icon="mdi:clock-time-four" class="tr-icon${animClass}" style="color:${iconColor};"></ha-icon>
+              <div class="tr-value">${value}</div>
+            </div>`;
+          ]]]
+      styles:
+        card:
+          - padding: 8px 12px
+          - min-height: 50px
+        custom_fields:
+          tr:
+            - width: 100%
+      extra_styles: |
+        .tr-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
+        .tr-icon { --mdc-icon-size:26px; flex-shrink:0; }
+        .tr-value { font-size:24px; font-weight:700; line-height:1; flex-grow:1; }
+        @keyframes clock-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        .tr-clock-anim { animation:clock-spin 4s linear infinite; }
+      grid_options:
+        columns: 6
+    - type: custom:button-card
+      entity: sensor.ntk_ryansoffice_3dprinter_end_time
+      triggers_update:
+        - sensor.ntk_ryansoffice_3dprinter_print_status
+        - sensor.ntk_ryansoffice_3dprinter_current_stage
+      show_name: false
+      show_state: false
+      show_icon: false
+      tap_action:
+        action: more-info
+      custom_fields:
+        ec: |
+          [[[
+            const state = states['sensor.ntk_ryansoffice_3dprinter_end_time']?.state;
+            let timeStr = 'N/A';
+            let descriptor = null;
+            if (state && state !== 'unavailable' && state !== 'unknown') {
+              const endTs = new Date(state).getTime();
+              if (!isNaN(endTs) && endTs > 0) {
+                const now = Date.now();
+                const endDate = new Date(endTs);
+                const todayStr = new Date(now).toDateString();
+                const tomorrowStr = new Date(now + 86400000).toDateString();
+                timeStr = endDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+                const dayStr = endDate.toDateString();
+                if (dayStr === tomorrowStr) {
+                  descriptor = 'tomorrow';
+                } else if (dayStr !== todayStr) {
+                  const diffDays = Math.floor((endTs - now) / 86400000);
+                  descriptor = diffDays < 7
+                    ? endDate.toLocaleDateString('en-US', {weekday:'long'})
+                    : endDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'});
+                }
+              }
+            }
+            const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+            const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+            const isFinished = status === 'finish';
+            const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+            const isPaused = status === 'pause' || stage === 'pause';
+            const iconColor = isFinished ? '#4CAF50' : isActive ? '#9C27B0' : isPaused ? '#FF9800' : '#9E9E9E';
+            const animClass = isActive ? ' ec-flag-anim' : '';
+            return `<div class="ec-wrap">
+              <ha-icon icon="mdi:flag-checkered" class="ec-icon${animClass}" style="color:${iconColor};"></ha-icon>
+              <div class="ec-text">
+                <div class="ec-time">${timeStr}</div>
+                ${descriptor ? `<div class="ec-desc">${descriptor}</div>` : ''}
+              </div>
+            </div>`;
+          ]]]
+      styles:
+        card:
+          - padding: 8px 12px
+          - min-height: 50px
+        custom_fields:
+          ec:
+            - width: 100%
+      extra_styles: |
+        .ec-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
+        .ec-icon { --mdc-icon-size:26px; flex-shrink:0; }
+        .ec-text { flex-grow:1; display:flex; flex-direction:column; }
+        .ec-time { font-size:24px; font-weight:700; line-height:1; }
+        .ec-desc { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:2px; }
+        @keyframes flag-wave { 0%,100% { transform:scale(1) rotate(0deg); } 25% { transform:scale(1.08) rotate(-4deg); } 75% { transform:scale(1.08) rotate(4deg); } }
+        .ec-flag-anim { animation:flag-wave 2s ease-in-out infinite; }
+      grid_options:
+        columns: 6
+    - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
+    #- !include ../../printer_controls/dashboard_cards/printer-movement-controls-with-toggle.yaml
+    - !include ../../print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml
+  columns: 2
+  square: false
+- type: grid
+  cards:
+    - !include ../../printer_led/dashboard_cards/printer-led-controls.yaml
+    - type: conditional
+      conditions:
+        - condition: state
+          entity: input_boolean.show_printer_controls
+          state: "on"
+      card:
+        type: custom:ha-bambulab-print_status-card
+        printer: 210dfdfa64085e8cf073e50eae757d90
+        style: simple
+        custom_power: switch.sonoff_10018b4baf
+    - type: custom:advanced-camera-card
+      cameras:
+        - camera_entity: camera.ntk_ryansoffice_3dprinter_camera
+          live_provider: auto
+          capabilities:
+            disable: []
+          always_error_if_entity_unavailable: false
+          image:
+            mode: camera
+            # mode: url with a custom image replaces the default "flowers"
+            # screensaver shown while the live stream is loading.
+            # Place your image at /config/www/bambu-printer.jpg in HA.
+            #mode: url
+            #url: /local/bambu-printer.jpg
+        - camera_entity: camera.3dprintertopcamera_hd_stream
+          #image:
+            # mode: url with a custom image replaces the default "flowers"
+            # screensaver shown while the live stream is loading.
+            # Place your image at /config/www/bambu-printer.jpg in HA.
+            #mode: url
+            #url: /local/bambu-printer.jpg
+      status_bar:
+        items:
+          engine:
+            enabled: true
+          resolution:
+            enabled: true
+        style: none
+      performance:
+        features:
+          card_loading_effects: false
+          animated_progress_indicator: true
+          card_loading_indicator: true
+        style:
+          border_radius: true
+      view:
+        dim: false
+        theme:
+          themes:
+            - dark
+        default_cycle_camera: false
+      menu:
+        buttons:
+          iris:
+            enabled: false
+          camera_ui:
+            enabled: false
+          expand:
+            enabled: true
+          display_mode:
+            enabled: true
+            alignment: opposing
+          live:
+            enabled: false
+          cameras:
+            enabled: false
+          substreams:
+            enabled: false
+          clips:
+            enabled: false
+          snapshots:
+            enabled: false
+          download:
+            enabled: false
+          timeline:
+            enabled: false
+          folders:
+            enabled: false
+          media_player:
+            enabled: false
+          image:
+            enabled: false
+        style: overlay
+        alignment: right
+      live:
+        draggable: true
+        zoomable: true
+        show_image_during_load: true
+        controls:
+          builtin: true
+          wheel: true
+        display: {}
+      media_gallery:
+        controls:
+          thumbnails:
+            size: 228
+    - !include ../../printer_temps/dashboard_cards/printer-temps.yaml
+    - !include ../../printer_controls/dashboard_cards/fan_controls_v2.yaml
+- type: grid
+  cards:
+    - type: custom:button-card
+      template: ams_header
+      variables:
+        amsName: AMS 1
+        amsIcon: fapro:filament-2
+        humidityEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+        temperatureEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
+    - type: custom:ha-bambulab-ams-card
+      entity: ''
+      header: ''
+      subtitle: ''
+      style: vector
+      ams: bb6d8ff7b5587a848196c105ca8920c3
+      show_type: false
+      show_info_bar: false
+      custom_humidity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+      custom_temperature: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
+    - type: horizontal-stack
+      cards:
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: A1
+                tray: ams_1_tray_1
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_1_tray_1
+                trayLabel: AMS 1 · Slot 1
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_1
+                printWeightKey: AMS 1 Tray 1
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: A2
+                tray: ams_1_tray_2
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_1_tray_2
+                trayLabel: AMS 1 · Slot 2
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_2
+                printWeightKey: AMS 1 Tray 2
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: A3
+                tray: ams_1_tray_3
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_1_tray_3
+                trayLabel: AMS 1 · Slot 3
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_3
+                printWeightKey: AMS 1 Tray 3
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: A4
+                tray: ams_1_tray_4
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_1_tray_4
+                trayLabel: AMS 1 · Slot 4
+                trayEntityId: sensor.p1s_01p00c460102350_ams_1_tray_4
+                printWeightKey: AMS 1 Tray 4
+    - type: custom:button-card
+      template: ams_header
+      variables:
+        amsName: AMS 2 Pro
+        amsIcon: fapro:filament-2
+        humidityEntity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+        temperatureEntity: sensor.3d_printer_ams_2_humidity_and_temp_temperature
+    - type: custom:ha-bambulab-ams-card
+      entity: ''
+      header: ''
+      subtitle: ''
+      style: vector
+      ams: e8499b3326385f02079f3c382558ded2
+      show_info_bar: false
+      custom_humidity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
+      custom_temperature: sensor.3d_printer_ams_2_humidity_and_temp_temperature
+      show_type: false
+      spool_anim_reflection: true
+      spool_anim_wiggle: true
+    - type: horizontal-stack
+      cards:
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: B1
+                tray: ams_2_tray_1
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_2_tray_1
+                trayLabel: AMS 2 · Slot 1
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_1
+                printWeightKey: AMS 2 Tray 1
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: B2
+                tray: ams_2_tray_2
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_2_tray_2
+                trayLabel: AMS 2 · Slot 2
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_2
+                printWeightKey: AMS 2 Tray 2
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: B3
+                tray: ams_2_tray_3
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_2_tray_3
+                trayLabel: AMS 2 · Slot 3
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_3
+                printWeightKey: AMS 2 Tray 3
+        - type: vertical-stack
+          card_mod:
+            style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+          cards:
+            - type: custom:button-card
+              template: ams_tray_label
+              variables:
+                trayName: B4
+                tray: ams_2_tray_4
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
+            - type: custom:button-card
+              template: ams_tray_detail
+              variables:
+                tray: ams_2_tray_4
+                trayLabel: AMS 2 · Slot 4
+                trayEntityId: sensor.p1s_01p00c460102350_ams_2_tray_4
+                printWeightKey: AMS 2 Tray 4
+    - type: horizontal-stack
+      cards:
+        - type: vertical-stack
+          cards:
+            - type: custom:ha-bambulab-spool-card
+              header: Header Text
+              subtitle: 'External '
+              show_header: true
+              spool: 9b8ca6134d4424a7c8fd4467ad2adbc3
+              show_info_bar: false
+              show_type: false
+              tray: 1
+            - type: horizontal-stack
+              cards:
+                - type: vertical-stack
+                  card_mod:
+                    style: ':host { height: 100%; } #root { height: 100%; } #root > :last-child { flex: 1; }'
+                  cards:
+                    - type: custom:button-card
+                      template: ams_tray_label
+                      variables:
+                        trayName: External
+                        tray: external_spool
+                        trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
+                    - type: custom:button-card
+                      template: ams_tray_detail
+                      variables:
+                        tray: external_spool
+                        trayLabel: External Spool
+                        trayEntityId: sensor.ntk_ryansoffice_3dprinter_external_spool
+                        printWeightKey: External
+              grid_options:
+                columns: 3
+                rows: 1
+          grid_options:
+            columns: 3
+            rows: 1
+      grid_options:
+        columns: 3
+        rows: auto
+badges:
+- type: entity
+  show_name: false
+  show_state: true
+  show_icon: true
+  entity: sensor.3d_printer_ip_address
+  icon: mdi:ip-network
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  name: MQTT Mode
+  entity: sensor.ntk_ryansoffice_3dprinter_mqtt_connection_mode
+  icon: mdi:connection
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  name: SD Card Status
+  entity: sensor.3d_printer_sd_card_status
+  icon: mdi:sd
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  entity: sensor.3d_printer_serial_number
+  icon: mdi:barcode
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  name: Total Usage
+  entity: sensor.ntk_ryansoffice_3dprinter_total_usage
+  icon: mdi:timer
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  name: Wi-Fi Signal
+  entity: sensor.ntk_ryansoffice_3dprinter_wifi_signal
+  icon: mdi:wifi
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  name: Timelapse
+  entity: binary_sensor.ntk_ryansoffice_3dprinter_recording_timelapse
+  icon: mdi:video
+header:
+card:
+  type: markdown
+  text_only: true
+  content: |
+    <div style="display:flex;align-items:center;padding:4px 0;">
+      <div style="text-align:right;line-height:1.4;flex:1;">
+        <div style="font-size:11px;font-weight:400;opacity:0.55;">3D Printer</div>
+        <div style="font-size:22px;font-weight:700;">{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}</div>
+      </div>
+    </div>

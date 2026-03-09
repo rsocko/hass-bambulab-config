@@ -1,0 +1,4 @@
+# OpenHASP display feature domains.
+# openhasp: merges plate files by filename (e.g., officetouch5.yaml -> openhasp.officetouch5)
+openhasp: !include_dir_named openhasp
+automation: !include_dir_merge_list automations

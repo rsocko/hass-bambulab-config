@@ -1,0 +1,112 @@
+- alias: Print Started - Backup Print Weight Attributes
+  description: >
+    Captures and stores print_weight sensor attributes when a print starts.
+    This backup allows the print completion automation to work correctly
+    even if Home Assistant restarts during the print job.
+  triggers:
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_started
+    trigger: device
+  conditions: []
+  actions:
+  # Short initial delay after print-start event
+  - delay:
+      seconds: 3
+  
+  # Wait for per-tray attributes to populate (timing can vary by print/integration state)
+  - wait_template: >-
+      {{
+        states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys()
+        | select('match', '^(AMS|External)')
+        | list
+        | length > 0
+      }}
+    timeout: "00:00:45"
+    continue_on_timeout: true
+  
+  # If still empty, do one final retry after a brief pause
+  - if:
+      - condition: template
+        value_template: >-
+          {{
+            states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys()
+            | select('match', '^(AMS|External)')
+            | list
+            | length == 0
+          }}
+        alias: No per-tray attributes yet after wait
+    then:
+      - delay:
+          seconds: 5
+  
+  # Store only AMS and External Spool keys from print_weight attributes as JSON
+  # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
+  # (e.g. friendly_name, unit_of_measurement, icon)
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.print_weight_backup
+    data:
+      value: >
+        {% set ns = namespace(d={}) %}
+        {% for key, value in states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items() %}
+          {% if (key is match('^(AMS|External)')) and (value | float(0) > 0) %}
+            {% set ns.d = dict(ns.d, **{key: value}) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.d | tojson if (ns.d | count > 0) else '' }}
+  
+  # Store metadata for validation (task name, start time, total weight)
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.print_metadata_backup
+    data:
+      value: >
+        {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}|{{ now().isoformat() }}|{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}
+  
+  # Log the backup result - warn if no AMS attributes were found
+  # Length > 2 skips both an empty string ("") and an empty JSON object ("{}")
+  - if:
+      - condition: template
+        value_template: "{{ states('input_text.print_weight_backup') | length > 2 }}"
+        alias: Backup has data
+    then:
+      - action: logbook.log
+        metadata: {}
+        data:
+          name: Print Weight Backup
+          message: >
+            Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+            Print weight attributes backed up. Total weight: {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+            Backup will be used if HA restarts during print.
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Started: Print weight attributes backed up for "{{
+            states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". Total weight:
+            {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+    else:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Started: WARNING - print_weight sensor has no AMS or External Spool
+            attributes to back up for "{{
+            states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". The sensor may
+            not be populated yet even after wait/retry. If HA restarts during this
+            print, filament usage cannot be recovered from backup.
+          level: warning
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - action: logbook.log
+        metadata: {}
+        data:
+          name: Print Weight Backup
+          message: >
+            WARNING: Print started but no print_weight attributes available to back up
+            for {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}. HA restart
+            during this print may cause filament usage update to fail.
+  
+  mode: restart

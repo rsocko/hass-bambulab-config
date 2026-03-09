@@ -1,0 +1,22 @@
+name: Runner Smoke Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: [self-hosted, linux, docker, ha, homelab, dockhand]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runner info
+        run: |
+          echo "Runner: ${RUNNER_NAME:-unknown}"
+          uname -a
+          docker --version || true
+
+      - name: Repo checkout validation
+        run: |
+          test -f README.md
+          echo "Repository checkout looks good."

@@ -1,0 +1,171 @@
+# ams_header.yaml
+# Pure button-card template for AMS unit header separators.
+# Renders icon, title, separator line, and humidity/temperature pills
+# entirely via button-card custom HTML — no nested bubble-card needed.
+#
+# Humidity color thresholds (Bambu Lab 1-5 rating mapped to percentages):
+#   Level 1 - Optimal  (<20%):  Green        mdi:water-outline
+#   Level 2 - Good     (20-40%): Light Green  mdi:water-minus
+#   Level 3 - Monitor  (40-60%): Amber        mdi:water
+#   Level 4 - Concern  (60-70%): Orange       mdi:water-plus
+#   Level 5 - Critical (>70%):  Red           mdi:water-alert
+#
+# Temperature color thresholds:
+#   <20°C:   Blue   (Cool)
+#   20-25°C: Green  (Ideal)
+#   25-30°C: Amber  (Warm)
+#   30-35°C: Orange (Hot)
+#   >35°C:   Red    (Too hot)
+#
+# Variables:
+#   amsName           - Display name (e.g., "AMS 1", "AMS 2 Pro")
+#   amsIcon           - Header icon (default: "fapro:filament-2")
+#   humidityEntity    - Humidity sensor entity ID (percentage-based)
+#   temperatureEntity - Temperature sensor entity ID (°C)
+#
+# Usage:
+#   - type: custom:button-card
+#     template: ams_header
+#     variables:
+#       amsName: AMS 1
+#       amsIcon: fapro:filament-2
+#       humidityEntity: sensor.my_ams_humidity
+#       temperatureEntity: sensor.my_ams_temperature
+
+ams_header:
+  type: custom:button-card
+  entity: '[[[ return variables.humidityEntity; ]]]'
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - border: none
+      - box-shadow: none
+      - padding: 6px 0
+      - margin: 0
+    grid:
+      - grid-template-areas: '"header hpill tpill"'
+      - grid-template-columns: 1fr auto auto
+      - grid-template-rows: auto
+      - width: 100%
+      - align-items: center
+      - column-gap: 6px
+      - padding: 0 12px
+      - box-sizing: border-box
+    custom_fields:
+      header:
+        - padding: 0
+        - margin: 0
+      hpill:
+        - padding: 0
+        - margin: 0
+      tpill:
+        - padding: 0
+        - margin: 0
+  custom_fields:
+    header: |
+      [[[
+        const amsName = variables.amsName || 'AMS';
+        const amsIcon = variables.amsIcon || 'fapro:filament-2';
+        return `
+          <div style="display:flex; align-items:center; width:100%;">
+            <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:var(--primary-text-color); flex-shrink:0;"></ha-icon>
+            <span style="font-size:14px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; flex-shrink:0; margin-left:4px;">${amsName}</span>
+            <div style="flex:1; height:3px; background:rgba(255,255,255,0.12); margin-left:8px; border-radius:1.5px; min-width:10px;"></div>
+          </div>
+        `;
+      ]]]
+    hpill:
+      card:
+        type: custom:button-card
+        entity: '[[[ return variables.humidityEntity; ]]]'
+        tap_action:
+          action: more-info
+        show_icon: false
+        show_name: false
+        show_state: false
+        styles:
+          card:
+            - background: none
+            - border: none
+            - box-shadow: none
+            - padding: 0
+            - margin: 0
+          grid:
+            - display: contents
+          custom_fields:
+            pill:
+              - padding: 0
+              - margin: 0
+        custom_fields:
+          pill: |
+            [[[
+              const hEntity = variables?.humidityEntity;
+              const val = hEntity ? (parseFloat(states[hEntity]?.state) || 0) : (parseFloat(entity?.state) || 0);
+              const state = Math.round(val);
+              const unit = hEntity ? (states[hEntity]?.attributes?.unit_of_measurement || '%') : (entity?.attributes?.unit_of_measurement || '%');
+              let icon;
+              if (val >= 70) icon = 'mdi:water-alert';
+              else if (val >= 60) icon = 'mdi:water-plus';
+              else if (val >= 40) icon = 'mdi:water';
+              else if (val >= 20) icon = 'mdi:water-minus';
+              else icon = 'mdi:water-outline';
+              let color, bg;
+              if (val < 20) { color = '#4CAF50'; bg = 'rgba(76,175,80,0.2)'; }
+              else if (val < 40) { color = '#8BC34A'; bg = 'rgba(139,195,74,0.2)'; }
+              else if (val < 60) { color = '#FFC107'; bg = 'rgba(255,193,7,0.25)'; }
+              else if (val < 70) { color = '#FF9800'; bg = 'rgba(255,152,0,0.25)'; }
+              else { color = '#F44336'; bg = 'rgba(244,67,54,0.25)'; }
+              return `
+                <div style="display:inline-flex; align-items:center; gap:4px; background:${bg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1; cursor:pointer;">
+                  <ha-icon icon="${icon}" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
+                  <span style="font-size:12px; font-weight:600; color:#ffffff; white-space:nowrap; line-height:16px;">${state}${unit}</span>
+                </div>
+              `;
+            ]]]
+    tpill:
+      card:
+        type: custom:button-card
+        entity: '[[[ return variables.temperatureEntity; ]]]'
+        tap_action:
+          action: more-info
+        show_icon: false
+        show_name: false
+        show_state: false
+        styles:
+          card:
+            - background: none
+            - border: none
+            - box-shadow: none
+            - padding: 0
+            - margin: 0
+          grid:
+            - display: contents
+          custom_fields:
+            pill:
+              - padding: 0
+              - margin: 0
+        custom_fields:
+          pill: |
+            [[[
+              const tEntity = variables?.temperatureEntity;
+              const val = tEntity ? (parseFloat(states[tEntity]?.state) || 0) : (parseFloat(entity?.state) || 0);
+              const state = Math.round(val);
+              const unit = tEntity ? (states[tEntity]?.attributes?.unit_of_measurement || '°C') : (entity?.attributes?.unit_of_measurement || '°C');
+              let color, bg;
+              if (val < 20) { color = '#42A5F5'; bg = 'rgba(66,165,245,0.2)'; }
+              else if (val < 25) { color = '#4CAF50'; bg = 'rgba(76,175,80,0.2)'; }
+              else if (val < 30) { color = '#FFC107'; bg = 'rgba(255,193,7,0.25)'; }
+              else if (val < 35) { color = '#FF9800'; bg = 'rgba(255,152,0,0.25)'; }
+              else { color = '#F44336'; bg = 'rgba(244,67,54,0.25)'; }
+              return `
+                <div style="display:inline-flex; align-items:center; gap:4px; background:${bg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1; cursor:pointer;">
+                  <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
+                  <span style="font-size:12px; font-weight:600; color:#ffffff; white-space:nowrap; line-height:16px;">${state} ${unit}</span>
+                </div>
+              `;
+            ]]]

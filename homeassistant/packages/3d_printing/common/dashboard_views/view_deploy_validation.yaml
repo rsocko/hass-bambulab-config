@@ -1,0 +1,43 @@
+type: sections
+max_columns: 3
+title: Deploy Validation
+path: deploy-validation
+icon: mdi:test-tube
+sections:
+  - type: grid
+    cards:
+      - type: heading
+        heading: Deployment Validation
+        heading_style: title
+      - type: markdown
+        content: |
+          This view is a deployment smoke test for the split dashboard setup.
+
+          If you can see this tab and these cards after deploy, then:
+          - dashboard registration loaded
+          - dashboard file loaded
+          - view include file loaded
+      - type: entities
+        title: Sample Printer Entities
+        entities:
+          - entity: sensor.ntk_ryansoffice_3dprinter_print_status
+          - entity: sensor.ntk_ryansoffice_3dprinter_current_stage
+          - entity: sensor.ntk_ryansoffice_3dprinter_print_progress
+    column_span: 2
+
+  - type: grid
+    cards:
+      - type: tile
+        entity: input_boolean.show_printer_controls
+        name: Show Printer Controls
+        tap_action:
+          action: toggle
+      - type: tile
+        entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+        name: HMS Errors
+      - type: tile
+        entity: camera.ntk_ryansoffice_3dprinter_camera
+        name: Printer Camera
+    column_span: 1
+
+cards: []

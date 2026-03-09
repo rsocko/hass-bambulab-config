@@ -1,0 +1,34 @@
+mark_spool_as_dried_in_spoolman:
+  sequence:
+  - action: spoolman.patch_spool
+    metadata: {}
+    data:
+      id: "{{ spool_id }}"
+      extra:
+        last_dried: "{{ now().isoformat() }}"
+    alias: Update Spoolman Last Dried Date
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Spool {{ spool_id }} marked as dried in Spoolman at {{ now().isoformat() }}.
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
+  - action: logbook.log
+    metadata: {}
+    data:
+      name: Spoolman Spool Dried
+      message: "Spool {{ spool_id }} marked as dried."
+  alias: Mark Spool as Dried in Spoolman
+  description: >-
+    Takes a spool_id as input and updates Spoolman with the current time as the
+    last dried date (extra field: last_dried).
+  fields:
+    spool_id:
+      selector:
+        number:
+          min: 1
+      required: true
+      name: Spool ID
+      description: The numeric ID of the spool to update in Spoolman.
+  icon: mdi:heat-wave

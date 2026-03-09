@@ -1,0 +1,101 @@
+print_weight_persistence_self_test:
+  alias: Print Weight Persistence Self-Test
+  description: >-
+    Manual or automation-triggered troubleshooting script for print weight
+    persistence. Validates backup and metadata helper content, checks 255-char
+    limits, and logs PASS/WARN with diagnostic details.
+  icon: mdi:test-tube
+  fields:
+    phase:
+      name: Phase
+      description: Run context label used in logs and notification ID (manual/start/finish)
+      required: false
+      default: manual
+      selector:
+        select:
+          options:
+            - manual
+            - start
+            - finish
+  sequence:
+  - variables:
+      phase: "{{ phase | default('manual') | lower }}"
+      phase_label: "{{ phase | upper }}"
+      backup_raw: "{{ states('input_text.print_weight_backup') | string }}"
+      backup_raw_trimmed: "{{ backup_raw | trim }}"
+      metadata_raw: "{{ states('input_text.print_metadata_backup') | string }}"
+      backup_present: >-
+        {{ backup_raw_trimmed not in ['unknown', 'unavailable', 'none', 'None', ''] }}
+      backup_len: "{{ backup_raw_trimmed | length }}"
+      backup_shape_valid: >-
+        {{ backup_present and (backup_raw_trimmed is match('^\\{.*\\}$')) }}
+      metadata_present: >-
+        {{ metadata_raw not in ['unknown', 'unavailable', 'none', 'None', ''] }}
+      metadata_len: "{{ metadata_raw | length }}"
+      metadata_format_valid: >-
+        {{ metadata_present and ((metadata_raw | regex_findall('\\|')) | length >= 2) }}
+      backup_key_count: >-
+        {% if backup_shape_valid %}
+          {{ (backup_raw_trimmed | from_json({})).keys() | select('match', '^(AMS|External)') | list | length }}
+        {% else %}
+          0
+        {% endif %}
+      backup_len_ok: "{{ backup_len | int <= 255 }}"
+      metadata_len_ok: "{{ metadata_len | int <= 255 }}"
+      overall_status: >-
+        {% if backup_shape_valid and backup_len_ok and metadata_format_valid and metadata_len_ok %}
+          pass
+        {% else %}
+          warn
+        {% endif %}
+      status_icon: >-
+        {% if overall_status == 'pass' %}
+          ✅
+        {% else %}
+          ⚠️
+        {% endif %}
+  
+  - action: logbook.log
+    data:
+      name: Print Weight Persistence Self-Test
+      message: >-
+        {{ status_icon }} Phase={{ phase_label }} Status={{ overall_status | upper }}.
+        backup_present={{ backup_present }}, backup_shape_valid={{ backup_shape_valid }},
+        backup_len={{ backup_len }}, backup_len_ok={{ backup_len_ok }},
+        backup_ams_external_key_count={{ backup_key_count }}.
+        metadata_present={{ metadata_present }}, metadata_format_valid={{ metadata_format_valid }},
+        metadata_len={{ metadata_len }}, metadata_len_ok={{ metadata_len_ok }}.
+  
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Print Weight Persistence Self-Test: phase={{ phase_label }}, status={{ overall_status | upper }};
+        backup_present={{ backup_present }}, backup_shape_valid={{ backup_shape_valid }},
+        backup_len={{ backup_len }}, backup_len_ok={{ backup_len_ok }},
+        backup_key_count={{ backup_key_count }};
+        metadata_present={{ metadata_present }}, metadata_format_valid={{ metadata_format_valid }},
+        metadata_len={{ metadata_len }}, metadata_len_ok={{ metadata_len_ok }}.
+      level: "{{ 'info' if overall_status == 'pass' else 'warning' }}"
+      logger: homeassistant.components.bambulab.spoolman_sync
+  
+  - action: persistent_notification.create
+    data:
+      notification_id: "print_weight_persistence_self_test_{{ phase }}"
+      title: "Print Weight Persistence Self-Test ({{ phase_label }})"
+      message: >-
+        {{ status_icon }} **{{ overall_status | upper }}**
+  
+        **Backup (`input_text.print_weight_backup`)**
+        - Present: `{{ backup_present }}`
+        - JSON shape valid: `{{ backup_shape_valid }}`
+        - Length: `{{ backup_len }}` (<=255: `{{ backup_len_ok }}`)
+        - AMS/External keys found: `{{ backup_key_count }}`
+  
+        **Metadata (`input_text.print_metadata_backup`)**
+        - Present: `{{ metadata_present }}`
+        - Format valid (`task|time|weight`): `{{ metadata_format_valid }}`
+        - Length: `{{ metadata_len }}` (<=255: `{{ metadata_len_ok }}`)
+  
+        **Tip:** During an active print, backup should be JSON and metadata should
+        contain 3 pipe-delimited parts.

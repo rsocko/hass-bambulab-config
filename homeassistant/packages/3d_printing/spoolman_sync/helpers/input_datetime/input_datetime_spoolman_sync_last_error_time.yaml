@@ -1,0 +1,5 @@
+spoolman_sync_last_error_time:
+  name: Last Sync Error Time
+  has_date: true
+  has_time: true
+  icon: mdi:clock-alert

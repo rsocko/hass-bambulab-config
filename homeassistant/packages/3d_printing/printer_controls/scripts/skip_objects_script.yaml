@@ -1,0 +1,150 @@
+# Script: skip_objects_script.yaml
+#
+# Provides two reusable scripts for skipping print objects on the Bambu Lab printer:
+#
+#   1. skip_print_object        - Skip a single object by ID, preserving all current skips.
+#   2. skip_print_objects_list  - Replace the entire skip list (bulk/automation use).
+#
+# Both scripts are automation-friendly and handle the "must send cumulative list" requirement
+# of the bambu_lab.skip_objects service (the printer replaces its skip list each call).
+#
+# Usage from an automation or script:
+#   service: script.skip_print_object
+#   data:
+#     object_id: 3
+#     device_id: "abc123def456"
+#
+# Usage from Developer Tools → Services:
+#   service: script.skip_print_objects_list
+#   data:
+#     object_ids: [1, 3]
+#     device_id: "abc123def456"
+#
+# To find the printer device_id:
+#   Settings → Devices & Services → Devices → (your printer) → copy the device ID from the URL
+#
+# To find printable object IDs:
+#   Developer Tools → States → search for "printable_objects"
+#   Look at the "objects" attribute: {"1": "Lid", "3": "Base", ...}
+
+skip_print_object:
+  alias: "Skip Single Print Object"
+  description: >-
+    Skip a single print object by its integer ID.
+    Reads the currently-skipped objects and adds the new ID so that all
+    previously-skipped objects are preserved. Has no effect if the object
+    is already skipped or if Skip Objects is not currently available.
+  fields:
+    object_id:
+      description: "Integer ID of the object to skip (from printable_objects.attributes.objects keys)"
+      required: true
+      example: 3
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 64
+    device_id:
+      description: "Home Assistant device ID for the printer"
+      required: true
+      example: "abc123def456abc123def456"
+      selector:
+        device:
+          integration: bambu_lab
+    printer_prefix:
+      description: >-
+        Entity ID prefix for this printer, e.g. 'ntk_ryansoffice_3dprinter'.
+        Used to resolve printable_objects, skipped_objects, and stop_print entities.
+        Defaults to 'ntk_ryansoffice_3dprinter' for this installation.
+      required: false
+      default: "ntk_ryansoffice_3dprinter"
+      example: "ntk_ryansoffice_3dprinter"
+      selector:
+        text:
+  variables:
+    _prefix: "{{ printer_prefix | default('ntk_ryansoffice_3dprinter') }}"
+    current_skipped: >-
+      {{ state_attr('sensor.' ~ _prefix ~ '_skipped_objects', 'objects') | default([]) }}
+    combined_ids: >-
+      {{ (current_skipped + [object_id | int]) | unique | list }}
+    combined_str: "{{ combined_ids | join(',') }}"
+    num_printable: >-
+      {{ states('sensor.' ~ _prefix ~ '_printable_objects') | int(0) }}
+    stop_available: >-
+      {{ not is_state('button.' ~ _prefix ~ '_stop_print', 'unavailable') }}
+  sequence:
+    - alias: "Guard: Skip Objects must be available"
+      condition: template
+      value_template: >-
+        {{ stop_available and num_printable >= 2 and num_printable <= 64 }}
+    - alias: "Guard: Object must not already be skipped"
+      condition: template
+      value_template: >-
+        {{ (object_id | int) not in current_skipped }}
+    - alias: "Call bambu_lab.skip_objects with cumulative list"
+      action: bambu_lab.skip_objects
+      data:
+        device_id: "{{ device_id }}"
+        objects: "{{ combined_str }}"
+    - alias: "Log the action"
+      action: system_log.write
+      data:
+        message: >-
+          skip_print_object: skipped object {{ object_id }} (cumulative list: {{ combined_str }})
+        level: info
+        logger: homeassistant.components.bambulab.skip_objects
+
+skip_print_objects_list:
+  alias: "Skip Print Objects (Bulk List)"
+  description: >-
+    Skip one or more print objects by sending a complete list of integer IDs.
+    This REPLACES the printer's current skip list (does not merge with existing skips).
+    Use skip_print_object instead if you want to add a single skip while preserving others.
+  fields:
+    object_ids:
+      description: "List of integer object IDs to skip"
+      required: true
+      example: [1, 3]
+      selector:
+        object:
+    device_id:
+      description: "Home Assistant device ID for the printer"
+      required: true
+      example: "abc123def456abc123def456"
+      selector:
+        device:
+          integration: bambu_lab
+    printer_prefix:
+      description: >-
+        Entity ID prefix for this printer, e.g. 'ntk_ryansoffice_3dprinter'.
+        Used to resolve printable_objects and stop_print entities.
+        Defaults to 'ntk_ryansoffice_3dprinter' for this installation.
+      required: false
+      default: "ntk_ryansoffice_3dprinter"
+      example: "ntk_ryansoffice_3dprinter"
+      selector:
+        text:
+  variables:
+    _prefix: "{{ printer_prefix | default('ntk_ryansoffice_3dprinter') }}"
+    combined_str: "{{ object_ids | map('int') | list | join(',') }}"
+    num_printable: >-
+      {{ states('sensor.' ~ _prefix ~ '_printable_objects') | int(0) }}
+    stop_available: >-
+      {{ not is_state('button.' ~ _prefix ~ '_stop_print', 'unavailable') }}
+  sequence:
+    - alias: "Guard: Skip Objects must be available"
+      condition: template
+      value_template: >-
+        {{ stop_available and num_printable >= 2 and num_printable <= 64 }}
+    - alias: "Call bambu_lab.skip_objects"
+      action: bambu_lab.skip_objects
+      data:
+        device_id: "{{ device_id }}"
+        objects: "{{ combined_str }}"
+    - alias: "Log the action"
+      action: system_log.write
+      data:
+        message: >-
+          skip_print_objects_list: set skip list to [{{ combined_str }}]
+        level: info
+        logger: homeassistant.components.bambulab.skip_objects

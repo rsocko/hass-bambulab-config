@@ -1,0 +1,54 @@
+- alias: Push Printer Image to Screen
+  description: >
+    Pushes the 3D printer's cover/model image to the OpenHASP touchscreen display
+    whenever the printer's cover image entity updates. Uses the openhasp.push_image
+    service to send the image directly to the ESP32 display (p1b1 object).
+
+    This automation monitors the Bambu Lab printer's cover image entity and
+    automatically updates the display so the current print model preview is
+    always visible on the touchscreen.
+
+  triggers:
+    - trigger: state
+      entity_id:
+        - image.ntk_ryansoffice_3dprinter_cover_image
+
+  conditions: []
+
+  actions:
+    # Option A (disabled): Save snapshot locally first, then push
+    - action: image.snapshot
+      metadata: {}
+      data:
+        filename: /config/www/3dprinter_coverimage.png
+      target:
+        entity_id: image.ntk_ryansoffice_3dprinter_cover_image
+      enabled: false
+
+    # Option B (disabled): Push a static local image to the screen
+    - action: openhasp.push_image
+      metadata: {}
+      data:
+        width: 200
+        height: 191
+        obj: p1b16
+        image: http://192.168.1.5:8123/local/cameraImage.png
+      enabled: false
+      target:
+        entity_id: openhasp.officetouch5
+
+    # Option C (active): Push the dynamic entity_picture URL to the screen
+    - action: openhasp.push_image
+      metadata: {}
+      data:
+        image: >-
+          http://192.168.1.5:8123{{ state_attr('image.ntk_ryansoffice_3dprinter_cover_image',
+          'entity_picture') }}
+        obj: p1b1
+        width: 200
+        height: 200
+      target:
+        entity_id: openhasp.officetouch5
+      enabled: true
+
+  mode: single

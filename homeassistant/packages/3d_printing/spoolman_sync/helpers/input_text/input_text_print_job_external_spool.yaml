@@ -1,0 +1,5 @@
+print_job_external_spool:
+  name: Print Job External Spool Data
+  max: 255
+  initial: ""
+  icon: mdi:printer-3d-nozzle

@@ -1,0 +1,15 @@
+# Deploy allowlist profile: packages_www
+#
+# Behavior:
+# - packages/ remains YAML-only
+# - www/ may include non-YAML runtime assets
+
+# Traverse all directories
+*/
+
+# Deploy YAML only from packages
+packages/**/*.yaml
+packages/**/*.yml
+
+# Allow all files under www/ (images, JS, CSS, etc.)
+www/***

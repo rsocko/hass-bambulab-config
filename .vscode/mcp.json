@@ -1,0 +1,7 @@
+{
+  "servers": {
+    "ha-mcp-docker": {
+      "url": "http://ha-mcp.socko.us/mcp",
+    }
+  }
+}

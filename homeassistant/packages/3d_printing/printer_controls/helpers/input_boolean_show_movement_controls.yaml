@@ -1,0 +1,5 @@
+# Toggle to show/hide the printer movement controls card
+show_movement_controls:
+  name: "Show Movement Controls"
+  icon: mdi:camera-control
+  initial: false

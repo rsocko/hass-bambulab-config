@@ -1,0 +1,6 @@
+3d-printing-v2:
+  mode: yaml
+  title: 3D Printing v2
+  icon: mdi:printer-3d
+  show_in_sidebar: true
+  filename: packages/3d_printing/common/dashboards/3d_printing_v2.yaml

@@ -1,0 +1,129 @@
+- name: "print_cost"
+  unit_of_measurement: "$"
+  state: >
+    {#
+      NOTE: HA template sensors evaluate state and attributes independently,
+      so the tray_weight_keys mapping and pricing logic are intentionally
+      repeated in the breakdown attribute below.
+    #}
+
+    {# Mapping: tray_map key -> print_weight sensor attribute key #}
+    {% set tray_weight_keys = {
+      'ams_1_tray_1': 'AMS 1 Tray 1',
+      'ams_1_tray_2': 'AMS 1 Tray 2',
+      'ams_1_tray_3': 'AMS 1 Tray 3',
+      'ams_1_tray_4': 'AMS 1 Tray 4',
+      'ams_2_tray_1': 'AMS 2 Tray 1',
+      'ams_2_tray_2': 'AMS 2 Tray 2',
+      'ams_2_tray_3': 'AMS 2 Tray 3',
+      'ams_2_tray_4': 'AMS 2 Tray 4',
+      'external_spool': 'External Spool'
+    } %}
+
+    {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
+    {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+    {% set default_price_per_kg = states('input_number.default_filament_cost_per_kg') | float(20.0) %}
+    {# Default initial_weight 1000 g = standard 1 kg spool #}
+    {% set default_spool_weight_g = 1000 %}
+    {% set ns = namespace(total=0.0) %}
+
+    {% if tray_map %}
+      {% for tray_key, tray_data in tray_map.items() %}
+        {% set weight_key = tray_weight_keys.get(tray_key) %}
+        {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
+
+        {% if print_weight > 0 %}
+          {% if tray_data.spool_id is not none %}
+            {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
+            {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
+            {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
+            {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
+            {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
+
+            {# Determine price per gram: spool price -> filament price -> default #}
+            {% if spool_price >= 0 %}
+              {% set price_per_gram = spool_price / initial_weight %}
+            {% elif filament_price >= 0 %}
+              {% set price_per_gram = filament_price / initial_weight %}
+            {% else %}
+              {% set price_per_gram = default_price_per_kg / 1000 %}
+            {% endif %}
+          {% else %}
+            {# No spool match - fall back to default price #}
+            {% set price_per_gram = default_price_per_kg / 1000 %}
+          {% endif %}
+
+          {% set ns.total = ns.total + (print_weight * price_per_gram) %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {{ ns.total | round(2) }}
+
+  attributes:
+    breakdown: >
+      {# Mapping: tray_map key -> print_weight sensor attribute key #}
+      {% set tray_weight_keys = {
+        'ams_1_tray_1': 'AMS 1 Tray 1',
+        'ams_1_tray_2': 'AMS 1 Tray 2',
+        'ams_1_tray_3': 'AMS 1 Tray 3',
+        'ams_1_tray_4': 'AMS 1 Tray 4',
+        'ams_2_tray_1': 'AMS 2 Tray 1',
+        'ams_2_tray_2': 'AMS 2 Tray 2',
+        'ams_2_tray_3': 'AMS 2 Tray 3',
+        'ams_2_tray_4': 'AMS 2 Tray 4',
+        'external_spool': 'External Spool'
+      } %}
+
+      {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
+      {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set default_price_per_kg = states('input_number.default_filament_cost_per_kg') | float(20.0) %}
+      {# Default initial_weight 1000 g = standard 1 kg spool #}
+      {% set default_spool_weight_g = 1000 %}
+      {% set ns = namespace(result={}) %}
+
+      {% if tray_map %}
+        {% for tray_key, tray_data in tray_map.items() %}
+          {% set weight_key = tray_weight_keys.get(tray_key) %}
+          {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
+
+          {% if print_weight > 0 %}
+            {% if tray_data.spool_id is not none %}
+              {% set spool_entity = 'sensor.spoolman_spool_' ~ tray_data.spool_id %}
+              {# | float(-1) safely converts None/'None'/missing to -1, so >= 0 means a real price was set #}
+              {% set spool_price = state_attr(spool_entity, 'price') | float(-1) %}
+              {% set filament_price = state_attr(spool_entity, 'filament_price') | float(-1) %}
+              {% set initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) %}
+
+              {# Determine price per gram: spool price -> filament price -> default #}
+              {% if spool_price >= 0 %}
+                {% set price_per_gram = spool_price / initial_weight %}
+                {% set price_source = 'spool' %}
+              {% elif filament_price >= 0 %}
+                {% set price_per_gram = filament_price / initial_weight %}
+                {% set price_source = 'filament' %}
+              {% else %}
+                {% set price_per_gram = default_price_per_kg / 1000 %}
+                {% set price_source = 'default' %}
+              {% endif %}
+            {% else %}
+              {# No spool match - fall back to default price #}
+              {% set price_per_gram = default_price_per_kg / 1000 %}
+              {% set price_source = 'default' %}
+            {% endif %}
+
+            {% set ns.result = ns.result | combine({
+              weight_key: {
+                'cost': (print_weight * price_per_gram) | round(4),
+                'weight': print_weight,
+                'price_per_kg': (price_per_gram * 1000) | round(2),
+                'name': tray_data.name,
+                'color': tray_data.color,
+                'price_source': price_source
+              }
+            }) %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {{ ns.result | tojson | from_json }}

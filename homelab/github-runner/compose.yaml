@@ -1,0 +1,25 @@
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: ${RUNNER_CONTAINER_NAME:-github-runner-ha}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RUNNER_SCOPE: ${RUNNER_SCOPE:-repo}
+      REPO_URL: ${REPO_URL}
+      ORG_NAME: ${ORG_NAME:-}
+      RUNNER_NAME: ${RUNNER_NAME:-ha-dockhand-runner}
+      LABELS: ${LABELS:-self-hosted,linux,docker,ha,homelab,dockhand}
+      RUNNER_WORKDIR: ${RUNNER_WORKDIR:-_work}
+      RUNNER_GROUP: ${RUNNER_GROUP:-Default}
+      DISABLE_AUTO_UPDATE: ${DISABLE_AUTO_UPDATE:-false}
+      EPHEMERAL: ${EPHEMERAL:-false}
+      ACCESS_TOKEN: ${ACCESS_TOKEN}
+    volumes:
+      - ./runner-data:/runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=false"
+    security_opt:
+      - no-new-privileges:true

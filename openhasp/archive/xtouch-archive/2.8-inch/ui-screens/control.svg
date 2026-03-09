@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
+  <title>xtouch 2.8" Control Screen (XY Axis Mode)</title>
+  <desc>Reconstructed from LVGL source: ui_comp_controlcomponent.c - 3-column D-pad layout with range, directional, and axis controls</desc>
+
+  <!-- Screen background -->
+  <rect width="640" height="480" fill="#000000"/>
+
+  <!-- ==================== SIDEBAR (48px * 2 = 96px) ==================== -->
+  <rect x="0" y="0" width="96" height="480" fill="#222222"/>
+
+  <!-- Sidebar nav buttons -->
+  <text x="48" y="58" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">⌂</text>
+  <text x="48" y="154" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28">🌡</text>
+  <!-- Control (ACTIVE - green) -->
+  <text x="48" y="250" text-anchor="middle" fill="#2AFF00" font-family="Arial, sans-serif" font-size="24">✥</text>
+  <text x="48" y="346" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">⬡</text>
+  <text x="48" y="442" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">⚙</text>
+
+  <!-- ==================== CONTENT AREA (544px) ==================== -->
+  <rect x="96" y="0" width="544" height="480" fill="#444444"/>
+
+  <!-- 3 columns, each flex-grow:1. Available width = 544-16pad = 528. Each col = ~170px with 8px gaps -->
+  <!-- ColA: x=104, w=170 | ColB: x=282, w=170 | ColC: x=460, w=170 -->
+
+  <!-- ==================== COLUMN A (Left) ==================== -->
+  <!-- 3 rows: Range (flex-grow:1), Left (flex-grow:1), Dummy (flex-grow:1) -->
+  <!-- Row heights: ~(480-16pad-16gap)/3 = ~149px each -->
+
+  <!-- Range button -->
+  <rect x="104" y="8" width="170" height="149" rx="8" fill="#555555"/>
+  <!-- Range icon "k" -->
+  <text x="189" y="62" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="36">↔</text>
+  <text x="189" y="60" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="14">RANGE</text>
+  <!-- Range value "1" (toggles between 1 and 10) -->
+  <text x="189" y="126" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="48" font-weight="bold">1</text>
+
+  <!-- Left arrow button -->
+  <rect x="104" y="165" width="170" height="149" rx="8" fill="#555555"/>
+  <text x="189" y="258" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="56">◀</text>
+
+  <!-- Dummy spacer (empty) -->
+  <rect x="104" y="322" width="170" height="150" rx="8" fill="#555555" opacity="0.3"/>
+
+  <!-- ==================== COLUMN B (Center) ==================== -->
+
+  <!-- Up arrow button -->
+  <rect x="282" y="8" width="170" height="149" rx="8" fill="#555555"/>
+  <text x="367" y="100" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="56">▲</text>
+
+  <!-- Home button (center) -->
+  <rect x="282" y="165" width="170" height="149" rx="8" fill="#555555"/>
+  <text x="367" y="258" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="48">⌂</text>
+
+  <!-- Down arrow button -->
+  <rect x="282" y="322" width="170" height="150" rx="8" fill="#555555"/>
+  <text x="367" y="416" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="56">▼</text>
+
+  <!-- ==================== COLUMN C (Right) ==================== -->
+
+  <!-- Axis toggle button (XY mode shown, toggles to Z) -->
+  <rect x="460" y="8" width="170" height="149" rx="8" fill="#555555"/>
+  <text x="545" y="62" text-anchor="middle" fill="#CCCCCC" font-family="Arial, sans-serif" font-size="14">AXIS</text>
+  <text x="545" y="120" text-anchor="middle" fill="#2AFF00" font-family="Arial, sans-serif" font-size="44" font-weight="bold">XY</text>
+
+  <!-- Right arrow button -->
+  <rect x="460" y="165" width="170" height="149" rx="8" fill="#555555"/>
+  <text x="545" y="258" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="56">▶</text>
+
+  <!-- Dummy spacer (empty) -->
+  <rect x="460" y="322" width="170" height="150" rx="8" fill="#555555" opacity="0.3"/>
+
+  <!-- ==================== ANNOTATIONS ==================== -->
+  <text x="320" y="476" text-anchor="middle" fill="#666666" font-family="Arial, sans-serif" font-size="11">xtouch 2.8" — Control Screen (XY axis mode, range=1mm)</text>
+</svg>

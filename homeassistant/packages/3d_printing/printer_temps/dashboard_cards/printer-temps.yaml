@@ -1,0 +1,238 @@
+type: horizontal-stack
+cards:
+  - type: custom:mushroom-template-card
+    entity: sensor.ntk_ryansoffice_3dprinter_nozzle_temperature
+    primary: "{% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %} {{
+      current | round(0) }}°C"
+    secondary: "{% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0)
+      %} {{ target | round(0) }}°C"
+    icon: mdi:printer-3d-nozzle-heat
+    icon_color: |
+      {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %} {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %} {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %} {% if printer_status == 'idle' or target == 0 %}
+        grey
+      {% elif target > current + 2 %}
+        red
+      {% elif target < current - 2 %}
+        blue
+      {% else %}
+        #A24C63
+      {% endif %}
+    layout: horizontal
+    tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        @keyframes glow-heat {
+          0%, 100% { box-shadow: 0 0 3px rgba(244, 67, 54, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(244, 67, 54, 0.8); }
+        }
+        @keyframes glow-cool {
+          0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
+        }
+        @keyframes pulse-yellow {
+          0%, 100% { background: rgba(255, 235, 59, 0.04); }
+          50% { background: rgba(255, 235, 59, 0.16); }
+        }
+        @keyframes pulse-amber {
+          0%, 100% { background: rgba(255, 193, 7, 0.05); }
+          50% { background: rgba(255, 193, 7, 0.18); }
+        }
+        @keyframes pulse-orange {
+          0%, 100% { background: rgba(255, 152, 0, 0.06); }
+          50% { background: rgba(255, 152, 0, 0.20); }
+        }
+        @keyframes pulse-red {
+          0%, 100% { background: rgba(244, 67, 54, 0.06); }
+          50% { background: rgba(244, 67, 54, 0.22); }
+        }
+        @keyframes pulse-at-target {
+          0%, 100% { background: rgba(162, 76, 99, 0.06); }
+          50% { background: rgba(162, 76, 99, 0.20); }
+        }
+        ha-card {
+          {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status != 'idle' and target > 0 %}
+            {% if target > current + 2 or target < current - 2 %}
+              {% if current < 50 %}
+                animation: pulse-yellow 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 235, 59, 0.7);
+              {% elif current < 150 %}
+                animation: pulse-amber 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 193, 7, 0.8);
+              {% elif current < 220 %}
+                animation: pulse-orange 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 152, 0, 0.8);
+              {% else %}
+                animation: pulse-red 2s ease-in-out infinite;
+                border-left: 3px solid rgba(244, 67, 54, 0.8);
+              {% endif %}
+            {% else %}
+              animation: pulse-at-target 2.5s ease-in-out infinite;
+              border-left: 3px solid rgba(162, 76, 99, 0.7);
+            {% endif %}
+          {% else %}
+            background: rgba(158, 158, 158, 0.05);
+          {% endif %}
+        }
+        mushroom-shape-icon {
+          {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status != 'idle' and target > 0 %}
+            {% if target > current + 2 %}
+              animation: glow-heat 1.2s ease-in-out infinite;
+            {% elif target < current - 2 %}
+              animation: glow-cool 1.5s ease-in-out infinite;
+            {% else %}
+              animation: none;
+            {% endif %}
+          {% endif %}
+        }
+        .primary {
+          font-size: 14px !important;
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% if target > 0 %}
+            font-weight: 700;
+            opacity: 0.9;
+          {% else %}
+            font-weight: 500;
+            opacity: 0.7;
+          {% endif %}
+        }
+        .secondary {
+          font-size: 28px !important;
+          font-weight: 700;
+          {% set current = states('sensor.ntk_ryansoffice_3dprinter_nozzle_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_nozzle_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status == 'idle' or target == 0 %}
+            color: rgb(158, 158, 158) !important;
+          {% elif target > current + 2 %}
+            color: rgb(244, 67, 54) !important;
+          {% elif target < current - 2 %}
+            color: rgb(33, 150, 243) !important;
+          {% else %}
+            color: rgb(156, 39, 176) !important;
+          {% endif %}
+        }
+  - type: custom:mushroom-template-card
+    entity: sensor.ntk_ryansoffice_3dprinter_bed_temperature
+    primary: "{% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %} {{ current
+      | round(0) }}°C"
+    secondary: "{% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+      {{ target | round(0) }}°C"
+    icon: mdi:radiator
+    icon_color: |
+      {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %} {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %} {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %} {% if printer_status == 'idle' or target == 0 %}
+        grey
+      {% elif target > current + 2 %}
+        red
+      {% elif target < current - 2 %}
+        blue
+      {% else %}
+        #A24C63
+      {% endif %}
+    layout: horizontal
+    tap_action:
+      action: more-info
+    card_mod:
+      style: |
+        @keyframes glow-heat {
+          0%, 100% { box-shadow: 0 0 3px rgba(244, 67, 54, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(244, 67, 54, 0.8); }
+        }
+        @keyframes glow-cool {
+          0%, 100% { box-shadow: 0 0 3px rgba(33, 150, 243, 0.3); }
+          50% { box-shadow: 0 0 10px rgba(33, 150, 243, 0.8); }
+        }
+        @keyframes pulse-yellow {
+          0%, 100% { background: rgba(255, 235, 59, 0.04); }
+          50% { background: rgba(255, 235, 59, 0.16); }
+        }
+        @keyframes pulse-amber {
+          0%, 100% { background: rgba(255, 193, 7, 0.05); }
+          50% { background: rgba(255, 193, 7, 0.18); }
+        }
+        @keyframes pulse-orange {
+          0%, 100% { background: rgba(255, 152, 0, 0.06); }
+          50% { background: rgba(255, 152, 0, 0.20); }
+        }
+        @keyframes pulse-red {
+          0%, 100% { background: rgba(244, 67, 54, 0.06); }
+          50% { background: rgba(244, 67, 54, 0.22); }
+        }
+        @keyframes pulse-at-target {
+          0%, 100% { background: rgba(162, 76, 99, 0.06); }
+          50% { background: rgba(162, 76, 99, 0.20); }
+        }
+        ha-card {
+          {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status != 'idle' and target > 0 %}
+            {% if target > current + 2 or target < current - 2 %}
+              {% if current < 30 %}
+                animation: pulse-yellow 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 235, 59, 0.7);
+              {% elif current < 50 %}
+                animation: pulse-amber 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 193, 7, 0.8);
+              {% elif current < 80 %}
+                animation: pulse-orange 2s ease-in-out infinite;
+                border-left: 3px solid rgba(255, 152, 0, 0.8);
+              {% else %}
+                animation: pulse-red 2s ease-in-out infinite;
+                border-left: 3px solid rgba(244, 67, 54, 0.8);
+              {% endif %}
+            {% else %}
+              animation: pulse-at-target 2.5s ease-in-out infinite;
+              border-left: 3px solid rgba(162, 76, 99, 0.7);
+            {% endif %}
+          {% else %}
+            background: rgba(158, 158, 158, 0.05);
+          {% endif %}
+        }
+        mushroom-shape-icon {
+          {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status != 'idle' and target > 0 %}
+            {% if target > current + 2 %}
+              animation: glow-heat 1.2s ease-in-out infinite;
+            {% elif target < current - 2 %}
+              animation: glow-cool 1.5s ease-in-out infinite;
+            {% else %}
+              animation: none;
+            {% endif %}
+          {% endif %}
+        }
+        .primary {
+          font-size: 14px !important;
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% if target > 0 %}
+            font-weight: 700;
+            opacity: 0.9;
+          {% else %}
+            font-weight: 500;
+            opacity: 0.7;
+          {% endif %}
+        }
+        .secondary {
+          font-size: 28px !important;
+          font-weight: 700;
+          {% set current = states('sensor.ntk_ryansoffice_3dprinter_bed_temperature') | float(0) %}
+          {% set target = states('sensor.ntk_ryansoffice_3dprinter_bed_target_temperature') | float(0) %}
+          {% set printer_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+          {% if printer_status == 'idle' or target == 0 %}
+            color: rgb(158, 158, 158) !important;
+          {% elif target > current + 2 %}
+            color: rgb(244, 67, 54) !important;
+          {% elif target < current - 2 %}
+            color: rgb(33, 150, 243) !important;
+          {% else %}
+            color: rgb(156, 39, 176) !important;
+          {% endif %}
+        }

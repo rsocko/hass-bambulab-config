@@ -1,0 +1,6 @@
+# Toggle to show/hide the ha-bambulab Printer Status card
+# (includes toolhead controls, heat bed controls, and print history)
+show_printer_controls:
+  name: "Show Printer Controls"
+  icon: mdi:printer-settings
+  initial: false

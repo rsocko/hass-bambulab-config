@@ -1,0 +1,2 @@
+input_boolean: !include helpers/input_boolean_show_printer_controls.yaml
+script: !include scripts/reset_interior_light_to_white-script.yaml
