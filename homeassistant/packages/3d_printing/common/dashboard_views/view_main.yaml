@@ -393,7 +393,7 @@ sections:
       grid_options:
         columns: 6
     - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
-    - !include ../../printer_controls/dashboard_cards/printer-movement-controls-with-toggle.yaml
+    #- !include ../../printer_controls/dashboard_cards/printer-movement-controls-with-toggle.yaml
     - !include ../../print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml
   columns: 2
   square: false
@@ -418,8 +418,18 @@ sections:
             disable: []
           always_error_if_entity_unavailable: false
           image:
-            mode: camera
+            # mode: url with a custom image replaces the default "flowers"
+            # screensaver shown while the live stream is loading.
+            # Place your image at /config/www/bambu-printer.jpg in HA.
+            mode: url
+            url: /local/bambu-printer.jpg
         - camera_entity: camera.3dprintertopcamera_hd_stream
+          image:
+            # mode: url with a custom image replaces the default "flowers"
+            # screensaver shown while the live stream is loading.
+            # Place your image at /config/www/bambu-printer.jpg in HA.
+            mode: url
+            url: /local/bambu-printer.jpg
       status_bar:
         items:
           engine:
