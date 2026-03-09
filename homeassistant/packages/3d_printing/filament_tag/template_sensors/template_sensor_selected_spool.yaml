@@ -2,12 +2,12 @@
   unique_id: "filament_tag_selected_spool"
   icon: fapro:filament-2
   state: >
-    {% set fid = states('input_text.filament_id') | int %}
+    {% set fid = states('input_text.filament_id') | int(0) %}
 
     {% for s in states.sensor %}
       {% if s.entity_id.startswith('sensor.spoolman_spool_') %}
-        {% set filament = state_attr(s.entity_id, 'filament_id') %}
-        {% if filament and filament == fid %}
+        {% set filament = state_attr(s.entity_id, 'filament_id') | int(0) %}
+        {% if filament > 0 and filament == fid %}
           {{ s.entity_id }}
           {% break %}
         {% endif %}

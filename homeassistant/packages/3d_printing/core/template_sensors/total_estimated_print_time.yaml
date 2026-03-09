@@ -14,8 +14,10 @@
   state: >
     {% set start = states('sensor.ntk_ryansoffice_3dprinter_start_time') %}
     {% set end_time = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
-    {% if start not in ['unknown', 'unavailable'] and end_time not in ['unknown', 'unavailable'] %}
-      {{ ((as_timestamp(end_time) - as_timestamp(start)) / 60) | round(0) }}
+    {% if start not in ['unknown', 'unavailable', '', none] and end_time not in ['unknown', 'unavailable', '', none] %}
+      {% set start_ts = as_timestamp(start, 0) %}
+      {% set end_ts = as_timestamp(end_time, 0) %}
+      {{ ((end_ts - start_ts) / 60) | round(0) if start_ts > 0 and end_ts > 0 else 0 }}
     {% else %}
       0
     {% endif %}
