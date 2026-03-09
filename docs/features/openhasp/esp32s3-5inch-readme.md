@@ -49,10 +49,21 @@ The printer dashboard shows:
 - **Layer arc** showing current/total layers
 - **Time remaining** arc and formatted label
 - **Top-right printer controls** (`Stop`, `Pause`, `Start`) with icon-only buttons and state-driven availability colors
+- **Controls page shortcut** (`CTL`) that opens a dedicated motion/filament page
 - **Estimated completion time** (friendly format: same day time, `tomorrow`, weekday, or date)
-- **Tabbed right panel** — `Print Weight` and `Print Cost` tabs with spool indicators and stacked horizontal bars colored by tray/spool color and proportional segment widths
+- **Filament analytics shortcut** (`FIL`) opening a dedicated page with side-by-side `Print Weight` and `Print Cost` panels
 - **Printer state** and **detail** labels (from smart status template sensor)
 - **Status LED** indicator
+
+### Display Layout (Page 2)
+
+The controls page provides direct machine movement actions inspired by the ha-bambulab controls popup:
+
+- **XY directional control cluster** with icon-based 1-step and stacked-arrow 10-step moves plus a centered home icon action
+- **Z axis controls** that reuse the same up/down single and stacked arrow icons as XY, plus a center bed icon
+- **Filament controls** using up/down arrow icon buttons for retract/extrude
+- **Close button** (`X`) to return to the main dashboard page
+- Safety hint text is hidden to reduce visual clutter on this page
 
 ## Object ID Quick Reference
 
@@ -66,10 +77,16 @@ Use this as a fast map of the major object groups. For full object-by-object det
 | `p1b10`–`p1b13`, `p1b17`–`p1b20`, `p1b39` | AMS + external spool indicators |
 | `p1b27` | Smart status LED color indicator |
 | `p1b31`, `p1b32` | Smart status text labels (detail/state) |
+| `p0b2`–`p0b4` | Shared left-nav launchers (home, controls, filament) |
 | `p1b84`–`p1b89` | Printer control buttons + icons (`Stop`, `Pause`, `Start`) |
-| `p1b50`–`p1b54` | Right tab panel (`Print Weight` / `Print Cost`) + tab totals |
-| `p1b60`–`p1b68` | Cost tab stacked bar segments |
-| `p1b73`–`p1b81` | Weight tab stacked bar segments |
+| `p2b5`–`p2b13` | XY controls (icon-based 1-step, stacked-arrow 10-step, home) |
+| `p2b20`–`p2b23` | Z-axis controls (up/down icon-based 1-step and 10-step) |
+| `p2b30`, `p2b31` | Filament retract/extrude |
+| `p2b41` | Safety hint placeholder (hidden) |
+| `p3b53`, `p3b54` | Weight/cost panel totals |
+| `p3b60`–`p3b68` | Cost panel stacked bar segments |
+| `p3b73`–`p3b81` | Weight panel stacked bar segments |
+| `p3b71`, `p3b72` | Multiline legend/detail labels (per-slot values and percentages) |
 
 Maintenance note: keep this section as a grouped summary only; update exact object metadata in [openhasp/README.md](../../../openhasp/README.md) to maintain a single detailed source of truth.
 
@@ -82,13 +99,15 @@ homeassistant/packages/3d_printing/openhasp_display/
 │   └── officetouch5.yaml             ← OpenHASP plate object bindings
 └── automations/
     ├── auto_manage_screen_visibility.yaml
+    ├── printer_motion_controls.yaml
     ├── printer_control_buttons.yaml
     ├── push_printer_image_to_screen.yaml
     └── save_camera_snapshot_from_3d_printer.yaml
 
 openhasp/esp32s3-5inch/device/
 ├── config.json                       ← Device configuration (Wi-Fi, MQTT, GUI)
-├── printer2.jsonl                    ← Page layout (UI objects)
+├── pages/                            ← Per-page source JSONL files (page0..page3)
+├── printer2.jsonl                    ← Combined deploy file loaded by openHASP
 ├── online.cmd                        ← Command executed when MQTT connects
 └── offline.cmd                       ← Command executed when MQTT disconnects
 ```

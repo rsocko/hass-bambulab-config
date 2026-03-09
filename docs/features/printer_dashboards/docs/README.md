@@ -66,9 +66,19 @@ The HMS error alert system provides:
     - `count`: Number of active errors
     - `errors`: Array of error objects (attr, code, text)
 
+## AMS Header Cards
+
+The `ams_header` button-card template provides a bubble-card separator header above each AMS unit with:
+- Dynamic humidity icon and color based on Bambu Lab's 1–5 rating (mapped to percentage thresholds)
+- Temperature sub-button with color-coded background
+- Replaces the built-in `ha-bambulab-ams-card` header and info bar
+
+See [card-templates-README.md](../card-templates-README.md) for template variables and threshold tables.
+
 ## Related Documentation
 
 - [Main README](../README.md) - Repository overview
+- [Card Templates](../card-templates-README.md) - AMS header and tray card template documentation
 - [Spoolman Sync Documentation](../../spoolman_sync/README.md) - Filament tracking
 - [WLED Documentation](../../wled/README.md) - LED lighting automation
 

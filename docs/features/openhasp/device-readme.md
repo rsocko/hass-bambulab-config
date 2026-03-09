@@ -31,13 +31,18 @@ hasp/officetouch5/command/p1b5  → {"text":"55%"}     (commands IN)
 homeassistant/status            → online/offline      (HA birth/will)
 ```
 
-### `printer2.jsonl` — Page Layout (UI Design)
+### `printer2.jsonl` + `pages/*.jsonl` — Page Layout (UI Design)
 
 The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all visual objects on the touchscreen. Each line is a JSON object that creates or configures one UI element. The file is loaded at boot via the `hasp.pages` setting in `config.json`.
 
+- `printer2.jsonl` is the deployable combined file loaded by openHASP.
+- `pages/3dprinter.page0.nav.jsonl`, `pages/3dprinter.page1.home.jsonl`, `pages/3dprinter.page2.controls.jsonl`, and `pages/3dprinter.page3.filament.jsonl` are per-page source files for easier editing.
+
 **Page structure:**
-- **Page 0** — Common objects (visible on all pages) — currently empty
+- **Page 0** — Shared left-side navigation (Home, Controls, Filament icons)
 - **Page 1** — 3D Printer Dashboard (main and only page)
+- **Page 2** — Printer motion + filament controls
+- **Page 3** — Filament weight/cost breakdown (side-by-side panels)
 
 **Object map for Page 1:**
 
@@ -59,26 +64,50 @@ The [JSONL pages file](https://www.openhasp.com/0.7.0/design/pages/) defines all
 | `p1b87` | `img` | 758,30 32×32 | Pause icon (`L:/pause.png`, shown/hidden with Pause btn) |
 | `p1b88` | `btn` | 748,20 52×52 | **Resume** button — same position as Pause, visible only when paused |
 | `p1b89` | `img` | 758,30 32×32 | Resume/play icon (`L:/play.png`, shown/hidden with Resume btn) |
+| `p0b2` | `btn` | 6,20 44×44 | Shared nav: opens dashboard page (page 1) |
+| `p0b3` | `btn` | 6,80 44×44 | Shared nav: opens controls page (page 2) |
+| `p0b4` | `btn` | 6,140 44×44 | Shared nav: opens filament analytics page (page 3) |
 | `p1b14` | `label` | 140,25 | Time remaining value |
 | `p1b15` | `label` | 130,55 | "Time Remaining" static label |
 | `p1b30` | `label` | 110,84 | "Est" static label |
 | `p1b29` | `label` | 145,80 (145×35, font 16) | Estimated completion time value (friendly formatted text) |
-| `p1b50` | `tabview` | 615,140 175×275 | Right-side tab container |
-| `p1b51`, `p1b52` | `tab` | child of `p1b50` | `Print Weight` and `Print Cost` tabs |
-| `p1b53`, `p1b54` | `label` | tab-local | Total weight and total cost labels |
 | `p1b10`–`p1b13`, `p1b17`–`p1b20`, `p1b39` | `obj` | main page | AMS spool indicators (A1–A4, B1–B4, Ext) |
 | `p1b41`, `p1b42`, `p1b33`–`p1b38`, `p1b40` | `label` | main page | Static spool slot labels |
-| `p1b73`–`p1b81` | `obj` | tab-local | Weight tab stacked bar segments (A1–A4, B1–B4, Ext) |
-| `p1b60`–`p1b68` | `obj` | tab-local | Cost tab stacked bar segments (A1–A4, B1–B4, Ext) |
-| `p1b69`, `p1b70` | `obj` | tab-local | Weight/cost bar border frames |
-| `p1b71`, `p1b72` | `label` | tab-local | Slot legends (`A1 ... Ext`) |
 | `p1b27` | `led` | 45,375 | Status LED indicator |
 | `p1b31` | `label` | 100,390 | Smart status detail value (`detail` attribute) |
 | `p1b32` | `label` | 100,355 | Smart status state value |
 
-> **Note:** Object IDs in the slot-label range (33–42) plus `p1b40` are static visual labels that do not need to be controlled by Home Assistant. All object IDs are unique.
+**Object map for Page 2 (controls):**
+
+| ID | Object Type | Position | Description |
+|----|------------|----------|-------------|
+| `p2b5`–`p2b8` | `btn` | XY center ring | XY jog by 1 step (icon buttons) |
+| `p2b9`–`p2b12` | `btn` | XY outer ring | XY jog by 10 steps (stacked-arrow icons) |
+| `p2b13` | `btn` | XY center | Home action (home icon overlay) |
+| `p2b20`–`p2b23` | `btn` | Right column | Z jog (up/down arrow icons for 1 and 10) |
+| `p2b30` | `btn` | Far-right column | Retract filament (up-arrow icon button) |
+| `p2b31` | `btn` | Far-right column | Extrude filament (down-arrow icon button) |
+| `p2b42`–`p2b55` | `img` | Page 2 overlays | Directional icon overlays for XY/Z + extruder controls |
+| `p2b41` | `label` | Top-right area | Safety hint placeholder (hidden) |
+
+**Object map for Page 3 (filament analytics):**
+
+| ID | Object Type | Position | Description |
+|----|------------|----------|-------------|
+| `p3b53`, `p3b54` | `label` | top of each panel | Total weight and total cost labels |
+| `p3b73`–`p3b81` | `obj` | left panel | Weight stacked bar segments (A1–A4, B1–B4, Ext) |
+| `p3b60`–`p3b68` | `obj` | right panel | Cost stacked bar segments (A1–A4, B1–B4, Ext) |
+| `p3b69`, `p3b70` | `obj` | panel bar areas | Weight/cost bar border frames |
+| `p3b71`, `p3b72` | `label` | panel detail areas | Multiline legend/detail text with per-slot values and percentages |
+
+> **Note:** Static visual-only IDs (for labels/icons) do not require Home Assistant bindings. On page 2 this includes icon overlays such as `p2b15`, `p2b25`, `p2b33`, and `p2b42`–`p2b55`.
 
 The values for `p1b31` and `p1b32` are populated by Home Assistant via [officetouch5.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/openhasp/officetouch5.yaml), using `sensor.ntk_ryansoffice_3dprinter_smart_status` and its `detail` attribute.
+
+Page-2 touch events are consumed by [printer_motion_controls.yaml](../../../homeassistant/packages/3d_printing/openhasp_display/automations/printer_motion_controls.yaml), which calls:
+
+- `bambu_lab.move_axis` for X/Y/Z/home actions
+- `bambu_lab.extrude_retract` for filament retract/extrude
 
 **Object types used** (see [openHASP Objects reference](https://www.openhasp.com/0.7.0/design/objects/)):
 
@@ -88,8 +117,6 @@ The values for `p1b31` and `p1b32` are populated by Home Assistant via [officeto
 | [`btn`](https://www.openhasp.com/0.7.0/design/objects/btn/) | Clickable button with built-in touch events. Used for printer control buttons (Stop, Pause, Resume). |
 | [`label`](https://www.openhasp.com/0.7.0/design/objects/label/) | Text display. Used for all text values and static labels. |
 | [`obj`](https://www.openhasp.com/0.7.0/design/objects/obj/) | Base rectangle object. Used as stacked bar segments and bar frames (colors and widths set dynamically from HA). |
-| [`tabview`](https://www.openhasp.com/0.7.0/design/objects/tabview/) | Native tab container. Used to switch between `Print Weight` and `Print Cost`. |
-| [`tab`](https://www.openhasp.com/0.7.0/design/objects/tabview/) | Child tab pages inside the tabview. |
 | [`img`](https://www.openhasp.com/0.7.0/design/objects/img/) | Image display. Shows the 3D model preview pushed from Home Assistant. Requires PSRam. |
 | [`led`](https://www.openhasp.com/0.7.0/design/objects/led/) | LED indicator with adjustable brightness and color. Used as a status indicator. |
 
