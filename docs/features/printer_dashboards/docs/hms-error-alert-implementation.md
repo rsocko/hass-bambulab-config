@@ -1,99 +1,79 @@
 # HMS Error Alert Implementation
 
 ## Overview
-This document describes the implementation of prominent HMS (Health Management System) error alerts for the Bambu Lab 3D printer dashboard.
+This document describes the implementation of the unified HMS (Health Management System) error alert section for the Bambu Lab 3D printer dashboard.
 
-## Changes Made
+## Architecture
 
-### 1. Top Banner Alert (New Section)
-- **Location**: Added as the first section in the Home view
-- **Behavior**: Conditionally displayed only when HMS errors are present (`binary_sensor.ntk_ryansoffice_3dprinter_hms_errors` state is "on")
-- **Responsive behavior**:
-  - Mobile (`max-width: 600px`): compact single-card summary banner
-  - Desktop (`min-width: 601px`): full banner with expanded markdown error details
-- **Features**:
-  - Prominent red alert banner with warning icon
-  - Shows error count dynamically
-  - Expandable error details section showing all error information
-  - Click-to-view more info functionality
-  - Red background with border for high visibility
+### Single Unified Card
+The alert is implemented as **one responsive card** (`hms-error-alert-section.yaml`) that adapts to all screen sizes. There are no separate mobile/desktop cards.
 
-### 2. Enhanced Badge Display
-- **Location**: Top badges bar
-- **Changes**:
-  - Now shows "HMS" label for clarity
-  - Shows entity state (OK/Problem)
-  - Clickable to show more details (more-info action)
-  - More prominent in the badge bar
+**File**: `homeassistant/packages/3d_printing/hms_alert/dashboard_cards/hms-error-alert-section.yaml`
 
-### 3. Updated Print Details Tab
-- **Location**: Print Details tab in the tabbed card section
-- **Changes**:
-  - Added tap action for more info
-  - Shows last-changed timestamp as secondary info
-  - Allows users to click for full error details
-
-## Error Information Displayed
-
-The banner shows:
-1. **Primary Alert**: "⚠️ HMS ERROR ALERT"
-2. **Error Summary**: Current state and error count
-3. **Detailed Error Information**:
-  - Error code
-  - Error description text
-  - Severity (when provided)
-  - Troubleshooting wiki link (when provided)
-  - Support for multiple errors (displayed sequentially)
-
-## Technical Implementation
-
-### Banner Card Structure
-- Uses section-level `visibility` to only render the top section when errors exist
-- Uses two mutually exclusive screen conditions:
-  - Mobile section with `mushroom-template-card` summary only
-  - Desktop section with `vertical-stack`:
-    - `mushroom-template-card` for the alert header
-    - `markdown` card for error details
-- Custom styling with `card_mod` for red theme
-
-### Template Used
-```jinja2
-{% set attrs = states['binary_sensor.ntk_ryansoffice_3dprinter_hms_errors'].attributes %}
-{% set count = attrs['Count'] if attrs['Count'] is defined else 0 %}
-{% if count | int(0) > 0 %}
-{% for i in range(1, (count | int(0)) + 1) %}
-{% set code = attrs[i ~ '-Code'] if attrs[i ~ '-Code'] is defined else 'Unknown' %}
-{% set error_text = attrs[i ~ '-Error'] if attrs[i ~ '-Error'] is defined else 'No description available' %}
-**Error {{ i }}:** {{ error_text }}
-
-**Code:** {{ code }}
-
----
-{% endfor %}
-{% else %}
-No error details available
-{% endif %}
+### Card Structure
+```
+type: grid (section)
+  └── vertical-stack
+       ├── mushroom-template-card   ← Header banner
+       └── markdown card             ← Collapsible error details
 ```
 
-## User Experience
+## Header Banner
 
-### When No Errors Exist
-- Banner section is hidden (takes no space)
-- Badge shows "OK" state
-- Dashboard appears normal
+The `mushroom-template-card` provides a dramatic, attention-grabbing alert:
 
-### When Errors Exist
-- Banner immediately visible at top of dashboard
-- Red alert styling catches attention
-- Error count shown in banner
-- Full error details expanded below banner
-- Badge also reflects error state
-- All three locations (banner, badge, tab) are clickable for more info
+- **Primary text**: `⚠ HMS ERROR ALERT` — large (1.8 rem desktop / 1.35 rem mobile), weight 900, with a pulsing text-shadow glow
+- **Secondary text** (dynamic):
+  - **1 error**: shows the actual error description text inline
+  - **>1 errors**: shows `N Errors` (e.g. `3 Errors`)
+- **Animations**:
+  - `hms-pulse` — box-shadow expands to 25 px + 60 px outer glow, 2 s cycle
+  - `hms-icon-glow` — icon scales to 1.18× with layered red drop-shadows, 1.5 s cycle
+  - `hms-title-pulse` — title text glows with red text-shadow, synced to pulse
+- **Background**: 135° gradient from 35 % red through dark red to 28 % red
+- **Border**: 2 px solid red at 90 % opacity
+
+## Collapsible Error Details
+
+Uses the native HTML `<details>` / `<summary>` element inside a markdown card:
+
+| Error Count | Default State |
+|---|---|
+| 1 error | **Collapsed** (error text already visible in banner) |
+| >1 errors | **Expanded** (shows all error cards) |
+
+Users can click the summary line to toggle visibility on any device.
+
+### Error Cards Layout
+- Errors render as **flex-wrap cards** (`flex: 1 1 280px`) that flow horizontally and wrap on narrow screens
+- Each card shows: severity icon + title, error description, severity label · code · wiki link
+- **No visible table borders** — information is laid out as styled `<div>` elements
+
+### Severity Colouring
+
+| Severity | Border | Background | Icon |
+|---|---|---|---|
+| Critical / Serious / Fatal / High | `#f44336` (red) | `rgba(244,67,54,0.10)` | 🔴 |
+| Medium / Warn | `#ff9800` (orange) | `rgba(255,152,0,0.10)` | 🟠 |
+| Minor / Low | `#ffc107` (yellow) | `rgba(255,193,7,0.10)` | 🟡 |
+| Unknown | `#9e9e9e` (grey) | `rgba(158,158,158,0.10)` | ⚪ |
+
+## Data Sources
+
+The card reads from `binary_sensor.hms_alert_display_wrapper`, supporting two attribute formats:
+
+1. **Numbered format** (primary): `Count`, `1-Error`, `1-Code`, `1-Severity`, `1-Wiki`, …
+2. **Legacy list format** (fallback): `errors` attribute as a list of `{attr, code, severity, wiki}` dicts
+
+## Visibility
+
+- Section-level `visibility` condition: only shown when `binary_sensor.hms_alert_display_wrapper` is `on`
+- No screen-size media query conditions — one card for all devices
 
 ## Dependencies
-- `custom:mushroom-template-card` - For the alert header
-- `card_mod` - For custom styling (if available)
-- Standard Home Assistant sections visibility and markdown cards
+- `custom:mushroom-template-card` — header banner
+- `card_mod` — animations and styling
+- Standard Home Assistant markdown card and `<details>` HTML support
 
 ## Future Enhancements (Optional)
 - Home Assistant notifications when errors occur

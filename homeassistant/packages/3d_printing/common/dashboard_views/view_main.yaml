@@ -2,8 +2,7 @@ title: Home
 # Keep at 3 so HMS sections with column_span: 3 always render full-width
 max_columns: 3
 sections:
-- !include ../../hms_alert/dashboard_cards/hms-error-alert-mobile-section.yaml
-- !include ../../hms_alert/dashboard_cards/hms-error-alert-desktop-section.yaml
+- !include ../../hms_alert/dashboard_cards/hms-error-alert-section.yaml
 - type: grid
   cards:
     - type: horizontal-stack

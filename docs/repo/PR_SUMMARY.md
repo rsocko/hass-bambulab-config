@@ -48,9 +48,13 @@ homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing
   Statistics: +52 lines, -4 modified lines
 ```
 
-### Files Created
+### Files Created / Updated
 ```
-Documentation (6 new files, ~750 lines total):
+Dashboard card (unified):
+  └── homeassistant/packages/3d_printing/hms_alert/dashboard_cards/
+      └── hms-error-alert-section.yaml                (Single responsive card)
+
+Documentation:
   ├── QUICK_START.md                                  (Quick reference guide)
   ├── IMPLEMENTATION_SUMMARY.md                       (Complete overview)
   └── docs/features/printer_dashboards/docs/
@@ -58,6 +62,10 @@ Documentation (6 new files, ~750 lines total):
       ├── hms-error-alert-implementation.md           (Technical details)
       ├── hms-error-ui-mockup.md                      (Visual examples)
       └── hms-error-testing-guide.md                  (Testing instructions)
+
+Removed (replaced by unified card):
+  └── hms-error-alert-mobile-section.yaml
+  └── hms-error-alert-desktop-section.yaml
 ```
 
 ## 🎨 User Experience
@@ -69,11 +77,13 @@ Documentation (6 new files, ~750 lines total):
 - Zero visual clutter
 
 ### Error State (HMS Errors Present)
-- **Red banner immediately visible at top**
-- Error count displayed prominently
-- All error details shown (name, code, description)
+- **Dramatic red banner immediately visible** with pulsing glow, icon animation, and title glow
+- **1 error**: error description shown inline in the banner; details collapsed
+- **>1 errors**: count shown in banner (e.g. "3 Errors"); details auto-expanded
+- Collapsible `<details>` toggle lets user expand/collapse error cards
+- Error cards coloured by severity (red/orange/yellow) in a flex-wrap horizontal layout
 - HMS badge shows "Problem"
-- All three HMS displays clickable for more info
+- All HMS displays clickable for more info
 
 ## 🔧 Technical Architecture
 

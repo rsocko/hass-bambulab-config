@@ -1,138 +1,99 @@
-# HMS Error Alert UI - Visual Guide
+# HMS Error Alert UI — Visual Guide
 
-## Dashboard Layout - Normal State (No Errors)
+## Dashboard Layout — Normal State (No Errors)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🔵 Print Status   🟢 Stage   📦 Task   📊 Progress   ⏱️ Time   │
-│  🟢 HMS [OK]   📷 Camera                                        │
-└─────────────────────────────────────────────────────────────────┘
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Bambu Lab Print Status Card                             │   │
-│  │  [Normal operation display]                              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Camera View                                              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  AMS Card & Filament Details                             │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
+The HMS alert section is completely hidden. The dashboard renders normally with no extra space consumed.
 
-## Dashboard Layout - Error State (HMS Errors Present)
+## Dashboard Layout — Single Error (Desktop)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  ╔═══════════════════════════════════════════════════════════╗  │
-│  ║  🔴 ⚠️ HMS ERROR ALERT                                    ║  │
-│  ║  Problem - 1 Error(s)                                  [i]║  │
+│  ║  🔴  ⚠ HMS ERROR ALERT                                   ║  │
+│  ║      AMS B Slot 3 filament has run out. Please insert…   ║  │
 │  ║                                                            ║  │
-│  ║  ┌─────────────────────────────────────────────────────┐ ║  │
-│  ║  │ Error Details:                                       │ ║  │
-│  ║  │                                                       │ ║  │
-│  ║  │ **Error 1:** Nozzle Temperature Malfunction          │ ║  │
-│  ║  │ **Code:** 0500_0200_0001_0001                        │ ║  │
-│  ║  │ The nozzle temperature sensor is not reading         │ ║  │
-│  ║  │ correctly. Please check the sensor connection...     │ ║  │
-│  ║  │                                                       │ ║  │
-│  ║  └─────────────────────────────────────────────────────┘ ║  │
+│  ║  ▶ View Error Details                  (collapsed)        ║  │
 │  ╚═══════════════════════════════════════════════════════════╝  │
 │                                                                   │
-│  🔵 Print Status   🟢 Stage   📦 Task   📊 Progress   ⏱️ Time   │
-│  🔴 HMS [Problem]   📷 Camera                                   │
-└─────────────────────────────────────────────────────────────────┘
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Bambu Lab Print Status Card                             │   │
-│  │  [Print status may show error state]                     │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Camera View                                              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Print Details Tab (if opened):                          │   │
-│  │    Stage: ...                                             │   │
-│  │    HMS Notifications: Problem (changed 2 min ago) [i]    │   │
-│  │    Start Time: ...                                        │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│  [rest of dashboard…]                                             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Multiple Errors Example
+- The header banner shows the error description inline (secondary text).
+- The details section defaults to **collapsed** for a single error.
+- Users can click the **▶ View Error Details** toggle to expand.
+
+## Dashboard Layout — Single Error (Expanded)
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
-║  🔴 ⚠️ HMS ERROR ALERT                                    ║
-║  Problem - 3 Error(s)                                  [i]║
+║  🔴  ⚠ HMS ERROR ALERT                                   ║
+║      AMS B Slot 3 filament has run out. Please insert…   ║
+╠───────────────────────────────────────────────────────────╣
+║  ▼ View Error Details                                     ║
 ║                                                            ║
-║  ┌─────────────────────────────────────────────────────┐ ║
-║  │ Error Details:                                       │ ║
-║  │                                                       │ ║
-║  │ **Error 1:** Nozzle Temperature Malfunction          │ ║
-║  │ **Code:** 0500_0200_0001_0001                        │ ║
-║  │ Temperature sensor reading error...                  │ ║
-║  │ ───────────────────────────────────────              │ ║
-║  │                                                       │ ║
-║  │ **Error 2:** Bed Leveling Issue                      │ ║
-║  │ **Code:** 0500_0100_0003_0002                        │ ║
-║  │ Bed leveling calibration failed...                   │ ║
-║  │ ───────────────────────────────────────              │ ║
-║  │                                                       │ ║
-║  │ **Error 3:** Filament Runout                         │ ║
-║  │ **Code:** 0700_0300_0001_0001                        │ ║
-║  │ Filament sensor detected no filament...              │ ║
-║  │                                                       │ ║
-║  └─────────────────────────────────────────────────────┘ ║
+║  ┌── 🔴 Error 1 ──────────────────────────────────────┐  ║
+║  │  AMS B Slot 3 filament has run out.                  │  ║
+║  │  🔴 Serious · HMS_0701_2200_0002_0001 · Wiki ↗      │  ║
+║  └  (red border & light-red background)  ──────────────┘  ║
 ╚═══════════════════════════════════════════════════════════╝
 ```
 
-## Color Scheme
+## Dashboard Layout — Multiple Errors (Default Expanded)
 
-### Error State Colors
-- **Banner Background**: `rgba(244, 67, 54, 0.15)` - Light red/pink background
-- **Banner Border**: `var(--red-color)` - Solid red border (2px)
-- **Icon Color**: `red`
-- **Details Background**: `rgba(244, 67, 54, 0.08)` - Very light red background
-- **Details Border**: `var(--red-color)` - Red left border (4px)
+```
+╔═══════════════════════════════════════════════════════════╗
+║  🔴  ⚠ HMS ERROR ALERT                                   ║
+║      3 Errors                                             ║
+╠───────────────────────────────────────────────────────────╣
+║  ▼ View All 3 Errors                                      ║
+║                                                            ║
+║  ┌─ 🔴 Error 1 ─────┐  ┌─ 🟠 Error 2 ─────┐            ║
+║  │ AMS filament out  │  │ Cutter jam         │            ║
+║  │ 🔴 Serious        │  │ 🟠 Medium          │            ║
+║  │ HMS_0701…  Wiki ↗ │  │ HMS_0500…  Wiki ↗  │            ║
+║  └ (red card) ───────┘  └ (orange card) ─────┘            ║
+║                                                            ║
+║  ┌─ 🟡 Error 3 ─────┐                                     ║
+║  │ Fan RPM low       │                                     ║
+║  │ 🟡 Minor          │                                     ║
+║  │ HMS_0A00…  Wiki ↗ │                                     ║
+║  └ (yellow card) ────┘                                     ║
+╚═══════════════════════════════════════════════════════════╝
+```
 
-### Normal State Colors
-- Badge shows standard green/OK colors
-- No banner visible
+- Error cards wrap horizontally (flex-wrap) depending on screen width.
+- Each card is coloured by severity: red, orange, yellow, or grey.
+- On narrow / mobile screens the cards stack vertically.
+
+## Colour Scheme
+
+### Header Banner
+| Property | Value |
+|---|---|
+| Background | 135° gradient: `rgba(244,67,54,0.35)` → `rgba(183,28,28,0.22)` → `rgba(244,67,54,0.28)` |
+| Border | `2px solid rgba(244,67,54,0.9)` |
+| Box-shadow pulse | 0 → 25 px + 60 px glow → 0, 2 s loop |
+| Icon glow | dual drop-shadow, scale 1–1.18×, 1.5 s loop |
+| Title glow | text-shadow 6 px → 18 px + 35 px, synced 2 s |
+
+### Error Card Severity Colours
+| Level | Border | Background |
+|---|---|---|
+| Critical / Serious / Fatal | `#f44336` | `rgba(244,67,54,0.10)` |
+| Medium / Warn | `#ff9800` | `rgba(255,152,0,0.10)` |
+| Minor / Low | `#ffc107` | `rgba(255,193,7,0.10)` |
+| Unknown | `#9e9e9e` | `rgba(158,158,158,0.10)` |
+
+## Responsive Behaviour
+
+| Screen Width | Title Size | Card Layout | Details Default |
+|---|---|---|---|
+| ≥ 601 px (desktop) | 1.8 rem | Horizontal wrap | Collapsed (1 err) / Expanded (>1 err) |
+| ≤ 600 px (mobile) | 1.35 rem | Stacked vertical | Same toggle; user can collapse |
 
 ## Clickable Elements
 
-All three HMS error displays are clickable:
-
-1. **Banner Header** - Click to open entity more-info dialog
-2. **Badge** - Click to open entity more-info dialog  
-3. **Print Details Tab Entry** - Click to open entity more-info dialog
-
-## Responsive Behavior
-
-- Banner takes full width of the dashboard
-- Banner automatically expands/collapses based on error presence
-- Error details scroll if content is very long
-- Works on mobile and desktop layouts
-
-## Entity Attributes Used
-
-The implementation reads these attributes from the HMS error entity:
-- `state`: "on" (Problem) or "off" (OK)
-- `count`: Number of errors
-- `errors`: Array of error objects containing:
-  - `attr`: Error attribute/name
-  - `code`: Error code
-  - `text`: Error description
-
-## Notes for Users
-
-- The banner only appears when there are active HMS errors
-- When no errors are present, the dashboard looks completely normal
-- All error information is automatically pulled from the entity attributes
-- Click on any HMS error display to see full entity information in Home Assistant's more-info dialog
+- **Header banner** → `more-info` dialog for `binary_sensor.hms_alert_display_wrapper`
+- **Details toggle** (`<summary>`) → native HTML expand / collapse
+- **Wiki links** inside each error card → external Bambu Lab wiki

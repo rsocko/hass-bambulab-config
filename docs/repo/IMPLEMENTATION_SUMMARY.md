@@ -190,11 +190,12 @@ Complete documentation provided in [docs/features/printer_dashboards/docs/](../f
 
 ## 📝 Files Changed
 
-- [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing) - Main dashboard configuration (+52 lines)
-- [docs/features/printer_dashboards/docs/hms-error-alert-implementation.md](../features/printer_dashboards/docs/hms-error-alert-implementation.md) - Technical documentation (new)
-- [docs/features/printer_dashboards/docs/hms-error-ui-mockup.md](../features/printer_dashboards/docs/hms-error-ui-mockup.md) - Visual documentation (new)
-- [docs/features/printer_dashboards/docs/hms-error-testing-guide.md](../features/printer_dashboards/docs/hms-error-testing-guide.md) - Testing guide (new)
-- [docs/features/printer_dashboards/docs/README.md](../features/printer_dashboards/docs/README.md) - Documentation index (new)
+- `homeassistant/packages/3d_printing/hms_alert/dashboard_cards/hms-error-alert-section.yaml` - Unified responsive HMS alert card (replaced separate mobile/desktop cards)
+- `homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml` - Updated include reference
+- [docs/features/printer_dashboards/docs/hms-error-alert-implementation.md](../features/printer_dashboards/docs/hms-error-alert-implementation.md) - Technical documentation
+- [docs/features/printer_dashboards/docs/hms-error-ui-mockup.md](../features/printer_dashboards/docs/hms-error-ui-mockup.md) - Visual documentation
+- [docs/features/printer_dashboards/docs/hms-error-testing-guide.md](../features/printer_dashboards/docs/hms-error-testing-guide.md) - Testing guide
+- [docs/features/printer_dashboards/docs/README.md](../features/printer_dashboards/docs/README.md) - Documentation index
 
 ## 🎉 Result
 
