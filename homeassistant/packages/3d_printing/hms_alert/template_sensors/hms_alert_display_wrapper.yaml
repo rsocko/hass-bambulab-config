@@ -1,0 +1,147 @@
+- name: HMS Alert Display Wrapper
+  unique_id: hms_alert_display_wrapper
+  icon: mdi:alert-circle
+  state: >-
+    {% set test_mode = is_state('input_boolean.hms_alert_test_mode', 'on') %}
+    {% set scenario = states('input_select.hms_alert_test_scenario') %}
+    {% set real_on = is_state('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'on') %}
+    {{ test_mode and scenario != 'Real Sensor' or real_on }}
+  attributes:
+    source: >-
+      {% set test_mode = is_state('input_boolean.hms_alert_test_mode', 'on') %}
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if test_mode and scenario != 'Real Sensor' %}
+        test
+      {% else %}
+        real
+      {% endif %}
+    Count: >-
+      {% set test_mode = is_state('input_boolean.hms_alert_test_mode', 'on') %}
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if test_mode and scenario == 'Single Serious Error' %}1
+      {% elif test_mode and scenario == 'Multiple Mixed Errors' %}3
+      {% elif test_mode and scenario == 'Critical No Wiki' %}1
+      {% elif test_mode and scenario == 'Legacy Errors Payload' %}2
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count')
+           or state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count')
+           or 0 }}
+      {% endif %}
+    count: >-
+      {% set test_mode = is_state('input_boolean.hms_alert_test_mode', 'on') %}
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if test_mode and scenario == 'Single Serious Error' %}1
+      {% elif test_mode and scenario == 'Multiple Mixed Errors' %}3
+      {% elif test_mode and scenario == 'Critical No Wiki' %}1
+      {% elif test_mode and scenario == 'Legacy Errors Payload' %}2
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count')
+           or state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count')
+           or 0 }}
+      {% endif %}
+    1-Error: >-
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Single Serious Error' %}
+        AMS B Slot 3 filament has run out. Please insert a new filament.
+      {% elif is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Multiple Mixed Errors' %}
+        AMS B Slot 3 filament has run out. Please insert a new filament.
+      {% elif is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Critical No Wiki' %}
+        Toolhead board communication fault. Power cycle printer and re-seat cable.
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '1-Error') or '' }}
+      {% endif %}
+    1-Code: >-
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and scenario in ['Single Serious Error', 'Multiple Mixed Errors'] %}
+        HMS_0701_2200_0002_0001
+      {% elif is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Critical No Wiki' %}
+        HMS_0200_0300_0005_0002
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '1-Code') or '' }}
+      {% endif %}
+    1-Severity: >-
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and scenario in ['Single Serious Error', 'Multiple Mixed Errors'] %}
+        serious
+      {% elif is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Critical No Wiki' %}
+        critical
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '1-Severity') or '' }}
+      {% endif %}
+    1-Wiki: >-
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and scenario in ['Single Serious Error', 'Multiple Mixed Errors'] %}
+        https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out
+      {% elif is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Critical No Wiki' %}
+
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '1-Wiki') or '' }}
+      {% endif %}
+    2-Error: >-
+      {% set scenario = states('input_select.hms_alert_test_scenario') %}
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and scenario == 'Multiple Mixed Errors' %}
+        Filament cutter jam detected.
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '2-Error') or '' }}
+      {% endif %}
+    2-Code: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        HMS_0500_4001_0001_0003
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '2-Code') or '' }}
+      {% endif %}
+    2-Severity: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        medium
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '2-Severity') or '' }}
+      {% endif %}
+    2-Wiki: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        https://wiki.bambulab.com/en/x1/troubleshooting/cutter-jam
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '2-Wiki') or '' }}
+      {% endif %}
+    3-Error: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        Chamber fan RPM is lower than expected.
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '3-Error') or '' }}
+      {% endif %}
+    3-Code: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        HMS_0A00_3001_0002_0004
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '3-Code') or '' }}
+      {% endif %}
+    3-Severity: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        minor
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '3-Severity') or '' }}
+      {% endif %}
+    3-Wiki: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Multiple Mixed Errors' %}
+        https://wiki.bambulab.com/en/x1/troubleshooting/fan-rpm
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', '3-Wiki') or '' }}
+      {% endif %}
+    errors: >-
+      {% if is_state('input_boolean.hms_alert_test_mode', 'on') and states('input_select.hms_alert_test_scenario') == 'Legacy Errors Payload' %}
+        {{ [
+          {
+            'attr': 'AMS B Slot 3 filament has run out. Please insert a new filament.',
+            'code': 'HMS_0701_2200_0002_0001',
+            'severity': 'serious',
+            'wiki': 'https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out'
+          },
+          {
+            'attr': 'Filament cutter jam detected.',
+            'code': 'HMS_0500_4001_0001_0003',
+            'severity': 'medium',
+            'wiki': 'https://wiki.bambulab.com/en/x1/troubleshooting/cutter-jam'
+          }
+        ] }}
+      {% else %}
+        {{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'errors') or [] }}
+      {% endif %}

@@ -1,0 +1,5 @@
+# HMS alert wrapper entities for preview/testing scenarios.
+input_boolean: !include_dir_merge_named helpers/input_boolean
+input_select: !include_dir_merge_named helpers/input_select
+template:
+  - binary_sensor: !include_dir_merge_list template_sensors

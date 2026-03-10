@@ -1,7 +1,7 @@
 type: grid
 visibility:
   - condition: state
-    entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+    entity: binary_sensor.hms_alert_display_wrapper
     state: 'on'
   - condition: screen
     media_query: "(max-width: 600px)"
@@ -9,9 +9,9 @@ cards:
   - type: custom:mushroom-template-card
     primary: HMS ERROR ALERT
     secondary: >-
-      {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count') %}
+      {% set count = state_attr('binary_sensor.hms_alert_display_wrapper', 'Count') %}
       {% if count is none %}
-        {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') %}
+        {% set count = state_attr('binary_sensor.hms_alert_display_wrapper', 'count') %}
       {% endif %}
       {{ count | int(0) }} Error(s)
     icon: mdi:alert-circle

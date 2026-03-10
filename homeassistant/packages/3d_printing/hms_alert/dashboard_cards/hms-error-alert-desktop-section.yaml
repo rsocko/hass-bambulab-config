@@ -1,7 +1,7 @@
 type: grid
 visibility:
   - condition: state
-    entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+    entity: binary_sensor.hms_alert_display_wrapper
     state: 'on'
   - condition: screen
     media_query: "(min-width: 601px)"
@@ -11,9 +11,9 @@ cards:
       - type: custom:mushroom-template-card
         primary: HMS ERROR ALERT
         secondary: >-
-          {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'Count') %}
+          {% set count = state_attr('binary_sensor.hms_alert_display_wrapper', 'Count') %}
           {% if count is none %}
-            {% set count = state_attr('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'count') %}
+            {% set count = state_attr('binary_sensor.hms_alert_display_wrapper', 'count') %}
           {% endif %}
           {{ count | int(0) }} Error(s)
         icon: mdi:alert-circle
@@ -53,11 +53,11 @@ cards:
               }
       - type: markdown
         content: |
-          {% set entity = 'binary_sensor.ntk_ryansoffice_3dprinter_hms_errors' %}
+          {% set entity = 'binary_sensor.hms_alert_display_wrapper' %}
           {% set attrs = states[entity].attributes %}
           {% set legacy_errors = state_attr(entity, 'errors') %}
           <div class="hms-error-grid">
-          {% if legacy_errors %}
+          {% if legacy_errors is iterable and legacy_errors is not string and (legacy_errors | count > 0) %}
           {% for error in legacy_errors %}
           {% set severity = error.severity | default('unknown') %}
           {% set severity_norm = severity | string | lower %}

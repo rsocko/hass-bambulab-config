@@ -1,0 +1,10 @@
+hms_alert_test_scenario:
+  name: HMS Alert Test Scenario
+  icon: mdi:playlist-check
+  options:
+    - Real Sensor
+    - Single Serious Error
+    - Multiple Mixed Errors
+    - Critical No Wiki
+    - Legacy Errors Payload
+  initial: Real Sensor
