@@ -51,18 +51,6 @@ icon: |
                    ['printing', 'preparing', 'heating', 'leveling'].includes(status);
     return (active && !paused) ? 'mdi:pause' : 'mdi:play';
   ]]]
-tooltip: |
-  [[[
-    const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-    const status = smart?.state?.toLowerCase() ?? '';
-    const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-    const paused = cls === 'paused' || status === 'paused';
-    const active = ['printing', 'active'].includes(cls) ||
-                   ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-    if (active && !paused) return 'Pause';
-    if (paused) return 'Resume';
-    return 'Pause / Resume';
-  ]]]
 tap_action:
   action: |
     [[[
