@@ -11,7 +11,9 @@ class SkipObjectsStudioCard extends HTMLElement {
     this._hoveredObject = 0;
     this._visibleContext = null;
     this._hiddenContext = null;
+    this._canvasEl = null;
     this._lastPickImageUrl = "";
+    this._haSignature = "";
     this._boundClick = (ev) => this._handleCanvasClick(ev);
     this._boundMove = (ev) => this._handleCanvasHover(ev);
     this._boundOut = () => {
@@ -37,11 +39,38 @@ class SkipObjectsStudioCard extends HTMLElement {
       ...config,
     };
 
+    this._haSignature = "";
+
     this._render();
   }
 
   set hass(hass) {
+    const previous = this._hass;
     this._hass = hass;
+    if (!this._config) {
+      return;
+    }
+    if (!previous) {
+      this._render();
+      return;
+    }
+
+    const printable = hass?.states?.[this._config.printable_entity];
+    const skipped = hass?.states?.[this._config.skipped_entity];
+    const pickImage = hass?.states?.[this._config.pick_image_entity];
+    const signature = [
+      printable?.state || "",
+      JSON.stringify(printable?.attributes?.objects || {}),
+      skipped?.state || "",
+      JSON.stringify(skipped?.attributes?.objects || []),
+      pickImage?.state || "",
+      pickImage?.attributes?.entity_picture || "",
+    ].join("|");
+
+    if (signature === this._haSignature) {
+      return;
+    }
+    this._haSignature = signature;
     this._render();
   }
 
@@ -146,7 +175,10 @@ class SkipObjectsStudioCard extends HTMLElement {
       return;
     }
 
-    if (!this._visibleContext) {
+    let needsImageReload = false;
+
+    if (this._canvasEl !== canvas) {
+      this._canvasEl = canvas;
       this._visibleContext = canvas.getContext("2d", { willReadFrequently: true });
       canvas.addEventListener("click", this._boundClick);
       canvas.addEventListener("mousemove", this._boundMove);
@@ -156,10 +188,16 @@ class SkipObjectsStudioCard extends HTMLElement {
       hiddenCanvas.width = 512;
       hiddenCanvas.height = 512;
       this._hiddenContext = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+      needsImageReload = true;
     }
 
     const url = this._getPickImageUrl();
-    if (!url || url === this._lastPickImageUrl) {
+    if (!url) {
+      this._setStatus("No pick image URL available.", true);
+      return;
+    }
+
+    if (!needsImageReload && url === this._lastPickImageUrl) {
       this._colorizeCanvas();
       return;
     }
@@ -369,7 +407,6 @@ class SkipObjectsStudioCard extends HTMLElement {
     const available = this._isAvailable(ids.length);
     const selectedCount = this._selected.size;
     const skippedCount = skipped.size;
-    const pickImageUrl = this._getPickImageUrl();
 
     const cards = ids.length
       ? ids
@@ -392,12 +429,6 @@ class SkipObjectsStudioCard extends HTMLElement {
     const status = this._status
       ? `<div class="status ${this._error ? "status-error" : "status-ok"}">${this._status}</div>`
       : "";
-
-    // Full innerHTML replacement invalidates prior canvas references/listeners.
-    // Reset internal contexts so we always bind to the newly rendered canvas.
-    this._visibleContext = null;
-    this._hiddenContext = null;
-    this._lastPickImageUrl = "";
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -437,17 +468,9 @@ class SkipObjectsStudioCard extends HTMLElement {
           background: #071019;
           border: 1px solid rgba(255,255,255,0.16);
           margin-bottom: 10px;
-          min-height: 120px;
-        }
-        #plate-image {
-          display: block;
-          width: 100%;
-          height: auto;
         }
         #canvas {
-          position: absolute;
-          left: 0;
-          top: 0;
+          display: block;
           width: 100%;
           height: auto;
           cursor: crosshair;
@@ -557,7 +580,6 @@ class SkipObjectsStudioCard extends HTMLElement {
         </div>
         <div class="body">
           <div class="plate-wrap">
-            ${pickImageUrl ? `<img id="plate-image" src="${pickImageUrl}" alt="Pick image">` : '<div class="empty">No pick image URL available.</div>'}
             <canvas id="canvas" width="512" height="512"></canvas>
           </div>
           <div class="legend">

@@ -43,7 +43,7 @@ cards:
         service: browser_mod.popup
         data:
           title: Skip Objects
-          size: wide
+          size: normal
           content:
             type: custom:skip-objects-direct-card
             device_id: 210dfdfa64085e8cf073e50eae757d90
@@ -82,7 +82,7 @@ cards:
         service: browser_mod.popup
         data:
           title: Skip Objects Studio
-          size: wide
+          size: normal
           content:
             type: custom:skip-objects-studio-card
             title: Object Skip Studio
