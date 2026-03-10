@@ -61,44 +61,72 @@ cards:
         custom_fields:
           details: |
             [[[
-              const entity = states['binary_sensor.hms_alert_display_wrapper'];
-              if (!entity) {
+              var entity = states['binary_sensor.hms_alert_display_wrapper'];
+              if (!entity || !entity.attributes) {
                 return '<div class="hms-empty">No error details available</div>';
               }
-              const attrs = entity.attributes || {};
-              const toTitle = function(value) {
-                const text = String(value || 'unknown').trim();
-                return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unknown';
-              };
-              const toSeverityClass = function(value) { return String(value || 'unknown').toLowerCase().replace(/\s+/g, '-'); };
-              const getSeverityIcon = function(value) {
-                const sev = String(value || '').toLowerCase();
-                if (sev.includes('serious') || sev.includes('critical') || sev.includes('high')) return 'mdi:alert-octagon';
-                if (sev.includes('medium') || sev.includes('warn')) return 'mdi:alert';
-                if (sev.includes('low') || sev.includes('minor')) return 'mdi:alert-circle-outline';
-                return 'mdi:information';
-              };
+              var attrs = entity.attributes || {};
 
-              let items = [];
-              const legacy = Array.isArray(attrs.errors) ? attrs.errors : [];
-              if (legacy.length > 0) {
-                items = legacy.map((error, index) => ({
-                  index: index + 1,
-                  text: (error && (error.attr || error.text)) ? (error.attr || error.text) : 'No description available',
-                  code: (error && error.code) ? error.code : 'Unknown',
-                  severity: (error && error.severity) ? error.severity : 'unknown',
-                  wiki: (error && error.wiki) ? error.wiki : ''
-                }));
+              function esc(value) {
+                if (value === null || value === undefined) {
+                  return '';
+                }
+                return String(value)
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;');
+              }
+
+              function toTitle(value) {
+                var text = String(value || 'unknown').trim();
+                return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unknown';
+              }
+
+              function toSeverityClass(value) {
+                return String(value || 'unknown').toLowerCase().replace(/\s+/g, '-');
+              }
+
+              function getSeverityIcon(value) {
+                var sev = String(value || '').toLowerCase();
+                if (sev.indexOf('serious') !== -1 || sev.indexOf('critical') !== -1 || sev.indexOf('high') !== -1) {
+                  return 'mdi:alert-octagon';
+                }
+                if (sev.indexOf('medium') !== -1 || sev.indexOf('warn') !== -1) {
+                  return 'mdi:alert';
+                }
+                if (sev.indexOf('low') !== -1 || sev.indexOf('minor') !== -1) {
+                  return 'mdi:alert-circle-outline';
+                }
+                return 'mdi:information';
+              }
+
+              var items = [];
+              var legacy = attrs.errors;
+              if (legacy && typeof legacy !== 'string' && legacy.length && legacy.forEach) {
+                for (var l = 0; l < legacy.length; l += 1) {
+                  var error = legacy[l] || {};
+                  items.push({
+                    index: l + 1,
+                    text: (error.attr || error.text || 'No description available'),
+                    code: (error.code || 'Unknown'),
+                    severity: (error.severity || 'unknown'),
+                    wiki: (error.wiki || '')
+                  });
+                }
               } else {
-                const countVal = attrs.Count !== undefined && attrs.Count !== null ? attrs.Count : attrs.count;
-                const count = parseInt(countVal || 0, 10) || 0;
-                for (let i = 1; i <= count; i += 1) {
+                var countVal = (attrs.Count !== undefined && attrs.Count !== null) ? attrs.Count : attrs.count;
+                var count = parseInt(countVal || 0, 10);
+                if (isNaN(count)) {
+                  count = 0;
+                }
+                for (var i = 1; i <= count; i += 1) {
                   items.push({
                     index: i,
-                    text: attrs[`${i}-Error`] || 'No description available',
-                    code: attrs[`${i}-Code`] || 'Unknown',
-                    severity: attrs[`${i}-Severity`] || 'unknown',
-                    wiki: attrs[`${i}-Wiki`] || ''
+                    text: attrs[i + '-Error'] || 'No description available',
+                    code: attrs[i + '-Code'] || 'Unknown',
+                    severity: attrs[i + '-Severity'] || 'unknown',
+                    wiki: attrs[i + '-Wiki'] || ''
                   });
                 }
               }
@@ -107,31 +135,33 @@ cards:
                 return '<div class="hms-empty">No error details available</div>';
               }
 
-              const cards = items.map((item) => {
-                const severityClass = toSeverityClass(item.severity);
-                const severityText = toTitle(item.severity);
-                const severityIcon = getSeverityIcon(item.severity);
-                const wikiHtml = item.wiki
-                  ? `<a class="hms-link" href="${item.wiki}" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>`
-                  : '';
-                return `
-                  <div class="hms-error-item">
-                    <div class="hms-main">
-                      <div class="hms-title">Error ${item.index}</div>
-                      <div class="hms-text">${item.text}</div>
-                    </div>
-                    <div class="hms-meta">
-                      <div class="hms-severity severity-${severityClass}">
-                        <ha-icon icon="${severityIcon}"></ha-icon>
-                        <span>${severityText}</span>
-                      </div>
-                      <div class="hms-code">${item.code}</div>
-                      ${wikiHtml}
-                    </div>
-                  </div>`;
-              }).join('');
-
-              return `<div class="hms-error-grid">${cards}</div>`;
+              var html = '<div class="hms-error-grid">';
+              for (var j = 0; j < items.length; j += 1) {
+                var item = items[j];
+                var severityClass = toSeverityClass(item.severity);
+                var severityText = toTitle(item.severity);
+                var severityIcon = getSeverityIcon(item.severity);
+                var wikiHtml = '';
+                if (item.wiki) {
+                  wikiHtml = '<a class="hms-link" href="' + esc(item.wiki) + '" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>';
+                }
+                html += '<div class="hms-error-item">';
+                html += '<div class="hms-main">';
+                html += '<div class="hms-title">Error ' + esc(item.index) + '</div>';
+                html += '<div class="hms-text">' + esc(item.text) + '</div>';
+                html += '</div>';
+                html += '<div class="hms-meta">';
+                html += '<div class="hms-severity severity-' + esc(severityClass) + '">';
+                html += '<ha-icon icon="' + esc(severityIcon) + '"></ha-icon>';
+                html += '<span>' + esc(severityText) + '</span>';
+                html += '</div>';
+                html += '<div class="hms-code">' + esc(item.code) + '</div>';
+                html += wikiHtml;
+                html += '</div>';
+                html += '</div>';
+              }
+              html += '</div>';
+              return html;
             ]]]
         styles:
           card:
