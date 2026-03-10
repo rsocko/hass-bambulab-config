@@ -108,9 +108,10 @@ class SkipObjectsDirectCard extends HTMLElement {
   }
 
   _render() {
-    if (!this.shadowRoot || !this._config) {
-      return;
-    }
+    try {
+      if (!this.shadowRoot || !this._config) {
+        return;
+      }
 
     const printable = this._getPrintableMap();
     const skippedList = this._getSkippedList();
@@ -273,35 +274,42 @@ class SkipObjectsDirectCard extends HTMLElement {
       </div>
     `;
 
-    this.shadowRoot.querySelectorAll("input[type='checkbox'][data-id]").forEach((el) => {
-      el.addEventListener("change", (ev) => {
-        const id = Number(ev.target.getAttribute("data-id"));
-        if (!Number.isInteger(id)) {
-          return;
-        }
-        if (ev.target.checked) {
-          this._selected.add(id);
-        } else {
-          this._selected.delete(id);
-        }
-        this._setMessage("");
-        this._render();
+      this.shadowRoot.querySelectorAll("input[type='checkbox'][data-id]").forEach((el) => {
+        el.addEventListener("change", (ev) => {
+          const id = Number(ev.target.getAttribute("data-id"));
+          if (!Number.isInteger(id)) {
+            return;
+          }
+          if (ev.target.checked) {
+            this._selected.add(id);
+          } else {
+            this._selected.delete(id);
+          }
+          this._setMessage("");
+          this._render();
+        });
       });
-    });
 
-    const skipBtn = this.shadowRoot.getElementById("skip-btn");
-    if (skipBtn) {
-      skipBtn.addEventListener("click", () => this._submitSkip());
-    }
+      const skipBtn = this.shadowRoot.getElementById("skip-btn");
+      if (skipBtn) {
+        skipBtn.addEventListener("click", () => this._submitSkip());
+      }
 
-    const closeBtn = this.shadowRoot.getElementById("close-btn");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => this._closePopup());
+      const closeBtn = this.shadowRoot.getElementById("close-btn");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", () => this._closePopup());
+      }
+    } catch (err) {
+      if (this.shadowRoot) {
+        this.shadowRoot.innerHTML = `<ha-card style="padding:12px;color:#b91c1c;">Skip Objects card error: ${String(err)}</ha-card>`;
+      }
     }
   }
 }
 
-customElements.define("skip-objects-direct-card", SkipObjectsDirectCard);
+if (!customElements.get("skip-objects-direct-card")) {
+  customElements.define("skip-objects-direct-card", SkipObjectsDirectCard);
+}
 
 window.customCards = window.customCards || [];
 window.customCards.push({

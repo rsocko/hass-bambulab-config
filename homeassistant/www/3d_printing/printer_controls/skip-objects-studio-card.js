@@ -142,9 +142,10 @@ class SkipObjectsStudioCard extends HTMLElement {
   }
 
   _render() {
-    if (!this.shadowRoot || !this._config) {
-      return;
-    }
+    try {
+      if (!this.shadowRoot || !this._config) {
+        return;
+      }
 
     const printable = this._printableMap();
     const skipped = new Set(this._skippedList());
@@ -314,34 +315,41 @@ class SkipObjectsStudioCard extends HTMLElement {
       </ha-card>
     `;
 
-    this.shadowRoot.querySelectorAll("input[type='checkbox'][data-id]").forEach((el) => {
-      el.addEventListener("change", (ev) => {
-        const id = Number(ev.target.getAttribute("data-id"));
-        if (!Number.isInteger(id)) {
-          return;
-        }
-        this._toggleId(id, ev.target.checked);
+      this.shadowRoot.querySelectorAll("input[type='checkbox'][data-id]").forEach((el) => {
+        el.addEventListener("change", (ev) => {
+          const id = Number(ev.target.getAttribute("data-id"));
+          if (!Number.isInteger(id)) {
+            return;
+          }
+          this._toggleId(id, ev.target.checked);
+        });
       });
-    });
 
-    const selectAll = this.shadowRoot.getElementById("select-all");
-    if (selectAll) {
-      selectAll.addEventListener("click", () => this._selectAllUnskipped());
-    }
+      const selectAll = this.shadowRoot.getElementById("select-all");
+      if (selectAll) {
+        selectAll.addEventListener("click", () => this._selectAllUnskipped());
+      }
 
-    const clear = this.shadowRoot.getElementById("clear");
-    if (clear) {
-      clear.addEventListener("click", () => this._clearSelection());
-    }
+      const clear = this.shadowRoot.getElementById("clear");
+      if (clear) {
+        clear.addEventListener("click", () => this._clearSelection());
+      }
 
-    const submit = this.shadowRoot.getElementById("submit");
-    if (submit) {
-      submit.addEventListener("click", () => this._submit());
+      const submit = this.shadowRoot.getElementById("submit");
+      if (submit) {
+        submit.addEventListener("click", () => this._submit());
+      }
+    } catch (err) {
+      if (this.shadowRoot) {
+        this.shadowRoot.innerHTML = `<ha-card style="padding:12px;color:#b91c1c;">Skip Objects Studio error: ${String(err)}</ha-card>`;
+      }
     }
   }
 }
 
-customElements.define("skip-objects-studio-card", SkipObjectsStudioCard);
+if (!customElements.get("skip-objects-studio-card")) {
+  customElements.define("skip-objects-studio-card", SkipObjectsStudioCard);
+}
 
 window.customCards = window.customCards || [];
 window.customCards.push({
