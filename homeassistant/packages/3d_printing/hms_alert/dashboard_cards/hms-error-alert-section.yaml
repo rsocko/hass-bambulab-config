@@ -134,13 +134,21 @@ cards:
             {% for err in ns.errors %}
             {%- set sev = (err.severity | default('unknown')) | lower -%}
             {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
-              {%- set sev_icon = '🔴' -%}{%- set sev_label = 'Serious' -%}
+              {%- set sev_icon = '🔴' -%}
+              {%- set bcolor = '#f44336' -%}
+              {%- set bgcolor = 'rgba(244,67,54,0.10)' -%}
             {%- elif 'medium' in sev or 'warn' in sev -%}
-              {%- set sev_icon = '🟠' -%}{%- set sev_label = 'Medium' -%}
+              {%- set sev_icon = '🟠' -%}
+              {%- set bcolor = '#ff9800' -%}
+              {%- set bgcolor = 'rgba(255,152,0,0.10)' -%}
             {%- elif 'minor' in sev or 'low' in sev -%}
-              {%- set sev_icon = '🟡' -%}{%- set sev_label = 'Minor' -%}
+              {%- set sev_icon = '🟡' -%}
+              {%- set bcolor = '#ffc107' -%}
+              {%- set bgcolor = 'rgba(255,193,7,0.10)' -%}
             {%- else -%}
-              {%- set sev_icon = '⚪' -%}{%- set sev_label = 'Unknown' -%}
+              {%- set sev_icon = '⚪' -%}
+              {%- set bcolor = '#9e9e9e' -%}
+              {%- set bgcolor = 'rgba(158,158,158,0.10)' -%}
             {%- endif %}
 
             > **{{ sev_icon }} Error {{ loop.index }}** — *{{ (err.severity | default('unknown')) | title }}*
@@ -149,6 +157,12 @@ cards:
             >
             > `{{ err.code }}`{% if err.wiki %} · [Troubleshooting Wiki ↗]({{ err.wiki }}){% endif %}
 
+            <style>
+            .markdown-content blockquote:nth-of-type({{ loop.index }}) {
+              border-left: 4px solid {{ bcolor }} !important;
+              background: {{ bgcolor }} !important;
+            }
+            </style>
             {% endfor %}
           card_mod:
             style:
@@ -176,8 +190,8 @@ cards:
                   height: auto !important;
                 }
                 blockquote {
-                  border-left: 4px solid #f44336 !important;
-                  background: rgba(244,67,54,0.08) !important;
+                  border-left: 4px solid #9e9e9e;
+                  background: rgba(158,158,158,0.08);
                   border-radius: 0 12px 12px 0;
                   padding: 16px 20px !important;
                   margin: 0 0 20px 0 !important;
