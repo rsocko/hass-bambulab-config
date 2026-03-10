@@ -66,13 +66,19 @@ class SkipObjectsDirectCard extends HTMLElement {
 
   _getPickImageUrl() {
     const imageEntity = this._hass?.states?.[this._config.pick_image_entity];
-    const picture = imageEntity?.attributes?.entity_picture;
+    let picture = imageEntity?.attributes?.entity_picture;
     if (!picture) {
       return "";
     }
 
     if (picture.startsWith("http://") || picture.startsWith("https://")) {
-      return picture;
+      try {
+        const parsed = new URL(picture);
+        // Force same-origin request so canvas getImageData remains readable.
+        picture = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch (_err) {
+        return picture;
+      }
     }
 
     return picture;
@@ -118,6 +124,7 @@ class SkipObjectsDirectCard extends HTMLElement {
 
     this._lastPickImageUrl = url;
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       if (!this._hiddenContext || !this._visibleContext) {
         return;
@@ -198,74 +205,78 @@ class SkipObjectsDirectCard extends HTMLElement {
       return;
     }
 
-    const printable = this._getPrintableMap();
-    const skipped = new Set(this._getSkippedList());
-    const width = 512;
-    const height = 512;
+    try {
+      const printable = this._getPrintableMap();
+      const skipped = new Set(this._getSkippedList());
+      const width = 512;
+      const height = 512;
 
-    const readImageData = this._hiddenContext.getImageData(0, 0, width, height);
-    const readData = readImageData.data;
+      const readImageData = this._hiddenContext.getImageData(0, 0, width, height);
+      const readData = readImageData.data;
 
-    this._visibleContext.putImageData(readImageData, 0, 0);
-    const writeImageData = this._visibleContext.getImageData(0, 0, width, height);
-    const writeData = writeImageData.data;
-    const view = new DataView(writeData.buffer);
+      this._visibleContext.putImageData(readImageData, 0, 0);
+      const writeImageData = this._visibleContext.getImageData(0, 0, width, height);
+      const writeData = writeImageData.data;
+      const view = new DataView(writeData.buffer);
 
-    const red = this._rgbaToInt(224, 82, 82, 220);
-    const green = this._rgbaToInt(72, 187, 120, 215);
-    const yellow = this._rgbaToInt(245, 158, 11, 230);
-    const blue = this._rgbaToInt(59, 130, 246, 255);
+      const red = this._rgbaToInt(224, 82, 82, 220);
+      const green = this._rgbaToInt(72, 187, 120, 215);
+      const yellow = this._rgbaToInt(245, 158, 11, 230);
+      const blue = this._rgbaToInt(59, 130, 246, 255);
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = y * 4 * height + x * 4;
-        const key = this._rgbaToInt(readData[i], readData[i + 1], readData[i + 2], 0);
-        if (!key || !Object.prototype.hasOwnProperty.call(printable, String(key))) {
-          continue;
-        }
-
-        if (skipped.has(key)) {
-          view.setUint32(i, red, true);
-        } else if (this._selected.has(key)) {
-          view.setUint32(i, yellow, true);
-        } else {
-          view.setUint32(i, green, true);
-        }
-
-        if (key === this._hoveredObject) {
-          if (x > 0) {
-            const left = i - 4;
-            const leftKey = this._rgbaToInt(readData[left], readData[left + 1], readData[left + 2], 0);
-            if (leftKey !== key) {
-              view.setUint32(i, blue, true);
-            }
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = y * 4 * height + x * 4;
+          const key = this._rgbaToInt(readData[i], readData[i + 1], readData[i + 2], 0);
+          if (!key || !Object.prototype.hasOwnProperty.call(printable, String(key))) {
+            continue;
           }
-          if (x < width - 1) {
-            const right = i + 4;
-            const rightKey = this._rgbaToInt(readData[right], readData[right + 1], readData[right + 2], 0);
-            if (rightKey !== key) {
-              view.setUint32(i, blue, true);
-            }
+
+          if (skipped.has(key)) {
+            view.setUint32(i, red, true);
+          } else if (this._selected.has(key)) {
+            view.setUint32(i, yellow, true);
+          } else {
+            view.setUint32(i, green, true);
           }
-          if (y > 0) {
-            const top = i - width * 4;
-            const topKey = this._rgbaToInt(readData[top], readData[top + 1], readData[top + 2], 0);
-            if (topKey !== key) {
-              view.setUint32(i, blue, true);
+
+          if (key === this._hoveredObject) {
+            if (x > 0) {
+              const left = i - 4;
+              const leftKey = this._rgbaToInt(readData[left], readData[left + 1], readData[left + 2], 0);
+              if (leftKey !== key) {
+                view.setUint32(i, blue, true);
+              }
             }
-          }
-          if (y < height - 1) {
-            const bottom = i + width * 4;
-            const bottomKey = this._rgbaToInt(readData[bottom], readData[bottom + 1], readData[bottom + 2], 0);
-            if (bottomKey !== key) {
-              view.setUint32(i, blue, true);
+            if (x < width - 1) {
+              const right = i + 4;
+              const rightKey = this._rgbaToInt(readData[right], readData[right + 1], readData[right + 2], 0);
+              if (rightKey !== key) {
+                view.setUint32(i, blue, true);
+              }
+            }
+            if (y > 0) {
+              const top = i - width * 4;
+              const topKey = this._rgbaToInt(readData[top], readData[top + 1], readData[top + 2], 0);
+              if (topKey !== key) {
+                view.setUint32(i, blue, true);
+              }
+            }
+            if (y < height - 1) {
+              const bottom = i + width * 4;
+              const bottomKey = this._rgbaToInt(readData[bottom], readData[bottom + 1], readData[bottom + 2], 0);
+              if (bottomKey !== key) {
+                view.setUint32(i, blue, true);
+              }
             }
           }
         }
       }
-    }
 
-    this._visibleContext.putImageData(writeImageData, 0, 0);
+      this._visibleContext.putImageData(writeImageData, 0, 0);
+    } catch (err) {
+      this._setMessage(`Unable to read pick image pixels: ${err?.message || err}`, true);
+    }
   }
 
   async _submitSkip() {
