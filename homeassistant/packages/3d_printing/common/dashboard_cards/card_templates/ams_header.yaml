@@ -123,7 +123,7 @@ ams_header:
               return `
                 <div style="display:inline-flex; align-items:center; gap:4px; background:${bg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1; cursor:pointer;">
                   <ha-icon icon="${icon}" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
-                  <span style="font-size:12px; font-weight:600; color:#ffffff; white-space:nowrap; line-height:16px;">${state}${unit}</span>
+                  <span style="font-size:12px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; line-height:16px;">${state}${unit}</span>
                 </div>
               `;
             ]]]
@@ -165,7 +165,7 @@ ams_header:
               return `
                 <div style="display:inline-flex; align-items:center; gap:4px; background:${bg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1; cursor:pointer;">
                   <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
-                  <span style="font-size:12px; font-weight:600; color:#ffffff; white-space:nowrap; line-height:16px;">${state} ${unit}</span>
+                  <span style="font-size:12px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; line-height:16px;">${state} ${unit}</span>
                 </div>
               `;
             ]]]
