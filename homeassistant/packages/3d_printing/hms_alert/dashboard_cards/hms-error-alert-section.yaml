@@ -1,7 +1,7 @@
 # Unified HMS Error Alert Section
 # Responsive card that works on both mobile and desktop.
-# - Header banner with large title, icon glow, dramatic pulse animation
-# - Chevron toggle on the right to expand/collapse error details
+# - Single header banner: tap to expand/collapse, hold for more-info
+# - CSS chevron indicator on the right shows expand/collapse state
 # - Error detail cards coloured by severity, horizontal wrapping layout
 # - Details visibility controlled by input_boolean.hms_alert_show_details
 type: grid
@@ -12,141 +12,100 @@ visibility:
 cards:
   - type: vertical-stack
     cards:
-      # ── Header Row: Title + Chevron ────────────────────────────
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          # Main alert banner
-          - type: custom:mushroom-template-card
-            primary: HMS ERROR ALERT
-            secondary: >-
-              {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
-              {%- set count = state_attr(entity, 'Count') -%}
-              {%- if count is none -%}
-                {%- set count = state_attr(entity, 'count') -%}
-              {%- endif -%}
-              {%- set c = count | int(0) -%}
-              {%- if c == 1 -%}
-                {%- set legacy = state_attr(entity, 'errors') -%}
-                {%- if legacy is iterable and legacy is not string and (legacy | count > 0) -%}
-                  {{ legacy[0].attr | default(legacy[0].text | default('1 Error')) }}
-                {%- else -%}
-                  {{ state_attr(entity, '1-Error') | default('1 Error') }}
-                {%- endif -%}
-              {%- elif c > 1 -%}
-                {{ c }} Errors
-              {%- else -%}
-                Error Detected
-              {%- endif -%}
-            icon: mdi:alert-circle
-            icon_color: red
-            fill_container: true
-            tap_action:
-              action: more-info
-            card_mod:
-              style:
-                ha-card: |
-                  @keyframes hms-pulse {
-                    0%, 100% { box-shadow: 0 0 0 0 rgba(244,67,54,0.6); }
-                    50%  { box-shadow: 0 0 25px 6px rgba(244,67,54,0.35),
-                                       0 0 60px 14px rgba(244,67,54,0.10); }
-                  }
-                  ha-card {
-                    background: linear-gradient(
-                      135deg,
-                      rgba(244,67,54,0.35) 0%,
-                      rgba(183,28,28,0.22) 45%,
-                      rgba(244,67,54,0.28) 100%
-                    );
-                    border: 2px solid rgba(244,67,54,0.9);
-                    border-right: none;
-                    border-radius: 14px 0 0 14px;
-                    --card-mod-icon-color: red;
-                    animation: hms-pulse 2s ease-in-out infinite;
-                  }
-                mushroom-card$: |
-                  @keyframes hms-icon-glow {
-                    0%, 100% {
-                      filter: drop-shadow(0 0 4px rgba(255,220,80,0.7));
-                      transform: scale(1);
-                    }
-                    50% {
-                      filter: drop-shadow(0 0 12px rgba(255,200,50,1))
-                             drop-shadow(0 0 22px rgba(255,160,0,0.5));
-                      transform: scale(1.12);
-                    }
-                  }
-                  mushroom-shape-icon {
-                    animation: hms-icon-glow 2s ease-in-out infinite;
-                    --shape-color: rgba(255,240,210,0.18) !important;
-                  }
-                mushroom-card$mushroom-state-info$: |
-                  .primary {
-                    font-size: 1.8rem !important;
-                    font-weight: 900 !important;
-                    letter-spacing: 0.06em;
-                  }
-                  .secondary {
-                    font-size: 1.05rem !important;
-                    font-weight: 600 !important;
-                    white-space: normal !important;
-                    line-height: 1.35 !important;
-                    opacity: 0.92;
-                  }
-                  @media (max-width: 600px) {
-                    .primary  { font-size: 1.35rem !important; }
-                    .secondary { font-size: 0.95rem !important; }
-                  }
-            grid_options:
-              columns: 11
-          # Chevron expand/collapse toggle
-          - type: custom:mushroom-template-card
-            entity: input_boolean.hms_alert_show_details
-            primary: ""
-            secondary: ""
-            icon: >-
-              {% if is_state('input_boolean.hms_alert_show_details', 'on') %}
-              mdi:chevron-up
-              {% else %}
-              mdi:chevron-down
-              {% endif %}
-            icon_color: >-
-              {% if is_state('input_boolean.hms_alert_show_details', 'on') %}
-              white
-              {% else %}
-              grey
-              {% endif %}
-            fill_container: true
-            tap_action:
-              action: toggle
-            card_mod:
-              style:
-                ha-card: |
-                  ha-card {
-                    background: linear-gradient(
-                      135deg,
-                      rgba(244,67,54,0.28) 0%,
-                      rgba(183,28,28,0.22) 100%
-                    );
-                    border: 2px solid rgba(244,67,54,0.9);
-                    border-left: none;
-                    border-radius: 0 14px 14px 0;
-                    height: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                  }
-                mushroom-card$: |
-                  .container {
-                    justify-content: center;
-                    align-items: center;
-                  }
-                  .info {
-                    display: none;
-                  }
-            grid_options:
-              columns: 1
+      # ── Header Banner ──────────────────────────────────────────
+      - type: custom:mushroom-template-card
+        entity: input_boolean.hms_alert_show_details
+        primary: HMS ERROR ALERT
+        secondary: >-
+          {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
+          {%- set count = state_attr(entity, 'Count') -%}
+          {%- if count is none -%}
+            {%- set count = state_attr(entity, 'count') -%}
+          {%- endif -%}
+          {%- set c = count | int(0) -%}
+          {%- if c == 1 -%}
+            {%- set legacy = state_attr(entity, 'errors') -%}
+            {%- if legacy is iterable and legacy is not string and (legacy | count > 0) -%}
+              {{ legacy[0].attr | default(legacy[0].text | default('1 Error')) }}
+            {%- else -%}
+              {{ state_attr(entity, '1-Error') | default('1 Error') }}
+            {%- endif -%}
+          {%- elif c > 1 -%}
+            {{ c }} Errors
+          {%- else -%}
+            Error Detected
+          {%- endif -%}
+        icon: mdi:alert-circle
+        icon_color: red
+        fill_container: true
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+          entity: binary_sensor.hms_alert_display_wrapper
+        card_mod:
+          style:
+            ha-card: |
+              @keyframes hms-pulse {
+                0%, 100% { box-shadow: 0 0 0 0 rgba(244,67,54,0.6); }
+                50%  { box-shadow: 0 0 25px 6px rgba(244,67,54,0.35),
+                                   0 0 60px 14px rgba(244,67,54,0.10); }
+              }
+              ha-card {
+                background: linear-gradient(
+                  135deg,
+                  rgba(244,67,54,0.35) 0%,
+                  rgba(183,28,28,0.22) 45%,
+                  rgba(244,67,54,0.28) 100%
+                );
+                border: 2px solid rgba(244,67,54,0.9);
+                border-radius: 14px;
+                --card-mod-icon-color: red;
+                animation: hms-pulse 2s ease-in-out infinite;
+                position: relative;
+              }
+              ha-card::after {
+                content: '{% if is_state("input_boolean.hms_alert_show_details", "on") %}▲{% else %}▼{% endif %}';
+                position: absolute;
+                right: 18px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 1.2rem;
+                color: rgba(255,255,255, {% if is_state("input_boolean.hms_alert_show_details", "on") %}0.9{% else %}0.45{% endif %});
+              }
+            mushroom-card$: |
+              @keyframes hms-icon-glow {
+                0%, 100% {
+                  filter: drop-shadow(0 0 4px rgba(255,220,80,0.7));
+                  transform: scale(1);
+                }
+                50% {
+                  filter: drop-shadow(0 0 12px rgba(255,200,50,1))
+                         drop-shadow(0 0 22px rgba(255,160,0,0.5));
+                  transform: scale(1.12);
+                }
+              }
+              mushroom-shape-icon {
+                animation: hms-icon-glow 2s ease-in-out infinite;
+                --shape-color: rgba(255,240,210,0.18) !important;
+              }
+            mushroom-card$mushroom-state-info$: |
+              .primary {
+                font-size: 1.8rem !important;
+                font-weight: 900 !important;
+                letter-spacing: 0.06em;
+              }
+              .secondary {
+                font-size: 1.05rem !important;
+                font-weight: 600 !important;
+                white-space: normal !important;
+                line-height: 1.35 !important;
+                opacity: 0.92;
+              }
+              @media (max-width: 600px) {
+                .primary  { font-size: 1.35rem !important; }
+                .secondary { font-size: 0.95rem !important; }
+              }
       # ── Error Details (Conditional) ────────────────────────────
       - type: conditional
         conditions:
