@@ -104,3 +104,26 @@ Checks enforced when resource-related files change:
 Selected scope nuance:
 
 - With `package_scope=selected`, the guard only enforces when resource-related changes are part of selected scope (for example `common` package files and matching `www/3d_printing/<selected_package>/...` assets).
+
+## 9) Manual JS Cache Bust (resource query string)
+
+If dashboard JS changes are deployed but UI still shows old behavior, force a frontend refetch by changing only the resource URL query string.
+
+Example:
+
+- Before: `/local/3d_printing/printer_controls/skip-objects-studio-card.js?v=20260310m`
+- After: `/local/3d_printing/printer_controls/skip-objects-studio-card.js?v=20260310n`
+
+This does not require renaming or moving the underlying file. The changed URL invalidates browser module cache.
+
+UI steps:
+
+1. Home Assistant -> **Settings** -> **Dashboards** -> **Resources**.
+2. Edit the affected `/local/...js` resource.
+3. Change only the `?v=` suffix and save.
+4. Hard refresh browser (`Ctrl+F5`) and reopen the dashboard.
+
+Notes:
+
+- Use this as a break-glass step when normal refresh/restart did not pick up JS updates.
+- Keep declarative resource definitions in YAML (`common/dashboards/_resources.yaml`) as the source of truth; if you manually change resource URLs in UI, mirror those updates back into YAML on the next commit.

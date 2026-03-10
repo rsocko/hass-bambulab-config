@@ -118,6 +118,10 @@ Scope behavior:
 - With `package_scope=all`, any matching resource-related change is enforced.
 - With `package_scope=selected`, checks are enforced only when resource-related changes are in selected scope (for example package `common` and/or matching `www/3d_printing/<selected_package>/...` paths).
 
+For manual break-glass cache busting of dashboard JS modules, see:
+
+- [Dashboard Deploy and Reload Behavior](./DASHBOARD_DEPLOYMENT_BEHAVIOR.md) -> "Manual JS Cache Bust (resource query string)"
+
 ## Checkout Depth Note
 
 The workflow uses `actions/checkout` with `fetch-depth: 0` so diff-based safety checks can compare against the default branch reliably.
