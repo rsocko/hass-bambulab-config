@@ -1,0 +1,91 @@
+# Printer Speed Control Button
+# Compact icon-only button showing current speed mode with color-coded icon.
+# Tap opens more-info dialog for the Printing Speed entity so speed can be changed.
+#
+# Speed modes & icons:
+#   Silent    → mdi:speedometer-slow   (blue)
+#   Standard  → mdi:speedometer-medium (green)
+#   Sport     → mdi:speedometer        (orange)
+#   Ludicrous → custom SVG             (red)
+#
+# Requires: custom:button-card, card_mod
+# Entity:   select.ntk_ryansoffice_3dprinter_printing_speed
+
+type: custom:button-card
+entity: select.ntk_ryansoffice_3dprinter_printing_speed
+show_name: false
+show_state: false
+show_label: false
+show_icon: |
+  [[[
+    return entity.state !== 'ludicrous';
+  ]]]
+show_entity_picture: |
+  [[[
+    return entity.state === 'ludicrous';
+  ]]]
+entity_picture: /local/3d_printing/printer_controls/speedometer-ludicrous.svg
+icon: |
+  [[[
+    const speed = entity.state;
+    if (speed === 'silent') return 'mdi:speedometer-slow';
+    if (speed === 'standard') return 'mdi:speedometer-medium';
+    if (speed === 'sport') return 'mdi:speedometer';
+    return 'mdi:speedometer';
+  ]]]
+tap_action:
+  action: more-info
+custom_fields:
+  tooltip: |
+    [[[
+      const speed = entity.state;
+      const name = speed ? speed.charAt(0).toUpperCase() + speed.slice(1) : 'Unknown';
+      return `<div title="${name}" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;"></div>`;
+    ]]]
+styles:
+  icon:
+    - color: |
+        [[[
+          const speed = entity.state;
+          if (speed === 'silent') return '#2196F3';
+          if (speed === 'standard') return '#4CAF50';
+          if (speed === 'sport') return '#FF9800';
+          return '#F44336';
+        ]]]
+    - width: 26px
+    - height: 26px
+  entity_picture:
+    - width: 26px
+    - height: 26px
+  card:
+    - min-width: 42px
+    - width: 42px
+    - height: 42px
+    - padding: 0
+    - border-radius: 50%
+    - display: flex
+    - align-items: center
+    - justify-content: center
+    - background: transparent
+    - cursor: pointer
+    - position: relative
+    - overflow: visible
+    - box-shadow: none
+  custom_fields:
+    tooltip:
+      - position: absolute
+      - top: 0
+      - left: 0
+      - right: 0
+      - bottom: 0
+  grid:
+    - grid-template-areas: "'i'"
+card_mod:
+  style: |
+    ha-card {
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+    ha-card:hover {
+      background: rgba(var(--rgb-primary-text-color), 0.08) !important;
+      transform: scale(1.1);
+    }
