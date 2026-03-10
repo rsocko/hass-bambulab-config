@@ -343,6 +343,7 @@ class SkipObjectsDirectCard extends HTMLElement {
 
       const sortedEntries = Object.entries(printable).sort((a, b) => Number(a[0]) - Number(b[0]));
       const canSubmit = this._isSelectionDirty(skippedList) && !this._submitting;
+      const pickImageUrl = this._getPickImageUrl();
 
       const rows =
         sortedEntries.length === 0
@@ -402,9 +403,17 @@ class SkipObjectsDirectCard extends HTMLElement {
             background: #0b0f14;
             border: 1px solid rgba(148, 163, 184, 0.2);
             margin-bottom: 10px;
+            min-height: 120px;
+          }
+          #plate-image {
+            display: block;
+            width: 100%;
+            height: auto;
           }
           #canvas {
-            display: block;
+            position: absolute;
+            left: 0;
+            top: 0;
             width: 100%;
             height: auto;
             cursor: crosshair;
@@ -524,6 +533,7 @@ class SkipObjectsDirectCard extends HTMLElement {
           <div class='header'>${this._config.title}</div>
           <div class='sub'>Tap the plate image or use the list. Green is skippable and red is already skipped.</div>
           <div class='plate-wrap'>
+            ${pickImageUrl ? `<img id='plate-image' src='${pickImageUrl}' alt='Pick image'>` : "<div class='empty'>No pick image URL available.</div>"}
             <canvas id='canvas' width='512' height='512'></canvas>
           </div>
           <div class='legend'>
