@@ -51,185 +51,188 @@ cards:
               mushroom-shape-icon {
                 animation: hms-icon-breathe 1.1s ease-in-out infinite;
               }
-      - type: markdown
-        content: |
-          {% set entity = 'binary_sensor.hms_alert_display_wrapper' %}
-          {% set attrs = states[entity].attributes %}
-          {% set legacy_errors = state_attr(entity, 'errors') %}
-          <div class="hms-error-grid">
-          {% if legacy_errors is iterable and legacy_errors is not string and (legacy_errors | count > 0) %}
-          {% for error in legacy_errors %}
-          {% set severity = error.severity | default('unknown') %}
-          {% set severity_norm = severity | string | lower %}
-          {% set severity_icon = 'mdi:information' %}
-          {% if 'serious' in severity_norm or 'high' in severity_norm or 'critical' in severity_norm %}
-            {% set severity_icon = 'mdi:alert-octagon' %}
-          {% elif 'medium' in severity_norm or 'warn' in severity_norm %}
-            {% set severity_icon = 'mdi:alert' %}
-          {% elif 'low' in severity_norm or 'minor' in severity_norm %}
-            {% set severity_icon = 'mdi:alert-circle-outline' %}
-          {% endif %}
-          <div class="hms-error-item">
-            <div class="hms-main">
-              <div class="hms-title">Error {{ loop.index }}</div>
-              <div class="hms-text">{{ error.attr | default(error.text | default('No description available')) }}</div>
-            </div>
-            <div class="hms-meta">
-              <div class="hms-severity severity-{{ severity_norm | replace(' ', '-') }}">
-                <ha-icon icon="{{ severity_icon }}"></ha-icon>
-                <span>{{ severity | title }}</span>
-              </div>
-              <div class="hms-code">{{ error.code | default('Unknown') }}</div>
-              {% if error.wiki %}
-              <a class="hms-link" href="{{ error.wiki }}" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>
-              {% endif %}
-            </div>
-          </div>
-          {% endfor %}
-          {% else %}
-          {% set count = attrs['Count'] if attrs['Count'] is defined else (attrs['count'] if attrs['count'] is defined else 0) %}
-          {% if count | int(0) > 0 %}
-          {% for i in range(1, (count | int(0)) + 1) %}
-          {% set code_key = i ~ '-Code' %}
-          {% set error_key = i ~ '-Error' %}
-          {% set severity_key = i ~ '-Severity' %}
-          {% set wiki_key = i ~ '-Wiki' %}
-          {% set code = attrs[code_key] if attrs[code_key] is defined else 'Unknown' %}
-          {% set error_text = attrs[error_key] if attrs[error_key] is defined else 'No description available' %}
-          {% set severity = attrs[severity_key] if attrs[severity_key] is defined else none %}
-          {% set wiki = attrs[wiki_key] if attrs[wiki_key] is defined else none %}
-          {% set severity_norm = (severity | default('unknown')) | string | lower %}
-          {% set severity_icon = 'mdi:information' %}
-          {% if 'serious' in severity_norm or 'high' in severity_norm or 'critical' in severity_norm %}
-            {% set severity_icon = 'mdi:alert-octagon' %}
-          {% elif 'medium' in severity_norm or 'warn' in severity_norm %}
-            {% set severity_icon = 'mdi:alert' %}
-          {% elif 'low' in severity_norm or 'minor' in severity_norm %}
-            {% set severity_icon = 'mdi:alert-circle-outline' %}
-          {% endif %}
-          <div class="hms-error-item">
-            <div class="hms-main">
-              <div class="hms-title">Error {{ i }}</div>
-              <div class="hms-text">{{ error_text }}</div>
-            </div>
-            <div class="hms-meta">
-              {% if severity %}
-              <div class="hms-severity severity-{{ severity_norm | replace(' ', '-') }}">
-                <ha-icon icon="{{ severity_icon }}"></ha-icon>
-                <span>{{ severity | title }}</span>
-              </div>
-              {% endif %}
-              <div class="hms-code">{{ code }}</div>
-              {% if wiki %}
-              <a class="hms-link" href="{{ wiki }}" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>
-              {% endif %}
-            </div>
-          </div>
-          {% endfor %}
-          {% else %}
-          <div class="hms-empty">No error details available</div>
-          {% endif %}
-          {% endif %}
-          </div>
-        card_mod:
-          style: |
-            : |
-              ha-card {
-                background: rgba(244, 67, 54, 0.07);
-                border: 1px solid rgba(244, 67, 54, 0.35);
-                border-left: 6px solid var(--red-color);
-                border-radius: 12px;
-                padding: 10px 12px;
+      - type: custom:button-card
+        entity: binary_sensor.hms_alert_display_wrapper
+        show_name: false
+        show_state: false
+        show_icon: false
+        tap_action:
+          action: none
+        custom_fields:
+          details: |
+            [[[
+              const entity = states['binary_sensor.hms_alert_display_wrapper'];
+              if (!entity) {
+                return '<div class="hms-empty">No error details available</div>';
               }
-              .hms-error-grid {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 10px;
-              }
-              .hms-error-item {
-                display: grid;
-                grid-template-columns: 2.1fr minmax(220px, 1fr);
-                gap: 12px;
-                padding: 10px;
-                border-radius: 10px;
-                background: rgba(0, 0, 0, 0.2);
-                border: 1px solid rgba(244, 67, 54, 0.22);
-              }
-              .hms-title {
-                font-size: 1.03rem;
-                font-weight: 700;
-                color: var(--primary-text-color);
-                margin-bottom: 4px;
-              }
-              .hms-text {
-                font-size: 0.98rem;
-                line-height: 1.45;
-                color: var(--primary-text-color);
-              }
-              .hms-meta {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                justify-content: center;
-                gap: 7px;
-                text-align: right;
-              }
-              .hms-severity {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                padding: 3px 9px;
-                border-radius: 999px;
-                font-size: 0.88rem;
-                font-weight: 700;
-                background: rgba(120, 120, 120, 0.25);
-              }
-              .hms-severity ha-icon {
-                --mdc-icon-size: 15px;
-              }
-              .hms-severity[class*='serious'],
-              .hms-severity[class*='critical'],
-              .hms-severity[class*='high'] {
-                color: #ff8a80;
-                background: rgba(244, 67, 54, 0.22);
-              }
-              .hms-severity[class*='medium'],
-              .hms-severity[class*='warn'] {
-                color: #ffd180;
-                background: rgba(255, 152, 0, 0.24);
-              }
-              .hms-severity[class*='low'],
-              .hms-severity[class*='minor'] {
-                color: #fff59d;
-                background: rgba(255, 235, 59, 0.2);
-              }
-              .hms-code {
-                font-family: var(--code-font-family, monospace);
-                font-size: 0.9rem;
-                font-weight: 700;
-                color: #ffb4ab;
-              }
-              .hms-link {
-                color: #64b5f6;
-                font-weight: 600;
-                text-decoration: none;
-              }
-              .hms-link:hover {
-                text-decoration: underline;
-              }
-              .hms-empty {
-                font-size: 0.98rem;
-                color: var(--secondary-text-color);
-              }
-              @media (max-width: 850px) {
-                .hms-error-item {
-                  grid-template-columns: 1fr;
-                }
-                .hms-meta {
-                  align-items: flex-start;
-                  text-align: left;
+              const attrs = entity.attributes || {};
+              const toTitle = (value) => {
+                const text = String(value || 'unknown').trim();
+                return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unknown';
+              };
+              const toSeverityClass = (value) => String(value || 'unknown').toLowerCase().replace(/\s+/g, '-');
+              const getSeverityIcon = (value) => {
+                const sev = String(value || '').toLowerCase();
+                if (sev.includes('serious') || sev.includes('critical') || sev.includes('high')) return 'mdi:alert-octagon';
+                if (sev.includes('medium') || sev.includes('warn')) return 'mdi:alert';
+                if (sev.includes('low') || sev.includes('minor')) return 'mdi:alert-circle-outline';
+                return 'mdi:information';
+              };
+
+              let items = [];
+              const legacy = Array.isArray(attrs.errors) ? attrs.errors : [];
+              if (legacy.length > 0) {
+                items = legacy.map((error, index) => ({
+                  index: index + 1,
+                  text: error?.attr || error?.text || 'No description available',
+                  code: error?.code || 'Unknown',
+                  severity: error?.severity || 'unknown',
+                  wiki: error?.wiki || ''
+                }));
+              } else {
+                const count = parseInt(attrs.Count ?? attrs.count ?? 0, 10) || 0;
+                for (let i = 1; i <= count; i += 1) {
+                  items.push({
+                    index: i,
+                    text: attrs[`${i}-Error`] || 'No description available',
+                    code: attrs[`${i}-Code`] || 'Unknown',
+                    severity: attrs[`${i}-Severity`] || 'unknown',
+                    wiki: attrs[`${i}-Wiki`] || ''
+                  });
                 }
               }
+
+              if (items.length === 0) {
+                return '<div class="hms-empty">No error details available</div>';
+              }
+
+              const cards = items.map((item) => {
+                const severityClass = toSeverityClass(item.severity);
+                const severityText = toTitle(item.severity);
+                const severityIcon = getSeverityIcon(item.severity);
+                const wikiHtml = item.wiki
+                  ? `<a class="hms-link" href="${item.wiki}" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>`
+                  : '';
+                return `
+                  <div class="hms-error-item">
+                    <div class="hms-main">
+                      <div class="hms-title">Error ${item.index}</div>
+                      <div class="hms-text">${item.text}</div>
+                    </div>
+                    <div class="hms-meta">
+                      <div class="hms-severity severity-${severityClass}">
+                        <ha-icon icon="${severityIcon}"></ha-icon>
+                        <span>${severityText}</span>
+                      </div>
+                      <div class="hms-code">${item.code}</div>
+                      ${wikiHtml}
+                    </div>
+                  </div>`;
+              }).join('');
+
+              return `<div class="hms-error-grid">${cards}</div>`;
+            ]]]
+        styles:
+          card:
+            - background: rgba(244, 67, 54, 0.07)
+            - border: 1px solid rgba(244, 67, 54, 0.35)
+            - border-left: 6px solid var(--red-color)
+            - border-radius: 12px
+            - padding: 10px 12px
+          custom_fields:
+            details:
+              - width: 100%
+              - text-align: left
+        extra_styles: |
+          .hms-error-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+          .hms-error-item {
+            display: grid;
+            grid-template-columns: 2.1fr minmax(220px, 1fr);
+            gap: 12px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.22);
+          }
+          .hms-title {
+            font-size: 1.03rem;
+            font-weight: 700;
+            color: var(--primary-text-color);
+            margin-bottom: 4px;
+          }
+          .hms-text {
+            font-size: 0.98rem;
+            line-height: 1.45;
+            color: var(--primary-text-color);
+          }
+          .hms-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 7px;
+            text-align: right;
+          }
+          .hms-severity {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            background: rgba(120, 120, 120, 0.25);
+          }
+          .hms-severity ha-icon {
+            --mdc-icon-size: 15px;
+          }
+          .hms-severity[class*='serious'],
+          .hms-severity[class*='critical'],
+          .hms-severity[class*='high'] {
+            color: #ff8a80;
+            background: rgba(244, 67, 54, 0.22);
+          }
+          .hms-severity[class*='medium'],
+          .hms-severity[class*='warn'] {
+            color: #ffd180;
+            background: rgba(255, 152, 0, 0.24);
+          }
+          .hms-severity[class*='low'],
+          .hms-severity[class*='minor'] {
+            color: #fff59d;
+            background: rgba(255, 235, 59, 0.2);
+          }
+          .hms-code {
+            font-family: var(--code-font-family, monospace);
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #ffb4ab;
+          }
+          .hms-link {
+            color: #64b5f6;
+            font-weight: 600;
+            text-decoration: none;
+          }
+          .hms-link:hover {
+            text-decoration: underline;
+          }
+          .hms-empty {
+            font-size: 0.98rem;
+            color: var(--secondary-text-color);
+          }
+          @media (max-width: 850px) {
+            .hms-error-item {
+              grid-template-columns: 1fr;
+            }
+            .hms-meta {
+              align-items: flex-start;
+              text-align: left;
+            }
+          }
     grid_options:
       columns: full
 column_span: 3
