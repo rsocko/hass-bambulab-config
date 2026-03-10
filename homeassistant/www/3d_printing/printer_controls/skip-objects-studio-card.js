@@ -195,7 +195,6 @@ class SkipObjectsStudioCard extends HTMLElement {
 
     const url = this._getPickImageUrl();
     if (!url) {
-      this._setStatus("No pick image URL available.", true);
       return;
     }
 
@@ -390,6 +389,17 @@ class SkipObjectsStudioCard extends HTMLElement {
     }
   }
 
+  async _closePopup() {
+    if (!this._hass) {
+      return;
+    }
+    try {
+      await this._hass.callService("browser_mod", "close_popup", {});
+    } catch (_err) {
+      // Browser mod may not be available in all contexts.
+    }
+  }
+
   _render() {
     try {
       if (!this.shadowRoot || !this._config) {
@@ -442,15 +452,13 @@ class SkipObjectsStudioCard extends HTMLElement {
           background: var(--card-background-color);
           border: 1px solid rgba(255,255,255,0.08);
         }
-        .hero {
-          padding: 14px;
-          background: linear-gradient(125deg, #0f766e 0%, #155e75 48%, #1e3a8a 100%);
-          color: #f8fafc;
+        .helper {
+          font-size: 12px;
+          color: var(--secondary-text-color, #9aa0a6);
+          margin-bottom: 8px;
         }
-        .title { font-size: 18px; font-weight: 800; letter-spacing: 0.2px; }
-        .subtitle { font-size: 12px; opacity: 0.9; margin-top: 2px; }
         .metrics {
-          margin-top: 10px;
+          margin-bottom: 10px;
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
@@ -460,8 +468,8 @@ class SkipObjectsStudioCard extends HTMLElement {
           font-weight: 700;
           border-radius: 999px;
           padding: 4px 8px;
-          background: rgba(255,255,255,0.18);
-          color: #f8fafc;
+          background: rgba(148, 163, 184, 0.18);
+          color: var(--primary-text-color);
         }
         .body { padding: 12px; }
         .plate-wrap {
@@ -579,16 +587,13 @@ class SkipObjectsStudioCard extends HTMLElement {
         }
       </style>
       <ha-card class="wrap">
-        <div class="hero">
-          <div class="title">${this._config.title}</div>
-          <div class="subtitle">${this._config.subtitle}</div>
+        <div class="body">
+          <div class="helper">${this._config.subtitle}</div>
           <div class="metrics">
             <span class="pill">Objects ${ids.length}</span>
             <span class="pill">Skipped ${skippedCount}</span>
             <span class="pill">Selected ${selectedCount}</span>
           </div>
-        </div>
-        <div class="body">
           <div class="plate-wrap">
             <canvas id="canvas" width="512" height="512"></canvas>
           </div>
@@ -603,6 +608,7 @@ class SkipObjectsStudioCard extends HTMLElement {
             <button class="btn-go" id="submit" ${!available || selectedCount === 0 || this._busy ? "disabled" : ""}>${
               this._busy ? "Sending..." : "Skip Selected"
             }</button>
+            <button class="btn-muted" id="close">Close</button>
           </div>
           ${available ? "" : '<div class="unavailable">Skip Objects is currently unavailable. Start an active print with 2+ objects.</div>'}
           <div class="grid">${cards}</div>
@@ -634,6 +640,11 @@ class SkipObjectsStudioCard extends HTMLElement {
       const submit = this.shadowRoot.getElementById("submit");
       if (submit) {
         submit.addEventListener("click", () => this._submit());
+      }
+
+      const close = this.shadowRoot.getElementById("close");
+      if (close) {
+        close.addEventListener("click", () => this._closePopup());
       }
 
       this._initializeCanvas();

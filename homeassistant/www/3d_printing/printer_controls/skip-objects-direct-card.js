@@ -152,7 +152,6 @@ class SkipObjectsDirectCard extends HTMLElement {
 
     const url = this._getPickImageUrl();
     if (!url) {
-      this._setMessage("No pick image URL available.", true);
       return;
     }
 
