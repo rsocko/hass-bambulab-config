@@ -372,6 +372,21 @@ class SkipObjectsDirectCard extends HTMLElement {
     }
 
     if (!this._hass) {
+      try {
+        this.dispatchEvent(new CustomEvent("hass-close-dialog", { bubbles: true, composed: true }));
+      } catch (_err) {
+        // Ignore and continue to DOM fallback.
+      }
+
+      try {
+        const dialogs = document.querySelectorAll("ha-dialog[open], ha-dialog");
+        const top = dialogs[dialogs.length - 1];
+        if (top && typeof top.close === "function") {
+          top.close();
+        }
+      } catch (_err) {
+        // Ignore DOM fallback errors.
+      }
       return;
     }
 
@@ -380,6 +395,22 @@ class SkipObjectsDirectCard extends HTMLElement {
       await this._hass.callService("browser_mod", "close_popup", browserId ? { browser_id: browserId } : {});
     } catch (_err) {
       // Browser mod may not be available in all contexts.
+    }
+
+    try {
+      this.dispatchEvent(new CustomEvent("hass-close-dialog", { bubbles: true, composed: true }));
+    } catch (_err) {
+      // Ignore and continue to DOM fallback.
+    }
+
+    try {
+      const dialogs = document.querySelectorAll("ha-dialog[open], ha-dialog");
+      const top = dialogs[dialogs.length - 1];
+      if (top && typeof top.close === "function") {
+        top.close();
+      }
+    } catch (_err) {
+      // Ignore DOM fallback errors.
     }
   }
 
