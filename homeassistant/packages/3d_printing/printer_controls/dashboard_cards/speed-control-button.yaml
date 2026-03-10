@@ -16,15 +16,7 @@ entity: select.ntk_ryansoffice_3dprinter_printing_speed
 show_name: false
 show_state: false
 show_label: false
-show_icon: |
-  [[[
-    return entity.state !== 'ludicrous';
-  ]]]
-show_entity_picture: |
-  [[[
-    return entity.state === 'ludicrous';
-  ]]]
-entity_picture: /local/3d_printing/printer_controls/speedometer-ludicrous.svg
+show_icon: true
 icon: |
   [[[
     const speed = entity.state;
@@ -36,11 +28,17 @@ icon: |
 tap_action:
   action: more-info
 custom_fields:
+  ludicrous_icon: |
+    [[[
+      if (entity.state === 'ludicrous')
+        return `<img src="/local/3d_printing/printer_controls/speedometer-ludicrous.svg" style="width:26px;height:26px;" />`;
+      return '';
+    ]]]
   tooltip: |
     [[[
       const speed = entity.state;
       const name = speed ? speed.charAt(0).toUpperCase() + speed.slice(1) : 'Unknown';
-      return `<div title="${name}" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;"></div>`;
+      return `<div title="Speed: ${name}" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;"></div>`;
     ]]]
 styles:
   icon:
@@ -50,11 +48,9 @@ styles:
           if (speed === 'silent') return '#2196F3';
           if (speed === 'standard') return '#4CAF50';
           if (speed === 'sport') return '#FF9800';
-          return '#F44336';
+          if (speed === 'ludicrous') return 'transparent';
+          return '#9E9E9E';
         ]]]
-    - width: 26px
-    - height: 26px
-  entity_picture:
     - width: 26px
     - height: 26px
   card:
@@ -72,6 +68,12 @@ styles:
     - overflow: visible
     - box-shadow: none
   custom_fields:
+    ludicrous_icon:
+      - position: absolute
+      - top: 50%
+      - left: 50%
+      - transform: translate(-50%, -50%)
+      - pointer-events: none
     tooltip:
       - position: absolute
       - top: 0
