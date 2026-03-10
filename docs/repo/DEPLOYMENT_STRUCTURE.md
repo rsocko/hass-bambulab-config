@@ -57,6 +57,9 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
 - [homeassistant/www/3d_printing/](../../homeassistant/www/3d_printing/):
   - Store runtime assets needed by Home Assistant frontend/cards.
   - Use `packages_www` to deploy these assets.
+  - Keep assets feature-scoped for selected-package deploy parity, for example:
+    - `homeassistant/www/3d_printing/printer_controls/skip-objects-direct-card.js`
+    - referenced by dashboard resource URL: `/local/3d_printing/printer_controls/skip-objects-direct-card.js`
 - Feature loader include map:
   - Keep shared feature loader mappings in [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../homeassistant/packages/3d_printing/_feature_loaders.yaml).
   - In Home Assistant `configuration.yaml`, use:

@@ -1,0 +1,14 @@
+# Option 3 custom JS card scaffold
+#
+# A standalone, styled skip-objects card that calls bambu_lab.skip_objects directly.
+# This is separate from the popup launcher and can be included as its own dashboard section.
+
+type: custom:skip-objects-studio-card
+title: Object Skip Studio
+subtitle: Protect active prints by excluding failed parts
+device_id: 210dfdfa64085e8cf073e50eae757d90
+printable_entity: sensor.ntk_ryansoffice_3dprinter_printable_objects
+skipped_entity: sensor.ntk_ryansoffice_3dprinter_skipped_objects
+stop_entity: button.ntk_ryansoffice_3dprinter_stop_print
+min_objects: 2
+max_objects: 64
