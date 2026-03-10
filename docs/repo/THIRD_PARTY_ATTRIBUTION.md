@@ -4,6 +4,11 @@ This repository includes original code that was developed after reviewing and le
 
 Reviewed on: 2026-03-10
 
+Upstream references pinned at review time (main branch heads):
+
+- `greghesp/ha-bambulab`: `53a56f57d8e45e835b3b8962a33d2db636ed07fe`
+- `greghesp/ha-bambulab-cards`: `e04f6e78dd61ec534e6d42f33e35e3c5365066cf`
+
 ## Upstream Projects Referenced
 
 - `greghesp/ha-bambulab`
