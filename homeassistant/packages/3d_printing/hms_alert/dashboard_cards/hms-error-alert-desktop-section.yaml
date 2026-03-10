@@ -66,12 +66,12 @@ cards:
                 return '<div class="hms-empty">No error details available</div>';
               }
               const attrs = entity.attributes || {};
-              const toTitle = (value) => {
+              const toTitle = function(value) {
                 const text = String(value || 'unknown').trim();
                 return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unknown';
               };
-              const toSeverityClass = (value) => String(value || 'unknown').toLowerCase().replace(/\s+/g, '-');
-              const getSeverityIcon = (value) => {
+              const toSeverityClass = function(value) { return String(value || 'unknown').toLowerCase().replace(/\s+/g, '-'); };
+              const getSeverityIcon = function(value) {
                 const sev = String(value || '').toLowerCase();
                 if (sev.includes('serious') || sev.includes('critical') || sev.includes('high')) return 'mdi:alert-octagon';
                 if (sev.includes('medium') || sev.includes('warn')) return 'mdi:alert';
@@ -84,13 +84,14 @@ cards:
               if (legacy.length > 0) {
                 items = legacy.map((error, index) => ({
                   index: index + 1,
-                  text: error?.attr || error?.text || 'No description available',
-                  code: error?.code || 'Unknown',
-                  severity: error?.severity || 'unknown',
-                  wiki: error?.wiki || ''
+                  text: (error && (error.attr || error.text)) ? (error.attr || error.text) : 'No description available',
+                  code: (error && error.code) ? error.code : 'Unknown',
+                  severity: (error && error.severity) ? error.severity : 'unknown',
+                  wiki: (error && error.wiki) ? error.wiki : ''
                 }));
               } else {
-                const count = parseInt(attrs.Count ?? attrs.count ?? 0, 10) || 0;
+                const countVal = attrs.Count !== undefined && attrs.Count !== null ? attrs.Count : attrs.count;
+                const count = parseInt(countVal || 0, 10) || 0;
                 for (let i = 1; i <= count; i += 1) {
                   items.push({
                     index: i,
