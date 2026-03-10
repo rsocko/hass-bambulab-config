@@ -49,6 +49,7 @@ cards:
             device_id: 210dfdfa64085e8cf073e50eae757d90
             printable_entity: sensor.3d_printer_printable_objects
             skipped_entity: sensor.3d_printer_skipped_objects
+            pick_image_entity: image.3d_printer_pick_image
             title: Skip Objects
     styles:
       card:
@@ -89,6 +90,7 @@ cards:
             device_id: 210dfdfa64085e8cf073e50eae757d90
             printable_entity: sensor.3d_printer_printable_objects
             skipped_entity: sensor.3d_printer_skipped_objects
+            pick_image_entity: image.3d_printer_pick_image
             stop_entity: button.ntk_ryansoffice_3dprinter_stop_printing
             min_objects: 2
             max_objects: 64

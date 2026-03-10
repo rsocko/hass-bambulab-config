@@ -8,6 +8,16 @@ class SkipObjectsStudioCard extends HTMLElement {
     this._busy = false;
     this._status = "";
     this._error = false;
+    this._hoveredObject = 0;
+    this._visibleContext = null;
+    this._hiddenContext = null;
+    this._lastPickImageUrl = "";
+    this._boundClick = (ev) => this._handleCanvasClick(ev);
+    this._boundMove = (ev) => this._handleCanvasHover(ev);
+    this._boundOut = () => {
+      this._hoveredObject = 0;
+      this._colorizeCanvas();
+    };
   }
 
   setConfig(config) {
@@ -20,7 +30,8 @@ class SkipObjectsStudioCard extends HTMLElement {
     this._config = {
       title: "Object Skip Studio",
       subtitle: "Protect active prints by excluding failed parts",
-      stop_entity: "button.ntk_ryansoffice_3dprinter_stop_print",
+      stop_entity: "button.ntk_ryansoffice_3dprinter_stop_printing",
+      pick_image_entity: "image.3d_printer_pick_image",
       min_objects: 2,
       max_objects: 64,
       ...config,
@@ -35,7 +46,11 @@ class SkipObjectsStudioCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 7;
+    return 9;
+  }
+
+  _rgbaToInt(r, g, b, a) {
+    return r | (g << 8) | (b << 16) | (a << 24);
   }
 
   _printableMap() {
@@ -54,6 +69,15 @@ class SkipObjectsStudioCard extends HTMLElement {
       return [];
     }
     return list.map((v) => Number(v)).filter((v) => Number.isInteger(v));
+  }
+
+  _getPickImageUrl() {
+    const imageEntity = this._hass?.states?.[this._config.pick_image_entity];
+    const picture = imageEntity?.attributes?.entity_picture;
+    if (!picture) {
+      return "";
+    }
+    return picture;
   }
 
   _isAvailable(printableCount) {
@@ -104,6 +128,176 @@ class SkipObjectsStudioCard extends HTMLElement {
     }
     this._setStatus("");
     this._render();
+  }
+
+  _initializeCanvas() {
+    const canvas = this.shadowRoot?.getElementById("canvas");
+    if (!canvas) {
+      return;
+    }
+
+    if (!this._visibleContext) {
+      this._visibleContext = canvas.getContext("2d", { willReadFrequently: true });
+      canvas.addEventListener("click", this._boundClick);
+      canvas.addEventListener("mousemove", this._boundMove);
+      canvas.addEventListener("mouseout", this._boundOut);
+
+      const hiddenCanvas = document.createElement("canvas");
+      hiddenCanvas.width = 512;
+      hiddenCanvas.height = 512;
+      this._hiddenContext = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+    }
+
+    const url = this._getPickImageUrl();
+    if (!url || url === this._lastPickImageUrl) {
+      this._colorizeCanvas();
+      return;
+    }
+
+    this._lastPickImageUrl = url;
+    const img = new Image();
+    img.onload = () => {
+      if (!this._hiddenContext || !this._visibleContext) {
+        return;
+      }
+      this._hiddenContext.clearRect(0, 0, 512, 512);
+      this._hiddenContext.drawImage(img, 0, 0, 512, 512);
+      this._colorizeCanvas();
+    };
+    img.onerror = () => {
+      this._setStatus("Unable to load pick image for object map.", true);
+      this._render();
+    };
+    img.src = url;
+  }
+
+  _handleCanvasHover(event) {
+    if (!this._hiddenContext) {
+      return;
+    }
+
+    const canvas = event.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const pixel = this._hiddenContext.getImageData(x * scaleX, y * scaleY, 1, 1).data;
+    const key = this._rgbaToInt(pixel[0], pixel[1], pixel[2], 0);
+
+    if (key !== this._hoveredObject) {
+      this._hoveredObject = key;
+      this._colorizeCanvas();
+    }
+  }
+
+  _handleCanvasClick(event) {
+    if (!this._hiddenContext) {
+      return;
+    }
+
+    const canvas = event.target;
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const canvasStyleWidth = canvas.offsetWidth;
+    const canvasStyleHeight = canvas.offsetHeight;
+    const scaleX = canvasStyleWidth / canvasWidth;
+    const scaleY = canvasStyleHeight / canvasHeight;
+    const rect = canvas.getBoundingClientRect();
+
+    let x = event.clientX - rect.left;
+    let y = event.clientY - rect.top;
+    x = x / scaleX;
+    y = y / scaleY;
+
+    const imageData = this._hiddenContext.getImageData(x, y, 1, 1).data;
+    const key = this._rgbaToInt(imageData[0], imageData[1], imageData[2], 0);
+    if (!key) {
+      return;
+    }
+
+    const skipped = new Set(this._skippedList());
+    const printable = this._printableMap();
+    if (!Object.prototype.hasOwnProperty.call(printable, String(key)) || skipped.has(key)) {
+      return;
+    }
+
+    this._toggleId(key, !this._selected.has(key));
+  }
+
+  _colorizeCanvas() {
+    if (!this._visibleContext || !this._hiddenContext) {
+      return;
+    }
+
+    const printable = this._printableMap();
+    const skipped = new Set(this._skippedList());
+    const width = 512;
+    const height = 512;
+
+    const readImageData = this._hiddenContext.getImageData(0, 0, width, height);
+    const readData = readImageData.data;
+
+    this._visibleContext.putImageData(readImageData, 0, 0);
+    const writeImageData = this._visibleContext.getImageData(0, 0, width, height);
+    const writeData = writeImageData.data;
+    const view = new DataView(writeData.buffer);
+
+    const red = this._rgbaToInt(220, 38, 38, 230);
+    const green = this._rgbaToInt(34, 197, 94, 215);
+    const cyan = this._rgbaToInt(20, 184, 166, 220);
+    const blue = this._rgbaToInt(37, 99, 235, 255);
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * 4 * height + x * 4;
+        const key = this._rgbaToInt(readData[i], readData[i + 1], readData[i + 2], 0);
+        if (!key || !Object.prototype.hasOwnProperty.call(printable, String(key))) {
+          continue;
+        }
+
+        if (skipped.has(key)) {
+          view.setUint32(i, red, true);
+        } else if (this._selected.has(key)) {
+          view.setUint32(i, cyan, true);
+        } else {
+          view.setUint32(i, green, true);
+        }
+
+        if (key === this._hoveredObject) {
+          if (x > 0) {
+            const left = i - 4;
+            const leftKey = this._rgbaToInt(readData[left], readData[left + 1], readData[left + 2], 0);
+            if (leftKey !== key) {
+              view.setUint32(i, blue, true);
+            }
+          }
+          if (x < width - 1) {
+            const right = i + 4;
+            const rightKey = this._rgbaToInt(readData[right], readData[right + 1], readData[right + 2], 0);
+            if (rightKey !== key) {
+              view.setUint32(i, blue, true);
+            }
+          }
+          if (y > 0) {
+            const top = i - width * 4;
+            const topKey = this._rgbaToInt(readData[top], readData[top + 1], readData[top + 2], 0);
+            if (topKey !== key) {
+              view.setUint32(i, blue, true);
+            }
+          }
+          if (y < height - 1) {
+            const bottom = i + width * 4;
+            const bottomKey = this._rgbaToInt(readData[bottom], readData[bottom + 1], readData[bottom + 2], 0);
+            if (bottomKey !== key) {
+              view.setUint32(i, blue, true);
+            }
+          }
+        }
+      }
+    }
+
+    this._visibleContext.putImageData(writeImageData, 0, 0);
   }
 
   async _submit() {
@@ -214,6 +408,37 @@ class SkipObjectsStudioCard extends HTMLElement {
           color: #f8fafc;
         }
         .body { padding: 12px; }
+        .plate-wrap {
+          position: relative;
+          border-radius: 10px;
+          overflow: hidden;
+          background: #071019;
+          border: 1px solid rgba(255,255,255,0.16);
+          margin-bottom: 10px;
+        }
+        #canvas {
+          display: block;
+          width: 100%;
+          height: auto;
+          cursor: crosshair;
+        }
+        .legend {
+          margin-top: 6px;
+          margin-bottom: 10px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          font-size: 11px;
+          color: var(--secondary-text-color, #9aa0a6);
+        }
+        .dot {
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          margin-right: 4px;
+          vertical-align: middle;
+        }
         .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px; }
         button {
           border: 0;
@@ -301,6 +526,15 @@ class SkipObjectsStudioCard extends HTMLElement {
           </div>
         </div>
         <div class="body">
+          <div class="plate-wrap">
+            <canvas id="canvas" width="512" height="512"></canvas>
+          </div>
+          <div class="legend">
+            <span><span class="dot" style="background:#22c55e;"></span>Skippable</span>
+            <span><span class="dot" style="background:#dc2626;"></span>Already skipped</span>
+            <span><span class="dot" style="background:#14b8a6;"></span>Selected</span>
+            <span><span class="dot" style="background:#2563eb;"></span>Hover outline</span>
+          </div>
           <div class="toolbar">
             <button class="btn-muted" id="select-all" ${available ? "" : "disabled"}>Select all available</button>
             <button class="btn-muted" id="clear">Clear selection</button>
@@ -339,6 +573,8 @@ class SkipObjectsStudioCard extends HTMLElement {
       if (submit) {
         submit.addEventListener("click", () => this._submit());
       }
+
+      this._initializeCanvas();
     } catch (err) {
       if (this.shadowRoot) {
         this.shadowRoot.innerHTML = `<ha-card style="padding:12px;color:#b91c1c;">Skip Objects Studio error: ${String(err)}</ha-card>`;
