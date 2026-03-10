@@ -22,22 +22,7 @@ cards:
     card_layout: large
 
   - type: custom:button-card
-    variables:
-      is_available: >-
-        [[[ 
-          const printable = states['sensor.ntk_ryansoffice_3dprinter_printable_objects'];
-          const attrObjects = printable?.attributes?.objects;
-          const attrCount = (attrObjects && typeof attrObjects === 'object') ? Object.keys(attrObjects).length : 0;
-          const stateCount = parseInt(printable?.state || '0', 10);
-          const count = attrCount > 0 ? attrCount : (Number.isFinite(stateCount) ? stateCount : 0);
-          const stopState = states['button.ntk_ryansoffice_3dprinter_stop_print']?.state;
-          const stopAvailable = stopState !== 'unavailable';
-          return stopAvailable && count >= 2 && count <= 64;
-        ]]]
-    name: >-
-      [[[ 
-        return variables.is_available ? 'Skip Objects' : 'Skip Objects unavailable';
-      ]]]
+    name: Skip Objects
     label: >-
       [[[ 
         const printable = states['sensor.ntk_ryansoffice_3dprinter_printable_objects'];
@@ -45,16 +30,15 @@ cards:
         const attrCount = (attrObjects && typeof attrObjects === 'object') ? Object.keys(attrObjects).length : 0;
         const stateCount = parseInt(printable?.state || '0', 10);
         const count = attrCount > 0 ? attrCount : (Number.isFinite(stateCount) ? stateCount : 0);
-        return variables.is_available
-          ? `${count} printable objects detected`
-          : 'Start an active print with at least 2 objects to enable';
+        const status = (states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state || 'unknown').toLowerCase();
+        const stage = (states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state || 'unknown').toLowerCase();
+        return `Objects: ${count} · Status: ${status} · Stage: ${stage}`;
       ]]]
     show_label: true
     icon: mdi:shape-outline
     show_state: false
     tap_action:
-      action: >-
-        [[[ return variables.is_available ? 'fire-dom-event' : 'none'; ]]]
+      action: fire-dom-event
       browser_mod:
         service: browser_mod.popup
         data:
@@ -70,8 +54,6 @@ cards:
       card:
         - padding: 12px
         - border-radius: 12px
-        - opacity: >-
-            [[[ return variables.is_available ? 1 : 0.65; ]]]
       name:
         - font-size: 14px
         - font-weight: 600
