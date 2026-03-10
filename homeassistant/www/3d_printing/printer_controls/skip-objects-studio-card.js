@@ -390,11 +390,30 @@ class SkipObjectsStudioCard extends HTMLElement {
   }
 
   async _closePopup() {
+    try {
+      this.dispatchEvent(
+        new CustomEvent("fire-dom-event", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            browser_mod: {
+              service: "browser_mod.close_popup",
+              data: {},
+            },
+          },
+        })
+      );
+    } catch (_err) {
+      // Ignore and continue with fallback path.
+    }
+
     if (!this._hass) {
       return;
     }
+
     try {
-      await this._hass.callService("browser_mod", "close_popup", {});
+      const browserId = window?.browser_mod?.browserID;
+      await this._hass.callService("browser_mod", "close_popup", browserId ? { browser_id: browserId } : {});
     } catch (_err) {
       // Browser mod may not be available in all contexts.
     }
