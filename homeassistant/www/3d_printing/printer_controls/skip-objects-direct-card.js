@@ -375,6 +375,12 @@ class SkipObjectsDirectCard extends HTMLElement {
         ? `<div class='message ${this._error ? "error" : "ok"}'>${this._message}</div>`
         : "";
 
+      // Full innerHTML replacement invalidates prior canvas references/listeners.
+      // Reset internal contexts so we always bind to the newly rendered canvas.
+      this._visibleContext = null;
+      this._hiddenContext = null;
+      this._lastPickImageUrl = "";
+
       this.shadowRoot.innerHTML = `
         <style>
           :host { display: block; }
