@@ -1,9 +1,9 @@
 # Unified HMS Error Alert Section
 # Responsive card that works on both mobile and desktop.
-# - Header banner with large title, dynamic subtitle, dramatic animations
-# - Collapsible error details: collapsed for 1 error, expanded for >1
-# - Error cards colored by severity in a wrapping horizontal layout
-# - On mobile the header scales down; details can be toggled by the user
+# - Header banner with large title, icon glow, dramatic pulse animation
+# - Chevron toggle on the right to expand/collapse error details
+# - Error detail cards coloured by severity, horizontal wrapping layout
+# - Details visibility controlled by input_boolean.hms_alert_show_details
 type: grid
 visibility:
   - condition: state
@@ -12,148 +12,189 @@ visibility:
 cards:
   - type: vertical-stack
     cards:
-      # ── Header Banner ──────────────────────────────────────────
-      - type: custom:mushroom-template-card
-        primary: "⚠ HMS ERROR ALERT"
-        secondary: >-
-          {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
-          {%- set count = state_attr(entity, 'Count') -%}
-          {%- if count is none -%}
-            {%- set count = state_attr(entity, 'count') -%}
-          {%- endif -%}
-          {%- set c = count | int(0) -%}
-          {%- if c == 1 -%}
-            {%- set legacy = state_attr(entity, 'errors') -%}
-            {%- if legacy is iterable and legacy is not string and (legacy | count > 0) -%}
-              {{ legacy[0].attr | default(legacy[0].text | default('1 Error')) }}
-            {%- else -%}
-              {{ state_attr(entity, '1-Error') | default('1 Error') }}
+      # ── Header Row: Title + Chevron ────────────────────────────
+      - type: horizontal-stack
+        cards:
+          # Main alert banner
+          - type: custom:mushroom-template-card
+            primary: HMS ERROR ALERT
+            secondary: >-
+              {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
+              {%- set count = state_attr(entity, 'Count') -%}
+              {%- if count is none -%}
+                {%- set count = state_attr(entity, 'count') -%}
+              {%- endif -%}
+              {%- set c = count | int(0) -%}
+              {%- if c == 1 -%}
+                {%- set legacy = state_attr(entity, 'errors') -%}
+                {%- if legacy is iterable and legacy is not string and (legacy | count > 0) -%}
+                  {{ legacy[0].attr | default(legacy[0].text | default('1 Error')) }}
+                {%- else -%}
+                  {{ state_attr(entity, '1-Error') | default('1 Error') }}
+                {%- endif -%}
+              {%- elif c > 1 -%}
+                {{ c }} Errors
+              {%- else -%}
+                Error Detected
+              {%- endif -%}
+            icon: mdi:alert-circle
+            icon_color: red
+            fill_container: true
+            tap_action:
+              action: more-info
+            card_mod:
+              style:
+                .: |
+                  @keyframes hms-pulse {
+                    0%, 100% { box-shadow: 0 0 0 0 rgba(244,67,54,0.6); }
+                    50%  { box-shadow: 0 0 25px 6px rgba(244,67,54,0.35),
+                                       0 0 60px 14px rgba(244,67,54,0.10); }
+                  }
+                  ha-card {
+                    background: linear-gradient(
+                      135deg,
+                      rgba(244,67,54,0.35) 0%,
+                      rgba(183,28,28,0.22) 45%,
+                      rgba(244,67,54,0.28) 100%
+                    );
+                    border: 2px solid rgba(244,67,54,0.9);
+                    border-radius: 14px 0 0 14px;
+                    --card-mod-icon-color: red;
+                    animation: hms-pulse 2s ease-in-out infinite;
+                  }
+                mushroom-card$: |
+                  @keyframes hms-icon-glow {
+                    0%, 100% {
+                      filter: drop-shadow(0 0 4px rgba(255,220,80,0.7));
+                      transform: scale(1);
+                    }
+                    50% {
+                      filter: drop-shadow(0 0 12px rgba(255,200,50,1))
+                             drop-shadow(0 0 22px rgba(255,160,0,0.5));
+                      transform: scale(1.12);
+                    }
+                  }
+                  mushroom-shape-icon {
+                    animation: hms-icon-glow 2s ease-in-out infinite;
+                    --shape-color: rgba(255,240,210,0.18) !important;
+                  }
+                mushroom-card$mushroom-state-info$: |
+                  .primary {
+                    font-size: 1.8rem !important;
+                    font-weight: 900 !important;
+                    letter-spacing: 0.06em;
+                  }
+                  .secondary {
+                    font-size: 1.05rem !important;
+                    font-weight: 600 !important;
+                    white-space: normal !important;
+                    line-height: 1.35 !important;
+                    opacity: 0.92;
+                  }
+                  @media (max-width: 600px) {
+                    .primary  { font-size: 1.35rem !important; }
+                    .secondary { font-size: 0.95rem !important; }
+                  }
+          # Chevron expand/collapse toggle
+          - type: custom:mushroom-template-card
+            entity: input_boolean.hms_alert_show_details
+            primary: ""
+            secondary: ""
+            icon: >-
+              {% if is_state('input_boolean.hms_alert_show_details', 'on') %}
+              mdi:chevron-up
+              {% else %}
+              mdi:chevron-down
+              {% endif %}
+            icon_color: >-
+              {% if is_state('input_boolean.hms_alert_show_details', 'on') %}
+              white
+              {% else %}
+              grey
+              {% endif %}
+            tap_action:
+              action: toggle
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    background: linear-gradient(
+                      135deg,
+                      rgba(244,67,54,0.28) 0%,
+                      rgba(183,28,28,0.22) 100%
+                    );
+                    border: 2px solid rgba(244,67,54,0.9);
+                    border-left: none;
+                    border-radius: 0 14px 14px 0;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  }
+                mushroom-card$: |
+                  .container {
+                    justify-content: center;
+                    align-items: center;
+                  }
+                  .info {
+                    display: none;
+                  }
+      # ── Error Details (Conditional) ────────────────────────────
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: input_boolean.hms_alert_show_details
+            state: "on"
+        card:
+          type: markdown
+          content: |
+            {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
+            {%- set attrs = states[entity].attributes -%}
+            {%- set legacy_errors = state_attr(entity, 'errors') -%}
+            {%- set use_legacy = legacy_errors is iterable and legacy_errors is not string and (legacy_errors | count > 0) -%}
+            {%- set count_raw = attrs['Count'] if attrs['Count'] is defined else (attrs['count'] if attrs['count'] is defined else 0) -%}
+            {%- set error_count = count_raw | int(0) -%}
+            {%- set ns = namespace(errors=[]) -%}
+            {%- if use_legacy -%}
+              {%- for err in legacy_errors -%}
+                {%- set ns.errors = ns.errors + [{'text': err.attr | default(err.text | default('No description available')), 'code': err.code | default('Unknown'), 'severity': err.severity | default('unknown'), 'wiki': err.wiki | default('')}] -%}
+              {%- endfor -%}
+            {%- elif error_count > 0 -%}
+              {%- for i in range(1, error_count + 1) -%}
+                {%- set ns.errors = ns.errors + [{'text': attrs[i ~ '-Error'] | default('No description available'), 'code': attrs[i ~ '-Code'] | default('Unknown'), 'severity': attrs[i ~ '-Severity'] | default('unknown'), 'wiki': attrs[i ~ '-Wiki'] | default('')}] -%}
+              {%- endfor -%}
             {%- endif -%}
-          {%- elif c > 1 -%}
-            {{ c }} Errors
-          {%- else -%}
-            Error Detected
-          {%- endif -%}
-        icon: mdi:alert-circle
-        icon_color: red
-        fill_container: false
-        tap_action:
-          action: more-info
-        card_mod:
-          style: |
-            : |
-              @keyframes hms-pulse {
-                0%   { box-shadow: 0 0 0 0 rgba(244,67,54,0.6); }
-                50%  { box-shadow: 0 0 25px 6px rgba(244,67,54,0.35),
-                                   0 0 60px 14px rgba(244,67,54,0.10); }
-                100% { box-shadow: 0 0 0 0 rgba(244,67,54,0); }
-              }
-              @keyframes hms-icon-glow {
-                0%, 100% {
-                  filter: drop-shadow(0 0 4px rgba(244,67,54,0.7));
-                  transform: scale(1);
-                }
-                50% {
-                  filter: drop-shadow(0 0 14px rgba(244,67,54,1))
-                         drop-shadow(0 0 24px rgba(244,67,54,0.4));
-                  transform: scale(1.18);
-                }
-              }
-              @keyframes hms-title-pulse {
-                0%, 100% { text-shadow: 0 0 6px rgba(244,67,54,0.15); }
-                50%      { text-shadow: 0 0 18px rgba(244,67,54,0.45),
-                                        0 0 35px rgba(244,67,54,0.15); }
-              }
-              ha-card {
-                background: linear-gradient(
-                  135deg,
-                  rgba(244,67,54,0.35) 0%,
-                  rgba(183,28,28,0.22) 45%,
-                  rgba(244,67,54,0.28) 100%
-                );
-                border: 2px solid rgba(244,67,54,0.9);
-                border-radius: 14px;
-                --card-mod-icon-color: red;
-                animation: hms-pulse 2s ease-in-out infinite;
-              }
-              .primary {
-                font-size: 1.8rem !important;
-                font-weight: 900 !important;
-                letter-spacing: 0.06em;
-                animation: hms-title-pulse 2s ease-in-out infinite;
-              }
-              .secondary {
-                font-size: 1.05rem !important;
-                font-weight: 600 !important;
-                white-space: normal !important;
-                line-height: 1.35 !important;
-                opacity: 0.92;
-              }
-              mushroom-shape-icon {
-                animation: hms-icon-glow 1.5s ease-in-out infinite;
-                --shape-color: rgba(244,67,54,0.15) !important;
-              }
-              @media (max-width: 600px) {
-                .primary  { font-size: 1.35rem !important; }
-                .secondary { font-size: 0.95rem !important; }
-              }
-      # ── Error Details (Collapsible) ────────────────────────────
-      - type: markdown
-        content: |
-          {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
-          {%- set attrs = states[entity].attributes -%}
-          {%- set legacy_errors = state_attr(entity, 'errors') -%}
-          {%- set use_legacy = legacy_errors is iterable and legacy_errors is not string and (legacy_errors | count > 0) -%}
-          {%- set count_raw = attrs['Count'] if attrs['Count'] is defined else (attrs['count'] if attrs['count'] is defined else 0) -%}
-          {%- set error_count = count_raw | int(0) -%}
-          {%- set ns = namespace(errors=[]) -%}
-          {%- if use_legacy -%}
-            {%- for err in legacy_errors -%}
-              {%- set ns.errors = ns.errors + [{'text': err.attr | default(err.text | default('No description available')), 'code': err.code | default('Unknown'), 'severity': err.severity | default('unknown'), 'wiki': err.wiki | default('')}] -%}
+            <div style="display:flex;flex-wrap:wrap;gap:12px;padding:6px 0 2px 0;">
+            {%- for err in ns.errors -%}
+              {%- set sev = (err.severity | default('unknown')) | lower -%}
+              {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
+                {%- set bcolor = '#f44336' -%}{%- set bgcolor = 'rgba(244,67,54,0.08)' -%}{%- set sev_icon = '🔴' -%}
+              {%- elif 'medium' in sev or 'warn' in sev -%}
+                {%- set bcolor = '#ff9800' -%}{%- set bgcolor = 'rgba(255,152,0,0.08)' -%}{%- set sev_icon = '🟠' -%}
+              {%- elif 'minor' in sev or 'low' in sev -%}
+                {%- set bcolor = '#ffc107' -%}{%- set bgcolor = 'rgba(255,193,7,0.08)' -%}{%- set sev_icon = '🟡' -%}
+              {%- else -%}
+                {%- set bcolor = '#9e9e9e' -%}{%- set bgcolor = 'rgba(158,158,158,0.08)' -%}{%- set sev_icon = '⚪' -%}
+              {%- endif -%}
+            <div style="flex:1 1 280px;max-width:100%;border:2px solid {{ bcolor }};border-radius:10px;background:{{ bgcolor }};padding:14px 16px;">
+            <div style="font-weight:700;font-size:1.05rem;margin-bottom:6px;">{{ sev_icon }} Error {{ loop.index }} <span style="opacity:0.75;font-weight:500;font-size:0.92rem;">({{ (err.severity | default('unknown')) | title }})</span></div>
+            <div style="margin-bottom:8px;line-height:1.5;">{{ err.text }}</div>
+            <div style="font-size:0.85rem;opacity:0.8;">Code: <code>{{ err.code }}</code>{% if err.wiki %} · <a href="{{ err.wiki }}">Troubleshooting Wiki ↗</a>{% endif %}</div>
+            </div>
             {%- endfor -%}
-          {%- elif error_count > 0 -%}
-            {%- for i in range(1, error_count + 1) -%}
-              {%- set ns.errors = ns.errors + [{'text': attrs[i ~ '-Error'] | default('No description available'), 'code': attrs[i ~ '-Code'] | default('Unknown'), 'severity': attrs[i ~ '-Severity'] | default('unknown'), 'wiki': attrs[i ~ '-Wiki'] | default('')}] -%}
-            {%- endfor -%}
-          {%- endif -%}
-          {%- set total = ns.errors | count -%}
-          <details{% if total > 1 %} open{% endif %}>
-          <summary style="cursor:pointer;font-weight:700;font-size:1.05rem;padding:8px 4px;user-select:none;list-style:revert;">
-          {%- if total == 1 -%}
-            View Error Details
-          {%- else -%}
-            View All {{ total }} Errors
-          {%- endif -%}
-          </summary>
-          <div style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 0 2px 0;">
-          {%- for err in ns.errors -%}
-            {%- set sev = (err.severity | default('unknown')) | lower -%}
-            {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
-              {%- set bcolor = '#f44336' -%}{%- set bgcolor = 'rgba(244,67,54,0.10)' -%}{%- set sev_icon = '🔴' -%}
-            {%- elif 'medium' in sev or 'warn' in sev -%}
-              {%- set bcolor = '#ff9800' -%}{%- set bgcolor = 'rgba(255,152,0,0.10)' -%}{%- set sev_icon = '🟠' -%}
-            {%- elif 'minor' in sev or 'low' in sev -%}
-              {%- set bcolor = '#ffc107' -%}{%- set bgcolor = 'rgba(255,193,7,0.10)' -%}{%- set sev_icon = '🟡' -%}
-            {%- else -%}
-              {%- set bcolor = '#9e9e9e' -%}{%- set bgcolor = 'rgba(158,158,158,0.10)' -%}{%- set sev_icon = '⚪' -%}
-            {%- endif -%}
-          <div style="flex:1 1 280px;max-width:100%;border:2px solid {{ bcolor }};border-radius:10px;background:{{ bgcolor }};padding:12px 14px;">
-          <div style="font-weight:700;font-size:1rem;margin-bottom:4px;">{{ sev_icon }} Error {{ loop.index }}</div>
-          <div style="margin-bottom:8px;line-height:1.45;">{{ err.text | e }}</div>
-          <div style="font-size:0.88rem;opacity:0.85;">{{ sev_icon }} <strong>{{ (err.severity | default('unknown')) | title | e }}</strong> · <code>{{ err.code | e }}</code>{% if err.wiki %} · <a href="{{ err.wiki | e }}">Troubleshooting Wiki ↗</a>{% endif %}</div>
-          </div>
-          {%- endfor -%}
-          </div>
-          </details>
-        card_mod:
-          style: |
-            : |
-              ha-card {
-                background: transparent;
-                border: none;
-                box-shadow: none;
-                padding: 0 2px;
-              }
+            </div>
+          card_mod:
+            style:
+              .: |
+                ha-card {
+                  background: var(--card-background-color, var(--ha-card-background, #1c1c1c));
+                  border: 2px solid rgba(244,67,54,0.9);
+                  border-top: none;
+                  border-radius: 0 0 14px 14px;
+                  box-shadow: none;
+                  padding: 4px 8px;
+                  margin-top: -8px;
+                }
     grid_options:
       columns: full
 column_span: 3

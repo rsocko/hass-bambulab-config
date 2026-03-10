@@ -1,0 +1,4 @@
+hms_alert_show_details:
+  name: HMS Alert Show Details
+  icon: mdi:chevron-down
+  initial: true

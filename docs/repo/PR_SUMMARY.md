@@ -77,10 +77,10 @@ Removed (replaced by unified card):
 - Zero visual clutter
 
 ### Error State (HMS Errors Present)
-- **Dramatic red banner immediately visible** with pulsing glow, icon animation, and title glow
-- **1 error**: error description shown inline in the banner; details collapsed
-- **>1 errors**: count shown in banner (e.g. "3 Errors"); details auto-expanded
-- Collapsible `<details>` toggle lets user expand/collapse error cards
+- **Dramatic red banner immediately visible** with pulsing glow and warm icon animation
+- **1 error**: error description shown inline in the banner subtitle
+- **>1 errors**: count shown in banner (e.g. "3 Errors")
+- Chevron button on the right side of the header toggles `input_boolean.hms_alert_show_details` to expand/collapse error details
 - Error cards coloured by severity (red/orange/yellow) in a flex-wrap horizontal layout
 - HMS badge shows "Problem"
 - All HMS displays clickable for more info

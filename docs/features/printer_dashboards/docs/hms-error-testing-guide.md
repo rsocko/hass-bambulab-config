@@ -4,9 +4,10 @@
 
 | Component | Required? |
 |---|---|
-| `custom:mushroom-template-card` | **Yes** — header banner |
+| `custom:mushroom-template-card` | **Yes** — header banner + chevron toggle |
 | `card-mod` | **Yes** — animations & styling |
 | `binary_sensor.hms_alert_display_wrapper` | **Yes** — drives visibility |
+| `input_boolean.hms_alert_show_details` | **Yes** — expand/collapse state |
 | Test-mode helpers (`input_boolean.hms_alert_test_mode`, `input_select.hms_alert_test_scenario`) | Optional — for preview without real errors |
 
 Install Mushroom and card-mod from **HACS → Frontend** if missing.
@@ -22,51 +23,55 @@ Install Mushroom and card-mod from **HACS → Frontend** if missing.
 ### Single Serious Error
 - Scenario: **Single Serious Error**
 - Expected:
-  - Banner title: **⚠ HMS ERROR ALERT** (large, pulsing red glow)
+  - Banner title: **HMS ERROR ALERT** (large, prominent)
   - Banner subtitle: the error description text (e.g. *AMS B Slot 3 filament has run out…*)
-  - Details section: **collapsed** by default → click **▶ View Error Details** to expand
-  - One error card with **red** border/background (Serious severity)
-  - Wiki link visible inside the card
+  - Alert icon: `mdi:alert-circle` with warm yellow/orange glow animation
+  - Card pulse: red box-shadow glow animation on the header
+  - Chevron button on the right side of the header bar
+  - Details panel visible (default expanded); click chevron to collapse
+  - One error card: `🔴 Error 1 (Serious)`, error text below, code + wiki link at bottom
+  - Card has **red** border and slight red background
 
 ### Multiple Mixed Errors
 - Scenario: **Multiple Mixed Errors**
 - Expected:
   - Banner subtitle: **3 Errors**
-  - Details section: **expanded** by default
+  - Details panel visible (default expanded)
   - Three error cards in a horizontal wrapping layout:
-    1. 🔴 Serious (red card)
-    2. 🟠 Medium (orange card)
-    3. 🟡 Minor (yellow card)
-  - Each card shows severity icon, description, code, and wiki link
+    1. 🔴 Error 1 (Serious) — red card
+    2. 🟠 Error 2 (Medium) — orange card
+    3. 🟡 Error 3 (Minor) — yellow card
+  - Each card shows severity icon + "Error N" + "(Severity)" on one line
+  - Error text on the next line
+  - Code and wiki link on the bottom line
   - Cards wrap to stack vertically on narrow screens
 
 ### Critical No Wiki
 - Scenario: **Critical No Wiki**
 - Expected:
-  - Single error, details collapsed
-  - Error card has **red** border (critical severity)
-  - No wiki link shown in the card
+  - Single error card with **red** border (critical)
+  - No wiki link shown — only `Code: <code>` on the bottom line
 
 ### Legacy Errors Payload
 - Scenario: **Legacy Errors Payload**
 - Expected:
   - 2 errors from the `errors` list attribute (legacy format)
-  - Details expanded (>1 error)
   - Cards display correctly with proper severity colouring
 
 ## Interaction Checklist
 
 - [ ] **Banner tap** → opens `more-info` dialog for `binary_sensor.hms_alert_display_wrapper`
-- [ ] **Details toggle** → `<summary>` click expands/collapses the error cards
+- [ ] **Chevron toggle** → clicking the chevron button toggles `input_boolean.hms_alert_show_details`, showing/hiding the details panel
+- [ ] **Chevron icon** → `mdi:chevron-up` when expanded, `mdi:chevron-down` when collapsed
 - [ ] **Wiki link** → opens external Bambu Lab wiki page
-- [ ] **Animations** — pulse, icon glow, and title glow all running smoothly
+- [ ] **Animations** — card pulse (box-shadow glow) and icon glow (yellow/orange drop-shadow) both running
 
 ## Responsive Checks
 
-| Width | Title Size | Details |
+| Width | Title Size | Card Layout |
 |---|---|---|
-| Desktop (≥ 601 px) | ~1.8 rem | Collapsed (1 err) / Expanded (>1 err) |
-| Mobile (≤ 600 px) | ~1.35 rem | Same toggle; subtitle and cards stack vertically |
+| Desktop (≥ 601 px) | ~1.8 rem | Horizontal wrapping error cards |
+| Mobile (≤ 600 px) | ~1.35 rem | Stacked vertical cards; chevron still accessible |
 
 Resize the browser window or use DevTools device emulation to verify.
 
@@ -78,8 +83,13 @@ Resize the browser window or use DevTools device emulation to verify.
 3. Look for JS errors in the browser console.
 
 ### Styling / animations missing
-- Verify **card-mod** is installed and up to date.
+- Verify **card-mod** is installed and up to date (v3+).
+- The card_mod styles use shadow-DOM traversal syntax (`mushroom-card$:`, `mushroom-card$mushroom-state-info$:`). Older card-mod versions may not support this.
 - Clear browser cache and reload.
+
+### Chevron toggle doesn't work
+- Confirm `input_boolean.hms_alert_show_details` exists in Home Assistant (check **Settings → Devices & Services → Helpers** or **Developer Tools → States**).
+- The helper is auto-loaded by `hms_alert_loader.yaml` via `!include_dir_merge_named helpers/input_boolean`.
 
 ### Error cards have no severity colour
 - Inspect the `N-Severity` attribute on the wrapper sensor — it must contain a recognised keyword (critical, serious, fatal, high, medium, warn, minor, low).
