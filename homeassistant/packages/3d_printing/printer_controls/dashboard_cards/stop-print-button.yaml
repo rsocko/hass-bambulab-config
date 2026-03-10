@@ -1,0 +1,113 @@
+# ============================================================
+# Stop Print Button — Compact Icon Button
+# ============================================================
+# A small, icon-only stop button for halting the active print.
+# Mirrors the stop logic from the OpenHASP printer control buttons
+# (printer_control_buttons.yaml / officetouch5.yaml p1b84).
+#
+# Behavior:
+#   - Active/Paused print → red button (#f44336) with white stop icon
+#   - No active print     → greyed-out (#444444), disabled (clicks blocked)
+#   - Tap shows a confirmation dialog before stopping
+#   - Hover tooltip reads "Stop" and button brightens when enabled
+#
+# can_stop logic (matches OpenHASP):
+#   is_paused  = status_class == 'paused' or smart_status == 'paused'
+#   is_active  = status_class in [printing, active]
+#                or smart_status in [printing, preparing, heating, leveling]
+#   can_stop   = is_active or is_paused
+#
+# Entity:  button.ntk_ryansoffice_3dprinter_stop_printing
+# Sensor:  sensor.ntk_ryansoffice_3dprinter_smart_status
+#
+# Prerequisites:
+#   - custom:button-card (HACS)
+#   - card_mod (HACS) for hover effect & disabled pointer-events
+#
+# Include from any view:
+#   - !include ../../printer_controls/dashboard_cards/stop-print-button.yaml
+# ============================================================
+
+type: custom:button-card
+entity: button.ntk_ryansoffice_3dprinter_stop_printing
+show_name: false
+show_state: false
+show_icon: true
+icon: mdi:stop
+tooltip: Stop
+tap_action:
+  action: call-service
+  service: button.press
+  service_data:
+    entity_id: button.ntk_ryansoffice_3dprinter_stop_printing
+  confirmation:
+    text: "Stop the print?"
+    exemptions: []
+styles:
+  card:
+    - width: 36px
+    - min-width: 36px
+    - height: 36px
+    - padding: 0
+    - margin: 0
+    - border-radius: 8px
+    - display: flex
+    - align-items: center
+    - justify-content: center
+    - background-color: |
+        [[[
+          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
+          const status = smart?.state?.toLowerCase() ?? '';
+          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
+          const paused = cls === 'paused' || status === 'paused';
+          const active = ['printing', 'active'].includes(cls) ||
+                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
+          return (active || paused) ? '#f44336' : '#444444';
+        ]]]
+    - opacity: |
+        [[[
+          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
+          const status = smart?.state?.toLowerCase() ?? '';
+          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
+          const paused = cls === 'paused' || status === 'paused';
+          const active = ['printing', 'active'].includes(cls) ||
+                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
+          return (active || paused) ? '1' : '0.5';
+        ]]]
+    - transition: background-color 0.2s, opacity 0.2s, filter 0.2s
+    - box-shadow: none
+  icon:
+    - width: 20px
+    - height: 20px
+    - color: |
+        [[[
+          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
+          const status = smart?.state?.toLowerCase() ?? '';
+          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
+          const paused = cls === 'paused' || status === 'paused';
+          const active = ['printing', 'active'].includes(cls) ||
+                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
+          return (active || paused) ? '#ffffff' : '#888888';
+        ]]]
+  grid:
+    - grid-template-areas: '"i"'
+card_mod:
+  style: |
+    {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+    {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
+    {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
+    {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
+    {% set can_stop = is_active or is_paused %}
+    ha-card {
+      overflow: visible;
+      {% if not can_stop %}
+        pointer-events: none;
+        cursor: default;
+      {% endif %}
+    }
+    ha-card:hover {
+      {% if can_stop %}
+        filter: brightness(1.15);
+        background-color: #d32f2f !important;
+      {% endif %}
+    }
