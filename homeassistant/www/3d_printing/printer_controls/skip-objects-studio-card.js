@@ -177,18 +177,20 @@ class SkipObjectsStudioCard extends HTMLElement {
 
     let needsImageReload = false;
 
+    if (!this._hiddenContext) {
+      const hiddenCanvas = document.createElement("canvas");
+      hiddenCanvas.width = 512;
+      hiddenCanvas.height = 512;
+      this._hiddenContext = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+      needsImageReload = true;
+    }
+
     if (this._canvasEl !== canvas) {
       this._canvasEl = canvas;
       this._visibleContext = canvas.getContext("2d", { willReadFrequently: true });
       canvas.addEventListener("click", this._boundClick);
       canvas.addEventListener("mousemove", this._boundMove);
       canvas.addEventListener("mouseout", this._boundOut);
-
-      const hiddenCanvas = document.createElement("canvas");
-      hiddenCanvas.width = 512;
-      hiddenCanvas.height = 512;
-      this._hiddenContext = hiddenCanvas.getContext("2d", { willReadFrequently: true });
-      needsImageReload = true;
     }
 
     const url = this._getPickImageUrl();
@@ -295,7 +297,7 @@ class SkipObjectsStudioCard extends HTMLElement {
 
       const red = this._rgbaToInt(220, 38, 38, 230);
       const green = this._rgbaToInt(34, 197, 94, 215);
-      const cyan = this._rgbaToInt(20, 184, 166, 220);
+      const yellow = this._rgbaToInt(245, 158, 11, 230);
       const blue = this._rgbaToInt(37, 99, 235, 255);
 
       for (let y = 0; y < height; y++) {
@@ -309,7 +311,7 @@ class SkipObjectsStudioCard extends HTMLElement {
           if (skipped.has(key)) {
             view.setUint32(i, red, true);
           } else if (this._selected.has(key)) {
-            view.setUint32(i, cyan, true);
+            view.setUint32(i, yellow, true);
           } else {
             view.setUint32(i, green, true);
           }
@@ -413,13 +415,14 @@ class SkipObjectsStudioCard extends HTMLElement {
           .map((id) => {
             const name = String(printable[String(id)] ?? `Object ${id}`);
             const isSkipped = skipped.has(id);
-            const checked = isSkipped || this._selected.has(id);
+            const isSelected = this._selected.has(id);
+            const checked = isSkipped || isSelected;
             return `
               <label class="obj ${isSkipped ? "obj-skipped" : ""}">
                 <input type="checkbox" data-id="${id}" ${checked ? "checked" : ""} ${isSkipped ? "disabled" : ""}>
                 <span class="obj-name" title="${name}">${name}</span>
-                <span class="obj-id">#${id}</span>
-                ${isSkipped ? '<span class="badge">skipped</span>' : ""}
+                <span class="obj-id">ID: ${id}</span>
+                ${isSkipped ? '<span class="badge skipped">Skipped</span>' : isSelected ? '<span class="badge selected">Selected</span>' : ""}
               </label>
             `;
           })
@@ -534,13 +537,20 @@ class SkipObjectsStudioCard extends HTMLElement {
         .obj-id { font-size: 11px; opacity: 0.75; }
         .badge {
           font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.4px;
           font-weight: 700;
-          color: #fca5a5;
-          border: 1px solid rgba(252,165,165,0.6);
           border-radius: 999px;
           padding: 2px 6px;
+          border: 1px solid transparent;
+        }
+        .badge.skipped {
+          color: #fca5a5;
+          border: 1px solid rgba(252,165,165,0.6);
+          background: rgba(239, 83, 80, 0.1);
+        }
+        .badge.selected {
+          color: #f59e0b;
+          border-color: #f59e0b;
+          background: rgba(245, 158, 11, 0.12);
         }
         .empty {
           font-size: 12px;
@@ -585,8 +595,7 @@ class SkipObjectsStudioCard extends HTMLElement {
           <div class="legend">
             <span><span class="dot" style="background:#22c55e;"></span>Skippable</span>
             <span><span class="dot" style="background:#dc2626;"></span>Already skipped</span>
-            <span><span class="dot" style="background:#14b8a6;"></span>Selected</span>
-            <span><span class="dot" style="background:#2563eb;"></span>Hover outline</span>
+            <span><span class="dot" style="background:#f59e0b;"></span>Selected</span>
           </div>
           <div class="toolbar">
             <button class="btn-muted" id="select-all" ${available ? "" : "disabled"}>Select all available</button>

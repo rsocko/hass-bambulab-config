@@ -134,18 +134,20 @@ class SkipObjectsDirectCard extends HTMLElement {
 
     let needsImageReload = false;
 
+    if (!this._hiddenContext) {
+      const hiddenCanvas = document.createElement("canvas");
+      hiddenCanvas.width = 512;
+      hiddenCanvas.height = 512;
+      this._hiddenContext = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+      needsImageReload = true;
+    }
+
     if (this._canvasEl !== canvas) {
       this._canvasEl = canvas;
       this._visibleContext = canvas.getContext("2d", { willReadFrequently: true });
       canvas.addEventListener("click", this._boundClick);
       canvas.addEventListener("mousemove", this._boundMove);
       canvas.addEventListener("mouseout", this._boundOut);
-
-      const hiddenCanvas = document.createElement("canvas");
-      hiddenCanvas.width = 512;
-      hiddenCanvas.height = 512;
-      this._hiddenContext = hiddenCanvas.getContext("2d", { willReadFrequently: true });
-      needsImageReload = true;
     }
 
     const url = this._getPickImageUrl();
@@ -400,7 +402,7 @@ class SkipObjectsDirectCard extends HTMLElement {
                   <label class='row ${isSkipped ? "is-skipped" : ""}'>
                     <input type='checkbox' data-id='${id}' ${checked ? "checked" : ""} ${disabled}>
                     <span class='name'>${String(name)}</span>
-                    <span class='meta'>ID ${id}</span>
+                    <span class='meta'>ID: ${id}</span>
                     ${status}
                   </label>
                 `;
