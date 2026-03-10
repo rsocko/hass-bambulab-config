@@ -81,7 +81,7 @@ cards:
       browser_mod:
         service: browser_mod.popup
         data:
-          title: Skip Objects Studio
+          title: Skip Objects
           size: normal
           content:
             type: custom:skip-objects-studio-card

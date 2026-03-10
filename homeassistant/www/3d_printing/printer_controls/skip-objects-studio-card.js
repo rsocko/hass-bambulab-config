@@ -145,6 +145,33 @@ class SkipObjectsStudioCard extends HTMLElement {
       .sort((a, b) => a - b);
   }
 
+  _stateSignature() {
+    const printable = this._hass?.states?.[this._config.printable_entity];
+    const skipped = this._hass?.states?.[this._config.skipped_entity];
+    const pickImage = this._hass?.states?.[this._config.pick_image_entity];
+    return [
+      printable?.state || "",
+      JSON.stringify(printable?.attributes?.objects || {}),
+      skipped?.state || "",
+      JSON.stringify(skipped?.attributes?.objects || []),
+      pickImage?.state || "",
+      pickImage?.attributes?.entity_picture || "",
+    ].join("|");
+  }
+
+  async _waitForStateRefresh(previousSignature, timeoutMs = 8000, intervalMs = 300) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const current = this._stateSignature();
+      if (current !== previousSignature) {
+        this._haSignature = current;
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    return false;
+  }
+
   _selectAllUnskipped() {
     const skipped = new Set(this._skippedList());
     const all = this._collectIds();
@@ -375,12 +402,20 @@ class SkipObjectsStudioCard extends HTMLElement {
     this._render();
 
     try {
+      const beforeSignature = this._stateSignature();
       await this._hass.callService("bambu_lab", "skip_objects", {
         device_id: this._config.device_id,
         objects: merged.join(","),
       });
-      this._setStatus("Skip request sent.");
+      this._setStatus("Skip request sent. Refreshing object state...");
       this._selected.clear();
+
+      const refreshed = await this._waitForStateRefresh(beforeSignature);
+      if (refreshed) {
+        this._setStatus("Objects updated from printer state.");
+      } else {
+        this._setStatus("Skip request sent. Waiting for integration update...", false);
+      }
     } catch (err) {
       this._setStatus(`Failed to send skip request: ${err?.message || err}`, true);
     } finally {
@@ -408,6 +443,7 @@ class SkipObjectsStudioCard extends HTMLElement {
     const available = this._isAvailable(ids.length);
     const selectedCount = this._selected.size;
     const skippedCount = skipped.size;
+    const skippableCount = Math.max(0, ids.length - skippedCount - selectedCount);
 
     const cards = ids.length
       ? ids
@@ -439,26 +475,6 @@ class SkipObjectsStudioCard extends HTMLElement {
           border-radius: 14px;
           overflow: hidden;
           background: var(--card-background-color);
-          border: 1px solid rgba(255,255,255,0.08);
-        }
-        .helper {
-          font-size: 12px;
-          color: var(--secondary-text-color, #9aa0a6);
-          margin-bottom: 8px;
-        }
-        .metrics {
-          margin-bottom: 10px;
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .pill {
-          font-size: 11px;
-          font-weight: 700;
-          border-radius: 999px;
-          padding: 4px 8px;
-          background: rgba(148, 163, 184, 0.18);
-          color: var(--primary-text-color);
         }
         .body { padding: 12px; }
         .plate-wrap {
@@ -577,19 +593,13 @@ class SkipObjectsStudioCard extends HTMLElement {
       </style>
       <ha-card class="wrap">
         <div class="body">
-          <div class="helper">${this._config.subtitle}</div>
-          <div class="metrics">
-            <span class="pill">Objects ${ids.length}</span>
-            <span class="pill">Skipped ${skippedCount}</span>
-            <span class="pill">Selected ${selectedCount}</span>
-          </div>
           <div class="plate-wrap">
             <canvas id="canvas" width="512" height="512"></canvas>
           </div>
           <div class="legend">
-            <span><span class="dot" style="background:#22c55e;"></span>Skippable</span>
-            <span><span class="dot" style="background:#dc2626;"></span>Already skipped</span>
-            <span><span class="dot" style="background:#f59e0b;"></span>Selected</span>
+            <span><span class="dot" style="background:#22c55e;"></span>Skippable (${skippableCount})</span>
+            <span><span class="dot" style="background:#dc2626;"></span>Already skipped (${skippedCount})</span>
+            <span><span class="dot" style="background:#f59e0b;"></span>Selected (${selectedCount})</span>
           </div>
           <div class="toolbar">
             <button class="btn-muted" id="select-all" ${available ? "" : "disabled"}>Select all available</button>
