@@ -1,5 +1,11 @@
 button_card_templates: !include_dir_merge_named ../dashboard_cards/card_templates
 
+resources:
+  - url: /local/3d_printing/printer_controls/skip-objects-direct-card.js
+    type: module
+  - url: /local/3d_printing/printer_controls/skip-objects-studio-card.js
+    type: module
+
 views:
   - !include ../dashboard_views/view_main.yaml
   - !include ../dashboard_views/view_filament_tags.yaml

@@ -22,10 +22,10 @@ cards:
     card_layout: large
 
   - type: custom:button-card
-    name: Skip Objects
+    name: Skip Objects (Direct)
     label: >-
       [[[ 
-        const printable = states['sensor.ntk_ryansoffice_3dprinter_printable_objects'];
+        const printable = states['sensor.3d_printer_printable_objects'];
         const attrObjects = printable?.attributes?.objects;
         const attrCount = (attrObjects && typeof attrObjects === 'object') ? Object.keys(attrObjects).length : 0;
         const stateCount = parseInt(printable?.state || '0', 10);
@@ -47,9 +47,51 @@ cards:
           content:
             type: custom:skip-objects-direct-card
             device_id: 210dfdfa64085e8cf073e50eae757d90
-            printable_entity: sensor.ntk_ryansoffice_3dprinter_printable_objects
-            skipped_entity: sensor.ntk_ryansoffice_3dprinter_skipped_objects
+            printable_entity: sensor.3d_printer_printable_objects
+            skipped_entity: sensor.3d_printer_skipped_objects
             title: Skip Objects
+    styles:
+      card:
+        - padding: 12px
+        - border-radius: 12px
+      name:
+        - font-size: 14px
+        - font-weight: 600
+      label:
+        - font-size: 11px
+        - color: var(--secondary-text-color)
+
+  - type: custom:button-card
+    name: Skip Objects (Studio)
+    label: >-
+      [[[ 
+        const printable = states['sensor.3d_printer_printable_objects'];
+        const attrObjects = printable?.attributes?.objects;
+        const attrCount = (attrObjects && typeof attrObjects === 'object') ? Object.keys(attrObjects).length : 0;
+        const stateCount = parseInt(printable?.state || '0', 10);
+        const count = attrCount > 0 ? attrCount : (Number.isFinite(stateCount) ? stateCount : 0);
+        return `Objects: ${count} · Standalone custom UI`;
+      ]]]
+    show_label: true
+    icon: mdi:palette-outline
+    show_state: false
+    tap_action:
+      action: fire-dom-event
+      browser_mod:
+        service: browser_mod.popup
+        data:
+          title: Skip Objects Studio
+          size: wide
+          content:
+            type: custom:skip-objects-studio-card
+            title: Object Skip Studio
+            subtitle: Protect active prints by excluding failed parts
+            device_id: 210dfdfa64085e8cf073e50eae757d90
+            printable_entity: sensor.3d_printer_printable_objects
+            skipped_entity: sensor.3d_printer_skipped_objects
+            stop_entity: button.ntk_ryansoffice_3dprinter_stop_printing
+            min_objects: 2
+            max_objects: 64
     styles:
       card:
         - padding: 12px
