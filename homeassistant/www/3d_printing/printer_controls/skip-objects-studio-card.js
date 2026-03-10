@@ -389,67 +389,6 @@ class SkipObjectsStudioCard extends HTMLElement {
     }
   }
 
-  async _closePopup() {
-    try {
-      this.dispatchEvent(
-        new CustomEvent("fire-dom-event", {
-          bubbles: true,
-          composed: true,
-          detail: {
-            browser_mod: {
-              service: "browser_mod.close_popup",
-              data: {},
-            },
-          },
-        })
-      );
-    } catch (_err) {
-      // Ignore and continue with fallback path.
-    }
-
-    if (!this._hass) {
-      try {
-        this.dispatchEvent(new CustomEvent("hass-close-dialog", { bubbles: true, composed: true }));
-      } catch (_err) {
-        // Ignore and continue to DOM fallback.
-      }
-
-      try {
-        const dialogs = document.querySelectorAll("ha-dialog[open], ha-dialog");
-        const top = dialogs[dialogs.length - 1];
-        if (top && typeof top.close === "function") {
-          top.close();
-        }
-      } catch (_err) {
-        // Ignore DOM fallback errors.
-      }
-      return;
-    }
-
-    try {
-      const browserId = window?.browser_mod?.browserID;
-      await this._hass.callService("browser_mod", "close_popup", browserId ? { browser_id: browserId } : {});
-    } catch (_err) {
-      // Browser mod may not be available in all contexts.
-    }
-
-    try {
-      this.dispatchEvent(new CustomEvent("hass-close-dialog", { bubbles: true, composed: true }));
-    } catch (_err) {
-      // Ignore and continue to DOM fallback.
-    }
-
-    try {
-      const dialogs = document.querySelectorAll("ha-dialog[open], ha-dialog");
-      const top = dialogs[dialogs.length - 1];
-      if (top && typeof top.close === "function") {
-        top.close();
-      }
-    } catch (_err) {
-      // Ignore DOM fallback errors.
-    }
-  }
-
   _render() {
     try {
       if (!this.shadowRoot || !this._config) {
@@ -658,7 +597,6 @@ class SkipObjectsStudioCard extends HTMLElement {
             <button class="btn-go" id="submit" ${!available || selectedCount === 0 || this._busy ? "disabled" : ""}>${
               this._busy ? "Sending..." : "Skip Selected"
             }</button>
-            <button class="btn-muted" id="close">Close</button>
           </div>
           ${available ? "" : '<div class="unavailable">Skip Objects is currently unavailable. Start an active print with 2+ objects.</div>'}
           <div class="grid">${cards}</div>
@@ -690,11 +628,6 @@ class SkipObjectsStudioCard extends HTMLElement {
       const submit = this.shadowRoot.getElementById("submit");
       if (submit) {
         submit.addEventListener("click", () => this._submit());
-      }
-
-      const close = this.shadowRoot.getElementById("close");
-      if (close) {
-        close.addEventListener("click", () => this._closePopup());
       }
 
       this._initializeCanvas();

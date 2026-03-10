@@ -353,67 +353,6 @@ class SkipObjectsDirectCard extends HTMLElement {
     }
   }
 
-  async _closePopup() {
-    try {
-      this.dispatchEvent(
-        new CustomEvent("fire-dom-event", {
-          bubbles: true,
-          composed: true,
-          detail: {
-            browser_mod: {
-              service: "browser_mod.close_popup",
-              data: {},
-            },
-          },
-        })
-      );
-    } catch (_err) {
-      // Ignore and continue with fallback path.
-    }
-
-    if (!this._hass) {
-      try {
-        this.dispatchEvent(new CustomEvent("hass-close-dialog", { bubbles: true, composed: true }));
-      } catch (_err) {
-        // Ignore and continue to DOM fallback.
-      }
-
-      try {
-        const dialogs = document.querySelectorAll("ha-dialog[open], ha-dialog");
-        const top = dialogs[dialogs.length - 1];
-        if (top && typeof top.close === "function") {
-          top.close();
-        }
-      } catch (_err) {
-        // Ignore DOM fallback errors.
-      }
-      return;
-    }
-
-    try {
-      const browserId = window?.browser_mod?.browserID;
-      await this._hass.callService("browser_mod", "close_popup", browserId ? { browser_id: browserId } : {});
-    } catch (_err) {
-      // Browser mod may not be available in all contexts.
-    }
-
-    try {
-      this.dispatchEvent(new CustomEvent("hass-close-dialog", { bubbles: true, composed: true }));
-    } catch (_err) {
-      // Ignore and continue to DOM fallback.
-    }
-
-    try {
-      const dialogs = document.querySelectorAll("ha-dialog[open], ha-dialog");
-      const top = dialogs[dialogs.length - 1];
-      if (top && typeof top.close === "function") {
-        top.close();
-      }
-    } catch (_err) {
-      // Ignore DOM fallback errors.
-    }
-  }
-
   _render() {
     try {
       if (!this.shadowRoot || !this._config) {
@@ -622,7 +561,6 @@ class SkipObjectsDirectCard extends HTMLElement {
           </div>
           <div class='list'>${rows}</div>
           <div class='actions'>
-            <button class='secondary' id='close-btn'>Close</button>
             <button class='primary' id='skip-btn' ${canSubmit ? "" : "disabled"}>${
               this._submitting ? "Sending..." : "Skip Selected"
             }</button>
@@ -650,11 +588,6 @@ class SkipObjectsDirectCard extends HTMLElement {
       const skipBtn = this.shadowRoot.getElementById("skip-btn");
       if (skipBtn) {
         skipBtn.addEventListener("click", () => this._submitSkip());
-      }
-
-      const closeBtn = this.shadowRoot.getElementById("close-btn");
-      if (closeBtn) {
-        closeBtn.addEventListener("click", () => this._closePopup());
       }
 
       this._initializeCanvas();

@@ -45,12 +45,28 @@ cards:
           title: Skip Objects
           size: normal
           content:
-            type: custom:skip-objects-direct-card
-            device_id: 210dfdfa64085e8cf073e50eae757d90
-            printable_entity: sensor.3d_printer_printable_objects
-            skipped_entity: sensor.3d_printer_skipped_objects
-            pick_image_entity: image.3d_printer_pick_image
-            title: Skip Objects
+            type: vertical-stack
+            cards:
+              - type: custom:skip-objects-direct-card
+                device_id: 210dfdfa64085e8cf073e50eae757d90
+                printable_entity: sensor.3d_printer_printable_objects
+                skipped_entity: sensor.3d_printer_skipped_objects
+                pick_image_entity: image.3d_printer_pick_image
+                title: Skip Objects
+              - type: custom:button-card
+                name: Close
+                icon: mdi:close-circle-outline
+                tap_action:
+                  action: fire-dom-event
+                  browser_mod:
+                    service: browser_mod.close_popup
+                styles:
+                  card:
+                    - border-radius: 10px
+                    - padding: 8px
+                  name:
+                    - font-size: 13px
+                    - font-weight: 600
     styles:
       card:
         - padding: 12px
@@ -84,16 +100,32 @@ cards:
           title: Skip Objects Studio
           size: normal
           content:
-            type: custom:skip-objects-studio-card
-            title: Object Skip Studio
-            subtitle: Protect active prints by excluding failed parts
-            device_id: 210dfdfa64085e8cf073e50eae757d90
-            printable_entity: sensor.3d_printer_printable_objects
-            skipped_entity: sensor.3d_printer_skipped_objects
-            pick_image_entity: image.3d_printer_pick_image
-            stop_entity: button.ntk_ryansoffice_3dprinter_stop_printing
-            min_objects: 2
-            max_objects: 64
+            type: vertical-stack
+            cards:
+              - type: custom:skip-objects-studio-card
+                title: Object Skip Studio
+                subtitle: Protect active prints by excluding failed parts
+                device_id: 210dfdfa64085e8cf073e50eae757d90
+                printable_entity: sensor.3d_printer_printable_objects
+                skipped_entity: sensor.3d_printer_skipped_objects
+                pick_image_entity: image.3d_printer_pick_image
+                stop_entity: button.ntk_ryansoffice_3dprinter_stop_printing
+                min_objects: 2
+                max_objects: 64
+              - type: custom:button-card
+                name: Close
+                icon: mdi:close-circle-outline
+                tap_action:
+                  action: fire-dom-event
+                  browser_mod:
+                    service: browser_mod.close_popup
+                styles:
+                  card:
+                    - border-radius: 10px
+                    - padding: 8px
+                  name:
+                    - font-size: 13px
+                    - font-weight: 600
     styles:
       card:
         - padding: 12px
