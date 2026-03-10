@@ -30,6 +30,11 @@ Current expected chain for Common dashboard registration:
 4. `_dashboards.yaml` -> dashboard key -> `filename: packages/3d_printing/common/dashboards/3d_printing_v2.yaml`
 5. `3d_printing_v2.yaml` -> `!include ../dashboard_views/view_*.yaml`
 
+For declarative custom card resources used by this dashboard:
+
+- `common_loader.yaml` -> `lovelace.resources: !include dashboards/_resources.yaml`
+- `_resources.yaml` -> `/local/3d_printing/...` module URLs
+
 If a file (for example `common/helpers/*.yaml`) is not referenced by loader includes, it is deployed but not loaded.
 
 ## 4) Restart required or not?
@@ -49,6 +54,7 @@ Typical action: refresh browser or reopen dashboard.
   - changing `filename`
   - changing sidebar/title/icon metadata
 - Changing package loader/include wiring (`_feature_loaders.yaml`, `*_loader.yaml`)
+- Changing declarative Lovelace resources (`common_loader.yaml` `lovelace.resources` or `dashboards/_resources.yaml`)
 
 Typical action: restart Home Assistant after config check.
 
@@ -75,3 +81,26 @@ features that contain loader-backed YAML domains.
 
 This prevents false failures when deploying selected packages such as `print_progress` that are
 consumed via Lovelace includes rather than package-domain loader wiring.
+
+## 7) Selected-scope deploy and checkout depth clarification
+
+- Workflow checkout now uses full history (`fetch-depth: 0`) to support diff-based safety checks.
+- This does not change what gets deployed.
+- Selected-scope deploy still syncs only selected package folders (plus optional matching `www` assets) and still syncs the top-level `packages/3d_printing/_feature_loaders.yaml` meta include file.
+
+## 8) Resource safety guard behavior
+
+The workflow input `resource_safety_mode` validates deploy inputs when resource-related files changed.
+
+- `off`: skip check
+- `warn`: warnings only
+- `fail`: fail workflow (default)
+
+Checks enforced when resource-related files change:
+
+- Include `/www` assets in deploy inputs (`packages_www` for `all` scope, or `include_www_for_selected=true` for `selected` scope)
+- Use `post_deploy_action=restart_core` for reliable resource reload
+
+Selected scope nuance:
+
+- With `package_scope=selected`, the guard only enforces when resource-related changes are part of selected scope (for example `common` package files and matching `www/3d_printing/<selected_package>/...` assets).

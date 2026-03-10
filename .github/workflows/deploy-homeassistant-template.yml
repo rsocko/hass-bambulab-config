@@ -86,6 +86,15 @@ on:
           - none
           - reload_domains
           - restart_core
+      resource_safety_mode:
+        description: "Safety behavior for Lovelace resource-related deploy changes: off, warn, fail"
+        required: true
+        type: choice
+        default: fail
+        options:
+          - off
+          - warn
+          - fail
       feature_include_mode:
         description: "Feature loader include handling in configuration.yaml"
         required: true
@@ -119,6 +128,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Show changed files
         run: |
@@ -272,6 +283,113 @@ jobs:
           set -euo pipefail
           echo "Using allowlist: ${{ steps.selection.outputs.effective_allowlist }}"
           cat "${{ steps.selection.outputs.effective_allowlist }}"
+
+      - name: Lovelace resource deploy safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SAFETY_MODE="${{ github.event.inputs.resource_safety_mode }}"
+          [ "$SAFETY_MODE" = "off" ] && { echo "Resource safety check disabled (resource_safety_mode=off)."; exit 0; }
+
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch --no-tags origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+
+          CHANGED_FILES=""
+          if git rev-parse --verify "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
+            CHANGED_FILES="$(git diff --name-only "origin/$DEFAULT_BRANCH...HEAD" || true)"
+          fi
+          if [ -z "$CHANGED_FILES" ]; then
+            if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+              CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD || true)"
+            fi
+          fi
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No comparable git diff range found; skipping resource safety checks."
+            exit 0
+          fi
+
+          RESOURCE_RELATED_CHANGED=false
+          RESOURCE_RELATED_IN_SCOPE=false
+          PACKAGE_SCOPE="${{ github.event.inputs.package_scope }}"
+          SELECTED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+
+          package_is_selected() {
+            local pkg="$1"
+            [ "$PACKAGE_SCOPE" = "all" ] && return 0
+            [ "$SELECTED_PACKAGES" = "all" ] && return 0
+            echo ",$SELECTED_PACKAGES," | grep -q ",$pkg,"
+          }
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              homeassistant/packages/3d_printing/common/common_loader.yaml|\
+              homeassistant/packages/3d_printing/common/dashboards/_resources.yaml)
+                RESOURCE_RELATED_CHANGED=true
+                if package_is_selected "common"; then
+                  RESOURCE_RELATED_IN_SCOPE=true
+                fi
+                ;;
+              homeassistant/www/3d_printing/*)
+                RESOURCE_RELATED_CHANGED=true
+                path_tail="${f#homeassistant/www/3d_printing/}"
+                www_pkg="${path_tail%%/*}"
+                if [ -n "$www_pkg" ] && package_is_selected "$www_pkg"; then
+                  RESOURCE_RELATED_IN_SCOPE=true
+                fi
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          if [ "$RESOURCE_RELATED_CHANGED" != "true" ]; then
+            echo "No Lovelace resource-related changes detected in diff range."
+            exit 0
+          fi
+
+          if [ "$RESOURCE_RELATED_IN_SCOPE" != "true" ]; then
+            echo "Resource-related changes detected, but not in selected deploy scope; skipping resource safety enforcement."
+            exit 0
+          fi
+
+          ISSUES=0
+          issue() {
+            local msg="$1"
+            ISSUES=$((ISSUES + 1))
+            if [ "$SAFETY_MODE" = "warn" ]; then
+              echo "::warning::$msg"
+            else
+              echo "$msg"
+            fi
+          }
+
+          ALLOWLIST_PROFILE="${{ github.event.inputs.allowlist_profile }}"
+          INCLUDE_WWW_SELECTED="${{ github.event.inputs.include_www_for_selected }}"
+          POST_DEPLOY_ACTION="${{ github.event.inputs.post_deploy_action }}"
+
+          if [ "$PACKAGE_SCOPE" = "all" ]; then
+            if [ "$ALLOWLIST_PROFILE" != "packages_www" ]; then
+              issue "Resource-related changes detected, but allowlist_profile=$ALLOWLIST_PROFILE will not deploy /www assets. Use allowlist_profile=packages_www."
+            fi
+          else
+            if [ "$INCLUDE_WWW_SELECTED" != "true" ]; then
+              issue "Resource-related changes detected with package_scope=selected, but include_www_for_selected is false. Set include_www_for_selected=true."
+            fi
+          fi
+
+          if [ "$POST_DEPLOY_ACTION" != "restart_core" ]; then
+            issue "Resource-related changes detected, but post_deploy_action=$POST_DEPLOY_ACTION. Use post_deploy_action=restart_core so Lovelace resource changes are reliably reloaded."
+          fi
+
+          if [ "$ISSUES" -gt 0 ]; then
+            echo "Resource safety check found $ISSUES issue(s)."
+            if [ "$SAFETY_MODE" = "fail" ]; then
+              exit 1
+            fi
+          else
+            echo "Resource safety check passed."
+          fi
 
       - name: Preflight (HAOS SSH + tools)
         run: |

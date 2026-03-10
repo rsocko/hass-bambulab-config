@@ -96,6 +96,36 @@ Workflow dispatch includes an optional best-effort overlap check for selected pa
 
 Use warnings-first mode (`fail_on_ui_conflict=false`) during initial migration, then switch to strict mode once names are aligned.
 
+## Lovelace Resource Safety Guard
+
+Workflow dispatch includes an input to protect declarative Lovelace resource changes from incomplete deploy inputs:
+
+- `resource_safety_mode=off`: disable the guard
+- `resource_safety_mode=warn`: emit workflow warnings but continue
+- `resource_safety_mode=fail` (default): fail the run when unsafe combinations are detected
+
+The guard checks resource-related changes (for example `common/common_loader.yaml`, `common/dashboards/_resources.yaml`, and `homeassistant/www/3d_printing/**`) and validates:
+
+- `/www` assets are included in deploy inputs
+  - `package_scope=all` requires `allowlist_profile=packages_www`
+  - `package_scope=selected` requires `include_www_for_selected=true`
+- `post_deploy_action=restart_core` for reliable Lovelace resource reload
+
+This guard is advisory/strict around workflow inputs only. It does not change the rsync scope logic.
+
+Scope behavior:
+
+- With `package_scope=all`, any matching resource-related change is enforced.
+- With `package_scope=selected`, checks are enforced only when resource-related changes are in selected scope (for example package `common` and/or matching `www/3d_printing/<selected_package>/...` paths).
+
+## Checkout Depth Note
+
+The workflow uses `actions/checkout` with `fetch-depth: 0` so diff-based safety checks can compare against the default branch reliably.
+
+- This does **not** widen deployment scope.
+- File sync scope is still controlled by `package_scope`, allowlist profile, and selected package resolution.
+- Top-level meta include file `packages/3d_printing/_feature_loaders.yaml` is still synced explicitly on every deploy run.
+
 ## Feature Include Mode Cheat Sheet
 
 Use workflow input `feature_include_mode` to control how feature loader references are validated or updated.
