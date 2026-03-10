@@ -22,19 +22,30 @@ cards:
     card_layout: large
 
   - type: custom:button-card
+    variables:
+      is_available: >-
+        [[[ 
+          const printable = states['sensor.ntk_ryansoffice_3dprinter_printable_objects'];
+          const attrObjects = printable?.attributes?.objects;
+          const attrCount = (attrObjects && typeof attrObjects === 'object') ? Object.keys(attrObjects).length : 0;
+          const stateCount = parseInt(printable?.state || '0', 10);
+          const count = attrCount > 0 ? attrCount : (Number.isFinite(stateCount) ? stateCount : 0);
+          const stopState = states['button.ntk_ryansoffice_3dprinter_stop_print']?.state;
+          const stopAvailable = stopState !== 'unavailable';
+          return stopAvailable && count >= 2 && count <= 64;
+        ]]]
     name: >-
       [[[ 
-        const count = parseInt(states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state || '0', 10);
-        const stopState = states['button.ntk_ryansoffice_3dprinter_stop_print']?.state;
-        const available = stopState !== 'unavailable' && count >= 2 && count <= 64;
-        return available ? 'Skip Objects' : 'Skip Objects unavailable';
+        return variables.is_available ? 'Skip Objects' : 'Skip Objects unavailable';
       ]]]
     label: >-
       [[[ 
-        const count = parseInt(states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state || '0', 10);
-        const stopState = states['button.ntk_ryansoffice_3dprinter_stop_print']?.state;
-        const available = stopState !== 'unavailable' && count >= 2 && count <= 64;
-        return available
+        const printable = states['sensor.ntk_ryansoffice_3dprinter_printable_objects'];
+        const attrObjects = printable?.attributes?.objects;
+        const attrCount = (attrObjects && typeof attrObjects === 'object') ? Object.keys(attrObjects).length : 0;
+        const stateCount = parseInt(printable?.state || '0', 10);
+        const count = attrCount > 0 ? attrCount : (Number.isFinite(stateCount) ? stateCount : 0);
+        return variables.is_available
           ? `${count} printable objects detected`
           : 'Start an active print with at least 2 objects to enable';
       ]]]
@@ -42,7 +53,8 @@ cards:
     icon: mdi:shape-outline
     show_state: false
     tap_action:
-      action: fire-dom-event
+      action: >-
+        [[[ return variables.is_available ? 'fire-dom-event' : 'none'; ]]]
       browser_mod:
         service: browser_mod.popup
         data:
@@ -54,31 +66,15 @@ cards:
             printable_entity: sensor.ntk_ryansoffice_3dprinter_printable_objects
             skipped_entity: sensor.ntk_ryansoffice_3dprinter_skipped_objects
             title: Skip Objects
-    state:
-      - operator: template
-        value: >-
-          [[[ 
-            const count = parseInt(states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state || '0', 10);
-            const stopState = states['button.ntk_ryansoffice_3dprinter_stop_print']?.state;
-            return !(stopState !== 'unavailable' && count >= 2 && count <= 64);
-          ]]]
-        styles:
-          card:
-            - opacity: 0.65
     styles:
       card:
         - padding: 12px
         - border-radius: 12px
+        - opacity: >-
+            [[[ return variables.is_available ? 1 : 0.65; ]]]
       name:
         - font-size: 14px
         - font-weight: 600
       label:
         - font-size: 11px
         - color: var(--secondary-text-color)
-    lock:
-      enabled: >-
-        [[[ 
-          const count = parseInt(states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state || '0', 10);
-          const stopState = states['button.ntk_ryansoffice_3dprinter_stop_print']?.state;
-          return !(stopState !== 'unavailable' && count >= 2 && count <= 64);
-        ]]]
