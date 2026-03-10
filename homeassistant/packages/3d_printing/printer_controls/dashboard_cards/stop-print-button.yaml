@@ -9,7 +9,7 @@
 #   - Active/Paused print → red button (#f44336) with white stop icon
 #   - No active print     → greyed-out (#444444), disabled (clicks blocked)
 #   - Tap shows a confirmation dialog before stopping
-#   - Hover tooltip reads "Stop" and button brightens when enabled
+#   - Hover: button brightens when enabled
 #
 # can_stop logic (matches OpenHASP):
 #   is_paused  = status_class == 'paused' or smart_status == 'paused'
@@ -34,7 +34,6 @@ show_name: false
 show_state: false
 show_icon: true
 icon: mdi:stop
-tooltip: Stop
 tap_action:
   action: call-service
   service: button.press
