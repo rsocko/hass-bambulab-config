@@ -1,3 +1,15 @@
+/*
+ * Skip Objects Studio Card
+ *
+ * This is a standalone implementation for this repository's dashboard stack.
+ * The workflow and interaction model are inspired by upstream skip-object work in:
+ * - https://github.com/greghesp/ha-bambulab
+ * - https://github.com/greghesp/ha-bambulab-cards
+ *
+ * In particular, the pick-image canvas decode and object selection flow were
+ * implemented after reviewing the upstream component behavior.
+ */
+
 class SkipObjectsStudioCard extends HTMLElement {
   constructor() {
     super();

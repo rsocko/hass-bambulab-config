@@ -8,6 +8,12 @@ This folder contains all repository documentation organized by topic.
 - `features/` — feature-level documentation aligned to package names and dashboard domains.
 - `infrastructure/` — non-Home Assistant operational/infrastructure docs.
 
+## Repo Docs
+
+- `repo/DEPLOYMENT_STRUCTURE.md` — deployment profiles, package scope, and workflow safety guards.
+- `repo/DASHBOARD_DEPLOYMENT_BEHAVIOR.md` — dashboard/reload behavior and JS cache-bust procedure.
+- `repo/THIRD_PARTY_ATTRIBUTION.md` — third-party inspiration and attribution notes.
+
 ## Feature Docs
 
 - [[docs/features/air_quality/README|Air Quality]]

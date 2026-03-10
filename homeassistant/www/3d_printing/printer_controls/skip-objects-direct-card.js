@@ -1,3 +1,12 @@
+/*
+ * Skip Objects Direct Card
+ *
+ * This is a standalone implementation for this repository's dashboard stack.
+ * The workflow and interaction model are inspired by upstream skip-object work in:
+ * - https://github.com/greghesp/ha-bambulab
+ * - https://github.com/greghesp/ha-bambulab-cards
+ */
+
 class SkipObjectsDirectCard extends HTMLElement {
   constructor() {
     super();
