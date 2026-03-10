@@ -114,7 +114,7 @@ cards:
             state: "on"
         card:
           type: markdown
-          content: >-
+          content: |
             {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
             {%- set attrs = states[entity].attributes -%}
             {%- set legacy_errors = state_attr(entity, 'errors') -%}
@@ -131,36 +131,25 @@ cards:
                 {%- set ns.errors = ns.errors + [{'text': attrs[i ~ '-Error'] | default('No description available'), 'code': attrs[i ~ '-Code'] | default('Unknown'), 'severity': attrs[i ~ '-Severity'] | default('unknown'), 'wiki': attrs[i ~ '-Wiki'] | default('')}] -%}
               {%- endfor -%}
             {%- endif -%}
-            {%- for err in ns.errors -%}
+            {% for err in ns.errors %}
             {%- set sev = (err.severity | default('unknown')) | lower -%}
             {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
-              {%- set sev_icon = '🔴' -%}
+              {%- set sev_icon = '🔴' -%}{%- set sev_label = 'Serious' -%}
             {%- elif 'medium' in sev or 'warn' in sev -%}
-              {%- set sev_icon = '🟠' -%}
+              {%- set sev_icon = '🟠' -%}{%- set sev_label = 'Medium' -%}
             {%- elif 'minor' in sev or 'low' in sev -%}
-              {%- set sev_icon = '🟡' -%}
+              {%- set sev_icon = '🟡' -%}{%- set sev_label = 'Minor' -%}
             {%- else -%}
-              {%- set sev_icon = '⚪' -%}
-            {%- endif -%}
+              {%- set sev_icon = '⚪' -%}{%- set sev_label = 'Unknown' -%}
+            {%- endif %}
 
+            > **{{ sev_icon }} Error {{ loop.index }}** — *{{ (err.severity | default('unknown')) | title }}*
+            >
+            > {{ err.text }}
+            >
+            > `{{ err.code }}`{% if err.wiki %} · [Troubleshooting Wiki ↗]({{ err.wiki }}){% endif %}
 
-            ### {{ sev_icon }} Error {{ loop.index }} — {{ (err.severity | default('unknown')) | title }}
-
-
-            {{ err.text }}
-
-
-            `{{ err.code }}`{% if err.wiki %} · [Troubleshooting Wiki ↗]({{ err.wiki }}){% endif %}
-
-
-            {%- if not loop.last %}
-
-
-            ---
-
-
-            {%- endif -%}
-            {%- endfor -%}
+            {% endfor %}
           card_mod:
             style:
               ha-card: |
@@ -170,28 +159,39 @@ cards:
                   border-top: none;
                   border-radius: 0 0 14px 14px;
                   box-shadow: none;
-                  padding: 12px 20px 16px 20px;
+                  padding: 16px 20px 20px 20px;
                   margin-top: -8px;
-                  overflow: visible;
-                }
-              ha-markdown$: |
-                .markdown-content {
                   overflow: visible !important;
                   max-height: none !important;
                 }
-                h3 {
-                  margin-top: 8px !important;
-                  margin-bottom: 6px !important;
-                  font-size: 1.1rem !important;
+              ha-markdown$: |
+                :host {
+                  overflow: visible !important;
+                  max-height: none !important;
+                  height: auto !important;
                 }
-                hr {
-                  border: none;
-                  border-top: 1px solid rgba(255,255,255,0.12);
-                  margin: 16px 0 !important;
+                .markdown-content {
+                  overflow: visible !important;
+                  max-height: none !important;
+                  height: auto !important;
                 }
-                p {
+                blockquote {
+                  border-left: 4px solid #f44336 !important;
+                  background: rgba(244,67,54,0.08) !important;
+                  border-radius: 0 12px 12px 0;
+                  padding: 16px 20px !important;
+                  margin: 0 0 20px 0 !important;
+                }
+                blockquote p {
                   margin: 8px 0 !important;
-                  line-height: 1.55;
+                  line-height: 1.6;
+                }
+                blockquote p:first-child {
+                  margin-top: 0 !important;
+                  font-size: 1.05rem;
+                }
+                blockquote p:last-child {
+                  margin-bottom: 0 !important;
                 }
                 code {
                   font-size: 0.85em;
