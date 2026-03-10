@@ -114,7 +114,7 @@ cards:
             state: "on"
         card:
           type: markdown
-          content: |
+          content: >-
             {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
             {%- set attrs = states[entity].attributes -%}
             {%- set legacy_errors = state_attr(entity, 'errors') -%}
@@ -131,25 +131,36 @@ cards:
                 {%- set ns.errors = ns.errors + [{'text': attrs[i ~ '-Error'] | default('No description available'), 'code': attrs[i ~ '-Code'] | default('Unknown'), 'severity': attrs[i ~ '-Severity'] | default('unknown'), 'wiki': attrs[i ~ '-Wiki'] | default('')}] -%}
               {%- endfor -%}
             {%- endif -%}
-            <div style="display:flex;flex-wrap:wrap;gap:20px;padding:10px 4px 6px 4px;">
             {%- for err in ns.errors -%}
-              {%- set sev = (err.severity | default('unknown')) | lower -%}
-              {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
-                {%- set bcolor = '#f44336' -%}{%- set bgcolor = 'rgba(244,67,54,0.10)' -%}{%- set sev_icon = '🔴' -%}
-              {%- elif 'medium' in sev or 'warn' in sev -%}
-                {%- set bcolor = '#ff9800' -%}{%- set bgcolor = 'rgba(255,152,0,0.10)' -%}{%- set sev_icon = '🟠' -%}
-              {%- elif 'minor' in sev or 'low' in sev -%}
-                {%- set bcolor = '#ffc107' -%}{%- set bgcolor = 'rgba(255,193,7,0.10)' -%}{%- set sev_icon = '🟡' -%}
-              {%- else -%}
-                {%- set bcolor = '#9e9e9e' -%}{%- set bgcolor = 'rgba(158,158,158,0.10)' -%}{%- set sev_icon = '⚪' -%}
-              {%- endif -%}
-            <div style="flex:1 1 280px;max-width:100%;border:2px solid {{ bcolor }};border-radius:12px;background:{{ bgcolor }};padding:18px 20px;">
-            <div style="font-weight:700;font-size:1.05rem;margin-bottom:10px;">{{ sev_icon }} Error {{ loop.index }} <span style="opacity:0.75;font-weight:500;font-size:0.92rem;">({{ (err.severity | default('unknown')) | title }})</span></div>
-            <div style="margin-bottom:12px;line-height:1.55;">{{ err.text }}</div>
-            <div style="font-size:0.85rem;opacity:0.8;">Code: <code>{{ err.code }}</code>{% if err.wiki %} · <a href="{{ err.wiki }}">Troubleshooting Wiki ↗</a>{% endif %}</div>
-            </div>
+            {%- set sev = (err.severity | default('unknown')) | lower -%}
+            {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
+              {%- set sev_icon = '🔴' -%}
+            {%- elif 'medium' in sev or 'warn' in sev -%}
+              {%- set sev_icon = '🟠' -%}
+            {%- elif 'minor' in sev or 'low' in sev -%}
+              {%- set sev_icon = '🟡' -%}
+            {%- else -%}
+              {%- set sev_icon = '⚪' -%}
+            {%- endif -%}
+
+
+            ### {{ sev_icon }} Error {{ loop.index }} — {{ (err.severity | default('unknown')) | title }}
+
+
+            {{ err.text }}
+
+
+            `{{ err.code }}`{% if err.wiki %} · [Troubleshooting Wiki ↗]({{ err.wiki }}){% endif %}
+
+
+            {%- if not loop.last %}
+
+
+            ---
+
+
+            {%- endif -%}
             {%- endfor -%}
-            </div>
           card_mod:
             style:
               ha-card: |
@@ -159,18 +170,35 @@ cards:
                   border-top: none;
                   border-radius: 0 0 14px 14px;
                   box-shadow: none;
-                  padding: 8px 12px 12px 12px;
+                  padding: 12px 20px 16px 20px;
                   margin-top: -8px;
                   overflow: visible;
                 }
               ha-markdown$: |
-                :host {
-                  overflow: visible !important;
-                  max-height: none !important;
-                }
                 .markdown-content {
                   overflow: visible !important;
                   max-height: none !important;
+                }
+                h3 {
+                  margin-top: 8px !important;
+                  margin-bottom: 6px !important;
+                  font-size: 1.1rem !important;
+                }
+                hr {
+                  border: none;
+                  border-top: 1px solid rgba(255,255,255,0.12);
+                  margin: 16px 0 !important;
+                }
+                p {
+                  margin: 8px 0 !important;
+                  line-height: 1.55;
+                }
+                code {
+                  font-size: 0.85em;
+                  opacity: 0.8;
+                }
+                a {
+                  color: #64b5f6;
                 }
     grid_options:
       columns: full
