@@ -57,11 +57,14 @@ cards:
                 font-size: 1.5rem !important;
                 font-weight: 900 !important;
                 letter-spacing: 0.04em;
+                white-space: normal !important;
+                word-break: break-word !important;
               }
               .secondary {
                 font-size: 1rem !important;
                 font-weight: 600 !important;
                 white-space: normal !important;
+                word-break: break-word !important;
                 line-height: 1.35 !important;
                 opacity: 0.92;
               }
@@ -237,9 +240,17 @@ cards:
           .hms-text {
             line-height: 1.5;
             margin-bottom: 10px;
+            white-space: normal;
+            word-break: break-word;
+          }
+          .hms-code {
+            white-space: normal;
+            word-break: break-word;
           }
           .hms-code code {
             font-size: 0.88em;
+            white-space: normal;
+            word-break: break-all;
           }
           .hms-code a {
             color: #64b5f6;
