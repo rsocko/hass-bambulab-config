@@ -1,3 +1,2 @@
 lovelace:
   dashboards: !include dashboards/_dashboards.yaml
-  resources: !include dashboards/_resources.yaml

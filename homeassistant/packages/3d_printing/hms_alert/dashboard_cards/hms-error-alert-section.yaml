@@ -1,10 +1,8 @@
 # Unified HMS Error Alert Section
 # Responsive card that works on both mobile and desktop.
-# - Single header banner: tap to expand/collapse, hold for more-info
-# - CSS chevron indicator on the right shows expand/collapse state
-# - Expanded details use a single button-card renderer with wrapped per-error cards
-# - Minimal-performance variant: no pulsing/glow animations
-# - Details visibility controlled by input_boolean.hms_alert_show_details
+# - Single header banner with error count/summary
+# - Always-visible error details below the header
+# - No expand/collapse — details shown whenever HMS errors exist
 type: grid
 visibility:
   - condition: state
@@ -15,7 +13,7 @@ cards:
     cards:
       # ── Header Banner ──────────────────────────────────────────
       - type: custom:mushroom-template-card
-        entity: input_boolean.hms_alert_show_details
+        entity: binary_sensor.hms_alert_display_wrapper
         primary: HMS ERROR ALERT
         secondary: >-
           {%- set entity = 'binary_sensor.hms_alert_display_wrapper' -%}
@@ -40,7 +38,8 @@ cards:
         icon_color: red
         fill_container: true
         tap_action:
-          action: toggle
+          action: more-info
+          entity: binary_sensor.hms_alert_display_wrapper
         hold_action:
           action: more-info
           entity: binary_sensor.hms_alert_display_wrapper
@@ -52,28 +51,20 @@ cards:
                 border: 2px solid rgba(244,67,54,0.9);
                 border-radius: 14px;
                 --card-mod-icon-color: red;
-                position: relative;
-              }
-              ha-card::after {
-                content: '{% if is_state("input_boolean.hms_alert_show_details", "on") %}▲{% else %}▼{% endif %}';
-                position: absolute;
-                right: 18px;
-                top: 50%;
-                transform: translateY(-50%);
-                font-size: 1.2rem;
-                color: rgba(255,255,255, {% if is_state("input_boolean.hms_alert_show_details", "on") %}0.9{% else %}0.45{% endif %});
-                pointer-events: none;
               }
             mushroom-card$mushroom-state-info$: |
               .primary {
                 font-size: 1.5rem !important;
                 font-weight: 900 !important;
                 letter-spacing: 0.04em;
+                white-space: normal !important;
+                word-break: break-word !important;
               }
               .secondary {
                 font-size: 1rem !important;
                 font-weight: 600 !important;
                 white-space: normal !important;
+                word-break: break-word !important;
                 line-height: 1.35 !important;
                 opacity: 0.92;
               }
@@ -81,129 +72,192 @@ cards:
                 .primary  { font-size: 1.2rem !important; }
                 .secondary { font-size: 0.92rem !important; }
               }
-      # ── Error Details (Conditional) ────────────────────────────
-      - type: conditional
-        conditions:
-          - condition: state
-            entity: input_boolean.hms_alert_show_details
-            state: "on"
-        card:
-          type: custom:button-card
-          entity: binary_sensor.hms_alert_display_wrapper
-          show_name: false
-          show_state: false
-          show_icon: false
-          tap_action:
-            action: none
-          custom_fields:
-            details: |
-              [[[ 
-                var entity = states['binary_sensor.hms_alert_display_wrapper'];
-                if (!entity) {
-                  return '<div class="hms-empty">No error details available.</div>';
+      # ── Error Details (always visible) ─────────────────────────
+      - type: custom:button-card
+        entity: binary_sensor.hms_alert_display_wrapper
+        show_name: false
+        show_state: false
+        show_icon: false
+        tap_action:
+          action: none
+        custom_fields:
+          details: |
+            [[[ 
+              // Use the built-in `entity` variable (from the card's entity: config)
+              // instead of states['...'] to avoid subscribing to ALL entity changes.
+              if (!entity) {
+                return '<div class="hms-empty">No error details available.</div>';
+              }
+
+              var attrs = entity.attributes || {};
+              var legacy = Array.isArray(attrs.errors) ? attrs.errors : [];
+              var items = [];
+
+              if (legacy.length > 0) {
+                for (var li = 0; li < legacy.length; li += 1) {
+                  var le = legacy[li] || {};
+                  items.push({
+                    text: le.attr || le.text || 'No description available',
+                    code: le.code || 'Unknown',
+                    severity: le.severity || 'unknown',
+                    wiki: le.wiki || ''
+                  });
                 }
-
-                var attrs = entity.attributes || {};
-                var legacy = Array.isArray(attrs.errors) ? attrs.errors : [];
-                var items = [];
-
-                if (legacy.length > 0) {
-                  for (var li = 0; li < legacy.length; li += 1) {
-                    var le = legacy[li] || {};
-                    items.push({
-                      text: le.attr || le.text || 'No description available',
-                      code: le.code || 'Unknown',
-                      severity: le.severity || 'unknown',
-                      wiki: le.wiki || ''
-                    });
-                  }
-                } else {
-                  var rawCount = (attrs.Count !== undefined && attrs.Count !== null) ? attrs.Count : attrs.count;
-                  var count = parseInt(rawCount || 0, 10) || 0;
-                  for (var i = 1; i <= count; i += 1) {
-                    items.push({
-                      text: attrs[i + '-Error'] || 'No description available',
-                      code: attrs[i + '-Code'] || 'Unknown',
-                      severity: attrs[i + '-Severity'] || 'unknown',
-                      wiki: attrs[i + '-Wiki'] || ''
-                    });
-                  }
+              } else {
+                var rawCount = (attrs.Count !== undefined && attrs.Count !== null) ? attrs.Count : attrs.count;
+                var count = parseInt(rawCount || 0, 10) || 0;
+                for (var i = 1; i <= count; i += 1) {
+                  items.push({
+                    text: attrs[i + '-Error'] || 'No description available',
+                    code: attrs[i + '-Code'] || 'Unknown',
+                    severity: attrs[i + '-Severity'] || 'unknown',
+                    wiki: attrs[i + '-Wiki'] || ''
+                  });
                 }
+              }
 
-                if (items.length === 0) {
-                  return '<div class="hms-empty">No error details available.</div>';
+              if (items.length === 0) {
+                return '<div class="hms-empty">No error details available.</div>';
+              }
+
+              var escapeHtml = function(value) {
+                return String(value || '')
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+              };
+
+              var getSeverity = function(raw) {
+                var sev = String(raw || 'unknown').toLowerCase();
+                if (sev.indexOf('critical') !== -1 || sev.indexOf('serious') !== -1 || sev.indexOf('fatal') !== -1 || sev.indexOf('high') !== -1) {
+                  return { icon: '🔴', border: '#f44336', bg: 'rgba(244,67,54,0.10)' };
                 }
-
-                var escapeHtml = function(value) {
-                  return String(value || '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
-                };
-
-                var getIcon = function(raw) {
-                  var sev = String(raw || 'unknown').toLowerCase();
-                  if (sev.indexOf('critical') !== -1 || sev.indexOf('serious') !== -1 || sev.indexOf('fatal') !== -1 || sev.indexOf('high') !== -1) return '🔴';
-                  if (sev.indexOf('medium') !== -1 || sev.indexOf('warn') !== -1) return '🟠';
-                  if (sev.indexOf('minor') !== -1 || sev.indexOf('low') !== -1) return '🟡';
-                  return '⚪';
-                };
-
-                var html = '<div class="hms-list">';
-                for (var idx = 0; idx < items.length; idx += 1) {
-                  var it = items[idx];
-                  var icon = getIcon(it.severity);
-                  var severity = escapeHtml(it.severity || 'unknown');
-                  var text = escapeHtml(it.text);
-                  var code = escapeHtml(it.code);
-                  var wiki = String(it.wiki || '');
-                  var wikiHtml = wiki ? ' - <a href="' + wiki + '" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>' : '';
-
-                  html += '<div class="hms-line">';
-                  html += '<div><strong>' + icon + ' Error ' + (idx + 1) + '</strong> (' + severity + ')</div>';
-                  html += '<div>' + text + '</div>';
-                  html += '<div><code>' + code + '</code>' + wikiHtml + '</div>';
-                  html += '</div>';
+                if (sev.indexOf('medium') !== -1 || sev.indexOf('warn') !== -1) {
+                  return { icon: '🟠', border: '#ff9800', bg: 'rgba(255,152,0,0.10)' };
                 }
+                if (sev.indexOf('minor') !== -1 || sev.indexOf('low') !== -1) {
+                  return { icon: '🟡', border: '#ffc107', bg: 'rgba(255,193,7,0.10)' };
+                }
+                return { icon: '⚪', border: '#9e9e9e', bg: 'rgba(158,158,158,0.10)' };
+              };
+
+              var html = '<div class="hms-wrap">';
+              for (var idx = 0; idx < items.length; idx += 1) {
+                var it = items[idx];
+                var sev = getSeverity(it.severity);
+                var title = escapeHtml(it.severity || 'unknown');
+                var text = escapeHtml(it.text);
+                var code = escapeHtml(it.code);
+                var wiki = String(it.wiki || '');
+                var wikiHtml = wiki ? ' - <a href="' + wiki + '" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>' : '';
+
+                html += '<div class="hms-item" style="border-left-color:' + sev.border + ';background:' + sev.bg + ';">';
+                html +=   '<div class="hms-title">' + sev.icon + ' Error ' + (idx + 1) + ' <span>(' + title + ')</span></div>';
+                html +=   '<div class="hms-text">' + text + '</div>';
+                html +=   '<div class="hms-code"><code>' + code + '</code>' + wikiHtml + '</div>';
                 html += '</div>';
-                return html;
-              ]]]
-          styles:
-            card:
-              - background: var(--card-background-color, var(--ha-card-background, #1c1c1c))
-              - border: 2px solid rgba(244,67,54,0.9)
-              - border-top: none
-              - border-radius: 0 0 14px 14px
-              - box-shadow: none
-              - padding: 12px 16px 16px 16px
-              - margin-top: -8px
-            custom_fields:
-              details:
-                - width: 100%
-                - text-align: left
-                - justify-self: start
-                - align-self: start
-          extra_styles: |
-            .hms-list {
-              text-align: left;
+              }
+              html += '</div>';
+              return html;
+            ]]]
+        styles:
+          grid:
+            - grid-template-areas: '"details"'
+            - grid-template-columns: 1fr
+            - grid-template-rows: auto
+            - justify-items: stretch
+            - align-items: stretch
+          card:
+            - background: var(--card-background-color, var(--ha-card-background, #1c1c1c))
+            - border: 2px solid rgba(244,67,54,0.9)
+            - border-top: none
+            - border-radius: 0 0 14px 14px
+            - box-shadow: none
+            - padding: 12px 16px 16px 16px
+            - margin-top: -8px
+          custom_fields:
+            details:
+              - width: 100%
+              - display: block
+              - text-align: left
+              - justify-self: stretch
+              - align-self: stretch
+              - margin: 0
+              - padding: 0
+        card_mod:
+          style: |
+            :host {
+              display: block;
+              width: 100%;
             }
-            .hms-line {
-              margin-bottom: 12px;
-              line-height: 1.5;
+            ha-card {
+              width: 100%;
             }
-            .hms-line:last-child {
-              margin-bottom: 0;
+            #container {
+              width: 100% !important;
+              grid-template-columns: 1fr !important;
+              justify-items: stretch !important;
+              align-items: stretch !important;
             }
-            .hms-line code {
-              font-size: 0.88em;
+            #container > * {
+              justify-self: stretch !important;
+              width: 100% !important;
+              min-width: 0;
             }
-            .hms-line a {
-              color: #64b5f6;
-            }
-            .hms-empty {
-              color: var(--secondary-text-color);
-              text-align: left;
-            }
+        extra_styles: |
+          .hms-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+          }
+          .hms-item {
+            display: block;
+            width: 100% !important;
+            max-width: 100%;
+            box-sizing: border-box;
+            border-left: 8px solid #9e9e9e;
+            border-radius: 0 12px 12px 0;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            margin-left: 0;
+            margin-right: 0;
+          }
+          .hms-item:last-child {
+            margin-bottom: 0;
+          }
+          .hms-title {
+            font-size: 1.02rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+          }
+          .hms-title span {
+            opacity: 0.82;
+            font-weight: 600;
+          }
+          .hms-text {
+            line-height: 1.5;
+            margin-bottom: 10px;
+            white-space: normal;
+            word-break: break-word;
+          }
+          .hms-code {
+            white-space: normal;
+            word-break: break-word;
+          }
+          .hms-code code {
+            font-size: 0.88em;
+            white-space: normal;
+            word-break: break-all;
+          }
+          .hms-code a {
+            color: #64b5f6;
+          }
+          .hms-empty {
+            color: var(--secondary-text-color);
+          }
     grid_options:
       columns: full
 column_span: 3

@@ -798,6 +798,40 @@ jobs:
           echo "Dry-run mode skips 'ha core check' to avoid validating the currently deployed config instead of candidate changes."
           echo "Dry-run still validates selection logic, allowlist generation, SSH connectivity, and rsync candidate file set."
 
+      - name: Sync Lovelace resources to HA storage
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
+        shell: bash
+        env:
+          RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
+          HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          export SSH_OPTS
+          bash .github/scripts/sync_lovelace_resources.sh
+
+      - name: Sync Lovelace resources (dry-run preview)
+        if: ${{ github.event.inputs.dry_run == 'true' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
+        shell: bash
+        env:
+          RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
+          HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          export SSH_OPTS
+          bash .github/scripts/sync_lovelace_resources.sh --dry-run
+
       - name: Execute post-deploy action
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
