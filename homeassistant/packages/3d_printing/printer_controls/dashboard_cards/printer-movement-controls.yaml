@@ -57,8 +57,19 @@ cards:
       style: |
         #root {
           align-items: flex-start;
-          gap: 10px;
-          padding: 0 4px;
+          gap: 24px;
+          padding: 0 8px;
+        }
+        #root > *:first-child {
+          flex: 0 0 70px !important;
+          max-width: 70px;
+        }
+        #root > *:nth-child(2) {
+          flex: 1 1 auto !important;
+        }
+        #root > *:last-child {
+          flex: 0 0 70px !important;
+          max-width: 70px;
         }
     cards:
       # ── Z-axis (Bed) Controls ──────────────────────────────
@@ -81,7 +92,7 @@ cards:
                 - height: 28px
               custom_fields:
                 label:
-                  - font-size: 11px
+                  - font-size: 13px
                   - font-weight: 600
                   - opacity: '0.6'
                   - text-align: center
@@ -140,12 +151,9 @@ cards:
           - type: custom:button-card
             show_name: false
             show_state: false
-            show_icon: false
+            icon: mdi:train-car-flatbed
             tap_action:
               action: none
-            custom_fields:
-              label: |
-                [[[return `<ha-icon icon="mdi:train-car-flatbed" style="--mdc-icon-size:22px;opacity:0.6;"></ha-icon>`]]]
             styles:
               card:
                 - padding: 0
@@ -153,17 +161,10 @@ cards:
                 - box-shadow: none
                 - border: none
                 - height: 48px
-                - display: flex
-                - align-items: center
-                - justify-content: center
-              custom_fields:
-                label:
-                  - text-align: center
-                  - width: 100%
-                  - display: flex
-                  - align-items: center
-                  - justify-content: center
-                  - height: 100%
+              icon:
+                - color: var(--primary-text-color)
+                - opacity: '0.6'
+                - width: 22px
           # Z -1 (gray)
           - type: custom:button-card
             show_name: false
@@ -235,7 +236,7 @@ cards:
                 - height: 28px
               custom_fields:
                 label:
-                  - font-size: 11px
+                  - font-size: 13px
                   - font-weight: 600
                   - opacity: '0.6'
                   - text-align: center
@@ -662,7 +663,7 @@ cards:
                 - height: 28px
               custom_fields:
                 label:
-                  - font-size: 11px
+                  - font-size: 13px
                   - font-weight: 600
                   - opacity: '0.6'
                   - text-align: center
@@ -709,12 +710,9 @@ cards:
           - type: custom:button-card
             show_name: false
             show_state: false
-            show_icon: false
+            icon: mdi:printer-3d-nozzle-outline
             tap_action:
               action: none
-            custom_fields:
-              label: |
-                [[[return `<ha-icon icon="mdi:printer-3d-nozzle-outline" style="--mdc-icon-size:22px;opacity:0.6;"></ha-icon>`]]]
             styles:
               card:
                 - padding: 0
@@ -722,17 +720,10 @@ cards:
                 - box-shadow: none
                 - border: none
                 - height: 48px
-                - display: flex
-                - align-items: center
-                - justify-content: center
-              custom_fields:
-                label:
-                  - text-align: center
-                  - width: 100%
-                  - display: flex
-                  - align-items: center
-                  - justify-content: center
-                  - height: 100%
+              icon:
+                - color: var(--primary-text-color)
+                - opacity: '0.6'
+                - width: 22px
           # Extrude (gray — matches Z ±1)
           - type: custom:button-card
             show_name: false
