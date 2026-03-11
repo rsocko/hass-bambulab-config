@@ -8,8 +8,13 @@
 #   - bambu_lab.move_axis  { device_id, axis: X|Y|Z|HOME, distance: number }
 #   - bambu_lab.extrude_retract  { device_id, type: retract|extrude }
 #
-# Layout:
+# Layout (+ sign XY joypad):
 #   [ Z-axis (Bed) ] | [ XY Joypad ] | [ Extruder ]
+#
+# Color scheme:
+#   ±1 mm buttons  — medium gray  rgba(158,158,158,0.3)
+#   ±10 mm buttons — blue tint    rgba(66,165,245,0.25)
+#   HOME button    — blue accent   rgba(33,150,243,0.15)
 #
 # ⚠ WARNING: Moving axes while a print is in progress can damage your model
 # or printer.  These controls are only safe when the printer is idle.
@@ -17,6 +22,7 @@
 
 type: vertical-stack
 cards:
+  # ── Active-print warning ───────────────────────────────────
   - type: custom:button-card
     entity: sensor.ntk_ryansoffice_3dprinter_current_stage
     show_name: false
@@ -29,14 +35,13 @@ cards:
         [[[
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state ?? '';
           const isPrinting = ['printing', 'running', 'prepare', 'init'].includes(stage.toLowerCase());
-          const warn = isPrinting
+          return isPrinting
             ? `<div class="warn">⚠️ Printer is active — use movement controls with caution</div>`
             : '';
-          return `<div class="heading">Printer Movement Controls</div>${warn}`;
         ]]]
     styles:
       card:
-        - padding: 8px 12px 4px
+        - padding: 4px 12px
         - background: transparent
         - box-shadow: none
         - border: none
@@ -44,10 +49,17 @@ cards:
         content:
           - width: 100%
     extra_styles: |
-      .heading { font-size: 13px; font-weight: 600; opacity: 0.7; text-align: center; }
-      .warn { font-size: 11px; color: #FF9800; text-align: center; margin-top: 2px; }
+      .warn { font-size: 11px; color: #FF9800; text-align: center; }
 
+  # ── Main controls: [ Z ] | [ XY ] | [ Extruder ] ──────────
   - type: horizontal-stack
+    card_mod:
+      style: |
+        #root {
+          align-items: flex-start;
+          gap: 10px;
+          padding: 0 4px;
+        }
     cards:
       # ── Z-axis (Bed) Controls ──────────────────────────────
       - type: vertical-stack
@@ -70,9 +82,11 @@ cards:
               custom_fields:
                 label:
                   - font-size: 11px
+                  - font-weight: 600
                   - opacity: '0.6'
                   - text-align: center
                   - width: 100%
+          # Z +10 (blue tint)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -86,12 +100,18 @@ cards:
                 distance: -10
             styles:
               card:
-                - padding: 8px
+                - padding: 4px
                 - border-radius: 12px
-                - height: 52px
+                - height: 48px
+                - background-color: rgba(66, 165, 245, 0.25)
               icon:
                 - color: var(--primary-text-color)
                 - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Z +1 (gray)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -105,12 +125,18 @@ cards:
                 distance: -1
             styles:
               card:
-                - padding: 8px
+                - padding: 4px
                 - border-radius: 12px
-                - height: 52px
+                - height: 48px
+                - background-color: rgba(158, 158, 158, 0.3)
               icon:
                 - color: var(--primary-text-color)
                 - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Bed icon (centered)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -122,15 +148,23 @@ cards:
                 [[[return `<ha-icon icon="mdi:train-car-flatbed" style="--mdc-icon-size:22px;opacity:0.6;"></ha-icon>`]]]
             styles:
               card:
-                - padding: 4px
+                - padding: 0
                 - background: transparent
                 - box-shadow: none
                 - border: none
-                - height: 40px
+                - height: 48px
+                - display: flex
+                - align-items: center
+                - justify-content: center
               custom_fields:
                 label:
                   - text-align: center
                   - width: 100%
+                  - display: flex
+                  - align-items: center
+                  - justify-content: center
+                  - height: 100%
+          # Z -1 (gray)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -144,12 +178,18 @@ cards:
                 distance: 1
             styles:
               card:
-                - padding: 8px
+                - padding: 4px
                 - border-radius: 12px
-                - height: 52px
+                - height: 48px
+                - background-color: rgba(158, 158, 158, 0.3)
               icon:
                 - color: var(--primary-text-color)
                 - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Z -10 (blue tint)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -163,17 +203,21 @@ cards:
                 distance: 10
             styles:
               card:
-                - padding: 8px
+                - padding: 4px
                 - border-radius: 12px
-                - height: 52px
+                - height: 48px
+                - background-color: rgba(66, 165, 245, 0.25)
               icon:
                 - color: var(--primary-text-color)
                 - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+              ha-card:active { transform: scale(0.93); }
 
-      # ── XY Joypad ─────────────────────────────────────────
+      # ── XY Joypad (+ sign layout) ─────────────────────────
       - type: vertical-stack
         cards:
-          # Row: label
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -192,10 +236,11 @@ cards:
               custom_fields:
                 label:
                   - font-size: 11px
+                  - font-weight: 600
                   - opacity: '0.6'
                   - text-align: center
                   - width: 100%
-          # Row 1: Y+10 (top)
+          # Row 1: Y+10 (blue tint, centered)
           - type: horizontal-stack
             cards:
               - type: custom:button-card
@@ -207,6 +252,17 @@ cards:
                     - background: transparent
                     - box-shadow: none
                     - border: none
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -220,12 +276,17 @@ cards:
                     distance: 10
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(66, 165, 245, 0.25)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+                  ha-card:active { transform: scale(0.93); }
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -235,28 +296,40 @@ cards:
                     - background: transparent
                     - box-shadow: none
                     - border: none
-          # Row 2: X-10, Y+1, X+10
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
+          # Row 2: Y+1 (gray, centered)
           - type: horizontal-stack
             cards:
               - type: custom:button-card
                 show_name: false
                 show_state: false
-                icon: mdi:chevron-double-left
-                tap_action:
-                  action: call-service
-                  service: bambu_lab.move_axis
-                  service_data:
-                    device_id: "210dfdfa64085e8cf073e50eae757d90"
-                    axis: "X"
-                    distance: -10
+                show_icon: false
                 styles:
                   card:
-                    - padding: 8px
-                    - border-radius: 12px
-                    - height: 52px
-                  icon:
-                    - color: var(--primary-text-color)
-                    - width: 20px
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -270,34 +343,66 @@ cards:
                     distance: 1
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(158, 158, 158, 0.3)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+                  ha-card:active { transform: scale(0.93); }
               - type: custom:button-card
                 show_name: false
                 show_state: false
-                icon: mdi:chevron-double-right
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
+          # Row 3: X-10, X-1, HOME, X+1, X+10
+          - type: horizontal-stack
+            cards:
+              # X -10 (blue tint)
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-double-left
                 tap_action:
                   action: call-service
                   service: bambu_lab.move_axis
                   service_data:
                     device_id: "210dfdfa64085e8cf073e50eae757d90"
                     axis: "X"
-                    distance: 10
+                    distance: -10
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(66, 165, 245, 0.25)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
-          # Row 3: X-1, HOME, X+1
-          - type: horizontal-stack
-            cards:
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+                  ha-card:active { transform: scale(0.93); }
+              # X -1 (gray)
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -311,12 +416,18 @@ cards:
                     distance: -1
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(158, 158, 158, 0.3)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+                  ha-card:active { transform: scale(0.93); }
+              # HOME (blue accent)
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -334,14 +445,19 @@ cards:
                       remove any model from the bed first to avoid damage.
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
                     - background: rgba(33, 150, 243, 0.15)
                     - border: 1px solid rgba(33, 150, 243, 0.4)
                   icon:
                     - color: '#2196F3'
                     - width: 22px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(33, 150, 243, 0.3) !important; }
+                  ha-card:active { transform: scale(0.93); }
+              # X +1 (gray)
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -355,13 +471,43 @@ cards:
                     distance: 1
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(158, 158, 158, 0.3)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
-          # Row 4: empty, Y-1, empty (X-10/X+10 only appear once in Row 2)
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+                  ha-card:active { transform: scale(0.93); }
+              # X +10 (blue tint)
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                icon: mdi:chevron-double-right
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: 10
+                styles:
+                  card:
+                    - padding: 4px
+                    - border-radius: 12px
+                    - height: 48px
+                    - background-color: rgba(66, 165, 245, 0.25)
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 20px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+                  ha-card:active { transform: scale(0.93); }
+          # Row 4: Y-1 (gray, centered)
           - type: horizontal-stack
             cards:
               - type: custom:button-card
@@ -373,6 +519,17 @@ cards:
                     - background: transparent
                     - box-shadow: none
                     - border: none
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -386,12 +543,17 @@ cards:
                     distance: -1
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(158, 158, 158, 0.3)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+                  ha-card:active { transform: scale(0.93); }
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -401,7 +563,18 @@ cards:
                     - background: transparent
                     - box-shadow: none
                     - border: none
-          # Row 5: Y-10 (bottom)
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
+          # Row 5: Y-10 (blue tint, centered)
           - type: horizontal-stack
             cards:
               - type: custom:button-card
@@ -413,6 +586,17 @@ cards:
                     - background: transparent
                     - box-shadow: none
                     - border: none
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -426,12 +610,17 @@ cards:
                     distance: -10
                 styles:
                   card:
-                    - padding: 8px
+                    - padding: 4px
                     - border-radius: 12px
-                    - height: 52px
+                    - height: 48px
+                    - background-color: rgba(66, 165, 245, 0.25)
                   icon:
                     - color: var(--primary-text-color)
                     - width: 20px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+                  ha-card:active { transform: scale(0.93); }
               - type: custom:button-card
                 show_name: false
                 show_state: false
@@ -441,6 +630,17 @@ cards:
                     - background: transparent
                     - box-shadow: none
                     - border: none
+                    - height: 48px
+              - type: custom:button-card
+                show_name: false
+                show_state: false
+                show_icon: false
+                styles:
+                  card:
+                    - background: transparent
+                    - box-shadow: none
+                    - border: none
+                    - height: 48px
 
       # ── Extruder Controls ──────────────────────────────────
       - type: vertical-stack
@@ -463,9 +663,25 @@ cards:
               custom_fields:
                 label:
                   - font-size: 11px
+                  - font-weight: 600
                   - opacity: '0.6'
                   - text-align: center
                   - width: 100%
+          # Spacer (aligns retract with Z +1)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            styles:
+              card:
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 48px
+                - padding: 0
+          # Retract (gray — matches Z ±1)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -478,12 +694,18 @@ cards:
                 type: "retract"
             styles:
               card:
-                - padding: 8px
+                - padding: 4px
                 - border-radius: 12px
-                - height: 52px
+                - height: 48px
+                - background-color: rgba(158, 158, 158, 0.3)
               icon:
                 - color: var(--primary-text-color)
                 - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Nozzle icon (centered)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -495,11 +717,14 @@ cards:
                 [[[return `<ha-icon icon="mdi:printer-3d-nozzle-outline" style="--mdc-icon-size:22px;opacity:0.6;"></ha-icon>`]]]
             styles:
               card:
-                - padding: 4px
+                - padding: 0
                 - background: transparent
                 - box-shadow: none
                 - border: none
-                - height: 144px
+                - height: 48px
+                - display: flex
+                - align-items: center
+                - justify-content: center
               custom_fields:
                 label:
                   - text-align: center
@@ -507,6 +732,8 @@ cards:
                   - display: flex
                   - align-items: center
                   - justify-content: center
+                  - height: 100%
+          # Extrude (gray — matches Z ±1)
           - type: custom:button-card
             show_name: false
             show_state: false
@@ -519,13 +746,33 @@ cards:
                 type: "extrude"
             styles:
               card:
-                - padding: 8px
+                - padding: 4px
                 - border-radius: 12px
-                - height: 52px
+                - height: 48px
+                - background-color: rgba(158, 158, 158, 0.3)
               icon:
                 - color: var(--primary-text-color)
                 - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Spacer (aligns with Z -10)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            styles:
+              card:
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 48px
+                - padding: 0
 
+  # ── Legend ──────────────────────────────────────────────────
   - type: custom:button-card
     show_name: false
     show_state: false
@@ -536,7 +783,7 @@ cards:
       legend: |
         [[[return `
           <div class="legend">
-            <span><ha-icon icon="mdi:chevron-double-up" style="--mdc-icon-size:14px;"></ha-icon>/<ha-icon icon="mdi:chevron-up" style="--mdc-icon-size:14px;"></ha-icon> = 10mm / 1mm movement</span>
+            <span><span class="swatch blue"></span> = ±10 mm&ensp;·&ensp;<span class="swatch gray"></span> = ±1 mm</span>
             <span><ha-icon icon="mdi:home" style="--mdc-icon-size:14px;"></ha-icon> = Home axes (requires confirmation)</span>
           </div>
         `]]]
@@ -551,3 +798,6 @@ cards:
           - width: 100%
     extra_styles: |
       .legend { display:flex; flex-direction:column; gap:2px; font-size:10px; opacity:0.5; text-align:center; }
+      .swatch { display:inline-block; width:10px; height:10px; border-radius:3px; vertical-align:middle; }
+      .swatch.blue { background:rgba(66,165,245,0.5); }
+      .swatch.gray { background:rgba(158,158,158,0.5); }
