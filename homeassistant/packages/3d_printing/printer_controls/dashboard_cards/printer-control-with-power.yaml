@@ -1,4 +1,4 @@
-# Printer control row: Speed | Skip Objects | Pause/Start | Stop | Power toggle
+# Printer control row: Speed | Skip Objects | Pause/Start | Stop | Movement | Power toggle
 # Replaces the ha-bambulab-print_control-card with individual compact buttons.
 # Uses a dedicated helper (input_boolean.show_power_controls) and includes power-controls.yaml.
 type: vertical-stack
