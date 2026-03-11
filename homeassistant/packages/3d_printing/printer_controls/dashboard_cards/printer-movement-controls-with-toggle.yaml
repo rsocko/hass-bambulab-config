@@ -16,7 +16,7 @@ type: vertical-stack
 cards:
   - type: custom:button-card
     entity: input_boolean.show_movement_controls
-    show_name: true
+    show_name: false
     name: Movement Controls
     show_state: false
     show_icon: true

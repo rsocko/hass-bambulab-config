@@ -173,7 +173,6 @@ sections:
         - !include ../../print_progress/dashboard_cards/time-remaining.yaml
         - !include ../../print_progress/dashboard_cards/estimated-completion-time.yaml
     - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
-    #- !include ../../printer_controls/dashboard_cards/printer-movement-controls-with-toggle.yaml
     - !include ../../print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml
   columns: 2
   square: false

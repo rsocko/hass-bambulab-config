@@ -14,6 +14,7 @@ cards:
       - !include skip-objects-launcher.yaml
       - !include pause-start-button.yaml
       - !include stop-print-button.yaml
+      - !include printer-movement-controls-with-toggle.yaml
       - type: custom:button-card
         entity: input_boolean.show_power_controls
         show_name: false
