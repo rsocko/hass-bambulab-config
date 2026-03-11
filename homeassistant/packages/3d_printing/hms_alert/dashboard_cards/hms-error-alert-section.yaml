@@ -57,6 +57,7 @@ cards:
                 border-radius: 14px;
                 --card-mod-icon-color: red;
                 position: relative;
+                animation: none !important;
               }
               ha-card::after {
                 content: '{% if is_state("input_boolean.hms_alert_show_details", "on") %}▲{% else %}▼{% endif %}';
@@ -70,6 +71,8 @@ cards:
             mushroom-card$: |
               mushroom-shape-icon {
                 --shape-color: rgba(255,240,210,0.18) !important;
+                animation: none !important;
+                filter: none !important;
               }
             mushroom-card$mushroom-state-info$: |
               .primary {
@@ -134,6 +137,10 @@ cards:
 
             `{{ err.code }}`{% if err.wiki %} - [Troubleshooting Wiki]({{ err.wiki }}){% endif %}
 
+            {% if not loop.last %}
+            ---
+
+            {% endif %}
 
 
             {% endfor %}
