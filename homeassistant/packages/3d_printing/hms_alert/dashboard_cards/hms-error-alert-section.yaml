@@ -146,11 +146,13 @@ cards:
                 {%- set sev_icon = '⚪' -%}
               {%- endif %}
 
-            > **{{ sev_icon }} Error {{ loop.index }}** - *{{ (err.severity | default('unknown')) | title }}*
-            >
-            > {{ err.text }}
-            >
-            > `{{ err.code }}`{% if err.wiki %} - [Troubleshooting Wiki]({{ err.wiki }}){% endif %}
+            **{{ sev_icon }} Error {{ loop.index }}** ({{ (err.severity | default('unknown')) | title }})
+
+            {{ err.text }}
+
+            `{{ err.code }}`{% if err.wiki %} - [Troubleshooting Wiki]({{ err.wiki }}){% endif %}
+
+
 
             {%- endfor -%}
           card_mod:
@@ -166,61 +168,12 @@ cards:
                   margin-top: -8px;
                 }
               ha-markdown$: |
-                {% set entity = 'binary_sensor.hms_alert_display_wrapper' %}
-                {% set attrs = states[entity].attributes %}
-                {% set legacy_errors = state_attr(entity, 'errors') %}
-                {% set use_legacy = legacy_errors is iterable and legacy_errors is not string and (legacy_errors | count > 0) %}
-                {% set count_raw = attrs['Count'] if attrs['Count'] is defined else (attrs['count'] if attrs['count'] is defined else 0) %}
-                {% set error_count = count_raw | int(0) %}
-                {% set ns = namespace(severities=[]) %}
-                {% if use_legacy %}
-                  {% for err in legacy_errors %}
-                    {% set ns.severities = ns.severities + [err.severity | default('unknown')] %}
-                  {% endfor %}
-                {% elif error_count > 0 %}
-                  {% for i in range(1, error_count + 1) %}
-                    {% set ns.severities = ns.severities + [attrs[i ~ '-Severity'] | default('unknown')] %}
-                  {% endfor %}
-                {% endif %}
                 code {
                   font-size: 0.88em;
                 }
                 a {
                   color: #64b5f6;
                 }
-                blockquote {
-                  border-left: 8px solid #9e9e9e;
-                  background: rgba(158,158,158,0.10);
-                  border-radius: 0 12px 12px 0;
-                  padding: 14px 16px !important;
-                  margin: 0 0 16px 0 !important;
-                }
-                blockquote p {
-                  margin: 7px 0 !important;
-                  line-height: 1.55;
-                }
-                blockquote p:first-child {
-                  font-size: 1.02rem;
-                }
-                {% for sev_raw in ns.severities %}
-                  {% set sev = sev_raw | lower %}
-                  {% if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev %}
-                blockquote:nth-of-type({{ loop.index }}) {
-                  border-left-color: #f44336 !important;
-                  background: rgba(244,67,54,0.10) !important;
-                }
-                  {% elif 'medium' in sev or 'warn' in sev %}
-                blockquote:nth-of-type({{ loop.index }}) {
-                  border-left-color: #ff9800 !important;
-                  background: rgba(255,152,0,0.10) !important;
-                }
-                  {% elif 'minor' in sev or 'low' in sev %}
-                blockquote:nth-of-type({{ loop.index }}) {
-                  border-left-color: #ffc107 !important;
-                  background: rgba(255,193,7,0.10) !important;
-                }
-                  {% endif %}
-                {% endfor %}
     grid_options:
       columns: full
 column_span: 3
