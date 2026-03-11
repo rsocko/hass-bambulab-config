@@ -1,0 +1,68 @@
+# Time Remaining KPI card
+# Extracted from view_main.yaml with total print time subhead
+# Subhead shows total estimated print time (sensor.total_estimated_print_time)
+# formatted as Xd : Xh : Xm (hides days/hours when not needed)
+
+type: custom:button-card
+entity: sensor.print_time_remaining_formatted
+triggers_update:
+  - sensor.ntk_ryansoffice_3dprinter_print_status
+  - sensor.ntk_ryansoffice_3dprinter_current_stage
+  - sensor.total_estimated_print_time
+show_name: false
+show_state: false
+show_icon: false
+tap_action:
+  action: more-info
+custom_fields:
+  tr: |
+    [[[
+      const state = entity?.state;
+      const value = (state && state !== 'unavailable' && state !== 'unknown') ? state : 'N/A';
+      const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+      const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+      const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+      const isPaused = status === 'pause' || stage === 'pause';
+      const isFinished = ['finish', 'finished', 'complete', 'completed', 'success'].includes(status) || ['finish', 'finished', 'complete', 'completed'].includes(stage);
+      const iconColor = (isActive || isFinished) ? '#FF9800' : isPaused ? '#FFB74D' : '#9E9E9E';
+      const animClass = isActive ? ' tr-clock-anim' : '';
+
+      // Total estimated print time subhead
+      const totalMins = parseInt(states['sensor.total_estimated_print_time']?.state, 10) || 0;
+      let totalStr = '';
+      if (totalMins > 0) {
+        const d = Math.floor(totalMins / 1440);
+        const h = Math.floor((totalMins % 1440) / 60);
+        const m = totalMins % 60;
+        const parts = [];
+        if (d > 0) parts.push(`${d}d`);
+        if (d > 0 || h > 0) parts.push(`${h}h`);
+        parts.push(`${m}m`);
+        totalStr = parts.join(' : ');
+      }
+
+      return `<div class="tr-wrap">
+        <ha-icon icon="mdi:clock-time-four" class="tr-icon${animClass}" style="color:${iconColor};"></ha-icon>
+        <div class="tr-text">
+          <div class="tr-value">${value}</div>
+          ${totalStr ? `<div class="tr-sub">${totalStr} total</div>` : ''}
+        </div>
+      </div>`;
+    ]]]
+styles:
+  card:
+    - padding: 8px 12px
+    - min-height: 50px
+  custom_fields:
+    tr:
+      - width: 100%
+extra_styles: |
+  .tr-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
+  .tr-icon { --mdc-icon-size:26px; flex-shrink:0; }
+  .tr-text { flex-grow:1; display:flex; flex-direction:column; }
+  .tr-value { font-size:24px; font-weight:700; line-height:1; }
+  .tr-sub { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:2px; }
+  @keyframes clock-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .tr-clock-anim { animation:clock-spin 4s linear infinite; }
+grid_options:
+  columns: 6

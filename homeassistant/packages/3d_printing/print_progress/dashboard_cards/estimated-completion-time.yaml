@@ -1,0 +1,108 @@
+# Estimated Completion Time KPI card
+# Extracted from view_main.yaml with print start time subhead
+# Subhead shows relative start time (sensor.ntk_ryansoffice_3dprinter_start_time)
+# - Same day: just time
+# - Yesterday: "Yesterday @ <time>"
+# - Within past week: "<DayOfWeek> @ <time>"
+# - 1 week+: "<M/D/YY> @ <time>"
+
+type: custom:button-card
+entity: sensor.ntk_ryansoffice_3dprinter_end_time
+triggers_update:
+  - sensor.ntk_ryansoffice_3dprinter_print_status
+  - sensor.ntk_ryansoffice_3dprinter_current_stage
+  - sensor.ntk_ryansoffice_3dprinter_start_time
+show_name: false
+show_state: false
+show_icon: false
+tap_action:
+  action: more-info
+custom_fields:
+  ec: |
+    [[[
+      const state = states['sensor.ntk_ryansoffice_3dprinter_end_time']?.state;
+      let timeStr = 'N/A';
+      let descriptor = null;
+      if (state && state !== 'unavailable' && state !== 'unknown') {
+        const endTs = new Date(state).getTime();
+        if (!isNaN(endTs) && endTs > 0) {
+          const now = Date.now();
+          const endDate = new Date(endTs);
+          const todayStr = new Date(now).toDateString();
+          const tomorrowStr = new Date(now + 86400000).toDateString();
+          timeStr = endDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+          const dayStr = endDate.toDateString();
+          if (dayStr === tomorrowStr) {
+            descriptor = 'tomorrow';
+          } else if (dayStr !== todayStr) {
+            const diffDays = Math.floor((endTs - now) / 86400000);
+            descriptor = diffDays < 7
+              ? endDate.toLocaleDateString('en-US', {weekday:'long'})
+              : endDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'});
+          }
+        }
+      }
+
+      // Start time subhead with relative formatting
+      const startState = states['sensor.ntk_ryansoffice_3dprinter_start_time']?.state;
+      let startStr = '';
+      if (startState && startState !== 'unavailable' && startState !== 'unknown') {
+        const startTs = new Date(startState).getTime();
+        if (!isNaN(startTs) && startTs > 0) {
+          const startDate = new Date(startTs);
+          const now = new Date();
+          const todayStart = now.toDateString();
+          const yesterdayStart = new Date(now.getTime() - 86400000).toDateString();
+          const startDayStr = startDate.toDateString();
+          const timeFmt = startDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+
+          if (startDayStr === todayStart) {
+            startStr = `Started ${timeFmt}`;
+          } else if (startDayStr === yesterdayStart) {
+            startStr = `Started Yesterday @ ${timeFmt}`;
+          } else {
+            const diffMs = now.getTime() - startTs;
+            const diffDays = Math.floor(diffMs / 86400000);
+            if (diffDays < 7) {
+              startStr = `Started ${startDate.toLocaleDateString('en-US', {weekday:'long'})} @ ${timeFmt}`;
+            } else {
+              startStr = `Started ${startDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'})} @ ${timeFmt}`;
+            }
+          }
+        }
+      }
+
+      const status = states['sensor.ntk_ryansoffice_3dprinter_print_status']?.state?.toLowerCase() || '';
+      const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state?.toLowerCase() || '';
+      const isFinished = status === 'finish';
+      const isActive = ['running', 'printing', 'prepare', 'slicing', 'init'].includes(status) || stage === 'printing';
+      const isPaused = status === 'pause' || stage === 'pause';
+      const iconColor = isFinished ? '#4CAF50' : isActive ? '#9C27B0' : isPaused ? '#FF9800' : '#9E9E9E';
+      const animClass = isActive ? ' ec-flag-anim' : '';
+      return `<div class="ec-wrap">
+        <ha-icon icon="mdi:flag-checkered" class="ec-icon${animClass}" style="color:${iconColor};"></ha-icon>
+        <div class="ec-text">
+          <div class="ec-time">${timeStr}</div>
+          ${descriptor ? `<div class="ec-desc">${descriptor}</div>` : ''}
+          ${startStr ? `<div class="ec-start">${startStr}</div>` : ''}
+        </div>
+      </div>`;
+    ]]]
+styles:
+  card:
+    - padding: 8px 12px
+    - min-height: 50px
+  custom_fields:
+    ec:
+      - width: 100%
+extra_styles: |
+  .ec-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
+  .ec-icon { --mdc-icon-size:26px; flex-shrink:0; }
+  .ec-text { flex-grow:1; display:flex; flex-direction:column; }
+  .ec-time { font-size:24px; font-weight:700; line-height:1; }
+  .ec-desc { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:2px; }
+  .ec-start { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:1px; }
+  @keyframes flag-wave { 0%,100% { transform:scale(1) rotate(0deg); } 25% { transform:scale(1.08) rotate(-4deg); } 75% { transform:scale(1.08) rotate(4deg); } }
+  .ec-flag-anim { animation:flag-wave 2s ease-in-out infinite; }
+grid_options:
+  columns: 6
