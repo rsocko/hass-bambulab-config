@@ -138,18 +138,27 @@ cards:
               {%- set sev = (err.severity | default('unknown')) | lower -%}
               {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
                 {%- set sev_icon = '🔴' -%}
+                {%- set bcolor = '#f44336' -%}
+                {%- set bgcolor = 'rgba(244,67,54,0.10)' -%}
               {%- elif 'medium' in sev or 'warn' in sev -%}
                 {%- set sev_icon = '🟠' -%}
+                {%- set bcolor = '#ff9800' -%}
+                {%- set bgcolor = 'rgba(255,152,0,0.10)' -%}
               {%- elif 'minor' in sev or 'low' in sev -%}
                 {%- set sev_icon = '🟡' -%}
+                {%- set bcolor = '#ffc107' -%}
+                {%- set bgcolor = 'rgba(255,193,7,0.10)' -%}
               {%- else -%}
                 {%- set sev_icon = '⚪' -%}
+                {%- set bcolor = '#9e9e9e' -%}
+                {%- set bgcolor = 'rgba(158,158,158,0.10)' -%}
               {%- endif %}
-            > **{{ sev_icon }} Error {{ loop.index }}** - *{{ (err.severity | default('unknown')) | title }}*
-            >
-            > {{ err.text }}
-            >
-            > `{{ err.code }}`{% if err.wiki %} - [Troubleshooting Wiki]({{ err.wiki }}){% endif %}
+
+            <div style="border-left: 8px solid {{ bcolor }}; background: {{ bgcolor }}; border-radius: 0 12px 12px 0; padding: 14px 16px; margin: 0 0 16px 0;">
+              <div style="font-weight: 700; margin-bottom: 8px; font-size: 1.02rem;">{{ sev_icon }} Error {{ loop.index }} - <span style="opacity: 0.82; font-weight: 600;">{{ (err.severity | default('unknown')) | title }}</span></div>
+              <div style="line-height: 1.55; margin-bottom: 10px;">{{ err.text }}</div>
+              <div style="font-size: 0.9em;"><code>{{ err.code }}</code>{% if err.wiki %} - <a href="{{ err.wiki }}">Troubleshooting Wiki</a>{% endif %}</div>
+            </div>
 
             {%- endfor -%}
           card_mod:
@@ -165,17 +174,6 @@ cards:
                   margin-top: -8px;
                 }
               ha-markdown$: |
-                blockquote {
-                  border-left: 4px solid rgba(244,67,54,0.65);
-                  background: rgba(244,67,54,0.08);
-                  border-radius: 0 10px 10px 0;
-                  padding: 12px 14px !important;
-                  margin: 0 0 12px 0 !important;
-                }
-                blockquote p {
-                  margin: 6px 0 !important;
-                  line-height: 1.5;
-                }
                 code {
                   font-size: 0.88em;
                 }
