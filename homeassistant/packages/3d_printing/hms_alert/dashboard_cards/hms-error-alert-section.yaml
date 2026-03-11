@@ -179,6 +179,8 @@ cards:
               - grid-template-areas: '"details"'
               - grid-template-columns: 1fr
               - grid-template-rows: auto
+              - justify-items: stretch
+              - align-items: stretch
             card:
               - background: var(--card-background-color, var(--ha-card-background, #1c1c1c))
               - border: 2px solid rgba(244,67,54,0.9)
@@ -194,6 +196,28 @@ cards:
                 - text-align: left
                 - justify-self: stretch
                 - align-self: stretch
+                - margin: 0
+                - padding: 0
+          card_mod:
+            style: |
+              :host {
+                display: block;
+                width: 100%;
+              }
+              ha-card {
+                width: 100%;
+              }
+              #container {
+                width: 100% !important;
+                grid-template-columns: 1fr !important;
+                justify-items: stretch !important;
+                align-items: stretch !important;
+              }
+              #container > * {
+                justify-self: stretch !important;
+                width: 100% !important;
+                min-width: 0;
+              }
           extra_styles: |
             .hms-wrap {
               display: flex;
