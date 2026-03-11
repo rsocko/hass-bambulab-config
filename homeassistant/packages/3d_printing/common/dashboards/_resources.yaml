@@ -1,4 +1,2 @@
-- url: /local/3d_printing/printer_controls/skip-objects-direct-card.js
-  type: module
-- url: /local/3d_printing/printer_controls/skip-objects-studio-card.js
+- url: /local/3d_printing/printer_controls/skip-objects-card.js
   type: module

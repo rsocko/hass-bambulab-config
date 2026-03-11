@@ -45,14 +45,14 @@ Cons:
 
 Scaffold in this repo:
 - `homeassistant/packages/3d_printing/printer_controls/dashboard_cards/skip-objects-launcher.yaml`
-  - now includes a one-click direct picker popup (`custom:skip-objects-direct-card`)
-- `homeassistant/www/3d_printing/printer_controls/skip-objects-direct-card.js`
-  - lightweight custom card that reads printable/skipped entities and calls `bambu_lab.skip_objects`
+  - compact button that opens the skip objects popup (`custom:skip-objects-card`)
+- `homeassistant/www/3d_printing/printer_controls/skip-objects-card.js`
+  - interactive custom card that reads printable/skipped entities and calls `bambu_lab.skip_objects`
 
 Dashboard resource required:
 ```yaml
 resources:
-  - url: /local/3d_printing/printer_controls/skip-objects-direct-card.js
+  - url: /local/3d_printing/printer_controls/skip-objects-card.js
     type: module
 ```
 
@@ -63,8 +63,8 @@ Git-based deployment notes:
 - Keep the JS file under `homeassistant/www/3d_printing/printer_controls/`.
 - Use deploy allowlist profile `packages_www` so both package YAML and `www/` assets deploy together.
 - Result on Home Assistant host:
-  - `homeassistant/www/3d_printing/printer_controls/skip-objects-direct-card.js` -> `/config/www/3d_printing/printer_controls/skip-objects-direct-card.js`
-  - dashboard `resources` URL `/local/3d_printing/printer_controls/skip-objects-direct-card.js` resolves correctly.
+  - `homeassistant/www/3d_printing/printer_controls/skip-objects-card.js` -> `/config/www/3d_printing/printer_controls/skip-objects-card.js`
+  - dashboard `resources` URL `/local/3d_printing/printer_controls/skip-objects-card.js` resolves correctly.
 
 ### 2. Keep Native YAML UI + Service Wrapper (recommended flexible)
 
@@ -100,12 +100,12 @@ Cons:
 - You own lifecycle, compatibility, and testing.
 
 Scaffold now added in this repo:
-- `homeassistant/www/3d_printing/printer_controls/skip-objects-studio-card.js`
-- `homeassistant/packages/3d_printing/printer_controls/dashboard_cards/skip-objects-studio-card.yaml`
+- `homeassistant/www/3d_printing/printer_controls/skip-objects-card.js`
+- `homeassistant/packages/3d_printing/printer_controls/dashboard_cards/skip-objects-card.yaml`
 
 Resource registration added in:
 - `homeassistant/packages/3d_printing/common/dashboards/3d_printing_v2.yaml`
-  - `/local/3d_printing/printer_controls/skip-objects-studio-card.js`
+  - `/local/3d_printing/printer_controls/skip-objects-card.js`
 
 ## Suggested Path
 

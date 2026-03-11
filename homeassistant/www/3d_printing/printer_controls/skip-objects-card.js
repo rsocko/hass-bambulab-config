@@ -10,7 +10,7 @@
  * implemented after reviewing the upstream component behavior.
  */
 
-class SkipObjectsStudioCard extends HTMLElement {
+class SkipObjectsCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -37,12 +37,12 @@ class SkipObjectsStudioCard extends HTMLElement {
   setConfig(config) {
     if (!config || !config.device_id || !config.printable_entity || !config.skipped_entity) {
       throw new Error(
-        "skip-objects-studio-card requires device_id, printable_entity, and skipped_entity"
+        "skip-objects-card requires device_id, printable_entity, and skipped_entity"
       );
     }
 
     this._config = {
-      title: "Object Skip Studio",
+      title: "Skip Objects",
       subtitle: "Protect active prints by excluding failed parts",
       stop_entity: "button.ntk_ryansoffice_3dprinter_stop_printing",
       pick_image_entity: "image.3d_printer_pick_image",
@@ -530,7 +530,7 @@ class SkipObjectsStudioCard extends HTMLElement {
           cursor: pointer;
         }
         .btn-muted { background: rgba(148,163,184,0.18); color: var(--primary-text-color); }
-        .btn-go { background: #0f766e; color: #ecfeff; margin-left: auto; }
+        .btn-go { background: var(--primary-color, #0f766e); color: var(--text-primary-color, #fff); margin-left: auto; }
         .btn-go:disabled { opacity: 0.5; cursor: not-allowed; }
         .grid {
           display: grid;
@@ -655,19 +655,19 @@ class SkipObjectsStudioCard extends HTMLElement {
       this._initializeCanvas();
     } catch (err) {
       if (this.shadowRoot) {
-        this.shadowRoot.innerHTML = `<ha-card style="padding:12px;color:#b91c1c;">Skip Objects Studio error: ${String(err)}</ha-card>`;
+        this.shadowRoot.innerHTML = `<ha-card style="padding:12px;color:#b91c1c;">Skip Objects error: ${String(err)}</ha-card>`;
       }
     }
   }
 }
 
-if (!customElements.get("skip-objects-studio-card")) {
-  customElements.define("skip-objects-studio-card", SkipObjectsStudioCard);
+if (!customElements.get("skip-objects-card")) {
+  customElements.define("skip-objects-card", SkipObjectsCard);
 }
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "skip-objects-studio-card",
-  name: "Skip Objects Studio Card",
-  description: "Feature-styled skip objects card for Bambu printers",
+  type: "skip-objects-card",
+  name: "Skip Objects Card",
+  description: "Interactive skip objects card for Bambu printers",
 });

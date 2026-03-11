@@ -1,133 +1,15 @@
-# Skip Objects Dashboard Card
+# Skip Objects custom JS card
 #
-# Shows all printable objects with their current skip status.
-# For each non-skipped object, provides a one-click "Skip" button that
-# calls bambu_lab.skip_objects while preserving all other currently-skipped objects.
-#
-# Prerequisites:
-#   - ha-bambulab integration (provides the entities and service)
-#   - custom:button-card (HACS) for the object list rendering
-#
-# *** CUSTOMIZATION REQUIRED ***
-# Replace all occurrences of "ntk_ryansoffice_3dprinter" with your own
-# printer entity prefix before using this card. You can find your prefix from
-# any existing printer entity, e.g. sensor.YOUR_PREFIX_print_status.
-#
-# This card is only visible when Skip Objects is available:
-#   - 2 to 64 printable objects in the current job
-#   - Printer is actively printing (stop button not unavailable)
-#
-# For a fully interactive canvas-based UI (click on the 3D layout image),
-# use the ha-bambulab-cards custom card (ha-bambulab-print_control-card).
-# This YAML card provides a simpler list-based alternative.
-#
-# How to find your printer device_id for the service call buttons:
-#   Settings → Devices & Services → Devices → your printer
-#   The device_id is the hex string in the URL after /config/devices/device/
+# A standalone, styled skip-objects card that calls bambu_lab.skip_objects directly.
+# This is separate from the popup launcher and can be included as its own dashboard section.
 
-type: conditional
-conditions:
-  - condition: template
-    value_template: >-
-      {% set count = states('sensor.ntk_ryansoffice_3dprinter_printable_objects') | int(0) %}
-      {% set stop_avail = not is_state('button.ntk_ryansoffice_3dprinter_stop_print', 'unavailable') %}
-      {{ stop_avail and count >= 2 and count <= 64 }}
-card:
-  type: custom:button-card
-  entity: sensor.ntk_ryansoffice_3dprinter_printable_objects
-  show_name: false
-  show_state: false
-  show_icon: false
-  tap_action:
-    action: none
-  custom_fields:
-    header: |
-      [[[
-        const count = parseInt(entity.state, 10) || 0;
-        const skippedCount = parseInt(states['sensor.ntk_ryansoffice_3dprinter_skipped_objects']?.state, 10) || 0;
-        const subtitle = skippedCount > 0
-          ? `${count} objects · ${skippedCount} already skipped`
-          : `${count} printable objects`;
-        return `
-          <div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px 0;border-bottom:1px solid var(--divider-color);margin-bottom:8px;">
-            <ha-icon icon="mdi:debug-step-over" style="--mdc-icon-size:18px;color:var(--primary-color);"></ha-icon>
-            <span style="font-size:13px;font-weight:600;color:var(--primary-text-color);">Skip Objects</span>
-            <span style="font-size:11px;color:var(--secondary-text-color);margin-left:auto;">${subtitle}</span>
-          </div>
-        `;
-      ]]]
-    objects_list: |
-      [[[
-        const objects = entity.attributes.objects || {};
-        const skippedAttr = states['sensor.ntk_ryansoffice_3dprinter_skipped_objects']?.attributes?.objects || [];
-
-        if (Object.keys(objects).length === 0) {
-          return `<div style="font-size:12px;color:var(--secondary-text-color);padding:8px 0;">No object data available.</div>`;
-        }
-
-        const rows = Object.entries(objects).map(([id, name]) => {
-          const objId = Number(id);
-          const isSkipped = Array.isArray(skippedAttr) && skippedAttr.includes(objId);
-
-          if (isSkipped) {
-            return `
-              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:rgba(244,67,54,0.08);margin-bottom:4px;">
-                <ha-icon icon="mdi:close-circle-outline" style="--mdc-icon-size:16px;color:#f44336;flex-shrink:0;"></ha-icon>
-                <span style="flex:1;font-size:13px;color:var(--secondary-text-color);text-decoration:line-through;">${name}</span>
-                <span style="font-size:10px;font-weight:600;color:#f44336;letter-spacing:0.5px;">SKIPPED</span>
-              </div>
-            `;
-          } else {
-            return `
-              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:rgba(var(--rgb-primary-text-color),0.04);margin-bottom:4px;">
-                <ha-icon icon="mdi:cube-outline" style="--mdc-icon-size:16px;color:var(--primary-color);flex-shrink:0;"></ha-icon>
-                <span style="flex:1;font-size:13px;color:var(--primary-text-color);">${name}</span>
-                <span style="font-size:10px;font-weight:500;color:var(--secondary-text-color);">ID: ${id}</span>
-              </div>
-            `;
-          }
-        }).join('');
-
-        return `<div style="display:flex;flex-direction:column;">${rows}</div>`;
-      ]]]
-    skip_note: |
-      [[[
-        const skippedAttr = states['sensor.ntk_ryansoffice_3dprinter_skipped_objects']?.attributes?.objects || [];
-        const objects = entity.attributes.objects || {};
-        const availableToSkip = Object.keys(objects).filter(id => !skippedAttr.includes(Number(id)));
-
-        if (availableToSkip.length === 0) {
-          return `
-            <div style="margin-top:8px;padding:8px;border-radius:8px;background:rgba(244,67,54,0.08);font-size:11px;color:var(--secondary-text-color);text-align:center;">
-              All objects have been skipped.
-            </div>
-          `;
-        }
-
-        return `
-          <div style="margin-top:8px;padding:8px;border-radius:8px;background:rgba(var(--rgb-primary-color),0.06);font-size:11px;color:var(--secondary-text-color);line-height:1.4;">
-            <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>
-            To skip an object, use <strong>Developer Tools → Services</strong> or the
-            <strong>ha-bambulab-print_control-card</strong> (HACS) for the full interactive
-            canvas UI. See <code>docs/…/skip-objects.md</code> for details.
-          </div>
-        `;
-      ]]]
-  styles:
-    card:
-      - padding: 12px 12px 8px 12px
-      - border-radius: 12px
-    custom_fields:
-      header:
-        - width: 100%
-        - text-align: left
-      objects_list:
-        - width: 100%
-        - text-align: left
-      skip_note:
-        - width: 100%
-        - text-align: left
-    grid:
-      - grid-template-areas: "'header' 'objects_list' 'skip_note'"
-      - grid-template-columns: 1fr
-      - grid-template-rows: auto auto auto
+type: custom:skip-objects-card
+title: Skip Objects
+subtitle: Protect active prints by excluding failed parts
+device_id: 210dfdfa64085e8cf073e50eae757d90
+printable_entity: sensor.3d_printer_printable_objects
+skipped_entity: sensor.3d_printer_skipped_objects
+pick_image_entity: image.3d_printer_pick_image
+stop_entity: button.ntk_ryansoffice_3dprinter_stop_printing
+min_objects: 2
+max_objects: 64

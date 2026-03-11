@@ -111,8 +111,8 @@ If dashboard JS changes are deployed but UI still shows old behavior, force a fr
 
 Example:
 
-- Before: `/local/3d_printing/printer_controls/skip-objects-studio-card.js?v=20260310m`
-- After: `/local/3d_printing/printer_controls/skip-objects-studio-card.js?v=20260310n`
+- Before: `/local/3d_printing/printer_controls/skip-objects-card.js?v=20260310m`
+- After: `/local/3d_printing/printer_controls/skip-objects-card.js?v=20260310n`
 
 This does not require renaming or moving the underlying file. The changed URL invalidates browser module cache.
 

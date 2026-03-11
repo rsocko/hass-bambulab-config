@@ -20,8 +20,7 @@ Upstream references pinned at review time (main branch heads):
 
 ## Local Files With Inspired Behavior
 
-- `homeassistant/www/3d_printing/printer_controls/skip-objects-studio-card.js`
-- `homeassistant/www/3d_printing/printer_controls/skip-objects-direct-card.js`
+- `homeassistant/www/3d_printing/printer_controls/skip-objects-card.js`
 
 ## Attribution Scope
 
