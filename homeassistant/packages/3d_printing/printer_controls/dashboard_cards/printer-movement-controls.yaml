@@ -89,14 +89,17 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - border: none
-                - height: 28px
+                - height: 32px
+                - display: flex
+                - justify-content: center
+                - align-items: center
               custom_fields:
                 label:
-                  - font-size: 13px
+                  - font-size: 15px
                   - font-weight: 600
-                  - opacity: '0.6'
+                  - opacity: '0.7'
                   - text-align: center
-                  - width: 100%
+                  - white-space: nowrap
           # Z +10 (blue tint)
           - type: custom:button-card
             show_name: false
@@ -233,14 +236,17 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - border: none
-                - height: 28px
+                - height: 32px
+                - display: flex
+                - justify-content: center
+                - align-items: center
               custom_fields:
                 label:
-                  - font-size: 13px
+                  - font-size: 15px
                   - font-weight: 600
-                  - opacity: '0.6'
+                  - opacity: '0.7'
                   - text-align: center
-                  - width: 100%
+                  - white-space: nowrap
           # Row 1: Y+10 (blue tint, centered)
           - type: horizontal-stack
             cards:
@@ -660,14 +666,17 @@ cards:
                 - background: transparent
                 - box-shadow: none
                 - border: none
-                - height: 28px
+                - height: 32px
+                - display: flex
+                - justify-content: center
+                - align-items: center
               custom_fields:
                 label:
-                  - font-size: 13px
+                  - font-size: 15px
                   - font-weight: 600
-                  - opacity: '0.6'
+                  - opacity: '0.7'
                   - text-align: center
-                  - width: 100%
+                  - white-space: nowrap
           # Spacer (aligns retract with Z +1)
           - type: custom:button-card
             show_name: false
