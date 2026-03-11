@@ -98,7 +98,8 @@ cards:
           custom_fields:
             details: |
               [[[ 
-                var entity = states['binary_sensor.hms_alert_display_wrapper'];
+                // Use the built-in `entity` variable (from the card's entity: config)
+                // instead of states['...'] to avoid subscribing to ALL entity changes.
                 if (!entity) {
                   return '<div class="hms-empty">No error details available.</div>';
                 }
