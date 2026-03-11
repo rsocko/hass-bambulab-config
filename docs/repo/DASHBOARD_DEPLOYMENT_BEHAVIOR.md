@@ -59,13 +59,36 @@ The file `common/dashboards/_resources.yaml` is kept as a **reference manifest**
 resources this repo provides. It is not loaded by HA at runtime but documents which
 `/local/...` URLs need to be registered in the HA UI/storage after deployment.
 
-#### First-time setup after deploying a new JS resource
+#### Automated resource registration (workflow)
 
-1. Deploy the package with `packages_www` profile (or `include_www_for_selected=true`)
-2. In HA: **Settings → Dashboards → Resources → Add Resource**
-3. URL: `/local/3d_printing/<feature>/<filename>.js`
-4. Type: **JavaScript Module**
-5. Hard refresh browser (`Ctrl+F5`)
+The deployment workflow automatically syncs resources from the manifest to HA storage
+when `www` assets are deployed (either `packages_www` profile or `include_www_for_selected=true`).
+
+This is handled by the `Sync Lovelace resources to HA storage` workflow step, which:
+
+1. Reads `common/dashboards/_resources.yaml` as the source of truth.
+2. SSHes into HA and fetches the current Lovelace resource list via the Supervisor API.
+3. Compares URLs (stripping query strings) and creates any missing entries.
+4. Skips resources that are already registered.
+
+The step runs in dry-run mode during `dry_run=true` deploys (preview only, no changes).
+
+Script: [.github/scripts/sync_lovelace_resources.sh](../../.github/scripts/sync_lovelace_resources.sh)
+
+**Adding a new JS resource to the repo:**
+
+1. Place the `.js` file under `homeassistant/www/3d_printing/<feature>/`.
+2. Add an entry to `common/dashboards/_resources.yaml`.
+3. Deploy with a `www`-enabled profile — the workflow registers it automatically.
+
+#### Manual resource registration (fallback)
+
+If the automated sync fails (for example, Supervisor token issue), register manually:
+
+1. In HA: **Settings → Dashboards → Resources → Add Resource**
+2. URL: `/local/3d_printing/<feature>/<filename>.js`
+3. Type: **JavaScript Module**
+4. Hard refresh browser (`Ctrl+F5`)
 
 ## 4) Restart required or not?
 
@@ -84,7 +107,7 @@ Typical action: refresh browser or reopen dashboard.
   - changing `filename`
   - changing sidebar/title/icon metadata
 - Changing package loader/include wiring (`_feature_loaders.yaml`, `*_loader.yaml`)
-- Adding new custom JS card resources (requires UI/API resource registration after deploy)
+- Adding new custom JS card resources (registered automatically by the workflow's resource sync step; may still need a browser hard refresh)
 
 Typical action: restart Home Assistant after config check.
 
