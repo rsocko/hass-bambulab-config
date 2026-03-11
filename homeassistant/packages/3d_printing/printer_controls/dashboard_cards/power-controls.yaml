@@ -49,15 +49,6 @@ cards:
           background: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
           border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
         }
-        ha-card::after {
-          content: "\23FB";
-          position: absolute;
-          top: 6px;
-          right: 8px;
-          font-size: 13px;
-          line-height: 1;
-          color: {% if is_state('switch.tp_link_power_strip_ab64_ams_heater', 'on') %}#F44336{% elif states('switch.tp_link_power_strip_ab64_ams_heater') in ['unavailable', 'unknown'] %}#9E9E9E{% else %}#4CAF50{% endif %};
-        }
         mushroom-state-info {
           text-align: center;
           align-items: center;
@@ -115,15 +106,6 @@ cards:
           background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
           border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
         }
-        ha-card::after {
-          content: "\23FB";
-          position: absolute;
-          top: 6px;
-          right: 8px;
-          font-size: 13px;
-          line-height: 1;
-          color: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer_camera', 'on') %}#F44336{% elif states('switch.tp_link_power_strip_ab64_3d_printer_camera') in ['unavailable', 'unknown'] %}#9E9E9E{% else %}#4CAF50{% endif %};
-        }
         mushroom-state-info {
           text-align: center;
           align-items: center;
@@ -180,15 +162,6 @@ cards:
           min-height: 84px;
           background: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.12){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.14){% else %}rgba(76, 175, 80, 0.12){% endif %};
           border: 1px solid {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}rgba(244, 67, 54, 0.4){% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}rgba(158, 158, 158, 0.45){% else %}rgba(76, 175, 80, 0.4){% endif %};
-        }
-        ha-card::after {
-          content: "\23FB";
-          position: absolute;
-          top: 6px;
-          right: 8px;
-          font-size: 13px;
-          line-height: 1;
-          color: {% if is_state('switch.tp_link_power_strip_ab64_3d_printer', 'on') %}#F44336{% elif states('switch.tp_link_power_strip_ab64_3d_printer') in ['unavailable', 'unknown'] %}#9E9E9E{% else %}#4CAF50{% endif %};
         }
         mushroom-state-info {
           text-align: center;
