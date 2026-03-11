@@ -175,6 +175,10 @@ cards:
                 return html;
               ]]]
           styles:
+            grid:
+              - grid-template-areas: '"details"'
+              - grid-template-columns: 1fr
+              - grid-template-rows: auto
             card:
               - background: var(--card-background-color, var(--ha-card-background, #1c1c1c))
               - border: 2px solid rgba(244,67,54,0.9)
@@ -186,20 +190,30 @@ cards:
             custom_fields:
               details:
                 - width: 100%
+                - display: block
                 - text-align: left
+                - justify-self: stretch
+                - align-self: stretch
           extra_styles: |
             .hms-wrap {
-              display: block;
+              display: flex;
+              flex-direction: column;
+              align-items: stretch;
               width: 100%;
+              max-width: 100%;
+              margin: 0;
             }
             .hms-item {
               display: block;
-              width: 100%;
+              width: 100% !important;
+              max-width: 100%;
               box-sizing: border-box;
               border-left: 8px solid #9e9e9e;
               border-radius: 0 12px 12px 0;
               padding: 12px 14px;
               margin-bottom: 12px;
+              margin-left: 0;
+              margin-right: 0;
             }
             .hms-item:last-child {
               margin-bottom: 0;
