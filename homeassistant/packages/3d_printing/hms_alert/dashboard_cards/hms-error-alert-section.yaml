@@ -138,8 +138,9 @@ cards:
             `{{ err.code }}`{% if err.wiki %} - [Troubleshooting Wiki]({{ err.wiki }}){% endif %}
 
             {% if not loop.last %}
-            ---
-
+            
+            ***
+            
             {% endif %}
 
 
