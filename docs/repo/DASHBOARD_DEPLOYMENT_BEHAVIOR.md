@@ -30,12 +30,42 @@ Current expected chain for Common dashboard registration:
 4. `_dashboards.yaml` -> dashboard key -> `filename: packages/3d_printing/common/dashboards/3d_printing_v2.yaml`
 5. `3d_printing_v2.yaml` -> `!include ../dashboard_views/view_*.yaml`
 
-For declarative custom card resources used by this dashboard:
-
-- `common_loader.yaml` -> `lovelace.resources: !include dashboards/_resources.yaml`
-- `_resources.yaml` -> `/local/3d_printing/...` module URLs
-
 If a file (for example `common/helpers/*.yaml`) is not referenced by loader includes, it is deployed but not loaded.
+
+### Custom card resources (JS/CSS in `www/`)
+
+Lovelace **resources** (custom JS card modules, CSS) are **not** loaded from YAML packages.
+Home Assistant uses **storage mode** for resource management by default, which means
+`lovelace.resources` entries in package YAML are **silently ignored**.
+
+Resources must be registered through one of:
+
+1. **Settings → Dashboards → Resources** (UI)
+2. **Home Assistant API / MCP tools** (for example `ha_config_set_dashboard_resource`)
+3. **HACS** (registers resources automatically for installed cards)
+
+#### What needs resource registration
+
+| File type | Example | Needs registration? |
+|---|---|---|
+| Custom card JS | `skip-objects-card.js` | **Yes** — must be registered as `module` |
+| CSS stylesheet | `custom-theme.css` | **Yes** — registered as `css` |
+| Images (SVG/PNG) | `speedometer-LUDICROUS.svg` | **No** — referenced directly via `/local/...` URL |
+| JSON data files | any `.json` | **No** — fetched by URL from card code |
+
+#### Reference file for resource URLs
+
+The file `common/dashboards/_resources.yaml` is kept as a **reference manifest** of custom
+resources this repo provides. It is not loaded by HA at runtime but documents which
+`/local/...` URLs need to be registered in the HA UI/storage after deployment.
+
+#### First-time setup after deploying a new JS resource
+
+1. Deploy the package with `packages_www` profile (or `include_www_for_selected=true`)
+2. In HA: **Settings → Dashboards → Resources → Add Resource**
+3. URL: `/local/3d_printing/<feature>/<filename>.js`
+4. Type: **JavaScript Module**
+5. Hard refresh browser (`Ctrl+F5`)
 
 ## 4) Restart required or not?
 
@@ -54,7 +84,7 @@ Typical action: refresh browser or reopen dashboard.
   - changing `filename`
   - changing sidebar/title/icon metadata
 - Changing package loader/include wiring (`_feature_loaders.yaml`, `*_loader.yaml`)
-- Changing declarative Lovelace resources (`common_loader.yaml` `lovelace.resources` or `dashboards/_resources.yaml`)
+- Adding new custom JS card resources (requires UI/API resource registration after deploy)
 
 Typical action: restart Home Assistant after config check.
 
@@ -107,23 +137,48 @@ Selected scope nuance:
 
 ## 9) Manual JS Cache Bust (resource query string)
 
-If dashboard JS changes are deployed but UI still shows old behavior, force a frontend refetch by changing only the resource URL query string.
+If dashboard JS changes are deployed but UI still shows old behavior, force a frontend refetch by changing the resource URL query string in HA storage.
 
 Example:
 
-- Before: `/local/3d_printing/printer_controls/skip-objects-card.js?v=20260310m`
-- After: `/local/3d_printing/printer_controls/skip-objects-card.js?v=20260310n`
+- Before: `/local/3d_printing/printer_controls/skip-objects-card.js`
+- After: `/local/3d_printing/printer_controls/skip-objects-card.js?v=20260310a`
 
 This does not require renaming or moving the underlying file. The changed URL invalidates browser module cache.
 
 UI steps:
 
-1. Home Assistant -> **Settings** -> **Dashboards** -> **Resources**.
+1. Home Assistant → **Settings** → **Dashboards** → **Resources**.
 2. Edit the affected `/local/...js` resource.
-3. Change only the `?v=` suffix and save.
+3. Append or change the `?v=` suffix and save.
 4. Hard refresh browser (`Ctrl+F5`) and reopen the dashboard.
 
 Notes:
 
 - Use this as a break-glass step when normal refresh/restart did not pick up JS updates.
-- Keep declarative resource definitions in YAML (`common/dashboards/_resources.yaml`) as the source of truth; if you manually change resource URLs in UI, mirror those updates back into YAML on the next commit.
+- Resources are managed in HA storage (UI/API), not in YAML. The file `common/dashboards/_resources.yaml` serves as a reference manifest only.
+
+## 10) `www/` Static Assets vs Lovelace Resources
+
+Files deployed to `www/` (mapped to `/local/` URLs) fall into two categories:
+
+### Static assets (no registration needed)
+
+Images, SVGs, JSON files, and other non-executable assets are served by HA's built-in
+static file server. They are referenced directly by URL from dashboard cards or templates.
+
+Example: an SVG icon referenced in a button-card template:
+```yaml
+# In a card template
+return `<img src="/local/3d_printing/printer_controls/speedometer-ludicrous.svg" />`;
+```
+
+These files only need to be **deployed** — no resource registration step.
+
+### Custom card modules (registration required)
+
+JavaScript `.js` files that define custom Lovelace card elements (`customElements.define(...)`)
+must be registered as Lovelace resources so the frontend loads them. See section 3 above
+for the registration procedure.
+
+Deployment alone puts the file on disk, but HA will not execute it until it is registered.

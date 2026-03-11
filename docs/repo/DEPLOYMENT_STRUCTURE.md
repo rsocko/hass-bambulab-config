@@ -61,6 +61,7 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
   - Keep assets feature-scoped for selected-package deploy parity, for example:
     - `homeassistant/www/3d_printing/printer_controls/skip-objects-card.js`
     - referenced by dashboard resource URL: `/local/3d_printing/printer_controls/skip-objects-card.js`
+    - **Note:** JS custom card files require Lovelace resource registration in HA UI/API after deploy (see [Dashboard Deploy Behavior](./DASHBOARD_DEPLOYMENT_BEHAVIOR.md) section 3). Static assets (images, SVGs) do not.
 - Feature loader include map:
   - Keep shared feature loader mappings in [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../homeassistant/packages/3d_printing/_feature_loaders.yaml).
   - In Home Assistant `configuration.yaml`, use:
