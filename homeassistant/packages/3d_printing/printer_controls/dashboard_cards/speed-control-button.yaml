@@ -64,11 +64,11 @@ styles:
     - width: 46px
     - height: 46px
     - padding: 0
-    - border-radius: 50%
+    - border-radius: 16px
     - display: flex
     - align-items: center
     - justify-content: center
-    - background: transparent
+    - background: var(--ha-card-background, var(--card-background-color))
     - cursor: pointer
     - position: relative
     - overflow: visible
