@@ -76,13 +76,12 @@ cards:
       - type: vertical-stack
         cards:
           - type: custom:button-card
-            show_name: false
+            name: Bed (Z)
+            show_name: true
             show_state: false
             show_icon: false
             tap_action:
               action: none
-            custom_fields:
-              label: Bed (Z)
             styles:
               card:
                 - padding: 2px
@@ -90,16 +89,12 @@ cards:
                 - box-shadow: none
                 - border: none
                 - height: 32px
-                - display: flex
-                - justify-content: center
-                - align-items: center
-              custom_fields:
-                label:
-                  - font-size: 15px
-                  - font-weight: 600
-                  - opacity: '0.7'
-                  - text-align: center
-                  - white-space: nowrap
+              name:
+                - font-size: 15px
+                - font-weight: 600
+                - opacity: '0.7'
+                - white-space: nowrap
+                - justify-self: center
           # Z +10 (blue tint)
           - type: custom:button-card
             show_name: false
@@ -223,13 +218,12 @@ cards:
       - type: vertical-stack
         cards:
           - type: custom:button-card
-            show_name: false
+            name: X / Y Axis
+            show_name: true
             show_state: false
             show_icon: false
             tap_action:
               action: none
-            custom_fields:
-              label: X / Y Axis
             styles:
               card:
                 - padding: 2px
@@ -237,16 +231,12 @@ cards:
                 - box-shadow: none
                 - border: none
                 - height: 32px
-                - display: flex
-                - justify-content: center
-                - align-items: center
-              custom_fields:
-                label:
-                  - font-size: 15px
-                  - font-weight: 600
-                  - opacity: '0.7'
-                  - text-align: center
-                  - white-space: nowrap
+              name:
+                - font-size: 15px
+                - font-weight: 600
+                - opacity: '0.7'
+                - white-space: nowrap
+                - justify-self: center
           # Row 1: Y+10 (blue tint, centered)
           - type: horizontal-stack
             cards:
@@ -653,13 +643,12 @@ cards:
       - type: vertical-stack
         cards:
           - type: custom:button-card
-            show_name: false
+            name: Extruder
+            show_name: true
             show_state: false
             show_icon: false
             tap_action:
               action: none
-            custom_fields:
-              label: Extruder
             styles:
               card:
                 - padding: 2px
@@ -667,16 +656,12 @@ cards:
                 - box-shadow: none
                 - border: none
                 - height: 32px
-                - display: flex
-                - justify-content: center
-                - align-items: center
-              custom_fields:
-                label:
-                  - font-size: 15px
-                  - font-weight: 600
-                  - opacity: '0.7'
-                  - text-align: center
-                  - white-space: nowrap
+              name:
+                - font-size: 15px
+                - font-weight: 600
+                - opacity: '0.7'
+                - white-space: nowrap
+                - justify-self: center
           # Spacer (aligns retract with Z +1)
           - type: custom:button-card
             show_name: false
