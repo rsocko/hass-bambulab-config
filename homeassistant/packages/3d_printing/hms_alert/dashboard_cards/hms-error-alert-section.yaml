@@ -141,46 +141,34 @@ cards:
                     .replace(/>/g, '&gt;');
                 };
 
-                var getSeverity = function(raw) {
+                var getIcon = function(raw) {
                   var sev = String(raw || 'unknown').toLowerCase();
-                  if (sev.indexOf('critical') !== -1 || sev.indexOf('serious') !== -1 || sev.indexOf('fatal') !== -1 || sev.indexOf('high') !== -1) {
-                    return { icon: '🔴', border: '#f44336', bg: 'rgba(244,67,54,0.10)' };
-                  }
-                  if (sev.indexOf('medium') !== -1 || sev.indexOf('warn') !== -1) {
-                    return { icon: '🟠', border: '#ff9800', bg: 'rgba(255,152,0,0.10)' };
-                  }
-                  if (sev.indexOf('minor') !== -1 || sev.indexOf('low') !== -1) {
-                    return { icon: '🟡', border: '#ffc107', bg: 'rgba(255,193,7,0.10)' };
-                  }
-                  return { icon: '⚪', border: '#9e9e9e', bg: 'rgba(158,158,158,0.10)' };
+                  if (sev.indexOf('critical') !== -1 || sev.indexOf('serious') !== -1 || sev.indexOf('fatal') !== -1 || sev.indexOf('high') !== -1) return '🔴';
+                  if (sev.indexOf('medium') !== -1 || sev.indexOf('warn') !== -1) return '🟠';
+                  if (sev.indexOf('minor') !== -1 || sev.indexOf('low') !== -1) return '🟡';
+                  return '⚪';
                 };
 
-                var html = '<div class="hms-wrap">';
+                var html = '<div class="hms-list">';
                 for (var idx = 0; idx < items.length; idx += 1) {
                   var it = items[idx];
-                  var sev = getSeverity(it.severity);
-                  var title = escapeHtml(it.severity || 'unknown');
+                  var icon = getIcon(it.severity);
+                  var severity = escapeHtml(it.severity || 'unknown');
                   var text = escapeHtml(it.text);
                   var code = escapeHtml(it.code);
                   var wiki = String(it.wiki || '');
                   var wikiHtml = wiki ? ' - <a href="' + wiki + '" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki</a>' : '';
 
-                  html += '<div class="hms-item" style="border-left-color:' + sev.border + ';background:' + sev.bg + ';">';
-                  html +=   '<div class="hms-title">' + sev.icon + ' Error ' + (idx + 1) + ' <span>(' + title + ')</span></div>';
-                  html +=   '<div class="hms-text">' + text + '</div>';
-                  html +=   '<div class="hms-code"><code>' + code + '</code>' + wikiHtml + '</div>';
+                  html += '<div class="hms-line">';
+                  html += '<div><strong>' + icon + ' Error ' + (idx + 1) + '</strong> (' + severity + ')</div>';
+                  html += '<div>' + text + '</div>';
+                  html += '<div><code>' + code + '</code>' + wikiHtml + '</div>';
                   html += '</div>';
                 }
                 html += '</div>';
                 return html;
               ]]]
           styles:
-            grid:
-              - grid-template-areas: '"details"'
-              - grid-template-columns: 1fr
-              - grid-template-rows: auto
-              - justify-items: stretch
-              - align-items: stretch
             card:
               - background: var(--card-background-color, var(--ha-card-background, #1c1c1c))
               - border: 2px solid rgba(244,67,54,0.9)
@@ -192,77 +180,29 @@ cards:
             custom_fields:
               details:
                 - width: 100%
-                - display: block
                 - text-align: left
-                - justify-self: stretch
-                - align-self: stretch
-                - margin: 0
-                - padding: 0
-          card_mod:
-            style: |
-              :host {
-                display: block;
-                width: 100%;
-              }
-              ha-card {
-                width: 100%;
-              }
-              #container {
-                width: 100% !important;
-                grid-template-columns: 1fr !important;
-                justify-items: stretch !important;
-                align-items: stretch !important;
-              }
-              #container > * {
-                justify-self: stretch !important;
-                width: 100% !important;
-                min-width: 0;
-              }
+                - justify-self: start
+                - align-self: start
           extra_styles: |
-            .hms-wrap {
-              display: flex;
-              flex-direction: column;
-              align-items: stretch;
-              width: 100%;
-              max-width: 100%;
-              margin: 0;
+            .hms-list {
+              text-align: left;
             }
-            .hms-item {
-              display: block;
-              width: 100% !important;
-              max-width: 100%;
-              box-sizing: border-box;
-              border-left: 8px solid #9e9e9e;
-              border-radius: 0 12px 12px 0;
-              padding: 12px 14px;
+            .hms-line {
               margin-bottom: 12px;
-              margin-left: 0;
-              margin-right: 0;
+              line-height: 1.5;
             }
-            .hms-item:last-child {
+            .hms-line:last-child {
               margin-bottom: 0;
             }
-            .hms-title {
-              font-size: 1.02rem;
-              font-weight: 700;
-              margin-bottom: 8px;
-            }
-            .hms-title span {
-              opacity: 0.82;
-              font-weight: 600;
-            }
-            .hms-text {
-              line-height: 1.5;
-              margin-bottom: 10px;
-            }
-            .hms-code code {
+            .hms-line code {
               font-size: 0.88em;
             }
-            .hms-code a {
+            .hms-line a {
               color: #64b5f6;
             }
             .hms-empty {
               color: var(--secondary-text-color);
+              text-align: left;
             }
     grid_options:
       columns: full
