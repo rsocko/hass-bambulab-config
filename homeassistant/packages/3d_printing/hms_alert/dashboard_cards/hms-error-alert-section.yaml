@@ -158,6 +158,15 @@ cards:
                   margin-top: -8px;
                 }
               ha-markdown$: |
+                .markdown-content p {
+                  margin: 0 0 10px 0 !important;
+                  line-height: 1.5;
+                }
+                .markdown-content hr {
+                  border: 0;
+                  border-top: 2px solid rgba(255, 255, 255, 0.28);
+                  margin: 16px 0 !important;
+                }
                 code {
                   font-size: 0.88em;
                 }
