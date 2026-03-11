@@ -46,11 +46,6 @@ cards:
         card_mod:
           style:
             ha-card: |
-              @keyframes hms-pulse {
-                0%, 100% { box-shadow: 0 0 0 0 rgba(244,67,54,0.6); }
-                50%  { box-shadow: 0 0 25px 6px rgba(244,67,54,0.35),
-                                   0 0 60px 14px rgba(244,67,54,0.10); }
-              }
               ha-card {
                 background: linear-gradient(
                   135deg,
@@ -61,7 +56,6 @@ cards:
                 border: 2px solid rgba(244,67,54,0.9);
                 border-radius: 14px;
                 --card-mod-icon-color: red;
-                animation: hms-pulse 2s ease-in-out infinite;
                 position: relative;
               }
               ha-card::after {
@@ -74,19 +68,7 @@ cards:
                 color: rgba(255,255,255, {% if is_state("input_boolean.hms_alert_show_details", "on") %}0.9{% else %}0.45{% endif %});
               }
             mushroom-card$: |
-              @keyframes hms-icon-glow {
-                0%, 100% {
-                  filter: drop-shadow(0 0 4px rgba(255,220,80,0.7));
-                  transform: scale(1);
-                }
-                50% {
-                  filter: drop-shadow(0 0 12px rgba(255,200,50,1))
-                         drop-shadow(0 0 22px rgba(255,160,0,0.5));
-                  transform: scale(1.12);
-                }
-              }
               mushroom-shape-icon {
-                animation: hms-icon-glow 2s ease-in-out infinite;
                 --shape-color: rgba(255,240,210,0.18) !important;
               }
             mushroom-card$mushroom-state-info$: |
@@ -134,7 +116,7 @@ cards:
             {%- if ns.errors | count == 0 -%}
             No error details available.
             {%- endif -%}
-            {%- for err in ns.errors -%}
+            {% for err in ns.errors %}
               {%- set sev = (err.severity | default('unknown')) | lower -%}
               {%- if 'critical' in sev or 'serious' in sev or 'fatal' in sev or 'high' in sev -%}
                 {%- set sev_icon = '🔴' -%}
@@ -154,7 +136,7 @@ cards:
 
 
 
-            {%- endfor -%}
+            {% endfor %}
           card_mod:
             style:
               ha-card: |
