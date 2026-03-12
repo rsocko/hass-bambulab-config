@@ -58,10 +58,16 @@ cards:
         #root {
           display: grid !important;
           grid-template-columns: minmax(0, 4fr) minmax(68px, 1fr) minmax(68px, 1fr);
-          align-items: start;
+          align-items: stretch;
           column-gap: 12px;
           row-gap: 12px;
           padding: 0 6px;
+        }
+        #root > *:first-child {
+          align-self: start;
+        }
+        #root > *:not(:first-child) {
+          align-self: center;
         }
         #root > * {
           min-width: 0 !important;
@@ -79,10 +85,12 @@ cards:
           #root > *:nth-child(2) {
             grid-column: 1;
             grid-row: 2;
+            align-self: start;
           }
           #root > *:last-child {
             grid-column: 2;
             grid-row: 2;
+            align-self: start;
           }
         }
     cards:
