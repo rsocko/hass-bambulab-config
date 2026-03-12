@@ -73,19 +73,16 @@ cards:
           padding: 0 6px;
         }
         #root > *:first-child {
-          order: 2;
-          flex: 0 0 16% !important;
-          max-width: 16%;
-          min-width: 68px;
-        }
-        #root > *:nth-child(2) {
-          order: 1;
           flex: 0 0 68% !important;
           max-width: 68%;
           min-width: 320px;
         }
+        #root > *:nth-child(2) {
+          flex: 0 0 16% !important;
+          max-width: 16%;
+          min-width: 68px;
+        }
         #root > *:last-child {
-          order: 3;
           flex: 0 0 16% !important;
           max-width: 16%;
           min-width: 68px;
@@ -95,159 +92,17 @@ cards:
             flex-wrap: wrap;
             gap: 12px;
           }
-          #root > *:nth-child(2) {
+          #root > *:first-child {
             flex: 1 1 100% !important;
             max-width: 100%;
           }
-          #root > *:first-child,
+          #root > *:nth-child(2),
           #root > *:last-child {
             flex: 1 1 calc(50% - 6px) !important;
             max-width: calc(50% - 6px);
           }
         }
     cards:
-      # ── Z-axis (Bed) Controls ──────────────────────────────
-      - type: vertical-stack
-        cards:
-          - type: custom:button-card
-            name: Bed (Z)
-            show_name: true
-            show_state: false
-            show_icon: false
-            tap_action:
-              action: none
-            styles:
-              card:
-                - padding: 2px
-                - background: transparent
-                - box-shadow: none
-                - border: none
-                - height: 32px
-              name:
-                - font-size: 15px
-                - font-weight: 600
-                - opacity: '0.7'
-                - white-space: nowrap
-                - justify-self: center
-          # Z +10 (blue tint)
-          - type: custom:button-card
-            show_name: false
-            show_state: false
-            icon: mdi:chevron-double-up
-            tap_action:
-              action: call-service
-              service: bambu_lab.move_axis
-              service_data:
-                device_id: "210dfdfa64085e8cf073e50eae757d90"
-                axis: "Z"
-                distance: -10
-            styles:
-              card:
-                - padding: 4px
-                - border-radius: 12px
-                - height: 48px
-                - background-color: rgba(66, 165, 245, 0.25)
-              icon:
-                - color: var(--primary-text-color)
-                - width: 20px
-            extra_styles: |
-              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-              ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
-              ha-card:active { transform: scale(0.93); }
-          # Z +1 (gray)
-          - type: custom:button-card
-            show_name: false
-            show_state: false
-            icon: mdi:chevron-up
-            tap_action:
-              action: call-service
-              service: bambu_lab.move_axis
-              service_data:
-                device_id: "210dfdfa64085e8cf073e50eae757d90"
-                axis: "Z"
-                distance: -1
-            styles:
-              card:
-                - padding: 4px
-                - border-radius: 12px
-                - height: 48px
-                - background-color: rgba(158, 158, 158, 0.3)
-              icon:
-                - color: var(--primary-text-color)
-                - width: 20px
-            extra_styles: |
-              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
-              ha-card:active { transform: scale(0.93); }
-          # Bed icon (centered)
-          - type: custom:button-card
-            show_name: false
-            show_state: false
-            icon: mdi:train-car-flatbed
-            tap_action:
-              action: none
-            styles:
-              card:
-                - padding: 0
-                - background: transparent
-                - box-shadow: none
-                - border: none
-                - height: 48px
-              icon:
-                - color: var(--primary-text-color)
-                - opacity: '0.6'
-                - width: 22px
-          # Z -1 (gray)
-          - type: custom:button-card
-            show_name: false
-            show_state: false
-            icon: mdi:chevron-down
-            tap_action:
-              action: call-service
-              service: bambu_lab.move_axis
-              service_data:
-                device_id: "210dfdfa64085e8cf073e50eae757d90"
-                axis: "Z"
-                distance: 1
-            styles:
-              card:
-                - padding: 4px
-                - border-radius: 12px
-                - height: 48px
-                - background-color: rgba(158, 158, 158, 0.3)
-              icon:
-                - color: var(--primary-text-color)
-                - width: 20px
-            extra_styles: |
-              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
-              ha-card:active { transform: scale(0.93); }
-          # Z -10 (blue tint)
-          - type: custom:button-card
-            show_name: false
-            show_state: false
-            icon: mdi:chevron-double-down
-            tap_action:
-              action: call-service
-              service: bambu_lab.move_axis
-              service_data:
-                device_id: "210dfdfa64085e8cf073e50eae757d90"
-                axis: "Z"
-                distance: 10
-            styles:
-              card:
-                - padding: 4px
-                - border-radius: 12px
-                - height: 48px
-                - background-color: rgba(66, 165, 245, 0.25)
-              icon:
-                - color: var(--primary-text-color)
-                - width: 20px
-            extra_styles: |
-              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-              ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
-              ha-card:active { transform: scale(0.93); }
-
       # ── XY Joypad (circular layout) ───────────────────────
       - type: vertical-stack
         cards:
@@ -590,6 +445,148 @@ cards:
                   ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
                   ha-card:hover { transform: scale(1.08); background-color: rgba(33, 150, 243, 0.32) !important; border-color: rgba(33, 150, 243, 0.78) !important; }
                   ha-card:active { transform: scale(0.93); }
+
+      # ── Z-axis (Bed) Controls ──────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: custom:button-card
+            name: Bed (Z)
+            show_name: true
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: none
+            styles:
+              card:
+                - padding: 2px
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 32px
+              name:
+                - font-size: 15px
+                - font-weight: 600
+                - opacity: '0.7'
+                - white-space: nowrap
+                - justify-self: center
+          # Z +10 (blue tint)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-double-up
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: -10
+            styles:
+              card:
+                - padding: 4px
+                - border-radius: 12px
+                - height: 48px
+                - background-color: rgba(66, 165, 245, 0.25)
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Z +1 (gray)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-up
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: -1
+            styles:
+              card:
+                - padding: 4px
+                - border-radius: 12px
+                - height: 48px
+                - background-color: rgba(158, 158, 158, 0.3)
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Bed icon (centered)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:train-car-flatbed
+            tap_action:
+              action: none
+            styles:
+              card:
+                - padding: 0
+                - background: transparent
+                - box-shadow: none
+                - border: none
+                - height: 48px
+              icon:
+                - color: var(--primary-text-color)
+                - opacity: '0.6'
+                - width: 22px
+          # Z -1 (gray)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-down
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: 1
+            styles:
+              card:
+                - padding: 4px
+                - border-radius: 12px
+                - height: 48px
+                - background-color: rgba(158, 158, 158, 0.3)
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+              ha-card:active { transform: scale(0.93); }
+          # Z -10 (blue tint)
+          - type: custom:button-card
+            show_name: false
+            show_state: false
+            icon: mdi:chevron-double-down
+            tap_action:
+              action: call-service
+              service: bambu_lab.move_axis
+              service_data:
+                device_id: "210dfdfa64085e8cf073e50eae757d90"
+                axis: "Z"
+                distance: 10
+            styles:
+              card:
+                - padding: 4px
+                - border-radius: 12px
+                - height: 48px
+                - background-color: rgba(66, 165, 245, 0.25)
+              icon:
+                - color: var(--primary-text-color)
+                - width: 20px
+            extra_styles: |
+              ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
+              ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+              ha-card:active { transform: scale(0.93); }
 
       # ── Extruder Controls ──────────────────────────────────
       - type: vertical-stack
