@@ -269,7 +269,7 @@ cards:
                 - white-space: nowrap
                 - justify-self: center
           - type: picture-elements
-            image: /local/3d_printing/printer_xy_control.svg
+            image: /local/3d_printing/printer_controls/printer_xy_control.svg
             card_mod:
               style: |
                 ha-card {
