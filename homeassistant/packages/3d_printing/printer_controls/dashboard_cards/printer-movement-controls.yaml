@@ -68,38 +68,24 @@ cards:
     card_mod:
       style: |
         #root {
-          align-items: flex-start;
-          gap: 12px;
+          display: grid !important;
+          grid-template-columns: minmax(0, 4fr) minmax(68px, 1fr) minmax(68px, 1fr);
+          align-items: start;
+          column-gap: 12px;
+          row-gap: 12px;
           padding: 0 6px;
         }
-        #root > *:first-child {
-          flex: 0 0 68% !important;
-          max-width: 68%;
-          min-width: 320px;
-        }
-        #root > *:nth-child(2) {
-          flex: 0 0 16% !important;
-          max-width: 16%;
-          min-width: 68px;
-        }
-        #root > *:last-child {
-          flex: 0 0 16% !important;
-          max-width: 16%;
-          min-width: 68px;
+        #root > * {
+          min-width: 0 !important;
+          max-width: none !important;
+          width: auto !important;
         }
         @media (max-width: 760px) {
           #root {
-            flex-wrap: wrap;
-            gap: 12px;
+            grid-template-columns: 1fr 1fr;
           }
           #root > *:first-child {
-            flex: 1 1 100% !important;
-            max-width: 100%;
-          }
-          #root > *:nth-child(2),
-          #root > *:last-child {
-            flex: 1 1 calc(50% - 6px) !important;
-            max-width: calc(50% - 6px);
+            grid-column: 1 / -1;
           }
         }
     cards:
