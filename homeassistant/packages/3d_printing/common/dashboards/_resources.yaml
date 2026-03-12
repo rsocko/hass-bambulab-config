@@ -1,2 +1,4 @@
 - url: /local/3d_printing/printer_controls/skip-objects-card.js
   type: module
+- url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
+  type: module
