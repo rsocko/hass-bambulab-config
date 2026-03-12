@@ -8,8 +8,8 @@
 #   - bambu_lab.move_axis  { device_id, axis: X|Y|Z|HOME, distance: number }
 #   - bambu_lab.extrude_retract  { device_id, type: retract|extrude }
 #
-# Layout (+ sign XY joypad):
-#   [ Z-axis (Bed) ] | [ XY Joypad ] | [ Extruder ]
+# Layout (circular XY joypad):
+#   [ XY Joypad ] | [ Z-axis (Bed) ] | [ Extruder ]
 #
 # Color scheme:
 #   ±1 mm buttons  — medium gray  rgba(158,158,158,0.3)
@@ -63,25 +63,44 @@ cards:
         justify-content: center;
       }
 
-  # ── Main controls: [ Z ] | [ XY ] | [ Extruder ] ──────────
+  # ── Main controls: [ XY ] | [ Z ] | [ Extruder ] ──────────
   - type: horizontal-stack
     card_mod:
       style: |
         #root {
           align-items: flex-start;
-          gap: 24px;
-          padding: 0 8px;
+          gap: 18px;
+          padding: 0 6px;
         }
         #root > *:first-child {
-          flex: 0 0 70px !important;
-          max-width: 70px;
+          order: 2;
+          flex: 0 0 72px !important;
+          max-width: 72px;
         }
         #root > *:nth-child(2) {
-          flex: 1 1 auto !important;
+          order: 1;
+          flex: 1 1 320px !important;
+          min-width: 240px;
         }
         #root > *:last-child {
-          flex: 0 0 70px !important;
-          max-width: 70px;
+          order: 3;
+          flex: 0 0 72px !important;
+          max-width: 72px;
+        }
+        @media (max-width: 760px) {
+          #root {
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+          #root > *:nth-child(2) {
+            flex: 1 1 100% !important;
+            max-width: 100%;
+          }
+          #root > *:first-child,
+          #root > *:last-child {
+            flex: 1 1 calc(50% - 6px) !important;
+            max-width: calc(50% - 6px);
+          }
         }
     cards:
       # ── Z-axis (Bed) Controls ──────────────────────────────
@@ -226,7 +245,7 @@ cards:
               ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
               ha-card:active { transform: scale(0.93); }
 
-      # ── XY Joypad (+ sign layout) ─────────────────────────
+      # ── XY Joypad (circular layout) ───────────────────────
       - type: vertical-stack
         cards:
           - type: custom:button-card
@@ -249,33 +268,20 @@ cards:
                 - opacity: '0.7'
                 - white-space: nowrap
                 - justify-self: center
-          # Row 1: Y+10 (blue tint, centered)
-          - type: horizontal-stack
-            cards:
+          - type: picture-elements
+            image: /local/3d_printing/printer_xy_control.svg
+            card_mod:
+              style: |
+                ha-card {
+                  background: transparent;
+                  box-shadow: none;
+                }
+            elements:
+              # Outer ring wedges: +/- 10 mm
               - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
                 icon: mdi:chevron-double-up
+                show_name: false
+                show_state: false
                 tap_action:
                   action: call-service
                   service: bambu_lab.move_axis
@@ -283,114 +289,67 @@ cards:
                     device_id: "210dfdfa64085e8cf073e50eae757d90"
                     axis: "Y"
                     distance: 10
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 96%
+                  height: 96%
+                  transform: translate(-50%, -50%) rotate(0deg)
                 styles:
                   card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(66, 165, 245, 0.25)
+                    - border-radius: 0
+                    - background: rgba(66, 165, 245, 0.25)
+                    - border: 1px solid rgba(66, 165, 245, 0.35)
+                    - clip-path: polygon(42% 30%, 58% 30%, 70% 8%, 30% 8%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 18px
                   icon:
                     - color: var(--primary-text-color)
-                    - width: 20px
+                    - width: 22px
                 extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; border-color: rgba(66, 165, 245, 0.65) !important; }
                   ha-card:active { transform: scale(0.93); }
               - type: custom:button-card
+                icon: mdi:chevron-double-up
                 show_name: false
                 show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-          # Row 2: Y+1 (gray, centered)
-          - type: horizontal-stack
-            cards:
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                icon: mdi:chevron-up
                 tap_action:
                   action: call-service
                   service: bambu_lab.move_axis
                   service_data:
                     device_id: "210dfdfa64085e8cf073e50eae757d90"
                     axis: "Y"
-                    distance: 1
+                    distance: -10
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 96%
+                  height: 96%
+                  transform: translate(-50%, -50%) rotate(180deg)
                 styles:
                   card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(158, 158, 158, 0.3)
+                    - border-radius: 0
+                    - background: rgba(66, 165, 245, 0.25)
+                    - border: 1px solid rgba(66, 165, 245, 0.35)
+                    - clip-path: polygon(42% 30%, 58% 30%, 70% 8%, 30% 8%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 18px
                   icon:
                     - color: var(--primary-text-color)
-                    - width: 20px
+                    - width: 22px
                 extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; border-color: rgba(66, 165, 245, 0.65) !important; }
                   ha-card:active { transform: scale(0.93); }
               - type: custom:button-card
+                icon: mdi:chevron-double-up
                 show_name: false
                 show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-          # Row 3: X-10, X-1, HOME, X+1, X+10
-          - type: horizontal-stack
-            cards:
-              # X -10 (blue tint)
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                icon: mdi:chevron-double-left
                 tap_action:
                   action: call-service
                   service: bambu_lab.move_axis
@@ -398,24 +357,137 @@ cards:
                     device_id: "210dfdfa64085e8cf073e50eae757d90"
                     axis: "X"
                     distance: -10
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 96%
+                  height: 96%
+                  transform: translate(-50%, -50%) rotate(270deg)
                 styles:
                   card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(66, 165, 245, 0.25)
+                    - border-radius: 0
+                    - background: rgba(66, 165, 245, 0.25)
+                    - border: 1px solid rgba(66, 165, 245, 0.35)
+                    - clip-path: polygon(42% 30%, 58% 30%, 70% 8%, 30% 8%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 18px
                   icon:
                     - color: var(--primary-text-color)
-                    - width: 20px
+                    - width: 22px
                 extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; border-color: rgba(66, 165, 245, 0.65) !important; }
                   ha-card:active { transform: scale(0.93); }
-              # X -1 (gray)
               - type: custom:button-card
+                icon: mdi:chevron-double-up
                 show_name: false
                 show_state: false
-                icon: mdi:chevron-left
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: 10
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 96%
+                  height: 96%
+                  transform: translate(-50%, -50%) rotate(90deg)
+                styles:
+                  card:
+                    - border-radius: 0
+                    - background: rgba(66, 165, 245, 0.25)
+                    - border: 1px solid rgba(66, 165, 245, 0.35)
+                    - clip-path: polygon(42% 30%, 58% 30%, 70% 8%, 30% 8%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 18px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 22px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; border-color: rgba(66, 165, 245, 0.65) !important; }
+                  ha-card:active { transform: scale(0.93); }
+
+              # Inner ring wedges: +/- 1 mm
+              - type: custom:button-card
+                icon: mdi:chevron-up
+                show_name: false
+                show_state: false
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "Y"
+                    distance: 1
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 74%
+                  height: 74%
+                  transform: translate(-50%, -50%) rotate(0deg)
+                styles:
+                  card:
+                    - border-radius: 0
+                    - background: rgba(158, 158, 158, 0.3)
+                    - border: 1px solid rgba(158, 158, 158, 0.35)
+                    - clip-path: polygon(42% 48%, 58% 48%, 66% 30%, 34% 30%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 22px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 22px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; border-color: rgba(190, 190, 190, 0.7) !important; }
+                  ha-card:active { transform: scale(0.93); }
+              - type: custom:button-card
+                icon: mdi:chevron-up
+                show_name: false
+                show_state: false
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "Y"
+                    distance: -1
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 74%
+                  height: 74%
+                  transform: translate(-50%, -50%) rotate(180deg)
+                styles:
+                  card:
+                    - border-radius: 0
+                    - background: rgba(158, 158, 158, 0.3)
+                    - border: 1px solid rgba(158, 158, 158, 0.35)
+                    - clip-path: polygon(42% 48%, 58% 48%, 66% 30%, 34% 30%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 22px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 22px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; border-color: rgba(190, 190, 190, 0.7) !important; }
+                  ha-card:active { transform: scale(0.93); }
+              - type: custom:button-card
+                icon: mdi:chevron-up
+                show_name: false
+                show_state: false
                 tap_action:
                   action: call-service
                   service: bambu_lab.move_axis
@@ -423,24 +495,69 @@ cards:
                     device_id: "210dfdfa64085e8cf073e50eae757d90"
                     axis: "X"
                     distance: -1
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 74%
+                  height: 74%
+                  transform: translate(-50%, -50%) rotate(270deg)
                 styles:
                   card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(158, 158, 158, 0.3)
+                    - border-radius: 0
+                    - background: rgba(158, 158, 158, 0.3)
+                    - border: 1px solid rgba(158, 158, 158, 0.35)
+                    - clip-path: polygon(42% 48%, 58% 48%, 66% 30%, 34% 30%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 22px
                   icon:
                     - color: var(--primary-text-color)
-                    - width: 20px
+                    - width: 22px
                 extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; border-color: rgba(190, 190, 190, 0.7) !important; }
                   ha-card:active { transform: scale(0.93); }
-              # HOME (blue accent)
               - type: custom:button-card
+                icon: mdi:chevron-up
                 show_name: false
                 show_state: false
+                tap_action:
+                  action: call-service
+                  service: bambu_lab.move_axis
+                  service_data:
+                    device_id: "210dfdfa64085e8cf073e50eae757d90"
+                    axis: "X"
+                    distance: 1
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 74%
+                  height: 74%
+                  transform: translate(-50%, -50%) rotate(90deg)
+                styles:
+                  card:
+                    - border-radius: 0
+                    - background: rgba(158, 158, 158, 0.3)
+                    - border: 1px solid rgba(158, 158, 158, 0.35)
+                    - clip-path: polygon(42% 48%, 58% 48%, 66% 30%, 34% 30%)
+                    - display: flex
+                    - justify-content: center
+                    - align-items: flex-start
+                    - padding-top: 22px
+                  icon:
+                    - color: var(--primary-text-color)
+                    - width: 22px
+                extra_styles: |
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; border-color: rgba(190, 190, 190, 0.7) !important; }
+                  ha-card:active { transform: scale(0.93); }
+
+              # Home in center
+              - type: custom:button-card
                 icon: mdi:home
+                show_name: false
+                show_state: false
                 tap_action:
                   action: call-service
                   service: bambu_lab.move_axis
@@ -452,204 +569,23 @@ cards:
                     text: >-
                       Home the printer? This brings the heat bed to the nozzle —
                       remove any model from the bed first to avoid damage.
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 46px
                 styles:
                   card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
+                    - height: 46px
+                    - border-radius: 50%
                     - background: rgba(33, 150, 243, 0.15)
-                    - border: 1px solid rgba(33, 150, 243, 0.4)
+                    - border: 1px solid rgba(33, 150, 243, 0.45)
                   icon:
                     - color: '#2196F3'
-                    - width: 22px
+                    - width: 24px
                 extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(33, 150, 243, 0.3) !important; }
+                  ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
+                  ha-card:hover { transform: scale(1.08); background-color: rgba(33, 150, 243, 0.32) !important; border-color: rgba(33, 150, 243, 0.78) !important; }
                   ha-card:active { transform: scale(0.93); }
-              # X +1 (gray)
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                icon: mdi:chevron-right
-                tap_action:
-                  action: call-service
-                  service: bambu_lab.move_axis
-                  service_data:
-                    device_id: "210dfdfa64085e8cf073e50eae757d90"
-                    axis: "X"
-                    distance: 1
-                styles:
-                  card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(158, 158, 158, 0.3)
-                  icon:
-                    - color: var(--primary-text-color)
-                    - width: 20px
-                extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
-                  ha-card:active { transform: scale(0.93); }
-              # X +10 (blue tint)
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                icon: mdi:chevron-double-right
-                tap_action:
-                  action: call-service
-                  service: bambu_lab.move_axis
-                  service_data:
-                    device_id: "210dfdfa64085e8cf073e50eae757d90"
-                    axis: "X"
-                    distance: 10
-                styles:
-                  card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(66, 165, 245, 0.25)
-                  icon:
-                    - color: var(--primary-text-color)
-                    - width: 20px
-                extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
-                  ha-card:active { transform: scale(0.93); }
-          # Row 4: Y-1 (gray, centered)
-          - type: horizontal-stack
-            cards:
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                icon: mdi:chevron-down
-                tap_action:
-                  action: call-service
-                  service: bambu_lab.move_axis
-                  service_data:
-                    device_id: "210dfdfa64085e8cf073e50eae757d90"
-                    axis: "Y"
-                    distance: -1
-                styles:
-                  card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(158, 158, 158, 0.3)
-                  icon:
-                    - color: var(--primary-text-color)
-                    - width: 20px
-                extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(158, 158, 158, 0.5) !important; }
-                  ha-card:active { transform: scale(0.93); }
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-          # Row 5: Y-10 (blue tint, centered)
-          - type: horizontal-stack
-            cards:
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                icon: mdi:chevron-double-down
-                tap_action:
-                  action: call-service
-                  service: bambu_lab.move_axis
-                  service_data:
-                    device_id: "210dfdfa64085e8cf073e50eae757d90"
-                    axis: "Y"
-                    distance: -10
-                styles:
-                  card:
-                    - padding: 4px
-                    - border-radius: 12px
-                    - height: 48px
-                    - background-color: rgba(66, 165, 245, 0.25)
-                  icon:
-                    - color: var(--primary-text-color)
-                    - width: 20px
-                extra_styles: |
-                  ha-card { transition: transform 0.15s, background-color 0.15s; cursor: pointer; }
-                  ha-card:hover { transform: scale(1.08); background-color: rgba(66, 165, 245, 0.45) !important; }
-                  ha-card:active { transform: scale(0.93); }
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
-              - type: custom:button-card
-                show_name: false
-                show_state: false
-                show_icon: false
-                styles:
-                  card:
-                    - background: transparent
-                    - box-shadow: none
-                    - border: none
-                    - height: 48px
 
       # ── Extruder Controls ──────────────────────────────────
       - type: vertical-stack

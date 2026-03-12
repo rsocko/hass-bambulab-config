@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="XY control background">
+  <defs>
+    <linearGradient id="ringOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a8b5ba"/>
+      <stop offset="100%" stop-color="#98a6ab"/>
+    </linearGradient>
+    <linearGradient id="ringInner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c6ced1"/>
+      <stop offset="100%" stop-color="#b4bec2"/>
+    </linearGradient>
+    <linearGradient id="ringCenter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a6b1b5"/>
+      <stop offset="100%" stop-color="#8f9ca1"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="400" height="400" fill="transparent"/>
+
+  <circle cx="200" cy="200" r="188" fill="url(#ringOuter)" stroke="#3a4348" stroke-width="2"/>
+  <circle cx="200" cy="200" r="132" fill="url(#ringInner)" stroke="#3a4348" stroke-width="2"/>
+  <circle cx="200" cy="200" r="58" fill="url(#ringCenter)" stroke="#3a4348" stroke-width="2"/>
+
+  <line x1="200" y1="12" x2="200" y2="388" stroke="#2e373c" stroke-width="2" opacity="0.95"/>
+  <line x1="12" y1="200" x2="388" y2="200" stroke="#2e373c" stroke-width="2" opacity="0.95"/>
+
+  <line x1="67" y1="67" x2="333" y2="333" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
+  <line x1="333" y1="67" x2="67" y2="333" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
+
+  <circle cx="200" cy="200" r="189" fill="none" stroke="#20272b" stroke-width="1" opacity="0.7"/>
+</svg>
