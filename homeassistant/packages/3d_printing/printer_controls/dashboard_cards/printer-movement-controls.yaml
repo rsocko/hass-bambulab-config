@@ -49,7 +49,12 @@ cards:
         content:
           - width: 100%
     extra_styles: |
-      .warn { font-size: 11px; color: #FF9800; text-align: center; }
+      .warn {
+        font-size: 14px;
+        color: #FF9800;
+        width: 100%;
+        text-align: center;
+      }
 
   # ── Main controls: [ Z ] | [ XY ] | [ Extruder ] ──────────
   - type: horizontal-stack
