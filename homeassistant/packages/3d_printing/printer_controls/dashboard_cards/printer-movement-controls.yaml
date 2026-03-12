@@ -48,11 +48,15 @@ cards:
       custom_fields:
         content:
           - width: 100%
+          - display: flex
+          - justify-content: center
     extra_styles: |
       .warn {
+        display: block;
         font-size: 14px;
         color: #FF9800;
         width: 100%;
+        margin: 0 auto;
         text-align: center;
       }
 
