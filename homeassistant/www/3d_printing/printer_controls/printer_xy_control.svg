@@ -20,11 +20,10 @@
   <circle cx="200" cy="200" r="132" fill="url(#ringInner)" stroke="#3a4348" stroke-width="2"/>
   <circle cx="200" cy="200" r="58" fill="url(#ringCenter)" stroke="#3a4348" stroke-width="2"/>
 
-  <line x1="200" y1="12" x2="200" y2="388" stroke="#2e373c" stroke-width="2" opacity="0.95"/>
-  <line x1="12" y1="200" x2="388" y2="200" stroke="#2e373c" stroke-width="2" opacity="0.95"/>
-
-  <line x1="67" y1="67" x2="333" y2="333" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
-  <line x1="333" y1="67" x2="67" y2="333" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
+  <line x1="67" y1="67" x2="159" y2="159" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
+  <line x1="241" y1="241" x2="333" y2="333" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
+  <line x1="333" y1="67" x2="241" y2="159" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
+  <line x1="159" y1="241" x2="67" y2="333" stroke="#2e373c" stroke-width="2" opacity="0.9"/>
 
   <circle cx="200" cy="200" r="189" fill="none" stroke="#20272b" stroke-width="1" opacity="0.7"/>
 </svg>
