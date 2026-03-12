@@ -31,11 +31,13 @@ custom_fields:
   ludicrous_icon: |
     [[[
       if (entity.state === 'ludicrous')
-        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="26" height="26" fill="#C62828">
+        return `<div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;line-height:0;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="26" height="26" preserveAspectRatio="xMidYMid meet" style="display:block;" fill="#C62828">
           <path d="m 8.6711805,12.591199 c 0,-1.66 1.3399995,-3 2.9999995,-3 1.12,0 2.1,0.61 2.61,1.5 l 5.62,9.71 -9.58,-5.53 c -0.98,-0.5 -1.6499995,-1.51 -1.6499995,-2.68 m 12.9999995,0 c 0,1.81 -0.5,3.5 -1.32,4.97 l -1.21,-2.1 c 0.34,-0.87 0.53,-1.87 0.53,-2.87 0,-4.42 -3.870841,-8.0872522 -8.290841,-8.0872522 -2.21,0 -2.0881489,-1.8164876 0.290841,-1.9127477 5.5,0 10,4.5 10,10"/>
           <path d="m 11.565553,2.5526992 c 1.81,0 3.5,0.5 4.97,1.32 l -2.1,1.21 c -0.87,-0.34 -1.87,-0.53 -2.87,-0.53 -4.418278,0 -8,3.5817218 -8,8 0,2.21 0.89,4.21 2.34,5.65 h 0.01 c 0.39,0.39 0.39,1.02 0,1.41 -0.39,0.39 -1.03,0.39 -1.42,0.01 v 0 c -1.81,-1.81 -2.93,-4.31 -2.93,-7.07 0,-5.5228475 4.4771528,-10 10,-10 m 7.46,7.1 c 0,0 1.179842,3.0338788 0,0 z"/>
           <path d="m 20.852202,1.1792891 h 1.4406 v 3.6061795 h -1.4406 V 1.1792891 m 0,5.9010211 v -1.311338 h 1.4406 v 1.311338 z"/>
-        </svg>`;
+          </svg>
+        </div>`;
       return '';
     ]]]
   tooltip: |
@@ -58,15 +60,15 @@ styles:
     - width: 26px
     - height: 26px
   card:
-    - min-width: 42px
-    - width: 42px
-    - height: 42px
+    - min-width: 46px
+    - width: 46px
+    - height: 46px
     - padding: 0
-    - border-radius: 50%
+    - border-radius: 16px
     - display: flex
     - align-items: center
     - justify-content: center
-    - background: transparent
+    - background: var(--ha-card-background, var(--card-background-color))
     - cursor: pointer
     - position: relative
     - overflow: visible
@@ -77,6 +79,11 @@ styles:
       - top: 50%
       - left: 50%
       - transform: translate(-50%, -50%)
+      - width: 26px
+      - height: 26px
+      - margin: 0
+      - padding: 0
+      - line-height: 0
       - pointer-events: none
     tooltip:
       - position: absolute
@@ -92,6 +99,6 @@ card_mod:
       transition: background 0.2s ease, transform 0.15s ease;
     }
     ha-card:hover {
-      background: rgba(var(--rgb-primary-text-color), 0.08) !important;
+      background: rgba(var(--rgb-primary-text-color), 0.12) !important;
       transform: scale(1.1);
     }

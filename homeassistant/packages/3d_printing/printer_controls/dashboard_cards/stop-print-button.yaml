@@ -44,12 +44,12 @@ tap_action:
     exemptions: []
 styles:
   card:
-    - width: 36px
-    - min-width: 36px
-    - height: 36px
+    - width: 46px
+    - min-width: 46px
+    - height: 46px
     - padding: 0
     - margin: 0
-    - border-radius: 8px
+    - border-radius: 16px
     - display: flex
     - align-items: center
     - justify-content: center
@@ -76,8 +76,8 @@ styles:
     - transition: background-color 0.2s, opacity 0.2s, filter 0.2s
     - box-shadow: none
   icon:
-    - width: 20px
-    - height: 20px
+    - width: 26px
+    - height: 26px
     - color: |
         [[[
           const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
@@ -99,6 +99,7 @@ card_mod:
     {% set can_stop = is_active or is_paused %}
     ha-card {
       overflow: visible;
+      transition: background-color 0.2s ease, transform 0.15s ease, filter 0.2s ease;
       {% if not can_stop %}
         pointer-events: none;
         cursor: default;
@@ -106,7 +107,8 @@ card_mod:
     }
     ha-card:hover {
       {% if can_stop %}
-        filter: brightness(1.15);
+        filter: brightness(1.2);
         background-color: #d32f2f !important;
+        transform: scale(1.1);
       {% endif %}
     }

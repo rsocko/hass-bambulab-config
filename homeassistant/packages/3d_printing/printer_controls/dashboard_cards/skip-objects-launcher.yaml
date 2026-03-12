@@ -36,9 +36,13 @@ styles:
   card:
     - min-width: 46px
     - width: 46px
-    - height: 100%
+    - height: 46px
     - padding: 8px 4px
     - border-radius: 16px
+    - display: flex
+    - align-items: center
+    - justify-content: center
+    - transition: background 0.2s ease, transform 0.15s ease
   icon:
     - color: var(--primary-text-color)
     - width: 26px
@@ -50,8 +54,16 @@ card_mod:
       display: flex;
       flex: 0 0 46px !important;
       max-width: 46px;
-      align-self: stretch;
+      min-width: 46px;
+      justify-content: center;
+      align-items: center;
     }
     ha-card {
-      height: 100%;
+      height: 46px;
+      width: 46px;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+    ha-card:hover {
+      background: rgba(var(--rgb-primary-text-color), 0.12) !important;
+      transform: scale(1.1);
     }
