@@ -210,6 +210,7 @@ sections:
             # Place your image at /config/www/bambu-printer.jpg in HA.
             #mode: url
             #url: /local/bambu-printer.jpg
+        - camera_entity: camera.3d_printer_top_tapo_c110_hd_stream
       status_bar:
         items:
           engine:
