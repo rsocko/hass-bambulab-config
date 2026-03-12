@@ -131,7 +131,7 @@ cards:
                   box-shadow: none;
                 }
             elements:
-              # Outer ring sectors: +/- 10 mm (full clickable area)
+              # Outer ring sectors: +/- 10 mm
               - type: custom:button-card
                 icon: mdi:chevron-double-up
                 show_name: false
@@ -145,20 +145,20 @@ cards:
                     distance: 10
                 style:
                   left: 50%
-                  top: 50%
-                  width: 100%
-                  height: 100%
+                  top: 13%
+                  width: 72%
+                  height: 27%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(66, 165, 245, 0.22)
                     - border: 1px solid rgba(66, 165, 245, 0.32)
-                    - clip-path: polygon(15.4% 15.4%, 50% 3%, 84.6% 15.4%, 74.8% 25.2%, 50% 16%, 25.2% 25.2%)
+                    - clip-path: polygon(13% 100%, 87% 100%, 100% 38%, 50% 0%, 0% 38%)
                     - display: flex
                     - justify-content: center
                     - align-items: flex-start
-                    - padding-top: 12px
+                    - padding-top: 10px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 24px
@@ -179,20 +179,20 @@ cards:
                     distance: -10
                 style:
                   left: 50%
-                  top: 50%
-                  width: 100%
-                  height: 100%
+                  top: 87%
+                  width: 72%
+                  height: 27%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(66, 165, 245, 0.22)
                     - border: 1px solid rgba(66, 165, 245, 0.32)
-                    - clip-path: polygon(15.4% 84.6%, 50% 97%, 84.6% 84.6%, 74.8% 74.8%, 50% 84%, 25.2% 74.8%)
+                    - clip-path: polygon(13% 0%, 87% 0%, 100% 62%, 50% 100%, 0% 62%)
                     - display: flex
                     - justify-content: center
                     - align-items: flex-end
-                    - padding-bottom: 12px
+                    - padding-bottom: 10px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 24px
@@ -212,21 +212,21 @@ cards:
                     axis: "X"
                     distance: -10
                 style:
-                  left: 50%
+                  left: 13%
                   top: 50%
-                  width: 100%
-                  height: 100%
+                  width: 27%
+                  height: 72%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(66, 165, 245, 0.22)
                     - border: 1px solid rgba(66, 165, 245, 0.32)
-                    - clip-path: polygon(15.4% 15.4%, 3% 50%, 15.4% 84.6%, 25.2% 74.8%, 16% 50%, 25.2% 25.2%)
+                    - clip-path: polygon(100% 13%, 100% 87%, 38% 100%, 0% 50%, 38% 0%)
                     - display: flex
                     - justify-content: flex-start
                     - align-items: center
-                    - padding-left: 12px
+                    - padding-left: 10px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 24px
@@ -246,21 +246,21 @@ cards:
                     axis: "X"
                     distance: 10
                 style:
-                  left: 50%
+                  left: 87%
                   top: 50%
-                  width: 100%
-                  height: 100%
+                  width: 27%
+                  height: 72%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(66, 165, 245, 0.22)
                     - border: 1px solid rgba(66, 165, 245, 0.32)
-                    - clip-path: polygon(84.6% 15.4%, 97% 50%, 84.6% 84.6%, 74.8% 74.8%, 84% 50%, 74.8% 25.2%)
+                    - clip-path: polygon(0% 13%, 0% 87%, 62% 100%, 100% 50%, 62% 0%)
                     - display: flex
                     - justify-content: flex-end
                     - align-items: center
-                    - padding-right: 12px
+                    - padding-right: 10px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 24px
@@ -269,7 +269,7 @@ cards:
                   ha-card:hover { transform: scale(1.03); background-color: rgba(66, 165, 245, 0.42) !important; border-color: rgba(66, 165, 245, 0.68) !important; }
                   ha-card:active { transform: scale(0.98); }
 
-              # Inner ring sectors: +/- 1 mm (full clickable area)
+              # Inner ring sectors: +/- 1 mm
               - type: custom:button-card
                 icon: mdi:chevron-up
                 show_name: false
@@ -283,20 +283,20 @@ cards:
                     distance: 1
                 style:
                   left: 50%
-                  top: 50%
-                  width: 100%
-                  height: 100%
+                  top: 26%
+                  width: 50%
+                  height: 20%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(158, 158, 158, 0.28)
                     - border: 1px solid rgba(158, 158, 158, 0.35)
-                    - clip-path: polygon(25.2% 25.2%, 50% 16%, 74.8% 25.2%, 61.8% 38.2%, 50% 34.5%, 38.2% 38.2%)
+                    - clip-path: polygon(18% 100%, 82% 100%, 100% 42%, 50% 0%, 0% 42%)
                     - display: flex
                     - justify-content: center
                     - align-items: flex-start
-                    - padding-top: 18px
+                    - padding-top: 8px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 22px
@@ -317,20 +317,20 @@ cards:
                     distance: -1
                 style:
                   left: 50%
-                  top: 50%
-                  width: 100%
-                  height: 100%
+                  top: 74%
+                  width: 50%
+                  height: 20%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(158, 158, 158, 0.28)
                     - border: 1px solid rgba(158, 158, 158, 0.35)
-                    - clip-path: polygon(25.2% 74.8%, 50% 84%, 74.8% 74.8%, 61.8% 61.8%, 50% 65.5%, 38.2% 61.8%)
+                    - clip-path: polygon(18% 0%, 82% 0%, 100% 58%, 50% 100%, 0% 58%)
                     - display: flex
                     - justify-content: center
                     - align-items: flex-end
-                    - padding-bottom: 18px
+                    - padding-bottom: 8px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 22px
@@ -350,21 +350,21 @@ cards:
                     axis: "X"
                     distance: -1
                 style:
-                  left: 50%
+                  left: 26%
                   top: 50%
-                  width: 100%
-                  height: 100%
+                  width: 20%
+                  height: 50%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(158, 158, 158, 0.28)
                     - border: 1px solid rgba(158, 158, 158, 0.35)
-                    - clip-path: polygon(25.2% 25.2%, 16% 50%, 25.2% 74.8%, 38.2% 61.8%, 34.5% 50%, 38.2% 38.2%)
+                    - clip-path: polygon(100% 18%, 100% 82%, 42% 100%, 0% 50%, 42% 0%)
                     - display: flex
                     - justify-content: flex-start
                     - align-items: center
-                    - padding-left: 18px
+                    - padding-left: 8px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 22px
@@ -384,21 +384,21 @@ cards:
                     axis: "X"
                     distance: 1
                 style:
-                  left: 50%
+                  left: 74%
                   top: 50%
-                  width: 100%
-                  height: 100%
+                  width: 20%
+                  height: 50%
                   transform: translate(-50%, -50%)
                 styles:
                   card:
                     - border-radius: 0
                     - background: rgba(158, 158, 158, 0.28)
                     - border: 1px solid rgba(158, 158, 158, 0.35)
-                    - clip-path: polygon(74.8% 25.2%, 84% 50%, 74.8% 74.8%, 61.8% 61.8%, 65.5% 50%, 61.8% 38.2%)
+                    - clip-path: polygon(0% 18%, 0% 82%, 58% 100%, 100% 50%, 58% 0%)
                     - display: flex
                     - justify-content: flex-end
                     - align-items: center
-                    - padding-right: 18px
+                    - padding-right: 8px
                   icon:
                     - color: var(--primary-text-color)
                     - width: 22px
@@ -435,7 +435,7 @@ cards:
                     - border: 1px solid rgba(33, 150, 243, 0.45)
                   icon:
                     - color: '#2196F3'
-                    - width: 26px
+                    - width: 34px
                 extra_styles: |
                   ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
                   ha-card:hover { transform: scale(1.08); background-color: rgba(33, 150, 243, 0.32) !important; border-color: rgba(33, 150, 243, 0.78) !important; }
