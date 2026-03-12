@@ -157,10 +157,10 @@ cards:
                     - clip-path: polygon(13% 100%, 87% 100%, 100% 38%, 50% 0%, 0% 38%)
                     - display: flex
                     - justify-content: center
-                    - align-items: flex-start
+                    - align-items: center
                     - padding-top: 10px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 24px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -191,10 +191,10 @@ cards:
                     - clip-path: polygon(13% 0%, 87% 0%, 100% 62%, 50% 100%, 0% 62%)
                     - display: flex
                     - justify-content: center
-                    - align-items: flex-end
+                    - align-items: center
                     - padding-bottom: 10px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 24px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -224,11 +224,11 @@ cards:
                     - border: 1px solid rgba(66, 165, 245, 0.32)
                     - clip-path: polygon(100% 13%, 100% 87%, 38% 100%, 0% 50%, 38% 0%)
                     - display: flex
-                    - justify-content: flex-start
+                    - justify-content: center
                     - align-items: center
                     - padding-left: 10px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 24px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -258,11 +258,11 @@ cards:
                     - border: 1px solid rgba(66, 165, 245, 0.32)
                     - clip-path: polygon(0% 13%, 0% 87%, 62% 100%, 100% 50%, 62% 0%)
                     - display: flex
-                    - justify-content: flex-end
+                    - justify-content: center
                     - align-items: center
                     - padding-right: 10px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 24px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -295,10 +295,10 @@ cards:
                     - clip-path: polygon(18% 100%, 82% 100%, 100% 42%, 50% 0%, 0% 42%)
                     - display: flex
                     - justify-content: center
-                    - align-items: flex-start
+                    - align-items: center
                     - padding-top: 8px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 22px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -329,10 +329,10 @@ cards:
                     - clip-path: polygon(18% 0%, 82% 0%, 100% 58%, 50% 100%, 0% 58%)
                     - display: flex
                     - justify-content: center
-                    - align-items: flex-end
+                    - align-items: center
                     - padding-bottom: 8px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 22px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -362,11 +362,11 @@ cards:
                     - border: 1px solid rgba(158, 158, 158, 0.35)
                     - clip-path: polygon(100% 18%, 100% 82%, 42% 100%, 0% 50%, 42% 0%)
                     - display: flex
-                    - justify-content: flex-start
+                    - justify-content: center
                     - align-items: center
                     - padding-left: 8px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 22px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -396,11 +396,11 @@ cards:
                     - border: 1px solid rgba(158, 158, 158, 0.35)
                     - clip-path: polygon(0% 18%, 0% 82%, 58% 100%, 100% 50%, 58% 0%)
                     - display: flex
-                    - justify-content: flex-end
+                    - justify-content: center
                     - align-items: center
                     - padding-right: 8px
                   icon:
-                    - color: var(--primary-text-color)
+                    - color: '#000000'
                     - width: 22px
                 extra_styles: |
                   ha-card { transition: transform 0.12s, background-color 0.12s, border-color 0.12s; cursor: pointer; }
@@ -434,7 +434,7 @@ cards:
                     - background: rgba(33, 150, 243, 0.15)
                     - border: 1px solid rgba(33, 150, 243, 0.45)
                   icon:
-                    - color: '#2196F3'
+                    - color: '#000000'
                     - width: 34px
                 extra_styles: |
                   ha-card { transition: transform 0.15s, background-color 0.15s, border-color 0.15s; cursor: pointer; }
