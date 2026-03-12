@@ -36,7 +36,7 @@ cards:
           const stage = states['sensor.ntk_ryansoffice_3dprinter_current_stage']?.state ?? '';
           const isPrinting = ['printing', 'running', 'prepare', 'init'].includes(stage.toLowerCase());
           return isPrinting
-            ? `<div class="warn">⚠️ Printer is active — use movement controls with caution</div>`
+            ? `<div class="warn-wrap"><div class="warn">⚠️ Printer is active - use movement controls with caution</div></div>`
             : '';
         ]]]
     styles:
@@ -55,9 +55,12 @@ cards:
         display: block;
         font-size: 14px;
         color: #FF9800;
-        width: 100%;
-        margin: 0 auto;
         text-align: center;
+      }
+      .warn-wrap {
+        width: 100%;
+        display: flex;
+        justify-content: center;
       }
 
   # ── Main controls: [ Z ] | [ XY ] | [ Extruder ] ──────────
