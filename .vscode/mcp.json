@@ -2,6 +2,11 @@
   "servers": {
     "ha-mcp-docker": {
       "url": "http://ha-mcp.socko.us/mcp",
+    },
+
+    "obsidian-hassbambu": {
+      "type": "http",
+      "url": "http://127.0.0.1:27123/mcp"
     }
   }
 }
