@@ -7,7 +7,7 @@ This document provides recommendations for allocating LED strips between the **M
 ### Key Recommendations
 
 1. **Keep Lid LED (Interior Light) on MagWLED** - DigQuad is at full capacity (5 strips maximum) and cannot accept additional LED strips
-2. **Merge Front Door Left and Top segments** - Reduces front door from 3 segments to 2 segments
+2. **Split Front Door into 3 independent segments** - Bottom (print progress), Left (layer progress), Top (status indicator)
 3. **Use simplified segment layouts** for AMS components to stay within 16-segment limit
 4. **Create neutral segments** for unused areas (bottoms of tags/AMS lids) set to soft white
 
@@ -36,9 +36,10 @@ According to `digquad-led-segments.md`, the actual physical installation uses:
 To understand segment needs, we must consider what segments are needed for different scenarios:
 
 #### Minimum Segments Needed (Basic Functionality)
-1. **Front Door Bottom** (progress bar): 1 segment  
-2. **Front Door Left+Top** (merged status): 1 segment
-3. **AMS 1 - Tray Top (combined)**: 1 segment OR per-tray: 4 segments
+1. **Front Door Bottom** (print progress bar): 1 segment  
+2. **Front Door Left** (layer progress): 1 segment
+3. **Front Door Top** (status indicator): 1 segment
+4. **AMS 1 - Tray Top (combined)**: 1 segment OR per-tray: 4 segments
 4. **AMS 1 - Tray Bottom (combined)**: 1 segment
 5. **AMS 1 - Tag Tops (4 trays)**: 4 segments
 6. **AMS 1 - Tag Bottoms (combined)**: 1 segment
@@ -49,11 +50,11 @@ To understand segment needs, we must consider what segments are needed for diffe
 11. **AMS 2 - Tag Bottoms (combined)**: 1 segment
 12. **AMS 2 - Hygrometer**: 1 segment
 
-**Minimum Total on DigQuad: 15 segments** (with combined AMS tray lighting)
+**Minimum Total on DigQuad: 16 segments** (with combined AMS tray lighting — uses WLED maximum)
 **Plus MagWLED: 1 segment** (Interior Lid Light)
-**Grand Total: 16 segments across both controllers**
+**Grand Total: 17 segments across both controllers**
 
-**Maximum with per-tray AMS lighting: 21 segments** (exceeds 16-segment limit per controller!)
+**Maximum with per-tray AMS lighting: 22 segments** (exceeds 16-segment limit per controller!)
 
 ### The Segment Limitation Challenge
 
@@ -84,40 +85,39 @@ With a 16-segment limit per controller, we cannot have:
 **GPIO Pin Allocation** (matches current physical installation):
 
 #### GPIO 15: Printer Front Door (158 LEDs)
-- **Segment 0**: Bottom (Progress Bar) - LEDs 0-49 (50 LEDs)
-- **Segment 1**: Left+Top Combined (Status) - LEDs 50-157 (108 LEDs) ✨ MERGED
-- **Total: 2 segments**
+- **Segment 0**: Bottom (Print Progress Bar) - LEDs 0-49 (50 LEDs)
+- **Segment 1**: Left (Layer Progress) - LEDs 50-115 (65 LEDs)
+- **Segment 2**: Top (Status Indicator) - LEDs 116-157 (43 LEDs)
+- **Total: 3 segments**
 
 #### GPIO 1: AMS 1 Lid/Spools (140 LEDs)  
-- **Segment 2**: Tray Top (all spools combined) - LEDs 158-215 (58 LEDs)
-- **Segment 3**: Tray Bottom (all spools combined, neutral) - LEDs 241-297 (57 LEDs)
+- **Segment 3**: Tray Top (all spools combined) - LEDs 158-215 (58 LEDs)
+- **Segment 4**: Tray Bottom (all spools combined, neutral) - LEDs 241-297 (57 LEDs)
 - **Total: 2 segments**
 
 #### GPIO 3: AMS 2 Lid/Spools (139 LEDs)
-- **Segment 4**: Tray Top (all spools combined) - LEDs 298-357 (60 LEDs)  
-- **Segment 5**: Tray Bottom (all spools combined, neutral) - LEDs 382-436 (55 LEDs)
+- **Segment 5**: Tray Top (all spools combined) - LEDs 298-357 (60 LEDs)  
+- **Segment 6**: Tray Bottom (all spools combined, neutral) - LEDs 382-436 (55 LEDs)
 - **Total: 2 segments**
 
 #### GPIO 16: AMS 1 Tags + Hygrometer (136 LEDs)
-- **Segment 6**: Tag A1 Top - LEDs 442-453 (12 LEDs)
-- **Segment 7**: Tag A2 Top - LEDs 454-465 (12 LEDs)
-- **Segment 8**: Tag A3 Top - LEDs 466-477 (12 LEDs)
-- **Segment 9**: Tag A4 Top - LEDs 490-501 (12 LEDs)
-- **Segment 10**: Hygrometer - LEDs 478-489 + 554-566 (25 LEDs combined)
-- **Segment 11**: Tag Bottoms (all combined, neutral) - LEDs 507-553 (47 LEDs)
-- **Total: 6 segments**
-
-#### GPIO 4: AMS 2 Tags + Hygrometer (138 LEDs)
-- **Segment 12**: Tag B1 Top - LEDs 579-591 (13 LEDs)
-- **Segment 13**: Tag B2 Top - LEDs 592-605 (14 LEDs)  
-- **Segment 14**: Tag B3 Top - LEDs 606-619 (14 LEDs)
-- **Segment 15**: Tag B4 Top - LEDs 632-643 (12 LEDs)
+- **Segment 7**: Tag A1 Top - LEDs 442-453 (12 LEDs)
+- **Segment 8**: Tag A2 Top - LEDs 454-465 (12 LEDs)
+- **Segment 9**: Tag A3 Top - LEDs 466-477 (12 LEDs)
+- **Segment 10**: Tag A4 Top - LEDs 490-501 (12 LEDs)
 - **Total: 4 segments**
 
-#### Combined Neutral Backgrounds
-- **Segment 16**: Would need to combine AMS 2 hygrometer + tag bottoms, but we're at the 16-segment limit
+#### GPIO 4: AMS 2 Tags + Hygrometer (138 LEDs)
+- **Segment 11**: Tag B1 Top - LEDs 579-591 (13 LEDs)
+- **Segment 12**: Tag B2 Top - LEDs 592-605 (14 LEDs)  
+- **Segment 13**: Tag B3 Top - LEDs 606-619 (14 LEDs)
+- **Segment 14**: Tag B4 Top - LEDs 632-643 (12 LEDs)
+- **Total: 4 segments**
 
-**Current Count: 16 segments** (0-15)
+#### Combined Neutral Backgrounds (spans GPIO 16 + GPIO 4)
+- **Segment 15**: Hygrometers + Tag Bottoms (neutral) - Various LEDs (~125 LEDs combined)
+
+**Current Count: 16 segments** (0-15) — **uses WLED maximum, 0 spare**
 
 ## Solution: Combine Neutral Backgrounds Strategically
 
@@ -125,25 +125,26 @@ Since we have exactly 16 segments available on DigQuad, we need to combine backg
 
 ### Final Recommended Configuration
 
-#### DigQuad - Segment Allocation (15 segments used, 1 spare)
+#### DigQuad - Segment Allocation (16 segments used, 0 spare — WLED maximum)
 
-0. **Segment 0**: Front Door Bottom (Progress Bar) - 1 segment
-1. **Segment 1**: Front Door Left+Top (Status, MERGED) - 1 segment ✨ MERGED
-2. **Segment 2**: AMS 1 Tray Top (all spools) - 1 segment
-3. **Segment 3**: AMS 1 Tray Bottom (neutral) - 1 segment
-4. **Segment 4**: AMS 2 Tray Top (all spools) - 1 segment
-5. **Segment 5**: AMS 2 Tray Bottom (neutral) - 1 segment
-6. **Segment 6**: AMS 1 Tag A1 Top - 1 segment
-7. **Segment 7**: AMS 1 Tag A2 Top - 1 segment
-8. **Segment 8**: AMS 1 Tag A3 Top - 1 segment
-9. **Segment 9**: AMS 1 Tag A4 Top - 1 segment
-10. **Segment 10**: AMS 2 Tag B1 Top - 1 segment
-11. **Segment 11**: AMS 2 Tag B2 Top - 1 segment
-12. **Segment 12**: AMS 2 Tag B3 Top - 1 segment
-13. **Segment 13**: AMS 2 Tag B4 Top - 1 segment
-14. **Segment 14**: AMS 1+2 Hygrometers + Tag Bottoms (neutral, combined) - 1 segment
+0. **Segment 0**: Front Door Bottom (Print Progress Bar) - 1 segment
+1. **Segment 1**: Front Door Left (Layer Progress) - 1 segment
+2. **Segment 2**: Front Door Top (Status Indicator) - 1 segment
+3. **Segment 3**: AMS 1 Tray Top (all spools) - 1 segment
+4. **Segment 4**: AMS 1 Tray Bottom (neutral) - 1 segment
+5. **Segment 5**: AMS 2 Tray Top (all spools) - 1 segment
+6. **Segment 6**: AMS 2 Tray Bottom (neutral) - 1 segment
+7. **Segment 7**: AMS 1 Tag A1 Top - 1 segment
+8. **Segment 8**: AMS 1 Tag A2 Top - 1 segment
+9. **Segment 9**: AMS 1 Tag A3 Top - 1 segment
+10. **Segment 10**: AMS 1 Tag A4 Top - 1 segment
+11. **Segment 11**: AMS 2 Tag B1 Top - 1 segment
+12. **Segment 12**: AMS 2 Tag B2 Top - 1 segment
+13. **Segment 13**: AMS 2 Tag B3 Top - 1 segment
+14. **Segment 14**: AMS 2 Tag B4 Top - 1 segment
+15. **Segment 15**: Hygrometers + Tag Bottoms (neutral, combined) - 1 segment
 
-**Total: 15 segments on DigQuad, 1 segment available for future use! ✅**
+**Total: 16 segments on DigQuad, 0 spare (WLED maximum) ✅**
 
 #### MagWLED - Segment Allocation (1 segment used, 15 spare)
 
@@ -152,9 +153,9 @@ Since we have exactly 16 segments available on DigQuad, we need to combine backg
 **Total: 1 segment on MagWLED, 15 segments available for future expansion! ✅**
 
 #### Grand Total System
-- **DigQuad**: 15 segments used, 1 spare
+- **DigQuad**: 16 segments used, 0 spare (WLED maximum)
 - **MagWLED**: 1 segment used, 15 spare
-- **Total Segments**: 16 active segments across both controllers
+- **Total Segments**: 17 active segments across both controllers
 - **Total LEDs**: 711 LEDs on DigQuad + ~30 on MagWLED = ~741 LEDs
 
 ## Segment Limitations and Trade-offs
@@ -162,14 +163,15 @@ Since we have exactly 16 segments available on DigQuad, we need to combine backg
 ### What We CAN Do with This Configuration
 
 ✅ **Full tag highlighting**: Each of 8 tray tags gets individual control  
-✅ **Progress bar**: Independent progress indication on front door  
-✅ **Status indication**: Merged left+top for consistent status display  
+✅ **Print progress bar**: Independent print percentage on front door bottom  
+✅ **Layer progress**: Independent layer progress on front door left  
+✅ **Status indication**: Independent status indicator on front door top  
 ✅ **Basic AMS lighting**: Combined top/bottom lighting per AMS unit  
 ✅ **Neutral backgrounds**: Tag bottoms and hygrometers have soft white light  
 
 ### What Fixed Layout Cannot Do Simultaneously
 
-In the fixed 15-segment DigQuad layout, the following are limited:
+In the fixed 16-segment DigQuad layout, the following are limited:
 
 ❌ **Per-tray AMS lid lighting** for all trays at once  
 ❌ **Individual tag bottom control** for all trays at once  
@@ -252,9 +254,9 @@ For segments that serve as "background" or "fill" lighting, use a neutral soft w
 - **Purpose**: Provides ambient lighting without drawing attention
 
 ### Neutral Segments in Configuration
-1. **Segment 3** (DigQuad): AMS 1 Tray Bottom - Soft white fill
-2. **Segment 5** (DigQuad): AMS 2 Tray Bottom - Soft white fill  
-3. **Segment 14** (DigQuad): Combined Hygrometers + Tag Bottoms - Soft white fill
+1. **Segment 4** (DigQuad): AMS 1 Tray Bottom - Soft white fill
+2. **Segment 6** (DigQuad): AMS 2 Tray Bottom - Soft white fill  
+3. **Segment 15** (DigQuad): Combined Hygrometers + Tag Bottoms - Soft white fill
 
 ### When Neutral Segments Change
 These neutral segments may change color during specific scenarios:
@@ -270,8 +272,8 @@ These neutral segments may change color during specific scenarios:
 3. ✅ Verify all LED counts match physical installation (711 on DigQuad + ~30 on MagWLED)
 
 ### Phase 2: Configuration Updates  
-1. ✅ Update DigQuad segment definitions (15 segments used, 1 spare)
-2. ✅ Configure front door left+top merge
+1. ✅ Update DigQuad segment definitions (16 segments used, 0 spare)
+2. ✅ Configure 3 independent front door segments (bottom, left, top)
 3. ✅ Set up neutral segments with soft white defaults
 4. ✅ Keep MagWLED configuration for Interior Lid Light (1 segment, 15 spare)
 
@@ -282,21 +284,22 @@ These neutral segments may change color during specific scenarios:
 4. ✅ Coordinate presets across both controllers when needed
 
 ### Phase 4: Home Assistant Integration
-1. ✅ Update automations to use new segment IDs (DigQuad 0-14)
+1. ✅ Update automations to use new segment IDs (DigQuad 0-15)
 2. ✅ Implement workarounds for blocked scenarios
 3. ✅ Configure MagWLED Interior Lid Light control  
 3. ✅ Test all automation triggers
 
 ## Conclusion
 
-By keeping the Printer Interior Lid Light on MagWLED (since DigQuad is at full capacity) and merging the front door left+top segments on DigQuad, we achieve an optimal configuration. This approach uses 15 segments on DigQuad (with 1 spare) and 1 segment on MagWLED (with 15 spare for future expansion).
+By keeping the Printer Interior Lid Light on MagWLED (since DigQuad is at full capacity) and splitting the front door into 3 independent segments on DigQuad, we achieve an optimal configuration. This approach uses all 16 segments on DigQuad (0 spare) and 1 segment on MagWLED (with 15 spare for future expansion).
 
 ### Key Benefits of This Approach
 ✅ Respects DigQuad's 5 GPIO pin limit (no hardware changes needed)
-✅ Stays well within 16-segment limit (15 used on DigQuad, 1 spare)  
+✅ Uses all 16 segments on DigQuad for maximum functionality  
+✅ 3 independent front door segments (print progress, layer progress, status)
 ✅ Maintains individual tag top control (8 tags)  
-✅ Maintains progress bar functionality  
-✅ Maintains status indication  
+✅ Maintains progress bar and layer progress functionality  
+✅ Maintains independent status indication  
 ✅ Provides neutral background lighting  
 ✅ Keeps MagWLED with 15 segments available for future expansion  
 ✅ Simple Interior Lid Light control on MagWLED (1 segment)

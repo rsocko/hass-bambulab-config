@@ -26,8 +26,8 @@ This means you can have **different 16-segment layouts** stored in different pre
 
 ### Current Limitation
 In the current configuration:
-- **Tag Tops**: Individual control (8 segments: DigQuad segments 6-13)
-- **Tag Bottoms**: All combined into one neutral segment (DigQuad segment 14)
+- **Tag Tops**: Individual control (8 segments: DigQuad segments 7-14)
+- **Tag Bottoms**: All combined into one neutral segment (DigQuad segment 15)
 - **Result**: Cannot highlight BOTH top AND bottom of a specific tag simultaneously
 
 ### Solution Using Preset-Based Segments
@@ -35,33 +35,37 @@ Create multiple preset configurations, each optimized for a specific active tray
 
 #### Preset Configuration 50: "A1 Active - Full Highlight"
 When tray A1 is active, load this preset which defines:
-- Segment 0: Progress Bar (essential)
-- Segment 1: Front Door Status (essential)
-- **Segment 6: A1 Tag TOP** (LED range: 442-453)
-- **Segment 7: A1 Tag BOTTOM** (LED range from current segment 14)
-- Segment 8: A2-A4 Tags Combined (dim neutral)
-- Segment 9: B1-B4 Tags Combined (dim neutral)
-- Segment 10: AMS 1 Tray Top
-- Segment 11: AMS 1 Tray Bottom
-- Segment 12: AMS 2 Tray Top
-- Segment 13: AMS 2 Tray Bottom
-- Segment 14: Hygrometers + Other Backgrounds
+- Segment 0: Print Progress Bar (essential)
+- Segment 1: Front Door Left / Layer Progress (essential)
+- Segment 2: Front Door Top / Status (essential)
+- Segment 3: AMS 1 Tray Top (essential)
+- Segment 4: AMS 1 Tray Bottom (essential)
+- Segment 5: AMS 2 Tray Top (essential)
+- Segment 6: AMS 2 Tray Bottom (essential)
+- **Segment 7: A1 Tag TOP** (LED range: 442-453)
+- **Segment 8: A1 Tag BOTTOM** (LED range from current segment 15)
+- Segment 9: A2-A4 Tags Combined (dim neutral)
+- Segment 10: B1-B4 Tags Combined (dim neutral)
+- Segment 11-14: Inactive tag bottoms combined
+- Segment 15: Hygrometers + Other Backgrounds
 
 **Result**: Full control of A1 top AND bottom!
 
 #### Preset Configuration 51: "A2 Active - Full Highlight"
 When tray A2 is active, load this preset which defines:
-- Segment 0: Progress Bar (essential)
-- Segment 1: Front Door Status (essential)
-- **Segment 6: A2 Tag TOP** (LED range: 454-465)
-- **Segment 7: A2 Tag BOTTOM** (LED range from current segment 14)
-- Segment 8: A1, A3, A4 Tags Combined (dim neutral)
-- Segment 9: B1-B4 Tags Combined (dim neutral)
-- Segment 10: AMS 1 Tray Top
-- Segment 11: AMS 1 Tray Bottom
-- Segment 12: AMS 2 Tray Top
-- Segment 13: AMS 2 Tray Bottom
-- Segment 14: Hygrometers + Other Backgrounds
+- Segment 0: Print Progress Bar (essential)
+- Segment 1: Front Door Left / Layer Progress (essential)
+- Segment 2: Front Door Top / Status (essential)
+- Segment 3: AMS 1 Tray Top (essential)
+- Segment 4: AMS 1 Tray Bottom (essential)
+- Segment 5: AMS 2 Tray Top (essential)
+- Segment 6: AMS 2 Tray Bottom (essential)
+- **Segment 7: A2 Tag TOP** (LED range: 454-465)
+- **Segment 8: A2 Tag BOTTOM** (LED range from current segment 15)
+- Segment 9: A1, A3, A4 Tags Combined (dim neutral)
+- Segment 10: B1-B4 Tags Combined (dim neutral)
+- Segment 11-14: Inactive tag bottoms combined
+- Segment 15: Hygrometers + Other Backgrounds
 
 **Result**: Full control of A2 top AND bottom!
 
@@ -69,16 +73,17 @@ When tray A2 is active, load this preset which defines:
 
 ### Essential Segments (Always Present)
 These segments appear in **every preset configuration** because they're critical:
-1. **Segment 0**: Progress Bar (Front Door Bottom)
-2. **Segment 1**: Status Indicator (Front Door Left+Top)
-3. **Segment 2**: AMS 1 Tray Top
-4. **Segment 3**: AMS 1 Tray Bottom
-5. **Segment 4**: AMS 2 Tray Top
-6. **Segment 5**: AMS 2 Tray Bottom
+1. **Segment 0**: Print Progress Bar (Front Door Bottom)
+2. **Segment 1**: Layer Progress (Front Door Left)
+3. **Segment 2**: Status Indicator (Front Door Top)
+4. **Segment 3**: AMS 1 Tray Top
+5. **Segment 4**: AMS 1 Tray Bottom
+6. **Segment 5**: AMS 2 Tray Top
+7. **Segment 6**: AMS 2 Tray Bottom
 
 ### Variable Segments (Change Per Preset)
 These segments change based on which tray is active:
-7. **Segments 6-13**: Reconfigured for active tray top+bottom control
+8. **Segments 7-14**: Reconfigured for active tray top+bottom control
 
 ## Complete Preset Configuration Set
 
@@ -86,41 +91,42 @@ These segments change based on which tray is active:
 
 #### Preset Config 50: A1 Active with Full Control
 ```
-Segment 0: Progress Bar (0-49)
-Segment 1: Front Door Status (50-157)
-Segment 2: AMS 1 Tray Top (158-215)
-Segment 3: AMS 1 Tray Bottom (241-297)
-Segment 4: AMS 2 Tray Top (298-357)
-Segment 5: AMS 2 Tray Bottom (382-436)
-Segment 6: A1 Tag Top (442-453)           ← ACTIVE TAG TOP
-Segment 7: A1 Tag Bottom (502-513)        ← ACTIVE TAG BOTTOM
-Segment 8: A2-A4 Tags Top (454-501)       ← Inactive tags combined
-Segment 9: B1-B4 Tags Top (579-643)       ← AMS 2 tags combined
-Segment 10: A2-A4 Tags Bottom (514-541)   ← Inactive bottoms combined
-Segment 11: B1-B4 Tags Bottom (644-686)   ← AMS 2 bottoms combined
-Segment 12: AMS 1 Hygrometer (478-501)
-Segment 13: AMS 2 Hygrometer (620-643)
-Segment 14: Spare / Future Use
-Segment 15: MagWLED Interior Lid (different controller)
+Segment 0: Print Progress Bar (0-49)
+Segment 1: Front Door Left / Layer Progress (50-115)
+Segment 2: Front Door Top / Status (116-157)
+Segment 3: AMS 1 Tray Top (158-215)
+Segment 4: AMS 1 Tray Bottom (241-297)
+Segment 5: AMS 2 Tray Top (298-357)
+Segment 6: AMS 2 Tray Bottom (382-436)
+Segment 7: A1 Tag Top (442-453)           ← ACTIVE TAG TOP
+Segment 8: A1 Tag Bottom (502-513)        ← ACTIVE TAG BOTTOM
+Segment 9: A2-A4 Tags Top (454-501)       ← Inactive tags combined
+Segment 10: B1-B4 Tags Top (579-643)      ← AMS 2 tags combined
+Segment 11: A2-A4 Tags Bottom (514-541)   ← Inactive bottoms combined
+Segment 12: B1-B4 Tags Bottom (644-686)   ← AMS 2 bottoms combined
+Segment 13: AMS 1 Hygrometer (478-501)
+Segment 14: AMS 2 Hygrometer (620-643)
+Segment 15: Spare / Future Use
 ```
 
 #### Preset Config 51: A2 Active with Full Control
 ```
-Segment 0: Progress Bar (0-49)
-Segment 1: Front Door Status (50-157)
-Segment 2: AMS 1 Tray Top (158-215)
-Segment 3: AMS 1 Tray Bottom (241-297)
-Segment 4: AMS 2 Tray Top (298-357)
-Segment 5: AMS 2 Tray Bottom (382-436)
-Segment 6: A2 Tag Top (454-465)           ← ACTIVE TAG TOP
-Segment 7: A2 Tag Bottom (514-525)        ← ACTIVE TAG BOTTOM
-Segment 8: A1, A3, A4 Tags Top Combined   ← Inactive tags
-Segment 9: B1-B4 Tags Top Combined        ← AMS 2 tags
-Segment 10: A1, A3, A4 Tags Bottom Combined ← Inactive bottoms
-Segment 11: B1-B4 Tags Bottom Combined    ← AMS 2 bottoms
-Segment 12: AMS 1 Hygrometer
-Segment 13: AMS 2 Hygrometer
-Segment 14: Spare
+Segment 0: Print Progress Bar (0-49)
+Segment 1: Front Door Left / Layer Progress (50-115)
+Segment 2: Front Door Top / Status (116-157)
+Segment 3: AMS 1 Tray Top (158-215)
+Segment 4: AMS 1 Tray Bottom (241-297)
+Segment 5: AMS 2 Tray Top (298-357)
+Segment 6: AMS 2 Tray Bottom (382-436)
+Segment 7: A2 Tag Top (454-465)           ← ACTIVE TAG TOP
+Segment 8: A2 Tag Bottom (514-525)        ← ACTIVE TAG BOTTOM
+Segment 9: A1, A3, A4 Tags Top Combined   ← Inactive tags
+Segment 10: B1-B4 Tags Top Combined       ← AMS 2 tags
+Segment 11: A1, A3, A4 Tags Bottom Combined ← Inactive bottoms
+Segment 12: B1-B4 Tags Bottom Combined    ← AMS 2 bottoms
+Segment 13: AMS 1 Hygrometer
+Segment 14: AMS 2 Hygrometer
+Segment 15: Spare
 ```
 
 #### Preset Config 52: A3 Active with Full Control

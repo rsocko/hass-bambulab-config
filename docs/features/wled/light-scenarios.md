@@ -94,10 +94,11 @@ These scenarios are the main risk areas on fixed segment layout with all 5 strip
 2. Independent hygrometer control for AMS1 and AMS2 while also keeping independent tag bottoms.
 3. Simultaneous multi-tray highlight with unique colors for "spools used in current print" when also preserving active progress/status segments.
 4. Desiccant-age visualization on tag bottoms per tray during idle scenes (if combined with hygrometer detail).
-5. Separate left and top front-door status segments instead of merged status segment.
+
+> **Note**: The front door now uses 3 independent segments (bottom=print progress, left=layer progress, top=status), so separate front-door segments are no longer a limitation.
 
 ### Recommended fixed-layout priority under limit
-1. Keep `door bottom progress` and `door status` independent.
+1. Keep `door bottom progress`, `door left layer progress`, and `door top status` as 3 independent segments.
 2. Keep `8 tag tops` individually addressable.
 3. Keep AMS lid top/bottom as combined segments per AMS unless you adopt dynamic segment presets.
 4. Merge hygrometers and non-critical tag bottoms into neutral/background where possible.

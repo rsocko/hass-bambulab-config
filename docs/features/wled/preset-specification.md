@@ -7,7 +7,7 @@
 This document provides a comprehensive specification of all WLED presets for the Bambu Lab printer LED system. Each preset defines which segments are active and what colors/effects they display for specific printer scenarios.
 
 **IMPORTANT: Two-Controller Setup**
-- **DigQuad Controller**: Controls 5 LED strips (711 LEDs) with 15 segments (0-14), 1 spare
+- **DigQuad Controller**: Controls 5 LED strips (711 LEDs) with 16 segments (0-15), 0 spare
 - **MagWLED Controller**: Controls 1 LED strip (~30 LEDs) with 1 segment (0), 15 spare
 
 Presets must coordinate actions across BOTH controllers when needed. In Home Assistant, you'll typically need to call services for both `light.digquad` and `light.magwled` entities.
@@ -26,27 +26,28 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 ### Complete Segment Allocation (15 segments on DigQuad + 1 on MagWLED)
 
-#### DigQuad Controller (15 segments used, 1 spare)
+#### DigQuad Controller (16 segments used, 0 spare — WLED maximum)
 
 | Segment ID | Name | GPIO | LED Range | Count | Purpose |
 |------------|------|------|-----------|-------|---------|
-| 0 | Front Door Bottom | 15 | 0-49 | 50 | Progress bar |
-| 1 | Front Door Left+Top | 15 | 50-157 | 108 | Status indicator (merged) |
-| 2 | AMS 1 Tray Top | 1 | 158-215 | 58 | Combined tray lighting |
-| 3 | AMS 1 Tray Bottom | 1 | 241-297 | 57 | Neutral background |
-| 4 | AMS 2 Tray Top | 3 | 298-357 | 60 | Combined tray lighting |
-| 5 | AMS 2 Tray Bottom | 3 | 382-436 | 55 | Neutral background |
-| 6 | AMS 1 Tag A1 Top | 16 | 442-453 | 12 | Tag for tray A1 |
-| 7 | AMS 1 Tag A2 Top | 16 | 454-465 | 12 | Tag for tray A2 |
-| 8 | AMS 1 Tag A3 Top | 16 | 466-477 | 12 | Tag for tray A3 |
-| 9 | AMS 1 Tag A4 Top | 16 | 490-501 | 12 | Tag for tray A4 |
-| 10 | AMS 2 Tag B1 Top | 4 | 579-591 | 13 | Tag for tray B1 |
-| 11 | AMS 2 Tag B2 Top | 4 | 592-605 | 14 | Tag for tray B2 |
-| 12 | AMS 2 Tag B3 Top | 4 | 606-619 | 14 | Tag for tray B3 |
-| 13 | AMS 2 Tag B4 Top | 4 | 632-643 | 12 | Tag for tray B4 |
-| 14 | Neutral Backgrounds | 16, 4 | Various | ~125 | Hygrometers + tag bottoms (neutral) |
+| 0 | Front Door Bottom | 15 | 0-49 | 50 | Print progress bar |
+| 1 | Front Door Left | 15 | 50-115 | 65 | Layer progress |
+| 2 | Front Door Top | 15 | 116-157 | 43 | Status indicator |
+| 3 | AMS 1 Tray Top | 1 | 158-215 | 58 | Combined tray lighting |
+| 4 | AMS 1 Tray Bottom | 1 | 241-297 | 57 | Neutral background |
+| 5 | AMS 2 Tray Top | 3 | 298-357 | 60 | Combined tray lighting |
+| 6 | AMS 2 Tray Bottom | 3 | 382-436 | 55 | Neutral background |
+| 7 | AMS 1 Tag A1 Top | 16 | 442-453 | 12 | Tag for tray A1 |
+| 8 | AMS 1 Tag A2 Top | 16 | 454-465 | 12 | Tag for tray A2 |
+| 9 | AMS 1 Tag A3 Top | 16 | 466-477 | 12 | Tag for tray A3 |
+| 10 | AMS 1 Tag A4 Top | 16 | 490-501 | 12 | Tag for tray A4 |
+| 11 | AMS 2 Tag B1 Top | 4 | 579-591 | 13 | Tag for tray B1 |
+| 12 | AMS 2 Tag B2 Top | 4 | 592-605 | 14 | Tag for tray B2 |
+| 13 | AMS 2 Tag B3 Top | 4 | 606-619 | 14 | Tag for tray B3 |
+| 14 | AMS 2 Tag B4 Top | 4 | 632-643 | 12 | Tag for tray B4 |
+| 15 | Neutral Backgrounds | 16, 4 | Various | ~125 | Hygrometers + tag bottoms (neutral) |
 
-**Total: 15 segments on DigQuad, 1 segment spare**
+**Total: 16 segments on DigQuad, 0 spare (WLED maximum)**
 
 #### MagWLED Controller (1 segment used, 15 spare)
 
@@ -56,7 +57,7 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 **Total: 1 segment on MagWLED, 15 segments available for future use**
 
-**System Total**: 16 active segments (15 on DigQuad + 1 on MagWLED)
+**System Total**: 17 active segments (16 on DigQuad + 1 on MagWLED)
 
 ## Color Palette
 
@@ -94,15 +95,16 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 #### Preset 1: Printer Offline
 **Scenario**: Printer is powered off or unreachable by Home Assistant  
-**Active Segments**: DigQuad Segment 1 (Front Door Left+Top), MagWLED Segment 0 (Lid) off  
+**Active Segments**: DigQuad Segment 2 (Front Door Top), MagWLED Segment 0 (Lid) off  
 **Trigger**: `sensor.printer_status == "offline"`
 
 **DigQuad Segments:**
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
 | 0 | Off | - | 0% | Progress bar off |
-| 1 | Amber | Solid | 30% | Dim amber indicator |
-| 2-14 | Off | - | 0% | All AMS off |
+| 1 | Off | - | 0% | Layer progress off |
+| 2 | Amber | Solid | 30% | Dim amber status indicator |
+| 3-15 | Off | - | 0% | All AMS off |
 
 **MagWLED Segments:**
 | Segment | Color | Effect | Brightness | Notes |
@@ -118,13 +120,14 @@ The remainder of this document covers the traditional preset specifications (Pre
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
 | 0 | Off | - | 0% | No progress |
-| 1 | Soft Green | Breathe | 30% | Gentle breathing |
-| 2 | Soft White | Solid | 30% | AMS 1 top dim |
-| 3 | Soft White | Solid | 25% | AMS 1 bottom neutral |
-| 4 | Soft White | Solid | 30% | AMS 2 top dim |
-| 5 | Soft White | Solid | 25% | AMS 2 bottom neutral |
-| 6-13 | Soft White | Solid | 25% | All tags dim |
-| 14 | Soft White | Solid | 25% | Backgrounds neutral |
+| 1 | Off | - | 0% | Layer progress off |
+| 2 | Soft Green | Breathe | 30% | Gentle breathing status |
+| 3 | Soft White | Solid | 30% | AMS 1 top dim |
+| 4 | Soft White | Solid | 25% | AMS 1 bottom neutral |
+| 5 | Soft White | Solid | 30% | AMS 2 top dim |
+| 6 | Soft White | Solid | 25% | AMS 2 bottom neutral |
+| 7-14 | Soft White | Solid | 25% | All tags dim |
+| 15 | Soft White | Solid | 25% | Backgrounds neutral |
 
 **MagWLED Segments:**
 | Segment | Color | Effect | Brightness | Notes |
@@ -142,9 +145,9 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Orange | Solid | 50% | Lid orange |
-| 1 | Off | - | 0% | No progress yet |
-| 2 | Orange | Breathe | 60% | Pulsing orange |
+| 0 | Off | - | 0% | No progress yet |
+| 1 | Off | - | 0% | No layer progress |
+| 2 | Orange | Breathe | 60% | Pulsing orange status |
 | 3-15 | Off | - | 0% | AMS off during heat |
 
 #### Preset 4: Heating Nozzle  
@@ -154,9 +157,9 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Yellow | Solid | 50% | Lid yellow |
-| 1 | Off | - | 0% | No progress yet |
-| 2 | Yellow | Breathe | 60% | Pulsing yellow |
+| 0 | Off | - | 0% | No progress yet |
+| 1 | Off | - | 0% | No layer progress |
+| 2 | Yellow | Breathe | 60% | Pulsing yellow status |
 | 3-15 | Off | - | 0% | AMS off during heat |
 
 #### Preset 5: Bed Leveling
@@ -166,13 +169,13 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Blue | Breathe | 50% | Lid pulsing blue |
-| 1 | Off | - | 0% | No progress yet |
-| 2 | Blue | Chase | 60% | Chase effect on door |
-| 3 | Blue | Solid | 40% | AMS 1 blue |
-| 4 | Soft White | Solid | 20% | Neutral |
-| 5 | Blue | Solid | 40% | AMS 2 blue |
-| 6 | Soft White | Solid | 20% | Neutral |
+| 0 | Off | - | 0% | No progress yet |
+| 1 | Off | - | 0% | No layer progress |
+| 2 | Blue | Chase | 60% | Chase effect on door status |
+| 3 | Blue | Solid | 40% | AMS 1 top blue |
+| 4 | Soft White | Solid | 20% | AMS 1 bottom neutral |
+| 5 | Blue | Solid | 40% | AMS 2 top blue |
+| 6 | Soft White | Solid | 20% | AMS 2 bottom neutral |
 | 7-15 | Off | - | 0% | Tags off |
 
 #### Preset 6: Purge Line
@@ -182,9 +185,9 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Cyan | Solid | 50% | Lid cyan |
-| 1 | Cyan | Wipe | 50% | Wiping effect |
-| 2 | Cyan | Breathe | 50% | Pulsing cyan |
+| 0 | Off | - | 0% | No progress yet |
+| 1 | Cyan | Wipe | 50% | Wiping effect on left |
+| 2 | Cyan | Breathe | 50% | Pulsing cyan status |
 | 3-15 | Off | - | 0% | AMS off |
 
 #### Preset 7: Printing (Base - No Active Tray)
@@ -194,8 +197,8 @@ The remainder of this document covers the traditional preset specifications (Pre
 
 | Segment | Color | Effect | Brightness | Notes |
 |---------|-------|--------|------------|-------|
-| 0 | Bright White | Solid | 80% | Lid bright |
-| 1 | Green | Solid | Dynamic | Progress bar (% based) |
+| 0 | Green | Solid | Dynamic | Progress bar (% based) |
+| 1 | Off | - | 0% | Layer progress (dynamic in Phase 2) |
 | 2 | Green | Solid | 60% | Status green |
 | 3 | Soft White | Solid | 40% | AMS 1 top lit |
 | 4 | Soft White | Solid | 25% | Neutral |
@@ -665,7 +668,7 @@ Beyond the traditional presets (1-49) that apply colors/effects to fixed segment
 
 ### The Tag Top+Bottom Challenge
 
-**Problem**: In the base configuration (Presets 1-49), tag bottoms are all combined into segment 14, making it impossible to highlight BOTH the top AND bottom of a specific active tag with its filament color.
+**Problem**: In the base configuration (Presets 1-49), tag bottoms are all combined into segment 15, making it impossible to highlight BOTH the top AND bottom of a specific active tag with its filament color.
 
 **Solution**: Create preset configurations (50-57) where the active tag's top and bottom are separate segments, while inactive tags are combined.
 
@@ -739,9 +742,9 @@ This specification defines 31+ traditional presets (1-49) plus 8 advanced preset
 
 ### Traditional Presets (1-49)
 Cover all scenarios with fixed segment layout:
-1. **Merged front door left+top** reduces from 3 to 2 segments
-2. **Individual tag top control** for all 8 trays (segments 6-13)
-3. **Combined background lighting** (segment 14) for neutrality
+1. **3 independent front door segments** (bottom=progress, left=layers, top=status)
+2. **Individual tag top control** for all 8 trays (segments 7-14)
+3. **Combined background lighting** (segment 15) for neutrality
 4. **Dynamic color switching** based on active tray
 5. **Workarounds** for scenarios blocked by segment limits
 

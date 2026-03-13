@@ -62,13 +62,13 @@ The original problem statement requested:
 **Key Recommendations**:
 - **Keep Interior Lid Light on MagWLED** (DigQuad at full capacity with 5 GPIO pins)
 - No hardware changes needed
-- Merge front door left and top segments on DigQuad
+- Split front door into 3 independent segments (bottom, left, top) on DigQuad
 - Use DigQuad for 711 LEDs across 5 GPIO pins (all in use)
-- Optimized segment allocation: 15 segments on DigQuad + 1 on MagWLED
+- Optimized segment allocation: 16 segments on DigQuad + 1 on MagWLED
 
 **Segment Breakdown**:
-- **DigQuad (15 segments, 1 spare)**:
-  - Front Door: 2 segments (merged left+top)
+- **DigQuad (16 segments, 0 spare — WLED maximum)**:
+  - Front Door: 3 segments (bottom=print progress, left=layer progress, top=status)
   - AMS 1 Trays: 2 segments (combined top, combined bottom)
   - AMS 2 Trays: 2 segments (combined top, combined bottom)
   - AMS 1 Tags: 4 segments (individual tops for A1-A4)
@@ -76,7 +76,7 @@ The original problem statement requested:
   - Neutral Backgrounds: 1 segment (tag bottoms + hygrometers)
 - **MagWLED (1 segment, 15 spare)**:
   - Interior Lid: 1 segment
-- **Total: 16 active segments (15+1) ✅**
+- **Total: 17 active segments (16+1) ✅**
 
 ### 2. Preset Specification
 **Document**: [preset-specification.md](preset-specification.md)
@@ -103,7 +103,7 @@ Each of the 8 trays (A1, A2, A3, A4, B1, B2, B3, B4) has its own preset that hig
 **Document**: [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json)
 
 Updated segment definitions reflect:
-- Merged front door segments (left+top combined)
+- 3 independent front door segments (bottom=progress, left=layers, top=status)
 - Combined AMS tray top and bottom segments
 - Individual tag top segments for all 8 trays
 - Neutral background segment combining tag bottoms and hygrometers
@@ -120,8 +120,9 @@ Updated segment definitions reflect:
 ### What We CAN Do ✅
 
 - ✅ **Individual tag highlighting**: Each of 8 tray tags gets individual control
-- ✅ **Progress bar**: Independent progress indication on front door
-- ✅ **Status indication**: Merged left+top for consistent status display
+- ✅ **Print progress bar**: Independent print percentage on front door bottom
+- ✅ **Layer progress**: Independent layer progress on front door left
+- ✅ **Status indication**: Independent status indicator on front door top
 - ✅ **Basic AMS lighting**: Combined top/bottom lighting per AMS unit
 - ✅ **Neutral backgrounds**: Tag bottoms and hygrometers have soft white light
 - ✅ **All 31+ presets**: Complete scenario coverage
@@ -156,10 +157,11 @@ Updated segment definitions reflect:
    - Configuration respects physical hardware constraints
 
 ### Segment Changes
-1. **Merged Front Door Left+Top** into single segment on DigQuad
-   - Reduces from 3 segments to 2 segments on front door
-   - Both areas show same status (consistent display)
-   - Frees 1 segment for other uses
+1. **Split Front Door into 3 independent segments** on DigQuad
+   - Bottom (Seg 0): Print progress bar (50 LEDs)
+   - Left (Seg 1): Layer progress (65 LEDs)
+   - Top (Seg 2): Status indicator (43 LEDs)
+   - Enables independent control of progress, layers, and status
 
 2. **Combined AMS Tray Lighting** on DigQuad
    - Top LEDs combined per AMS (2 segments total)
@@ -167,12 +169,12 @@ Updated segment definitions reflect:
    - Cannot animate individual tray loading, but can use tags
 
 3. **Individual Tag Tops** on DigQuad
-   - All 8 tags get individual segments (DigQuad segments 6-13)
+   - All 8 tags get individual segments (DigQuad segments 7-14)
    - Allows highlighting active tray with filament color
    - Maintains primary functionality
 
 4. **Neutral Background Segment** on DigQuad
-   - Combines all tag bottoms and hygrometers (DigQuad segment 14)
+   - Combines all tag bottoms and hygrometers (DigQuad segment 15)
    - Set to soft white (#FFDCB4) at 25-30% brightness
    - Provides ambient lighting without drawing attention
 
@@ -195,7 +197,7 @@ Updated segment definitions reflect:
 
 3. **Two-Controller Coordination**
    - Home Assistant must control both DigQuad and MagWLED
-   - Most presets affect DigQuad segments (0-14)
+   - Most presets affect DigQuad segments (0-15)
    - MagWLED segment 0 (Interior Lid) controlled separately
    - Service calls needed for both `light.digquad` and `light.magwled`
 
@@ -249,14 +251,14 @@ Provides:
 
 ### Technical Benefits
 - ✅ Respects DigQuad's 5 GPIO pin limit (no hardware changes)
-- ✅ Stays within 16-segment limit per controller (15 on DigQuad, 1 on MagWLED)
+- ✅ Stays within 16-segment limit per controller (16 on DigQuad, 1 on MagWLED)
 - ✅ Maintains excellent functionality
 - ✅ Individual control of all 8 tray tags
-- ✅ Progress bar and status indication
+- ✅ Print progress bar, layer progress, and status indication
 - ✅ Simplified wiring (each controller manages its own strips)
 - ✅ MagWLED has 15 segments available for future expansion
 - ✅ Individual control of all 8 tray tags
-- ✅ Progress bar and status indication
+- ✅ Print progress bar, layer progress, and status indication
 - ✅ Simplified wiring (single controller)
 - ✅ Room for future expansion (MagWLED available)
 
@@ -297,7 +299,7 @@ If segment limitations become too restrictive:
 ## Validation & Testing
 
 ### Pre-Implementation Validation
-- ✅ Segment count verified (16 segments)
+- ✅ Segment count verified (16 on DigQuad + 1 on MagWLED = 17 segments)
 - ✅ LED count verified (711 LEDs)
 - ✅ All scenarios mapped to presets
 - ✅ Workarounds documented for blocked scenarios

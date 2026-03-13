@@ -26,12 +26,12 @@ Each phase builds toward this target incrementally.
 
 ## Prerequisites
 
-- [ ] DigQuad controller connected and running WLED (711 LEDs, 5 GPIO pins)
-- [ ] DigQuad added to Home Assistant (`light.dig_quad_v3`, `select.dig_quad_v3_preset`)
-- [ ] Bambu Lab integration configured (`sensor.ntk_ryansoffice_3dprinter_smart_status`, etc.)
-- [ ] Read [ha-state-machine-package.md](ha-state-machine-package.md)
-- [ ] Read [controller-allocation.md](controller-allocation.md)
-- [ ] Read [light-scenarios.md](light-scenarios.md) — master scenario catalog and target behavior spec
+- [x] DigQuad controller connected and running WLED (711 LEDs, 5 GPIO pins)
+- [x] DigQuad added to Home Assistant (`light.dig_quad_v3`, `select.dig_quad_v3_preset`)
+- [x] Bambu Lab integration configured (`sensor.ntk_ryansoffice_3dprinter_smart_status`, etc.)
+- [x] Read [ha-state-machine-package.md](ha-state-machine-package.md)
+- [x] Read [controller-allocation.md](controller-allocation.md)
+- [x] Read [light-scenarios.md](light-scenarios.md) — master scenario catalog and target behavior spec
 
 ---
 
@@ -112,50 +112,51 @@ The skeleton presets style segments 0 and 1 only. DigQuad currently exposes 5 se
 
 ### 2.1: Deploy Full Segment Layout
 
-Apply the target 15-segment layout from [wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json):
+Apply the target 16-segment layout from [wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json):
 
 | Seg | Name | GPIO | LED Range | Count | Purpose |
 |-----|------|------|-----------|-------|---------|
-| 0 | Front Door Bottom | 15 | 0–49 | 50 | Progress bar |
-| 1 | Front Door Left+Top | 15 | 50–157 | 108 | Status indicator |
-| 2 | AMS 1 Tray Top | 1 | 158–215 | 58 | AMS 1 tray lighting |
-| 3 | AMS 1 Tray Bottom | 1 | 241–297 | 57 | Neutral background |
-| 4 | AMS 2 Tray Top | 3 | 298–357 | 60 | AMS 2 tray lighting |
-| 5 | AMS 2 Tray Bottom | 3 | 382–436 | 55 | Neutral background |
-| 6 | Tag A1 Top | 16 | 442–453 | 12 | Tray A1 tag |
-| 7 | Tag A2 Top | 16 | 454–465 | 12 | Tray A2 tag |
-| 8 | Tag A3 Top | 16 | 466–477 | 12 | Tray A3 tag |
-| 9 | Tag A4 Top | 16 | 490–501 | 12 | Tray A4 tag |
-| 10 | Tag B1 Top | 4 | 579–591 | 13 | Tray B1 tag |
-| 11 | Tag B2 Top | 4 | 592–605 | 14 | Tray B2 tag |
-| 12 | Tag B3 Top | 4 | 606–619 | 14 | Tray B3 tag |
-| 13 | Tag B4 Top | 4 | 632–643 | 12 | Tray B4 tag |
-| 14 | Neutral Backgrounds | 16,4 | Various | ~125 | Tag bottoms + hygrometers |
+| 0 | Front Door Bottom | 15 | 0–49 | 50 | Print progress bar |
+| 1 | Front Door Left | 15 | 50–115 | 65 | Layer progress |
+| 2 | Front Door Top | 15 | 116–157 | 43 | Status indicator |
+| 3 | AMS 1 Tray Top | 1 | 158–215 | 58 | AMS 1 tray lighting |
+| 4 | AMS 1 Tray Bottom | 1 | 241–297 | 57 | Neutral background |
+| 5 | AMS 2 Tray Top | 3 | 298–357 | 60 | AMS 2 tray lighting |
+| 6 | AMS 2 Tray Bottom | 3 | 382–436 | 55 | Neutral background |
+| 7 | Tag A1 Top | 16 | 442–453 | 12 | Tray A1 tag |
+| 8 | Tag A2 Top | 16 | 454–465 | 12 | Tray A2 tag |
+| 9 | Tag A3 Top | 16 | 466–477 | 12 | Tray A3 tag |
+| 10 | Tag A4 Top | 16 | 490–501 | 12 | Tray A4 tag |
+| 11 | Tag B1 Top | 4 | 579–591 | 13 | Tray B1 tag |
+| 12 | Tag B2 Top | 4 | 592–605 | 14 | Tray B2 tag |
+| 13 | Tag B3 Top | 4 | 606–619 | 14 | Tray B3 tag |
+| 14 | Tag B4 Top | 4 | 632–643 | 12 | Tray B4 tag |
+| 15 | Neutral Backgrounds | 16,4 | Various | ~125 | Tag bottoms + hygrometers |
 
 **Steps**:
 1. **Backup first**: Take a backup snapshot of DigQuad (cfg.json + presets.json) following [backup-and-restore.md](backup-and-restore.md)
 2. Open DigQuad WLED UI → Segments
-3. Create segments 0–14 with the LED ranges above
+3. Create segments 0–15 with the LED ranges above
 4. Save the segment layout as a preset (e.g., preset 100 "Base Layout")
 5. Verify each segment lights independently via the WLED UI
 
 ### 2.2: Expand State Machine Presets
 
-Update `wled_state_machine_presets_Digquad_skeleton.json` so each preset (101–109) includes segment definitions for all 15 segments, not just 0–1.
+Update `wled_state_machine_presets_Digquad_skeleton.json` so each preset (101–109) includes segment definitions for all 16 segments, not just 0–1.
 
 **Design guidance per state**:
 
-| State | Seg 0 (Progress) | Seg 1 (Status) | Seg 2–5 (AMS Trays) | Seg 6–13 (Tags) | Seg 14 (Backgrounds) |
-|-------|-------------------|-----------------|----------------------|------------------|----------------------|
-| S0_OFFLINE | Off | Dim amber solid | Off | Off | Off |
-| S1_IDLE | Off | Soft blue breathe | Soft white 30% | Soft white 25% | Soft white 25% |
-| S2_PREP | Off | Orange pulse | Dim orange | Off | Off |
-| S3_PRINTING | Green (dynamic) | Green solid | White 40% | Soft white 30% | Soft white 25% |
-| S4_PAUSED_USER | Yellow hold | Yellow blink | Yellow dim | Yellow dim | Dim |
-| S5_PAUSED_ERROR | Red flash | Red strobe | Red 60% | Red 60% | Red dim |
-| S6_FINISHING | Full green | Green wipe | White 40% | Soft white 30% | Soft white 25% |
-| S7_MAINTENANCE | Off | Orange chase | Amber dim | Off | Off |
-| S8_SHOW | Off | Purple palette fx | Purple dim | Purple breathe | Purple dim |
+| State | Seg 0 (Progress) | Seg 1 (Layer) | Seg 2 (Status) | Seg 3–6 (AMS Trays) | Seg 7–14 (Tags) | Seg 15 (Backgrounds) |
+|-------|-------------------|---------------|----------------|----------------------|------------------|----------------------|
+| S0_OFFLINE | Off | Off | Dim amber solid | Off | Off | Off |
+| S1_IDLE | Off | Off | Soft blue breathe | Soft white 30% | Soft white 25% | Soft white 25% |
+| S2_PREP | Off | Off | Orange pulse | Dim orange | Off | Off |
+| S3_PRINTING | Green (dynamic) | Green (dynamic) | Green solid | White 40% | Soft white 30% | Soft white 25% |
+| S4_PAUSED_USER | Yellow hold | Yellow hold | Yellow blink | Yellow dim | Yellow dim | Dim |
+| S5_PAUSED_ERROR | Red flash | Red flash | Red strobe | Red 60% | Red 60% | Red dim |
+| S6_FINISHING | Full green | Full green | Green wipe | White 40% | Soft white 30% | Soft white 25% |
+| S7_MAINTENANCE | Off | Off | Orange chase | Amber dim | Off | Off |
+| S8_SHOW | Off | Off | Purple palette fx | Purple dim | Purple breathe | Purple dim |
 
 **Steps**:
 1. Edit `wled_state_machine_presets_Digquad_skeleton.json` to add `seg` entries for all 15 segments in each preset

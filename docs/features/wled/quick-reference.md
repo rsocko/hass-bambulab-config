@@ -80,13 +80,13 @@ See [phased-implementation-guide.md](phased-implementation-guide.md) for full de
 
 Check these in HA Developer Tools → States:
 
-| Check | Entity | Expected |
-|-------|--------|----------|
-| State machine ON? | `input_boolean.wled_3dprinter_state_machine_enabled` | `on` |
-| Current state? | `input_select.wled_3dprinter_core_state` | Matches printer activity |
-| Last event? | `input_text.wled_3dprinter_last_event` | Recent E_* event |
-| DigQuad preset? | `select.dig_quad_v3_preset` | SM S*_* matching state |
-| Orchestrator running? | `automation.wled_3d_printer_state_machine_orchestrator` | `on` |
+| Check                 | Entity                                                  | Expected                 |
+| --------------------- | ------------------------------------------------------- | ------------------------ |
+| State machine ON?     | `input_boolean.wled_3dprinter_state_machine_enabled`    | `on`                     |
+| Current state?        | `input_select.wled_3dprinter_core_state`                | Matches printer activity |
+| Last event?           | `input_text.wled_3dprinter_last_event`                  | Recent E_* event         |
+| DigQuad preset?       | `select.dig_quad_v3_preset`                             | SM S*_* matching state   |
+| Orchestrator running? | `automation.wled_3d_printer_state_machine_orchestrator` | `on`                     |
 
 ## Known Issues
 
@@ -98,16 +98,14 @@ Check these in HA Developer Tools → States:
 
 ## Configuration Files Status
 
-| File | Status | Action |
-|------|--------|--------|
-| `wled_state_machine_presets_Digquad_skeleton.json` | ✅ Active | Deployed as presets 101–109 |
-| `wled_state_machine_preset_map.json` | ✅ Active | Reference for HA scripts |
-| `wled_cfg_Digquad.json` | ✅ Active | Base controller config |
-| `wled_presets_Digquad.json` | ⚠️ Legacy | Presets 1–14 not loaded; see [cleanup-recommendations.md](cleanup-recommendations.md) |
-| `wled_segments_Digquad_UPDATED.json` | 📋 Reference | Target layout for Phase 2 |
-| `wled_segments_Digquad.json` | 📦 Superseded | Use UPDATED version |
-| `wled_preset_50/54_*.json` | 🔮 Future | Phase 3 preset-based segments |
-| `.customization` files | 📦 Archive | Not for upload |
+| File                                               | Status       | Action                        |
+| -------------------------------------------------- | ------------ | ----------------------------- |
+| `wled_state_machine_presets_Digquad_skeleton.json` | ✅ Active     | Deployed as presets 101–109   |
+| `wled_state_machine_preset_map.json`               | ✅ Active     | Reference for HA scripts      |
+| `wled_cfg_Digquad.json`                            | ✅ Active     | Base controller config        |
+| `wled_segments_Digquad_UPDATED.json`               | 📋 Reference | Target layout for Phase 2     |
+| `wled_preset_50/54_*.json`                         | 🔮 Future    | Phase 3 preset-based segments |
+
 
 ---
 

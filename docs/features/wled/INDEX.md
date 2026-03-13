@@ -206,7 +206,7 @@ See [cleanup-recommendations.md](cleanup-recommendations.md) for detailed cleanu
 - [ ] Confirm Interior Lid Light remains on MagWLED and sync behavior with DigQuad automations
 - [ ] Connected power supply (15-20A @ 5V recommended)
 - [ ] Configured Digquad controller with UPDATED segment definitions
-- [ ] Created 16 optimized segments (merged front door, combined backgrounds)
+- [ ] Created 16 optimized segments (3 front door segments, combined backgrounds)
 - [ ] Imported/created presets from preset-specification.md
 - [ ] Tested all segments
 - [ ] Added to Home Assistant
