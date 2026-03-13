@@ -9,13 +9,13 @@ wled_3dprinter_transition_from_event:
       description: State-machine event ID such as E_PRINT_START.
       required: true
       selector:
-        text: {}
+        text:
     reason:
       name: 3D Printer Transition Reason
       description: Optional detail string for logs/debugging.
       required: false
       selector:
-        text: {}
+        text:
   sequence:
     - variables:
         event: "{{ event_id | default('E_NOOP') }}"

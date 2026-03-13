@@ -8,7 +8,7 @@ wled_3dprinter_apply_core_state_to_presets:
       description: Optional core state to apply instead of input_select value.
       required: false
       selector:
-        text: {}
+        text:
   sequence:
     - variables:
         digquad_entity: light.dig_quad_v3
