@@ -11,8 +11,8 @@ wled_3dprinter_apply_core_state_to_presets:
         text:
   sequence:
     - variables:
-        digquad_entity: light.dig_quad_v3
-        magwled_entity: light.magwled
+        digquad_preset_entity: select.dig_quad_v3_preset
+        magwled_preset_entity: select.magwled_preset
         core_state: >-
           {% if override_state is defined and (override_state | string | trim) | length > 0 %}
             {{ override_state }}
@@ -20,31 +20,33 @@ wled_3dprinter_apply_core_state_to_presets:
             {{ states('input_select.wled_3dprinter_core_state') }}
           {% endif %}
         digquad_preset: >-
-          {% if core_state == 'S0_OFFLINE' %}101
-          {% elif core_state == 'S1_IDLE' %}102
-          {% elif core_state == 'S2_PREP' %}103
-          {% elif core_state == 'S3_PRINTING' %}104
-          {% elif core_state == 'S4_PAUSED_USER' %}105
-          {% elif core_state == 'S5_PAUSED_ERROR' %}106
-          {% elif core_state == 'S6_FINISHING' %}107
-          {% elif core_state == 'S7_MAINTENANCE' %}108
-          {% elif core_state == 'S8_SHOW' %}109
-          {% else %}102
+          {% if core_state == 'S0_OFFLINE' %}SM S0 Offline
+          {% elif core_state == 'S1_IDLE' %}SM S1 Idle
+          {% elif core_state == 'S2_PREP' %}SM S2 Prep
+          {% elif core_state == 'S3_PRINTING' %}SM S3 Printing
+          {% elif core_state == 'S4_PAUSED_USER' %}SM S4 Paused User
+          {% elif core_state == 'S5_PAUSED_ERROR' %}SM S5 Paused Error
+          {% elif core_state == 'S6_FINISHING' %}SM S6 Finishing
+          {% elif core_state == 'S7_MAINTENANCE' %}SM S7 Maintenance
+          {% elif core_state == 'S8_SHOW' %}SM S8 Show
+          {% else %}SM S1 Idle
           {% endif %}
         magwled_preset: >-
-          {% if core_state in ['S0_OFFLINE', 'S5_PAUSED_ERROR'] %}2
-          {% else %}1
+          {% if core_state in ['S0_OFFLINE', 'S5_PAUSED_ERROR'] %}Idle Standby
+          {% else %}Normal Printing
           {% endif %}
-    - action: light.turn_on
+    - action: select.select_option
+      target:
+        entity_id: "{{ digquad_preset_entity }}"
       data:
-        entity_id: "{{ digquad_entity }}"
-        preset: "{{ digquad_preset | int }}"
-    - action: light.turn_on
+        option: "{{ digquad_preset | trim }}"
+    - action: select.select_option
+      target:
+        entity_id: "{{ magwled_preset_entity }}"
       data:
-        entity_id: "{{ magwled_entity }}"
-        preset: "{{ magwled_preset | int }}"
+        option: "{{ magwled_preset | trim }}"
     - action: logbook.log
       data:
         name: WLED 3D Printer State Machine
         message: >-
-          Applied presets - DigQuad: {{ digquad_preset }}, MagWLED: {{ magwled_preset }} ({{ core_state }})
+          Applied presets - DigQuad: {{ digquad_preset | trim }}, MagWLED: {{ magwled_preset | trim }} ({{ core_state }})
