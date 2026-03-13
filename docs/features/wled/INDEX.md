@@ -126,12 +126,6 @@ homeassistant/packages/3d_printing/wled/
 | [quick-start.md](quick-start.md) | Original setup guide (pre-state-machine) |
 | [home-assistant-automations.md](home-assistant-automations.md) | Traditional HA automations |
 
-### Superseded
-
-| Document | Replaced By |
-|----------|-------------|
-| [package-placeholder.md](package-placeholder.md) | Actual HA package now exists at `homeassistant/packages/3d_printing/wled/` |
-
 ---
 
 ## Configuration Files by Status
