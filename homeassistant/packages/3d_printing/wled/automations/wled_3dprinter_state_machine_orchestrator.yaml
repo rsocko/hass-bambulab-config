@@ -78,9 +78,9 @@
         - condition: template
           value_template: "{{ event_id != 'E_NOOP' }}"
       then:
-        - action: script.wled_3d_printer_transition_from_event
+        - action: script.wled_3dprinter_transition_from_event
           data:
             event_id: "{{ event_id }}"
             reason: "{{ event_reason }}"
-        - action: script.wled_3d_printer_apply_core_state_to_presets
+        - action: script.wled_3dprinter_apply_core_state_to_presets
           data: {}
