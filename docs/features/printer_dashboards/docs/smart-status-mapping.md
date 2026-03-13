@@ -1,4 +1,4 @@
-﻿# Smart Printer Status Mapping
+# Smart Printer Status Mapping
 
 > **Full reference**: See [SMART_STATUS.md](SMART_STATUS.md) for the complete stage mapping table, Bambuddy consistency analysis, and future-proofing details.
 
