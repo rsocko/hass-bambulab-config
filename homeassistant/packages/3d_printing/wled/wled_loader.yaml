@@ -1,0 +1,7 @@
+# WLED state-machine package (core state helper + transition scripts + orchestrator automation).
+automation: !include_dir_merge_list automations
+script: !include_dir_merge_named scripts
+
+input_boolean: !include_dir_merge_named helpers/input_boolean
+input_select: !include_dir_merge_named helpers/input_select
+input_text: !include_dir_merge_named helpers/input_text

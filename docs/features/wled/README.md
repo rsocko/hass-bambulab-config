@@ -23,6 +23,7 @@ This directory contains WLED configuration files for controlling LED strips on a
 > - **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Detailed guidance on optimizing segment allocation across MagWLED and DigQuad controllers
 > - **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Complete specification of all 31+ presets with active tray scenarios, segment usage, and workarounds for blocked scenarios
 > - **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Step-by-step implementation approach with 7 phases, validation checkpoints, and rollback procedures
+> - **[HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md)** - Home Assistant package skeleton (helpers, transition scripts, orchestrator automation, event mapping)
 > 
 > **Key Hardware Reality:**
 > - ✅ DigQuad is at **full capacity** with 5 GPIO pins (cannot add more LED strips)

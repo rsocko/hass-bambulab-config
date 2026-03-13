@@ -1,0 +1,4 @@
+wled_3dprinter_show_mode_enabled:
+  name: WLED 3D Printer Show Mode Enabled
+  icon: mdi:palette
+  initial: false

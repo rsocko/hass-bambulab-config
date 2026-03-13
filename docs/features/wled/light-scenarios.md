@@ -300,6 +300,10 @@ This state machine defines deterministic behavior for baseline presets and dynam
 
 ### Core states
 
+Implementation note:
+- Machine IDs are the canonical state values used by `input_select.wled_3dprinter_core_state`.
+- Human-readable state names and HA package mapping are documented in `docs/features/wled/HA_STATE_MACHINE_PACKAGE.md` under `Core State IDs and Names`.
+
 | State ID | Description | Baseline preset |
 |----------|-------------|-----------------|
 | S0_OFFLINE | Printer unreachable/offline | Preset 1 variant (offline) |

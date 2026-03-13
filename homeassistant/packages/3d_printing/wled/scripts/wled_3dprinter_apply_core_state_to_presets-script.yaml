@@ -1,0 +1,50 @@
+wled_3dprinter_apply_core_state_to_presets:
+  alias: WLED 3D Printer - Apply Core State To Presets
+  description: Map current core state to DigQuad/MagWLED preset IDs and apply.
+  mode: restart
+  fields:
+    override_state:
+      name: 3D Printer Override State
+      description: Optional core state to apply instead of input_select value.
+      required: false
+      selector:
+        text: {}
+  sequence:
+    - variables:
+        digquad_entity: light.dig_quad_v3
+        magwled_entity: light.magwled
+        core_state: >-
+          {% if override_state is defined and (override_state | string | trim) | length > 0 %}
+            {{ override_state }}
+          {% else %}
+            {{ states('input_select.wled_3dprinter_core_state') }}
+          {% endif %}
+        digquad_preset: >-
+          {% if core_state == 'S0_OFFLINE' %}101
+          {% elif core_state == 'S1_IDLE' %}102
+          {% elif core_state == 'S2_PREP' %}103
+          {% elif core_state == 'S3_PRINTING' %}104
+          {% elif core_state == 'S4_PAUSED_USER' %}105
+          {% elif core_state == 'S5_PAUSED_ERROR' %}106
+          {% elif core_state == 'S6_FINISHING' %}107
+          {% elif core_state == 'S7_MAINTENANCE' %}108
+          {% elif core_state == 'S8_SHOW' %}109
+          {% else %}102
+          {% endif %}
+        magwled_preset: >-
+          {% if core_state in ['S0_OFFLINE', 'S5_PAUSED_ERROR'] %}2
+          {% else %}1
+          {% endif %}
+    - action: light.turn_on
+      data:
+        entity_id: "{{ digquad_entity }}"
+        preset: "{{ digquad_preset | int }}"
+    - action: light.turn_on
+      data:
+        entity_id: "{{ magwled_entity }}"
+        preset: "{{ magwled_preset | int }}"
+    - action: logbook.log
+      data:
+        name: WLED 3D Printer State Machine
+        message: >-
+          Applied presets - DigQuad: {{ digquad_preset }}, MagWLED: {{ magwled_preset }} ({{ core_state }})

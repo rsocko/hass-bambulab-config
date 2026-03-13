@@ -1,0 +1,5 @@
+wled_3dprinter_last_transition_reason:
+  name: WLED 3D Printer Last Transition Reason
+  icon: mdi:text-box-outline
+  initial: startup
+  max: 255

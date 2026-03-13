@@ -1,0 +1,71 @@
+wled_3dprinter_transition_from_event:
+  alias: WLED 3D Printer - Transition From Event
+  description: Resolve an E_* event to core state and update helper entities.
+  mode: queued
+  max: 20
+  fields:
+    event_id:
+      name: 3D Printer Event ID
+      description: State-machine event ID such as E_PRINT_START.
+      required: true
+      selector:
+        text: {}
+    reason:
+      name: 3D Printer Transition Reason
+      description: Optional detail string for logs/debugging.
+      required: false
+      selector:
+        text: {}
+  sequence:
+    - variables:
+        event: "{{ event_id | default('E_NOOP') }}"
+        current_state: "{{ states('input_select.wled_3dprinter_core_state') }}"
+        mapped_state: >-
+          {% if event == 'E_OFFLINE' %}S0_OFFLINE
+          {% elif event == 'E_IDLE' %}S1_IDLE
+          {% elif event == 'E_PREP_START' %}S2_PREP
+          {% elif event == 'E_PRINT_START' %}S3_PRINTING
+          {% elif event == 'E_PAUSE_USER' %}S4_PAUSED_USER
+          {% elif event == 'E_PAUSE_ERROR' %}S5_PAUSED_ERROR
+          {% elif event == 'E_RESUME' %}S3_PRINTING
+          {% elif event == 'E_PRINT_DONE' %}S6_FINISHING
+          {% elif event == 'E_MAINT_START' %}S7_MAINTENANCE
+          {% elif event == 'E_SHOW_ON' %}S8_SHOW
+          {% elif event == 'E_SHOW_OFF' %}S1_IDLE
+          {% else %}{{ current_state }}
+          {% endif %}
+        next_state: >-
+          {% set valid = ['S0_OFFLINE','S1_IDLE','S2_PREP','S3_PRINTING','S4_PAUSED_USER','S5_PAUSED_ERROR','S6_FINISHING','S7_MAINTENANCE','S8_SHOW'] %}
+          {{ mapped_state if mapped_state in valid else current_state }}
+        transition_reason: >-
+          {% if reason is defined and (reason | string | trim) | length > 0 %}
+            {{ reason }}
+          {% else %}
+            event={{ event }}
+          {% endif %}
+    - if:
+        - condition: template
+          value_template: "{{ event == 'E_NOOP' and next_state == current_state }}"
+      then:
+        - stop: No transition required
+    - if:
+        - condition: template
+          value_template: "{{ next_state != current_state }}"
+      then:
+        - action: input_select.select_option
+          data:
+            entity_id: input_select.wled_3dprinter_core_state
+            option: "{{ next_state }}"
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.wled_3dprinter_last_event
+        value: "{{ event }}"
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.wled_3dprinter_last_transition_reason
+        value: "{{ transition_reason[:255] }}"
+    - action: logbook.log
+      data:
+        name: WLED 3D Printer State Machine
+        message: >-
+          {{ current_state }} -> {{ next_state }} via {{ event }}

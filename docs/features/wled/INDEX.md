@@ -55,6 +55,7 @@ wled/
 |------|---------|--------------|
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | **One-page quick reference card** | Start here for overview |
 | [SUMMARY.md](SUMMARY.md) | **High-level summary of design refinement** | After quick reference |
+| [HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md) | **HA package skeleton + E_* event mapping + state diagram** | Before enabling automations |
 | [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) | **Controller allocation strategy and segment limitation analysis** | Before any configuration changes |
 | [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) | **Complete specification of 31+ presets with active tray scenarios** | During preset creation |
 | [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) | **7-phase implementation plan with validation checkpoints** | During implementation |
@@ -68,16 +69,17 @@ wled/
 ### For First-Time Users
 1. **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - ⭐ **START HERE!** One-page overview
 2. **[SUMMARY.md](SUMMARY.md)** - High-level summary of design refinement
-3. **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Understand segment limitations and controller allocation
-4. **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Review all 31+ preset definitions
-5. **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Follow 7-phase implementation plan
-6. **[BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)** - Set up backup workflow before edits/upgrades
-7. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
-8. **[LED Function Map](light-scenarios.md#2-led-function-map-consolidated)** - Learn what each LED zone does
-9. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
-10. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
-11. **[README.md](README.md)** - Complete overview and integration guide
-12. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
+3. **[HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md)** - Apply the HA package skeleton and event mapping
+4. **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Understand segment limitations and controller allocation
+5. **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Review all 31+ preset definitions
+6. **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Follow 7-phase implementation plan
+7. **[BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)** - Set up backup workflow before edits/upgrades
+8. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
+9. **[LED Function Map](light-scenarios.md#2-led-function-map-consolidated)** - Learn what each LED zone does
+10. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
+11. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+12. **[README.md](README.md)** - Complete overview and integration guide
+13. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
 
 ### For Experienced Users
 1. **[digquad-led-segments.md](digquad-led-segments.md)** - Quick reference for LED ranges
@@ -131,6 +133,10 @@ wled/
 | [digquad-settings/wled_presets_Digquad.json](../../../wled/digquad-settings/wled_presets_Digquad.json) | 14 presets for printer/AMS control | Import to Digquad |
 | [digquad-settings/wled_segments_Digquad.json](../../../wled/digquad-settings/wled_segments_Digquad.json) | Original segment definitions (reference only) | For manual segment creation |
 | [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json) | **UPDATED segment definitions (16 segments, optimized)** | **Recommended for new installations** |
+| [digquad-settings/wled_state_machine_presets_Digquad_skeleton.json](../../../wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json) | Core state-machine preset skeleton (`101-109`) | Optional: merge/import when enabling HA state-machine package |
+| [digquad-settings/wled_state_machine_preset_map.json](../../../wled/digquad-settings/wled_state_machine_preset_map.json) | State ID to preset mapping | Reference only (HA mapping helper) |
+| [digquad-settings/wled_cfg_Dig-Quad-V3.customization](../../../wled/digquad-settings/wled_cfg_Dig-Quad-V3.customization) | Archived/template DigQuad config snapshot | Reference only (do not load directly unless intentionally converted) |
+| [digquad-settings/wled_presets_Dig-Quad-V3.customization](../../../wled/digquad-settings/wled_presets_Dig-Quad-V3.customization) | Archived/template DigQuad presets snapshot | Reference only (do not load directly unless intentionally converted) |
 | [magwled-settings/wled_cfg_MagWLED.json](../../../wled/magwled-settings/wled_cfg_MagWLED.json) | MagWLED controller config (legacy) | Upload to MagWLED if used |
 | [magwled-settings/wled_presets_MagWLED_updated.json](../../../wled/magwled-settings/wled_presets_MagWLED_updated.json) | Updated presets for AMS 2 tags (legacy) | Import to MagWLED if used |
 | [magwled-settings/wled_segments_MagWLED.json](../../../wled/magwled-settings/wled_segments_MagWLED.json) | Segment definitions (legacy, reference only) | For manual segment creation |

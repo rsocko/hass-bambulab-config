@@ -1,0 +1,19 @@
+{
+  "description": "Home Assistant WLED state-machine preset mapping for DigQuad.",
+  "digquad_presets": {
+    "S0_OFFLINE": 101,
+    "S1_IDLE": 102,
+    "S2_PREP": 103,
+    "S3_PRINTING": 104,
+    "S4_PAUSED_USER": 105,
+    "S5_PAUSED_ERROR": 106,
+    "S6_FINISHING": 107,
+    "S7_MAINTENANCE": 108,
+    "S8_SHOW": 109
+  },
+  "notes": [
+    "Import wled_state_machine_presets_Digquad_skeleton.json into DigQuad.",
+    "Ensure segment IDs 0 and 1 map to door progress/status in your active layout.",
+    "Tune FX/speed/intensity per your preference after import."
+  ]
+}

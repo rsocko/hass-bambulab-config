@@ -1,0 +1,4 @@
+wled_3dprinter_state_machine_enabled:
+  name: WLED 3D Printer State Machine Enabled
+  icon: mdi:state-machine
+  initial: true

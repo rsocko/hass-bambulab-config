@@ -1,0 +1,14 @@
+wled_3dprinter_core_state:
+  name: WLED 3D Printer Core State
+  icon: mdi:chart-timeline-variant-shimmer
+  options:
+    - S0_OFFLINE
+    - S1_IDLE
+    - S2_PREP
+    - S3_PRINTING
+    - S4_PAUSED_USER
+    - S5_PAUSED_ERROR
+    - S6_FINISHING
+    - S7_MAINTENANCE
+    - S8_SHOW
+  initial: S1_IDLE

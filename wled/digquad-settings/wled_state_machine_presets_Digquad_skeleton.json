@@ -1,0 +1,94 @@
+{
+  "p": {
+    "101": {
+      "n": "SM S0 Offline",
+      "on": true,
+      "bri": 90,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 90, "col": [[0, 0, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 140, "col": [[255, 120, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 }
+      ]
+    },
+    "102": {
+      "n": "SM S1 Idle",
+      "on": true,
+      "bri": 120,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 120, "col": [[0, 0, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 150, "col": [[120, 170, 255]], "fx": 10, "sx": 110, "ix": 100, "pal": 0 }
+      ]
+    },
+    "103": {
+      "n": "SM S2 Prep",
+      "on": true,
+      "bri": 150,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 130, "col": [[255, 80, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 170, "col": [[255, 140, 0]], "fx": 6, "sx": 120, "ix": 110, "pal": 0 }
+      ]
+    },
+    "104": {
+      "n": "SM S3 Printing",
+      "on": true,
+      "bri": 180,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 200, "col": [[0, 255, 40]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 180, "col": [[0, 170, 80]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 }
+      ]
+    },
+    "105": {
+      "n": "SM S4 Paused User",
+      "on": true,
+      "bri": 170,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 150, "col": [[255, 170, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 190, "col": [[255, 220, 0]], "fx": 2, "sx": 120, "ix": 120, "pal": 0 }
+      ]
+    },
+    "106": {
+      "n": "SM S5 Paused Error",
+      "on": true,
+      "bri": 255,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 220, "col": [[255, 0, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 255, "col": [[255, 0, 0]], "fx": 2, "sx": 128, "ix": 150, "pal": 0 }
+      ]
+    },
+    "107": {
+      "n": "SM S6 Finishing",
+      "on": true,
+      "bri": 180,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 170, "col": [[0, 255, 110]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 200, "col": [[0, 255, 140]], "fx": 3, "sx": 110, "ix": 110, "pal": 0 }
+      ]
+    },
+    "108": {
+      "n": "SM S7 Maintenance",
+      "on": true,
+      "bri": 150,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 130, "col": [[255, 130, 0]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 170, "col": [[255, 170, 0]], "fx": 17, "sx": 110, "ix": 100, "pal": 0 }
+      ]
+    },
+    "109": {
+      "n": "SM S8 Show",
+      "on": true,
+      "bri": 130,
+      "mainseg": 1,
+      "seg": [
+        { "id": 0, "on": true, "bri": 120, "col": [[60, 80, 255]], "fx": 0, "sx": 128, "ix": 128, "pal": 0 },
+        { "id": 1, "on": true, "bri": 150, "col": [[90, 60, 255]], "fx": 68, "sx": 100, "ix": 80, "pal": 0 }
+      ]
+    }
+  }
+}

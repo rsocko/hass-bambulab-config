@@ -1,0 +1,86 @@
+- alias: "WLED 3D Printer - State Machine Orchestrator"
+  id: wled_3dprinter_state_machine_orchestrator
+  description: >-
+    Single writer automation for WLED core-state transitions.
+    Computes E_* event IDs from smart status and selected printer entities,
+    updates input_select.wled_3dprinter_core_state, then applies controller presets.
+  mode: restart
+  triggers:
+    - trigger: homeassistant
+      event: start
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinter_smart_status
+        - sensor.ntk_ryansoffice_3dprinter_current_stage
+        - binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+        - input_boolean.wled_3dprinter_show_mode_enabled
+  conditions:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+  actions:
+    - variables:
+        smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }}"
+        stage: "{{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower }}"
+        hms_errors: "{{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | lower }}"
+        show_mode_enabled: "{{ is_state('input_boolean.wled_3dprinter_show_mode_enabled', 'on') }}"
+        current_core_state: "{{ states('input_select.wled_3dprinter_core_state') }}"
+        event_id: >-
+          {% set smart_status_lc = smart_status | lower %}
+          {% set maintenance_stages = [
+            'cleaning_nozzle_tip', 'filament_loading', 'filament_unloading',
+            'calibrating_extrusion', 'calibrating_extrusion_flow',
+            'calibrating_micro_lidar', 'calibrating_motor_noise',
+            'absolute_accuracy_calibration',
+            'check_absolute_accuracy_before_calibration',
+            'check_absolute_accuracy_after_calibration',
+            'calibrate_nozzle_offset', 'laser_calibration',
+            'calibrate_birdeye_camera', 'motor_noise_showoff',
+            'check_door_and_cover', 'check_quick_release',
+            'check_plaform', 'check_birdeye_camera_position'
+          ] %}
+          {% if smart_status == 'Offline' %}
+            E_OFFLINE
+          {% elif show_mode_enabled and smart_status == 'Idle' %}
+            E_SHOW_ON
+          {% elif (not show_mode_enabled) and current_core_state == 'S8_SHOW' and smart_status == 'Idle' %}
+            E_SHOW_OFF
+          {% elif smart_status == 'Print Finished' %}
+            E_PRINT_DONE
+          {% elif smart_status.startswith('Paused') %}
+            {% if 'runout' in smart_status_lc or 'clog' in smart_status_lc or 'ams lost' in smart_status_lc or 'first layer error' in smart_status_lc %}
+              E_PAUSE_ERROR
+            {% elif hms_errors == 'on' %}
+              E_PAUSE_ERROR
+            {% else %}
+              E_PAUSE_USER
+            {% endif %}
+          {% elif smart_status == 'Printing' %}
+            {% if current_core_state in ['S4_PAUSED_USER', 'S5_PAUSED_ERROR'] %}
+              E_RESUME
+            {% else %}
+              E_PRINT_START
+            {% endif %}
+          {% elif stage in maintenance_stages and current_core_state in ['S1_IDLE', 'S6_FINISHING', 'S7_MAINTENANCE'] and smart_status not in ['Printing', 'Preparing Print'] %}
+            E_MAINT_START
+          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer'] %}
+            E_PREP_START
+          {% elif smart_status == 'Idle' %}
+            E_IDLE
+          {% else %}
+            E_NOOP
+          {% endif %}
+        event_reason: >-
+          trigger={{ trigger.entity_id if trigger is defined and trigger.entity_id is defined else 'homeassistant.start' }};
+          smart_status={{ smart_status }};
+          stage={{ stage }}
+    - if:
+        - condition: template
+          value_template: "{{ event_id != 'E_NOOP' }}"
+      then:
+        - action: script.wled_3dprinter_transition_from_event
+          data:
+            event_id: "{{ event_id }}"
+            reason: "{{ event_reason }}"
+        - action: script.wled_3dprinter_apply_core_state_to_presets
+          data: {}
