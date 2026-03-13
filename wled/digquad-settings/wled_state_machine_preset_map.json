@@ -1,6 +1,7 @@
 {
-  "description": "Home Assistant WLED state-machine preset mapping for DigQuad.",
+  "description": "Home Assistant WLED state-machine preset mapping for DigQuad (Phase 2 — 15 segments).",
   "digquad_presets": {
+    "BASE_LAYOUT": 100,
     "S0_OFFLINE": 101,
     "S1_IDLE": 102,
     "S2_PREP": 103,
@@ -11,9 +12,33 @@
     "S7_MAINTENANCE": 108,
     "S8_SHOW": 109
   },
+  "preset_names": {
+    "100": "SM Base Layout",
+    "101": "SM S0 Offline",
+    "102": "SM S1 Idle",
+    "103": "SM S2 Prep",
+    "104": "SM S3 Printing",
+    "105": "SM S4 Paused User",
+    "106": "SM S5 Paused Error",
+    "107": "SM S6 Finishing",
+    "108": "SM S7 Maintenance",
+    "109": "SM S8 Show"
+  },
+  "segment_layout": {
+    "total_segments": 15,
+    "groups": {
+      "door": {"segments": [0, 1, 2], "names": ["Front Door Bottom", "Front Door Left", "Front Door Top"]},
+      "ams": {"segments": [3, 4], "names": ["AMS1 Combined", "AMS2 Combined"]},
+      "tags_ams1": {"segments": [5, 6, 7, 8], "names": ["Tag A1", "Tag A2", "Tag A3", "Tag A4"]},
+      "tags_ams2": {"segments": [10, 11, 12, 13], "names": ["Tag B1", "Tag B2", "Tag B3", "Tag B4"]},
+      "backgrounds": {"segments": [9, 14], "names": ["AMS1 Tag Bottoms", "AMS2 Tag Bottoms"]}
+    }
+  },
   "notes": [
-    "Import wled_state_machine_presets_Digquad_skeleton.json into DigQuad.",
-    "Ensure segment IDs 0 and 1 map to door progress/status in your active layout.",
+    "Preset 100 (SM Base Layout) establishes segment boundaries — load once during setup.",
+    "Presets 101-109 style existing segments without changing boundaries.",
+    "Import wled_state_machine_presets_Digquad_phase2.json into DigQuad.",
+    "Interior Lid Light is controlled by MagWLED (separate controller).",
     "Tune FX/speed/intensity per your preference after import."
   ]
 }

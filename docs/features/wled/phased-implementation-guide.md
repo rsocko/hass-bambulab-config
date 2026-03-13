@@ -58,18 +58,23 @@ Each phase builds toward this target incrementally.
 #### WLED Config
 | File | Purpose |
 |------|---------|
-| `wled_state_machine_presets_Digquad_skeleton.json` | Presets 101–109 merged into DigQuad |
+| `wled_state_machine_presets_Digquad_skeleton.json` | Phase 1 presets 101–109 (2-segment only, rollback reference) |
+| `wled_state_machine_presets_Digquad_phase2.json` | Phase 2 presets 100–109 (15-segment, full layout) |
 | `wled_state_machine_preset_map.json` | Reference: state → preset ID |
+| `wled_segments_Digquad_UPDATED.json` | Reference: 15-segment layout definition |
 | `wled_cfg_Digquad.json` | Base controller configuration |
 
 #### Current Segment Layout on DigQuad
-The skeleton presets style segments 0 and 1 only. DigQuad currently exposes 5 segments in HA:
+Phase 1 skeleton presets style segments 0 and 1 only. Phase 2 expands to 15 segments covering all 711 LEDs.
 
-| Segment | Current Use |
-|---------|-------------|
-| 0 | Front area (color per state) |
-| 1 | Status indicator (main seg, effect per state) |
-| 2–4 | Present but not styled by skeleton presets |
+Interior Lid Light is controlled by MagWLED (separate controller, not DigQuad).
+
+| Segment | Phase 1 Use | Phase 2 Use |
+|---------|-------------|-------------|
+| 0 | Front area (color per state) | Front Door Bottom (progress bar) |
+| 1 | Status indicator (main seg, effect per state) | Front Door Left (layer progress) |
+| 2–4 | Present but not styled by skeleton presets | Seg 2: Front Door Top (status), Seg 3: AMS1 Combined, Seg 4: AMS2 Combined |
+| 5–14 | N/A | Seg 5–8: Tag A1–A4, Seg 9: AMS1 Backgrounds, Seg 10–13: Tag B1–B4, Seg 14: AMS2 Backgrounds |
 
 ### Phase 1 Validation Checklist
 
@@ -105,64 +110,75 @@ The skeleton presets style segments 0 and 1 only. DigQuad currently exposes 5 se
 
 ## Phase 2: Segment Expansion + Preset Enhancement
 
-**Goal**: Deploy the full 15-segment layout on DigQuad; expand presets 101–109 to style all segments per state  
-**Status**: Not started  
+**Goal**: Deploy the full 15-segment layout on DigQuad; expand presets 100–109 to style all segments per state  
+**Status**: Implementation ready (files created, pending deployment)  
 **Prerequisite**: Phase 1 validated  
 **Design reference**: [light-scenarios.md](light-scenarios.md) — Sections 3 (scenario catalog), 5 (smart defaults), 6 (baseline presets)
 
 ### 2.1: Deploy Full Segment Layout
 
-Apply the target 16-segment layout from [wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json):
+Apply the 15-segment layout from [wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json):
 
 | Seg | Name | GPIO | LED Range | Count | Purpose |
 |-----|------|------|-----------|-------|---------|
 | 0 | Front Door Bottom | 15 | 0–49 | 50 | Print progress bar |
-| 1 | Front Door Left | 15 | 50–115 | 65 | Layer progress |
-| 2 | Front Door Top | 15 | 116–157 | 43 | Status indicator |
-| 3 | AMS 1 Tray Top | 1 | 158–215 | 58 | AMS 1 tray lighting |
-| 4 | AMS 1 Tray Bottom | 1 | 241–297 | 57 | Neutral background |
-| 5 | AMS 2 Tray Top | 3 | 298–357 | 60 | AMS 2 tray lighting |
-| 6 | AMS 2 Tray Bottom | 3 | 382–436 | 55 | Neutral background |
-| 7 | Tag A1 Top | 16 | 442–453 | 12 | Tray A1 tag |
-| 8 | Tag A2 Top | 16 | 454–465 | 12 | Tray A2 tag |
-| 9 | Tag A3 Top | 16 | 466–477 | 12 | Tray A3 tag |
-| 10 | Tag A4 Top | 16 | 490–501 | 12 | Tray A4 tag |
-| 11 | Tag B1 Top | 4 | 579–591 | 13 | Tray B1 tag |
-| 12 | Tag B2 Top | 4 | 592–605 | 14 | Tray B2 tag |
-| 13 | Tag B3 Top | 4 | 606–619 | 14 | Tray B3 tag |
-| 14 | Tag B4 Top | 4 | 632–643 | 12 | Tray B4 tag |
-| 15 | Neutral Backgrounds | 16,4 | Various | ~125 | Tag bottoms + hygrometers |
+| 1 | Front Door Left | 15 | 50–114 | 65 | Layer progress |
+| 2 | Front Door Top | 15 | 115–157 | 43 | Status indicator |
+| 3 | AMS1 Combined | 1 | 158–297 | 140 | AMS 1 tray lighting (top + bottom) |
+| 4 | AMS2 Combined | 3 | 298–436 | 139 | AMS 2 tray lighting (top + bottom) |
+| 5 | Tag A1 Top | 16 | 437–453 | 17 | Tray A1 tag (incl. side start) |
+| 6 | Tag A2 Top | 16 | 454–465 | 12 | Tray A2 tag |
+| 7 | Tag A3 Top | 16 | 466–489 | 24 | Tray A3 tag (incl. hygrometer) |
+| 8 | Tag A4 Top | 16 | 490–501 | 12 | Tray A4 tag |
+| 9 | AMS1 Tag Bottoms | 16 | 502–572 | 71 | AMS1 tag bottoms + backgrounds |
+| 10 | Tag B1 Top | 4 | 573–591 | 19 | Tray B1 tag (incl. side start) |
+| 11 | Tag B2 Top | 4 | 592–605 | 14 | Tray B2 tag |
+| 12 | Tag B3 Top | 4 | 606–631 | 26 | Tray B3 tag (incl. hygrometer) |
+| 13 | Tag B4 Top | 4 | 632–643 | 12 | Tray B4 tag |
+| 14 | AMS2 Tag Bottoms | 4 | 644–710 | 67 | AMS2 tag bottoms + backgrounds |
+
+**Total**: 711 LEDs, 15 segments, zero gaps, 1 spare slot under WLED 16-segment max  
+**Note**: Interior Lid Light is controlled by MagWLED (separate controller), not DigQuad
+
+**Layout decisions**:
+- 3 door segments (Bottom/Left/Top) for independent progress bar, layer, and status control
+- AMS top + bottom combined per unit (2 segments instead of 4) — minimal visual differentiation at this phase
+- Side-wall and hygrometer LEDs absorbed into adjacent tag/background segments — Phase 3 can differentiate via API overlays
 
 **Steps**:
-1. **Backup first**: Take a backup snapshot of DigQuad (cfg.json + presets.json) following [backup-and-restore.md](backup-and-restore.md)
-2. Open DigQuad WLED UI → Segments
-3. Create segments 0–15 with the LED ranges above
-4. Save the segment layout as a preset (e.g., preset 100 "Base Layout")
-5. Verify each segment lights independently via the WLED UI
+1. **Backup first**: Take a backup snapshot of DigQuad (cfg.json + presets.json) into `wled/backups/digquad/2026-03-13 - 3 - Pre Phase 2/`
+2. Merge `wled_state_machine_presets_Digquad_phase2.json` into DigQuad (this file contains presets 100–109)
+3. Load Preset 100 ("SM Base Layout") once to establish the 15-segment layout with boundaries
+4. Verify each segment lights independently via the WLED UI
+5. Test each state preset (101–109) by selecting them in the WLED UI
 
 ### 2.2: Expand State Machine Presets
 
-Update `wled_state_machine_presets_Digquad_skeleton.json` so each preset (101–109) includes segment definitions for all 16 segments, not just 0–1.
+New file: `wled_state_machine_presets_Digquad_phase2.json` — replaces the Phase 1 skeleton with full 15-segment presets.  
+Phase 1 skeleton preserved at `wled_state_machine_presets_Digquad_skeleton.json` for rollback.
+
+**Preset 100 (SM Base Layout)**: Defines segment boundaries (start/stop) + neutral warm white on all segments.  
+**Presets 101–109**: Style all 15 segments per state (no boundary changes — references existing segment IDs).
 
 **Design guidance per state**:
 
-| State | Seg 0 (Progress) | Seg 1 (Layer) | Seg 2 (Status) | Seg 3–6 (AMS Trays) | Seg 7–14 (Tags) | Seg 15 (Backgrounds) |
-|-------|-------------------|---------------|----------------|----------------------|------------------|----------------------|
+| State | Seg 0 (Progress) | Seg 1 (Left) | Seg 2 (Top/Status) | Seg 3–4 (AMS) | Seg 5–8, 10–13 (Tags) | Seg 9, 14 (Backgrounds) |
+|-------|-------------------|--------------|---------------------|----------------|------------------------|-------------------------|
 | S0_OFFLINE | Off | Off | Dim amber solid | Off | Off | Off |
 | S1_IDLE | Off | Off | Soft blue breathe | Soft white 30% | Soft white 25% | Soft white 25% |
 | S2_PREP | Off | Off | Orange pulse | Dim orange | Off | Off |
-| S3_PRINTING | Green (dynamic) | Green (dynamic) | Green solid | White 40% | Soft white 30% | Soft white 25% |
+| S3_PRINTING | Green solid | Green solid | Soft green solid | White 40% | Soft white 30% | Soft white 25% |
 | S4_PAUSED_USER | Yellow hold | Yellow hold | Yellow blink | Yellow dim | Yellow dim | Dim |
-| S5_PAUSED_ERROR | Red flash | Red flash | Red strobe | Red 60% | Red 60% | Red dim |
+| S5_PAUSED_ERROR | Red blink | Red blink | Red strobe | Red 60% | Red 60% | Red dim |
 | S6_FINISHING | Full green | Full green | Green wipe | White 40% | Soft white 30% | Soft white 25% |
 | S7_MAINTENANCE | Off | Off | Orange chase | Amber dim | Off | Off |
 | S8_SHOW | Off | Off | Purple palette fx | Purple dim | Purple breathe | Purple dim |
 
 **Steps**:
-1. Edit `wled_state_machine_presets_Digquad_skeleton.json` to add `seg` entries for all 15 segments in each preset
-2. Each preset should include `"start"` and `"stop"` bounds for segments, or reference existing segment IDs
-3. Re-merge the updated presets into DigQuad
-4. Verify each state looks correct by manually setting `input_select.wled_3dprinter_core_state` in HA Developer Tools
+1. Merge `wled_state_machine_presets_Digquad_phase2.json` into DigQuad's presets (replaces 101–109, adds 100)
+2. Load Preset 100 once to establish segment layout
+3. Verify each state by manually setting `input_select.wled_3dprinter_core_state` in HA Developer Tools
+4. Call `script.wled_3dprinter_apply_core_state_to_presets` after each state change to apply the preset
 
 ### 2.3: Validate Segment Expansion
 
@@ -174,11 +190,15 @@ Update `wled_state_machine_presets_Digquad_skeleton.json` so each preset (101–
 
 | Test | Set State To | Verify |
 |------|-------------|--------|
-| Offline look | S0_OFFLINE | Only seg 1 dim amber; all others off |
-| Idle look | S1_IDLE | Seg 1 blue breathing; AMS/tags soft white |
-| Printing look | S3_PRINTING | Seg 0 green; seg 1 green; AMS/tags lit |
-| Error look | S5_PAUSED_ERROR | All segments red; seg 1 strobe |
-| Show look | S8_SHOW | Purple effects on visible segments |
+| Offline look | S0_OFFLINE | Only seg 2 (door top) dim amber; all others off |
+| Idle look | S1_IDLE | Seg 2 blue breathing; AMS combined soft white; tags/backgrounds soft white |
+| Prep look | S2_PREP | Seg 2 orange pulse; AMS combined dim orange; tags off |
+| Printing look | S3_PRINTING | Segs 0–2 green; AMS white; tags/backgrounds soft white |
+| Paused user | S4_PAUSED_USER | All segments yellow; seg 2 blinking |
+| Error look | S5_PAUSED_ERROR | All segments red; segs 0–2 blinking |
+| Finishing look | S6_FINISHING | Segs 0–1 green; seg 2 green wipe; AMS/tags lit |
+| Maintenance | S7_MAINTENANCE | Seg 2 orange chase; AMS amber dim; tags off |
+| Show look | S8_SHOW | Seg 2 purple fx; tags purple breathing; backgrounds purple dim |
 
 ### 2.4: MagWLED Coordination
 
@@ -206,7 +226,7 @@ Add scripts/automations that run **after** the core preset is applied to overrid
 1. Create a new script `wled_3dprinter_apply_active_tray_overlay` that:
    - Reads the current active tray from `sensor.ntk_ryansoffice_3dprinter_active_tray` (or applicable entity)
    - Gets the filament color (from Spoolman integration or manual helpers)
-   - Uses the WLED API to override the matching tag segment (6–13) color
+   - Uses the WLED API to override the matching tag segment (5–8, 10–13) color
 2. Call this script from the orchestrator after `wled_3dprinter_apply_core_state_to_presets` completes, but **only when core_state is S3_PRINTING**
 
 **Success criteria**: Active tray tag glows with filament color during printing; all other tags remain at the base preset's soft white.
@@ -244,9 +264,9 @@ During S3_PRINTING, dynamically update segment 0 brightness/length to reflect pr
 
 | Test | Expected |
 |------|----------|
-| Print with tray A1 | Tag segment 6 shows filament color |
-| Switch from A1 to B2 mid-print | Segment 6 returns to neutral; segment 11 lights up |
-| Idle with low filament in A3 | Only tag 8 pulses orange (idle overlay) |
+| Print with tray A1 | Tag segment 5 shows filament color |
+| Switch from A1 to B2 mid-print | Segment 5 returns to neutral; segment 11 lights up |
+| Idle with low filament in A3 | Only tag 7 pulses orange (idle overlay) |
 | Start print after idle overlay | Overlay suppressed; printing preset takes over |
 | Progress at 50% | Segment 0 at ~50% intensity or half-lit |
 
@@ -261,7 +281,7 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 | Phase | Rollback |
 |-------|----------|
 | Phase 1 | Disable toggle; remove package from `_feature_loaders.yaml` |
-| Phase 2 | Re-upload skeleton presets (101–109 segment 0+1 only) from backup |
+| Phase 2 | Re-upload skeleton presets (101–109 segment 0+1 only) from `wled/backups/digquad/2026-03-13 - 2 - Phase 1 Implemented/` or `wled_state_machine_presets_Digquad_skeleton.json` |
 | Phase 3 | Remove overlay scripts/automations; core presets continue to work |
 
 ### Full Recovery
@@ -284,12 +304,19 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 - [x] Master toggle disables/enables orchestrator
 
 ### Phase 2 (Segment Expansion)
+- [ ] Pre-deployment backup saved to `wled/backups/digquad/2026-03-13 - 3 - Pre Phase 2/`
+- [ ] `wled_state_machine_presets_Digquad_phase2.json` merged into DigQuad
+- [ ] Preset 100 (SM Base Layout) loaded — 15 segments established
 - [ ] All 15 segments visible and addressable in WLED UI
-- [ ] Each preset (101–109) styles all segments appropriately
+- [ ] Each preset (101–109) styles all 15 segments appropriately
 - [ ] Manual state override from Developer Tools works
 - [ ] Full print lifecycle looks correct (idle → prep → printing → finishing → idle)
 - [ ] Pause states (user and error) are visually distinct
-- [ ] Backup taken before and after changes
+- [ ] S0 Offline: only seg 2 (door top) shows amber
+- [ ] S1 Idle: seg 2 blue breathing, AMS/tags/backgrounds soft white
+- [ ] S3 Printing: segs 0–2 green, AMS white, tags soft white
+- [ ] S5 Error: all segments red, door segments blinking
+- [ ] Interior Lid Light confirmed on MagWLED (not DigQuad)
 
 ### Phase 3 (Overlays & Advanced)
 - [ ] Active tray tag highlights with filament color during printing

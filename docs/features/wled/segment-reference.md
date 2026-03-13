@@ -115,16 +115,16 @@ For complete scenario catalog, see [light-scenarios.md](light-scenarios.md).
 
 ## Color Codes
 
-| Color | RGB Value | Hex | Usage |
-|-------|-----------|-----|-------|
+| Color          | RGB Value   | Hex     | Usage                      |
+| -------------- | ----------- | ------- | -------------------------- |
 | White (Bright) | 255,255,255 | #FFFFFF | Active spools, maintenance |
-| Warm White | 255,220,180 | #FFDCB4 | Inactive spools, idle |
-| Green | 0,255,0 | #00FF00 | Normal status, success |
-| Red | 255,0,0 | #FF0000 | Error, alert |
-| Orange | 255,100,0 | #FF6400 | Active tag highlight |
-| Yellow | 150,150,0 | #969600 | Upcoming tag |
-| Blue | 100,150,255 | #6496FF | Idle breathing |
-| Gray | 100,100,100 | #646464 | Inactive tags |
+| Warm White     | 255,220,180 | #FFDCB4 | Inactive spools, idle      |
+| Green          | 0,255,0     | #00FF00 | Normal status, success     |
+| Red            | 255,0,0     | #FF0000 | Error, alert               |
+| Orange         | 255,100,0   | #FF6400 | Active tag highlight       |
+| Yellow         | 150,150,0   | #969600 | Upcoming tag               |
+| Blue           | 100,150,255 | #6496FF | Idle breathing             |
+| Gray           | 100,100,100 | #646464 | Inactive tags              |
 
 ## Effect IDs (Common WLED Effects)
 
