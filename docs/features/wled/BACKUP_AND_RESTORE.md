@@ -17,9 +17,12 @@ Keep repository-backed snapshots as your source of truth.
 
 For each controller, back up all of the following:
 
-1. `backup-export.json` from WLED UI backup/export
-2. `cfg.json` (device config)
-3. `presets.json` (presets and saved states)
+1. `cfg.json` (device configuration)
+2. `presets.json` (presets and saved states)
+
+Optional (only if your WLED version/UI exposes a single export file):
+
+3. `backup-export.json`
 
 ## Repository backup structure
 
@@ -30,10 +33,13 @@ Store backups under:
 
 Expected files per snapshot:
 
-- `backup-export.json`
 - `cfg.json`
 - `presets.json`
 - `NOTES.md` with firmware version, hostname/IP, and reason for backup
+
+Optional snapshot file:
+
+- `backup-export.json` (if available in your UI/version)
 
 Template files for notes:
 
@@ -44,13 +50,16 @@ Copy the appropriate template into your timestamped snapshot folder as `NOTES.md
 
 ## Backup procedure
 
-### Option A: UI backup (fastest)
+### Option A: UI backup (standard)
 
 1. Open WLED web UI.
 2. Go to `Config` -> `Security & Updates` -> `Backup`.
-3. Export backup file and save as `backup-export.json` in a timestamped folder.
+3. Click `Backup Configuration` and save as `cfg.json`.
+4. Click `Backup Presets` and save as `presets.json`.
 
-### Option B: File-level backup (recommended in addition)
+If your WLED build also provides a combined export, save that as `backup-export.json`.
+
+### Option B: File-level backup (equivalent fallback)
 
 1. Open `http://<wled-host>/edit`.
 2. Download `/cfg.json` and `/presets.json`.
@@ -60,15 +69,21 @@ Copy the appropriate template into your timestamped snapshot folder as `NOTES.md
 
 ### Preferred restore
 
-1. Restore using `backup-export.json` from UI backup/restore.
-2. Reboot controller.
-3. Verify key presets, segment bounds, and LED outputs.
+1. Open `Config` -> `Security & Updates`.
+2. Restore `cfg.json` using configuration restore.
+3. Restore `presets.json` using presets restore.
+4. Reboot controller.
+5. Verify key presets, segment bounds, and LED outputs.
 
 ### File-level restore fallback
 
 1. Upload `cfg.json` and `presets.json` via `http://<wled-host>/edit`.
 2. Reboot controller.
 3. Validate LED order, segment mapping, and preset behavior.
+
+### Combined export restore (optional)
+
+If you have a `backup-export.json` from a compatible WLED version/UI, you can restore that through the UI backup/restore flow.
 
 ## Validation checklist after restore
 
