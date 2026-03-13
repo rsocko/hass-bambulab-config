@@ -8,12 +8,13 @@ This configuration package includes:
 
 1. **Specification Documents** (READ THESE FIRST):
    - `digquad-led-segments.md` - Exact LED specifications (711 LEDs total)
-   - `led-functions.md` - Detailed function specifications for each zone
+   - `light-scenarios.md` (Section 2: LED Function Map) - Detailed function specifications for each zone
    - `light-scenarios.md` - Complete catalog of 33+ lighting scenarios
 2. **Main README** (`README.md`) - Complete overview integrated with specifications
 3. **Wiring Diagram** ([docs/wiring-diagram.md](docs/wiring-diagram.md)) - Detailed installation instructions
 4. **Home Assistant Automations** ([docs/home-assistant-automations.md](docs/home-assistant-automations.md)) - Integration examples
-5. **Digquad Configuration**:
+5. **Backup Guide** ([BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)) - Backup/restore process and required files
+6. **Digquad Configuration**:
    - `digquad-settings/wled_cfg_Digquad.json` - Controller configuration
    - `digquad-settings/wled_presets_Digquad.json` - Presets based on light-scenarios.md
    - `digquad-settings/wled_segments_Digquad.json` - Segment layout reference
@@ -32,7 +33,7 @@ This configuration package includes:
    - GPIO 16: AMS 1 Tags (136 LEDs, range 437-572)
    - GPIO 4: AMS 2 Tags (138 LEDs, range 573-710)
 
-2. **Read `led-functions.md`** - Understand what each zone does:
+2. **Read `light-scenarios.md` (Section 2: LED Function Map)** - Understand what each zone does:
    - Progress bar (door bottom)
    - Status indicators (door left/top)
    - Spool illumination functions
@@ -108,9 +109,21 @@ Follow the detailed instructions in [docs/wiring-diagram.md](docs/wiring-diagram
 4. Set LED type (WS2812B or SK6812)
 5. Save and reboot
 
+### Step 4.5: Create Backup Snapshot (10 minutes)
+
+Before segment edits and preset changes, capture a baseline snapshot:
+
+1. Follow [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md).
+2. Export UI backup and save as `backup-export.json`.
+3. Download `/cfg.json` and `/presets.json` from `http://<wled-host>/edit`.
+4. Store files in:
+   - `wled/backups/digquad/YYYY-MM-DD_HHMM/`
+   - `wled/backups/magwled/YYYY-MM-DD_HHMM/` (if applicable)
+5. Add `NOTES.md` with firmware version and reason for snapshot.
+
 ### Step 5: Create Segments (30 minutes)
 
-Create segments based on functional zones (refer to `led-functions.md` for functions):
+Create segments based on functional zones (refer to `light-scenarios.md` (Section 2: LED Function Map) for functions):
 
 #### Suggested Segment Organization:
 ```
@@ -155,7 +168,7 @@ Reference `light-scenarios.md` for detailed color and effect specifications for 
 4. Try each preset from `light-scenarios.md`
 5. Adjust brightness and speed as needed
 6. Test power supply under realistic load (not full white)
-7. Verify LED functions from `led-functions.md`:
+7. Verify LED functions from `light-scenarios.md` (Section 2: LED Function Map):
    - Progress bar animation (door bottom)
    - Status indicators (door left/top)
    - Spool highlighting
@@ -335,7 +348,7 @@ Key sensor mappings:
 
 ### Reference Specifications
 - **LED Counts**: See `digquad-led-segments.md` for exact ranges
-- **Functions**: See `led-functions.md` for zone purposes
+- **Functions**: See `light-scenarios.md` (Section 2: LED Function Map) for zone purposes
 - **Scenarios**: See `light-scenarios.md` for all behaviors
 
 ### Change Colors
@@ -359,7 +372,7 @@ Integrate with Spoolman:
 - Makes it easy to identify which spool is active!
 
 ### Function-Specific Features
-Based on `led-functions.md`:
+Based on `light-scenarios.md` (Section 2: LED Function Map):
 - **Door Bottom**: Animated progress with pause detection
 - **Door Left/Top**: Pulsing green when printing, flashing red on error
 - **Tag Top**: Color-match filament, show current use
@@ -401,7 +414,7 @@ Found a bug or have an improvement?
 ## Final Notes
 
 - **All specifications are documented**: See `digquad-led-segments.md` for exact LED counts (711 total)
-- **Functions are defined**: See `led-functions.md` for what each zone does
+- **Functions are defined**: See `light-scenarios.md` (Section 2: LED Function Map) for what each zone does
 - **Scenarios are cataloged**: See `light-scenarios.md` for all 33+ lighting behaviors
 - **Test incrementally**: Verify each GPIO output before moving to the next
 - **Start with simple presets**: Add complexity after basics work
@@ -424,7 +437,7 @@ Good luck with your installation! 🎉
 ## Quick Reference Links
 
 - 📊 [digquad-led-segments.md](digquad-led-segments.md) - LED specifications
-- 🎯 [led-functions.md](led-functions.md) - Zone functions
+- 🎯 [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) - Zone functions
 - 🎨 [light-scenarios.md](light-scenarios.md) - Scenario catalog
 - 📖 [README.md](README.md) - Complete documentation
 - 🔌 [docs/wiring-diagram.md](docs/wiring-diagram.md) - Installation guide

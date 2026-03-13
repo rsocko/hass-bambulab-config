@@ -5,7 +5,7 @@ Quick reference for WLED segment IDs and their purposes.
 **Total System LEDs: 711**
 
 For complete LED specifications, see [digquad-led-segments.md](../digquad-led-segments.md).
-For function details, see [led-functions.md](../led-functions.md).
+For function details, see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated).
 For scenario behaviors, see [light-scenarios.md](../light-scenarios.md).
 
 ## Digquad Controller - GPIO Pin Mapping
@@ -30,7 +30,7 @@ For scenario behaviors, see [light-scenarios.md](../light-scenarios.md).
 | Left | 50-114 | 65 | Status indicator (pulsing green/flashing red) |
 | Top | 115-157 | 43 | Status indicator (same as left) |
 
-**Functions** (see [led-functions.md](../led-functions.md)):
+**Functions** (see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated)):
 - Bottom: Display print progress %, pause animation, completion flash
 - Left/Top: Print status (pulsing soft green when printing, flashing red on error)
 
@@ -240,7 +240,7 @@ data:
 
 - **LED ranges are ACTUAL** - 711 total LEDs documented in digquad-led-segments.md
 - **GPIO pins are SPECIFIED** - Use pins 15, 1, 3, 16, 4
-- **Functions are DEFINED** - See led-functions.md for zone purposes
+- **Functions are DEFINED** - See light-scenarios.md Section 2 (LED Function Map) for zone purposes
 - **Scenarios are CATALOGED** - See light-scenarios.md for all 33+ behaviors
 - **Always backup** configurations before making changes
 - **Test incrementally** - One GPIO at a time

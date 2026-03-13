@@ -101,6 +101,12 @@ Updated segment definitions reflect:
 
 ## Segment Limitations & Trade-offs
 
+### Summary Policy (To Avoid Duplicate Telemetry)
+
+- Desiccant-age and filament-remaining visuals are `idle-only` telemetry scenes.
+- During prep/printing/error states, tray risk and active-print status must be shown on tag tops and door/status segments, not duplicated on tag-bottom telemetry scenes.
+- Detailed behavior and state transitions remain defined in `light-scenarios.md`.
+
 ### What We CAN Do ✅
 
 - ✅ **Individual tag highlighting**: Each of 8 tray tags gets individual control
@@ -110,26 +116,26 @@ Updated segment definitions reflect:
 - ✅ **Neutral backgrounds**: Tag bottoms and hygrometers have soft white light
 - ✅ **All 31+ presets**: Complete scenario coverage
 
-### What We CANNOT Do ❌
+### What Static Fixed Layout Cannot Do Concurrently ❌
 
-- ❌ **Per-tray AMS lid lighting**: Cannot individually control lighting above each of the 4 trays
-- ❌ **Individual tag bottom control**: All tag bottoms share one segment (neutral color)
-- ❌ **Separate hygrometer control**: Hygrometers share segment with tag bottoms
-- ❌ **AMS tray bottom individual control**: All bottom lighting is combined per AMS
+- ❌ **Per-tray AMS lid lighting for all trays simultaneously**
+- ❌ **Individual tag bottom control for all trays simultaneously**
+- ❌ **Independent hygrometer alerts while preserving all other tray-level details**
+- ❌ **Full concurrent tray-detail fidelity in one static 16-segment map**
 
-### Blocked Scenarios & Workarounds
+### Degraded Scenarios in Fixed Layout and Dynamic Workarounds
 
-#### Blocked: Individual AMS Tray Top Animation
-**Workaround**: Use tag top to indicate which tray is loading (tag can flash/pulse)
+#### Degraded: Individual AMS Tray Top Animation
+**Workaround**: Use dynamic segment/preset remap during active tray loading windows
 
-#### Blocked: Per-Tray Filament Remaining on Tag Bottom
-**Workaround**: Use tag top brightness/intensity to indicate level (100% = full, 25% = low)
+#### Degraded: Per-Tray Filament Remaining on Tag Bottom
+**Workaround**: Keep as idle-only telemetry; during active print use tag-top risk thresholds for used trays
 
 #### Degraded: Humidity Warning on Specific AMS
 **Workaround**: Use AMS tray top (segment 3 or 5) to pulse red to indicate which AMS has humidity issue
 
 #### Degraded: Desiccant Age Warning per Tray
-**Workaround**: Flash or pulse tag top orange to indicate desiccant warning
+**Workaround**: Keep as idle-rotation telemetry; use temporary alert overlays only when escalation is needed
 
 ## Key Changes from Previous Configuration
 
@@ -225,7 +231,7 @@ Provides:
 
 ### Existing Documents (Referenced)
 1. `digquad-led-segments.md` - Exact LED counts and ranges
-2. `led-functions.md` - LED zone functions
+2. `light-scenarios.md` (Section 2: LED Function Map) - LED zone functions
 3. `light-scenarios.md` - 33+ lighting scenarios
 4. `QUICK_START.md` - Setup guide
 
@@ -262,7 +268,7 @@ Provides:
 ### Known Limitations
 1. Cannot individually animate AMS tray tops during loading
 2. Cannot show per-tag filament remaining on tag bottoms
-3. Cannot independently control both hygrometers
+3. Full concurrent tray-level detail cannot fit in one static 16-segment layout
 4. Tag bottom LEDs all show same color (neutral)
 
 ### Acceptable Trade-offs
@@ -276,7 +282,7 @@ These limitations are acceptable because:
 If segment limitations become too restrictive:
 1. Use MagWLED for AMS 2 tags (8 segments for full top+bottom control)
 2. Eliminate AMS bottom lighting entirely (frees 2 segments)
-3. Dynamic segment reconfiguration (complex, not recommended)
+3. Dynamic segment reconfiguration with guardrails (recommended for advanced scenarios)
 
 ## Validation & Testing
 

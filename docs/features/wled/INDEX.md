@@ -29,13 +29,17 @@ wled/
 ├── INDEX.md                               # This file - navigation guide
 │
 ├── digquad-led-segments.md                # ⭐ ACTUAL LED specifications (711 LEDs)
-├── led-functions.md                       # ⭐ LED function specifications by zone
-├── light-scenarios.md                     # ⭐ Complete scenario catalog (33+ scenarios)
+├── light-scenarios.md                     # ⭐ Scenario catalog + LED Function Map
 │
 ├── digquad-settings/                      # Digquad controller files
 │   ├── wled_cfg_Digquad.json             # Controller configuration
 │   ├── wled_presets_Digquad.json         # Preset definitions
 │   └── wled_segments_Digquad.json        # Segment layout reference
+├── magwled-settings/                      # MagWLED controller files
+├── backups/                               # Versioned controller backups
+│   ├── README.md                          # Backup structure and naming
+│   ├── digquad/                           # DigQuad snapshots
+│   └── magwled/                           # MagWLED snapshots
 │
 └── docs/                                  # Detailed documentation
     ├── wiring-diagram.md                  # Physical installation guide
@@ -54,8 +58,9 @@ wled/
 | [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) | **Controller allocation strategy and segment limitation analysis** | Before any configuration changes |
 | [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) | **Complete specification of 31+ presets with active tray scenarios** | During preset creation |
 | [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) | **7-phase implementation plan with validation checkpoints** | During implementation |
+| [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md) | **How to back up and restore WLED safely** | Before upgrades and major changes |
 | [digquad-led-segments.md](digquad-led-segments.md) | **Exact LED counts and ranges for all 711 LEDs** | Before any configuration |
-| [led-functions.md](led-functions.md) | **Specific function of each LED zone** | During planning and configuration |
+| [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) | **Specific function of each LED zone** | During planning and configuration |
 | [light-scenarios.md](light-scenarios.md) | **Complete catalog of 33+ lighting scenarios** | For preset creation and automation |
 
 ## 🚀 Start Here
@@ -66,12 +71,13 @@ wled/
 3. **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Understand segment limitations and controller allocation
 4. **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Review all 31+ preset definitions
 5. **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Follow 7-phase implementation plan
-6. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
-7. **[led-functions.md](led-functions.md)** - Learn what each LED zone does
-8. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
-9. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
-10. **[README.md](README.md)** - Complete overview and integration guide
-11. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
+6. **[BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)** - Set up backup workflow before edits/upgrades
+7. **[digquad-led-segments.md](digquad-led-segments.md)** - Understand actual LED counts (711 total)
+8. **[LED Function Map](light-scenarios.md#2-led-function-map-consolidated)** - Learn what each LED zone does
+9. **[light-scenarios.md](light-scenarios.md)** - See all possible lighting scenarios
+10. **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+11. **[README.md](README.md)** - Complete overview and integration guide
+12. **[docs/visual-installation-guide.md](docs/visual-installation-guide.md)** - See ASCII diagrams of strip layout
 
 ### For Experienced Users
 1. **[digquad-led-segments.md](digquad-led-segments.md)** - Quick reference for LED ranges
@@ -88,7 +94,7 @@ wled/
 | [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) | Complete specification of 31+ presets with all active tray scenarios | During preset creation |
 | [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) | 7-phase implementation plan with validation and rollback procedures | During implementation |
 | [digquad-led-segments.md](digquad-led-segments.md) | Exact LED counts, GPIO pins, and LED ranges for all 711 LEDs | **BEFORE configuration** |
-| [led-functions.md](led-functions.md) | Detailed function specifications for each LED zone | During planning |
+| [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) | Detailed function specifications for each LED zone | During planning |
 | [light-scenarios.md](light-scenarios.md) | Complete catalog of 33+ lighting scenarios with behaviors | For automation design |
 
 ### Core Documentation
@@ -147,7 +153,7 @@ wled/
 → Read **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** (7 phases with validation)
 
 ### "I want to understand what each LED zone does"
-→ Read **[led-functions.md](led-functions.md)**
+→ Read **[LED Function Map](light-scenarios.md#2-led-function-map-consolidated)**
 
 ### "I want to see all possible lighting scenarios"
 → Read **[light-scenarios.md](light-scenarios.md)** (33+ scenarios)
@@ -204,7 +210,7 @@ wled/
 ### Before Installation
 - **LED Specifications**: All specifications are now documented in [digquad-led-segments.md](digquad-led-segments.md)
 - **Actual Measurements**: 711 LEDs total across 5 GPIO outputs
-- **Review Functions**: Check [led-functions.md](led-functions.md) to understand each zone
+- **Review Functions**: Check [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) to understand each zone
 - **Plan Scenarios**: Review [light-scenarios.md](light-scenarios.md) for preset planning
 
 ### After Installation
@@ -212,7 +218,7 @@ wled/
 - **Effects**: Try different WLED built-in effects
 - **Brightness**: Tune to your preference
 - **Automations**: Customize Home Assistant automations based on [light-scenarios.md](light-scenarios.md)
-- **Segments**: Organize based on functional zones from [led-functions.md](led-functions.md)
+- **Segments**: Organize based on functional zones from [LED Function Map](light-scenarios.md#2-led-function-map-consolidated)
 
 ## 📝 Checklist
 
@@ -221,8 +227,9 @@ Use this to track your progress:
 - [ ] Read CONTROLLER_ALLOCATION_RECOMMENDATION.md (allocation strategy)
 - [ ] Read PRESET_SPECIFICATION.md (31+ preset definitions)
 - [ ] Read PHASED_IMPLEMENTATION_GUIDE.md (implementation plan)
+- [ ] Read BACKUP_AND_RESTORE.md and create initial backup snapshot
 - [ ] Read digquad-led-segments.md (LED specifications)
-- [ ] Read led-functions.md (function specifications)
+- [ ] Read light-scenarios.md Section 2 (LED Function Map)
 - [ ] Read light-scenarios.md (scenario catalog)
 - [ ] Read QUICK_START.md
 - [ ] Read README.md for design overview
@@ -232,7 +239,7 @@ Use this to track your progress:
 - [ ] Installed AMS 2 Lid LEDs (GPIO 3, 139 LEDs)
 - [ ] Installed AMS 1 Tag LEDs (GPIO 16, 136 LEDs)
 - [ ] Installed AMS 2 Tag LEDs (GPIO 4, 138 LEDs)
-- [ ] **Moved Interior Lid Light from MagWLED to DigQuad**
+- [ ] Confirm Interior Lid Light remains on MagWLED and sync behavior with DigQuad automations
 - [ ] Connected power supply (15-20A @ 5V recommended)
 - [ ] Configured Digquad controller with UPDATED segment definitions
 - [ ] Created 16 optimized segments (merged front door, combined backgrounds)
@@ -267,7 +274,7 @@ Use this to track your progress:
 2. Read [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) - Review preset definitions
 3. Read [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) - Start with Phase 1
 4. Read [digquad-led-segments.md](digquad-led-segments.md) - Understand LED layout
-5. Read [led-functions.md](led-functions.md) - Learn zone functions
+5. Read [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) - Learn zone functions
 6. Read [light-scenarios.md](light-scenarios.md) - See all scenarios
 7. Follow [QUICK_START.md](QUICK_START.md) - Setup guide
 8. Use [docs/visual-installation-guide.md](docs/visual-installation-guide.md) - Visual reference
@@ -275,7 +282,7 @@ Use this to track your progress:
 ### Intermediate
 1. Review [README.md](README.md) for complete design
 2. Study [docs/wiring-diagram.md](docs/wiring-diagram.md) for details
-3. Create segments based on [led-functions.md](led-functions.md)
+3. Create segments based on [LED Function Map](light-scenarios.md#2-led-function-map-consolidated)
 4. Configure presets from [light-scenarios.md](light-scenarios.md)
 
 ### Advanced
@@ -293,8 +300,9 @@ Use this to track your progress:
 - ⭐ [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md) - Allocation strategy & limitations
 - ⭐ [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md) - 31+ preset definitions
 - ⭐ [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md) - 7-phase implementation
+- ⭐ [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md) - Backup and restore workflow
 - ⭐ [digquad-led-segments.md](digquad-led-segments.md) - LED specifications (711 LEDs)
-- ⭐ [led-functions.md](led-functions.md) - Zone functions
+- ⭐ [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) - Zone functions
 - ⭐ [light-scenarios.md](light-scenarios.md) - Scenario catalog (33+)
 - 🚀 [QUICK_START.md](QUICK_START.md) - Setup guide
 - 📖 [README.md](README.md) - Full documentation
@@ -309,7 +317,7 @@ Use this to track your progress:
 ## 💡 Tips
 
 - **Read specifications first** - digquad-led-segments.md has exact LED counts
-- **Understand functions** - led-functions.md explains what each zone does
+- **Understand functions** - light-scenarios.md Section 2 explains what each zone does
 - **Plan scenarios** - light-scenarios.md defines all 33+ lighting behaviors
 - **Bookmark this file** for easy navigation
 - **Print the segment reference** for quick lookup during configuration
@@ -321,7 +329,7 @@ Use this to track your progress:
 
 - **v1.1** (2024): Added comprehensive specifications
   - Added digquad-led-segments.md with exact LED counts (711 total)
-  - Added led-functions.md with zone function specifications
+  - Consolidated zone function specifications into light-scenarios.md Section 2
   - Added light-scenarios.md with 33+ lighting scenarios
   - Updated all documentation to reference actual specifications
   - Consolidated to single Digquad controller (5 GPIO outputs)

@@ -11,6 +11,7 @@ This directory contains WLED configuration files for controlling LED strips on a
 > **Quick Links:**
 > - **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Comprehensive guide to preset-based segment configurations
 > - **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Home Assistant automation examples  
+> - **[BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)** - Backup and restore workflow for firmware updates and recovery
 > - **[digquad-settings/wled_preset_50_A1_full_highlight.json](../../../wled/digquad-settings/wled_preset_50_A1_full_highlight.json)** - Example configuration
 >
 > ✨ **How It Works**: Create 8 preset configurations (Presets 50-57), each with different segment layouts optimized for a specific active tray. Home Assistant automation switches between them automatically.
@@ -47,7 +48,7 @@ This directory contains WLED configuration files for controlling LED strips on a
 ### LED Strip Layout
 
 For detailed LED segment specifications, see [digquad-led-segments.md](digquad-led-segments.md).
-For LED function details, see [led-functions.md](led-functions.md).
+For LED function details, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
 For comprehensive scenario catalog, see [light-scenarios.md](light-scenarios.md).
 
 #### Strip 1 - Printer Front Display (C-Shape)
@@ -154,7 +155,7 @@ The segment allocation can be organized based on functional needs. For the actua
 6. Segment 11-14: AMS1 Tags (437-572) - Complex segmentation for tags and hygrometer
 7. Segment 15: Reserved for additional AMS1 segments
 
-Note: With 711 total LEDs across 5 GPIO outputs, segment planning should be based on functional zones rather than fixed allocations. Refer to [led-functions.md](led-functions.md) for specific use cases.
+Note: With 711 total LEDs across 5 GPIO outputs, segment planning should be based on functional zones rather than fixed allocations. Refer to [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) for specific use cases.
 
 ## Wiring Diagram
 
@@ -246,7 +247,7 @@ For a comprehensive catalog of all LED scenarios and behaviors, see [light-scena
 | **Filament Tag LEDs** | Filament color matching, % filament left, current use indicator, desiccant warning, errors |
 | **Hygrometer LEDs** | Visibility lighting, humidity alerts |
 
-For detailed function specifications for each zone, see [led-functions.md](led-functions.md).
+For detailed function specifications for each zone, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
 
 ## Configuration Files
 
@@ -254,6 +255,10 @@ For detailed function specifications for each zone, see [led-functions.md](led-f
   - `wled_cfg_Digquad.json`: Main configuration with segment definitions
   - `wled_presets_Digquad.json`: Preset definitions for various scenarios
   - `wled_segments_Digquad.json`: Detailed segment layout reference
+- `magwled-settings/`: Configuration snapshots for MagWLED controller
+- `backups/`: Versioned controller snapshots (DigQuad and MagWLED)
+  - See [wled/backups/README.md](../../../wled/backups/README.md) for folder conventions
+  - See [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md) for backup/restore steps
 
 ## LED Specifications
 
@@ -341,7 +346,7 @@ Key automation scenarios:
    - Test automation triggers with actual print jobs
 
 5. **Function Validation**
-   - Test each LED function from [led-functions.md](led-functions.md)
+  - Test each LED function from [LED Function Map](light-scenarios.md#2-led-function-map-consolidated)
    - Verify progress bar display on printer door bottom
    - Confirm filament color matching on tags
    - Test hygrometer humidity indicators
@@ -364,7 +369,7 @@ Key automation scenarios:
 - Verify LED type compatibility (WS2812B, SK6812, etc.) in WLED configuration
 
 ### Segment Planning
-- Plan segments based on functional zones (see [led-functions.md](led-functions.md))
+- Plan segments based on functional zones (see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated))
 - WLED supports up to 16 segments per controller (with some configurations supporting more)
 - Organize segments by function rather than strict physical layout
 - Key functional zones:

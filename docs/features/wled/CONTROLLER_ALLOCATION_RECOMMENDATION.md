@@ -167,44 +167,48 @@ Since we have exactly 16 segments available on DigQuad, we need to combine backg
 ✅ **Basic AMS lighting**: Combined top/bottom lighting per AMS unit  
 ✅ **Neutral backgrounds**: Tag bottoms and hygrometers have soft white light  
 
-### What We CANNOT Do with This Configuration
+### What Fixed Layout Cannot Do Simultaneously
 
-❌ **Per-tray AMS lid lighting**: Cannot individually control the lighting above each of the 4 trays  
-❌ **Individual tag bottom control**: All tag bottoms share one segment (neutral color)  
-❌ **Separate hygrometer control**: Hygrometers share segment with tag bottoms  
-❌ **AMS tray bottom individual control**: All bottom lighting is combined per AMS  
+In the fixed 15-segment DigQuad layout, the following are limited:
 
-### Blocked Scenarios
+❌ **Per-tray AMS lid lighting** for all trays at once  
+❌ **Individual tag bottom control** for all trays at once  
+❌ **Independent hygrometer control** while also keeping detailed tag-bottom telemetry  
+❌ **All detailed tray-level effects concurrently** (AMS tops + tag tops + tag bottoms + hygrometers)  
 
-The following scenarios are BLOCKED or DEGRADED by segment limitations:
+### Scenarios Degraded in Fixed Layout
 
-#### BLOCKED: Individual AMS Tray Top Animation
+Summary policy: keep `desiccant age` and `filament remaining` as idle telemetry scenes to avoid duplicate signaling during active print states.
+
+The following scenarios are degraded in fixed layout and improved by hybrid dynamic strategy:
+
+#### DEGRADED: Individual AMS Tray Top Animation
 **Scenario**: Animate loading/unloading for a specific tray with LED chase on tray top  
-**Why Blocked**: AMS tray tops are combined into single segment per AMS  
-**Alternative**: Use tag top to indicate which tray is loading (tag can flash/pulse)
+**Why Degraded**: AMS tray tops are combined into single segment per AMS in fixed map  
+**Hybrid Improvement**: Use preset-based or dynamic segment remap for active tray window
 
-#### BLOCKED: Per-Tray Filament Remaining Display  
+#### DEGRADED: Per-Tray Filament Remaining Display  
 **Scenario**: Show filament remaining as a percentage on tag bottom LEDs  
-**Why Blocked**: Tag bottoms are combined into one neutral segment  
-**Alternative**: Use tag top color intensity/brightness to indicate level, OR use single-color solid on tag top (e.g., dimmer = less filament)
+**Why Degraded**: Tag bottoms are combined into one neutral segment in fixed map  
+**Hybrid Improvement**: Keep filament-remaining detail in idle rotation; during prep/printing, render tray shortage risk on tag tops
 
-#### DEGRADED: Humidity Warning on Specific AMS
+#### DEGRADED: Humidity Warning on Specific AMS (Fixed Layout)
 **Scenario**: Flash red on hygrometer for AMS with high humidity  
-**Why Degraded**: Both hygrometers share a combined segment  
-**Alternative**: Use AMS tray top or tag segments to indicate which AMS has humidity issue
+**Why Degraded**: Both hygrometers may share a combined segment in fixed map  
+**Hybrid Improvement**: Allocate one temporary per-AMS hygrometer alert segment during humidity events
 
-#### DEGRADED: Desiccant Age Warning per Tray
+#### DEGRADED: Desiccant Age Warning per Tray (Fixed Layout)
 **Scenario**: Show orange on tag bottom for old desiccant  
-**Why Degraded**: Tag bottoms are combined  
-**Alternative**: Flash or pulse tag top orange to indicate desiccant warning
+**Why Degraded**: Tag bottoms are combined in fixed map  
+**Hybrid Improvement**: Keep desiccant detail in idle rotation; use temporary overlays only for escalated alerts
 
-### Alternative Approaches for Blocked Scenarios
+### Alternative Approaches
 
 #### Alternative 1: Dynamic Segment Reconfiguration
 **Approach**: Use presets that reconfigure segment definitions for specific scenarios  
 **Pros**: Can achieve more granular control when needed  
 **Cons**: Complex to implement, may cause delays during reconfiguration, risks losing state  
-**Recommendation**: ❌ Not recommended - too complex
+**Recommendation**: ✅ Recommended as primary advanced strategy when bounded by guardrails
 
 #### Alternative 2: Eliminate AMS Bottom Lighting
 **Approach**: Remove AMS tray bottom segments entirely (no lighting on bottom of AMS lids)  
@@ -227,7 +231,7 @@ The following scenarios are BLOCKED or DEGRADED by segment limitations:
 **Pros**: Maximizes segments for active/dynamic lighting  
 **Cons**: All background areas show same color  
 **Segments Freed**: Multiple segments  
-**Recommendation**: ✅ **RECOMMENDED** - This is included in final configuration above
+**Recommendation**: ✅ Recommended baseline strategy for fixed layout
 
 #### Alternative 5: Use Second Controller (MagWLED) for Complex Zones
 **Approach**: Put AMS 2 tags on MagWLED with full top+bottom control (8 segments)  
@@ -298,10 +302,9 @@ By keeping the Printer Interior Lid Light on MagWLED (since DigQuad is at full c
 ✅ Simple Interior Lid Light control on MagWLED (1 segment)
 
 ### Key Limitations
-❌ Cannot animate individual AMS tray tops  
-❌ Cannot show per-tag filament remaining on bottoms  
-❌ Cannot independently control both hygrometers  
-❌ Cannot show per-tag desiccant warnings on bottoms  
+⚠️ Full concurrent fidelity across all tray-level dimensions is not possible in one static 16-segment map  
+⚠️ Fixed layout degrades per-tray bottom metrics and hygrometer independence  
+⚠️ Hybrid dynamic/preset strategy is required for high-detail tray-specific moments  
 
 ### Hardware Reality
 ⚠️ **CRITICAL**: DigQuad has 5 GPIO pins and ALL are in use:
@@ -316,6 +319,7 @@ By keeping the Printer Interior Lid Light on MagWLED (since DigQuad is at full c
 ### Recommended Next Steps
 1. **Review and approve** this allocation approach
 2. **NO hardware changes needed** - current physical setup is correct
-3. **Create detailed preset specification** (see PRESET_SPECIFICATION.md)
-4. **Update all configuration files** to reflect 15 segments on DigQuad, 1 on MagWLED
-5. **Test incrementally** with phased rollout
+3. **Adopt hybrid strategy**: baseline fixed map + dynamic/preset overlays
+4. **Create detailed scenario compatibility matrix and priority rules**
+5. **Update all configuration files and automations** to reflect hybrid behavior
+6. **Test incrementally** with phased rollout and fallback behavior

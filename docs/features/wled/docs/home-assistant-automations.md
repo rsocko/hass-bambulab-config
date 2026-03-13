@@ -4,7 +4,7 @@ This document provides example automations for controlling your WLED printer lig
 
 For a complete catalog of all lighting scenarios, see [../light-scenarios.md](../light-scenarios.md).
 For LED specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
-For zone functions, see [../led-functions.md](../led-functions.md).
+For zone functions, see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated).
 
 ## Prerequisites
 
@@ -352,7 +352,7 @@ Reference [../light-scenarios.md](../light-scenarios.md) for complete scenario d
 
 ### Customization Based on Specifications
 - **LED Counts**: Use actual counts from [../digquad-led-segments.md](../digquad-led-segments.md)
-- **Functions**: Reference [../led-functions.md](../led-functions.md) for zone purposes
+- **Functions**: Reference [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated) for zone purposes
 - **Scenarios**: See [../light-scenarios.md](../light-scenarios.md) for all behaviors
 - Adjust preset numbers based on your actual WLED configuration
 - Change colors in presets to match your preferences
@@ -390,7 +390,7 @@ Reference [../light-scenarios.md](../light-scenarios.md) for complete scenario d
 ## Additional Resources
 
 - [LED Specifications](../digquad-led-segments.md) - Exact LED counts and GPIO mapping
-- [LED Functions](../led-functions.md) - Function specifications for each zone
+- [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated) - Function specifications for each zone
 - [Light Scenarios](../light-scenarios.md) - Complete catalog of 33+ scenarios
 - [Home Assistant Automations](https://www.home-assistant.io/docs/automation/)
 - [WLED API Documentation](https://kno.wled.ge/interfaces/json-api/)

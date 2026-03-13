@@ -10,7 +10,7 @@ This document provides detailed wiring instructions for connecting LED strips to
 - **LED Types**: COB 160 LED/m and Mini 2.7mm 160 LED/m
 
 For complete LED specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
-For function details, see [../led-functions.md](../led-functions.md).
+For function details, see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated).
 For scenario behaviors, see [../light-scenarios.md](../light-scenarios.md).
 
 ## Controller Specifications
