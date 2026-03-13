@@ -93,8 +93,9 @@ The matching file to import on DigQuad is:
 
 Deployment note:
 
-- `wled_state_machine_presets_Digquad_skeleton.json` is a partial preset payload for core states (`101-109`).
-- Merge/import those preset IDs into your active DigQuad `presets.json`; do not replace your full preset set unless intended.
+- `wled_state_machine_presets_Digquad_skeleton.json` is in native WLED `presets.json` format (flat numeric keys, no `"p"` wrapper) containing presets `101-109`.
+- Merge those preset IDs into your active DigQuad `presets.json`. Since IDs 101-109 don't overlap with main presets (1-14), merging is safe.
+- Do not upload the skeleton alone as `/presets.json` unless you intend to replace all existing presets — it only contains 101-109.
 - `wled_state_machine_preset_map.json` is documentation/reference only and is not uploaded to WLED.
 
 ## Phase Plan (Recommended)

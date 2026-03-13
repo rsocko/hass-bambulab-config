@@ -28,7 +28,7 @@ Use this as the source of truth for what to load to DigQuad.
 | `wled/digquad-settings/wled_cfg_Digquad.json`                            | Base controller config                       | Yes              | Upload as `/cfg.json` via `http://<digquad>/edit` (or restore equivalent), then reboot                 |
 | `wled/digquad-settings/wled_presets_Digquad.json`                        | Main preset pack                             | Yes              | Upload as `/presets.json` via `http://<digquad>/edit`                                                  |
 | `wled/digquad-settings/wled_segments_Digquad_UPDATED.json`               | Updated segment definitions reference        | Manual apply     | Use values to create/verify segments in UI; not directly consumed as `cfg.json`/`presets.json`         |
-| `wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json` | State machine core-state presets (`101-109`) | Optional Yes     | Merge/import selected presets into active `presets.json` (do not replace your full preset set blindly) |
+| `wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json` | State machine core-state presets (`101-109`) | Optional Yes     | Upload as `/presets.json` via `http://<digquad>/edit` **after** main preset pack, or merge into existing `presets.json` (contains only presets 101-109; will not overwrite 1-14 if merged) |
 | `wled/digquad-settings/wled_state_machine_preset_map.json`               | State ID to preset mapping helper            | No               | Reference only for HA script mapping                                                                   |
 | `wled/digquad-settings/wled_cfg_Dig-Quad-V3.customization`               | Human-authored config snapshot/template      | No               | Reference/archive only                                                                                 |
 | `wled/digquad-settings/wled_presets_Dig-Quad-V3.customization`           | Human-authored presets snapshot/template     | No               | Reference/archive only                                                                                 |
@@ -39,15 +39,19 @@ Use this as the source of truth for what to load to DigQuad.
 
 1. Back up current DigQuad (`cfg.json`, `presets.json`; optional `backup-export.json` if available).
 2. Load `wled_cfg_Digquad.json` (or manually reconcile deltas with your current config).
-3. Load `wled_presets_Digquad.json`.
-4. If using the HA state machine skeleton, merge in presets from `wled_state_machine_presets_Digquad_skeleton.json` (`101-109`).
+3. Load `wled_presets_Digquad.json` — this is a complete `presets.json` with presets 0-14, ready to upload directly.
+4. If using the HA state machine, also load `wled_state_machine_presets_Digquad_skeleton.json` (presets 101-109). Since preset IDs don't overlap, you can safely merge or append.
 5. Validate segment bounds against `wled_segments_Digquad_UPDATED.json`.
 6. Reboot and run validation tests.
+
+### File format note
+
+All `.json` preset files in this repo use the native WLED `presets.json` format (flat numeric keys at the root, e.g. `{"0": {}, "1": {...}}`). They can be uploaded directly to WLED via `http://<host>/edit` as `/presets.json` or restored through the UI. They do **not** use the `{"p": {...}}` wrapper that the WLED HTTP API uses for programmatic preset updates.
 
 ### Important guardrail
 
 - Treat `.customization` files as repository reference artifacts unless you intentionally convert them into active `cfg.json`/`presets.json` payloads.
-- Do not overwrite live `presets.json` with a partial file unless you intend to replace the whole preset store.
+- The skeleton file contains only presets 101-109 — uploading it alone as `presets.json` will replace all existing presets. Merge it into an existing `presets.json` to preserve presets 1-14.
 
 ## Quick Start Steps
 

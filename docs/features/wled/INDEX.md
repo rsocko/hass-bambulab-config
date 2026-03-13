@@ -130,10 +130,10 @@ wled/
 | File | Purpose | When to Use |
 |------|---------|-------------|
 | [digquad-settings/wled_cfg_Digquad.json](../../../wled/digquad-settings/wled_cfg_Digquad.json) | Digquad controller base config | Upload to Digquad |
-| [digquad-settings/wled_presets_Digquad.json](../../../wled/digquad-settings/wled_presets_Digquad.json) | 14 presets for printer/AMS control | Import to Digquad |
+| [digquad-settings/wled_presets_Digquad.json](../../../wled/digquad-settings/wled_presets_Digquad.json) | 14 presets for printer/AMS control (native `presets.json` format, upload directly) | Upload as `/presets.json` to Digquad |
 | [digquad-settings/wled_segments_Digquad.json](../../../wled/digquad-settings/wled_segments_Digquad.json) | Original segment definitions (reference only) | For manual segment creation |
 | [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json) | **UPDATED segment definitions (16 segments, optimized)** | **Recommended for new installations** |
-| [digquad-settings/wled_state_machine_presets_Digquad_skeleton.json](../../../wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json) | Core state-machine preset skeleton (`101-109`) | Optional: merge/import when enabling HA state-machine package |
+| [digquad-settings/wled_state_machine_presets_Digquad_skeleton.json](../../../wled/digquad-settings/wled_state_machine_presets_Digquad_skeleton.json) | Core state-machine presets (`101-109`, native `presets.json` format) | Optional: merge into active `presets.json` when enabling HA state-machine package |
 | [digquad-settings/wled_state_machine_preset_map.json](../../../wled/digquad-settings/wled_state_machine_preset_map.json) | State ID to preset mapping | Reference only (HA mapping helper) |
 | [digquad-settings/wled_cfg_Dig-Quad-V3.customization](../../../wled/digquad-settings/wled_cfg_Dig-Quad-V3.customization) | Archived/template DigQuad config snapshot | Reference only (do not load directly unless intentionally converted) |
 | [digquad-settings/wled_presets_Dig-Quad-V3.customization](../../../wled/digquad-settings/wled_presets_Dig-Quad-V3.customization) | Archived/template DigQuad presets snapshot | Reference only (do not load directly unless intentionally converted) |
