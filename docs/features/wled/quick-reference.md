@@ -14,13 +14,13 @@ The WLED system uses a **Home Assistant state machine** that:
 
 ## Key Documents (Read in Order)
 
-| # | Document | Purpose |
-|---|----------|---------|
-| 1 | [ha-state-machine-package.md](ha-state-machine-package.md) | **Start here.** State diagram, event mapping, phase plan |
-| 2 | [controller-allocation.md](controller-allocation.md) | Hardware constraints + segment strategy |
-| 3 | [digquad-led-segments.md](digquad-led-segments.md) | Physical LED counts and GPIO mapping (711 LEDs) |
-| 4 | [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase guide aligned to state machine |
-| 5 | [cleanup-recommendations.md](cleanup-recommendations.md) | Config file status and cleanup guidance |
+| #   | Document                                                         | Purpose                                                  |
+| --- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| 1   | [ha-state-machine-package.md](ha-state-machine-package.md)       | **Start here.** State diagram, event mapping, phase plan |
+| 2   | [controller-allocation.md](controller-allocation.md)             | Hardware constraints + segment strategy                  |
+| 3   | [digquad-led-segments.md](digquad-led-segments.md)               | Physical LED counts and GPIO mapping (711 LEDs)          |
+| 4   | [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase guide aligned to state machine                   |
+
 
 ## Hardware Reality
 

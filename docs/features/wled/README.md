@@ -12,14 +12,13 @@ The system uses a **Home Assistant state machine** that monitors printer status,
 
 ### Quick Links
 
-| Document | Purpose |
-|----------|---------|
-| [quick-reference.md](quick-reference.md) | **Start here** — architecture overview, entities, phase status |
-| [ha-state-machine-package.md](ha-state-machine-package.md) | State diagram, event mapping, preset mapping |
-| [light-scenarios.md](light-scenarios.md) | Target vision — 33+ LED scenarios, priority tiers, overlay system |
-| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation with test procedures |
-| [INDEX.md](INDEX.md) | Master file index with status of every document |
-| [cleanup-recommendations.md](cleanup-recommendations.md) | Config file status and cleanup guidance |
+| Document                                                         | Purpose                                                           |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [quick-reference.md](quick-reference.md)                         | **Start here** — architecture overview, entities, phase status    |
+| [ha-state-machine-package.md](ha-state-machine-package.md)       | State diagram, event mapping, preset mapping                      |
+| [light-scenarios.md](light-scenarios.md)                         | Target vision — 33+ LED scenarios, priority tiers, overlay system |
+| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation with test procedures                       |
+| [INDEX.md](INDEX.md)                                             | Master file index with status of every document                   |
 
 ### Key Hardware Facts
 

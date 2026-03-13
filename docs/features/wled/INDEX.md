@@ -10,15 +10,14 @@ The system uses a Home Assistant state machine that monitors printer status, tra
 
 ## Start Here (Recommended Reading Order)
 
-| # | Document | Status | Purpose |
-|---|----------|--------|---------|
-| 1 | [quick-reference.md](quick-reference.md) | **Current** | One-page overview of architecture, entities, and phases |
-| 2 | [ha-state-machine-package.md](ha-state-machine-package.md) | **Current** | State diagram, E_* event mapping, preset mapping, phase plan |
-| 3 | [controller-allocation.md](controller-allocation.md) | **Current** | Hardware constraints, segment strategy |
-| 4 | [digquad-led-segments.md](digquad-led-segments.md) | **Current** | Physical LED counts and GPIO mapping (711 LEDs) |
-| 5 | [phased-implementation-guide.md](phased-implementation-guide.md) | **Current** | 3-phase guide aligned to state machine |
-| 6 | [backup-and-restore.md](backup-and-restore.md) | **Current** | Backup/restore procedures |
-| 7 | [cleanup-recommendations.md](cleanup-recommendations.md) | **Current** | Config file status and cleanup guidance |
+| #   | Document                                                         | Status      | Purpose                                                      |
+| --- | ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
+| 1   | [quick-reference.md](quick-reference.md)                         | **Current** | One-page overview of architecture, entities, and phases      |
+| 2   | [ha-state-machine-package.md](ha-state-machine-package.md)       | **Current** | State diagram, E_* event mapping, preset mapping, phase plan |
+| 3   | [controller-allocation.md](controller-allocation.md)             | **Current** | Hardware constraints, segment strategy                       |
+| 4   | [digquad-led-segments.md](digquad-led-segments.md)               | **Current** | Physical LED counts and GPIO mapping (711 LEDs)              |
+| 5   | [phased-implementation-guide.md](phased-implementation-guide.md) | **Current** | 3-phase guide aligned to state machine                       |
+| 6   | [backup-and-restore.md](backup-and-restore.md)                   | **Current** | Backup/restore procedures                                    |
 
 ---
 
@@ -47,8 +46,7 @@ docs/features/wled/
 ├── ha-automation-preset-based.md   ← Future: preset-based automations (Phase 3)
 ├── quick-start-preset-based.md     ← Future: preset-based quick start (Phase 3)
 ├── home-assistant-automations.md   ← Legacy: pre-state-machine automations
-├── quick-start.md                  ← Legacy: pre-state-machine setup
-└── package-placeholder.md          ← Superseded (HA package exists)
+└── quick-start.md                  ← Legacy: pre-state-machine setup
 
 wled/
 ├── digquad-settings/
@@ -58,7 +56,14 @@ wled/
 │   ├── wled_preset_50_A1_full_highlight.json    ← Future: preset-based segments
 │   └── wled_preset_54_B1_full_highlight.json    ← Future: preset-based segments
 ├── magwled-settings/                            ← Empty (configs removed; re-export from device)
-└── backups/                                     ← Backup snapshots
+└── backups/
+    ├── README.md
+    ├── digquad/
+    │   ├── README_TEMPLATE.md
+    │   ├── 2026-03-13 - Preinstall (baseline config)/  ← Baseline cfg + presets snapshot
+    │   └── 2026-03-13 - 2 - Phase 1 Implemented/      ← Post-Phase 1 cfg + presets snapshot
+    └── magwled/
+        └── NOTES_TEMPLATE.md
 
 homeassistant/packages/3d_printing/wled/
 ├── wled_loader.yaml                             ← Active: package loader
@@ -67,7 +72,15 @@ homeassistant/packages/3d_printing/wled/
 ├── scripts/
 │   ├── wled_3dprinter_transition_from_event-script.yaml ← Active
 │   └── wled_3dprinter_apply_core_state_to_presets-script.yaml ← Active
-└── helpers/                                     ← Active: input_boolean, input_select, input_text
+└── helpers/
+    ├── input_boolean/
+    │   ├── wled_3dprinter_state_machine_enabled.yaml ← Active
+    │   └── wled_3dprinter_show_mode_enabled.yaml     ← Active
+    ├── input_select/
+    │   └── wled_3dprinter_core_state.yaml            ← Active
+    └── input_text/
+        ├── wled_3dprinter_last_event.yaml            ← Active
+        └── wled_3dprinter_last_transition_reason.yaml ← Active
 ```
 
 ---
@@ -87,16 +100,15 @@ homeassistant/packages/3d_printing/wled/
 
 ### Current (Deployed / Accurate)
 
-| Document | Purpose |
-|----------|---------|
-| [quick-reference.md](quick-reference.md) | One-page architecture reference |
-| [ha-state-machine-package.md](ha-state-machine-package.md) | State machine specification |
-| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation plan |
-| [controller-allocation.md](controller-allocation.md) | Hardware allocation analysis |
-| [hardware-constraint.md](hardware-constraint.md) | DigQuad capacity limitations |
-| [backup-and-restore.md](backup-and-restore.md) | Backup procedures |
-| [digquad-led-segments.md](digquad-led-segments.md) | Physical LED specs (711 LEDs) |
-| [cleanup-recommendations.md](cleanup-recommendations.md) | File status and cleanup |
+| Document                                                         | Purpose                         |
+| ---------------------------------------------------------------- | ------------------------------- |
+| [quick-reference.md](quick-reference.md)                         | One-page architecture reference |
+| [ha-state-machine-package.md](ha-state-machine-package.md)       | State machine specification     |
+| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation plan     |
+| [controller-allocation.md](controller-allocation.md)             | Hardware allocation analysis    |
+| [hardware-constraint.md](hardware-constraint.md)                 | DigQuad capacity limitations    |
+| [backup-and-restore.md](backup-and-restore.md)                   | Backup procedures               |
+| [digquad-led-segments.md](digquad-led-segments.md)               | Physical LED specs (711 LEDs)   |
 
 ### Reference (Background / Hardware)
 
@@ -130,20 +142,22 @@ homeassistant/packages/3d_printing/wled/
 
 ## Configuration Files by Status
 
-| File | Status | Action |
+### Active Settings (`wled/digquad-settings/`)
+
+| File | Status | Purpose |
 |------|--------|--------|
 | `wled_state_machine_presets_Digquad_skeleton.json` | **Active** | Deployed as presets 101–109 |
 | `wled_state_machine_preset_map.json` | **Active** | Reference for HA scripts |
-| `wled_cfg_Digquad.json` | **Active** | Base controller config |
 | `wled_segments_Digquad_UPDATED.json` | **Reference** | Target layout for Phase 2 |
-| `wled_presets_Digquad.json` | **Legacy** | Presets 1–14, not loaded on device |
-| `wled_segments_Digquad.json` | **Superseded** | Use `_UPDATED` version |
 | `wled_preset_50_A1_full_highlight.json` | **Future** | Phase 3 preset-based segments |
 | `wled_preset_54_B1_full_highlight.json` | **Future** | Phase 3 preset-based segments |
-| `wled_cfg_Dig-Quad-V3.customization` | **Archive** | Config snapshot, not uploadable |
-| `wled_presets_Dig-Quad-V3.customization` | **Archive** | Preset snapshot, not uploadable |
 
-See [cleanup-recommendations.md](cleanup-recommendations.md) for detailed cleanup guidance.
+### Backup Snapshots (`wled/backups/digquad/`)
+
+| Folder | Contents |
+|--------|----------|
+| `2026-03-13 - Preinstall (baseline config)/` | `wled_cfg_Dig-Quad-V3.json`, `wled_presets_Dig-Quad-V3.json` — baseline before state machine |
+| `2026-03-13 - 2 - Phase 1 Implemented/` | `wled_cfg_Dig-Quad-V3.json`, `wled_presets_Dig-Quad-V3.json` — after Phase 1 deployment |
 
 ---
 
@@ -163,9 +177,6 @@ See [cleanup-recommendations.md](cleanup-recommendations.md) for detailed cleanu
 
 ### "I need to back up before making changes"
 → [backup-and-restore.md](backup-and-restore.md)
-
-### "Which files should I clean up?"
-→ [cleanup-recommendations.md](cleanup-recommendations.md)
 
 ### "I want to see all lighting scenarios"
 → [light-scenarios.md](light-scenarios.md) (33+ scenarios — reference)
