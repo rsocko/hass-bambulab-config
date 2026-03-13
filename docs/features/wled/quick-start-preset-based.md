@@ -1,6 +1,6 @@
 # Quick Start: Preset-Based Segment Configuration
 
-> **STATUS: FUTURE (Phase 3)** — This guide describes the preset-based segment approach which is planned for Phase 3. The current system uses the state machine (presets 101–109). See [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md).
+> **STATUS: FUTURE (Phase 3)** — This guide describes the preset-based segment approach which is planned for Phase 3. The current system uses the state machine (presets 101–109). See [phased-implementation-guide.md](phased-implementation-guide.md).
 
 This is a quick reference guide for implementing preset-based segment configurations to enable full control of active tag top AND bottom LEDs.
 
@@ -286,10 +286,10 @@ data:
 
 ## Resources
 
-- **Full Documentation**: [PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)
-- **Automation Examples**: [docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)
+- **Full Documentation**: [preset-based-segments.md](preset-based-segments.md)
+- **Automation Examples**: [ha-automation-preset-based.md](ha-automation-preset-based.md)
 - **Example Configs**: `digquad-settings/wled_preset_*_full_highlight.json`
-- **Main Specification**: [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)
+- **Main Specification**: [preset-specification.md](preset-specification.md)
 
 ## Benefits Recap
 

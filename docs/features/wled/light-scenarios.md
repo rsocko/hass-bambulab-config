@@ -10,7 +10,7 @@ Use this document to align:
 
 See also:
 - `docs/features/wled/digquad-led-segments.md`
-- `docs/features/wled/CONTROLLER_ALLOCATION_RECOMMENDATION.md`
+- `docs/features/wled/controller-allocation.md`
 
 ## 1. Scope and Constraints
 
@@ -302,7 +302,7 @@ This state machine defines deterministic behavior for baseline presets and dynam
 
 Implementation note:
 - Machine IDs are the canonical state values used by `input_select.wled_3dprinter_core_state`.
-- Human-readable state names and HA package mapping are documented in `docs/features/wled/HA_STATE_MACHINE_PACKAGE.md` under `Core State IDs and Names`.
+- Human-readable state names and HA package mapping are documented in `docs/features/wled/ha-state-machine-package.md` under `Core State IDs and Names`.
 
 | State ID | Description | Baseline preset |
 |----------|-------------|-----------------|

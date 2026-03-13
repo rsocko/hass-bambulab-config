@@ -1,6 +1,6 @@
 # Home Assistant Automation Examples for Preset-Based Segment Control
 
-> **STATUS: FUTURE (Phase 3)** — These automations are designed for the preset-based segment approach (Phase 3). They have not been deployed. See [PHASED_IMPLEMENTATION_GUIDE.md](../PHASED_IMPLEMENTATION_GUIDE.md).
+> **STATUS: FUTURE (Phase 3)** — These automations are designed for the preset-based segment approach (Phase 3). They have not been deployed. See [phased-implementation-guide.md](phased-implementation-guide.md).
 
 This document provides complete Home Assistant automation examples for using preset-based WLED segment configurations.
 

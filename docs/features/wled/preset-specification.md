@@ -1,6 +1,6 @@
 # WLED Preset Specification
 
-> **STATUS: LEGACY** — These preset definitions (1–49) were a design specification that was **never deployed** to the DigQuad. The active system uses **state machine presets 101–109** defined in [HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md). This document is retained as a reference for future preset expansion in Phase 2/3 of the [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md).
+> **STATUS: LEGACY** — These preset definitions (1–49) were a design specification that was **never deployed** to the DigQuad. The active system uses **state machine presets 101–109** defined in [ha-state-machine-package.md](ha-state-machine-package.md). This document is retained as a reference for future preset expansion in Phase 2/3 of the [phased-implementation-guide.md](phased-implementation-guide.md).
 
 ## Overview
 
@@ -14,11 +14,11 @@ Presets must coordinate actions across BOTH controllers when needed. In Home Ass
 
 ## Preset-Based Segment Configuration (Future — Phase 3)
 
-This specification also references an advanced technique where WLED presets save segment definitions (not just colors), enabling dynamic 16-segment layout switching based on the active tray. This is a **future Phase 3 capability** — see [PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md) for details.
+This specification also references an advanced technique where WLED presets save segment definitions (not just colors), enabling dynamic 16-segment layout switching based on the active tray. This is a **future Phase 3 capability** — see [preset-based-segments.md](preset-based-segments.md) for details.
 
 - **Presets 1-49**: Traditional presets (colors/effects on fixed segment layout) — documented below
-- **Presets 50-57**: Advanced preset configurations that redefine segment boundaries — see [PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)
-- **Presets 101-109**: Active state machine presets — see [HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md)
+- **Presets 50-57**: Advanced preset configurations that redefine segment boundaries — see [preset-based-segments.md](preset-based-segments.md)
+- **Presets 101-109**: Active state machine presets — see [ha-state-machine-package.md](ha-state-machine-package.md)
 
 The remainder of this document covers the traditional preset specifications (Presets 1-49).
 
@@ -726,8 +726,8 @@ When implementing these presets in Home Assistant:
 ### Implementation Resources
 
 For complete implementation details, see:
-- **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Comprehensive guide to preset-based segment configurations
-- **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Home Assistant automation examples
+- **[preset-based-segments.md](preset-based-segments.md)** - Comprehensive guide to preset-based segment configurations
+- **[ha-automation-preset-based.md](ha-automation-preset-based.md)** - Home Assistant automation examples
 - **[digquad-settings/wled_preset_50_A1_full_highlight.json](../../../wled/digquad-settings/wled_preset_50_A1_full_highlight.json)** - Example preset configuration for A1
 - **[digquad-settings/wled_preset_54_B1_full_highlight.json](../../../wled/digquad-settings/wled_preset_54_B1_full_highlight.json)** - Example preset configuration for B1
 

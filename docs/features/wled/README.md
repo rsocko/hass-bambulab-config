@@ -1,43 +1,31 @@
 # WLED Configuration for Bambu Lab Printer LED Setup
 
-This directory contains WLED configuration files for controlling LED strips on a Bambu Lab printer with dual AMS units.
+> **Updated 2026-03-13** — Aligned to HA State Machine architecture.
 
-> **📌 NEW: PRESET-BASED SEGMENT CONFIGURATION**  
-> 
-> **Advanced technique unlocked!** WLED presets can save segment definitions (not just colors), enabling dynamic segment reconfiguration to work around the 16-segment limitation.
->
-> 🎯 **Key Benefit**: Highlight **BOTH top AND bottom** of active tag LEDs with filament color
-> 
-> **Quick Links:**
-> - **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Comprehensive guide to preset-based segment configurations
-> - **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Home Assistant automation examples  
-> - **[BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)** - Backup and restore workflow for firmware updates and recovery
-> - **[digquad-settings/wled_preset_50_A1_full_highlight.json](../../../wled/digquad-settings/wled_preset_50_A1_full_highlight.json)** - Example configuration
->
-> ✨ **How It Works**: Create 8 preset configurations (Presets 50-57), each with different segment layouts optimized for a specific active tray. Home Assistant automation switches between them automatically.
+This directory contains WLED configuration, documentation, and Home Assistant integration files for controlling LED strips on a Bambu Lab X1C printer with dual AMS units.
 
-> **📌 COMPLETE SPECIFICATIONS AVAILABLE**  
-> 
-> Comprehensive specification documents have been created to address controller allocation, segment limitations, and phased implementation:
-> 
-> - **[CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)** - Detailed guidance on optimizing segment allocation across MagWLED and DigQuad controllers
-> - **[PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)** - Complete specification of all 31+ presets with active tray scenarios, segment usage, and workarounds for blocked scenarios
-> - **[PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)** - Step-by-step implementation approach with 7 phases, validation checkpoints, and rollback procedures
-> - **[HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md)** - Home Assistant package skeleton (helpers, transition scripts, orchestrator automation, event mapping)
-> 
-> **Key Hardware Reality:**
-> - ✅ DigQuad is at **full capacity** with 5 GPIO pins (cannot add more LED strips)
-> - ✅ MagWLED controls the Interior Lid Light (simple 1-segment control)
-> - ✅ **NO hardware changes needed** - Current setup is optimal
-> 
-> **Key Segment Allocation:**
-> 1. ✨ Front door left and top segments **merged** into single status segment (reduces from 3 to 2 segments on DigQuad)
-> 2. ✨ Interior Lid Light **remains on MagWLED** (1 segment, 15 spare for future use)
-> 3. ✨ DigQuad uses 15 segments with 1 spare (combined AMS tray lighting + individual tag control)
-> 4. ✨ Neutral background segment created for tag bottoms and hygrometers (soft white)
-> 5. ✨ Individual control maintained for all 8 tray tags (A1-A4, B1-B4)
-> 
-> These changes optimize segment usage across both controllers while respecting hardware constraints.
+## Current Architecture: HA State Machine
+
+The system uses a **Home Assistant state machine** that monitors printer status, transitions through **9 core states** (S0–S8), and applies WLED presets (101–109) to the DigQuad controller automatically.
+
+**Phase 1 (Core State Machine) is deployed and running.** Phases 2–3 (segment expansion, overlays) are future work.
+
+### Quick Links
+
+| Document | Purpose |
+|----------|---------|
+| [quick-reference.md](quick-reference.md) | **Start here** — architecture overview, entities, phase status |
+| [ha-state-machine-package.md](ha-state-machine-package.md) | State diagram, event mapping, preset mapping |
+| [light-scenarios.md](light-scenarios.md) | Target vision — 33+ LED scenarios, priority tiers, overlay system |
+| [phased-implementation-guide.md](phased-implementation-guide.md) | 3-phase implementation with test procedures |
+| [INDEX.md](INDEX.md) | Master file index with status of every document |
+| [cleanup-recommendations.md](cleanup-recommendations.md) | Config file status and cleanup guidance |
+
+### Key Hardware Facts
+
+- **DigQuad** — 5 GPIO pins, 711 LEDs, at **full capacity** (cannot add more strips)
+- **MagWLED** — 1 GPIO pin, 48 LEDs (interior lid light, currently offline)
+- **No hardware changes needed** — current physical setup is optimal
 
 ## Hardware Setup
 
@@ -187,66 +175,23 @@ For detailed wiring specifications and LED ranges, see [digquad-led-segments.md]
 
 ## Presets
 
-For a comprehensive catalog of all LED scenarios and behaviors, see [light-scenarios.md](light-scenarios.md).
+The system currently uses **state machine presets 101–109** on the DigQuad controller, one per core state:
 
-### Key Preset Categories
+| Preset | State | Description |
+|--------|-------|-------------|
+| 101 | S0 Offline | Printer powered off / unreachable |
+| 102 | S1 Idle | Powered on, not printing |
+| 103 | S2 Preparing | Heating, leveling, calibrating |
+| 104 | S3 Printing | Active print in progress |
+| 105 | S4 Paused | Print paused (user or filament) |
+| 106 | S5 Complete | Print finished |
+| 107 | S6 Error | Error state |
+| 108 | S7 Updating | Firmware update |
+| 109 | S8 Show | Demo / rainbow mode |
 
-#### Printer Power & Connectivity States
-- **Preset 1: Printer Offline** - Dim amber on door, all else off
-- **Preset 2: Printer Idle** - Soft blue breathing on door, low white on AMS
-- **Preset 3: Printer Busy** - Medium white, solid state color
+These are skeleton presets (segments 0 + 1 only). Phase 2 will expand them to the full 15-segment layout. See [ha-state-machine-package.md](ha-state-machine-package.md) for the complete state and event mapping.
 
-#### Print Lifecycle States
-- **Preset 4: Heating Bed** - Orange pulse on door
-- **Preset 5: Heating Nozzle** - Yellow pulse on door
-- **Preset 6: Bed Leveling** - Blue pulse on lid, blue chase on door
-- **Preset 7: Purge Line** - Cyan pulse
-- **Preset 8: Printing** - Door green, progress bar on bottom, filament color on active tag
-- **Preset 9: Print Paused (User)** - Yellow blink
-- **Preset 10: Print Paused (Error)** - Red strobe on door, red on affected tray
-- **Preset 11: Print Finished** - Green pulse celebration effect
-
-#### Error & Warning States
-- **Preset 12: Filament Runout** - Red blink on door, red on affected tray tag
-- **Preset 13: Filament Tangle/Jam** - Orange strobe on AMS, orange on tags
-- **Preset 14: AMS Communication Error** - Purple pulse on AMS
-- **Preset 15: Temperature Error** - Red strobe on all
-- **Preset 16: Door Open During Print** - Bright white on door and lid
-
-#### AMS-Specific Scenarios
-- **Preset 17: Filament Loading** - Blue chase on AMS, blue on active tag
-- **Preset 18: Filament Unloading** - Teal chase on AMS
-- **Preset 19: AMS Drying Mode** - Warm amber on AMS, bright white on hygrometer (AMS2 only)
-- **Preset 20: AMS Humidity High** - Red on hygrometer, red pulse on AMS
-- **Preset 21: AMS Humidity Normal** - White on hygrometer and AMS
-- **Preset 22: AMS Tray Selected** - Filament color on selected tag
-- **Preset 23: AMS Tray Actively Feeding** - Bright filament color
-
-#### Maintenance & Utility States
-- **Preset 24: Cooling Down** - Blue pulse
-- **Preset 25: Chamber Light (Manual)** - White on all
-- **Preset 26: Filament Change Requested** - Yellow blink, yellow on required tray
-- **Preset 27: Nozzle Cleaning Required** - Orange pulse
-
-#### Environmental & Safety States
-- **Preset 28: High Chamber Temperature** - Red pulse
-- **Preset 29: Low Chamber Temperature** - Blue solid
-- **Preset 30: Power Loss Recovery** - Purple pulse
-
-#### Optional / Aesthetic Modes
-- **Preset 31: Show Mode** - Rainbow on AMS, chase on door
-- **Preset 32: Night Mode** - All off or very dim warm white
-- **Preset 33: Remote Monitoring Mode** - Bright white for camera visibility
-
-### LED Zone Usage Summary
-
-| LED Zone | Primary Uses |
-|---------|--------------|
-| **Door Bottom (Progress Bar)** | Print progress percentage, animated progress |
-| **Door Left/Top (Status)** | Pulsing green when printing, flashing red on error |
-| **AMS Top LEDs** | Spool illumination, current spool indicator, loading animation, heating animation (AMS2) |
-| **Filament Tag LEDs** | Filament color matching, % filament left, current use indicator, desiccant warning, errors |
-| **Hygrometer LEDs** | Visibility lighting, humidity alerts |
+> **Note:** The original preset specification (presets 1–33) in [preset-specification.md](preset-specification.md) was a design document that was **never deployed**. It is retained as legacy reference only.
 
 For detailed function specifications for each zone, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
 
@@ -259,7 +204,7 @@ For detailed function specifications for each zone, see [LED Function Map](light
 - `magwled-settings/`: Configuration snapshots for MagWLED controller
 - `backups/`: Versioned controller snapshots (DigQuad and MagWLED)
   - See [wled/backups/README.md](../../../wled/backups/README.md) for folder conventions
-  - See [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md) for backup/restore steps
+  - See [backup-and-restore.md](backup-and-restore.md) for backup/restore steps
 
 ## LED Specifications
 
@@ -295,25 +240,13 @@ For complete LED specifications with exact segment ranges, refer to [digquad-led
 
 ## Home Assistant Integration
 
-Once the WLED controller is configured:
+The HA state machine package handles all WLED control automatically. The package lives at `homeassistant/packages/3d_printing/wled/` and includes:
 
-1. Add the WLED device to Home Assistant via the WLED integration
-2. Create automations to control presets based on printer state
-3. Use the Bambu Lab integration sensors to trigger appropriate presets:
-   - `sensor.bambu_lab_x1c_current_stage`: Print stage
-   - `sensor.bambu_lab_x1c_active_tray`: Active AMS tray
-   - `sensor.bambu_lab_x1c_print_progress`: Print percentage
-   - `sensor.bambu_lab_x1c_hms_errors`: Error detection
-   - `sensor.bambu_lab_x1c_chamber_temperature`: Temperature monitoring
+- **Orchestrator automation** — watches printer sensors, computes E_* events, transitions states
+- **Transition script** — applies the correct preset when state changes
+- **Helpers** — `input_select` for state, `input_boolean` for enable/disable, `input_text` for last event
 
-### Example Automation Triggers
-
-For comprehensive scenario mappings and automation examples, see [light-scenarios.md](light-scenarios.md) and [docs/home-assistant-automations.md](docs/home-assistant-automations.md).
-
-Key automation scenarios:
-- **Print Started** → Preset 8 (Printing)
-- **Print Error** → Preset 10 or 12 (Error states)
-- **Print Complete** → Preset 11 (Print Finished)
+See [ha-state-machine-package.md](ha-state-machine-package.md) for the full architecture and [quick-reference.md](quick-reference.md) for entity names.
 - **Printer Idle** → Preset 2 (Idle/Standby)
 - **AMS Tray Changed** → Update active tray segments with filament color
 - **Filament Loading** → Preset 17 (Loading animation)
@@ -324,7 +257,7 @@ Key automation scenarios:
 
 1. **Physical Installation**
    - Mount LED strips according to the layout specifications in [digquad-led-segments.md](digquad-led-segments.md)
-   - Follow the detailed physical installation guide in [docs/wiring-diagram.md](docs/wiring-diagram.md)
+   - Follow the detailed physical installation guide in [wiring-diagram.md](wiring-diagram.md)
    - Connect strips to Digquad controller GPIO pins (15, 1, 3, 16, 4)
    - Power up controller with adequate 5V power supply
 
@@ -342,7 +275,7 @@ Key automation scenarios:
 
 4. **Home Assistant Integration**
    - Add WLED device to Home Assistant
-   - Create automations based on [docs/home-assistant-automations.md](docs/home-assistant-automations.md)
+   - Create automations based on [home-assistant-automations.md](home-assistant-automations.md)
    - Map printer states to appropriate presets from [light-scenarios.md](light-scenarios.md)
    - Test automation triggers with actual print jobs
 

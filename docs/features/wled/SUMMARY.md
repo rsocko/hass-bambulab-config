@@ -1,12 +1,28 @@
 # WLED Design Refinement - Summary Document
 
+> **Updated 2026-03-13** — Reflects the deployed Home Assistant State Machine approach.
+
+## Current Status
+
+The WLED system is controlled by a **Home Assistant state machine** that is live and running:
+
+- **Phase 1 (Core State Machine)**: ✅ Complete — 9 core states (S0–S8), presets 101–109 on DigQuad, HA package with orchestrator + scripts + helpers
+- **Phase 2 (Segment Expansion)**: Not started — deploy full 15-segment layout and expand presets
+- **Phase 3 (Overlays & Advanced)**: Not started — active tray highlighting, telemetry overlays
+
+See [ha-state-machine-package.md](ha-state-machine-package.md) for the authoritative state diagram and entity mapping. See [phased-implementation-guide.md](phased-implementation-guide.md) for the 3-phase plan.
+
+---
+
 ## Overview
 
 This document provides a high-level summary of the WLED design refinement completed to address segment limitations and optimize the controller allocation for the Bambu Lab printer LED system.
 
-## 🆕 NEW: Preset-Based Segment Configuration
+## Preset-Based Segment Configuration (Future — Phase 3)
 
-**Major Enhancement Added**: An advanced technique that leverages WLED's ability to save segment definitions in presets (not just colors) to work around the 16-segment-per-controller limitation.
+> **Note**: This technique is a valid future enhancement for Phase 3. It has not been deployed yet. The current system uses the state machine with presets 101–109.
+
+**Advanced Technique**: Leverages WLED's ability to save segment definitions in presets (not just colors) to work around the 16-segment-per-controller limitation.
 
 ### What This Enables
 ✅ **Full Tag Highlighting**: Control BOTH top AND bottom of active tag with filament color  
@@ -21,8 +37,8 @@ This document provides a high-level summary of the WLED design refinement comple
 - **~500ms delay**: Time needed for WLED to reconfigure segments between presets
 
 ### Documentation
-- **[PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md)** - Complete conceptual guide
-- **[docs/ha_automation_preset_based.md](docs/ha_automation_preset_based.md)** - Automation examples
+- **[preset-based-segments.md](preset-based-segments.md)** - Complete conceptual guide
+- **[ha-automation-preset-based.md](ha-automation-preset-based.md)** - Automation examples
 - **Example JSONs** in `digquad-settings/wled_preset_*_full_highlight.json`
 
 ---
@@ -41,7 +57,7 @@ The original problem statement requested:
 ## Key Deliverables
 
 ### 1. Controller Allocation Recommendation
-**Document**: [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)
+**Document**: [controller-allocation.md](controller-allocation.md)
 
 **Key Recommendations**:
 - **Keep Interior Lid Light on MagWLED** (DigQuad at full capacity with 5 GPIO pins)
@@ -63,7 +79,7 @@ The original problem statement requested:
 - **Total: 16 active segments (15+1) ✅**
 
 ### 2. Preset Specification
-**Document**: [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)
+**Document**: [preset-specification.md](preset-specification.md)
 
 **Presets Defined**: 31+ presets covering:
 - Power & connectivity states (3 presets)
@@ -76,18 +92,12 @@ The original problem statement requested:
 Each of the 8 trays (A1, A2, A3, A4, B1, B2, B3, B4) has its own preset that highlights the active tag with the filament color while keeping other tags dim.
 
 ### 3. Phased Implementation Guide
-**Document**: [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)
+**Document**: [phased-implementation-guide.md](phased-implementation-guide.md)
 
-**7 Implementation Phases**:
-1. **Phase 1**: Basic Lighting & Connectivity (2-4 hours)
-2. **Phase 2**: Progress Bar & Status Indicators (3-5 hours)
-3. **Phase 3**: AMS Basic Lighting (4-6 hours)
-4. **Phase 4**: Individual Tag Control (5-8 hours)
-5. **Phase 5**: Advanced Features & Error Handling (6-10 hours)
-6. **Phase 6**: Fine-Tuning & Optimization (3-5 hours)
-7. **Phase 7**: Documentation & Maintenance (2-3 hours)
-
-**Total Time**: 25-45 hours for complete implementation
+**3 Implementation Phases** (aligned to the state machine approach):
+1. **Phase 1**: Core State Machine (✅ Complete) — HA package, presets 101–109
+2. **Phase 2**: Segment Expansion — deploy 15 segments, expand presets
+3. **Phase 3**: Overlays & Advanced — active tray highlighting, telemetry overlays
 
 ### 4. Updated Segment Configuration
 **Document**: [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json)
@@ -219,10 +229,10 @@ Provides:
 ## Files Created/Updated
 
 ### New Specification Documents
-1. `CONTROLLER_ALLOCATION_RECOMMENDATION.md` - Controller allocation strategy and segment analysis
-2. `PRESET_SPECIFICATION.md` - Complete preset definitions with 31+ presets
-3. `PHASED_IMPLEMENTATION_GUIDE.md` - 7-phase implementation plan
-4. `SUMMARY.md` - This document (high-level overview)
+1. `controller-allocation.md` - Controller allocation strategy and segment analysis
+2. `preset-specification.md` - Complete preset definitions with 31+ presets
+3. `phased-implementation-guide.md` - 7-phase implementation plan
+4. `summary.md` - This document (high-level overview)
 
 ### Updated Configuration Files
 1. `digquad-settings/wled_segments_Digquad_UPDATED.json` - Updated segment definitions
@@ -233,7 +243,7 @@ Provides:
 1. `digquad-led-segments.md` - Exact LED counts and ranges
 2. `light-scenarios.md` (Section 2: LED Function Map) - LED zone functions
 3. `light-scenarios.md` - 33+ lighting scenarios
-4. `QUICK_START.md` - Setup guide
+4. `quick-start.md` - Setup guide
 
 ## Benefits of This Approach
 
@@ -319,9 +329,9 @@ Final testing includes:
 6. **Document** any deviations or issues
 
 ### For Questions or Issues
-1. Refer to troubleshooting sections in PHASED_IMPLEMENTATION_GUIDE.md
-2. Check segment allocation in CONTROLLER_ALLOCATION_RECOMMENDATION.md
-3. Review preset definitions in PRESET_SPECIFICATION.md
+1. Refer to troubleshooting sections in phased-implementation-guide.md
+2. Check segment allocation in controller-allocation.md
+3. Review preset definitions in preset-specification.md
 4. Consult existing documentation (README.md, INDEX.md)
 
 ## Conclusion
@@ -355,7 +365,7 @@ The documented workarounds for blocked scenarios ensure that the system remains 
 **Estimated Implementation Time**: 25-45 hours  
 
 **Key Documents**:
-- [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)
-- [PRESET_SPECIFICATION.md](PRESET_SPECIFICATION.md)
-- [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md)
+- [controller-allocation.md](controller-allocation.md)
+- [preset-specification.md](preset-specification.md)
+- [phased-implementation-guide.md](phased-implementation-guide.md)
 - [digquad-settings/wled_segments_Digquad_UPDATED.json](../../../wled/digquad-settings/wled_segments_Digquad_UPDATED.json)

@@ -9,9 +9,9 @@ This document provides detailed wiring instructions for connecting LED strips to
 - **Controller**: Digquad (5 GPIO outputs)
 - **LED Types**: COB 160 LED/m and Mini 2.7mm 160 LED/m
 
-For complete LED specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
-For function details, see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated).
-For scenario behaviors, see [../light-scenarios.md](../light-scenarios.md).
+For complete LED specifications, see [digquad-led-segments.md](digquad-led-segments.md).
+For function details, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
+For scenario behaviors, see [light-scenarios.md](light-scenarios.md).
 
 ## Controller Specifications
 
@@ -109,7 +109,7 @@ Total Segments: 8/16 (8 segments remaining for future use)
 ## Physical Strip Layout
 
 **IMPORTANT**: The specifications below are updated with actual LED counts (711 total).
-For complete specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
+For complete specifications, see [digquad-led-segments.md](digquad-led-segments.md).
 
 ### Printer Front Door (GPIO 15, 158 LEDs, Range: 0-157)
 ```

@@ -1,12 +1,12 @@
 # Home Assistant Automation Examples for WLED Printer Lighting
 
-> **STATUS: LEGACY** — These automations predate the Home Assistant State Machine. The current system uses a centralized orchestrator automation and scripts in the WLED HA package. See [HA_STATE_MACHINE_PACKAGE.md](../HA_STATE_MACHINE_PACKAGE.md). The concepts and entity references here may still be useful for custom extensions.
+> **STATUS: LEGACY** — These automations predate the Home Assistant State Machine. The current system uses a centralized orchestrator automation and scripts in the WLED HA package. See [ha-state-machine-package.md](ha-state-machine-package.md). The concepts and entity references here may still be useful for custom extensions.
 
 This document provides example automations for controlling your WLED printer lighting based on Bambu Lab printer states.
 
-For a complete catalog of all lighting scenarios, see [../light-scenarios.md](../light-scenarios.md).
-For LED specifications, see [../digquad-led-segments.md](../digquad-led-segments.md).
-For zone functions, see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated).
+For a complete catalog of all lighting scenarios, see [light-scenarios.md](light-scenarios.md).
+For LED specifications, see [digquad-led-segments.md](digquad-led-segments.md).
+For zone functions, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ Adjust these entity names to match your Home Assistant configuration:
 
 ## Automation Categories
 
-Based on [light-scenarios.md](../light-scenarios.md), automations are organized into:
+Based on [light-scenarios.md](light-scenarios.md), automations are organized into:
 
 1. **Print Lifecycle States** - Heating, leveling, printing, paused, finished
 2. **Error & Warning States** - Filament issues, temperature errors, door open
@@ -311,7 +311,7 @@ Note: This uses segment 0 (printer door bottom) with 50 LEDs (range 0-49). The p
 
 ## Scenario-Based Automation Summary
 
-Reference [../light-scenarios.md](../light-scenarios.md) for complete scenario details. Key automation mappings:
+Reference [light-scenarios.md](light-scenarios.md) for complete scenario details. Key automation mappings:
 
 | Printer State | Scenario # | Preset # | Behavior |
 |---------------|------------|----------|----------|
@@ -353,9 +353,9 @@ Reference [../light-scenarios.md](../light-scenarios.md) for complete scenario d
 - Test each automation individually before combining
 
 ### Customization Based on Specifications
-- **LED Counts**: Use actual counts from [../digquad-led-segments.md](../digquad-led-segments.md)
-- **Functions**: Reference [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated) for zone purposes
-- **Scenarios**: See [../light-scenarios.md](../light-scenarios.md) for all behaviors
+- **LED Counts**: Use actual counts from [digquad-led-segments.md](digquad-led-segments.md)
+- **Functions**: Reference [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) for zone purposes
+- **Scenarios**: See [light-scenarios.md](light-scenarios.md) for all behaviors
 - Adjust preset numbers based on your actual WLED configuration
 - Change colors in presets to match your preferences
 - Add more granular controls for specific segments
@@ -391,9 +391,9 @@ Reference [../light-scenarios.md](../light-scenarios.md) for complete scenario d
 
 ## Additional Resources
 
-- [LED Specifications](../digquad-led-segments.md) - Exact LED counts and GPIO mapping
-- [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated) - Function specifications for each zone
-- [Light Scenarios](../light-scenarios.md) - Complete catalog of 33+ scenarios
+- [LED Specifications](digquad-led-segments.md) - Exact LED counts and GPIO mapping
+- [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) - Function specifications for each zone
+- [Light Scenarios](light-scenarios.md) - Complete catalog of 33+ scenarios
 - [Home Assistant Automations](https://www.home-assistant.io/docs/automation/)
 - [WLED API Documentation](https://kno.wled.ge/interfaces/json-api/)
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)

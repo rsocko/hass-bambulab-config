@@ -12,7 +12,7 @@ This guide describes a **3-phase** implementation approach aligned with the depl
 Printer Entities → Orchestrator Automation → Transition Script → Core State Helper → Apply Presets Script → WLED Controllers
 ```
 
-The orchestrator watches printer status entities, computes E_* events, transitions the state machine, and applies WLED presets. See [HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md) for the full state diagram and entity mappings.
+The orchestrator watches printer status entities, computes E_* events, transitions the state machine, and applies WLED presets. See [ha-state-machine-package.md](ha-state-machine-package.md) for the full state diagram and entity mappings.
 
 ### Target Vision
 
@@ -29,8 +29,8 @@ Each phase builds toward this target incrementally.
 - [ ] DigQuad controller connected and running WLED (711 LEDs, 5 GPIO pins)
 - [ ] DigQuad added to Home Assistant (`light.dig_quad_v3`, `select.dig_quad_v3_preset`)
 - [ ] Bambu Lab integration configured (`sensor.ntk_ryansoffice_3dprinter_smart_status`, etc.)
-- [ ] Read [HA_STATE_MACHINE_PACKAGE.md](HA_STATE_MACHINE_PACKAGE.md)
-- [ ] Read [CONTROLLER_ALLOCATION_RECOMMENDATION.md](CONTROLLER_ALLOCATION_RECOMMENDATION.md)
+- [ ] Read [ha-state-machine-package.md](ha-state-machine-package.md)
+- [ ] Read [controller-allocation.md](controller-allocation.md)
 - [ ] Read [light-scenarios.md](light-scenarios.md) — master scenario catalog and target behavior spec
 
 ---
@@ -133,7 +133,7 @@ Apply the target 15-segment layout from [wled_segments_Digquad_UPDATED.json](../
 | 14 | Neutral Backgrounds | 16,4 | Various | ~125 | Tag bottoms + hygrometers |
 
 **Steps**:
-1. **Backup first**: Take a backup snapshot of DigQuad (cfg.json + presets.json) following [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)
+1. **Backup first**: Take a backup snapshot of DigQuad (cfg.json + presets.json) following [backup-and-restore.md](backup-and-restore.md)
 2. Open DigQuad WLED UI → Segments
 3. Create segments 0–14 with the LED ranges above
 4. Save the segment layout as a preset (e.g., preset 100 "Base Layout")
@@ -212,7 +212,7 @@ Add scripts/automations that run **after** the core preset is applied to overrid
 
 ### 3.2: Preset-Based Segment Switching (Optional Advanced)
 
-For full tag top+bottom control, implement the preset-based segment reconfiguration from [PRESET_BASED_SEGMENTS.md](PRESET_BASED_SEGMENTS.md):
+For full tag top+bottom control, implement the preset-based segment reconfiguration from [preset-based-segments.md](preset-based-segments.md):
 
 - Presets 50–57: Each redefines segment boundaries so the active tag gets both top AND bottom control
 - HA automation switches to the appropriate preset when the active tray changes

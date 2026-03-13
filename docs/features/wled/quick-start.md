@@ -1,6 +1,6 @@
 # Quick Start Guide - WLED Bambu Lab Printer Lighting
 
-> **STATUS: LEGACY** — This guide predates the Home Assistant State Machine approach. For the current setup path, see [QUICK_REFERENCE.md](QUICK_REFERENCE.md) and [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md). The hardware information here remains accurate.
+> **STATUS: LEGACY** — This guide predates the Home Assistant State Machine approach. For the current setup path, see [quick-reference.md](quick-reference.md) and [phased-implementation-guide.md](phased-implementation-guide.md). The hardware information here remains accurate.
 
 This guide will help you get started quickly with your WLED LED strip configuration for Bambu Lab printer and dual AMS setup.
 
@@ -13,9 +13,9 @@ This configuration package includes:
    - `light-scenarios.md` (Section 2: LED Function Map) - Detailed function specifications for each zone
    - `light-scenarios.md` - Complete catalog of 33+ lighting scenarios
 2. **Main README** (`README.md`) - Complete overview integrated with specifications
-3. **Wiring Diagram** ([docs/wiring-diagram.md](docs/wiring-diagram.md)) - Detailed installation instructions
-4. **Home Assistant Automations** ([docs/home-assistant-automations.md](docs/home-assistant-automations.md)) - Integration examples
-5. **Backup Guide** ([BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)) - Backup/restore process and required files
+3. **Wiring Diagram** ([wiring-diagram.md](wiring-diagram.md)) - Detailed installation instructions
+4. **Home Assistant Automations** ([home-assistant-automations.md](home-assistant-automations.md)) - Integration examples
+5. **Backup Guide** ([backup-and-restore.md](backup-and-restore.md)) - Backup/restore process and required files
 6. **Digquad Configuration**:
    - `digquad-settings/wled_cfg_Digquad.json` - Controller configuration
    - `digquad-settings/wled_presets_Digquad.json` - Presets based on light-scenarios.md
@@ -103,7 +103,7 @@ All `.json` preset files in this repo use the native WLED `presets.json` format 
 
 ### Step 3: Install LED Strips (2-3 hours)
 
-Follow the detailed instructions in [docs/wiring-diagram.md](docs/wiring-diagram.md) and use LED specifications from `digquad-led-segments.md`:
+Follow the detailed instructions in [wiring-diagram.md](wiring-diagram.md) and use LED specifications from `digquad-led-segments.md`:
 
 1. **Printer Front Door** (GPIO 15, 158 LEDs):
    - COB 160 LED/m strip
@@ -149,7 +149,7 @@ Follow the detailed instructions in [docs/wiring-diagram.md](docs/wiring-diagram
 
 Before segment edits and preset changes, capture a baseline snapshot:
 
-1. Follow [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md).
+1. Follow [backup-and-restore.md](backup-and-restore.md).
 2. In WLED UI (`Config` -> `Security & Updates`), export:
    - `Backup Configuration` -> save as `cfg.json`
    - `Backup Presets` -> save as `presets.json`
@@ -216,7 +216,7 @@ Reference `light-scenarios.md` for detailed color and effect specifications for 
 
 ### Step 8: Home Assistant Integration (1 hour)
 
-Follow instructions in [docs/home-assistant-automations.md](docs/home-assistant-automations.md):
+Follow instructions in [home-assistant-automations.md](home-assistant-automations.md):
 
 1. Add WLED device to Home Assistant
 2. Create automations based on `light-scenarios.md`:
@@ -479,6 +479,6 @@ Good luck with your installation! 🎉
 - 🎯 [LED Function Map](light-scenarios.md#2-led-function-map-consolidated) - Zone functions
 - 🎨 [light-scenarios.md](light-scenarios.md) - Scenario catalog
 - 📖 [README.md](README.md) - Complete documentation
-- 🔌 [docs/wiring-diagram.md](docs/wiring-diagram.md) - Installation guide
-- 🏠 [docs/home-assistant-automations.md](docs/home-assistant-automations.md) - Automation examples
+- 🔌 [wiring-diagram.md](wiring-diagram.md) - Installation guide
+- 🏠 [home-assistant-automations.md](home-assistant-automations.md) - Automation examples
 

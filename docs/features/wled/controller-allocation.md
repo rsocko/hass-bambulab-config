@@ -276,7 +276,7 @@ These neutral segments may change color during specific scenarios:
 4. ✅ Keep MagWLED configuration for Interior Lid Light (1 segment, 15 spare)
 
 ### Phase 3: Preset Creation
-1. ✅ Create presets for all scenarios (see PRESET_SPECIFICATION.md)
+1. ✅ Create presets for all scenarios (see preset-specification.md)
 2. ✅ Test each preset to verify segment allocation works
 3. ✅ Document workarounds for blocked scenarios
 4. ✅ Coordinate presets across both controllers when needed

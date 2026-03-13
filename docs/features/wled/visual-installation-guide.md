@@ -401,6 +401,6 @@ Power Supply:
 
 ---
 - `README.md` - Overview and design
-- `QUICK_START.md` - Step-by-step guide
-- [docs/wiring-diagram.md](wiring-diagram.md) - Detailed wiring instructions
+- `quick-start.md` - Step-by-step guide
+- [wiring-diagram.md](wiring-diagram.md) - Detailed wiring instructions
 

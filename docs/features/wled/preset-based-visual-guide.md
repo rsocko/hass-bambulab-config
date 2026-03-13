@@ -1,6 +1,6 @@
 # Preset-Based Segment Configuration - Visual Guide
 
-> **STATUS: FUTURE (Phase 3)** — This visual guide describes the preset-based segment technique planned for Phase 3. It has not been deployed. The current system uses the state machine with presets 101–109. See [PHASED_IMPLEMENTATION_GUIDE.md](../PHASED_IMPLEMENTATION_GUIDE.md).
+> **STATUS: FUTURE (Phase 3)** — This visual guide describes the preset-based segment technique planned for Phase 3. It has not been deployed. The current system uses the state machine with presets 101–109. See [phased-implementation-guide.md](phased-implementation-guide.md).
 
 This document provides visual representations to help understand how preset-based segment configurations work.
 

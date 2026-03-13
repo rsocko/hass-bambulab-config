@@ -1,6 +1,6 @@
 # WLED Preset-Based Segment Configuration
 
-> **STATUS: FUTURE (Phase 3)** — This is a valid advanced technique for Phase 3 of the implementation. It has not been deployed yet. The current system uses the state machine with presets 101–109. See [PHASED_IMPLEMENTATION_GUIDE.md](PHASED_IMPLEMENTATION_GUIDE.md).
+> **STATUS: FUTURE (Phase 3)** — This is a valid advanced technique for Phase 3 of the implementation. It has not been deployed yet. The current system uses the state machine with presets 101–109. See [phased-implementation-guide.md](phased-implementation-guide.md).
 
 ## Overview
 

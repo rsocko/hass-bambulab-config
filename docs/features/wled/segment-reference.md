@@ -4,9 +4,9 @@ Quick reference for WLED segment IDs and their purposes.
 
 **Total System LEDs: 711**
 
-For complete LED specifications, see [digquad-led-segments.md](../digquad-led-segments.md).
-For function details, see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated).
-For scenario behaviors, see [light-scenarios.md](../light-scenarios.md).
+For complete LED specifications, see [digquad-led-segments.md](digquad-led-segments.md).
+For function details, see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated).
+For scenario behaviors, see [light-scenarios.md](light-scenarios.md).
 
 ## Digquad Controller - GPIO Pin Mapping
 
@@ -30,13 +30,13 @@ For scenario behaviors, see [light-scenarios.md](../light-scenarios.md).
 | Left | 50-114 | 65 | Status indicator (pulsing green/flashing red) |
 | Top | 115-157 | 43 | Status indicator (same as left) |
 
-**Functions** (see [LED Function Map](../light-scenarios.md#2-led-function-map-consolidated)):
+**Functions** (see [LED Function Map](light-scenarios.md#2-led-function-map-consolidated)):
 - Bottom: Display print progress %, pause animation, completion flash
 - Left/Top: Print status (pulsing soft green when printing, flashing red on error)
 
 ### GPIO 1: AMS 1 Lid/Spools (140 LEDs, Range: 158-297)
 
-Detailed breakdown in [digquad-led-segments.md](../digquad-led-segments.md).
+Detailed breakdown in [digquad-led-segments.md](digquad-led-segments.md).
 
 **Key Segments**:
 - Top sections by tray (17, 12, 13, 13 LEDs)
@@ -68,7 +68,7 @@ Similar to AMS 1 tags.
 
 ## Preset to Scenario Mapping
 
-For complete scenario catalog, see [light-scenarios.md](../light-scenarios.md).
+For complete scenario catalog, see [light-scenarios.md](light-scenarios.md).
 
 ### Power & Connectivity States
 
