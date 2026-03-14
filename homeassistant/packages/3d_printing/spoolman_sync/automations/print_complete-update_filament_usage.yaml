@@ -14,7 +14,7 @@
   # Determine which data source to use
   - variables:
       task_name_current: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
-      current_has_attributes: >
+      current_has_attributes: >-
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
            select('match', '^(AMS|External)') | list | length > 0 }}
       backup_raw: "{{ states('input_text.print_weight_backup') | string }}"
@@ -22,7 +22,7 @@
       backup_present: "{{ backup_raw_trimmed not in ['unknown', 'unavailable', 'none', 'None', ''] }}"
       backup_parsed: "{{ backup_raw_trimmed | from_json(None) }}"
       # Backup must be a valid JSON object string to be considered usable
-      backup_available: >
+      backup_available: >-
         {{ backup_present and
            backup_parsed is mapping }}
       backup_invalid: "{{ backup_present and not backup_available }}"
