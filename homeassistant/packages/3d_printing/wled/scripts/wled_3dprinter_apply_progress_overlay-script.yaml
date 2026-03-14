@@ -3,9 +3,8 @@ wled_3dprinter_apply_progress_overlay:
   description: >-
     Dynamically update front door segments 0 and 1 with print progress and
     layer progress using the WLED JSON API. Segment 0 uses the Percent effect
-    (fx 64) with green fill for print %, Segment 1 uses Percent with blue fill
-    for layer %. Only the ix (intensity/percentage) parameter is updated — the
-    base effect, colors, and brightness come from the S3_PRINTING preset (104).
+    (fx 98) with green fill for print %, Segment 1 uses Percent with blue fill
+    for layer %. The ix parameter maps directly to percentage (0-100).
   mode: restart
   sequence:
     - variables:
@@ -16,12 +15,10 @@ wled_3dprinter_apply_progress_overlay:
         total_layers: >-
           {{ states('sensor.ntk_ryansoffice_3dprinter_total_layer_count') | float(0) }}
         seg0_ix: >-
-          {% set raw = (print_progress / 100 * 255) | round(0) | int %}
-          {{ [[raw, 255] | min, 0] | max }}
+          {{ [[print_progress | round(0) | int, 100] | min, 0] | max }}
         seg1_ix: >-
           {% if total_layers > 0 %}
-            {% set raw = (current_layer / total_layers * 255) | round(0) | int %}
-            {{ [[raw, 255] | min, 0] | max }}
+            {{ [[(current_layer / total_layers * 100) | round(0) | int, 100] | min, 0] | max }}
           {% else %}
             0
           {% endif %}
