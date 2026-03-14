@@ -32,8 +32,8 @@ Include chain:
 1. `configuration.yaml` -> `packages: !include packages/3d_printing/_feature_loaders.yaml`
 2. `homeassistant/packages/3d_printing/_feature_loaders.yaml` -> `common/common_loader.yaml`
 3. `homeassistant/packages/3d_printing/common/common_loader.yaml` -> `dashboards/_dashboards.yaml`
-4. `homeassistant/packages/3d_printing/common/dashboards/_dashboards.yaml` -> `common/dashboards/3d_printing_v2.yaml`
-5. `homeassistant/packages/3d_printing/common/dashboards/3d_printing_v2.yaml` -> `../dashboard_views/view_main.yaml`
+4. `homeassistant/packages/3d_printing/common/dashboards/_dashboards.yaml` -> `common/dashboards/3d_printing.yaml`
+5. `homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml` -> `../dashboard_views/view_main.yaml`
 6. `homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml` -> `../../print_progress/dashboard_cards/print-progress-kpi-option-*.yaml`
 
 Notes:

@@ -27,8 +27,8 @@ Current expected chain for Common dashboard registration:
 1. `configuration.yaml` -> `homeassistant.packages: !include packages/3d_printing/_feature_loaders.yaml`
 2. `_feature_loaders.yaml` -> `common_loader: !include common/common_loader.yaml`
 3. `common_loader.yaml` -> `lovelace.dashboards: !include dashboards/_dashboards.yaml`
-4. `_dashboards.yaml` -> dashboard key -> `filename: packages/3d_printing/common/dashboards/3d_printing_v2.yaml`
-5. `3d_printing_v2.yaml` -> `!include ../dashboard_views/view_*.yaml`
+4. `_dashboards.yaml` -> dashboard key -> `filename: packages/3d_printing/common/dashboards/3d_printing.yaml`
+5. `3d_printing.yaml` -> `!include ../dashboard_views/view_*.yaml`
 
 If a file (for example `common/helpers/*.yaml`) is not referenced by loader includes, it is deployed but not loaded.
 
@@ -95,7 +95,7 @@ If the automated sync fails (for example, Supervisor token issue), register manu
 ### Usually no full restart required
 
 - Editing existing dashboard/view content in YAML-mode dashboard files, for example:
-  - `common/dashboards/3d_printing_v2.yaml`
+  - `common/dashboards/3d_printing.yaml`
   - `common/dashboard_views/view_main.yaml`
 
 Typical action: refresh browser or reopen dashboard.
