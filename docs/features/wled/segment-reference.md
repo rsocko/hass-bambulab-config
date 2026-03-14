@@ -126,15 +126,98 @@ For complete scenario catalog, see [light-scenarios.md](light-scenarios.md).
 | Blue           | 100,150,255 | #6496FF | Idle breathing             |
 | Gray           | 100,100,100 | #646464 | Inactive tags              |
 
-## Effect IDs (Common WLED Effects)
+## Effect IDs Reference
 
-| Effect ID | Name | Usage in Presets |
-|-----------|------|------------------|
-| 0 | Solid | Most static segments |
-| 1 | Breathing | Idle mode breathing |
-| 2 | Blink | Error alerts |
-| 3 | Wipe | Loading animations |
-| 28 | Chase | Progress animations |
+> **How to retrieve**: Query `http://<wled-ip>/json/effects` — returns an array where the index is the effect ID.  
+> PowerShell: `(Invoke-RestMethod "http://192.168.50.103/json/effects") | ForEach-Object -Begin {$i=0} -Process { "$i`t$_"; $i++ }`  
+> **Note**: Effect IDs can vary between WLED firmware versions. Always verify against your device.
+
+### Effects Used in State Machine Presets
+
+| Effect ID | Name | Used In | Purpose |
+|-----------|------|---------|---------|
+| 0 | Solid | Most segments across all presets | Static color fill |
+| 1 | Blink | S8 Show (tags) | Slow blinking aesthetic |
+| 2 | Breathe | S1 Idle (seg 2), S3 Printing (seg 2), S4 Paused (seg 2), S5 Error (seg 2) | Slow pulsing glow |
+| 3 | Wipe | S6 Finishing (seg 2) | Sweep animation |
+| 6 | Sweep | S2 Prep (seg 2) | Back-and-forth sweep |
+| 10 | Scan | S1 Idle (seg 2) | Scanning light |
+| 17 | Twinkle | S7 Maintenance (seg 2) | Sparse twinkling |
+| 68 | Bpm | S8 Show (seg 2) | Palette-based beat |
+| 98 | Percent | S3 Printing (seg 0, 1), S4 Paused (seg 0, 1), S5 Error (seg 0, 1) | Progress bar fill — `ix` controls fill % (0–255) |
+
+### Full Effects List (DigQuad at 192.168.50.103, retrieved 2026-03-13)
+
+<details>
+<summary>Click to expand full list (187 effects)</summary>
+
+| ID | Name | ID | Name | ID | Name |
+|----|------|----|------|----|------|
+| 0 | Solid | 1 | Blink | 2 | Breathe |
+| 3 | Wipe | 4 | Wipe Random | 5 | Random Colors |
+| 6 | Sweep | 7 | Dynamic | 8 | Colorloop |
+| 9 | Rainbow | 10 | Scan | 11 | Scan Dual |
+| 12 | Fade | 13 | Theater | 14 | Theater Rainbow |
+| 15 | Running | 16 | Saw | 17 | Twinkle |
+| 18 | Dissolve | 19 | Dissolve Rnd | 20 | Sparkle |
+| 21 | Sparkle Dark | 22 | Sparkle+ | 23 | Strobe |
+| 24 | Strobe Rainbow | 25 | Strobe Mega | 26 | Blink Rainbow |
+| 27 | Android | 28 | Chase | 29 | Chase Random |
+| 30 | Chase Rainbow | 31 | Chase Flash | 32 | Chase Flash Rnd |
+| 33 | Rainbow Runner | 34 | Colorful | 35 | Traffic Light |
+| 36 | Sweep Random | 37 | Chase 2 | 38 | Aurora |
+| 39 | Stream | 40 | Scanner | 41 | Lighthouse |
+| 42 | Fireworks | 43 | Rain | 44 | Tetrix |
+| 45 | Fire Flicker | 46 | Gradient | 47 | Loading |
+| 48 | Rolling Balls | 49 | Fairy | 50 | Two Dots |
+| 51 | Fairytwinkle | 52 | Running Dual | 53 | RSVD |
+| 54 | Chase 3 | 55 | Tri Wipe | 56 | Tri Fade |
+| 57 | Lightning | 58 | ICU | 59 | Multi Comet |
+| 60 | Scanner Dual | 61 | Stream 2 | 62 | Oscillate |
+| 63 | Pride 2015 | 64 | Juggle | 65 | Palette |
+| 66 | Fire 2012 | 67 | Colorwaves | 68 | Bpm |
+| 69 | Fill Noise | 70 | Noise 1 | 71 | Noise 2 |
+| 72 | Noise 3 | 73 | Noise 4 | 74 | Colortwinkles |
+| 75 | Lake | 76 | Meteor | 77 | Meteor Smooth |
+| 78 | Railway | 79 | Ripple | 80 | Twinklefox |
+| 81 | Twinklecat | 82 | Halloween Eyes | 83 | Solid Pattern |
+| 84 | Solid Pattern Tri | 85 | Spots | 86 | Spots Fade |
+| 87 | Glitter | 88 | Candle | 89 | Fireworks Starburst |
+| 90 | Fireworks 1D | 91 | Bouncing Balls | 92 | Sinelon |
+| 93 | Sinelon Dual | 94 | Sinelon Rainbow | 95 | Popcorn |
+| 96 | Drip | 97 | Plasma | 98 | Percent |
+| 99 | Ripple Rainbow | 100 | Heartbeat | 101 | Pacifica |
+| 102 | Candle Multi | 103 | Solid Glitter | 104 | Sunrise |
+| 105 | Phased | 106 | Twinkleup | 107 | Noise Pal |
+| 108 | Sine | 109 | Phased Noise | 110 | Flow |
+| 111 | Chunchun | 112 | Dancing Shadows | 113 | Washing Machine |
+| 114 | Rotozoomer | 115 | Blends | 116 | TV Simulator |
+| 117 | Dynamic Smooth | 118 | Spaceships | 119 | Crazy Bees |
+| 120 | Ghost Rider | 121 | Blobs | 122 | Scrolling Text |
+| 123 | Drift Rose | 124 | Distortion Waves | 125 | Soap |
+| 126 | Octopus | 127 | Waving Cell | 128 | Pixels |
+| 129 | Pixelwave | 130 | Juggles | 131 | Matripix |
+| 132 | Gravimeter | 133 | Plasmoid | 134 | Puddles |
+| 135 | Midnoise | 136 | Noisemeter | 137 | Freqwave |
+| 138 | Freqmatrix | 139 | GEQ | 140 | Waterfall |
+| 141 | Freqpixels | 142 | RSVD | 143 | Noisefire |
+| 144 | Puddlepeak | 145 | Noisemove | 146 | Noise2D |
+| 147 | Perlin Move | 148 | Ripple Peak | 149 | Firenoise |
+| 150 | Squared Swirl | 151 | RSVD | 152 | DNA |
+| 153 | Matrix | 154 | Metaballs | 155 | Freqmap |
+| 156 | Gravcenter | 157 | Gravcentric | 158 | Gravfreq |
+| 159 | DJ Light | 160 | Funky Plank | 161 | RSVD |
+| 162 | Pulser | 163 | Blurz | 164 | Drift |
+| 165 | Waverly | 166 | Sun Radiation | 167 | Colored Bursts |
+| 168 | Julia | 169 | RSVD | 170 | RSVD |
+| 171 | RSVD | 172 | Game Of Life | 173 | Tartan |
+| 174 | Polar Lights | 175 | Swirl | 176 | Lissajous |
+| 177 | Frizzles | 178 | Plasma Ball | 179 | Flow Stripe |
+| 180 | Hiphotic | 181 | Sindots | 182 | DNA Spiral |
+| 183 | Black Hole | 184 | Wavesins | 185 | Rocktaves |
+| 186 | Akemi | | | | |
+
+</details>
 
 ## AMS Tray to Segment Mapping
 

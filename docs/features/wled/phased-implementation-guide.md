@@ -224,8 +224,8 @@ During S3_PRINTING, segments 0, 1, and 2 on the front door dynamically visualize
 
 | Segment | Zone | Effect | Color | Data Source |
 |---------|------|--------|-------|-------------|
-| 0 | Front Door Bottom | Percent (fx 64) | Green fill `[0, 255, 40]` on dim white `[50, 44, 36]` background | `sensor.ntk_ryansoffice_3dprinter_print_progress` (0–100%) |
-| 1 | Front Door Left | Percent (fx 64) | Blue fill `[0, 100, 255]` on dim white `[50, 44, 36]` background | `sensor.ntk_ryansoffice_3dprinter_current_layer` / `sensor.ntk_ryansoffice_3dprinter_total_layer_count` |
+| 0 | Front Door Bottom | Percent (fx 98) | Green fill `[0, 255, 40]` on dim white `[50, 44, 36]` background | `sensor.ntk_ryansoffice_3dprinter_print_progress` (0–100%) |
+| 1 | Front Door Left | Percent (fx 98) | Blue fill `[0, 100, 255]` on dim white `[50, 44, 36]` background | `sensor.ntk_ryansoffice_3dprinter_current_layer` / `sensor.ntk_ryansoffice_3dprinter_total_layer_count` |
 | 2 | Front Door Top | Breathe (fx 2), very slow (sx 20) | Green `[0, 200, 60]` | N/A — indicates healthy print in progress |
 
 **How it works**:
@@ -258,7 +258,7 @@ During S3_PRINTING, segments 0, 1, and 2 on the front door dynamically visualize
 
 1. Set `input_text.wled_3dprinter_digquad_ip` to the DigQuad's IP address (e.g., `192.168.1.xx`) in HA → Settings → Helpers
 2. Verify `rest_command.wled_3dprinter_digquad_update_state` is available (HA → Developer Tools → Services)
-3. Verify the Percent effect ID on your WLED build — effect ID 64 is standard; check WLED UI → Effects to confirm. If different, update preset 104 `fx` values for segments 0 and 1.
+3. Verify the Percent effect ID on your WLED build — effect ID **98** is confirmed for DigQuad at `192.168.50.103`. Check WLED UI → Effects or query `http://<ip>/json/effects` to verify. If different, update preset 104 `fx` values for segments 0 and 1.
 4. Deploy updated preset 104 to DigQuad (merge from `wled_state_machine_presets_Digquad.json`)
 5. Restart HA to load new automation, script, rest_command, and helper
 
@@ -382,7 +382,7 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 #### 3.1 Progress Bar & Status Enhancement
 - [ ] `input_text.wled_3dprinter_digquad_ip` set to DigQuad IP
 - [ ] `rest_command.wled_3dprinter_digquad_update_state` reachable (Developer Tools → Services)
-- [ ] Percent effect ID 64 confirmed on DigQuad WLED build
+- [ ] Percent effect ID 98 confirmed on DigQuad WLED build
 - [ ] Updated preset 104 deployed to DigQuad
 - [ ] S3_PRINTING shows dim white base on segs 0 and 1
 - [ ] Seg 2 shows very slow green breathe during printing
