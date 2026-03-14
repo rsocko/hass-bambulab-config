@@ -1,4 +1,4 @@
-default_filament_cost_per_kg:
+print_cost_default_per_kg:
   name: Default Filament Cost (per kg)
   min: 0
   max: 500

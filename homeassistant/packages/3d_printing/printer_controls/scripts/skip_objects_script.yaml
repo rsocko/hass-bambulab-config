@@ -3,7 +3,7 @@
 # Provides two reusable scripts for skipping print objects on the Bambu Lab printer:
 #
 #   1. skip_print_object        - Skip a single object by ID, preserving all current skips.
-#   2. skip_print_objects_list  - Replace the entire skip list (bulk/automation use).
+#   2. skip_print_objects_bulk_list  - Replace the entire skip list (bulk/automation use).
 #
 # Both scripts are automation-friendly and handle the "must send cumulative list" requirement
 # of the bambu_lab.skip_objects service (the printer replaces its skip list each call).
@@ -15,7 +15,7 @@
 #     device_id: "abc123def456"
 #
 # Usage from Developer Tools → Services:
-#   service: script.skip_print_objects_list
+#   service: script.skip_print_objects_bulk_list
 #   data:
 #     object_ids: [1, 3]
 #     device_id: "abc123def456"
@@ -94,7 +94,7 @@ skip_print_object:
         level: info
         logger: homeassistant.components.bambulab.skip_objects
 
-skip_print_objects_list:
+skip_print_objects_bulk_list:
   alias: "Skip Print Objects (Bulk List)"
   description: >-
     Skip one or more print objects by sending a complete list of integer IDs.
@@ -145,6 +145,6 @@ skip_print_objects_list:
       action: system_log.write
       data:
         message: >-
-          skip_print_objects_list: set skip list to [{{ combined_str }}]
+          skip_print_objects_bulk_list: set skip list to [{{ combined_str }}]
         level: info
         logger: homeassistant.components.bambulab.skip_objects

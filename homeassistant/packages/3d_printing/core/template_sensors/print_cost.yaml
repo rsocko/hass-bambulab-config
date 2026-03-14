@@ -22,7 +22,7 @@
 
     {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
     {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
-    {% set default_price_per_kg = states('input_number.default_filament_cost_per_kg') | float(20.0) %}
+    {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
     {# Default initial_weight 1000 g = standard 1 kg spool #}
     {% set default_spool_weight_g = 1000 %}
     {% set ns = namespace(total=0.0) %}
@@ -77,7 +77,7 @@
 
       {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
       {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
-      {% set default_price_per_kg = states('input_number.default_filament_cost_per_kg') | float(20.0) %}
+      {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
       {# Default initial_weight 1000 g = standard 1 kg spool #}
       {% set default_spool_weight_g = 1000 %}
       {% set ns = namespace(result={}) %}
