@@ -144,7 +144,7 @@ For complete scenario catalog, see [light-scenarios.md](light-scenarios.md).
 | 10 | Scan | S1 Idle (seg 2) | Scanning light |
 | 17 | Twinkle | S7 Maintenance (seg 2) | Sparse twinkling |
 | 68 | Bpm | S8 Show (seg 2) | Palette-based beat |
-| 98 | Percent | S3 Printing (seg 0, 1), S4 Paused (seg 0, 1), S5 Error (seg 0, 1) | Progress bar fill — `ix` controls fill % (0–255) |
+| 98 | Percent | S3 Printing (seg 0, 1), S4 Paused (seg 0, 1), S5 Error (seg 0, 1) | Progress bar fill — `ix` controls fill % (0–100 direct percentage) |
 
 ### Full Effects List (DigQuad at 192.168.50.103, retrieved 2026-03-13)
 

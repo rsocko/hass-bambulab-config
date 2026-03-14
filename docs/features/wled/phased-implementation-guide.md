@@ -238,9 +238,9 @@ During S3_PRINTING, segments 0, 1, and 2 on the front door dynamically visualize
 4. The overlay script sends a targeted WLED JSON API request (via `rest_command.wled_digquad_update_state`) that updates ONLY the `ix` parameter on segments 0 and 1 — all other segment properties remain as set by preset 104
 5. Pause/error presets (105, 106) only change **segment 2** (top bar) to yellow/red. Segments 0 and 1 retain the Percent effect with their last progress values, so the progress bars remain visible during pause/error states. On resume, preset 104 reloads and the overlay restores current progress values.
 
-**ix mapping**:
-- Segment 0: `ix = round(print_progress / 100 × 255)` → 0=empty, 255=full
-- Segment 1: `ix = round(current_layer / total_layers × 255)` → 0=empty, 255=full (safe division, 0 when total_layers is 0)
+**ix mapping** (Percent effect uses 0–100 direct percentage):
+- Segment 0: `ix = round(print_progress)` → 0=empty, 100=full
+- Segment 1: `ix = round(current_layer / total_layers × 100)` → 0=empty, 100=full (safe division, 0 when total_layers is 0)
 
 #### Files Created / Modified
 
