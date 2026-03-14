@@ -160,9 +160,11 @@ cards:
           - text-align: center
           - white-space: nowrap
     - type: custom:button-card
+      entity: script.refill_desiccant_update_date
       icon: mdi:clock-check-outline
       label: |
         [[[
+          if (entity?.state === 'on') return 'Saving...';
           const selected_entity = states['sensor.selected_spool']?.state;
           const spool_entity = selected_entity ? states[selected_entity] : null;
           return spool_entity?.attributes?.id ? 'Mark as refilled' : 'Select spool first';
@@ -206,6 +208,11 @@ cards:
           - width: 25px
           - height: 25px
           - margin-bottom: 2px
+          - animation: |
+              [[[
+                if (entity?.state === 'on') return 'spin 1s linear infinite';
+                return 'none';
+              ]]]
         label:
           - font-size: 14px
           - font-weight: bold
@@ -277,9 +284,11 @@ cards:
           - text-align: center
           - white-space: nowrap
     - type: custom:button-card
+      entity: script.mark_spool_as_dried_in_spoolman
       icon: mdi:heat-wave
       label: |
         [[[
+          if (entity?.state === 'on') return 'Saving...';
           const selected_entity = states['sensor.selected_spool']?.state;
           const spool_entity = selected_entity ? states[selected_entity] : null;
           return spool_entity?.attributes?.id ? 'Mark as Dried' : 'Select spool first';
@@ -323,6 +332,11 @@ cards:
           - width: 25px
           - height: 25px
           - margin-bottom: 2px
+          - animation: |
+              [[[
+                if (entity?.state === 'on') return 'spin 1s linear infinite';
+                return 'none';
+              ]]]
         label:
           - font-size: 14px
           - font-weight: bold
