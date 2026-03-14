@@ -463,6 +463,49 @@ jobs:
         run: |
           bash .github/scripts/manage_feature_includes.sh
 
+      - name: Debug deploy sync context
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SOURCE_ROOT="./homeassistant"
+          FEATURE_INCLUDE_FILE_SRC="$SOURCE_ROOT/packages/3d_printing/_feature_loaders.yaml"
+
+          echo "Runner diagnostics:"
+          echo "  RUNNER_NAME=${RUNNER_NAME:-unset}"
+          echo "  RUNNER_OS=${RUNNER_OS:-unset}"
+          echo "  GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          echo "  pwd=$(pwd)"
+
+          echo "Deploy target diagnostics:"
+          echo "  HA_HOST=$HA_HOST"
+          echo "  HA_SSH_PORT=$HA_SSH_PORT"
+          echo "  HA_SSH_USER=$HA_SSH_USER"
+          echo "  HA_CONFIG_PATH=$HA_CONFIG_PATH"
+          echo "  SSH_KEY_PATH=$SSH_KEY_PATH"
+
+          echo "Local source diagnostics:"
+          [ -d "$SOURCE_ROOT" ] && echo "  source root exists: $SOURCE_ROOT" || echo "  source root missing: $SOURCE_ROOT"
+          [ -f "$FEATURE_INCLUDE_FILE_SRC" ] && echo "  feature include file exists: $FEATURE_INCLUDE_FILE_SRC" || echo "  feature include file missing: $FEATURE_INCLUDE_FILE_SRC"
+          ls -la "$SOURCE_ROOT" || true
+          ls -la "$SOURCE_ROOT/packages/3d_printing" || true
+
+          echo "SSH key diagnostics:"
+          if [ -f "$SSH_KEY_PATH" ]; then
+            ls -l "$SSH_KEY_PATH"
+          else
+            echo "  ssh key missing at: $SSH_KEY_PATH"
+            exit 1
+          fi
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=${SSH_STRICT_MODE:-accept-new}"
+          if [ "${SSH_STRICT_MODE:-accept-new}" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          echo "Remote diagnostics:"
+          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected as: \$(whoami); id; command -v rsync || echo rsync-not-found; sudo -n command -v rsync || echo sudo-rsync-not-found"
+
       - name: Deploy sync to HAOS /config (SSH add-on)
         run: |
           set -euo pipefail
