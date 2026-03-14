@@ -178,9 +178,10 @@ cards:
     icon: mdi:tray-arrow-down
     show_icon: true
     tap_action:
-      action: "${spool_id ? 'call-service' : 'none'}"
-      service: script.update_spool_location
-      service_data:
+      action: "${spool_id ? 'perform-action' : 'none'}"
+      perform_action: script.update_spool_location
+      target: {}
+      data:
         spool_id: ${spool_id}
         location: ${new_location}
 - type: custom:bubble-card
