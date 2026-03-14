@@ -83,8 +83,9 @@ cards:
   filter:
     template: |
       {% set spool = states('sensor.selected_spool') %}
-      {% if spool and states[spool] is defined and state_attr(spool, 'id') is not none %}
-        {{ 'select.spoolman_spool_' ~ state_attr(spool, 'id') ~ '_location' }}
+      {% if spool and spool.startswith('sensor.spoolman_spool_') %}
+        {% set spool_id = spool.replace('sensor.spoolman_spool_', '') %}
+        {{ 'select.spoolman_spool_' ~ spool_id ~ '_location' }}
       {% endif %}
   card:
     type: entities
