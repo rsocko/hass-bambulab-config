@@ -14,6 +14,7 @@ cards:
   variables:
     selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
     has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
+    location_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? 'select.spoolman_spool_' + states[states['sensor.selected_spool'].state].attributes.id + '_location' : 'sensor.selected_spool'"
   entities:
     - sensor.selected_spool
   card:
@@ -56,15 +57,14 @@ cards:
     sub_button:
       main: []
       bottom:
-        - entity: ${selected_entity}
+        - entity: ${location_entity}
           icon: fas:location-dot
           tap_action:
             action: "${ has_spool ? 'more-info' : 'none' }"
           show_background: true
           state_background: false
           show_icon: true
-          show_attribute: ${ has_spool }
-          attribute: location
+          show_state: ${ has_spool }
         - entity: ${selected_entity}
           icon: mdi:weight-gram
           tap_action:
