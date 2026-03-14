@@ -16,6 +16,7 @@ cards:
     has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
   entities:
     - sensor.selected_spool
+    - select.selected_spool_location
   card:
     type: custom:bubble-card
     card_type: button
