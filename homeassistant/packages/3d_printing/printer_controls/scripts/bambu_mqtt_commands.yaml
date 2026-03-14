@@ -1,0 +1,112 @@
+# Script: bambu_mqtt_commands.yaml
+#
+# Direct MQTT command scripts for Bambu printers via Home Assistant's mqtt.publish.
+#
+# Transport assumptions:
+# - Your HA MQTT broker is connected to PandaProxy (or equivalent path to the printer).
+# - Commands are published to: device/<serial>/request
+# - Bambu command QoS should be 1 for reliable delivery.
+#
+# Usage examples:
+# service: script.bambu_clean_print_error
+# data:
+#   serial_number: "01P00C123456789"
+#
+# service: script.bambu_ams_control
+# data:
+#   serial_number: "01P00C123456789"
+#   action: "resume"
+
+bambu_clean_print_error:
+  alias: "Bambu MQTT - Clear Print/HMS Error"
+  description: >-
+    Sends clean_print_error to the printer request topic to clear stale/active
+    print_error/HMS conditions that can block resume or queue progression.
+  fields:
+    serial_number:
+      description: "Printer serial number used in topic device/<serial>/request"
+      required: true
+      example: "01P00C123456789"
+      selector:
+        text:
+    sequence_id:
+      description: "Optional sequence_id value. Default is 0."
+      required: false
+      default: "0"
+      example: "0"
+      selector:
+        text:
+  variables:
+    topic: "device/{{ serial_number }}/request"
+    payload_obj:
+      print:
+        command: clean_print_error
+        sequence_id: "{{ sequence_id | default('0') }}"
+  sequence:
+    - alias: "Publish clean_print_error command"
+      action: mqtt.publish
+      data:
+        topic: "{{ topic }}"
+        qos: 1
+        payload: "{{ payload_obj | tojson }}"
+    - alias: "Log command"
+      action: system_log.write
+      data:
+        level: info
+        logger: homeassistant.components.bambu_mqtt_commands
+        message: >-
+          bambu_clean_print_error: published to {{ topic }} payload={{ payload_obj | tojson }}
+
+bambu_ams_control:
+  alias: "Bambu MQTT - AMS Control"
+  description: >-
+    Sends ams_control command to pause, resume, or reset AMS handling.
+  fields:
+    serial_number:
+      description: "Printer serial number used in topic device/<serial>/request"
+      required: true
+      example: "01P00C123456789"
+      selector:
+        text:
+    action:
+      description: "AMS action"
+      required: true
+      default: "resume"
+      selector:
+        select:
+          options:
+            - "pause"
+            - "resume"
+            - "reset"
+    sequence_id:
+      description: "Optional sequence_id value. Default is 0."
+      required: false
+      default: "0"
+      example: "0"
+      selector:
+        text:
+  variables:
+    topic: "device/{{ serial_number }}/request"
+    ams_action: "{{ action | lower }}"
+    payload_obj:
+      print:
+        command: ams_control
+        param: "{{ ams_action }}"
+        sequence_id: "{{ sequence_id | default('0') }}"
+  sequence:
+    - alias: "Guard: action must be pause/resume/reset"
+      condition: template
+      value_template: "{{ ams_action in ['pause', 'resume', 'reset'] }}"
+    - alias: "Publish ams_control command"
+      action: mqtt.publish
+      data:
+        topic: "{{ topic }}"
+        qos: 1
+        payload: "{{ payload_obj | tojson }}"
+    - alias: "Log command"
+      action: system_log.write
+      data:
+        level: info
+        logger: homeassistant.components.bambu_mqtt_commands
+        message: >-
+          bambu_ams_control: action={{ ams_action }} published to {{ topic }} payload={{ payload_obj | tojson }}
