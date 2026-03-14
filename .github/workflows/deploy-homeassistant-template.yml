@@ -69,6 +69,14 @@ on:
         options:
           - "true"
           - "false"
+      debug_deploy_sync:
+        description: "Enable verbose deploy sync diagnostics"
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
       fail_on_ui_conflict:
         description: "If conflicts are found, fail the workflow"
         required: true
@@ -464,6 +472,7 @@ jobs:
           bash .github/scripts/manage_feature_includes.sh
 
       - name: Debug deploy sync context
+        if: ${{ github.event.inputs.debug_deploy_sync == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
