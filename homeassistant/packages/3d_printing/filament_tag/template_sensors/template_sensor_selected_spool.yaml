@@ -3,13 +3,20 @@
   icon: fapro:filament-2
   state: >
     {% set fid = states('input_text.filament_id') | int(0) %}
+    {% set ns = namespace(unsealed_match='', first_match='') %}
 
     {% for s in states.sensor %}
       {% if s.entity_id.startswith('sensor.spoolman_spool_') %}
         {% set filament = state_attr(s.entity_id, 'filament_id') | int(0) %}
         {% if filament > 0 and filament == fid %}
-          {{ s.entity_id }}
-          {% break %}
+          {% if ns.first_match == '' %}
+            {% set ns.first_match = s.entity_id %}
+          {% endif %}
+          {% if state_attr(s.entity_id, 'extra_sealed') != true and ns.unsealed_match == '' %}
+            {% set ns.unsealed_match = s.entity_id %}
+          {% endif %}
         {% endif %}
       {% endif %}
     {% endfor %}
+
+    {{ ns.unsealed_match if ns.unsealed_match != '' else ns.first_match }}
