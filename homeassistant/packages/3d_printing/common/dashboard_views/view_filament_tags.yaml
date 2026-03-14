@@ -79,16 +79,12 @@ cards:
   name: Spool Location
   icon: mdi:map-marker-distance
   card_layout: large
-- type: entities
-  entities:
-    - entity: select.selected_spool_location
-      name: 'Location'
-  theme: Metro Blue
-  card_mod:
-    style: |
-      ha-card {
-        font-size: 1.4rem;
-      }
+- type: tile
+  entity: select.selected_spool_location
+  name: Location
+  icon: mdi:map-marker
+  features:
+    - type: select-options
 - type: custom:bubble-card
   card_type: separator
   sub_button:
