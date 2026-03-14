@@ -26,14 +26,15 @@
       entity_id: input_boolean.wled_3dprinter_state_machine_enabled
       state: "on"
   actions:
-    # On HA start, wait for Bambu Lab integration sensors to become available
+    # On HA start, wait for WLED + Bambu Lab integrations to become available
     - if:
         - condition: trigger
           id: ha_start
       then:
         - wait_template: >-
-            {{ states('sensor.ntk_ryansoffice_3dprinter_smart_status')
-               not in ['unavailable', 'unknown'] }}
+            {{ states('select.dig_quad_v3_preset') not in ['unavailable', 'unknown']
+               and states('sensor.ntk_ryansoffice_3dprinter_smart_status')
+                   not in ['unavailable', 'unknown'] }}
           timeout:
             minutes: 3
           continue_on_timeout: true
@@ -112,6 +113,18 @@
         - condition: template
           value_template: "{{ event_id != 'E_NOOP' or force_apply }}"
       then:
+        # On force-apply, re-establish segment boundaries via Base Layout first
+        - if:
+            - condition: template
+              value_template: "{{ force_apply }}"
+          then:
+            - action: select.select_option
+              target:
+                entity_id: select.dig_quad_v3_preset
+              data:
+                option: "SM Base Layout"
+            - delay:
+                seconds: 2
         - action: script.wled_3dprinter_apply_core_state_to_presets
           data: {}
         - if:
