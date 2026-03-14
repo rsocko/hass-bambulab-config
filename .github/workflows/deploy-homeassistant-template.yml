@@ -584,9 +584,9 @@ jobs:
             local update_count
             local delete_count
 
-            add_count="$(grep -E '^[<>ch\.][fdLDS][+]{9} ' "$rsync_log" | wc -l | tr -d '[:space:]')"
-            update_count="$(grep -E '^[<>ch\.][fdLDS][^+*]' "$rsync_log" | wc -l | tr -d '[:space:]')"
-            delete_count="$(grep -E '^\*deleting ' "$rsync_log" | wc -l | tr -d '[:space:]')"
+            add_count="$(grep -cE '^[<>ch\.][fdLDS][+]{9} ' "$rsync_log" || true)"
+            update_count="$(grep -cE '^[<>ch\.][fdLDS][^+*]' "$rsync_log" || true)"
+            delete_count="$(grep -cE '^\*deleting ' "$rsync_log" || true)"
 
             echo "Rsync change highlights (ADD/UPDATE/DELETE):"
             grep -E '^\*deleting ' "$rsync_log" | sed 's/^\*deleting /DELETE /' || true
