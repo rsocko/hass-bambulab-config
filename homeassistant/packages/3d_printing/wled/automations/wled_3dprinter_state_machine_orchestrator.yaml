@@ -4,22 +4,44 @@
     Single writer automation for WLED core-state transitions.
     Computes E_* event IDs from smart status and selected printer entities,
     updates input_select.wled_3dprinter_core_state, then applies controller presets.
+    On HA restart or manual force-resync, waits for sensors and re-applies
+    presets + progress overlay even if no state transition is needed.
   mode: restart
   triggers:
     - trigger: homeassistant
       event: start
+      id: ha_start
     - trigger: state
       entity_id:
         - sensor.ntk_ryansoffice_3dprinter_smart_status
         - sensor.ntk_ryansoffice_3dprinter_current_stage
         - binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
         - input_boolean.wled_3dprinter_show_mode_enabled
+      id: sensor_change
+    - trigger: state
+      entity_id: input_button.wled_3dprinter_force_resync
+      id: force_resync
   conditions:
     - condition: state
       entity_id: input_boolean.wled_3dprinter_state_machine_enabled
       state: "on"
   actions:
+    # On HA start, wait for Bambu Lab integration sensors to become available
+    - if:
+        - condition: trigger
+          id: ha_start
+      then:
+        - wait_template: >-
+            {{ states('sensor.ntk_ryansoffice_3dprinter_smart_status')
+               not in ['unavailable', 'unknown'] }}
+          timeout:
+            minutes: 3
+          continue_on_timeout: true
+        - delay:
+            seconds: 5
     - variables:
+        force_apply: >-
+          {{ trigger.id in ['ha_start', 'force_resync'] }}
         smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }}"
         stage: "{{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower }}"
         hms_errors: "{{ states('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors') | lower }}"
@@ -39,7 +61,9 @@
             'check_door_and_cover', 'check_quick_release',
             'check_plaform', 'check_birdeye_camera_position'
           ] %}
-          {% if smart_status == 'Offline' %}
+          {% if smart_status in ['unavailable', 'unknown'] %}
+            E_NOOP
+          {% elif smart_status == 'Offline' %}
             E_OFFLINE
           {% elif show_mode_enabled and smart_status == 'Idle' %}
             E_SHOW_ON
@@ -71,9 +95,10 @@
             E_NOOP
           {% endif %}
         event_reason: >-
-          trigger={{ trigger.entity_id if trigger is defined and trigger.entity_id is defined else 'homeassistant.start' }};
+          trigger={{ trigger.id | default('unknown') }};
           smart_status={{ smart_status }};
           stage={{ stage }}
+    # Run state transition when a real event is computed
     - if:
         - condition: template
           value_template: "{{ event_id != 'E_NOOP' }}"
@@ -82,6 +107,11 @@
           data:
             event_id: "{{ event_id }}"
             reason: "{{ event_reason }}"
+    # Apply presets + overlay on real events OR force-apply (startup / resync)
+    - if:
+        - condition: template
+          value_template: "{{ event_id != 'E_NOOP' or force_apply }}"
+      then:
         - action: script.wled_3dprinter_apply_core_state_to_presets
           data: {}
         - if:

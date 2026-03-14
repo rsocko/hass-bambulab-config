@@ -1,5 +1,4 @@
 wled_3dprinter_last_event:
   name: WLED 3D Printer Last Event
   icon: mdi:flash
-  initial: E_IDLE
   max: 255
