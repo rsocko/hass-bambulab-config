@@ -497,9 +497,9 @@ jobs:
           WWW_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/www/3d_printing/"
           FEATURE_INCLUDE_FILE_DST="$HA_SSH_USER@$HA_HOST:$FEATURE_INCLUDE_FILE_REMOTE"
 
-          RSYNC_FLAGS="-rvh"
+          RSYNC_FLAGS="-rvh --itemize-changes"
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            RSYNC_FLAGS="-rvhn"
+            RSYNC_FLAGS="-rvhn --itemize-changes"
           fi
 
           RSYNC_METADATA_FLAGS="--no-owner --no-group --no-perms --omit-dir-times --no-times"
@@ -520,14 +520,37 @@ jobs:
 
               REMOTE_RSYNC_PATH="rsync"
 
+          summarize_rsync_changes() {
+            local rsync_log="$1"
+
+            [ -f "$rsync_log" ] || return 0
+
+            local add_count
+            local update_count
+            local delete_count
+
+            add_count="$(grep -E '^[<>ch\.][fdLDS][+]{9} ' "$rsync_log" | wc -l | tr -d '[:space:]')"
+            update_count="$(grep -E '^[<>ch\.][fdLDS][^+*]' "$rsync_log" | wc -l | tr -d '[:space:]')"
+            delete_count="$(grep -E '^\*deleting ' "$rsync_log" | wc -l | tr -d '[:space:]')"
+
+            echo "Rsync change highlights (ADD/UPDATE/DELETE):"
+            grep -E '^\*deleting ' "$rsync_log" | sed 's/^\*deleting /DELETE /' || true
+            grep -E '^[<>ch\.][fdLDS][+]{9} ' "$rsync_log" | sed -E 's/^[^ ]+ +(.*)$/ADD    \1/' || true
+            grep -E '^[<>ch\.][fdLDS][^+*]' "$rsync_log" | sed -E 's/^[^ ]+ +(.*)$/UPDATE \1/' || true
+            echo "Rsync summary: add=${add_count:-0}, update=${update_count:-0}, delete=${delete_count:-0}"
+          }
+
           sync_yaml_only() {
             local src="$1"
             local dst="$2"
+            local rsync_log
 
             if [ ! -d "$src" ]; then
               echo "Skipping missing source directory: $src"
               return 0
             fi
+
+            rsync_log="$(mktemp)"
 
             set +e
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
@@ -538,13 +561,18 @@ jobs:
               --include='*.yml' \
               --exclude='*' \
               -e "ssh $SSH_OPTS" \
-              "$src/" "$dst"
-            rsync_exit=$?
+              "$src/" "$dst" 2>&1 | tee "$rsync_log"
+            rsync_exit=${PIPESTATUS[0]}
             set -e
+
+            summarize_rsync_changes "$rsync_log"
+            rm -f "$rsync_log"
 
             if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
               echo "Initial rsync failed (exit $rsync_exit); retrying with --rsync-path='sudo -n rsync'"
               REMOTE_RSYNC_PATH="sudo -n rsync"
+              rsync_log="$(mktemp)"
+
               rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
                 $RSYNC_METADATA_FLAGS \
                 --rsync-path="$REMOTE_RSYNC_PATH" \
@@ -553,7 +581,11 @@ jobs:
                 --include='*.yml' \
                 --exclude='*' \
                 -e "ssh $SSH_OPTS" \
-                "$src/" "$dst"
+                "$src/" "$dst" 2>&1 | tee "$rsync_log"
+              rsync_exit=${PIPESTATUS[0]}
+
+              summarize_rsync_changes "$rsync_log"
+              rm -f "$rsync_log"
             elif [ $rsync_exit -ne 0 ]; then
               return $rsync_exit
             fi
@@ -562,29 +594,41 @@ jobs:
           sync_all_files() {
             local src="$1"
             local dst="$2"
+            local rsync_log
 
             if [ ! -d "$src" ]; then
               echo "Skipping missing source directory: $src"
               return 0
             fi
 
+            rsync_log="$(mktemp)"
+
             set +e
             rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
               $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
-              "$src/" "$dst"
-            rsync_exit=$?
+              "$src/" "$dst" 2>&1 | tee "$rsync_log"
+            rsync_exit=${PIPESTATUS[0]}
             set -e
+
+            summarize_rsync_changes "$rsync_log"
+            rm -f "$rsync_log"
 
             if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
               echo "Initial rsync failed (exit $rsync_exit); retrying with --rsync-path='sudo -n rsync'"
               REMOTE_RSYNC_PATH="sudo -n rsync"
+              rsync_log="$(mktemp)"
+
               rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
                 $RSYNC_METADATA_FLAGS \
                 --rsync-path="$REMOTE_RSYNC_PATH" \
                 -e "ssh $SSH_OPTS" \
-                "$src/" "$dst"
+                "$src/" "$dst" 2>&1 | tee "$rsync_log"
+              rsync_exit=${PIPESTATUS[0]}
+
+              summarize_rsync_changes "$rsync_log"
+              rm -f "$rsync_log"
             elif [ $rsync_exit -ne 0 ]; then
               return $rsync_exit
             fi
@@ -593,29 +637,41 @@ jobs:
           sync_single_yaml_file() {
             local src="$1"
             local dst="$2"
+            local rsync_log
 
             if [ ! -f "$src" ]; then
               echo "Skipping missing source file: $src"
               return 0
             fi
 
+            rsync_log="$(mktemp)"
+
             set +e
             rsync $RSYNC_FLAGS \
               $RSYNC_METADATA_FLAGS \
               --rsync-path="$REMOTE_RSYNC_PATH" \
               -e "ssh $SSH_OPTS" \
-              "$src" "$dst"
-            rsync_exit=$?
+              "$src" "$dst" 2>&1 | tee "$rsync_log"
+            rsync_exit=${PIPESTATUS[0]}
             set -e
+
+            summarize_rsync_changes "$rsync_log"
+            rm -f "$rsync_log"
 
             if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
               echo "Initial rsync failed (exit $rsync_exit); retrying with --rsync-path='sudo -n rsync'"
               REMOTE_RSYNC_PATH="sudo -n rsync"
+              rsync_log="$(mktemp)"
+
               rsync $RSYNC_FLAGS \
                 $RSYNC_METADATA_FLAGS \
                 --rsync-path="$REMOTE_RSYNC_PATH" \
                 -e "ssh $SSH_OPTS" \
-                "$src" "$dst"
+                "$src" "$dst" 2>&1 | tee "$rsync_log"
+              rsync_exit=${PIPESTATUS[0]}
+
+              summarize_rsync_changes "$rsync_log"
+              rm -f "$rsync_log"
             elif [ $rsync_exit -ne 0 ]; then
               return $rsync_exit
             fi
