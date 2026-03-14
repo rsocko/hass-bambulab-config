@@ -79,25 +79,20 @@ cards:
   name: Spool Location
   icon: mdi:map-marker-distance
   card_layout: large
-- type: custom:config-template-card
-  entities:
-    - sensor.selected_spool
-  variables:
-    has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
-    location_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? 'select.spoolman_spool_' + states[states['sensor.selected_spool'].state].attributes.id + '_location' : 'sensor.selected_spool'"
+- type: custom:auto-entities
+  filter:
+    template: |
+      {% set spool = states('sensor.selected_spool') %}
+      {% if spool and states[spool] is defined and state_attr(spool, 'id') is not none %}
+        {{ 'select.spoolman_spool_' ~ state_attr(spool, 'id') ~ '_location' }}
+      {% endif %}
   card:
-    type: custom:mushroom-select-card
-    entity: ${location_entity}
-    name: 'Location'
-    icon: mdi:map-marker
-    fill_container: true
+    type: entities
+    theme: Metro Blue
     card_mod:
       style: |
         ha-card {
           font-size: 1.4rem;
-        }
-        mushroom-select-option-control {
-          font-size: 1.2rem;
         }
 - type: custom:bubble-card
   card_type: separator
