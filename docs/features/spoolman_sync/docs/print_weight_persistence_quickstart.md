@@ -53,6 +53,15 @@ homeassistant:
 > existing configuration automatically.  No entries in those standalone sections
 > need to be moved or modified.
 
+### Critical Setting: Do Not Set `initial` on Backup Helpers
+
+For restart-safe persistence, ensure these helpers do **not** define `initial`:
+- `input_text.print_weight_backup`
+- `input_text.print_metadata_backup`
+
+If `initial` is set (for example `initial: ""`), HA startup will initialize the
+helper to that value and previous backup state will not restore from recorder.
+
 ### Step 2: Add Automations (10 minutes)
 
 #### A. Print Started Automation
@@ -161,8 +170,15 @@ This creates phase-specific notifications so results do not overwrite each other
 ### `from_json got invalid input 'unknown'`
 - This means `input_text.print_weight_backup` contains `unknown` instead of JSON
 - Ensure `spoolman_sync_loader.yaml` is loaded via `homeassistant.packages`
-- Ensure both backup helpers have `initial: ""` and restart HA
+- Ensure both backup helpers do **not** set `initial`
 - Confirm backup automation wrote JSON before print completion
+
+### Temporary Startup Diagnostic (Remove After Testing)
+If you are actively debugging restart behavior:
+1. Enable `temporary_startup_diagnostic_print_weight_persistence.yaml`
+2. Restart Home Assistant
+3. Review logbook/system log + notification for startup backup helper values
+4. Disable or remove this diagnostic automation after confirmation
 
 ### Verify Backup Data Is Valid JSON
 1. Developer Tools → States → `input_text.print_weight_backup`

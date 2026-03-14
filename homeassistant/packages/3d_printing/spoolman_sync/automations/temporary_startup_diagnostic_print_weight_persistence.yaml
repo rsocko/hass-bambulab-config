@@ -1,0 +1,47 @@
+- alias: TEMPORARY - Startup Diagnostic - Print Weight Persistence
+  id: temporary_startup_diagnostic_print_weight_persistence
+  description: >-
+    TEMPORARY troubleshooting automation. Logs startup values for
+    input_text.print_weight_backup and input_text.print_metadata_backup to
+    verify restart persistence behavior. Disable/remove after validation.
+  triggers:
+  - trigger: homeassistant
+    event: start
+  conditions: []
+  actions:
+  - variables:
+      backup_value: "{{ states('input_text.print_weight_backup') | string }}"
+      metadata_value: "{{ states('input_text.print_metadata_backup') | string }}"
+      backup_len: "{{ states('input_text.print_weight_backup') | string | length }}"
+      metadata_len: "{{ states('input_text.print_metadata_backup') | string | length }}"
+  - action: logbook.log
+    data:
+      name: TEMPORARY Startup Diagnostic
+      message: >-
+        Print-weight persistence startup check. backup_len={{ backup_len }},
+        metadata_len={{ metadata_len }}. Remove this automation after
+        troubleshooting.
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        TEMPORARY startup diagnostic: input_text.print_weight_backup='{{
+        backup_value }}' (len={{ backup_len }}),
+        input_text.print_metadata_backup='{{ metadata_value }}' (len={{
+        metadata_len }}). Disable/remove this automation after troubleshooting.
+      level: warning
+      logger: homeassistant.components.bambulab.spoolman_sync
+  - action: persistent_notification.create
+    data:
+      notification_id: temporary_print_weight_persistence_startup_diagnostic
+      title: TEMPORARY Startup Diagnostic - Print Weight Persistence
+      message: >-
+        This diagnostic is temporary and should be removed after validation.
+
+        Startup values:
+        - input_text.print_weight_backup: `{{ backup_value }}` (len={{ backup_len }})
+        - input_text.print_metadata_backup: `{{ metadata_value }}` (len={{ metadata_len }})
+
+        If values are unexpectedly blank after restart, check helper YAML and
+        ensure these backup helpers do not set `initial`.
+  mode: single

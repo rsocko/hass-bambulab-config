@@ -126,6 +126,30 @@ saving the file.
 > or `input_number:` entries for unrelated helpers, those continue to work
 > unchanged alongside the package-loaded entities.
 
+### Critical Input Helper Setting for Restart Persistence
+
+For restart-safe print-weight persistence, do **not** set `initial` on backup
+helpers that should survive a Home Assistant restart:
+
+- `input_text.print_weight_backup`
+- `input_text.print_metadata_backup`
+
+If `initial` is set (for example `initial: ""`), Home Assistant initializes the
+helper to that value at startup, which prevents restoring the previously stored
+state from recorder. This can make backups appear to be "cleared" immediately
+after restart even when capture worked during print.
+
+### Temporary Startup Diagnostic Automation
+
+To confirm restart behavior while troubleshooting, an intentionally temporary
+automation is included:
+
+- `automations/temporary_startup_diagnostic_print_weight_persistence.yaml`
+
+It logs startup values for both backup helpers to logbook/system log and creates
+a persistent notification. Remove or disable it after validation so it does not
+create long-term notification noise.
+
 ## Notes:
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.

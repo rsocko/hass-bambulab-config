@@ -49,6 +49,23 @@ Print Starts → Printer Reaches Printing → Backup Attributes → HA Restart (
    - Provides easy access to backup status
    - Exposes metadata for troubleshooting
 
+5. **Temporary Startup Diagnostic Automation** (`automations/temporary_startup_diagnostic_print_weight_persistence.yaml`)
+   - Logs backup helper values when Home Assistant starts
+   - Creates a temporary persistent notification for quick verification
+   - Should be disabled/removed after troubleshooting is complete
+
+## Critical Helper Configuration
+
+For restart persistence to work correctly, backup helpers must **not** define
+an `initial` value:
+
+- `input_text.print_weight_backup`
+- `input_text.print_metadata_backup`
+
+If `initial` is set (such as `initial: ""`), Home Assistant will initialize
+the entity to that value at startup instead of restoring the last recorder
+state. In practice, that makes backup data appear blank right after restart.
+
 ## Data Flow
 
 ### Normal Operation (No HA Restart)
@@ -215,6 +232,16 @@ Search and replace with your printer's entity prefix.
 4. Verify each spool in Spoolman was updated
 
 ## Troubleshooting
+
+### Startup Clears Backup Unexpectedly
+
+**Symptoms**: Backup helper had data during print, but is blank after HA restart
+
+**Checks**:
+1. Confirm backup helper YAML does not include `initial`
+2. Enable temporary startup diagnostic automation and restart HA
+3. Review startup notification/log entries for helper values
+4. Remove/disable the temporary diagnostic after validation
 
 ### Backup Not Created
 

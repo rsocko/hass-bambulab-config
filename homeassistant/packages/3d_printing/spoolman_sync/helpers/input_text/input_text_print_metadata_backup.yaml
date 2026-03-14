@@ -1,5 +1,4 @@
 print_metadata_backup:
   name: Print Metadata Backup
   max: 255
-  initial: ""
   icon: mdi:information
