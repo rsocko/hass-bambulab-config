@@ -86,6 +86,14 @@ on:
           - none
           - reload_domains
           - restart_core
+      reload_domains_strict:
+        description: "When post_deploy_action=reload_domains, fail if any domain reload fails"
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
       resource_safety_mode:
         description: "Safety behavior for Lovelace resource-related deploy changes: off, warn, fail"
         required: true
@@ -838,6 +846,7 @@ jobs:
           set -euo pipefail
 
           POST_DEPLOY_ACTION="${{ github.event.inputs.post_deploy_action }}"
+          RELOAD_DOMAINS_STRICT="${{ github.event.inputs.reload_domains_strict }}"
           HA_SUPERVISOR_TOKEN_INPUT="${{ secrets.HA_SUPERVISOR_TOKEN }}"
 
           SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
@@ -846,6 +855,7 @@ jobs:
           fi
 
           echo "Selected post_deploy_action: $POST_DEPLOY_ACTION"
+          echo "Selected reload_domains_strict: $RELOAD_DOMAINS_STRICT"
 
           case "$POST_DEPLOY_ACTION" in
             none)
@@ -853,11 +863,9 @@ jobs:
               exit 0
               ;;
             reload_domains)
-              REMOTE_COMMAND="ha core api post --raw-json '{}' /api/services/automation/reload; ha core api post --raw-json '{}' /api/services/script/reload; ha core api post --raw-json '{}' /api/services/template/reload"
-              echo "Executing domain reloads: automation, script, template"
+              echo "Executing expanded domain reloads (best-effort loop with summary)."
               ;;
             restart_core)
-              REMOTE_COMMAND="ha core restart"
               echo "Executing Home Assistant Core restart"
               ;;
             *)
@@ -867,11 +875,12 @@ jobs:
           esac
 
           set +e
-          ACTION_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$HA_SUPERVISOR_TOKEN_INPUT\" \"$REMOTE_COMMAND\"" <<'REMOTE_ACTION'
+          ACTION_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$HA_SUPERVISOR_TOKEN_INPUT\" \"$POST_DEPLOY_ACTION\" \"$RELOAD_DOMAINS_STRICT\"" <<'REMOTE_ACTION'
           set -euo pipefail
 
           input_token="${1:-}"
-          command_to_run="${2:-}"
+          action_to_run="${2:-}"
+          reload_strict="${3:-false}"
 
           if [ -n "$input_token" ]; then
             export SUPERVISOR_TOKEN="$input_token"
@@ -890,7 +899,72 @@ jobs:
             done
           fi
 
-          bash -lc "$command_to_run"
+          case "$action_to_run" in
+            none)
+              echo "No post-deploy action selected."
+              ;;
+            restart_core)
+              ha core restart
+              ;;
+            reload_domains)
+              # These domains are commonly edited in package-based repos and support reload services.
+              reload_domains=(
+                automation
+                script
+                template
+                scene
+                group
+                input_boolean
+                input_number
+                input_text
+                input_select
+                input_datetime
+                input_button
+                timer
+                counter
+                person
+                zone
+              )
+
+              successes=()
+              failures=()
+
+              for domain in "${reload_domains[@]}"; do
+                echo "Reloading domain: $domain"
+                if domain_output="$(ha core api post --raw-json '{}' "/api/services/$domain/reload" 2>&1)"; then
+                  successes+=("$domain")
+                  echo "  OK: $domain"
+                else
+                  failures+=("$domain")
+                  echo "  ERROR: $domain"
+                  echo "$domain_output"
+                fi
+              done
+
+              success_count="${#successes[@]}"
+              failure_count="${#failures[@]}"
+              total_count="${#reload_domains[@]}"
+
+              echo "Reload summary: total=$total_count succeeded=$success_count failed=$failure_count"
+              if [ "$success_count" -gt 0 ]; then
+                echo "Reloaded domains: ${successes[*]}"
+              fi
+
+              if [ "$failure_count" -gt 0 ]; then
+                echo "Failed domains: ${failures[*]}"
+                if [ "$reload_strict" = "true" ]; then
+                  echo "Strict mode enabled: failing because one or more domain reloads failed."
+                  exit 1
+                fi
+
+                echo "Strict mode disabled: continuing despite domain reload failures."
+              fi
+              ;;
+            *)
+              echo "Unknown post-deploy action: $action_to_run"
+              exit 1
+              ;;
+          esac
           REMOTE_ACTION
           2>&1)"
           ACTION_EXIT=$?
@@ -906,7 +980,97 @@ jobs:
 
           if echo "$ACTION_OUTPUT" | grep -qi "missing or invalid API token"; then
             set +e
-            SUDO_ACTION_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "sudo -n bash -lc '$REMOTE_COMMAND'" 2>&1)"
+            SUDO_ACTION_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "sudo -n bash -s -- \"$HA_SUPERVISOR_TOKEN_INPUT\" \"$POST_DEPLOY_ACTION\" \"$RELOAD_DOMAINS_STRICT\"" <<'REMOTE_ACTION_SUDO'
+            set -euo pipefail
+
+            input_token="${1:-}"
+            action_to_run="${2:-}"
+            reload_strict="${3:-false}"
+
+            if [ -n "$input_token" ]; then
+              export SUPERVISOR_TOKEN="$input_token"
+            fi
+
+            if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+              for token_file in \
+                /run/s6/container_environment/SUPERVISOR_TOKEN \
+                /run/secrets/supervisor_token \
+                /data/supervisor_token
+              do
+                if [ -r "$token_file" ]; then
+                  export SUPERVISOR_TOKEN="$(cat "$token_file" 2>/dev/null || true)"
+                  [ -n "${SUPERVISOR_TOKEN:-}" ] && break
+                fi
+              done
+            fi
+
+            case "$action_to_run" in
+              none)
+                echo "No post-deploy action selected."
+                ;;
+              restart_core)
+                ha core restart
+                ;;
+              reload_domains)
+                reload_domains=(
+                  automation
+                  script
+                  template
+                  scene
+                  group
+                  input_boolean
+                  input_number
+                  input_text
+                  input_select
+                  input_datetime
+                  input_button
+                  timer
+                  counter
+                  person
+                  zone
+                )
+
+                successes=()
+                failures=()
+
+                for domain in "${reload_domains[@]}"; do
+                  echo "Reloading domain: $domain"
+                  if domain_output="$(ha core api post --raw-json '{}' "/api/services/$domain/reload" 2>&1)"; then
+                    successes+=("$domain")
+                    echo "  OK: $domain"
+                  else
+                    failures+=("$domain")
+                    echo "  ERROR: $domain"
+                    echo "$domain_output"
+                  fi
+                done
+
+                success_count="${#successes[@]}"
+                failure_count="${#failures[@]}"
+                total_count="${#reload_domains[@]}"
+
+                echo "Reload summary: total=$total_count succeeded=$success_count failed=$failure_count"
+                if [ "$success_count" -gt 0 ]; then
+                  echo "Reloaded domains: ${successes[*]}"
+                fi
+
+                if [ "$failure_count" -gt 0 ]; then
+                  echo "Failed domains: ${failures[*]}"
+                  if [ "$reload_strict" = "true" ]; then
+                    echo "Strict mode enabled: failing because one or more domain reloads failed."
+                    exit 1
+                  fi
+
+                  echo "Strict mode disabled: continuing despite domain reload failures."
+                fi
+                ;;
+              *)
+                echo "Unknown post-deploy action: $action_to_run"
+                exit 1
+                ;;
+            esac
+            REMOTE_ACTION_SUDO
+            2>&1)"
             SUDO_ACTION_EXIT=$?
             set -e
 
@@ -927,5 +1091,6 @@ jobs:
       - name: Post-deploy reminder
         run: |
           echo "Selected post_deploy_action: ${{ github.event.inputs.post_deploy_action }}"
+          echo "Selected reload_domains_strict: ${{ github.event.inputs.reload_domains_strict }}"
           echo "Reminder: Depending on what changed, you may still need a domain reload or Core restart."
           echo "This reminder is shown regardless of post_deploy_action selection."

@@ -89,6 +89,25 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
 
 Always run a dry run first (`dry_run=true`) before a write deploy.
 
+## Post-Deploy Action Modes
+
+Workflow dispatch includes `post_deploy_action` and `reload_domains_strict`:
+
+- `post_deploy_action=none`:
+  - No HA reload/restart is executed.
+- `post_deploy_action=reload_domains`:
+  - Runs an expanded best-effort reload loop for commonly used reloadable domains:
+    - `automation`, `script`, `template`, `scene`, `group`, `input_boolean`, `input_number`, `input_text`, `input_select`, `input_datetime`, `input_button`, `timer`, `counter`, `person`, `zone`
+  - Always prints a success/failure summary in workflow logs.
+  - Default behavior (`reload_domains_strict=false`) is non-blocking: failed domain reloads are reported but do not fail the workflow.
+- `post_deploy_action=restart_core`:
+  - Runs `ha core restart`.
+
+`reload_domains_strict` applies only when `post_deploy_action=reload_domains`:
+
+- `reload_domains_strict=false` (default): report failures, continue workflow.
+- `reload_domains_strict=true`: fail workflow if any domain reload fails.
+
 ## Optional UI/Storage Naming Overlap Check
 
 Workflow dispatch includes an optional best-effort overlap check for selected package names against common Home Assistant `.storage` objects:
