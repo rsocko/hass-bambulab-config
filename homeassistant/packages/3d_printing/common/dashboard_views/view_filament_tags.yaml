@@ -86,16 +86,18 @@ cards:
     has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
     location_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? 'select.spoolman_spool_' + states[states['sensor.selected_spool'].state].attributes.id + '_location' : 'sensor.selected_spool'"
   card:
-    type: entities
-    entities:
-      - entity: ${location_entity}
-        name: 'Location:'
-        secondary_info: none
-    theme: Metro Blue
+    type: custom:mushroom-select-card
+    entity: ${location_entity}
+    name: 'Location'
+    icon: mdi:map-marker
+    fill_container: true
     card_mod:
       style: |
         ha-card {
           font-size: 1.4rem;
+        }
+        mushroom-select-option-control {
+          font-size: 1.2rem;
         }
 - type: custom:bubble-card
   card_type: separator
