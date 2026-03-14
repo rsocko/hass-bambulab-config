@@ -79,22 +79,16 @@ cards:
   name: Spool Location
   icon: mdi:map-marker-distance
   card_layout: large
-- type: custom:auto-entities
-  filter:
-    template: |
-      {% set spool = states('sensor.selected_spool') %}
-      {% if spool and spool.startswith('sensor.spoolman_spool_') %}
-        {% set spool_id = spool.replace('sensor.spoolman_spool_', '') %}
-        {{ 'select.spoolman_spool_' ~ spool_id ~ '_location' }}
-      {% endif %}
-  card:
-    type: entities
-    theme: Metro Blue
-    card_mod:
-      style: |
-        ha-card {
-          font-size: 1.4rem;
-        }
+- type: entities
+  entities:
+    - entity: select.selected_spool_location
+      name: 'Location'
+  theme: Metro Blue
+  card_mod:
+    style: |
+      ha-card {
+        font-size: 1.4rem;
+      }
 - type: custom:bubble-card
   card_type: separator
   sub_button:

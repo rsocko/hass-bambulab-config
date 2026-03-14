@@ -4,3 +4,4 @@ script: !include_dir_merge_named scripts
 input_text: !include_dir_merge_named helpers/input_text
 template:
   - sensor: !include_dir_merge_list template_sensors
+  - select: !include_dir_merge_list template_selects

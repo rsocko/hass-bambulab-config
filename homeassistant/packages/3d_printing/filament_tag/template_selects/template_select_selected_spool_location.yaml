@@ -1,0 +1,30 @@
+- name: "Selected Spool Location"
+  unique_id: filament_tag_selected_spool_location
+  icon: mdi:map-marker
+  state: >
+    {% set spool = states('sensor.selected_spool') %}
+    {% if spool and spool.startswith('sensor.spoolman_spool_') %}
+      {% set spool_id = spool | replace('sensor.spoolman_spool_', '') %}
+      {{ states('select.spoolman_spool_' ~ spool_id ~ '_location') }}
+    {% else %}
+      unknown
+    {% endif %}
+  options: >
+    {% set spool = states('sensor.selected_spool') %}
+    {% if spool and spool.startswith('sensor.spoolman_spool_') %}
+      {% set spool_id = spool | replace('sensor.spoolman_spool_', '') %}
+      {{ state_attr('select.spoolman_spool_' ~ spool_id ~ '_location', 'options') | list }}
+    {% else %}
+      {{ ['unknown'] }}
+    {% endif %}
+  select_option:
+    - action: select.select_option
+      target:
+        entity_id: >
+          {% set spool = states('sensor.selected_spool') %}
+          {% if spool and spool.startswith('sensor.spoolman_spool_') %}
+            {% set spool_id = spool | replace('sensor.spoolman_spool_', '') %}
+            select.spoolman_spool_{{ spool_id }}_location
+          {% endif %}
+      data:
+        option: "{{ option }}"
