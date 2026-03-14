@@ -80,13 +80,13 @@ find_matching_spool_in_spoolman:
   - variables:
       spools_lower: |-
         [ {% for spool in spools.content %}
-          {"id": "{{ spool.id }}", "color_hex_lower": "{{ spool.filament.color_hex | lower }}", "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "location": "{{ spool.location }}"}
+          {"id": "{{ spool.id }}", "color_hex_lower": "{{ (spool.filament.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6] }}", "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "location": "{{ spool.location }}"}
           {% if not loop.last %},{% endif %}
         {% endfor %} ]
       query_hex_lower: >-
-        {{ parameters.target_color_hex[:6] | lower if
-        parameters.target_color_hex | length == 8 else
-        parameters.target_color_hex | lower }}
+        {{
+          (parameters.target_color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6]
+        }}
       matched_spools: >-
         {{ spools_lower | selectattr('color_hex_lower', 'equalto',
         query_hex_lower | string)
