@@ -76,121 +76,27 @@ cards:
   sub_button:
     main: []
     bottom: []
-  name: Change Location
+  name: Spool Location
   icon: mdi:map-marker-distance
   card_layout: large
 - type: custom:config-template-card
   entities:
     - sensor.selected_spool
   variables:
-    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
-    spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
+    has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
+    location_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? 'select.spoolman_spool_' + states[states['sensor.selected_spool'].state].attributes.id + '_location' : 'sensor.selected_spool'"
   card:
-    type: custom:bubble-card
-    card_type: sub-buttons
-    entity: ${selected_entity}
-    hide_main_background: false
-    rows: 0.938
-    sub_button:
-      main: []
-      bottom:
-        - tap_action:
-            action: "${ spool_id ? 'perform-action' : 'none' }"
-            perform_action: script.update_spool_location
-            target: {}
-            data:
-              spool_id: ${ spool_id }
-              location: AMS
-          name: AMS
-          show_name: true
-          icon: fas:arrow-right-to-bracket
-          show_state: false
-          state_background: false
-        - tap_action:
-            action: "${ spool_id ? 'perform-action' : 'none' }"
-            perform_action: script.update_spool_location
-            target: {}
-            data:
-              spool_id: ${ spool_id }
-              location: AMS 2
-          name: AMS 2
-          show_name: true
-          icon: fas:arrow-right-to-bracket
-          show_state: false
-          state_background: false
-- type: custom:layout-card
-  layout_type: custom:grid-layout
-  layout:
-    grid-template-columns: 1fr auto
-    grid-gap: 12px
-  cards:
-    - type: entities
-      entities:
-        - entity: input_select.spool_location_choice
-          name: 'Move to:'
-          secondary_info: none
-      theme: Metro Blue
-      card_mod:
-        style: |
-          ha-card {
-            font-size: 1.4rem;
-          }
-    - show_name: false
-      show_icon: true
-      type: button
-      icon: mdi:refresh-circle
-      name: ''
-      tap_action:
-        action: perform-action
-        perform_action: automation.trigger
-        target:
-          entity_id: automation.spoolman_location_sync
-        data:
-          skip_condition: true
-      show_state: false
-      theme: Metro Blue
-      card_mod:
-        style: |
-          ha-card {
-            width: 70px;       /* icon-sized */
-            height: 55px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          ha-icon {
-            width: 48px;
-            height: 48px;
-          }
-- type: custom:config-template-card
-  entities:
-    - sensor.selected_spool
-    - input_select.spool_location_choice
-  variables:
-    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
-    spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
-    new_location: states['input_select.spool_location_choice'].state
-  card:
-    type: custom:bubble-card
-    card_type: sub-buttons
-    entity: ${selected_entity}
-    hide_main_background: false
-    rows: 0.938
-    sub_button:
-      main: []
-      bottom:
-        - tap_action:
-            action: "${ spool_id ? 'perform-action' : 'none' }"
-            perform_action: script.update_spool_location
-            target: {}
-            data:
-              spool_id: ${ spool_id }
-              location: ${ new_location }
-          name: ${ new_location }
-          show_name: true
-          icon: mdi:tray-arrow-down
-          show_state: false
-          state_background: false
+    type: entities
+    entities:
+      - entity: ${location_entity}
+        name: 'Location:'
+        secondary_info: none
+    theme: Metro Blue
+    card_mod:
+      style: |
+        ha-card {
+          font-size: 1.4rem;
+        }
 - type: custom:bubble-card
   card_type: separator
   sub_button:
