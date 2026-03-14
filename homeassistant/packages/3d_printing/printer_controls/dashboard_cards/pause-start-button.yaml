@@ -2,31 +2,32 @@
 # Pause / Start (Resume) Print Button — Compact Icon Button
 # ============================================================
 # A small, icon-only button that toggles between Pause and Start
-# (resume) depending on the current print state. Mirrors the
-# pause/resume logic from the OpenHASP printer control buttons
-# (printer_control_buttons.yaml / officetouch5.yaml p1b86–p1b89).
+# (resume) depending on the current print state.
 #
 # Behavior:
 #   - Actively printing → orange pause button (#fb8c00)
 #   - Paused            → green play button (#43a047)
 #   - Neither           → disabled play button (greyed-out, clicks blocked)
 #
-# State logic (matches OpenHASP):
-#   is_paused  = status_class == 'paused' or smart_status == 'paused'
-#   is_active  = status_class in [printing, active]
-#                or smart_status in [printing, preparing, heating, leveling]
-#   can_pause  = is_active and not is_paused
-#   can_start  = is_paused
+# State logic (matches ha_bambulab_cards):
+#   Checks the actual HA entity availability of the pause/resume
+#   button entities rather than a hardcoded smart_status list.
+#   The ha-bambulab integration marks these entities available/
+#   unavailable based on the printer's real state, so this
+#   automatically covers ALL stages (printing, bed leveling,
+#   nozzle cleaning, print head alignment, calibration, etc.).
 #
-# Colors (matches OpenHASP):
+#   can_pause  = pause entity is not 'unavailable'
+#   can_resume = resume entity is not 'unavailable'
+#   enabled    = can_pause or can_resume
+#
+# Colors:
 #   Pause  — bg: #fb8c00 (orange), hover: #e65100
 #   Resume — bg: #43a047 (green),  hover: #1b5e20
 #
 # Entities:
 #   - button.ntk_ryansoffice_3dprinter_pause_printing
 #   - button.ntk_ryansoffice_3dprinter_resume_printing
-# Sensor:
-#   - sensor.ntk_ryansoffice_3dprinter_smart_status
 #
 # Prerequisites:
 #   - custom:button-card (HACS)
@@ -37,51 +38,41 @@
 # ============================================================
 
 type: custom:button-card
-entity: sensor.ntk_ryansoffice_3dprinter_smart_status
+entity: button.ntk_ryansoffice_3dprinter_pause_printing
 show_name: false
 show_state: false
 show_icon: true
 icon: |
   [[[
-    const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-    const status = smart?.state?.toLowerCase() ?? '';
-    const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-    const paused = cls === 'paused' || status === 'paused';
-    const active = ['printing', 'active'].includes(cls) ||
-                   ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-    return (active && !paused) ? 'mdi:pause' : 'mdi:play';
+    const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+    const canPause = pause?.state !== 'unavailable';
+    return canPause ? 'mdi:pause' : 'mdi:play';
   ]]]
 tap_action:
   action: |
     [[[
-      const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-      const status = smart?.state?.toLowerCase() ?? '';
-      const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-      const paused = cls === 'paused' || status === 'paused';
-      const active = ['printing', 'active'].includes(cls) ||
-                     ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-      return (active || paused) ? 'call-service' : 'none';
+      const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+      const resume = states['button.ntk_ryansoffice_3dprinter_resume_printing'];
+      const canPause = pause?.state !== 'unavailable';
+      const canResume = resume?.state !== 'unavailable';
+      return (canPause || canResume) ? 'call-service' : 'none';
     ]]]
   service: button.press
   service_data:
     entity_id: |
       [[[
-        const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-        const status = smart?.state?.toLowerCase() ?? '';
-        const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-        const paused = cls === 'paused' || status === 'paused';
-        return paused
-          ? 'button.ntk_ryansoffice_3dprinter_resume_printing'
-          : 'button.ntk_ryansoffice_3dprinter_pause_printing';
+        const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+        const canPause = pause?.state !== 'unavailable';
+        return canPause
+          ? 'button.ntk_ryansoffice_3dprinter_pause_printing'
+          : 'button.ntk_ryansoffice_3dprinter_resume_printing';
       ]]]
   confirmation:
     text: |
       [[[
-        const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-        const status = smart?.state?.toLowerCase() ?? '';
-        const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-        const paused = cls === 'paused' || status === 'paused';
-        return paused ? 'Resume the print?' : 'Pause the print?';
+        const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+        const canPause = pause?.state !== 'unavailable';
+        return canPause ? 'Pause the print?' : 'Resume the print?';
       ]]]
     exemptions: []
 styles:
@@ -97,25 +88,21 @@ styles:
     - justify-content: center
     - background-color: |
         [[[
-          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-          const status = smart?.state?.toLowerCase() ?? '';
-          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-          const paused = cls === 'paused' || status === 'paused';
-          const active = ['printing', 'active'].includes(cls) ||
-                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-          if (active && !paused) return '#fb8c00';
-          if (paused) return '#43a047';
+          const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+          const resume = states['button.ntk_ryansoffice_3dprinter_resume_printing'];
+          const canPause = pause?.state !== 'unavailable';
+          const canResume = resume?.state !== 'unavailable';
+          if (canPause) return '#fb8c00';
+          if (canResume) return '#43a047';
           return '#444444';
         ]]]
     - opacity: |
         [[[
-          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-          const status = smart?.state?.toLowerCase() ?? '';
-          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-          const paused = cls === 'paused' || status === 'paused';
-          const active = ['printing', 'active'].includes(cls) ||
-                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-          return (active || paused) ? '1' : '0.5';
+          const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+          const resume = states['button.ntk_ryansoffice_3dprinter_resume_printing'];
+          const canPause = pause?.state !== 'unavailable';
+          const canResume = resume?.state !== 'unavailable';
+          return (canPause || canResume) ? '1' : '0.5';
         ]]]
     - transition: background-color 0.2s, opacity 0.2s, filter 0.2s
     - box-shadow: none
@@ -124,23 +111,19 @@ styles:
     - height: 26px
     - color: |
         [[[
-          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-          const status = smart?.state?.toLowerCase() ?? '';
-          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-          const paused = cls === 'paused' || status === 'paused';
-          const active = ['printing', 'active'].includes(cls) ||
-                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-          return (active || paused) ? '#ffffff' : '#888888';
+          const pause = states['button.ntk_ryansoffice_3dprinter_pause_printing'];
+          const resume = states['button.ntk_ryansoffice_3dprinter_resume_printing'];
+          const canPause = pause?.state !== 'unavailable';
+          const canResume = resume?.state !== 'unavailable';
+          return (canPause || canResume) ? '#ffffff' : '#888888';
         ]]]
   grid:
     - grid-template-areas: '"i"'
 card_mod:
   style: |
-    {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-    {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-    {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-    {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
-    {% set enabled = is_active or is_paused %}
+    {% set can_pause = not is_state('button.ntk_ryansoffice_3dprinter_pause_printing', 'unavailable') %}
+    {% set can_resume = not is_state('button.ntk_ryansoffice_3dprinter_resume_printing', 'unavailable') %}
+    {% set enabled = can_pause or can_resume %}
     ha-card {
       overflow: visible;
       transition: background-color 0.2s ease, transform 0.15s ease, filter 0.2s ease;
@@ -150,11 +133,11 @@ card_mod:
       {% endif %}
     }
     ha-card:hover {
-      {% if is_active and not is_paused %}
+      {% if can_pause %}
         filter: brightness(1.2);
         background-color: #e65100 !important;
         transform: scale(1.1);
-      {% elif is_paused %}
+      {% elif can_resume %}
         filter: brightness(1.2);
         background-color: #1b5e20 !important;
         transform: scale(1.1);
