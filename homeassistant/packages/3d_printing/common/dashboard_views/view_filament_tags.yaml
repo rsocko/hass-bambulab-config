@@ -14,7 +14,6 @@ cards:
   variables:
     selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
     has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
-    location_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? 'select.spoolman_spool_' + states[states['sensor.selected_spool'].state].attributes.id + '_location' : 'sensor.selected_spool'"
   entities:
     - sensor.selected_spool
   card:
@@ -57,10 +56,8 @@ cards:
     sub_button:
       main: []
       bottom:
-        - entity: ${location_entity}
+        - entity: select.selected_spool_location
           icon: fas:location-dot
-          tap_action:
-            action: "${ has_spool ? 'more-info' : 'none' }"
           show_background: true
           state_background: false
           show_icon: true
@@ -71,20 +68,45 @@ cards:
             action: "${ has_spool ? 'more-info' : 'none' }"
           state_background: false
           show_state: ${ has_spool }
-- type: custom:bubble-card
-  card_type: separator
-  sub_button:
-    main: []
-    bottom: []
-  name: Spool Location
-  icon: mdi:map-marker-distance
-  card_layout: large
-- type: tile
-  entity: select.selected_spool_location
-  name: Location
-  icon: mdi:map-marker
-  features:
-    - type: select-options
+- type: custom:config-template-card
+  entities:
+    - sensor.selected_spool
+  variables:
+    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
+    spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
+  card:
+    type: custom:bubble-card
+    card_type: sub-buttons
+    entity: ${selected_entity}
+    hide_main_background: false
+    rows: 0.938
+    sub_button:
+      main: []
+      bottom:
+        - tap_action:
+            action: "${ spool_id ? 'perform-action' : 'none' }"
+            perform_action: script.update_spool_location
+            target: {}
+            data:
+              spool_id: ${ spool_id }
+              location: AMS
+          name: AMS
+          show_name: true
+          icon: fas:arrow-right-to-bracket
+          show_state: false
+          state_background: false
+        - tap_action:
+            action: "${ spool_id ? 'perform-action' : 'none' }"
+            perform_action: script.update_spool_location
+            target: {}
+            data:
+              spool_id: ${ spool_id }
+              location: AMS 2
+          name: AMS 2
+          show_name: true
+          icon: fas:arrow-right-to-bracket
+          show_state: false
+          state_background: false
 - type: custom:bubble-card
   card_type: separator
   sub_button:
