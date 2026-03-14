@@ -1,4 +1,5 @@
 alias: Print Complete - Keep Purifier Running
+id: print_complete_continue_purifier
 description: >
   Keeps the air purifier running for 30 minutes after a print completes to continue
   filtering any residual particles and VOCs. After 30 minutes, if air quality is good,

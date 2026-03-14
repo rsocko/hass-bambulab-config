@@ -1,4 +1,5 @@
 alias: Bento Box Filter Replacement Alerts
+id: bento_box_filter_replacement_alerts
 description: >
   Sends notifications when Bento Box filters need replacement.
   Monitors filter usage and alerts at different thresholds:

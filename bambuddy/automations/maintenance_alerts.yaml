@@ -1,4 +1,5 @@
 alias: "Bambuddy - Maintenance Alerts"
+id: bambuddy_maintenance_alerts
 description: >
   Checks Bambuddy statistics to surface maintenance reminders in Home Assistant.
   Sends a persistent notification when the success rate drops below threshold,

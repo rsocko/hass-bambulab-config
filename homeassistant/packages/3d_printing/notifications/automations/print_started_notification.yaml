@@ -1,4 +1,5 @@
 alias: Print Started - Notification
+id: print_started_notification
 description: >
   Sends a notification when a print job starts.
   This is optional but useful for tracking print activity.

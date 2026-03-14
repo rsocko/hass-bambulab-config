@@ -1,4 +1,5 @@
 - alias: OpenHASP Printer Controls (Stop/Pause/Resume)
+  id: openhasp_printer_controls_stop_pause_resume
   description: >
     Handles top-right printer control button presses from the ESP32-S3 5" OpenHASP
     dashboard. Follows xTouch 2.8" pattern: only Pause OR Resume is visible at a

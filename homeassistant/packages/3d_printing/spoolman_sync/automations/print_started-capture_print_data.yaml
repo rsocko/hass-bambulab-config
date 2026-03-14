@@ -1,4 +1,5 @@
 - alias: Print Started - Capture Print Data
+  id: print_started_capture_print_data
   description: >-
     Captures print job and AMS tray information once printing is active.
     This data is stored persistently so it can be used for manual recovery

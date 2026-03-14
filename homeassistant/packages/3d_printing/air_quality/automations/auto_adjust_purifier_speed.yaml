@@ -1,4 +1,5 @@
 alias: Air Quality Auto-Adjust Purifier Speed
+id: air_quality_auto_adjust_purifier_speed
 description: >
   Automatically adjusts the Govee air purifier speed based on current air quality.
   This automation monitors PM2.5, CO2, and VOC levels and increases or decreases

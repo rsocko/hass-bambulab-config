@@ -1,4 +1,5 @@
 alias: "Bambuddy - Create Archive and Link Print on Start"
+id: bambuddy_create_archive_and_link_print_on_start
 description: >
   When a print job starts, creates a Bambuddy archive entry and stores the returned
   archive ID so that the photo and result can be linked back to it on completion.

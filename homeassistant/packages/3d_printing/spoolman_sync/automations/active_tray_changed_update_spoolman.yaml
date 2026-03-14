@@ -1,4 +1,5 @@
 - alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
+  id: active_tray_changed_update_spoolman_last_used
   description: >-
     Trigger whenever the printer's Active Tray is updated and currently printing -
     so that it can update Last Used date/time in Spoolman for the corresponding

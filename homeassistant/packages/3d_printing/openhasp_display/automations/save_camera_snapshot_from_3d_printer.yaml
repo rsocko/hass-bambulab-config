@@ -1,4 +1,5 @@
 - alias: Save Camera Snapshot from 3D Printer
+  id: save_camera_snapshot_from_3d_printer
   description: >
     Periodically captures a camera snapshot from the 3D printer's built-in camera
     and saves it to the Home Assistant www directory. Runs every 2 minutes, but only

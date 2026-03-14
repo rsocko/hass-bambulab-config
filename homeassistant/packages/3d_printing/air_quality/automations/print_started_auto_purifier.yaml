@@ -1,4 +1,5 @@
 alias: Print Started - Auto Enable Air Purification
+id: print_started_auto_enable_air_purification
 description: >
   Automatically turns on the Govee air purifier when a 3D print starts.
   This helps manage air quality during printing by proactively filtering

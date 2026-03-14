@@ -1,4 +1,5 @@
 alias: Air Quality Alert - Poor Air Detected
+id: air_quality_alert_poor_air_detected
 description: >
   Sends a notification when air quality degrades to poor or very poor levels.
   Monitors PM2.5, CO2, and VOC sensors and alerts when thresholds are exceeded.

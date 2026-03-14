@@ -1,4 +1,5 @@
 alias: "Bambuddy - Update Archive on Print Completion"
+id: bambuddy_update_archive_on_print_completion
 description: >
   When a print finishes, updates the Bambuddy archive entry with the result status
   (success, failed, or cancelled) and uploads the camera snapshot if available.

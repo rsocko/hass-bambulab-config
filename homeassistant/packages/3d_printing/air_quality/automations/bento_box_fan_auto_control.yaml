@@ -1,4 +1,5 @@
 alias: Bento Box Fan - Auto Control Based on Air Quality and Filament
+id: bento_box_fan_auto_control
 description: >
   Automatically controls the Bento Box fan based on air quality readings and filament type.
   This automation runs independently of the chamber fan and Govee purifier.

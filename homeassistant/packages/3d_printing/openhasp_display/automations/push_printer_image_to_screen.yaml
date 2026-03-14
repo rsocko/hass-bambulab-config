@@ -1,4 +1,5 @@
 - alias: Push Printer Image to Screen
+  id: push_printer_image_to_screen
   description: >
     Pushes the 3D printer's cover/model image to the OpenHASP touchscreen display
     whenever the printer's cover image entity updates. Uses the openhasp.push_image

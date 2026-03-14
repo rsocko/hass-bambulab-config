@@ -1,4 +1,5 @@
 - alias: Print Complete - Update Filament Usage
+  id: print_complete_update_filament_usage
   description: >
     Updates Spoolman with filament usage when print completes.
     Includes fallback to backed-up print_weight attributes if HA restarted during print.

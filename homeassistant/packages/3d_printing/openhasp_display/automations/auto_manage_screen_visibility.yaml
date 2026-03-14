@@ -1,4 +1,5 @@
 - alias: Auto Manage ESP32 Screen Visibility
+  id: openhasp_auto_manage_esp32_screen_visibility
   description: >
     Implements issue #46 visibility behavior for the OpenHASP printer touchscreen.
     The display is kept fully visible during active printing when office presence is

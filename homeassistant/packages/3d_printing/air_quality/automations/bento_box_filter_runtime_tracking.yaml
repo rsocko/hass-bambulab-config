@@ -1,4 +1,5 @@
 alias: Bento Box Filter Runtime Tracking
+id: bento_box_filter_runtime_tracking
 description: >
   Tracks the runtime of the Bento Box fan to monitor HEPA and carbon filter usage.
   Accumulates runtime hours whenever the fan is on, updating every minute.

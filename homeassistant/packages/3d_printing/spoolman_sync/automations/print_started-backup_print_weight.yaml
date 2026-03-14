@@ -1,4 +1,5 @@
 - alias: Print Started - Backup Print Weight Attributes
+  id: print_started_backup_print_weight_attributes
   description: >
     Captures and stores print_weight sensor attributes once the printer reaches
     actual printing. This backup allows the print completion automation to work

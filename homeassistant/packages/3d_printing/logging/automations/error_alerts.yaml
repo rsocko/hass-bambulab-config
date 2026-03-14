@@ -1,4 +1,5 @@
 - alias: "Logging: Error Alert Handler"
+  id: logging_error_alert_handler
   description: "Monitor system logs for critical errors and trigger alerts"
   mode: queued
   max: 20
@@ -163,6 +164,7 @@
             message: "Error from {{ log_source }}: {{ log_message }}"
 
 - alias: "Logging: Warning Alert Handler"
+  id: logging_warning_alert_handler
   description: "Monitor system logs for warnings that may need attention"
   mode: queued
   max: 20
@@ -217,6 +219,7 @@
         notification_id: "bambulab_warnings"
 
 - alias: "Logging: Reset Error Counters Daily"
+  id: logging_reset_error_counters_daily
   description: "Reset error and warning counters at midnight"
   trigger:
     - platform: time

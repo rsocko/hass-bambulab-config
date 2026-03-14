@@ -1,4 +1,5 @@
 alias: "Bambuddy - Webhook Handler"
+id: bambuddy_webhook_handler
 description: >
   Receives webhook events from Bambuddy and acts on them in Home Assistant.
   Supports print_started, print_finished, print_failed, and queue_ready events.

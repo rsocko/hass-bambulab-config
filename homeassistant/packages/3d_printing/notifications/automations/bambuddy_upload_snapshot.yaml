@@ -1,4 +1,5 @@
 alias: Bambuddy - Upload Print Snapshot on Completion
+id: bambuddy_upload_print_snapshot_on_completion
 description: >
   Optional automation to upload printer snapshot to Bambuddy archive.
   Requires Bambuddy server setup and configuration.

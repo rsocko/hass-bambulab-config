@@ -1,4 +1,5 @@
 - alias: OpenHASP Sidebar Sync Page
+  id: openhasp_sidebar_sync_page
   description: >
     Keep sidebar button states in sync when page changes.
     Listens to hasp/officetouch5/state/page and sets
@@ -26,6 +27,7 @@
   max: 5
 
 - alias: OpenHASP Printer Motion Controls (XY/Z/Extruder)
+  id: openhasp_printer_motion_controls
   description: >
     Handles page navigation and motion controls for the ESP32-S3 5in OpenHASP
     control page in printer2.jsonl:

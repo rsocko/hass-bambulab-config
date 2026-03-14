@@ -1,4 +1,5 @@
 - alias: spoolman location sync
+  id: spoolman_location_sync
   description: ""
   triggers:
     - trigger: state

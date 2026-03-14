@@ -1,4 +1,5 @@
 alias: Print Fault - Error Notification with Snapshot
+id: print_fault_error_notification_with_snapshot
 description: >
   Sends a notification with camera snapshot when a print encounters an error or fault.
   Creates a persistent notification that requires dismissal.
