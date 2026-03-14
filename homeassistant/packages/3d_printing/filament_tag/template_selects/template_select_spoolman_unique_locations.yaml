@@ -1,0 +1,21 @@
+- name: spoolman unique locations
+  unique_id: filament_tag_spoolman_unique_locations
+  icon: mdi:map-marker
+  state: >
+    {% set opts = states.sensor
+      | selectattr('entity_id', 'search', 'sensor.spoolman_spool')
+      | selectattr('attributes.location', 'defined')
+      | map(attribute='attributes.location')
+      | unique
+      | sort
+      | list
+    %}
+    {{ opts[0] if opts | count > 0 else 'Unknown' }}
+  options: >
+    {{ states.sensor
+      | selectattr('entity_id', 'search', 'sensor.spoolman_spool')
+      | selectattr('attributes.location', 'defined')
+      | map(attribute='attributes.location')
+      | unique
+      | sort
+      | list }}
