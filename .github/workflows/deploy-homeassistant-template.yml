@@ -504,7 +504,7 @@ jobs:
           fi
 
           echo "Remote diagnostics:"
-          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected as: \$(whoami); id; command -v rsync || echo rsync-not-found; sudo -n command -v rsync || echo sudo-rsync-not-found"
+          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected as: \$(whoami); id; command -v rsync || echo rsync-not-found; sudo -n sh -c 'command -v rsync' || echo sudo-rsync-not-found; sudo -n rsync --version 2>/dev/null | head -n1 || true"
 
       - name: Deploy sync to HAOS /config (SSH add-on)
         run: |
@@ -563,6 +563,18 @@ jobs:
 
               REMOTE_RSYNC_PATH="rsync"
 
+            echo "Probing remote write mode..."
+            if ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "test -w '$HA_CONFIG_PATH'"; then
+              echo "Remote user has direct write access to $HA_CONFIG_PATH; using rsync without sudo by default."
+            elif ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "sudo -n rsync --version >/dev/null 2>&1"; then
+              REMOTE_RSYNC_PATH="sudo -n rsync"
+              echo "Remote user lacks direct write access to $HA_CONFIG_PATH; using --rsync-path='sudo -n rsync' by default."
+            else
+              echo "Remote user cannot write $HA_CONFIG_PATH and passwordless sudo rsync is unavailable."
+              echo "Configure HA_SSH_USER with /config write permissions or grant passwordless sudo for rsync."
+              exit 1
+            fi
+
           summarize_rsync_changes() {
             local rsync_log="$1"
 
@@ -616,6 +628,7 @@ jobs:
               REMOTE_RSYNC_PATH="sudo -n rsync"
               rsync_log="$(mktemp)"
 
+              set +e
               rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
                 $RSYNC_METADATA_FLAGS \
                 --rsync-path="$REMOTE_RSYNC_PATH" \
@@ -626,9 +639,14 @@ jobs:
                 -e "ssh $SSH_OPTS" \
                 "$src/" "$dst" 2>&1 | tee "$rsync_log"
               rsync_exit=${PIPESTATUS[0]}
+              set -e
 
               summarize_rsync_changes "$rsync_log"
               rm -f "$rsync_log"
+
+              if [ $rsync_exit -ne 0 ]; then
+                return $rsync_exit
+              fi
             elif [ $rsync_exit -ne 0 ]; then
               return $rsync_exit
             fi
@@ -663,15 +681,21 @@ jobs:
               REMOTE_RSYNC_PATH="sudo -n rsync"
               rsync_log="$(mktemp)"
 
+              set +e
               rsync $RSYNC_FLAGS $RSYNC_DELETE_FLAG \
                 $RSYNC_METADATA_FLAGS \
                 --rsync-path="$REMOTE_RSYNC_PATH" \
                 -e "ssh $SSH_OPTS" \
                 "$src/" "$dst" 2>&1 | tee "$rsync_log"
               rsync_exit=${PIPESTATUS[0]}
+              set -e
 
               summarize_rsync_changes "$rsync_log"
               rm -f "$rsync_log"
+
+              if [ $rsync_exit -ne 0 ]; then
+                return $rsync_exit
+              fi
             elif [ $rsync_exit -ne 0 ]; then
               return $rsync_exit
             fi
@@ -706,15 +730,21 @@ jobs:
               REMOTE_RSYNC_PATH="sudo -n rsync"
               rsync_log="$(mktemp)"
 
+              set +e
               rsync $RSYNC_FLAGS \
                 $RSYNC_METADATA_FLAGS \
                 --rsync-path="$REMOTE_RSYNC_PATH" \
                 -e "ssh $SSH_OPTS" \
                 "$src" "$dst" 2>&1 | tee "$rsync_log"
               rsync_exit=${PIPESTATUS[0]}
+              set -e
 
               summarize_rsync_changes "$rsync_log"
               rm -f "$rsync_log"
+
+              if [ $rsync_exit -ne 0 ]; then
+                return $rsync_exit
+              fi
             elif [ $rsync_exit -ne 0 ]; then
               return $rsync_exit
             fi
