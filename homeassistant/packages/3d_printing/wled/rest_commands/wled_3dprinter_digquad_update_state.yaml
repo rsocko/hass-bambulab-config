@@ -1,0 +1,5 @@
+wled_3dprinter_digquad_update_state:
+  url: "http://{{ states('input_text.wled_3dprinter_digquad_ip') }}/json/state"
+  method: POST
+  content_type: "application/json"
+  payload: "{{ payload }}"

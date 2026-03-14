@@ -1,0 +1,39 @@
+wled_3dprinter_apply_progress_overlay:
+  alias: WLED 3D Printer - Apply Progress Overlay
+  description: >-
+    Dynamically update front door segments 0 and 1 with print progress and
+    layer progress using the WLED JSON API. Segment 0 uses the Percent effect
+    (fx 64) with green fill for print %, Segment 1 uses Percent with blue fill
+    for layer %. Only the ix (intensity/percentage) parameter is updated — the
+    base effect, colors, and brightness come from the S3_PRINTING preset (104).
+  mode: restart
+  sequence:
+    - variables:
+        print_progress: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') | float(0) }}
+        current_layer: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_current_layer') | float(0) }}
+        total_layers: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_total_layer_count') | float(0) }}
+        seg0_ix: >-
+          {% set raw = (print_progress / 100 * 255) | round(0) | int %}
+          {{ [[raw, 255] | min, 0] | max }}
+        seg1_ix: >-
+          {% if total_layers > 0 %}
+            {% set raw = (current_layer / total_layers * 255) | round(0) | int %}
+            {{ [[raw, 255] | min, 0] | max }}
+          {% else %}
+            0
+          {% endif %}
+    - condition: template
+      value_template: >-
+        {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
+    - action: rest_command.wled_3dprinter_digquad_update_state
+      data:
+        payload: '{"seg": [{"id": 0, "ix": {{ seg0_ix }}}, {"id": 1, "ix": {{ seg1_ix }}}]}'
+    - action: logbook.log
+      data:
+        name: WLED 3D Printer Progress Overlay
+        message: >-
+          Print: {{ print_progress }}% (ix={{ seg0_ix }}),
+          Layer: {{ current_layer }}/{{ total_layers }} (ix={{ seg1_ix }})

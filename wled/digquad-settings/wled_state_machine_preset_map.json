@@ -37,7 +37,7 @@
   "notes": [
     "Preset 100 (SM Base Layout) establishes segment boundaries — load once during setup.",
     "Presets 101-109 style existing segments without changing boundaries.",
-    "Import wled_state_machine_presets_Digquad_phase2.json into DigQuad.",
+    "Import wled_state_machine_presets_Digquad.json into DigQuad.",
     "Interior Lid Light is controlled by MagWLED (separate controller).",
     "Tune FX/speed/intensity per your preference after import."
   ]

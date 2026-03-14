@@ -302,7 +302,7 @@
     ],
     "reference_documents": [
       "See phased-implementation-guide.md for deployment steps",
-      "See wled_state_machine_presets_Digquad_phase2.json for preset definitions",
+      "See wled_state_machine_presets_Digquad.json for preset definitions",
       "See wled_state_machine_preset_map.json for state-to-preset mapping",
       "See digquad-led-segments.md for detailed physical LED breakdowns"
     ]

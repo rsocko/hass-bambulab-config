@@ -1,0 +1,33 @@
+- alias: "WLED 3D Printer - Progress Overlay"
+  id: wled_3dprinter_progress_overlay
+  description: >-
+    Updates front door progress bars during S3_PRINTING, S4_PAUSED_USER, and
+    S5_PAUSED_ERROR states. Segment 0 (bottom) shows print progress %,
+    Segment 1 (left) shows layer progress %. Uses WLED JSON API to dynamically
+    set the Percent effect ix parameter. Only the top bar (segment 2) changes
+    during pause/error — progress bars on segments 0 and 1 are preserved.
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinter_print_progress
+        - sensor.ntk_ryansoffice_3dprinter_current_layer
+        - sensor.ntk_ryansoffice_3dprinter_total_layer_count
+    - trigger: state
+      entity_id: input_select.wled_3dprinter_core_state
+      to:
+        - S3_PRINTING
+        - S4_PAUSED_USER
+        - S5_PAUSED_ERROR
+  conditions:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('input_select.wled_3dprinter_core_state') in ['S3_PRINTING', 'S4_PAUSED_USER', 'S5_PAUSED_ERROR'] }}
+  actions:
+    - delay:
+        seconds: 2
+    - action: script.wled_3dprinter_apply_progress_overlay
+      data: {}

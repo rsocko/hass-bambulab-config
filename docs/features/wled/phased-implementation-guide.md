@@ -59,7 +59,7 @@ Each phase builds toward this target incrementally.
 | File | Purpose |
 |------|---------|
 | `wled_state_machine_presets_Digquad_skeleton.json` | Phase 1 presets 101–109 (2-segment only, rollback reference) |
-| `wled_state_machine_presets_Digquad_phase2.json` | Phase 2 presets 100–109 (15-segment, full layout) |
+| `wled_state_machine_presets_Digquad.json` | Current presets 100–109 (15-segment, full layout + Phase 3.1 progress) |
 | `wled_state_machine_preset_map.json` | Reference: state → preset ID |
 | `wled_segments_Digquad_UPDATED.json` | Reference: 15-segment layout definition |
 | `wled_cfg_Digquad.json` | Base controller configuration |
@@ -147,14 +147,14 @@ Apply the 15-segment layout from [wled_segments_Digquad_UPDATED.json](../../../w
 
 **Steps**:
 1. **Backup first**: Take a backup snapshot of DigQuad (cfg.json + presets.json) into `wled/backups/digquad/2026-03-13 - 3 - Pre Phase 2/`
-2. Merge `wled_state_machine_presets_Digquad_phase2.json` into DigQuad (this file contains presets 100–109)
+2. Merge `wled_state_machine_presets_Digquad.json` into DigQuad (this file contains presets 100–109)
 3. Load Preset 100 ("SM Base Layout") once to establish the 15-segment layout with boundaries
 4. Verify each segment lights independently via the WLED UI
 5. Test each state preset (101–109) by selecting them in the WLED UI
 
 ### 2.2: Expand State Machine Presets
 
-New file: `wled_state_machine_presets_Digquad_phase2.json` — replaces the Phase 1 skeleton with full 15-segment presets.  
+New file: `wled_state_machine_presets_Digquad.json` — replaces the Phase 1 skeleton with full 15-segment presets.  
 Phase 1 skeleton preserved at `wled_state_machine_presets_Digquad_skeleton.json` for rollback.
 
 **Preset 100 (SM Base Layout)**: Defines segment boundaries (start/stop) + neutral warm white on all segments.  
@@ -167,15 +167,15 @@ Phase 1 skeleton preserved at `wled_state_machine_presets_Digquad_skeleton.json`
 | S0_OFFLINE | Off | Off | Dim amber solid | Off | Off | Off |
 | S1_IDLE | Off | Off | Soft blue breathe | Soft white 30% | Soft white 25% | Soft white 25% |
 | S2_PREP | Off | Off | Orange pulse | Dim orange | Off | Off |
-| S3_PRINTING | Green solid | Green solid | Soft green solid | White 40% | Soft white 30% | Soft white 25% |
-| S4_PAUSED_USER | Yellow hold | Yellow hold | Yellow blink | Yellow dim | Yellow dim | Dim |
-| S5_PAUSED_ERROR | Red blink | Red blink | Red strobe | Red 60% | Red 60% | Red dim |
+| S3_PRINTING | Green Percent (dynamic) | Green Percent (dynamic) | Green slow breathe | White 40% | Soft white 30% | Soft white 25% |
+| S4_PAUSED_USER | Keeps progress | Keeps progress | Yellow blink | Yellow dim | Yellow dim | Dim |
+| S5_PAUSED_ERROR | Keeps progress | Keeps progress | Red strobe | Red 60% | Red 60% | Red dim |
 | S6_FINISHING | Full green | Full green | Green wipe | White 40% | Soft white 30% | Soft white 25% |
 | S7_MAINTENANCE | Off | Off | Orange chase | Amber dim | Off | Off |
 | S8_SHOW | Off | Off | Purple palette fx | Purple dim | Purple breathe | Purple dim |
 
 **Steps**:
-1. Merge `wled_state_machine_presets_Digquad_phase2.json` into DigQuad's presets (replaces 101–109, adds 100)
+1. Merge `wled_state_machine_presets_Digquad.json` into DigQuad's presets (replaces 101–109, adds 100)
 2. Load Preset 100 once to establish segment layout
 3. Verify each state by manually setting `input_select.wled_3dprinter_core_state` in HA Developer Tools
 4. Call `script.wled_3dprinter_apply_core_state_to_presets` after each state change to apply the preset
@@ -213,12 +213,69 @@ If MagWLED is back online:
 
 ## Phase 3: Overlays & Advanced Features
 
-**Goal**: Add active tray highlighting, telemetry overlays, and preset-based dynamic segments  
-**Status**: Not started  
+**Goal**: Add dynamic progress visualization, active tray highlighting, telemetry overlays, and preset-based dynamic segments  
+**Status**: 3.1 implemented  
 **Prerequisite**: Phase 2 validated  
 **Design reference**: [light-scenarios.md](light-scenarios.md) — Sections 4 (segment limits), 8 (hybrid control), 10 (priority tiers), 11 (state machine overlays), 12 (idle rotation)
 
-### 3.1: Active Tray Highlighting
+### 3.1: Progress Bar & Status Enhancement (✅ IMPLEMENTED)
+
+During S3_PRINTING, segments 0, 1, and 2 on the front door dynamically visualize print progress, layer progress, and print health:
+
+| Segment | Zone | Effect | Color | Data Source |
+|---------|------|--------|-------|-------------|
+| 0 | Front Door Bottom | Percent (fx 64) | Green fill `[0, 255, 40]` on dim white `[50, 44, 36]` background | `sensor.ntk_ryansoffice_3dprinter_print_progress` (0–100%) |
+| 1 | Front Door Left | Percent (fx 64) | Blue fill `[0, 100, 255]` on dim white `[50, 44, 36]` background | `sensor.ntk_ryansoffice_3dprinter_current_layer` / `sensor.ntk_ryansoffice_3dprinter_total_layer_count` |
+| 2 | Front Door Top | Breathe (fx 2), very slow (sx 20) | Green `[0, 200, 60]` | N/A — indicates healthy print in progress |
+
+**How it works**:
+
+1. When the state machine enters S3_PRINTING, preset 104 loads with:
+   - Seg 0 and 1: Percent effect at ix=0 (empty) with dim white background glow
+   - Seg 2: Very slow green breathe (indicates healthy print)
+2. The **orchestrator** calls `script.wled_3dprinter_apply_progress_overlay` 500ms after applying the S3_PRINTING preset
+3. The **progress overlay automation** (`wled_3dprinter_progress_overlay`) watches for changes to print progress and layer count sensors, and calls the overlay script to update `ix` values
+4. The overlay script sends a targeted WLED JSON API request (via `rest_command.wled_digquad_update_state`) that updates ONLY the `ix` parameter on segments 0 and 1 — all other segment properties remain as set by preset 104
+5. Pause/error presets (105, 106) only change **segment 2** (top bar) to yellow/red. Segments 0 and 1 retain the Percent effect with their last progress values, so the progress bars remain visible during pause/error states. On resume, preset 104 reloads and the overlay restores current progress values.
+
+**ix mapping**:
+- Segment 0: `ix = round(print_progress / 100 × 255)` → 0=empty, 255=full
+- Segment 1: `ix = round(current_layer / total_layers × 255)` → 0=empty, 255=full (safe division, 0 when total_layers is 0)
+
+#### Files Created / Modified
+
+| File | Change |
+|------|--------|
+| `helpers/input_text/wled_3dprinter_digquad_ip.yaml` | **New** — Input text helper for DigQuad WLED IP address (required for JSON API calls) |
+| `rest_commands/wled_3dprinter_digquad_update_state.yaml` | **New** — Generic REST command to POST JSON to WLED `/json/state` endpoint |
+| `scripts/wled_3dprinter_apply_progress_overlay-script.yaml` | **New** — Reads progress sensors, calculates ix, sends segment update via REST |
+| `automations/wled_3dprinter_progress_overlay.yaml` | **New** — Triggers on progress/layer sensor changes; conditions on S3_PRINTING |
+| `automations/wled_3dprinter_state_machine_orchestrator.yaml` | **Modified** — Added progress overlay call after S3_PRINTING preset application |
+| `wled_loader.yaml` | **Modified** — Added `rest_command: !include_dir_merge_named rest_commands` |
+| `wled_state_machine_presets_Digquad.json` (preset 104) | **Modified** — Seg 0: Percent fx green/white, Seg 1: Percent fx blue/white, Seg 2: slow green Breathe |
+
+#### Setup Steps
+
+1. Set `input_text.wled_3dprinter_digquad_ip` to the DigQuad's IP address (e.g., `192.168.1.xx`) in HA → Settings → Helpers
+2. Verify `rest_command.wled_3dprinter_digquad_update_state` is available (HA → Developer Tools → Services)
+3. Verify the Percent effect ID on your WLED build — effect ID 64 is standard; check WLED UI → Effects to confirm. If different, update preset 104 `fx` values for segments 0 and 1.
+4. Deploy updated preset 104 to DigQuad (merge from `wled_state_machine_presets_Digquad.json`)
+5. Restart HA to load new automation, script, rest_command, and helper
+
+#### Validation
+
+| Test | Expected |
+|------|----------|
+| Enter S3_PRINTING | Seg 0 and 1 show dim white base (Percent at ix≈0), Seg 2 slow green breathe |
+| Print at 50% | Seg 0 half-filled green on white background |
+| Layer 25/100 | Seg 1 ~25% filled blue on white background |
+| Print at 100% | Seg 0 fully green |
+| Pause (user) | Seg 2 switches to yellow blink; segs 0/1 retain progress bars |
+| Resume from pause | Progress overlay updates resume within ~2.5s |
+| Pause (error) | Seg 2 switches to red strobe; segs 0/1 retain progress bars |
+| DigQuad IP not set | Progress overlay skips gracefully (condition check on input_text length) |
+
+### 3.2: Active Tray Highlighting
 
 Add scripts/automations that run **after** the core preset is applied to override specific tag segments with the active tray's filament color.
 
@@ -231,7 +288,7 @@ Add scripts/automations that run **after** the core preset is applied to overrid
 
 **Success criteria**: Active tray tag glows with filament color during printing; all other tags remain at the base preset's soft white.
 
-### 3.2: Preset-Based Segment Switching (Optional Advanced)
+### 3.3: Preset-Based Segment Switching (Optional Advanced)
 
 For full tag top+bottom control, implement the preset-based segment reconfiguration from [preset-based-segments.md](preset-based-segments.md):
 
@@ -239,9 +296,9 @@ For full tag top+bottom control, implement the preset-based segment reconfigurat
 - HA automation switches to the appropriate preset when the active tray changes
 - ~500ms delay needed for WLED to reconfigure segments
 
-This is optional; the simpler approach in 3.1 (tag-top-only highlighting) may be sufficient.
+This is optional; the simpler approach in 3.2 (tag-top-only highlighting) may be sufficient.
 
-### 3.3: Telemetry Overlays (Idle-Only)
+### 3.4: Telemetry Overlays (Idle-Only)
 
 Add idle-state-only visual overlays for:
 - **Tray risk**: Dim orange pulse on tags with low filament
@@ -253,22 +310,23 @@ These overlays should:
 - Be suppressed during prep/printing/error/maintenance states
 - Be implemented as separate scripts called by additional automations
 
-### 3.4: Progress Bar Enhancement
-
-During S3_PRINTING, dynamically update segment 0 brightness/length to reflect print progress:
-- Listen to `sensor.ntk_ryansoffice_3dprinter_print_progress` (or similar)
-- Scale segment 0 intensity proportional to completion percentage
-- Consider using WLED HTTP API for finer control than preset switching
-
 ### 3.5: Phase 3 Validation
 
 | Test | Expected |
 |------|----------|
+| **3.1 — Progress bars** | |
+| Enter S3_PRINTING | Seg 0/1 dim white base, Seg 2 slow green breathe |
+| Print at 50% | Seg 0 half-filled green on white |
+| Layer 25/100 | Seg 1 ~25% filled blue on white |
+| Pause (user) | Seg 2 overrides to yellow; segs 0/1 retain progress (preset 105) |
+| Pause (error) | Seg 2 overrides to red; segs 0/1 retain progress (preset 106) |
+| Resume from pause | Progress overlay restores within ~2.5s |
+| **3.2 — Active tray** | |
 | Print with tray A1 | Tag segment 5 shows filament color |
 | Switch from A1 to B2 mid-print | Segment 5 returns to neutral; segment 11 lights up |
+| **3.4 — Telemetry** | |
 | Idle with low filament in A3 | Only tag 7 pulses orange (idle overlay) |
 | Start print after idle overlay | Overlay suppressed; printing preset takes over |
-| Progress at 50% | Segment 0 at ~50% intensity or half-lit |
 
 ---
 
@@ -282,7 +340,8 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 |-------|----------|
 | Phase 1 | Disable toggle; remove package from `_feature_loaders.yaml` |
 | Phase 2 | Re-upload skeleton presets (101–109 segment 0+1 only) from `wled/backups/digquad/2026-03-13 - 2 - Phase 1 Implemented/` or `wled_state_machine_presets_Digquad_skeleton.json` |
-| Phase 3 | Remove overlay scripts/automations; core presets continue to work |
+| Phase 3.1 | Remove progress overlay automation + script + rest_command; revert preset 104 segs 0–2 to solid green; remove orchestrator progress overlay call |
+| Phase 3.2+ | Remove overlay scripts/automations; core presets continue to work |
 
 ### Full Recovery
 1. Disable `input_boolean.wled_3dprinter_state_machine_enabled`
@@ -305,7 +364,7 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 
 ### Phase 2 (Segment Expansion)
 - [ ] Pre-deployment backup saved to `wled/backups/digquad/2026-03-13 - 3 - Pre Phase 2/`
-- [ ] `wled_state_machine_presets_Digquad_phase2.json` merged into DigQuad
+- [ ] `wled_state_machine_presets_Digquad.json` merged into DigQuad
 - [ ] Preset 100 (SM Base Layout) loaded — 15 segments established
 - [ ] All 15 segments visible and addressable in WLED UI
 - [ ] Each preset (101–109) styles all 15 segments appropriately
@@ -319,11 +378,26 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 - [ ] Interior Lid Light confirmed on MagWLED (not DigQuad)
 
 ### Phase 3 (Overlays & Advanced)
+
+#### 3.1 Progress Bar & Status Enhancement
+- [ ] `input_text.wled_3dprinter_digquad_ip` set to DigQuad IP
+- [ ] `rest_command.wled_3dprinter_digquad_update_state` reachable (Developer Tools → Services)
+- [ ] Percent effect ID 64 confirmed on DigQuad WLED build
+- [ ] Updated preset 104 deployed to DigQuad
+- [ ] S3_PRINTING shows dim white base on segs 0 and 1
+- [ ] Seg 2 shows very slow green breathe during printing
+- [ ] Print progress fills seg 0 green proportionally
+- [ ] Layer progress fills seg 1 blue proportionally
+- [ ] Pause (user) overrides all door segments to yellow
+- [ ] Pause (error) overrides all door segments to red
+- [ ] Resume restores progress overlay within ~2.5 seconds
+- [ ] Overlay skips gracefully when DigQuad IP is not set
+
+#### 3.2+ (Future)
 - [ ] Active tray tag highlights with filament color during printing
 - [ ] Inactive tags remain at neutral preset color
 - [ ] Tray switching mid-print updates the correct tag
 - [ ] Idle overlays appear only in idle state
-- [ ] Progress bar reflects print completion
 - [ ] Overlays suppress during non-idle states
 
 ---
@@ -361,6 +435,6 @@ If `automation.bambu_lab_wled_controller_advanced` is ON, it may override the st
 
 ---
 
-**Version**: 2.0 (State Machine approach — 2026-03-13)  
-**Phases**: 3 (Core ✅ → Segment Expansion → Overlays)  
-**Architecture**: HA State Machine → WLED Presets 101–109
+**Version**: 3.0 (Phase 3.1 Progress Enhancement — 2026-03-13)  
+**Phases**: 3 (Core ✅ → Segment Expansion → Overlays [3.1 ✅])  
+**Architecture**: HA State Machine → WLED Presets 101–109 + JSON API Overlays

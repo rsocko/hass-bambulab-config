@@ -1,0 +1,7 @@
+wled_3dprinter_digquad_ip:
+  name: WLED 3D Printer DigQuad IP Address
+  icon: mdi:ip-network
+  initial: ""
+  min: 7
+  max: 45
+  mode: text

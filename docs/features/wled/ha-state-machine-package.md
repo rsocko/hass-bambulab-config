@@ -126,9 +126,13 @@ Success criteria:
 
 ### Phase 3: Overlay Expansion
 
-1. Add tray risk overlays (`O_USED_TRAYS`, `O_USED_TRAY_RISK`) as separate scripts called after core preset application.
-2. Add humidity/desiccant overlays as idle/maintenance-only overlays.
-3. Add allocator logic only if you need temporary segment remaps.
+**3.1 (✅ Implemented)**: Progress bar & status enhancement — dynamic Percent effect on segs 0/1 for print/layer progress via WLED JSON API; slow green breathe on seg 2 for healthy print status. See [phased-implementation-guide.md](phased-implementation-guide.md) § 3.1.
+
+**3.2+**: 
+1. Add active tray highlighting as scripts called after core preset application.
+2. Add tray risk overlays (`O_USED_TRAYS`, `O_USED_TRAY_RISK`) as separate scripts.
+3. Add humidity/desiccant overlays as idle/maintenance-only overlays.
+4. Add allocator logic only if you need temporary segment remaps.
 
 Success criteria:
 
