@@ -155,5 +155,24 @@ create long-term notification noise.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
 - Make sure to review the YAML code examples and update the Entity and Sensor names to match your Home Assistant setup
 
+## Cross-Package Dependencies
+
+`spoolman_sync` owns the restart-safe backup helpers used by other packages.
+
+### Produced in `spoolman_sync`
+
+1. `input_text.print_weight_backup`
+2. `input_text.print_metadata_backup`
+
+### Consumed outside `spoolman_sync`
+
+1. `core/template_sensors/print_weight_effective.yaml`
+2. `core/template_sensors/print_cost.yaml`
+3. `openhasp_display/openhasp/officetouch5.yaml` (via core sensors)
+4. `common` dashboard card templates and `print_weight_and_cost` cards (via core sensors or fallback logic)
+
+This separation is intentional: persistence belongs in `spoolman_sync`, while
+shared read models for UI belong in `core`.
+
 ## Version Information
 2025-05-23 - v1.0.0 - Initial public release

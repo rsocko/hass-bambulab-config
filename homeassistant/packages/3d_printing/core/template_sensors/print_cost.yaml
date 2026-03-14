@@ -1,3 +1,11 @@
+# Shared cost sensor consumed by dashboards and OpenHASP.
+# Dependencies:
+# - spoolman mapping: sensor.spoolman_tray_map (core)
+# - spool entities: sensor.spoolman_spool_* (Spoolman integration)
+# - print weight data: live sensor attributes with fallback to input_text.print_weight_backup (spoolman_sync)
+# Downstream consumers:
+# - print_weight_and_cost/dashboard_cards/print-cost.yaml
+# - openhasp_display/openhasp/officetouch5.yaml
 - name: "print_cost"
   unit_of_measurement: "$"
   state: >
@@ -21,7 +29,17 @@
     } %}
 
     {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
-    {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+    {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+    {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+    {% set backup_weight_attrs = backup_raw | from_json(None) %}
+    {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+    {% if live_has_keys %}
+      {% set weight_attrs = live_weight_attrs %}
+    {% elif backup_weight_attrs is mapping %}
+      {% set weight_attrs = backup_weight_attrs %}
+    {% else %}
+      {% set weight_attrs = dict() %}
+    {% endif %}
     {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
     {# Default initial_weight 1000 g = standard 1 kg spool #}
     {% set default_spool_weight_g = 1000 %}
@@ -30,7 +48,11 @@
     {% if tray_map %}
       {% for tray_key, tray_data in tray_map.items() %}
         {% set weight_key = tray_weight_keys.get(tray_key) %}
-        {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
+        {% set raw_weight = weight_attrs.get(weight_key) %}
+        {% if raw_weight is none and weight_key == 'External Spool' %}
+          {% set raw_weight = weight_attrs.get('External') %}
+        {% endif %}
+        {% set print_weight = raw_weight | float(0) %}
 
         {% if print_weight > 0 %}
           {% if tray_data.spool_id is not none %}
@@ -76,7 +98,17 @@
       } %}
 
       {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
-      {% set weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% if live_has_keys %}
+        {% set weight_attrs = live_weight_attrs %}
+      {% elif backup_weight_attrs is mapping %}
+        {% set weight_attrs = backup_weight_attrs %}
+      {% else %}
+        {% set weight_attrs = dict() %}
+      {% endif %}
       {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
       {# Default initial_weight 1000 g = standard 1 kg spool #}
       {% set default_spool_weight_g = 1000 %}
@@ -85,7 +117,11 @@
       {% if tray_map %}
         {% for tray_key, tray_data in tray_map.items() %}
           {% set weight_key = tray_weight_keys.get(tray_key) %}
-          {% set print_weight = weight_attrs.get(weight_key, 0) | float(0) %}
+          {% set raw_weight = weight_attrs.get(weight_key) %}
+          {% if raw_weight is none and weight_key == 'External Spool' %}
+            {% set raw_weight = weight_attrs.get('External') %}
+          {% endif %}
+          {% set print_weight = raw_weight | float(0) %}
 
           {% if print_weight > 0 %}
             {% if tray_data.spool_id is not none %}

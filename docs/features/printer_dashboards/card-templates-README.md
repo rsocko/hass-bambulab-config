@@ -146,7 +146,7 @@ The temperature sub-button background color changes dynamically:
 | `tray` | Yes | Tray key in the `spoolman_tray_map` (e.g. `ams_1_tray_1`, `external_spool`) |
 | `trayLabel` | Yes | Human-readable label shown in the popup header (e.g. `AMS 1 · Slot 1`) |
 | `trayEntityId` | Yes | Entity ID of the AMS tray sensor |
-| `printWeightKey` | Yes | Attribute key in `sensor.ntk_ryansoffice_3dprinter_print_weight` (e.g. `AMS 1 Tray 1`) |
+| `printWeightKey` | Yes | Logical key used to read per-tray print weight (`AMS 1 Tray 1`, etc.) from live print-weight attributes, with fallback to `input_text.print_weight_backup` after restart |
 
 ## Sensor References
 
@@ -157,8 +157,22 @@ block in your dashboard) to match your setup:
 |-----------|-------------|
 | `sensor.spoolman_tray_map` | Spoolman tray-to-spool mapping sensor (defined in `templates.yaml`) |
 | `sensor.spoolman_filament_totals` | Filament weight totals sensor (defined in `templates.yaml`) |
-| `sensor.ntk_ryansoffice_3dprinter_print_weight` | Active print weight sensor |
+| `sensor.ntk_ryansoffice_3dprinter_print_weight` | Active print weight attributes (primary source while running) |
+| `input_text.print_weight_backup` | Restart-safe backup payload populated by `spoolman_sync` automations |
 | `SPOOLMAN_BASE_URL` in tap_action JS | Base URL for Spoolman web UI |
+
+## Cross-Package Dependencies
+
+These card templates are loaded from `common`, but they intentionally depend on
+data producers in other packages:
+
+1. `core/template_sensors/spoolman_tray_map.yaml` (`sensor.spoolman_tray_map`)
+2. `core/template_sensors/spoolman_filament_totals.yaml` (`sensor.spoolman_filament_totals`)
+3. `spoolman_sync/helpers/input_text/input_text_print_weight_backup.yaml` +
+  `spoolman_sync/automations/print_started-backup_print_weight.yaml`
+
+This ownership split is intentional: `common` is for reusable UI templates,
+while `core` and `spoolman_sync` own canonical data generation and persistence.
 
 ## Updating a Template
 

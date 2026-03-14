@@ -1,4 +1,9 @@
-﻿objects:
+# Cross-package dependency notes for print analytics widgets:
+# - Weight widgets in this plate read sensor.print_weight_effective (core/template_sensors)
+#   which internally falls back to spoolman_sync backup helper input_text.print_weight_backup.
+# - Cost widgets read sensor.print_cost (core/template_sensors), which uses the same
+#   restart-safe weight fallback and spoolman tray/spool pricing data.
+objects:
   - obj: p1b2 # Arc
     properties:
       "val": '{{ states("sensor.ntk_ryansoffice_3dprinter_print_progress")  }}'
@@ -24,22 +29,22 @@
       "text": '{{ states("sensor.print_end_time_friendly")  }}'
   - obj: p3b53 # Weight panel total label
     properties:
-      "text": 'Total: {{ states("sensor.ntk_ryansoffice_3dprinter_print_weight") | float(0) | round(1) }}g'
+      "text": 'Total: {{ states("sensor.print_weight_effective") | float(0) | round(1) }}g'
   - obj: p3b54 # Cost panel total label
     properties:
       "text": 'Total: ${{ states("sensor.print_cost") | float(0) | round(2) }}'
   - obj: p3b71 # Weight panel legend/detail
     properties:
       "text": >
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         A1: {{ a1 | round(1) }}g ({{ ((a1 / total) * 100) | round(1) if total > 0 else 0 }}%)
         A2: {{ a2 | round(1) }}g ({{ ((a2 / total) * 100) | round(1) if total > 0 else 0 }}%)
@@ -159,15 +164,15 @@
         {{ bar_x }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a1 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b74 # Weight A2 segment
@@ -175,29 +180,29 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_2", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a2 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b75 # Weight A3 segment
@@ -205,30 +210,30 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_3", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {{ bar_x + w1 + w2 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a3 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b76 # Weight A4 segment
@@ -236,15 +241,15 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_1_tray_4", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
@@ -252,15 +257,15 @@
         {{ bar_x + w1 + w2 + w3 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((a4 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b77 # Weight B1 segment
@@ -268,15 +273,15 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_1", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
@@ -285,15 +290,15 @@
         {{ bar_x + w1 + w2 + w3 + w4 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b1 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b78 # Weight B2 segment
@@ -301,15 +306,15 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_2", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
@@ -319,15 +324,15 @@
         {{ bar_x + w1 + w2 + w3 + w4 + w5 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b2 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b79 # Weight B3 segment
@@ -335,15 +340,15 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_3", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
@@ -354,15 +359,15 @@
         {{ bar_x + w1 + w2 + w3 + w4 + w5 + w6 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b3 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b80 # Weight B4 segment
@@ -370,15 +375,15 @@
       "bg_color": '{{ state_attr("sensor.p1s_01p00c460102350_ams_2_tray_4", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
@@ -390,15 +395,15 @@
         {{ bar_x + w1 + w2 + w3 + w4 + w5 + w6 + w7 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((b4 / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b81 # Weight Ext segment
@@ -406,15 +411,15 @@
       "bg_color": '{{ state_attr("sensor.ntk_ryansoffice_3dprinter_external_spool", "color")[:7] }}'
       "x": >
         {% set bar_x = 120 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {% set w1 = ((a1 / total) * 288) | round(0) | int if total > 0 else 0 %}
         {% set w2 = ((a2 / total) * 288) | round(0) | int if total > 0 else 0 %}
@@ -427,15 +432,15 @@
         {{ bar_x + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 }}
       "w": >
         {% set bar_w = 288 %}
-        {% set a1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 1') | float(0) %}
-        {% set a2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 2') | float(0) %}
-        {% set a3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 3') | float(0) %}
-        {% set a4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 1 Tray 4') | float(0) %}
-        {% set b1 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 1') | float(0) %}
-        {% set b2 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 2') | float(0) %}
-        {% set b3 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 3') | float(0) %}
-        {% set b4 = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'AMS 2 Tray 4') | float(0) %}
-        {% set ext = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', 'External Spool') | float(0) %}
+        {% set a1 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 1') | float(0) %}
+        {% set a2 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 2') | float(0) %}
+        {% set a3 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 3') | float(0) %}
+        {% set a4 = state_attr('sensor.print_weight_effective', 'AMS 1 Tray 4') | float(0) %}
+        {% set b1 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 1') | float(0) %}
+        {% set b2 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 2') | float(0) %}
+        {% set b3 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 3') | float(0) %}
+        {% set b4 = state_attr('sensor.print_weight_effective', 'AMS 2 Tray 4') | float(0) %}
+        {% set ext = state_attr('sensor.print_weight_effective', 'External Spool') | float(0) %}
         {% set total = a1 + a2 + a3 + a4 + b1 + b2 + b3 + b4 + ext %}
         {{ ((ext / total) * bar_w) | round(0) | int if total > 0 else 0 }}
   - obj: p3b60 # Cost A1 segment

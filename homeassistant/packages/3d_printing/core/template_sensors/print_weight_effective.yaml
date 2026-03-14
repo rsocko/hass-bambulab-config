@@ -1,0 +1,189 @@
+# Shared sensor for all UI consumers that need restart-safe print-weight data.
+# Dependencies:
+# - Primary source: sensor.ntk_ryansoffice_3dprinter_print_weight (ha-bambulab)
+# - Fallback source: input_text.print_weight_backup (spoolman_sync package)
+# Downstream consumers:
+# - openhasp_display/openhasp/officetouch5.yaml
+# - print_weight_and_cost dashboard cards and related templates
+- name: "print_weight_effective"
+  unit_of_measurement: "g"
+  state: >
+    {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+    {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+    {% set backup_weight_attrs = backup_raw | from_json(None) %}
+    {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+    {% if live_has_keys %}
+      {% set weight_attrs = live_weight_attrs %}
+    {% elif backup_weight_attrs is mapping %}
+      {% set weight_attrs = backup_weight_attrs %}
+    {% else %}
+      {% set weight_attrs = dict() %}
+    {% endif %}
+
+    {% set ns = namespace(total=0.0) %}
+    {% set keys = [
+      'AMS 1 Tray 1', 'AMS 1 Tray 2', 'AMS 1 Tray 3', 'AMS 1 Tray 4',
+      'AMS 2 Tray 1', 'AMS 2 Tray 2', 'AMS 2 Tray 3', 'AMS 2 Tray 4',
+      'External Spool'
+    ] %}
+
+    {% for key in keys %}
+      {% if key == 'External Spool' %}
+        {% set raw_weight = weight_attrs.get('External Spool') %}
+        {% if raw_weight is none %}
+          {% set raw_weight = weight_attrs.get('External') %}
+        {% endif %}
+      {% else %}
+        {% set raw_weight = weight_attrs.get(key) %}
+      {% endif %}
+      {% set ns.total = ns.total + (raw_weight | float(0)) %}
+    {% endfor %}
+
+    {{ ns.total | round(1) }}
+
+  attributes:
+    data_source: >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% if live_has_keys %}
+        live
+      {% elif backup_weight_attrs is mapping %}
+        backup
+      {% else %}
+        none
+      {% endif %}
+
+    weight_data_available: >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% if live_has_keys %}
+        true
+      {% elif backup_weight_attrs is mapping and backup_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+        true
+      {% else %}
+        false
+      {% endif %}
+
+    weights: >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% if live_has_keys %}
+        {% set weight_attrs = live_weight_attrs %}
+      {% elif backup_weight_attrs is mapping %}
+        {% set weight_attrs = backup_weight_attrs %}
+      {% else %}
+        {% set weight_attrs = dict() %}
+      {% endif %}
+
+      {% set keys = [
+        'AMS 1 Tray 1', 'AMS 1 Tray 2', 'AMS 1 Tray 3', 'AMS 1 Tray 4',
+        'AMS 2 Tray 1', 'AMS 2 Tray 2', 'AMS 2 Tray 3', 'AMS 2 Tray 4'
+      ] %}
+      {% set ns = namespace(result=dict()) %}
+
+      {% for key in keys %}
+        {% set ns.result = ns.result | combine({ key: weight_attrs.get(key) | float(0) }) %}
+      {% endfor %}
+
+      {% set external_weight = weight_attrs.get('External Spool') %}
+      {% if external_weight is none %}
+        {% set external_weight = weight_attrs.get('External') %}
+      {% endif %}
+      {% set ns.result = ns.result | combine({ 'External Spool': external_weight | float(0) }) %}
+      {% set ns.result = ns.result | combine({ 'External': external_weight | float(0) }) %}
+
+      {{ ns.result | tojson | from_json }}
+
+    "AMS 1 Tray 1": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 1 Tray 1') | float(0) }}
+
+    "AMS 1 Tray 2": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 1 Tray 2') | float(0) }}
+
+    "AMS 1 Tray 3": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 1 Tray 3') | float(0) }}
+
+    "AMS 1 Tray 4": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 1 Tray 4') | float(0) }}
+
+    "AMS 2 Tray 1": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 2 Tray 1') | float(0) }}
+
+    "AMS 2 Tray 2": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 2 Tray 2') | float(0) }}
+
+    "AMS 2 Tray 3": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 2 Tray 3') | float(0) }}
+
+    "AMS 2 Tray 4": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {{ weight_attrs.get('AMS 2 Tray 4') | float(0) }}
+
+    "External Spool": >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {% set external_weight = weight_attrs.get('External Spool') %}
+      {% if external_weight is none %}
+        {% set external_weight = weight_attrs.get('External') %}
+      {% endif %}
+      {{ external_weight | float(0) }}
+
+    External: >
+      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
+      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+      {% set backup_weight_attrs = backup_raw | from_json(None) %}
+      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
+      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
+      {% set external_weight = weight_attrs.get('External Spool') %}
+      {% if external_weight is none %}
+        {% set external_weight = weight_attrs.get('External') %}
+      {% endif %}
+      {{ external_weight | float(0) }}

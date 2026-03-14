@@ -48,7 +48,7 @@ For a grouped object ID summary, see the top-level quick reference in [esp32s3-5
 | `p1b7` | Label | Layer count (current/total) |
 | `p1b14` | Label | Time remaining (formatted) |
 | `p1b29` | Label | Estimated end time (`sensor.print_end_time_friendly`) |
-| `p3b53`, `p3b54` | Label | Weight/cost panel totals (`print_weight`, `print_cost`) |
+| `p3b53`, `p3b54` | Label | Weight/cost panel totals (`print_weight_effective`, `print_cost`) |
 | `p1b10`–`p1b13` | Obj | AMS 1 tray 1–4 spool colors |
 | `p1b17`–`p1b20` | Obj | AMS 2 tray 1–4 spool colors |
 | `p1b39` | Obj | External spool color/active highlight |
@@ -68,6 +68,8 @@ For a grouped object ID summary, see the top-level quick reference in [esp32s3-5
 | `p2b41` | Label | Controls page safety hint placeholder (hidden) |
 
 > **Smart status dependency:** The entity `sensor.ntk_ryansoffice_3dprinter_smart_status` is defined in [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml) and must exist in Home Assistant for these two labels to render correctly.
+
+> **Weight/cost dependency chain:** OpenHASP does not read raw print-weight attributes directly anymore. It reads `sensor.print_weight_effective` and `sensor.print_cost` from the `core` package. `print_weight_effective` falls back to `input_text.print_weight_backup` from `spoolman_sync` after HA restarts, and `print_cost` uses the same fallback path for its breakdown/state.
 
 ### Automations
 
@@ -103,6 +105,8 @@ Custom template sensors that transform raw Bambu Lab printer data into display-f
 | [print_time_remaining_formatted.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_time_remaining_formatted.yaml) | `sensor.print_time_remaining_formatted` | `p1b14` label | Converts the raw remaining-time sensor (integer minutes) into a human-readable `Xh Ym` or `Ym` string. Source: `sensor.ntk_ryansoffice_3dprinter_remaining_time`. |
 | [total_estimated_print_time.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/total_estimated_print_time.yaml) | `sensor.total_estimated_print_time` | `p1b4` arc max | Calculates total estimated print duration in minutes from the printer's start/end times. Used as the arc maximum so the remaining-time arc scales correctly. Source: `start_time` and `end_time` sensors. |
 | [print_end_time_friendly.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_end_time_friendly.yaml) | `sensor.print_end_time_friendly` | `p1b29` label | Formats estimated completion time for readability: same-day time, `tomorrow`, `on {Day}` within a week, and `on MM/DD/YYYY` beyond one week. Source: `sensor.ntk_ryansoffice_3dprinter_end_time`. |
+| [print_weight_effective.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_weight_effective.yaml) | `sensor.print_weight_effective` | `p3b53`, `p3b71`, `p3b73`–`p3b81` | Canonical restart-safe print-weight source for UIs. Uses live `print_weight` attributes when available and falls back to `input_text.print_weight_backup` when not (post-restart). |
+| [print_cost.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/print_cost.yaml) | `sensor.print_cost` | `p3b54`, `p3b72`, `p3b60`–`p3b68` | Cost/breakdown sensor based on tray mapping + spool pricing. Uses the same restart-safe print-weight fallback chain as `print_weight_effective`. |
 
 > **Note:** These sensors are package-managed and loaded from `core/template_sensors` via `core/core_loader.yaml`. They do not need to be created manually via the UI when this package is deployed.
 

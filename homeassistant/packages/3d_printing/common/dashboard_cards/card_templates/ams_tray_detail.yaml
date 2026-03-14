@@ -70,9 +70,39 @@ ams_tray_detail:
         // Only show if tray has a spool mapped
         if (!spoolId) return '';
 
-        // Get print weight from sensor attributes
+        const normalizedWeightKeys = [variables.printWeightKey];
+        if (variables.printWeightKey === 'External') normalizedWeightKeys.push('External Spool');
+        if (variables.printWeightKey === 'External Spool') normalizedWeightKeys.push('External');
+
+        const backupRaw = states['input_text.print_weight_backup']?.state;
+        let backupWeights = null;
+        if (backupRaw && !['unknown', 'unavailable', 'none', 'null', ''].includes(String(backupRaw).toLowerCase())) {
+          try {
+            const parsed = JSON.parse(backupRaw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              backupWeights = parsed;
+            }
+          } catch (e) {
+            backupWeights = null;
+          }
+        }
+
+        const readNumericWeight = (source) => {
+          if (!source) return null;
+          for (const key of normalizedWeightKeys) {
+            const raw = source[key];
+            if (raw === undefined || raw === null || raw === '') continue;
+            const numeric = Number(raw);
+            if (!Number.isNaN(numeric)) return numeric;
+          }
+          return null;
+        };
+
+        // Prefer live print-weight attributes, then backup helper payload.
         const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
-        const printWeight = printWeightEntity?.attributes?.[variables.printWeightKey];
+        const livePrintWeight = readNumericWeight(printWeightEntity?.attributes);
+        const backupPrintWeight = readNumericWeight(backupWeights);
+        const printWeight = livePrintWeight !== null ? livePrintWeight : backupPrintWeight;
 
         if (!printWeight || printWeight === 0) return '';
 

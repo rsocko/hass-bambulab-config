@@ -5,6 +5,40 @@ ams_tray_popup:
       const trayLabel = variables.trayLabel;
       const trayEntityId = variables.trayEntityId;
       const printWeightKey = variables.printWeightKey;
+      const printWeightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
+      const backupRaw = states['input_text.print_weight_backup']?.state;
+
+      const normalizedWeightKeys = [printWeightKey];
+      if (printWeightKey === 'External') normalizedWeightKeys.push('External Spool');
+      if (printWeightKey === 'External Spool') normalizedWeightKeys.push('External');
+
+      let backupWeights = null;
+      if (backupRaw && !['unknown', 'unavailable', 'none', 'null', ''].includes(String(backupRaw).toLowerCase())) {
+        try {
+          const parsed = JSON.parse(backupRaw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            backupWeights = parsed;
+          }
+        } catch (e) {
+          backupWeights = null;
+        }
+      }
+
+      const readNumericWeight = (source) => {
+        if (!source) return null;
+        for (const key of normalizedWeightKeys) {
+          const raw = source[key];
+          if (raw === undefined || raw === null || raw === '') continue;
+          const numeric = Number(raw);
+          if (!Number.isNaN(numeric)) return numeric;
+        }
+        return null;
+      };
+
+      const livePrintWeight = readNumericWeight(printWeightEntity?.attributes);
+      const backupPrintWeight = readNumericWeight(backupWeights);
+      const printWeight = livePrintWeight !== null ? livePrintWeight : backupPrintWeight;
+      const usingBackupPrintWeight = livePrintWeight === null && backupPrintWeight !== null;
       // --- Configuration ---
       const SPOOLMAN_BASE_URL = 'http://spoolman.socko.us/spool/show';
       const POPUP_SIZE = 'normal';
@@ -33,7 +67,6 @@ ams_tray_popup:
       const vendor = spoolEntity?.attributes?.filament_vendor_name || 'Unknown';
       const location = spoolEntity?.attributes?.location || 'N/A';
       const filamentName = spoolEntity?.attributes?.filament_name || material;
-      const printWeight = states['sensor.ntk_ryansoffice_3dprinter_print_weight']?.attributes?.[printWeightKey];
       const baseColor = spoolEntity?.attributes?.filament_extra_primary_color || '';
       const baseColorIconColor = (() => {
         if (!baseColor) return 'grey';
@@ -162,6 +195,7 @@ ams_tray_popup:
       }
       const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
       const printWeightText = (printWeight && printWeight > 0) ? printWeight.toFixed(1) + ' g' : 'N/A';
+      const printWeightSecondary = usingBackupPrintWeight ? 'This Print (backup)' : 'This Print';
       const printIcon = (remainingWeight !== undefined && printWeight && remainingWeight < printWeight) ? 'mdi:printer-3d-nozzle-alert' : 'mdi:printer-3d-nozzle';
       let printIconColor = 'grey';
       if (printWeight && printWeight > 0) {
@@ -386,7 +420,7 @@ ams_tray_popup:
                     {
                       type: 'custom:mushroom-template-card',
                       primary: printWeightText,
-                      secondary: 'This Print',
+                      secondary: printWeightSecondary,
                       icon: printIcon,
                       icon_color: printIconColor,
                       layout: 'vertical',

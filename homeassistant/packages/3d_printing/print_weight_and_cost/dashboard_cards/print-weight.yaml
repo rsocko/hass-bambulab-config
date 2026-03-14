@@ -1,14 +1,14 @@
 type: entities
 entities:
   - type: custom:button-card
-    entity: sensor.ntk_ryansoffice_3dprinter_print_weight
+    entity: sensor.print_weight_effective
     name: Current Print Weight
     show_icon: false
     show_state: false
     custom_fields:
       weight_label: |
         [[[
-          const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
+          const weightEntity = states['sensor.print_weight_effective'];
           const totalWeight = parseFloat(weightEntity?.state) || 0;
           
           return `<div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Total: ${totalWeight.toFixed(1)}g</div>`;
@@ -16,8 +16,11 @@ entities:
       weight_bar: |
         [[[
           // Get print weight entity
-          const weightEntity = states['sensor.ntk_ryansoffice_3dprinter_print_weight'];
+          const weightEntity = states['sensor.print_weight_effective'];
           if (!weightEntity) return '<div style="color: #888;">No print data</div>';
+
+          const activeWeights = weightEntity.attributes || {};
+          const usingBackupData = weightEntity?.attributes?.data_source === 'backup';
           
           const totalWeight = parseFloat(weightEntity?.state) || 0;
           
@@ -25,36 +28,41 @@ entities:
           const weights = [];
           let attributeTotal = 0;
           
-          for (const [key, value] of Object.entries(weightEntity.attributes)) {
-            if (key.startsWith('AMS') && value && !isNaN(value)) {
+          for (const [key, value] of Object.entries(activeWeights)) {
+            if ((key.startsWith('AMS') || key.startsWith('External')) && value && !isNaN(value)) {
+              let trayEntity = null;
+
               // Parse the tray name: "AMS 1 Tray 2" -> ams_1_tray_2
               const match = key.match(/AMS (\d+) Tray (\d+)/);
               if (match) {
                 const amsNum = match[1];
                 const trayNum = match[2];
                 const trayKey = `ams_${amsNum}_tray_${trayNum}`;
-                const trayEntity = `sensor.p1s_01p00c460102350_${trayKey}`;
-                
-                // Get color from tray entity
-                const tray = states[trayEntity];
-                let color = tray?.attributes?.color || '#cccccc';
-                
-                // Normalize color (remove # and alpha channel if present)
-                if (color.startsWith('#')) {
-                  color = color.substring(1);
-                }
-                if (color.length === 8) {
-                  color = color.substring(0, 6);
-                }
-                color = '#' + color;
-                
-                weights.push({
-                  name: key,
-                  weight: parseFloat(value),
-                  color: color
-                });
-                attributeTotal += parseFloat(value);
+                trayEntity = `sensor.p1s_01p00c460102350_${trayKey}`;
+              } else if (key === 'External' || key === 'External Spool') {
+                trayEntity = 'sensor.ntk_ryansoffice_3dprinter_external_spool';
               }
+
+              // Get color from tray entity
+              const tray = trayEntity ? states[trayEntity] : null;
+              let color = tray?.attributes?.color || '#cccccc';
+
+              // Normalize color (remove # and alpha channel if present)
+              if (color.startsWith('#')) {
+                color = color.substring(1);
+              }
+              if (color.length === 8) {
+                color = color.substring(0, 6);
+              }
+              color = '#' + color;
+
+              const numericWeight = parseFloat(value);
+              weights.push({
+                name: key,
+                weight: numericWeight,
+                color: color
+              });
+              attributeTotal += numericWeight;
             }
           }
           
@@ -154,6 +162,9 @@ entities:
             barHTML += `<span>${item.name}: ${item.weight.toFixed(1)}g (${percent.toFixed(1)}%)</span>`;
             barHTML += '</div>';
           });
+          if (usingBackupData) {
+            barHTML += '<div style="font-size: 11px; color: #888; margin-top: 4px; font-style: italic;">Using backup print-weight data (HA restart recovery)</div>';
+          }
           barHTML += '</div>';
           barHTML += '</div>';
           
