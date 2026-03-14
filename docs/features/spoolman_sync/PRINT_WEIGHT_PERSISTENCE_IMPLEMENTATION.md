@@ -25,7 +25,7 @@ This implementation solves the issue where Home Assistant restarts during an act
 
 Instead of waiting for an upstream fix, we implement a local workaround:
 
-1. **Capture**: Store print_weight attributes when print starts
+1. **Capture**: Store print_weight attributes when the printer is actually `printing`
 2. **Persist**: Save in Home Assistant input helpers (survives restarts)
 3. **Validate**: Include metadata for data integrity checks
 4. **Restore**: Use backup if current sensor has no attributes
@@ -35,8 +35,8 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 
 ```
 ┌─────────────────┐
-│  Print Started  │
-│     Event       │
+│  Print Started / │
+│  Status=Printing │
 └────────┬────────┘
          │
          v
@@ -44,6 +44,7 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 │  Capture Print Weight Attributes     │
 │  - JSON of all AMS tray weights      │
 │  - Metadata (task name, time, total) │
+│  - Wait/retry for delayed MQTT attrs │
 └────────┬────────────────────────────┘
          │
          v
@@ -114,15 +115,19 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 - [homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_sensor_print_weight_data_status.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_sensor_print_weight_data_status.yaml)
 
 ### 2. print_started-backup_print_weight.yaml
-**Purpose**: Automation to capture attributes when print starts
+**Purpose**: Automation to capture attributes only once print data is ready
 
-**Trigger**: `event_print_started` from Bambu Lab device
+**Triggers**:
+- `sensor.<printer>_print_status` → `running` (5s stable)
+- `event_print_started` fallback, gated by waiting for `print_status=running`
 
 **Actions**:
-1. Wait 5 seconds for sensor to populate
-2. Store attributes as JSON
-3. Store metadata (task name, timestamp, total weight)
-4. Log backup action
+1. Wait for actual printing state (if triggered early)
+2. Wait up to 2 minutes for per-tray weight attributes to populate
+3. Final short retry
+4. Store attributes as JSON
+5. Store metadata (task name, timestamp, total weight)
+6. Log backup action and any warnings
 
 **Location**: [homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml)
 
@@ -163,6 +168,9 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 - Stores complete attribute dictionary as JSON
 - Includes metadata for validation
 - Checks data presence before processing
+- Rejects backup if metadata task does not match current task
+- Rejects backup when numeric total print weights diverge beyond tolerance
+- Clears stale backup from a previous task before capturing new print backup
 
 ### Fault Tolerance
 - Gracefully handles missing data
@@ -187,7 +195,7 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 ### Test Scenarios
 
 1. **Normal Operation**: Print without HA restart
-   - ✅ Backup created
+   - ✅ Backup created after printer reaches `running`
    - ✅ Current sensor used
    - ✅ Backup cleared
    
@@ -239,7 +247,7 @@ Instead of waiting for an upstream fix, we implement a local workaround:
 
 ### Optional Adjustments
 
-1. **Delay**: Increase if sensor needs more time (default 5s)
+1. **Timeouts**: Increase wait time if your print status or tray MQTT data arrives slowly
 2. **Storage Size**: Keep payload compact to stay within `input_text` limits (255)
 3. **Notifications**: Add mobile notifications if desired
 4. **Metadata**: Add more validation fields

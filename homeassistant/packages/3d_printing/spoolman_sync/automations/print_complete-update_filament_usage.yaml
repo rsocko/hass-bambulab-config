@@ -12,6 +12,7 @@
   actions:
   # Determine which data source to use
   - variables:
+      task_name_current: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
       current_has_attributes: >
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
            select('match', '^(AMS|External)') | list | length > 0 }}
@@ -24,6 +25,64 @@
         {{ backup_present and
            backup_parsed is mapping }}
       backup_invalid: "{{ backup_present and not backup_available }}"
+
+  # If we may need backup data, give print_weight state a short chance to repopulate after restart.
+  - if:
+      - condition: template
+        value_template: >-
+          {{
+            (not current_has_attributes) and
+            backup_available and
+            (states('sensor.ntk_ryansoffice_3dprinter_print_weight') in ['unknown', 'unavailable', 'none', 'None', ''])
+          }}
+        alias: Backup candidate and current print_weight state unavailable
+    then:
+      - wait_template: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') not in ['unknown', 'unavailable', 'none', 'None', ''] }}
+        timeout: "00:01:30"
+        continue_on_timeout: true
+
+  # Validate whether backup belongs to the current task and (when possible) matches total print weight.
+  - variables:
+      backup_metadata_raw: "{{ states('input_text.print_metadata_backup') | string }}"
+      backup_metadata_parts: "{{ backup_metadata_raw.split('|') }}"
+      backup_metadata_task: "{{ backup_metadata_parts[0] if backup_metadata_parts | count > 0 else '' }}"
+      backup_metadata_total_weight_raw: "{{ backup_metadata_parts[2] if backup_metadata_parts | count > 2 else '' }}"
+      backup_metadata_valid: "{{ backup_metadata_parts | count >= 3 }}"
+      backup_task_matches: >-
+        {{
+          backup_metadata_valid and
+          backup_metadata_task == task_name_current and
+          task_name_current not in ['unknown', 'unavailable', 'none', 'None', '']
+        }}
+      current_total_weight_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | string }}"
+      current_total_weight_valid: >-
+        {{ current_total_weight_raw is match('^-?\\d+(\\.\\d+)?$') }}
+      backup_total_weight_valid: >-
+        {{ backup_metadata_total_weight_raw is match('^-?\\d+(\\.\\d+)?$') }}
+      current_total_weight_value: "{{ current_total_weight_raw | float(0) }}"
+      backup_total_weight_value: "{{ backup_metadata_total_weight_raw | float(0) }}"
+      total_weight_delta_abs: >-
+        {{ (current_total_weight_value - backup_total_weight_value) | abs }}
+      # Use a small tolerance to avoid floating-point/reporting jitter.
+      backup_total_weight_matches: >-
+        {{
+          (not current_total_weight_valid) or
+          (not backup_total_weight_valid) or
+          (total_weight_delta_abs <= 3)
+        }}
+      backup_usable: >-
+        {{ backup_available and backup_task_matches and backup_total_weight_matches }}
+      backup_rejected_reason: >-
+        {% if not backup_available %}
+          backup_missing_or_invalid
+        {% elif not backup_task_matches %}
+          metadata_task_mismatch
+        {% elif not backup_total_weight_matches %}
+          total_weight_mismatch
+        {% else %}
+          ok
+        {% endif %}
   
   # Log the data source decision to system log for debugging
   - action: system_log.write
@@ -31,10 +90,11 @@
     data:
       message: >-
         Print Complete: Checking data source for "{{
-        states('sensor.ntk_ryansoffice_3dprinter_task_name') }}".
+        task_name_current }}".
         Current sensor has attributes: {{ current_has_attributes }}.
         Backup available: {{ backup_available }}.
-        Will use {{ 'backup data (HA was restarted during print)' if (not current_has_attributes and backup_available) else 'current sensor data' }}.
+        Backup usable: {{ backup_usable }} (reason={{ backup_rejected_reason }}).
+        Will use {{ 'backup data (HA was restarted during print)' if (not current_has_attributes and backup_usable) else 'current sensor data' }}.
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
   
@@ -59,23 +119,52 @@
           message: >-
             Found invalid backup payload in input_text.print_weight_backup;
             ignoring backup and using current sensor data only.
+
+  - if:
+      - condition: template
+        value_template: "{{ backup_available and not backup_task_matches }}"
+        alias: Backup metadata task does not match current task
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Complete WARNING: Ignoring backup because task mismatch.
+            current_task="{{ task_name_current }}", backup_task="{{ backup_metadata_task }}".
+          level: warning
+          logger: homeassistant.components.bambulab.spoolman_sync
+
+  - if:
+      - condition: template
+        value_template: "{{ backup_available and backup_task_matches and not backup_total_weight_matches }}"
+        alias: Backup total weight mismatches current total weight
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Complete WARNING: Ignoring backup because total print weight mismatch.
+            current={{ current_total_weight_raw }}g, backup={{ backup_metadata_total_weight_raw }}g,
+            delta={{ total_weight_delta_abs }}g.
+          level: warning
+          logger: homeassistant.components.bambulab.spoolman_sync
   
   - action: logbook.log
     metadata: {}
     data:
       name: Print Weight Data Source
       message: >
-        Print complete for: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+        Print complete for: {{ task_name_current }}.
         Current sensor has attributes: {{ current_has_attributes }}.
-        Backup available: {{ backup_available }}.
-        Will use {{ 'backup data' if (not current_has_attributes and backup_available) else 'current sensor data' }}.
+        Backup available: {{ backup_available }}, usable: {{ backup_usable }}.
+        Will use {{ 'backup data' if (not current_has_attributes and backup_usable) else 'current sensor data' }}.
   
   # Extract attributes from either current sensor or backup
   - variables:
       print_weight_attributes_json: >
         {% if current_has_attributes %}
           {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes | tojson }}
-        {% elif backup_available %}
+        {% elif backup_usable %}
           {{ backup_raw_trimmed }}
         {% else %}
           {}
@@ -164,8 +253,8 @@
       name: Print Weight Processing
       message: >
         Processing {{ ams_tray_list | length }} tray(s) for "{{
-        states('sensor.ntk_ryansoffice_3dprinter_task_name') }}".
-        Data source: {{ 'Backup (HA restarted during print)' if (not current_has_attributes and backup_available) else 'Current sensor' }}.
+        task_name_current }}".
+        Data source: {{ 'Backup (HA restarted during print)' if (not current_has_attributes and backup_usable) else 'Current sensor' }}.
   
   # Process each tray
   - repeat:

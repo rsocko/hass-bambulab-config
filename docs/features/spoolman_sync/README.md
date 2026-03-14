@@ -53,11 +53,14 @@ If you want proactive protection, enable an optional automation that runs the
 self-test script at both print start and print finish.
 
 **Behavior:**
-- Calls the self-test script with phase `start` on print start
+- Calls the self-test script with phase `start` when print status reaches `running` (5s stable)
 - Calls the self-test script with phase `finish` on print completion
 - Uses separate persistent notification IDs:
   - `print_weight_persistence_self_test_start`
   - `print_weight_persistence_self_test_finish`
+
+The backup/capture automations also use this same timing model so per-tray MQTT
+attributes have time to populate before persistence data is stored.
 
 [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_weight_persistence_auto_self_test.yaml)
 

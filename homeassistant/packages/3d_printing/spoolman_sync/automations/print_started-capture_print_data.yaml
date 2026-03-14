@@ -1,16 +1,68 @@
 - alias: Print Started - Capture Print Data
   description: >-
-    Captures print job and AMS tray information when a print starts.
+    Captures print job and AMS tray information once printing is active.
     This data is stored persistently so it can be used for manual recovery
     if the spoolman sync automation fails when the print completes.
     Also captures external spool data if in use.
   triggers:
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: running
+    for:
+      seconds: 5
+    id: status_printing
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
     type: event_print_started
     trigger: device
+    id: event_print_started
   conditions: []
   actions:
+  # If triggered by print_started, wait until printer is actually printing.
+  - if:
+      - condition: template
+        value_template: "{{ trigger.id == 'event_print_started' }}"
+        alias: Triggered by print_started event
+    then:
+      - wait_template: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower == 'running' }}"
+        timeout: "02:00:00"
+        continue_on_timeout: true
+
+  # Wait for at least one tray UUID (or active external spool UUID) to appear.
+  # This avoids persisting mostly empty backup data when MQTT details lag.
+  - wait_template: >-
+      {% set tray_count = namespace(v=0) %}
+      {% for tray_num in range(1, 5) %}
+        {% set tray_entity = 'sensor.p1s_01p00c460102350_ams_1_tray_' ~ tray_num %}
+        {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') | default('', true) %}
+        {% if tray_uuid | string | lower not in ['none', 'unknown', 'unavailable', ''] %}
+          {% set tray_count.v = tray_count.v + 1 %}
+        {% endif %}
+      {% endfor %}
+      {% set external_uuid = state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'tray_uuid') | default('', true) | string | lower %}
+      {{ tray_count.v > 0 or external_uuid not in ['none', 'unknown', 'unavailable', ''] }}
+    timeout: "00:02:00"
+    continue_on_timeout: true
+
+  # One final short retry in case tray details arrive just after timeout.
+  - if:
+      - condition: template
+        value_template: >-
+          {% set tray_count = namespace(v=0) %}
+          {% for tray_num in range(1, 5) %}
+            {% set tray_entity = 'sensor.p1s_01p00c460102350_ams_1_tray_' ~ tray_num %}
+            {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') | default('', true) %}
+            {% if tray_uuid | string | lower not in ['none', 'unknown', 'unavailable', ''] %}
+              {% set tray_count.v = tray_count.v + 1 %}
+            {% endif %}
+          {% endfor %}
+          {% set external_uuid = state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'tray_uuid') | default('', true) | string | lower %}
+          {{ tray_count.v == 0 and external_uuid in ['none', 'unknown', 'unavailable', ''] }}
+        alias: Tray details still not available after wait
+    then:
+      - delay:
+          seconds: 10
+
   - variables:
       task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"  # Update to your printer's task name sensor
       start_time: "{{ now().isoformat() }}"
@@ -73,15 +125,17 @@
     data:
       name: Print Started
       message: >-
-        Print job "{{ task_name }}" started. AMS tray configuration captured for potential recovery.
+        Print job "{{ task_name }}" capture complete (trigger: {{ trigger.id }}).
+        AMS tray configuration captured for potential recovery.
         External spool active: {{ is_external_spool }}.
   - action: system_log.write
     metadata: {}
     data:
       message: >-
-        Print Started: Print job "{{ task_name }}" started at {{ start_time }}.
-        AMS tray configuration captured for potential recovery.
+        Print Data Capture: Print job "{{ task_name }}" captured at {{ start_time }}
+        via trigger {{ trigger.id }}. AMS tray configuration captured for
+        potential recovery.
         External spool active: {{ is_external_spool }}.
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
-  mode: single
+  mode: restart

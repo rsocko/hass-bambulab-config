@@ -1,20 +1,92 @@
 - alias: Print Started - Backup Print Weight Attributes
   description: >
-    Captures and stores print_weight sensor attributes when a print starts.
-    This backup allows the print completion automation to work correctly
-    even if Home Assistant restarts during the print job.
+    Captures and stores print_weight sensor attributes once the printer reaches
+    actual printing. This backup allows the print completion automation to work
+    correctly even if Home Assistant restarts during the print job.
   triggers:
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: running
+    for:
+      seconds: 5
+    id: status_printing
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
     type: event_print_started
     trigger: device
+    id: event_print_started
   conditions: []
   actions:
-  # Short initial delay after print-start event
-  - delay:
-      seconds: 3
-  
-  # Wait for per-tray attributes to populate (timing can vary by print/integration state)
+  - variables:
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      existing_backup_raw: "{{ states('input_text.print_weight_backup') | string | trim }}"
+      existing_backup_parsed: "{{ existing_backup_raw | from_json(None) }}"
+      existing_backup_has_keys: >-
+        {{
+          existing_backup_parsed is mapping and
+          (existing_backup_parsed.keys() | select('match', '^(AMS|External)') | list | length > 0)
+        }}
+      metadata_parts: "{{ states('input_text.print_metadata_backup').split('|') }}"
+      metadata_task: "{{ metadata_parts[0] if metadata_parts | count > 0 else '' }}"
+
+  # Clear stale backup from a different task before trying to capture this one.
+  - if:
+      - condition: template
+        value_template: >-
+          {{
+            existing_backup_has_keys and
+            metadata_task not in ['', 'unknown', 'unavailable', 'none', 'None'] and
+            task_name not in ['', 'unknown', 'unavailable', 'none', 'None'] and
+            metadata_task != task_name
+          }}
+        alias: Existing backup belongs to different task
+    then:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.print_weight_backup
+        data:
+          value: ""
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.print_metadata_backup
+        data:
+          value: ""
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Backup: Cleared stale backup for previous task "{{ metadata_task }}"
+            before capturing current task "{{ task_name }}".
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+
+  # Avoid clobbering good data if this print was already captured.
+  - if:
+      - condition: template
+        value_template: "{{ existing_backup_has_keys and metadata_task == task_name and task_name not in ['unknown', 'unavailable', 'none', 'None', ''] }}"
+        alias: Existing backup already matches active task
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Backup: Existing backup already present for "{{ task_name }}".
+            Skipping duplicate capture. Trigger: {{ trigger.id }}.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - stop: Backup for this task already exists.
+
+  # If triggered by print_started, wait until printer is actually printing.
+  - if:
+      - condition: template
+        value_template: "{{ trigger.id == 'event_print_started' }}"
+        alias: Triggered by print_started event
+    then:
+      - wait_template: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower == 'running' }}"
+        timeout: "02:00:00"
+        continue_on_timeout: true
+
+  # Wait for per-tray attributes to populate after entering printing.
   - wait_template: >-
       {{
         states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys()
@@ -22,10 +94,10 @@
         | list
         | length > 0
       }}
-    timeout: "00:00:45"
+    timeout: "00:02:00"
     continue_on_timeout: true
   
-  # If still empty, do one final retry after a brief pause
+  # If still empty, do one final retry after a brief pause.
   - if:
       - condition: template
         value_template: >-
@@ -38,7 +110,7 @@
         alias: No per-tray attributes yet after wait
     then:
       - delay:
-          seconds: 5
+          seconds: 10
   
   # Store only AMS and External Spool keys from print_weight attributes as JSON
   # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
@@ -62,7 +134,7 @@
       entity_id: input_text.print_metadata_backup
     data:
       value: >
-        {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}|{{ now().isoformat() }}|{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}
+        {{ task_name }}|{{ now().isoformat() }}|{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}
   
   # Log the backup result - warn if no AMS attributes were found
   # Length > 2 skips both an empty string ("") and an empty JSON object ("{}")
@@ -76,15 +148,15 @@
         data:
           name: Print Weight Backup
           message: >
-            Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+            Capture complete for {{ task_name }} (trigger: {{ trigger.id }}).
             Print weight attributes backed up. Total weight: {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
-            Backup will be used if HA restarts during print.
+            Backup will be used if HA restarts during this print.
       - action: system_log.write
         metadata: {}
         data:
           message: >-
-            Print Started: Print weight attributes backed up for "{{
-            states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". Total weight:
+            Print Backup: Attributes backed up for "{{ task_name }}" via trigger
+            {{ trigger.id }}. Total weight:
             {{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
           level: info
           logger: homeassistant.components.bambulab.spoolman_sync
@@ -93,10 +165,9 @@
         metadata: {}
         data:
           message: >-
-            Print Started: WARNING - print_weight sensor has no AMS or External Spool
-            attributes to back up for "{{
-            states('sensor.ntk_ryansoffice_3dprinter_task_name') }}". The sensor may
-            not be populated yet even after wait/retry. If HA restarts during this
+            Print Backup WARNING: print_weight sensor has no AMS or External Spool
+            attributes to back up for "{{ task_name }}" after waiting for
+            printing + retry (trigger {{ trigger.id }}). If HA restarts during this
             print, filament usage cannot be recovered from backup.
           level: warning
           logger: homeassistant.components.bambulab.spoolman_sync
@@ -106,7 +177,7 @@
           name: Print Weight Backup
           message: >
             WARNING: Print started but no print_weight attributes available to back up
-            for {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}. HA restart
+            for {{ task_name }}. HA restart
             during this print may cause filament usage update to fail.
-  
-  mode: restart
+
+  mode: single

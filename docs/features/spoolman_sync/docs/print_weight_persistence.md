@@ -22,7 +22,7 @@ This is a known limitation documented in:
 The solution uses a **backup and restore** mechanism with validation:
 
 ```
-Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → Use Backup if Needed
+Print Starts → Printer Reaches Printing → Backup Attributes → HA Restart (optional) → Print Ends → Use Backup if Needed
 ```
 
 ### Components
@@ -32,8 +32,9 @@ Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → 
    - `input_text.print_metadata_backup`: Stores validation data (task name, start time, total weight)
 
 2. **Print Started Automation** (`print_started-backup_print_weight.yaml`)
-   - Triggers when print starts
+   - Triggers on `print_status=running` (plus `event_print_started` fallback)
    - Captures and stores print_weight sensor attributes
+   - Waits/retries for delayed per-tray MQTT attributes
    - Stores metadata for validation
 
 3. **Enhanced Print Complete Automation** (`print_complete-update_filament_usage.yaml`)
@@ -55,17 +56,19 @@ Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → 
 ```
 1. Print Starts
    ↓
-2. Backup attributes captured
+2. Printer reaches printing state
    ↓
-3. Print runs normally
+3. Backup attributes captured
    ↓
-4. Print Finishes
+4. Print runs normally
    ↓
-5. Use current sensor (has attributes)
+5. Print Finishes
    ↓
-6. Update Spoolman
+6. Use current sensor (has attributes)
    ↓
-7. Clear backup
+7. Update Spoolman
+   ↓
+8. Clear backup
 ```
 
 ### HA Restart During Print
@@ -73,19 +76,21 @@ Print Starts → Backup Attributes → HA Restart (optional) → Print Ends → 
 ```
 1. Print Starts
    ↓
-2. Backup attributes captured
+2. Printer reaches printing state
    ↓
-3. HA Restarts (attributes lost)
+3. Backup attributes captured
    ↓
-4. Print continues
+4. HA Restarts (attributes lost)
    ↓
-5. Print Finishes
+5. Print continues
    ↓
-6. Current sensor empty → Use backup
+6. Print Finishes
    ↓
-7. Update Spoolman
+7. Current sensor empty → Use backup
    ↓
-8. Clear backup
+8. Update Spoolman
+   ↓
+9. Clear backup
 ```
 
 ## Validation Logic
@@ -94,9 +99,11 @@ The solution includes multiple validation checks:
 
 1. **Attribute Presence Check**: Verifies if current sensor has any tray attributes
 2. **Backup Availability Check**: Ensures backup exists before using it
-3. **Data Integrity**: Backup includes metadata (task name, timestamp, total weight)
-4. **Weight Validation**: Only processes trays with weight > 0
-5. **Entity Validation**: Skips empty tray names
+3. **Task Match Check**: Backup metadata task name must match the current print task
+4. **Total Weight Sanity Check**: When both totals are numeric, backup total and current print_weight state must be within tolerance
+5. **Data Integrity**: Backup includes metadata (task name, timestamp, total weight)
+6. **Weight Validation**: Only processes trays with weight > 0
+7. **Entity Validation**: Skips empty tray names
 
 ## Installation
 
@@ -211,20 +218,20 @@ Search and replace with your printer's entity prefix.
 
 ### Backup Not Created
 
-**Symptoms**: `input_text.print_weight_backup` is empty after print starts
+**Symptoms**: `input_text.print_weight_backup` is empty after print is actively printing
 
 **Solutions**:
-1. Check print_started automation is enabled
+1. Check the backup automation is enabled
 2. Verify device_id matches your printer
 3. Check Home Assistant logs for errors
-4. Increase the 5-second delay if sensor not ready
+4. Increase wait timeout values if print status or tray MQTT attributes are delayed
 
 ### Attributes Still Missing
 
 **Symptoms**: Both current sensor and backup are empty
 
 **Solutions**:
-1. Verify print_started automation triggered
+1. Verify backup automation triggered after print status reached `printing`
 2. Check if print_weight sensor exists and has data
 3. Review logbook for backup messages
 4. Check input_text size limits (increase max if needed)
@@ -247,6 +254,14 @@ Search and replace with your printer's entity prefix.
 1. Manual clear: Set input_text.print_weight_backup to empty
 2. Check if automation completed successfully
 3. Review logs for errors in clearing step
+
+### Stale Backup Safety
+
+- At backup capture time, if existing backup metadata belongs to a different task,
+   the automation clears both backup helpers before attempting new capture.
+- At print completion, backup is ignored unless metadata task matches the current
+   task. If total print weight is numeric in both sources, a mismatch also causes
+   backup rejection.
 
 ## Error Handling
 
@@ -317,14 +332,19 @@ Example stored data:
 
 ## Advanced Usage
 
-### Adjust Delay
+### Adjust Wait Timeouts
 
-If print_weight sensor needs more time to populate:
+If print status or print_weight attributes need more time to populate:
 
 ```yaml
 # In print_started-backup_print_weight.yaml
-- delay:
-    seconds: 10  # Increase from 5 to 10
+- wait_template: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower == 'running' }}"
+   timeout: "02:30:00"  # increase if warm-up is very long
+
+- wait_template: >-
+      {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys()
+          | select('match', '^(AMS|External)') | list | length > 0 }}
+   timeout: "00:03:00"  # increase for delayed MQTT tray updates
 ```
 
 ### Add More Metadata
