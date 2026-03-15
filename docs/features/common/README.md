@@ -26,8 +26,11 @@ Shared dashboard infrastructure — layouts, views, reusable card templates, and
 
 ### Key Files
 
-- **`lovelace.3d_printing`** — Root dashboard configuration containing `button_card_templates:` (AMS header, tray label, tray detail, tray popup) and view includes.
+- **`lovelace.3d_printing`** — Root dashboard configuration containing `button_card_templates:` (AMS header, tray label, tray detail, tray popup, catalog location header, catalog spool card, catalog spool popup) and view includes.
 - **`view_main.yaml`** — Primary view assembling cards from all feature packages via `!include`.
+- **`catalog_location_header.yaml`** — Button-card template for filament catalog location section headers. Owned by the [Filament Catalog](../filament_catalog/filament-catalog.md) feature but hosted here because `button_card_templates` loads from a single directory via `!include_dir_merge_named`.
+- **`catalog_spool_card.yaml`** — Compact spool card template for catalog grid display. Same hosting constraint.
+- **`catalog_spool_popup.yaml`** — Browser_mod popup template for spool detail view. Same hosting constraint.
 
 ## Dependencies & Requirements
 
@@ -36,6 +39,7 @@ Shared dashboard infrastructure — layouts, views, reusable card templates, and
 | Dependency | Required | Purpose |
 |---|---|---|
 | [Core](../core/README.md) | **Yes** | Smart status sensor, base template sensors — used in card templates and conditional cards |
+| [Filament Catalog](../filament_catalog/filament-catalog.md) | Cross-dep | Common hosts `catalog_*` button-card templates on behalf of this feature (single-directory `!include_dir_merge_named` constraint). The catalog view is included from `3d_printing.yaml`. |
 
 ### External Dependencies
 
@@ -49,8 +53,9 @@ The cards defined in Common's templates require these custom cards to be install
 
 | Card | Required | Purpose |
 |---|---|---|
-| [button-card](https://github.com/custom-cards/button-card) | **Yes** | AMS header, tray label, tray detail, and tray popup templates |
-| [browser-mod](https://github.com/thomasloven/hass-browser_mod) | **Yes** | Popup dialog support for AMS tray interactions |
+| [button-card](https://github.com/custom-cards/button-card) | **Yes** | AMS header, tray label, tray detail, tray popup, and catalog spool/location templates |
+| [browser-mod](https://github.com/thomasloven/hass-browser_mod) | **Yes** | Popup dialog support for AMS tray and catalog spool interactions |
+| [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) | **Yes** | Dynamic entity filtering used by filament catalog location sections |
 
 > **Common is consumed by every feature that contributes dashboard cards.** All feature `dashboard_cards/` directories are assembled into `view_main.yaml` via `!include`. If you add a new feature with UI cards, it depends on Common.
 
@@ -58,3 +63,4 @@ The cards defined in Common's templates require these custom cards to be install
 
 - [Printer Dashboards](../printer_dashboards/README.md) — Documentation focused on dashboard composition and UI behavior
 - [card-templates-README.md](../printer_dashboards/card-templates-README.md) — Reusable button-card template reference
+- [Filament Catalog](../filament_catalog/filament-catalog.md) — Design document for the location-grouped spool catalog (owns the `catalog_*` templates hosted here)

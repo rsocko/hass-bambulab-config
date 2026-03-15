@@ -1,4 +1,4 @@
-# Filament Catalog Redesign — Design Document
+# Filament Catalog — Design Document
 
 > **Status**: Design finalized, ready for Phase 1 implementation
 > **Last updated**: 2026-03-15
