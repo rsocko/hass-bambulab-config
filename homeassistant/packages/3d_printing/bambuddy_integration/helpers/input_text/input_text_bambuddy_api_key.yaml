@@ -1,0 +1,4 @@
+bambuddy_api_key:
+  name: Bambuddy API Key
+  max: 255
+  initial: ""

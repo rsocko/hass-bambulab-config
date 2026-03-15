@@ -1,0 +1,6 @@
+# Bambuddy integration automations and helpers.
+# Optional: Only needed if you want to integrate with Bambuddy for photo archiving.
+automation: !include_dir_merge_list automations
+
+input_boolean: !include_dir_merge_named helpers/input_boolean
+input_text: !include_dir_merge_named helpers/input_text

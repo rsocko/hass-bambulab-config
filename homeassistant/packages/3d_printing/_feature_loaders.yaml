@@ -8,3 +8,4 @@ openhasp_display_loader: !include openhasp_display/openhasp_display_loader.yaml
 spoolman_sync_loader: !include spoolman_sync/spoolman_sync_loader.yaml
 hms_alert_loader: !include hms_alert/hms_alert_loader.yaml
 notifications_loader: !include notifications/notifications_loader.yaml
+bambuddy_integration_loader: !include bambuddy_integration/bambuddy_integration_loader.yaml

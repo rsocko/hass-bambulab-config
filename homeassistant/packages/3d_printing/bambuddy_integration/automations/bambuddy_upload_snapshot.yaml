@@ -3,7 +3,7 @@ id: bambuddy_upload_print_snapshot_on_completion
 description: >
   Optional automation to upload printer snapshot to Bambuddy archive.
   Requires Bambuddy server setup and configuration.
-  See BAMBUDDY_INTEGRATION.md for setup instructions.
+  See docs/features/bambuddy_integration/BAMBUDDY_INTEGRATION.md for setup instructions.
   
   Note: This automation waits 5 seconds after print completion to ensure
   the snapshot from print_complete_notification is ready.

@@ -1,6 +1,4 @@
 # Printer notification automations and input helpers.
-# Excludes Bambuddy-specific files (bambuddy_helpers, bambuddy_upload_snapshot)
-# which belong in a separate feature package.
 automation: !include_dir_merge_list automations
 
 input_boolean: !include_dir_merge_named helpers/input_boolean

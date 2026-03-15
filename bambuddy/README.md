@@ -112,7 +112,7 @@ sensor: !include bambuddy/sensors.yaml
 rest_command: !include bambuddy/rest_commands.yaml
 ```
 
-Also add the shell command for snapshot uploads (see `notifications/BAMBUDDY_INTEGRATION.md`):
+Also add the shell command for snapshot uploads (see `docs/features/bambuddy_integration/BAMBUDDY_INTEGRATION.md`):
 
 ```yaml
 shell_command:
@@ -302,5 +302,5 @@ Maintenance tracking card with:
 
 - [Bambuddy Documentation](https://wiki.bambuddy.cool/)
 - [Bambuddy API Reference](https://wiki.bambuddy.cool/reference/api/)
-- [Photo Archive Integration](../notifications/BAMBUDDY_INTEGRATION.md) — existing photo upload workflow
-- [Printer Notifications](../notifications/README.md) — notification system
+- [Photo Archive Integration](../docs/features/bambuddy_integration/BAMBUDDY_INTEGRATION.md) — existing photo upload workflow
+- [Printer Notifications](../docs/features/notifications/README.md) — notification system

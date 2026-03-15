@@ -57,9 +57,6 @@ notifications/
 │   └── input_datetime/
 │       ├── input_datetime_3dprinter_quiet_hours_start.yaml
 │       └── input_datetime_3dprinter_quiet_hours_end.yaml
-└── bambuddy/                              # Excluded from loader (separate feature)
-    ├── bambuddy_helpers.yaml
-    └── bambuddy_upload_snapshot.yaml
 ```
 
 ## Quick Start
@@ -205,9 +202,7 @@ The automations currently use hardcoded entity IDs for one printer (`ntk_ryansof
 3. Replace all `ntk_ryansoffice_3dprinter` sensor references with the new printer's prefix
 4. Optionally create per-printer helper sets for independent configuration
 
-## Bambuddy Integration
 
-The `bambuddy/` subdirectory contains helpers and an automation for uploading snapshots to a Bambuddy print archive server. These are **not** loaded by the notifications loader and are intended to be moved to a separate feature package. See [BAMBUDDY_INTEGRATION.md](BAMBUDDY_INTEGRATION.md) for details.
 
 ## Troubleshooting
 

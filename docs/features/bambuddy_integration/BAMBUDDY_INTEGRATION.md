@@ -12,6 +12,24 @@ Bambuddy is a self-hosted print archive and management system for Bambu Lab 3D p
 - API for automation
 - Webhook support for notifications
 
+## Feature Package Location
+
+The Bambuddy integration is deployed as a standalone feature package at:
+
+```
+homeassistant/packages/3d_printing/bambuddy_integration/
+├── bambuddy_integration_loader.yaml     # Feature loader (registered in _feature_loaders.yaml)
+├── automations/
+│   └── bambuddy_upload_snapshot.yaml    # Upload snapshot on print completion
+└── helpers/
+    ├── input_boolean/
+    │   └── input_boolean_bambuddy_integration_enabled.yaml
+    └── input_text/
+        ├── input_text_bambuddy_api_key.yaml
+        ├── input_text_bambuddy_base_url.yaml
+        └── input_text_current_print_archive_id.yaml
+```
+
 ## API Integration
 
 ### Authentication
@@ -128,7 +146,7 @@ Add this action to `print_complete_notification.yaml`:
 
 ### Input Helpers
 
-Add to `notification_helpers.yaml`:
+These are automatically deployed by the `bambuddy_integration_loader.yaml`:
 
 ```yaml
 input_text:
