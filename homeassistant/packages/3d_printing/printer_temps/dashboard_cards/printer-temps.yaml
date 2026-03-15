@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_temps/README.md
 type: horizontal-stack
 cards:
   - type: custom:mushroom-template-card

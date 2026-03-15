@@ -1,0 +1,247 @@
+# catalog_spool_popup_content.yaml
+# Heavy display template for the Filament Catalog spool popup.
+# This renders ONLY inside a browser_mod popup (on-demand, 1 card at a time),
+# so its JS cost does not affect the main grid render.
+#
+# Renders: color banner, UUID, chips, entity image, KPIs,
+#          other-spools list, desiccant/dried info, purchase info.
+#
+# Used by: catalog_spool_popup (as popup content card)
+
+catalog_spool_popup_content:
+  show_icon: false
+  show_name: false
+  show_state: false
+  styles:
+    card:
+      - background: none
+      - border: none
+      - box-shadow: none
+      - padding: 0
+      - margin: 0
+    grid:
+      - grid-template-areas: '"content"'
+      - grid-template-columns: 1fr
+    custom_fields:
+      content:
+        - padding: 0
+        - margin: 0
+  custom_fields:
+    content: |
+      [[[
+        // ============================================================
+        // Read entity attributes
+        // ============================================================
+        const spoolId = entity?.attributes?.id;
+        const spoolEntityId = entity?.entity_id;
+        const spoolName = entity?.attributes?.friendly_name || 'Unknown Spool';
+        const filamentName = entity?.attributes?.filament_name || 'Unknown';
+        const material = entity?.attributes?.filament_material || 'Unknown';
+        const vendor = entity?.attributes?.filament_vendor_name || 'Unknown';
+        const location = entity?.attributes?.location || 'N/A';
+        const remainingWeight = entity?.attributes?.remaining_weight;
+        const initialWeight = entity?.attributes?.initial_weight || 1000;
+        const filamentId = entity?.attributes?.filament_id;
+        const entityPicture = entity?.attributes?.entity_picture || '';
+
+        // Color
+        const rawColor = (entity?.attributes?.filament_color_hex || '888888').replace('#', '');
+        const r = parseInt(rawColor.substring(0, 2), 16) || 128;
+        const g = parseInt(rawColor.substring(2, 4), 16) || 128;
+        const b = parseInt(rawColor.substring(4, 6), 16) || 128;
+        const colorHex = '#' + rawColor;
+        const luminance = (r * 299 + g * 587 + b * 114) / 1000;
+        const textColor = luminance > 128 ? '#000' : '#fff';
+        const borderColor = luminance > 128 ? '#333' : '#fff';
+
+        // Multi-color
+        const multiHexRaw = entity?.attributes?.filament_multi_color_hexes || '';
+        const multiDir = entity?.attributes?.filament_multi_color_direction || '';
+        const isMulti = !!multiHexRaw;
+        const multiList = isMulti ? multiHexRaw.split(',').map(function(h) { return '#' + h.trim().replace(/^#/, ''); }) : [];
+        const gradDir = multiDir === 'coaxial' ? 'to bottom' : 'to right';
+        const bgCSS = isMulti ? 'linear-gradient(' + gradDir + ', ' + multiList.join(', ') + ')' : colorHex;
+
+        // Multi-color text contrast
+        let htColor = textColor, hbColor = borderColor, shadow = '';
+        if (isMulti && multiList.length > 0) {
+          const lums = multiList.map(function(hex) {
+            const h = hex.replace('#', '');
+            return ((parseInt(h.substring(0,2),16)||128)*299 + (parseInt(h.substring(2,4),16)||128)*587 + (parseInt(h.substring(4,6),16)||128)*114) / 1000;
+          });
+          const avg = lums.reduce(function(a, b) { return a + b; }, 0) / lums.length;
+          if (lums.some(function(l) { return l > 128; }) && lums.some(function(l) { return l <= 128; })) {
+            htColor = '#fff'; hbColor = 'rgba(255,255,255,0.6)'; shadow = 'text-shadow:0 1px 3px rgba(0,0,0,0.9),0 0 6px rgba(0,0,0,0.5);';
+          } else { htColor = avg > 128 ? '#000' : '#fff'; hbColor = avg > 128 ? '#333' : '#fff'; }
+        }
+
+        // Strip JSON quotes helper
+        const sq = function(v) { if (!v) return ''; const s = String(v); return (s.startsWith('"') && s.endsWith('"')) ? s.slice(1, -1) : s; };
+
+        // Color attributes
+        const baseColor = sq(entity?.attributes?.filament_extra_primary_color);
+        const colorFamily = sq(entity?.attributes?.filament_extra_color_family);
+        const profileName = sq(entity?.attributes?.filament_extra_profile_name);
+        const typeDetailsRaw = entity?.attributes?.filament_extra_type_details || '';
+        let typeDetails = 'N/A';
+        if (typeDetailsRaw) {
+          try { const p = JSON.parse(typeDetailsRaw); typeDetails = Array.isArray(p) ? p.join(', ') : String(typeDetailsRaw); }
+          catch(e) { typeDetails = sq(typeDetailsRaw); }
+        }
+
+        // Base color icon
+        const namedColors = { 'red':'#F44336','crimson':'#B71C1C','orange':'#FF9800','amber':'#FFC107','yellow':'#FFEB3B','gold':'#FFD700','lime':'#CDDC39','green':'#4CAF50','teal':'#009688','cyan':'#00BCD4','blue':'#2196F3','navy':'#1A237E','indigo':'#3F51B5','violet':'#9C27B0','purple':'#7B1FA2','magenta':'#E91E63','pink':'#F48FB1','rose':'#F06292','white':'#E0E0E0','silver':'#9E9E9E','gray':'#757575','grey':'#757575','black':'#424242','brown':'#795548','tan':'#D2B48C','rainbow':'#FF5722','transparent':'#9E9E9E' };
+        const bcIcon = baseColor ? (namedColors[baseColor.toLowerCase().trim()] || colorHex) : 'grey';
+
+        // UUID
+        const uuid = entity?.attributes?.extra_spool_uuid || '';
+
+        // Desiccant
+        const hasDes = entity?.attributes?.extra_desiccant_in_spool;
+        const desFilled = entity?.attributes?.extra_desiccant_filled;
+        let desStatus = 'empty', desDays = null;
+        if (hasDes && desFilled) {
+          desDays = Math.floor((Date.now() - new Date(desFilled)) / 86400000);
+          if (desDays < 45) desStatus = 'green'; else if (desDays < 60) desStatus = 'yellow'; else if (desDays < 75) desStatus = 'orange'; else desStatus = 'red';
+        }
+        const desColor = { green: '#4CAF50', yellow: '#FFC107', orange: '#FF9800', red: '#f44336' }[desStatus] || '#9E9E9E';
+        let desText = 'No desiccant data';
+        if (desFilled) {
+          const fd = new Date(desFilled);
+          desText = desDays + (desDays === 1 ? ' day ago' : ' days ago') + ' (' + fd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ')';
+        }
+        const desIcon = desStatus === 'empty' ? 'mdi:water-off' : 'mdi:water';
+
+        // Last dried
+        const lastDried = entity?.attributes?.extra_last_dried || '';
+        let driedText = 'Never';
+        if (lastDried) { driedText = new Date(lastDried).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+
+        // Weight / Value
+        const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
+        const price = entity?.attributes?.price || entity?.attributes?.filament_price || null;
+        const valCost = (price && remainingWeight != null && initialWeight) ? (remainingWeight / initialWeight * price) : null;
+        const valueText = valCost !== null ? '$' + valCost.toFixed(2) : 'N/A';
+
+        // Filament totals
+        const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
+        const ft = (filamentId != null && totals) ? totals[String(filamentId)] : null;
+        const totalWt = ft ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g (' + ft.count + (ft.count === 1 ? ' spool' : ' spools') + ')' : 'N/A';
+
+        // Other spools
+        const others = (ft && ft.spools) ? ft.spools.filter(function(s) { return s.entity_id !== spoolEntityId; }) : [];
+        let othersHTML = '';
+        if (others.length > 0) {
+          othersHTML = '<details style="margin:8px 0;"><summary style="cursor:pointer;font-weight:600;font-size:13px;">📦 ' + others.length + ' other spool' + (others.length === 1 ? '' : 's') + ' of same filament</summary><div style="padding:6px 0;">';
+          others.forEach(function(s) {
+            const rem = (s.remaining != null) ? s.remaining.toFixed(1) + ' g' : 'N/A';
+            othersHTML += '<div style="font-size:12px;padding:2px 0;">• <b>' + (s.name || 'Spool') + '</b> (#' + s.id + ') — 📍 ' + (s.location || 'N/A') + ' — ' + rem + '</div>';
+          });
+          othersHTML += '</div></details>';
+        }
+
+        // Purchase info
+        const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
+        const purchaseDate = entity?.attributes?.extra_purchase_date || '';
+        let purchaseHTML = '';
+        if (purchasedFrom || purchaseDate) {
+          let txt = purchasedFrom;
+          if (purchaseDate) { txt += (txt ? ' · ' : '') + new Date(purchaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+          purchaseHTML = '<div style="text-align:center;margin:4px 0;"><span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:shopping" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + txt + '</span></div>';
+        }
+
+        // Print settings
+        const extTemp = entity?.attributes?.filament_settings_extruder_temp;
+        const bedTemp = entity?.attributes?.filament_settings_bed_temp;
+        let settingsHTML = '';
+        if (extTemp || bedTemp) {
+          const txt = (profileName ? profileName + ' · ' : '') + (extTemp ? extTemp + '°C' : '?') + ' / ' + (bedTemp ? bedTemp + '°C' : '?');
+          settingsHTML = '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:16px;color:#78909C;"></ha-icon>' + txt + '</span>';
+        }
+
+        // Color label
+        const colorLabel = isMulti
+          ? multiList.join(' · ').toUpperCase() + '  •  ' + multiDir
+          : colorHex.toUpperCase() + '  •  RGB(' + r + ', ' + g + ', ' + b + ')';
+
+        // ============================================================
+        // Build HTML
+        // ============================================================
+        const pill = function(icon, text, color) {
+          return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;line-height:1;"><ha-icon icon="' + icon + '" style="--mdc-icon-size:16px;color:' + color + ';display:flex;"></ha-icon>' + text + '</span>';
+        };
+
+        return `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <!-- Banner -->
+            <div style="background:${bgCSS};border:3px solid ${hbColor};border-radius:10px;padding:14px 16px;text-align:center;user-select:text;">
+              <div style="font-size:18px;font-weight:700;color:${htColor};${shadow}">${spoolName}</div>
+              <div style="font-size:12px;color:${htColor};opacity:0.85;${shadow}">Spool #${spoolId}  ·  ${location}</div>
+            </div>
+
+            ${uuid ? '<div style="text-align:center;">' + pill('mdi:identifier', uuid, '#9E9E9E') + '</div>' : ''}
+
+            <!-- Material / Vendor / Location -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${pill('mdi:texture-box', 'Material: ' + material, '#FF9800')}
+              ${pill('mdi:factory', 'Vendor: ' + vendor, '#9C27B0')}
+              ${pill('mdi:map-marker', 'Location: ' + location, '#2196F3')}
+            </div>
+
+            <!-- Color / Family / Type -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${pill('mdi:palette-swatch-variant', 'Family: ' + (colorFamily || 'N/A'), '#3F51B5')}
+              ${pill('mdi:circle', 'Primary: ' + (baseColor || 'N/A'), bcIcon)}
+              ${pill('mdi:tag-multiple', 'Type: ' + typeDetails, '#4CAF50')}
+              ${isMulti ? pill('mdi:palette', '✨ Multi-Color · ' + (multiDir || 'unknown'), '#7B1FA2') : ''}
+            </div>
+
+            <!-- Entity image + filament name -->
+            <div style="background:${bgCSS};border:3px solid ${hbColor};border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:12px;user-select:text;">
+              ${entityPicture ? '<img src="' + entityPicture + '" style="width:40px;height:40px;border-radius:50%;border:2px solid ' + hbColor + ';">' : ''}
+              <div>
+                <div style="font-size:14px;font-weight:700;color:${htColor};${shadow}">${filamentName}</div>
+                <div style="font-size:12px;color:${htColor};opacity:0.85;${shadow}">${colorLabel}</div>
+              </div>
+            </div>
+
+            <!-- KPIs -->
+            <div style="display:flex;gap:8px;text-align:center;">
+              <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
+                <ha-icon icon="mdi:weight-gram" style="--mdc-icon-size:24px;color:#26A69A;"></ha-icon>
+                <div style="font-size:14px;font-weight:600;margin-top:4px;">${weightText}</div>
+                <div style="font-size:11px;color:var(--secondary-text-color);">Remaining</div>
+              </div>
+              <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
+                <ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:24px;color:#66BB6A;"></ha-icon>
+                <div style="font-size:14px;font-weight:600;margin-top:4px;">${valueText}</div>
+                <div style="font-size:11px;color:var(--secondary-text-color);">Value Left</div>
+              </div>
+              <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
+                <ha-icon icon="mdi:layers-triple" style="--mdc-icon-size:24px;color:#00BCD4;"></ha-icon>
+                <div style="font-size:14px;font-weight:600;margin-top:4px;">${totalWt}</div>
+                <div style="font-size:11px;color:var(--secondary-text-color);">Total (all spools)</div>
+              </div>
+            </div>
+
+            ${othersHTML}
+
+            <!-- Desiccant / Dried -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+                <ha-icon icon="mdi:thermometer-lines" style="--mdc-icon-size:24px;color:#FF5722;"></ha-icon>
+                <div><div style="font-size:13px;font-weight:600;">${driedText}</div><div style="font-size:11px;color:var(--secondary-text-color);">Last Dried</div></div>
+              </div>
+              <div style="background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+                <ha-icon icon="${desIcon}" style="--mdc-icon-size:24px;color:${desColor};"></ha-icon>
+                <div><div style="font-size:13px;font-weight:600;">${desText}</div><div style="font-size:11px;color:var(--secondary-text-color);">Desiccant</div></div>
+              </div>
+            </div>
+
+            <!-- Purchase / Settings -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${purchaseHTML}${settingsHTML}
+            </div>
+          </div>
+        `;
+      ]]]

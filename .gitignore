@@ -1,0 +1,15 @@
+# Environment variables (secrets)
+.env
+
+# Node modules (if Playwright MCP is installed locally)
+node_modules/
+
+# Playwright MCP local files
+.playwright-mcp/
+
+# Intermediate screenshot capture frames (stitched into GIFs then discarded)
+docs/screenshots/_frames/
+
+# OS files
+.DS_Store
+Thumbs.db

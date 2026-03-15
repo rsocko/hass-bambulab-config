@@ -1,3 +1,4 @@
+# Docs: docs/features/openhasp_display/README.md
 - alias: Push Printer Image to Screen
   id: push_printer_image_to_screen
   description: >

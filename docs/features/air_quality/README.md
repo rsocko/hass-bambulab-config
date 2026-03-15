@@ -10,6 +10,20 @@ The air quality integration provides:
 2. **Automations** - Intelligent air quality management during and after printing
 3. **Alerts** - Notifications when air quality degrades
 
+## Screenshots
+
+<!-- SCREENSHOT: id=air-quality-sensors-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
+
+![Air quality sensor cards — good state (all green)](../../screenshots/images/air-quality-sensors-good.png)
+
+<!-- SCREENSHOT: id=air-quality-sensors-poor | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
+<!-- Capture: Sensor cards during ABS/ASA print showing orange/yellow warning indicators -->
+> **📸 Screenshot needed:** Air quality sensor cards — poor state during high-VOC print *(png)*
+
+<!-- SCREENSHOT: id=air-quality-purifier-controls | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
+
+![Govee air purifier control card](../../screenshots/images/air-quality-purifier-controls.png)
+
 ## Features
 
 ### 📊 Air Quality Monitoring
@@ -64,6 +78,39 @@ The air quality integration provides:
 - **Bento Box Fan** - ESP32-controlled enclosure fan
 - **Smart Switches** - For controlling dumb purifiers
 
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [AirGradient](https://www.airgradient.com/) sensor (I-9PSL) | **Yes** | PM2.5, CO2, VOC, temperature, humidity sensors |
+| [Govee](https://github.com/wez/govee2mqtt) air purifier (via gv2mqtt) | **Yes** | Smart air purifier control — required for purifier automations |
+| Bento Box fan ([ESPHome](https://esphome.io/)) | No | Enclosure ventilation fan — disable by removing bento box automations from loader. Purifier automations work independently. |
+
+### Feature Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [Printer Controls](../printer_controls/README.md) | No | Bento Box fan can also be managed from printer_controls — both packages can coexist |
+
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | Minimalist card designs for sensor display |
+| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | **Yes** | Custom styling for color-coded AQ indicators |
+| [browser-mod](https://github.com/thomasloven/hass-browser_mod) | No | Popup dialogs for purifier controls and Bento Box filter details |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Printer Controls](../printer_controls/README.md) | Bento Box fan also controllable from fan controls UI |
+| [Notifications](../notifications/README.md) | Air quality alerts use the notification service |
+
 ## Deployment
 
 This feature uses the standard loader deployment structure. It is loaded automatically when registered in `_feature_loaders.yaml`.
@@ -90,6 +137,7 @@ Deploy using the GitHub Actions workflow with `selected_packages` including `air
 #### Required Custom Cards (HACS)
 - `mushroom` - Minimalist card designs
 - `card-mod` - Custom styling
+- `browser-mod` - Popup dialogs for purifier controls and Bento Box filter details
 
 #### Required Integrations
 - **AirGradient** - Official integration (device name: I-9PSL)
@@ -166,8 +214,8 @@ air_quality/
 │   ├── bento_box_filter_status.yaml
 │   └── bento_box_hepa_filter_usage.yaml
 └── dashboard_cards/
-    ├── air-quality-cards.yaml            # PM2.5, CO2, VOC, Temp, Humidity cards
-    └── bento-box-filter-cards.yaml       # Filter status monitoring cards
+    ├── air-quality-cards.yaml            # Consolidated AQ header + 2×3 sensor grid + purifier popup
+    └── bento-box-filter-cards.yaml       # Compact Bento Box status card with detail popup
 ```
 
 ### Automations
@@ -242,10 +290,10 @@ Adjust these percentages in the automation YAML files if your purifier uses diff
 
 ### Manual Control
 Use the dashboard cards to:
-- Monitor air quality in real-time
-- Toggle purifier on/off
-- Set purifier speed (Low/Medium/High)
-- View overall air quality status
+- Monitor air quality in real-time via the consolidated status header and sensor rows
+- Tap the Purifier card to open a popup with power toggle and speed controls (Low/Medium/High)
+- Tap the Bento Box card to see filter health, runtime, fan speed, and reset buttons
+- View overall air quality status (Good/Moderate/Poor/Very Poor)
 
 ### Automatic Operation
 Once configured, the automations will:

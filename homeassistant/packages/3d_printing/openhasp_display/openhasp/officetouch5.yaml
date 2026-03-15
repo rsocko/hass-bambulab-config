@@ -1,3 +1,4 @@
+# Docs: docs/features/openhasp_display/esp32s3-5inch-readme.md
 # Cross-package dependency notes for print analytics widgets:
 # - Weight widgets in this plate read sensor.print_weight_effective (core/template_sensors)
 #   which internally falls back to spoolman_sync backup helper input_text.print_weight_backup.

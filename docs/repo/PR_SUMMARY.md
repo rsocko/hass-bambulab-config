@@ -57,8 +57,7 @@ Dashboard card (unified):
 Documentation:
   ├── QUICK_START.md                                  (Quick reference guide)
   ├── IMPLEMENTATION_SUMMARY.md                       (Complete overview)
-  └── docs/features/printer_dashboards/docs/
-      ├── README.md                                   (Documentation index)
+  └── docs/features/hms_alert/
       ├── hms-error-alert-implementation.md           (Technical details)
       ├── hms-error-ui-mockup.md                      (Visual examples)
       └── hms-error-testing-guide.md                  (Testing instructions)

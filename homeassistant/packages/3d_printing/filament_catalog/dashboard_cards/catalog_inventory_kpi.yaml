@@ -1,0 +1,63 @@
+# catalog_inventory_kpi.yaml
+# Inventory summary card showing total spools, filaments, weight, and value.
+# Displayed at the top of the Filament Catalog view.
+
+type: custom:button-card
+entity: sensor.spoolman_filament_totals
+triggers_update: sensor.spoolman_filament_totals
+show_icon: false
+show_name: false
+show_state: false
+tap_action:
+  action: none
+styles:
+  card:
+    - background: none
+    - border: none
+    - box-shadow: none
+    - padding: 8px 12px
+    - margin: 0
+  grid:
+    - grid-template-areas: '"kpi"'
+    - grid-template-columns: 1fr
+  custom_fields:
+    kpi:
+      - padding: 0
+      - margin: 0
+custom_fields:
+  kpi: |
+    [[[
+      const allSpools = Object.values(states).filter(e =>
+        /^sensor\.spoolman_spool_\d+$/.test(e.entity_id) &&
+        !e.attributes.archived
+      );
+      const totalSpools = allSpools.length;
+      const filamentIds = new Set(allSpools.map(s => s.attributes.filament_id).filter(Boolean));
+      const totalFilaments = filamentIds.size;
+      const totalWeight = allSpools.reduce((sum, s) => sum + (s.attributes.remaining_weight || 0), 0);
+      const totalValue = allSpools.reduce((sum, s) => {
+        const price = s.attributes.price || s.attributes.filament_price || 0;
+        const remaining = s.attributes.remaining_weight || 0;
+        const initial = s.attributes.initial_weight || 1000;
+        return sum + (initial > 0 ? (remaining / initial * price) : 0);
+      }, 0);
+
+      const weightKg = (totalWeight / 1000).toFixed(1);
+      const valueStr = '$' + totalValue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+      const pill = (icon, text, color) => `
+        <div style="display:inline-flex; align-items:center; gap:4px; background:rgba(128,128,128,0.1); border-radius:20px; padding:5px 10px 5px 6px; line-height:1;">
+          <ha-icon icon="${icon}" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
+          <span style="font-size:12px; font-weight:600; color:var(--primary-text-color); white-space:nowrap;">${text}</span>
+        </div>
+      `;
+
+      return `
+        <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">
+          ${pill('fapro:filament-2', totalSpools + ' spools', '#42A5F5')}
+          ${pill('mdi:layers-triple', totalFilaments + ' filaments', '#7E57C2')}
+          ${pill('mdi:weight-gram', weightKg + ' kg', '#26A69A')}
+          ${pill('mdi:currency-usd', valueStr + ' inventory', '#66BB6A')}
+        </div>
+      `;
+    ]]]

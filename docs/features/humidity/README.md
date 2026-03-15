@@ -2,6 +2,16 @@
 
 Monitor humidity levels across your room and AMS units with an easy-to-use Home Assistant dashboard card.
 
+## Screenshots
+
+<!-- SCREENSHOT: id=humidity-cards-desktop | format=png | version=1.0 | package=humidity | added=2026-03-15 | captured=2026-03-15 -->
+
+![Humidity cards — desktop layout, optimal conditions](../../screenshots/images/humidity-cards-desktop.png)
+
+<!-- SCREENSHOT: id=humidity-cards-warning | format=png | version=1.0 | package=humidity | added=2026-03-15 -->
+<!-- Capture: Cards showing mixed states — one green (optimal), one amber (monitoring), one red (attention needed) -->
+> **📸 Screenshot needed:** Humidity cards — mixed warning states *(png)*
+
 ## Overview
 
 This humidity monitoring solution provides real-time humidity and temperature data for your 3D printing environment:
@@ -11,6 +21,26 @@ This humidity monitoring solution provides real-time humidity and temperature da
 - **AMS 2 Humidity** - Track humidity and temperature inside AMS Unit 2
 
 The card uses color-coded indicators to quickly identify when humidity levels are optimal (green), need monitoring (amber/orange), or require immediate attention (red).
+
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
+
+This is a dashboard-card-only feature — it has no loader in `_feature_loaders.yaml` and is included via `!include` in `view_main.yaml`.
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [ha-bambulab](https://github.com/greghesp/ha-bambulab) with AMS | **Yes** | Provides AMS humidity and temperature sensor entities |
+| Room humidity sensor (e.g., Aqara, ESPHome) | No | Optional ambient room humidity monitoring — simply omit the room card section if not available |
+
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | Minimalist card designs |
+| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | **Yes** | Color-coded humidity threshold styling |
 
 ## Features
 

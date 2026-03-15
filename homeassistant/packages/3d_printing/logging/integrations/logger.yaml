@@ -1,3 +1,4 @@
+# Docs: docs/features/logging/README.md
 # Home Assistant Logger Configuration
 # This file configures logging levels and filters for Home Assistant
 # Include this in your configuration.yaml with: logger: !include logging/logger.yaml

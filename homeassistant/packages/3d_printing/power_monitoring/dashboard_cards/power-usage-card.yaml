@@ -1,0 +1,329 @@
+# ============================================================
+# Power Usage Summary Card  (Issue #426)
+# ============================================================
+# Compact card showing aggregate power draw and today's energy.
+# Tap opens a browser_mod popup with per-device breakdown,
+# monthly / lifetime stats, and an ApexCharts power history.
+#
+# Entities sourced from TP-Link Kasa Power Strip (AB64).
+# ============================================================
+
+type: custom:button-card
+entity: sensor.tp_link_power_strip_ab64_current_consumption
+name: Power Usage
+icon: mdi:flash
+show_state: false
+show_name: false
+show_icon: false
+styles:
+  grid:
+    - grid-template-areas: '"icon info"'
+    - grid-template-columns: 'min-content 1fr'
+    - align-items: center
+  card:
+    - padding: 10px 14px
+    - border-radius: 12px
+    - background: 'var(--ha-card-background, var(--card-background-color))'
+  custom_fields:
+    icon:
+      - display: flex
+      - align-items: center
+      - justify-content: center
+      - width: 40px
+      - height: 40px
+      - border-radius: 50%
+      - background: >
+          [[[
+            const w = parseFloat(entity.state) || 0;
+            if (w > 100) return 'rgba(244,67,54,0.15)';
+            if (w > 20)  return 'rgba(255,152,0,0.15)';
+            return 'rgba(76,175,80,0.15)';
+          ]]]
+      - color: >
+          [[[
+            const w = parseFloat(entity.state) || 0;
+            if (w > 100) return 'var(--red-color, #F44336)';
+            if (w > 20)  return 'var(--orange-color, #FF9800)';
+            return 'var(--green-color, #4CAF50)';
+          ]]]
+      - '--mdi-icon-size': 22px
+    info:
+      - display: flex
+      - flex-direction: column
+      - padding-left: 10px
+      - gap: 0px
+custom_fields:
+  icon: |
+    [[[
+      return `<ha-icon icon="mdi:flash" style="--mdc-icon-size:22px;"></ha-icon>`;
+    ]]]
+  info: |
+    [[[
+      const watts   = parseFloat(entity.state) || 0;
+      const todayE  = parseFloat(states['sensor.tp_link_power_strip_ab64_today_s_consumption']?.state) || 0;
+      return `
+        <div style="font-weight:600; font-size:13px; line-height:1.3;">
+          ${watts.toFixed(0)} W
+        </div>
+        <div style="font-size:11px; opacity:0.7; line-height:1.3;">
+          ${todayE.toFixed(2)} kWh today
+        </div>
+      `;
+    ]]]
+tap_action:
+  action: fire-dom-event
+  browser_mod:
+    service: browser_mod.popup
+    data:
+      title: "⚡ 3D Printing Power Usage"
+      size: wide
+      content:
+        type: vertical-stack
+        cards:
+          # ── Aggregate summary row ──
+          - type: custom:mushroom-chips-card
+            alignment: center
+            chips:
+              - type: template
+                entity: sensor.tp_link_power_strip_ab64_current_consumption
+                icon: mdi:flash
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_current_consumption') | float(0) %}
+                  {% if w > 100 %}red{% elif w > 20 %}orange{% else %}green{% endif %}
+                content: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_current_consumption') | float(0) | round(0) }} W now
+              - type: template
+                entity: sensor.tp_link_power_strip_ab64_today_s_consumption
+                icon: mdi:calendar-today
+                icon_color: blue
+                content: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_today_s_consumption') | float(0) | round(2) }} kWh today
+              - type: template
+                entity: sensor.tp_link_power_strip_ab64_this_month_s_consumption
+                icon: mdi:calendar-month
+                icon_color: purple
+                content: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_this_month_s_consumption') | float(0) | round(1) }} kWh month
+              - type: template
+                entity: sensor.tp_link_power_strip_ab64_total_consumption
+                icon: mdi:counter
+                icon_color: grey
+                content: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_total_consumption') | float(0) | round(1) }} kWh total
+
+          # ── Per-device breakdown ──
+          - type: custom:mushroom-title-card
+            title: Per-Device Breakdown
+            subtitle: Live power draw per plug
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                entity: sensor.tp_link_power_strip_ab64_ams_heater_current_consumption
+                layout: vertical
+                primary: 3D Printer
+                secondary: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_ams_heater_current_consumption') | float(0) | round(0) }} W
+                icon: mdi:printer-3d
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_ams_heater_current_consumption') | float(0) %}
+                  {% if w > 50 %}red{% elif w > 10 %}orange{% else %}green{% endif %}
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    .primary { font-size: 11px !important; }
+                    .secondary { font-weight: 600; }
+              - type: custom:mushroom-template-card
+                entity: sensor.tp_link_power_strip_ab64_wled_3dprinter_current_consumption
+                layout: vertical
+                primary: WLED LEDs
+                secondary: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_wled_3dprinter_current_consumption') | float(0) | round(0) }} W
+                icon: mdi:led-strip-variant
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_wled_3dprinter_current_consumption') | float(0) %}
+                  {% if w > 30 %}orange{% elif w > 5 %}blue{% else %}green{% endif %}
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    .primary { font-size: 11px !important; }
+                    .secondary { font-weight: 600; }
+              - type: custom:mushroom-template-card
+                entity: sensor.tp_link_power_strip_ab64_3d_printer_camera_current_consumption
+                layout: vertical
+                primary: Camera
+                secondary: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_3d_printer_camera_current_consumption') | float(0) | round(1) }} W
+                icon: mdi:cctv
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_3d_printer_camera_current_consumption') | float(0) %}
+                  {% if w > 5 %}orange{% else %}green{% endif %}
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    .primary { font-size: 11px !important; }
+                    .secondary { font-weight: 600; }
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                entity: sensor.tp_link_power_strip_ab64_3d_printer_current_consumption
+                layout: vertical
+                primary: Filament Dryer
+                secondary: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_3d_printer_current_consumption') | float(0) | round(0) }} W
+                icon: mdi:heat-wave
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_3d_printer_current_consumption') | float(0) %}
+                  {% if w > 50 %}red{% elif w > 5 %}orange{% else %}green{% endif %}
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    .primary { font-size: 11px !important; }
+                    .secondary { font-weight: 600; }
+              - type: custom:mushroom-template-card
+                entity: sensor.tp_link_power_strip_ab64_plug_5_current_consumption
+                layout: vertical
+                primary: AMS Heater
+                secondary: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_plug_5_current_consumption') | float(0) | round(0) }} W
+                icon: mdi:radiator
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_plug_5_current_consumption') | float(0) %}
+                  {% if w > 50 %}red{% elif w > 5 %}orange{% else %}green{% endif %}
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    .primary { font-size: 11px !important; }
+                    .secondary { font-weight: 600; }
+              - type: custom:mushroom-template-card
+                entity: sensor.tp_link_power_strip_ab64_filament_dryer_current_consumption
+                layout: vertical
+                primary: Plug 2
+                secondary: >-
+                  {{ states('sensor.tp_link_power_strip_ab64_filament_dryer_current_consumption') | float(0) | round(0) }} W
+                icon: mdi:power-socket-us
+                icon_color: >-
+                  {% set w = states('sensor.tp_link_power_strip_ab64_filament_dryer_current_consumption') | float(0) %}
+                  {% if w > 5 %}orange{% else %}grey{% endif %}
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |
+                    .primary { font-size: 11px !important; }
+                    .secondary { font-weight: 600; }
+
+          # ── Daily consumption by device ──
+          - type: custom:mushroom-title-card
+            title: Today's Consumption by Device
+          - type: entities
+            entities:
+              - entity: sensor.tp_link_power_strip_ab64_ams_heater_today_s_consumption
+                name: 3D Printer
+                icon: mdi:printer-3d
+              - entity: sensor.tp_link_power_strip_ab64_wled_3dprinter_today_s_consumption
+                name: WLED LEDs
+                icon: mdi:led-strip-variant
+              - entity: sensor.tp_link_power_strip_ab64_3d_printer_camera_today_s_consumption
+                name: Front Camera
+                icon: mdi:cctv
+              - entity: sensor.tp_link_power_strip_ab64_3d_printer_today_s_consumption
+                name: Filament Dryer
+                icon: mdi:heat-wave
+              - entity: sensor.tp_link_power_strip_ab64_plug_5_today_s_consumption
+                name: AMS Heater
+                icon: mdi:radiator
+              - entity: sensor.tp_link_power_strip_ab64_filament_dryer_today_s_consumption
+                name: Plug 2
+                icon: mdi:power-socket-us
+
+          # ── Power History (ApexCharts) ──
+          - type: custom:mushroom-title-card
+            title: Power History (24h)
+          - type: custom:apexcharts-card
+            header:
+              show: false
+            graph_span: 24h
+            apex_config:
+              chart:
+                height: 220
+                stacked: true
+              legend:
+                show: true
+                position: bottom
+                fontSize: 11px
+              tooltip:
+                shared: true
+                followCursor: true
+              xaxis:
+                labels:
+                  datetimeFormatter:
+                    hour: HH:mm
+              yaxis:
+                - title:
+                    text: Watts
+                  min: 0
+                  decimalsInFloat: 0
+            series:
+              - entity: sensor.tp_link_power_strip_ab64_ams_heater_current_consumption
+                name: 3D Printer
+                color: '#F44336'
+                type: area
+                opacity: 0.3
+                stroke_width: 1.5
+                group_by:
+                  func: avg
+                  duration: 5min
+              - entity: sensor.tp_link_power_strip_ab64_wled_3dprinter_current_consumption
+                name: WLED LEDs
+                color: '#2196F3'
+                type: area
+                opacity: 0.3
+                stroke_width: 1.5
+                group_by:
+                  func: avg
+                  duration: 5min
+              - entity: sensor.tp_link_power_strip_ab64_3d_printer_camera_current_consumption
+                name: Camera
+                color: '#4CAF50'
+                type: area
+                opacity: 0.3
+                stroke_width: 1.5
+                group_by:
+                  func: avg
+                  duration: 5min
+              - entity: sensor.tp_link_power_strip_ab64_3d_printer_current_consumption
+                name: Filament Dryer
+                color: '#FF9800'
+                type: area
+                opacity: 0.3
+                stroke_width: 1.5
+                group_by:
+                  func: avg
+                  duration: 5min
+              - entity: sensor.tp_link_power_strip_ab64_plug_5_current_consumption
+                name: AMS Heater
+                color: '#9C27B0'
+                type: area
+                opacity: 0.3
+                stroke_width: 1.5
+                group_by:
+                  func: avg
+                  duration: 5min
+
+          # ── Voltage / Current detail ──
+          - type: custom:mushroom-title-card
+            title: Electrical Detail
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.tp_link_power_strip_ab64_voltage
+                name: Voltage
+                icon: mdi:sine-wave
+              - type: entity
+                entity: sensor.tp_link_power_strip_ab64_current
+                name: Current
+                icon: mdi:current-ac

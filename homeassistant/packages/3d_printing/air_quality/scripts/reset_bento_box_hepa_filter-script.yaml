@@ -1,3 +1,4 @@
+# Docs: docs/features/air_quality/bento-box-filter-tracking.md
 reset_bento_box_hepa_filter:
   alias: Reset Bento Box HEPA Filter Counter
   description: Resets HEPA filter runtime hours to 0 and records the replacement date.

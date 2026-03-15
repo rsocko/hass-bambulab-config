@@ -1,3 +1,4 @@
+# Docs: docs/features/openhasp_display/README.md
 - alias: Save Camera Snapshot from 3D Printer
   id: save_camera_snapshot_from_3d_printer
   description: >

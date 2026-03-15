@@ -1,142 +1,129 @@
-# Dashboard Documentation
+# Printer Dashboards
 
-This directory contains the Home Assistant dashboards for the 3D Printer monitoring system.
+How the main 3D printing dashboard is composed, laid out, and deployed. This section covers the **views and UI components** — for individual features, see the linked feature docs below.
 
-## Files
+## Dashboard Architecture
 
-- **lovelace.3d_printing** - Main 3D printer dashboard configuration (YAML format, paste directly into the Raw Dashboard Editor)
-- **homeassistant/packages/3d_printing/** - Reusable Home Assistant package files (organized by feature and domain)
-- **printer-temps.yaml** - Canonical temperature cards extracted from `view_main.yaml` and included via `!include`
-- **print-progress-kpi-option-*.yaml** - Standalone print progress KPI option cards under `homeassistant/packages/3d_printing/print_progress/dashboard_cards/`
-- **card templates** - Individual `button-card` templates are maintained in the `button_card_templates:` block in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing)
-- **docs/** - Documentation for dashboard features and customization
+The dashboard is defined in [`homeassistant/packages/3d_printing/common/`](../../../homeassistant/packages/3d_printing/common/):
 
-## Dashboard Features
+| File | Purpose |
+|------|---------|
+| `dashboards/_dashboards.yaml` | Lovelace dashboard registration |
+| `dashboard_views/lovelace.3d_printing` | Root config with `button_card_templates:` and view includes |
+| `dashboard_views/view_main.yaml` | Primary view assembling `!include` cards from all feature packages |
+
+Each feature package contributes cards via its `dashboard_cards/` directory, which are `!include`d into `view_main.yaml`.
+
+## Dashboard Layout
+
+<!-- SCREENSHOT: id=dashboard-full-desktop | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
+
+![Full dashboard — desktop overview](../../screenshots/images/dashboard-full-desktop.png)
+
+<!-- SCREENSHOT: id=dashboard-full-mobile | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
+
+![Full dashboard — mobile overview](../../screenshots/images/dashboard-full-mobile.png)
 
 ### Top Bar
-The dashboard features a prominent top bar with status information optimized for readability on both desktop and mobile devices. See [docs/top-bar-layout.md](docs/top-bar-layout.md) for detailed information.
+Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](top-bar-layout.md) for layout design.
 
-Key features:
 - Real-time print status and progress
-- Time remaining and estimated completion time
+- Time remaining and estimated completion
 - Live camera feeds
-- Health monitoring system (HMS) error status
+- HMS error status badge
 
 ### Main Content Area
 - Bambu Lab print status card with controls
 - Advanced camera card with multiple views
-- AMS (Automatic Material System) status
+- AMS status with interactive tray popups
 - Spool information and tracking
 
 ### AMS Tray Popup
-Interactive popup dialogs for detailed spool information. See [docs/ams-tray-popup.md](docs/ams-tray-popup.md) for detailed information.
+Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md](ams-tray-popup.md) and [ams-tray-popup-visual.md](ams-tray-popup-visual.md).
 
-Key features:
-- Click any AMS tray to open detailed spool information
-- Color-coded filament display with brightness-adjusted text
-- 7-day weight history chart
-- Desiccant status tracking with age-based color indicators
-- One-click desiccant reset button
-- Direct link to Spoolman web interface
-- Fallback display for unmatched or empty trays
+<!-- SCREENSHOT: id=ams-tray-popup-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 | captured=2026-03-15 -->
+
+![AMS tray popup — matched spool with full details](../../screenshots/images/ams-tray-popup-matched.png)
+
+<!-- SCREENSHOT: id=ams-tray-popup-interaction | format=gif | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Record tap on AMS tray card → popup opens → scroll through details → close. ~5-8s loop (use ScreenToGif or ShareX GIF mode) -->
+> **🎬 Animation needed:** AMS tray popup — tap-to-open interaction *(gif)*
 
 ### AMS Header Cards
-Custom bubble-card separator headers placed above each AMS unit, replacing the built-in
-`ha-bambulab-ams-card` header and info bar. See [card-templates-README.md](card-templates-README.md) for template variables.
+Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](card-templates-README.md).
 
-Key features:
-- Reusable `ams_header` button-card template with configurable variables
-- Humidity sub-button with dynamic icon and color based on Bambu Lab's 1–5 rating (mapped to percentage thresholds)
-- Temperature sub-button with color-coded background (blue → green → amber → orange → red)
-- Replaces `subtitle` and `show_info_bar` on the AMS card for a cleaner, more informative display
+### Feature Cards
+Each feature contributes dashboard cards — see feature-specific docs:
 
-### Print Details
-The Print Details section includes an enhanced print weight visualization. See [docs/print-weight-bar-chart.md](docs/print-weight-bar-chart.md) for detailed information.
+| Dashboard Section | Feature Docs |
+|-------------------|-------------|
+| HMS Error Banner | [HMS Alert](../hms_alert/README.md) |
+| Temperature Cards | [Printer Temps](../printer_temps/README.md) |
+| Print Progress KPIs | [Print Progress](../print_progress/README.md) |
+| Weight & Cost | [Print Weight & Cost](../print_weight_and_cost/README.md) |
+| Fan Controls | [Printer Controls](../printer_controls/README.md) |
+| LED Controls | [Printer LED](../printer_led/README.md) |
+| Spool Tracking | [Spoolman Sync](../spoolman_sync/README.md) |
 
-Key features:
-- Horizontal stacked bar chart showing filament usage breakdown
-- Each segment colored with actual filament color
-- Percentage display for each filament (when segment is large enough)
-- Total weight display
-- Dark and light mode compatible with proper borders and contrast
+## Dashboard-Specific Documentation
 
-### Temperature Monitoring
-Standalone temperature display cards for nozzle and bed temperatures. See [docs/printer-temps-cards.md](docs/printer-temps-cards.md) or [docs/printer-temps-quick-start.md](docs/printer-temps-quick-start.md) for detailed information.
+| File | Description |
+|------|-------------|
+| [top-bar-layout.md](top-bar-layout.md) | Top bar card layout and responsive grid |
+| [ams-tray-popup.md](ams-tray-popup.md) | AMS tray popup implementation and data sources |
+| [ams-tray-popup-visual.md](ams-tray-popup-visual.md) | Visual mockup and layout guide |
+| [active-spool-border.md](active-spool-border.md) | Active spool cyan border indicator |
+| [card-templates-README.md](card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
+| [animation-design-notes.md](animation-design-notes.md) | CSS animation design notes and patterns |
+| [multicolor-spool-testing.md](multicolor-spool-testing.md) | Testing guide for multi-color spool display |
+| [YAML_CONVERSION_STATUS.md](YAML_CONVERSION_STATUS.md) | YAML conversion status and known issues |
 
-Key features:
-- Real-time current and target temperature display
-- Color-coded heating/cooling indicators (red = heating, blue = cooling, grey = at target)
-- Fixed semantic icons with color-coded temperature state
-- Horizontal compact layout for mobile and desktop
-- Easy to paste into any dashboard view
+## Custom Cards Required (HACS)
 
-### Print Progress Cards
-Animated progress cards for monitoring active prints. Available as standalone KPI option files in `homeassistant/packages/3d_printing/print_progress/dashboard_cards/`.
-See [docs/print-progress-options-guide.md](docs/print-progress-options-guide.md) for all thirteen issue #516 progress design variants.
-See [docs/print-progress-dependencies.md](docs/print-progress-dependencies.md) for include wiring, required entities, and deployment caveats.
-
-Key features:
-- **Layer Progress** — layers icon bounces upward while printing, simulating layers piling up
-- **Print Progress** — icon spins continuously while printing
-- **Time Remaining** — clock icon rotates like spinning clock hands while printing
-- **Est. Completion** — flag waves gently while printing; turns green when finished; smart human-readable time format:
-  - Same day: `4:32 PM`
-  - Next day: `4:32 PM tomorrow`
-  - Within a week: `4:32 PM on Wednesday`
-  - Farther away: `4:32 PM on 4/12/26`
-- All animations stop automatically when the print is paused, stopped, or complete
-- Finished-state visuals for KPI options now retain semantic colors (instead of gray) for configured icons/progress/fill elements
-- 2×2 grid layout: Layer Progress + Print Progress (row 1), Time Remaining + Est. Completion (row 2)
-
-## Custom Cards Required
-
-The dashboard uses several custom cards that must be installed via HACS:
-
-1. **ha-bambulab-print_status-card** - Bambu Lab specific print status
-2. **ha-bambulab-ams-card** - AMS tray monitoring
-3. **ha-bambulab-spool-card** - Filament spool information
-4. **bubble-card** - Modern card design for status info
-5. **mushroom** - Minimalist cards for sensors
-6. **advanced-camera-card** - Enhanced camera viewing
-7. **config-template-card** - Dynamic card templates
-8. **button-card** - Customizable button cards (AMS tray templates and popup action buttons)
-9. **auto-entities** - Dynamic entity lists
-10. **vertical-layout** - Layout control
-11. **grid-layout** - Grid layout control
-12. **card-mod** (optional) - Custom styling
-13. **browser-mod** - Required for AMS tray popup dialogs
+1. **ha-bambulab-print_status-card** — Bambu Lab print status
+2. **ha-bambulab-ams-card** — AMS tray monitoring
+3. **ha-bambulab-spool-card** — Filament spool information
+4. **bubble-card** — Modern card design
+5. **mushroom** — Minimalist sensor cards
+6. **advanced-camera-card** — Enhanced camera viewing
+7. **config-template-card** — Dynamic card templates
+8. **button-card** — Customizable buttons (AMS tray templates, popup actions)
+9. **auto-entities** — Dynamic entity lists
+10. **vertical-layout** / **grid-layout** — Layout control
+11. **card-mod** (optional) — Custom styling
+12. **browser-mod** — AMS tray popup dialogs
 
 ## Installation
 
 1. Install all required custom cards via HACS
-2. Open your dashboard in Home Assistant → **Edit dashboard** → three-dot menu → **Raw configuration editor**
-3. Paste the contents of **`lovelace.3d_printing`** into the editor
-4. Update entity names to match your Bambu Lab printer configuration (see [Configuration](#configuration) below)
-5. Click **Save** and reload the dashboard
+2. **Edit dashboard** → three-dot menu → **Raw configuration editor**
+3. Paste contents of `lovelace.3d_printing`
+4. Update entity names to match your printer
+5. **Save** and reload
 
-> **No `configuration.yaml` changes are required.** The AMS tray card templates are defined
-> in the `button_card_templates:` block at the top of `lovelace.3d_printing` and are immediately
-> usable after pasting.
+> The AMS tray card templates are defined in the `button_card_templates:` block at the top of `lovelace.3d_printing` — no `configuration.yaml` changes needed.
 
-If you want to load the template sensors from `configuration.yaml`, use one of these patterns:
+## Dependencies & Requirements
 
-```yaml
-sensor: !include_dir_merge_list template_sensors/
-```
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-or point `sensor` directly to this feature folder:
+Printer Dashboards is the **aggregation layer** — it assembles cards contributed by all other features. Every feature with a `dashboard_cards/` directory is an implicit dependency.
 
-```yaml
-sensor: !include_dir_merge_list homeassistant/packages/3d_printing/
-```
+### Feature Dependencies
 
-`!include_dir_merge_list` is not recursive, so files in nested folders are not auto-loaded when `sensor` points at `sensors/`.
+| Dependency | Required | Purpose |
+|---|---|---|
+| All features with `dashboard_cards/` | No (individually) | Each feature contributes cards via `!include` into `view_main.yaml`. Remove an `!include` line to remove that feature's cards from the dashboard. |
 
-### AMS Tray Templates
+### Custom Frontend Cards (HACS)
 
-The AMS tray cards use three `button-card` templates (`ams_tray_label`, `ams_tray_detail`,
-`ams_tray_popup`) and the `ams_header` template defined in the `button_card_templates:` block at the top of
-`lovelace.3d_printing`. No external files or `configuration.yaml` entry are needed.
+See the [Custom Cards Required](#custom-cards-required-hacs) section above for the full list of 12 HACS cards. All are required for the full dashboard experience; `card-mod` is the only optional one (cosmetic styling).
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Core — Smart Status](../core/README.md) | Status mapping used throughout the dashboard |
 
 **Why `button_card_templates` is dashboard-level (not `configuration.yaml`):**
 button-card reads `button_card_templates` from the Lovelace dashboard config object itself

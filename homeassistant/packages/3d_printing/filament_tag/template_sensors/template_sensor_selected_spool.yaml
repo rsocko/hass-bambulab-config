@@ -1,3 +1,4 @@
+# Docs: docs/features/filament_tag/README.md
 - name: "selected_spool"
   unique_id: "filament_tag_selected_spool"
   icon: fapro:filament-2

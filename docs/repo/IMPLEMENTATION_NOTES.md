@@ -13,7 +13,7 @@ This implementation adds custom popup dialogs for each AMS (Automatic Material S
   - Spool entity attributes from `sensor.spoolman_spool_{id}`
   - Raw tray data from AMS sensors when no match exists
 
-### 2. Documentation ([docs/features/printer_dashboards/docs/ams-tray-popup.md](../features/printer_dashboards/docs/ams-tray-popup.md))
+### 2. Documentation ([docs/features/printer_dashboards/ams-tray-popup.md](../features/printer_dashboards/ams-tray-popup.md))
 Created comprehensive documentation covering:
 - All implemented features
 - Data sources and structure
@@ -195,7 +195,7 @@ The following features are documented but not yet implemented:
 
 1. `/homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing` - Main dashboard (8 tap_action updates)
 2. `/docs/features/printer_dashboards/README.md` - Feature documentation and requirements
-3. `/docs/features/printer_dashboards/docs/ams-tray-popup.md` - Detailed popup documentation (NEW)
+3. `/docs/features/printer_dashboards/ams-tray-popup.md` - Detailed popup documentation (NEW)
 
 ## Validation
 
@@ -229,7 +229,7 @@ For issues with this implementation:
 1. Check browser console for JavaScript errors
 2. Verify browser-mod is properly installed
 3. Ensure all sensor entities exist
-4. Review documentation in `/docs/features/printer_dashboards/docs/ams-tray-popup.md`
+4. Review documentation in `/docs/features/printer_dashboards/ams-tray-popup.md`
 
 ---
 

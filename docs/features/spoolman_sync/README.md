@@ -1,5 +1,15 @@
 # Spoolman Sync - Home Assistant Automations
 
+## Screenshots
+
+<!-- SCREENSHOT: id=spoolman-persistent-notification | format=png | version=1.0 | package=spoolman_sync | added=2026-03-15 -->
+<!-- Capture: HA persistent notification showing a spoolman sync error with recovery data (error logging system output) -->
+> **📸 Screenshot needed:** Spoolman sync error — persistent notification with recovery data *(png)*
+
+<!-- SCREENSHOT: id=spoolman-self-test-pass | format=png | version=1.0 | package=spoolman_sync | added=2026-03-15 -->
+<!-- Capture: HA persistent notification showing self-test passing (green/OK status) -->
+> **📸 Screenshot needed:** Print weight persistence self-test — passing result *(png)*
+
 ## Description: 
 This is a collection of Home Assistant automations & scripts I have configured to automatically keep Spoolman updated based on actual print jobs and filament usage in my Bambu Lab P1S printer. It uses the Bambu Lab Home Assistant integration to react to various printer events and then reads and writes information on Spoolman as needed.
 
@@ -64,7 +74,26 @@ attributes have time to populate before persistence data is stored.
 
 [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_weight_persistence_auto_self_test.yaml)
 
-## Prequisites:
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it has no dashboard cards of its own (UI is provided via Core template sensors and other features that consume its data).
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [ha-bambulab](https://github.com/greghesp/ha-bambulab) | **Yes** | Printer sensors, device triggers, AMS tray data |
+| [Spoolman](https://github.com/Donkie/Spoolman) | **Yes** | Spool and filament database — must be installed and accessible from HA |
+| [Spoolman HA integration](https://github.com/Disane87/spoolman-homeassistant) | **Yes** | Home Assistant integration for updating Spoolman |
+| [REST integration](https://www.home-assistant.io/integrations/rest/) | **Yes** | REST endpoint sensor for Spoolman API spool retrieval |
+
+### Spoolman Configuration Required
+
+- Custom Fields added to Spoolman — see [detailed instructions](docs/spoolman_custom_fields.md)
+- One location in Spoolman called `AMS` (the "find spool" logic checks for spools in that location as an indicator they are active)
+- REST endpoint sensor configured for Spoolman API — see [detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md)
+
+### Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
 - Custom Fields added to Spoolman as follows: ([detailed instructions](docs/spoolman_custom_fields.md))

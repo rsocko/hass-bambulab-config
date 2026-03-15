@@ -1,3 +1,4 @@
+# Docs: docs/features/wled/ha-state-machine-package.md
 wled_3dprinter_apply_core_state_to_presets:
   alias: WLED 3D Printer - Apply Core State To Presets
   description: Map current core state to DigQuad/MagWLED preset IDs and apply.

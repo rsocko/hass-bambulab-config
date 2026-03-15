@@ -1,10 +1,11 @@
 alias: "Bambuddy - Update Archive on Print Completion"
 id: bambuddy_update_archive_on_print_completion
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 description: >
   When a print finishes, updates the Bambuddy archive entry with the result status
   (success, failed, or cancelled) and uploads the camera snapshot if available.
   The archive entry must have been created by sync_print_history.yaml on print start.
-  See bambuddy/README.md for setup instructions.
 
 triggers:
   # Replace device_id with your printer's device ID (found in Settings → Devices)

@@ -1,3 +1,4 @@
+# Docs: docs/features/wled/ha-state-machine-package.md
 wled_3dprinter_transition_from_event:
   alias: WLED 3D Printer - Transition From Event
   description: Resolve an E_* event to core state and update helper entities.

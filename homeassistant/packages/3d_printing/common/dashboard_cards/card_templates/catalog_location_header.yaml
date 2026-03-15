@@ -1,0 +1,65 @@
+# catalog_location_header.yaml
+# Location section header for the Filament Catalog view.
+# Displays location name, spool count, and a separator line.
+# Self-hides when no spools exist at the given location (count === 0).
+# Used as a STATIC card in the view (not wrapped in auto-entities).
+#
+# Variables:
+#   locationName  - Display name (e.g., "AMS", "Closet Rack 1")
+#   locationIcon  - Header icon (default: "mdi:map-marker")
+
+catalog_location_header:
+  type: custom:button-card
+  entity: sensor.spoolman_filament_totals
+  triggers_update: sensor.spoolman_filament_totals
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - border: none
+      - box-shadow: none
+      - padding: 6px 0
+      - margin: 0
+      - display: |
+          [[[
+            const locName = variables.locationName || 'Unknown';
+            const count = Object.values(states).filter(e =>
+              /^sensor\.spoolman_spool_\d+$/.test(e.entity_id) &&
+              e.attributes.location === locName &&
+              !e.attributes.archived
+            ).length;
+            return count === 0 ? 'none' : '';
+          ]]]
+    grid:
+      - grid-template-areas: '"header"'
+      - grid-template-columns: 1fr
+      - width: 100%
+      - padding: 0 12px
+      - box-sizing: border-box
+    custom_fields:
+      header:
+        - padding: 0
+        - margin: 0
+  custom_fields:
+    header: |
+      [[[
+        const locName = variables.locationName || 'Unknown';
+        const icon = variables.locationIcon || 'mdi:map-marker';
+        const count = Object.values(states).filter(e =>
+          /^sensor\.spoolman_spool_\d+$/.test(e.entity_id) &&
+          e.attributes.location === locName &&
+          !e.attributes.archived
+        ).length;
+        return `
+          <div style="display:flex; align-items:center; width:100%;">
+            <ha-icon icon="${icon}" style="--mdc-icon-size:20px; color:var(--primary-text-color); flex-shrink:0;"></ha-icon>
+            <span style="font-size:14px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; flex-shrink:0; margin-left:4px;">${locName}</span>
+            <span style="font-size:12px; font-weight:400; color:var(--secondary-text-color); margin-left:6px; flex-shrink:0;">(${count})</span>
+            <div style="flex:1; height:3px; background:rgba(255,255,255,0.12); margin-left:8px; border-radius:1.5px; min-width:10px;"></div>
+          </div>
+        `;
+      ]]]

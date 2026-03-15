@@ -40,11 +40,11 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
-### [LED Controls for Bambu Lab Printer](docs/features/printer_dashboards/LED_CONTROLS_README.md)
+### [LED Controls for Bambu Lab Printer](docs/features/printer_led/LED_CONTROLS_README.md)
   - Control all printer lights (MagWLED, chamber, AMS, front display)
   - WLED RGBIC control with effects and palettes
   - Quick actions and status overview
-  - See [full documentation](docs/features/printer_dashboards/docs/led-controls.md)
+  - See [full documentation](docs/features/printer_led/led-controls.md)
 ### [Centralized Logging & Monitoring](docs/features/logging/README.md)
   - structured logging with correlation IDs
   - error/warning tracking and alerting

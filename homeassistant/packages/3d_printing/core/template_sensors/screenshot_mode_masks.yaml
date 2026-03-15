@@ -1,0 +1,29 @@
+# Screenshot-safe display sensors that mask PII when screenshot_mode is enabled.
+# Used by dashboard badges and header to hide IP address, serial number, etc.
+
+- name: "3d_printer_ip_address_display"
+  icon: mdi:ip-network
+  state: >
+    {% if is_state('input_boolean.screenshot_mode', 'on') %}
+      ••••••••••
+    {% else %}
+      {{ states('sensor.3d_printer_ip_address') }}
+    {% endif %}
+
+- name: "3d_printer_serial_number_display"
+  icon: mdi:barcode
+  state: >
+    {% if is_state('input_boolean.screenshot_mode', 'on') %}
+      ••••••••••••••
+    {% else %}
+      {{ states('sensor.3d_printer_serial_number') }}
+    {% endif %}
+
+- name: "3d_printer_name_display"
+  icon: mdi:printer-3d
+  state: >
+    {% if is_state('input_boolean.screenshot_mode', 'on') %}
+      3D Printer
+    {% else %}
+      {{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}
+    {% endif %}

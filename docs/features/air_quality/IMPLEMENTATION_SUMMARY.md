@@ -6,27 +6,23 @@ This implementation provides a complete air quality monitoring and automated air
 
 ## What's Included
 
-### 1. Dashboard Cards ([homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml))
+### 1. Dashboard Cards
 
-**Air Quality Sensors (Horizontal Layout)**
-- PM2.5 (Particulate Matter) - Tracks fine particles from printing
-- CO2 (Carbon Dioxide) - Monitors ventilation quality
-- VOC (Volatile Organic Compounds) - Detects filament off-gassing
-- Temperature - Room temperature monitoring
-- Humidity - Relative humidity tracking
+**Air Quality Card** ([air-quality-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml))
+- Consolidated status header (Good / Moderate / Poor / Very Poor) with Red/Yellow/Green color coding
+- Two rows of 3 sensor cards: PM2.5 · CO2 · VOC and Temp · Humidity · Purifier
+- Purifier speed controls (Low/Medium/High) moved into a browser_mod popup — tap the Purifier card
 
-**Govee Air Purifier Control**
-- Status card with on/off toggle
-- Speed control buttons (Low 33% / Medium 66% / High 100%)
-- Overall air quality status indicator
-- Color-coded visual feedback
+**Bento Box Filter Card** ([bento-box-filter-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml))
+- Single compact status card showing overall status + HEPA/Carbon usage percentages
+- Tap opens browser_mod popup with filter health, runtime tracking, fan speed control, and reset buttons
 
 **Features:**
 - ✅ Copy-paste ready YAML
 - ✅ Color-coded icons (green/yellow/orange/red)
-- ✅ Interactive tap actions
-- ✅ Mobile-friendly grid layout alternative
-- ✅ Extensive customization comments
+- ✅ Interactive tap actions with popup detail views
+- ✅ Compact main dashboard footprint
+- ✅ Requires browser-mod, mushroom, and card-mod
 
 ### 2. Automations ([homeassistant/packages/3d_printing/air_quality/](../../../homeassistant/packages/3d_printing/air_quality/))
 

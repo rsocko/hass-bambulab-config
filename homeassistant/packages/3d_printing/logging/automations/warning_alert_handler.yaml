@@ -1,3 +1,4 @@
+# Docs: docs/features/logging/README.md
 - alias: "Logging: Warning Alert Handler"
   id: logging_warning_alert_handler
   description: "Monitor system logs for warnings that may need attention"

@@ -1,3 +1,4 @@
+# Docs: docs/features/wled/README.md
 - alias: "WLED 3D Printer - Idle Telemetry Overlays"
   id: wled_3dprinter_idle_telemetry_overlays
   description: >-

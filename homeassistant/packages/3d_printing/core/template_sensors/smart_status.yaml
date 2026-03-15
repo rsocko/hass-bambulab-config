@@ -1,3 +1,4 @@
+# Docs: docs/features/core/SMART_STATUS.md
 - name: "ntk_ryansoffice_3dprinter_smart_status"
   state: >
     {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}

@@ -1,0 +1,7 @@
+# Toggle to mask sensitive data (IP address, serial number, printer name)
+# on the dashboard for safe screenshots. Enable before taking screenshots
+# for public sharing; disable to restore normal display.
+screenshot_mode:
+  name: "Screenshot Mode"
+  icon: mdi:eye-off
+  initial: false

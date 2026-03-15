@@ -1,3 +1,4 @@
+# Docs: docs/features/core/README.md
 # Shared sensor for all UI consumers that need restart-safe print-weight data.
 # Dependencies:
 # - Primary source: sensor.ntk_ryansoffice_3dprinter_print_weight (ha-bambulab)

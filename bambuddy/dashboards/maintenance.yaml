@@ -1,7 +1,7 @@
 # Bambuddy Maintenance Dashboard Card
 # Surfaces maintenance information derived from Bambuddy statistics.
-# Shows maintenance milestones, success rate health, and links to Bambuddy.
-# See bambuddy/README.md for setup instructions.
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 
 type: vertical-stack
 cards:

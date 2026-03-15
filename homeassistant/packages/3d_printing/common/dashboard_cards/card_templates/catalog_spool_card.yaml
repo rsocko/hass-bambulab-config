@@ -1,0 +1,137 @@
+# catalog_spool_card.yaml
+# Compact spool card for the Filament Catalog grid view.
+# Displays entity picture, filament name, material, vendor,
+# remaining weight, weight bar, and desiccant indicator.
+# Tap opens catalog_spool_popup via browser_mod.
+#
+# Designed for use with auto-entities (card_param: cards).
+# The entity is set automatically by auto-entities.
+
+catalog_spool_card:
+  template:
+    - catalog_spool_popup
+  type: custom:button-card
+  show_entity_picture: true
+  show_icon: false
+  show_name: true
+  show_state: false
+  show_label: true
+  name: |
+    [[[
+      return entity?.attributes?.filament_name || entity?.attributes?.friendly_name || 'Unknown';
+    ]]]
+  label: |
+    [[[
+      const material = entity?.attributes?.filament_material || '';
+      const vendor = entity?.attributes?.filament_vendor_name || '';
+      return material + (material && vendor ? ' · ' : '') + vendor;
+    ]]]
+  custom_fields:
+    remaining_weight: |
+      [[[
+        const w = entity?.attributes?.remaining_weight;
+        if (w === undefined || w === null) return '';
+        return `<span style="font-size:11px; font-weight:600; color:var(--primary-text-color);">${w.toFixed(0)}g</span>`;
+      ]]]
+    weight_bar: |
+      [[[
+        const usedPct = entity?.attributes?.used_percentage;
+        if (usedPct === undefined || usedPct === null) return '';
+        const remainPct = Math.min(Math.max(100 - usedPct, 0), 100);
+        let barColor;
+        if (remainPct > 50) barColor = '#4CAF50';
+        else if (remainPct > 25) barColor = '#FFC107';
+        else if (remainPct > 10) barColor = '#FF9800';
+        else barColor = '#f44336';
+        return `<div style="display:flex;align-items:center;gap:4px;"><div style="flex:1;height:3px;background:rgba(128,128,128,0.2);border-radius:2px;overflow:hidden;"><div style="width:${remainPct}%;height:100%;background:${barColor};border-radius:2px;"></div></div><span style="font-size:9px;color:var(--secondary-text-color);white-space:nowrap;">${remainPct.toFixed(0)}%</span></div>`;
+      ]]]
+    desiccant_icon: |
+      [[[
+        const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
+        const filled = entity?.attributes?.extra_desiccant_filled;
+        if (!hasDesiccant || !filled) return '';
+        const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
+        if (days < 45) return '';
+        let color;
+        if (days < 60) color = '#ffcc00';
+        else if (days < 75) color = '#ff9900';
+        else color = '#cc0000';
+        return `<ha-icon icon="mdi:water" style="--mdc-icon-size:14px; color:${color};"></ha-icon>`;
+      ]]]
+    location_label: |
+      [[[
+        const loc = entity?.attributes?.location || '';
+        if (!loc) return '';
+        return `<span style="font-size:11px; font-weight:500; color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${loc}</span>`;
+      ]]]
+  styles:
+    card:
+      - padding: 6px 8px
+      - border-radius: 8px
+      - overflow: hidden
+      - background: |
+          [[[
+            const hexes = entity?.attributes?.filament_multi_color_hexes || '';
+            const dir = entity?.attributes?.filament_multi_color_direction || '';
+            const singleHex = entity?.attributes?.filament_color_hex || '888888';
+            if (hexes) {
+              const colors = hexes.split(',').map(h => {
+                const c = h.trim().replace(/^#/, '');
+                const r = parseInt(c.substring(0,2), 16) || 128;
+                const g = parseInt(c.substring(2,4), 16) || 128;
+                const b = parseInt(c.substring(4,6), 16) || 128;
+                return `rgba(${r},${g},${b},0.25)`;
+              });
+              const cssDir = dir === 'coaxial' ? 'to bottom' : 'to right';
+              return `linear-gradient(${cssDir}, ${colors.join(', ')})`;
+            }
+            const r = parseInt(singleHex.substring(0,2), 16) || 128;
+            const g = parseInt(singleHex.substring(2,4), 16) || 128;
+            const b = parseInt(singleHex.substring(4,6), 16) || 128;
+            return `rgba(${r},${g},${b},0.25)`;
+          ]]]
+    grid:
+      - grid-template-areas: '"i n remaining_weight desiccant_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label location_label location_label"'
+      - grid-template-columns: 44px minmax(0, 1fr) auto auto
+      - grid-template-rows: auto auto auto auto
+      - align-items: center
+      - gap: 1px 6px
+    entity_picture:
+      - width: 36px
+      - height: 36px
+      - border-radius: 50%
+      - border: |
+          [[[
+            const hex = entity?.attributes?.filament_color_hex || '888888';
+            const r = parseInt(hex.substring(0,2), 16) || 128;
+            const g = parseInt(hex.substring(2,4), 16) || 128;
+            const b = parseInt(hex.substring(4,6), 16) || 128;
+            return `2px solid rgba(${r},${g},${b},0.6)`;
+          ]]]
+    name:
+      - font-size: 12px
+      - font-weight: 600
+      - white-space: nowrap
+      - overflow: hidden
+      - text-overflow: ellipsis
+      - color: var(--primary-text-color)
+      - justify-self: start
+    label:
+      - font-size: 10px
+      - color: var(--secondary-text-color)
+      - white-space: nowrap
+      - overflow: hidden
+      - text-overflow: ellipsis
+      - justify-self: start
+    custom_fields:
+      remaining_weight:
+        - justify-self: end
+      weight_bar:
+        - width: 100%
+        - padding-right: 2px
+      desiccant_icon:
+        - justify-self: end
+        - padding-left: 2px
+      location_label:
+        - justify-self: start
+        - padding-top: 1px

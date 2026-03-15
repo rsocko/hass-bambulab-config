@@ -1,10 +1,11 @@
 alias: "Bambuddy - Create Archive and Link Print on Start"
 id: bambuddy_create_archive_and_link_print_on_start
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 description: >
   When a print job starts, creates a Bambuddy archive entry and stores the returned
   archive ID so that the photo and result can be linked back to it on completion.
   Requires Bambuddy integration helpers and rest_commands configured.
-  See bambuddy/README.md for setup instructions.
 
 triggers:
   # Replace device_id with your printer's device ID (found in Settings → Devices)

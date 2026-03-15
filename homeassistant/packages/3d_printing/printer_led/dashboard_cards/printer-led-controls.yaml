@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_led/LED_CONTROLS_README.md
 # Printer LED Controls Row (canonical)
 #
 # A compact horizontal row of LED control buttons for the 3D printer dashboard.
@@ -10,7 +11,8 @@
 #   3. Reset MagWLED     - script.reset_interior_light_to_white
 #   4. DigQuad progress  - light.dig_quad_v3
 #   5. DigQuad status    - light.dig_quad_v3_segment_1
-#   6. Controls toggle   - input_boolean.show_printer_controls
+#   6. WLED Reset        - script.wled_3dprinter_reset_to_working_state
+#   7. Controls toggle   - input_boolean.show_printer_controls
 #
 # Actions:
 #   - Tap: Toggle light (or toggle controls boolean on button 6)
@@ -25,6 +27,7 @@
 #   - custom:mushroom-template-card (HACS)
 #   - card_mod (HACS)
 #   - script.reset_interior_light_to_white
+#   - script.wled_3dprinter_reset_to_working_state
 
 type: horizontal-stack
 cards:
@@ -226,6 +229,49 @@ cards:
           {% set rgb = state_attr('light.dig_quad_v3_segment_1', 'rgb_color') %}
           {% if rgb %}box-shadow: 0 0 10px 3px rgba({{ rgb | join(', ') }}, 0.5);{% endif %}
           {% endif %}
+        mushroom-card$: |
+          .container {
+            justify-content: center;
+            align-items: center;
+          }
+          .info {
+            display: none;
+          }
+  # WLED State Machine Reset (nuclear reset - re-reads sensors & reapplies everything)
+  - type: custom:mushroom-template-card
+    primary: ""
+    secondary: ""
+    icon: mdi:restart-alert
+    icon_color: >-
+      {% set state = states('input_select.wled_3dprinter_core_state') %}
+      {% if state == 'S3_PRINTING' %}green
+      {% elif state == 'S5_PAUSED_ERROR' %}red
+      {% elif state == 'S0_OFFLINE' %}grey
+      {% else %}cyan
+      {% endif %}
+    badge_icon: mdi:led-strip-variant
+    badge_color: >-
+      {% set state = states('input_select.wled_3dprinter_core_state') %}
+      {% if state == 'S3_PRINTING' %}green
+      {% elif state == 'S5_PAUSED_ERROR' %}red
+      {% elif state == 'S0_OFFLINE' %}grey
+      {% else %}cyan
+      {% endif %}
+    tap_action:
+      action: perform-action
+      perform_action: input_button.press
+      target:
+        entity_id: input_button.wled_3dprinter_force_resync
+    hold_action:
+      action: perform-action
+      perform_action: script.wled_3dprinter_reset_to_working_state
+      confirmation:
+        text: Nuclear reset — restore segment layout and recompute state from sensors?
+    card_mod:
+      style:
+        ha-card: |
+          background: rgba(0, 188, 212, 0.08);
+          border: 1px solid rgba(0, 188, 212, 0.35);
         mushroom-card$: |
           .container {
             justify-content: center;

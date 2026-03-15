@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_led/AUTOMATIONS.md
 automation:
   # ========================================
   # Automation 1: Reset Interior Light on Door Open (When Not Printing)

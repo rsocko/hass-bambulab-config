@@ -167,8 +167,7 @@ sensor:
 
 ## 📚 Documentation
 
-Complete documentation provided in [docs/features/printer_dashboards/docs/](../features/printer_dashboards/docs/):
-- `README.md` - Overview and quick start
+Complete documentation provided in [docs/features/hms_alert/](../features/hms_alert/):
 - `hms-error-alert-implementation.md` - Technical details
 - `hms-error-ui-mockup.md` - Visual mockups and examples
 - `hms-error-testing-guide.md` - Testing instructions
@@ -192,10 +191,9 @@ Complete documentation provided in [docs/features/printer_dashboards/docs/](../f
 
 - `homeassistant/packages/3d_printing/hms_alert/dashboard_cards/hms-error-alert-section.yaml` - Unified responsive HMS alert card (replaced separate mobile/desktop cards)
 - `homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml` - Updated include reference
-- [docs/features/printer_dashboards/docs/hms-error-alert-implementation.md](../features/printer_dashboards/docs/hms-error-alert-implementation.md) - Technical documentation
-- [docs/features/printer_dashboards/docs/hms-error-ui-mockup.md](../features/printer_dashboards/docs/hms-error-ui-mockup.md) - Visual documentation
-- [docs/features/printer_dashboards/docs/hms-error-testing-guide.md](../features/printer_dashboards/docs/hms-error-testing-guide.md) - Testing guide
-- [docs/features/printer_dashboards/docs/README.md](../features/printer_dashboards/docs/README.md) - Documentation index
+- [docs/features/hms_alert/hms-error-alert-implementation.md](../features/hms_alert/hms-error-alert-implementation.md) - Technical documentation
+- [docs/features/hms_alert/hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md) - Visual documentation
+- [docs/features/hms_alert/hms-error-testing-guide.md](../features/hms_alert/hms-error-testing-guide.md) - Testing guide
 
 ## 🎉 Result
 

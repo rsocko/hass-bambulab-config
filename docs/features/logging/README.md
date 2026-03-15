@@ -15,6 +15,19 @@ This directory contains a comprehensive logging solution for Home Assistant that
 
 ## 🎯 Overview
 
+### Dependencies & Requirements
+
+> **This feature is standalone** — it does not depend on the [Core](../core/README.md), [Common](../common/README.md), or [ha-bambulab](https://github.com/greghesp/ha-bambulab) foundation packages. It can be used independently with any Home Assistant setup.
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| Home Assistant (any version with `system_log.write`) | **Yes** | Base logging service |
+| [Grafana Loki + Promtail](https://grafana.com/oss/loki/) | No | Recommended log aggregation — see Integration Options below |
+| [Prometheus](https://prometheus.io/) | No | Metrics export alternative |
+| Syslog server | No | Traditional log forwarding alternative |
+
+> **Tip:** The logging feature loader is currently **commented out** in `_feature_loaders.yaml`. Uncomment it to enable, or manually include the logger configuration in your `configuration.yaml`.
+
 This logging solution provides:
 - **Centralized Configuration**: Single source of truth for log levels and filters
 - **Structured Logging**: Consistent log format with context and metadata

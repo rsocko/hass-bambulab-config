@@ -1,0 +1,45 @@
+# view_filament_catalog.yaml
+# Filament Catalog view - Phase 1: Compact spool grid.
+#
+# Displays all non-archived spools sorted by location,
+# with an inventory KPI summary at the top.
+#
+# Uses a SINGLE auto-entities instance (not per-location) to minimize
+# state-change processing and keep the main thread responsive.
+#
+# Docs: docs/features/filament_catalog/filament-catalog.md
+
+title: Filament Catalog
+path: filament-catalog
+icon: mdi:format-list-bulleted
+panel: true
+cards:
+  - type: vertical-stack
+    cards:
+      # ============================================================
+      # Inventory KPI Summary
+      # ============================================================
+      - !include ../dashboard_cards/catalog_inventory_kpi.yaml
+
+      # ============================================================
+      # All Spools (single auto-entities, sorted by location)
+      # ============================================================
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: attribute
+          attribute: location

@@ -1,0 +1,117 @@
+# catalog_spool_popup.yaml
+# Lightweight popup trigger for the Filament Catalog.
+# This template is inherited by catalog_spool_card and evaluated on every
+# card render. To keep the main grid fast, only the entity_id and minimal
+# chart/action data are computed here. All heavy display logic lives in
+# catalog_spool_popup_content (rendered only when the popup opens).
+#
+# Inherited by: catalog_spool_card
+
+catalog_spool_popup:
+  tap_action: |
+    [[[
+      const spoolId = entity?.attributes?.id;
+      if (!spoolId) return { action: 'more-info' };
+
+      const eid = entity.entity_id;
+      const spoolIdInt = parseInt(spoolId, 10);
+      const SPOOLMAN_BASE_URL = 'http://spoolman.socko.us/spool/show';
+      const spoolName = entity?.attributes?.friendly_name || 'Unknown Spool';
+      const nowISO = new Date().toISOString();
+
+      // --- Minimal chart config ---
+      const rawColor = (entity?.attributes?.filament_color_hex || '888888').replace('#', '');
+      const colorHex = '#' + rawColor;
+      const lum = ((parseInt(rawColor.substring(0,2),16)||128)*299 + (parseInt(rawColor.substring(2,4),16)||128)*587 + (parseInt(rawColor.substring(4,6),16)||128)*114) / 1000;
+      const chartBg = lum > 128 ? '#2a2a2a' : '#f0f0f0';
+      const chartFg = lum > 128 ? '#cccccc' : '#333333';
+      const chartTheme = lum > 128 ? 'dark' : 'light';
+
+      const firstUsed = entity?.attributes?.first_used;
+      let historyHours = 168, historyLabel = '7 days';
+      if (firstUsed) {
+        const raw = Math.max(1, Math.floor((Date.now() - new Date(firstUsed)) / 86400000));
+        const d = Math.min(raw, 30);
+        historyHours = d * 24;
+        historyLabel = d + (d === 1 ? ' day' : ' days') + (raw > 30 ? ' (last 30)' : '');
+      }
+      const statsPeriod = historyHours > 168 ? 'day' : 'hour';
+
+      const xAnnotations = [];
+      const ann = function(dt, c, t) { if (dt) xAnnotations.push({ x: new Date(dt).getTime(), borderColor: c, label: { text: t, style: { color: '#fff', background: c } } }); };
+      ann(firstUsed, '#4CAF50', 'First Use');
+      ann(entity?.attributes?.extra_desiccant_filled, '#2196F3', 'Desiccant Filled');
+      ann(entity?.attributes?.extra_last_dried, '#FF9800', 'Last Dried');
+
+      // --- Action button style ---
+      const btnS = {
+        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
+        card: [{ background: 'var(--primary-color)' }, { 'box-shadow': 'none' }, { 'border-radius': '6px' }, { padding: '6px' }],
+        name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
+        icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+      };
+
+      return {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.popup',
+          data: {
+            title: spoolName,
+            size: 'normal',
+            content: {
+              type: 'vertical-stack',
+              cards: [
+                // --- All display content (heavy JS only runs when popup opens) ---
+                {
+                  type: 'custom:button-card',
+                  entity: eid,
+                  template: 'catalog_spool_popup_content',
+                  tap_action: { action: 'none' },
+                  triggers_update: eid
+                },
+                // --- Desiccant action buttons ---
+                {
+                  type: 'custom:layout-card',
+                  layout_type: 'custom:grid-layout',
+                  layout: { 'grid-template-columns': '1fr 1fr', 'grid-gap': '8px' },
+                  cards: [
+                    { type: 'custom:button-card', name: 'Mark as Dried', icon: 'mdi:heat-wave', show_icon: true, show_name: true, show_label: false, tap_action: { action: 'call-service', service: 'spoolman.patch_spool', service_data: { id: spoolIdInt, extra: { last_dried: nowISO } } }, styles: btnS },
+                    { type: 'custom:button-card', name: 'Mark Desiccant Refilled', icon: 'mdi:water-plus', show_icon: true, show_name: true, show_label: false, tap_action: { action: 'call-service', service: 'spoolman.patch_spool', service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } } }, styles: btnS }
+                  ]
+                },
+                // --- Weight history chart ---
+                {
+                  type: 'custom:apexcharts-card',
+                  graph_span: historyHours + 'h',
+                  series: [{ entity: eid, name: 'Weight (g)', color: colorHex, stroke_width: 4, type: 'area', curve: 'smooth', statistics: { type: 'mean', period: statsPeriod } }],
+                  card_mod: { style: 'ha-card { background: ' + chartBg + ' !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; } .apexcharts-toolbar svg { fill: ' + chartFg + ' !important; }' },
+                  apex_config: {
+                    chart: { toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, background: chartBg, foreColor: chartFg, zoom: { enabled: true, type: 'x' }, animations: { enabled: false } },
+                    theme: { mode: chartTheme },
+                    title: { text: 'Weight History (' + historyLabel + ')', style: { color: chartFg } },
+                    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.05, stops: [0, 70, 100], type: 'vertical' } },
+                    stroke: { curve: 'smooth', width: 4 },
+                    xaxis: { type: 'datetime', labels: { style: { colors: chartFg } } },
+                    yaxis: { labels: { style: { colors: chartFg } } },
+                    grid: { padding: { left: 0, right: 8 }, row: { colors: ['rgba(128,128,128,0.05)', 'transparent'], opacity: 1 } },
+                    annotations: { xaxis: xAnnotations }
+                  }
+                },
+                // --- Action buttons ---
+                {
+                  type: 'custom:layout-card',
+                  layout_type: 'custom:grid-layout',
+                  layout: { 'grid-template-columns': '1fr 1fr 1fr 1fr', 'grid-gap': '8px' },
+                  cards: [
+                    { type: 'custom:button-card', entity: eid, name: 'More Details', icon: 'mdi:information-outline', tap_action: { action: 'more-info' }, styles: btnS },
+                    { type: 'custom:button-card', name: 'Open in Spoolman', icon: 'fapro:filament-2', tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }, styles: btnS },
+                    { type: 'custom:button-card', entity: eid, name: 'Reload', icon: 'mdi:refresh', tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } }, styles: btnS },
+                    { type: 'custom:button-card', name: 'Close', icon: 'mdi:close-circle-outline', tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }, styles: btnS }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      };
+    ]]]

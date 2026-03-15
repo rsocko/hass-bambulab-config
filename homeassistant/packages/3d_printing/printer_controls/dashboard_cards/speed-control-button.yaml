@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_controls/README.md
 # Printer Speed Control Button
 # Compact icon-only button showing current speed mode with color-coded icon.
 # Tap opens more-info dialog for the Printing Speed entity so speed can be changed.

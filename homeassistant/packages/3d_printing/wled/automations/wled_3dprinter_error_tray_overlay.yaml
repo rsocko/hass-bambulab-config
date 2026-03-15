@@ -1,3 +1,4 @@
+# Docs: docs/features/wled/README.md
 - alias: "WLED 3D Printer - Error Tray Overlay"
   id: wled_3dprinter_error_tray_overlay
   description: >-

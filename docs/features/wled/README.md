@@ -4,6 +4,45 @@
 
 This directory contains WLED configuration, documentation, and Home Assistant integration files for controlling LED strips on a Bambu Lab X1C printer with dual AMS units.
 
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it controls physical LED hardware via HA automations, not dashboard cards.
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [WLED](https://kno.wled.ge/) firmware on LED controllers | **Yes** | LED control firmware on DigQuad and/or MagWLED controllers |
+| [WLED HA integration](https://www.home-assistant.io/integrations/wled/) | **Yes** | Built-in HA integration for WLED device discovery and control |
+| DigQuad LED controller | **Yes** | 5-output controller driving 711 LEDs across 5 strips |
+| MagWLED LED controller | No | Interior lid light (48 LEDs) — currently offline. System works without it. |
+| 5V power supply (15–20A recommended) | **Yes** | Powers the LED strips — see [Power Considerations](#notes-and-recommendations) |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Printer LED](../printer_led/README.md) | Dashboard controls for the WLED lights — depends on this feature |
+| [Core](../core/README.md) | Smart status values drive state machine transitions (S0–S8) |
+
+## Screenshots
+
+<!-- SCREENSHOT: id=wled-state-machine-printing | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Film physical DigQuad LED strips during state transition (S1 idle blue → S3 printing green with progress bar). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** Physical WLED strips — state transition idle → printing *(gif)*
+
+<!-- SCREENSHOT: id=wled-front-display-progress | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Film front C-shape LED strip showing print progress bar filling left-to-right. Phone camera → convert to GIF -->
+> **🎬 Animation needed:** Front display LED — print progress bar *(gif)*
+
+<!-- SCREENSHOT: id=wled-ams-tray-lighting | format=png | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Photo of AMS lid LED strips illuminating all 4 spool positions -->
+> **📸 Screenshot needed:** AMS tray LED lighting — spool illumination *(png)*
+
+<!-- SCREENSHOT: id=wled-error-state | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Film LED strips in error state S6 (flashing red). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** WLED error state — flashing red LEDs *(gif)*
+
 ## Current Architecture: HA State Machine
 
 The system uses a **Home Assistant state machine** that monitors printer status, transitions through **9 core states** (S0–S8), and applies WLED presets (101–109) to the DigQuad controller automatically.

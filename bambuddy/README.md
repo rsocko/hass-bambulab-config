@@ -2,6 +2,24 @@
 
 This directory provides a complete integration between [Bambuddy](https://github.com/maziggy/bambuddy) and Home Assistant, pulling rich print history, queue, statistics, and maintenance data into HA dashboards, sensors, and automations.
 
+## Screenshots
+
+<!-- SCREENSHOT: id=bambuddy-print-history-card | format=png | version=1.0 | package=bambuddy | added=2026-03-15 -->
+<!-- Capture: Print history dashboard card showing recent prints with photos, names, duration, weight, status -->
+> **📸 Screenshot needed:** Bambuddy print history card *(png)*
+
+<!-- SCREENSHOT: id=bambuddy-queue-card | format=png | version=1.0 | package=bambuddy | added=2026-03-15 -->
+<!-- Capture: Print queue card showing queued items with drag-and-drop order -->
+> **📸 Screenshot needed:** Bambuddy print queue card *(png)*
+
+<!-- SCREENSHOT: id=bambuddy-statistics-card | format=png | version=1.0 | package=bambuddy | added=2026-03-15 -->
+<!-- Capture: Statistics dashboard card showing success rates, filament usage, trend graphs -->
+> **📸 Screenshot needed:** Bambuddy statistics dashboard card *(png)*
+
+<!-- SCREENSHOT: id=bambuddy-maintenance-card | format=png | version=1.0 | package=bambuddy | added=2026-03-15 -->
+<!-- Capture: Maintenance tracking card showing health status, checklists, alerts -->
+> **📸 Screenshot needed:** Bambuddy maintenance tracking card *(png)*
+
 ## What is Bambuddy?
 
 [Bambuddy](https://github.com/maziggy/bambuddy) is a self-hosted print archive and management system for Bambu Lab 3D printers. It provides capabilities beyond what the ha_bambulab integration offers:

@@ -42,16 +42,39 @@ The `printer_led` package provides unified control over all LED lighting associa
 
 3. (Optional) Enable automations — see [AUTOMATIONS.md](AUTOMATIONS.md).
 
+## Screenshots
+
+<!-- SCREENSHOT: id=led-controls-compact | format=png | version=1.0 | package=printer_led | added=2026-03-15 | captured=2026-03-15 -->
+
+![LED controls — compact icon row](../../screenshots/images/led-controls-compact.png)
+
+<!-- SCREENSHOT: id=led-controls-expanded-grid | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Full 7-light control grid showing all LED entities with brightness sliders and status -->
+> **📸 Screenshot needed:** LED controls — expanded grid with all 7 lights *(png)*
+
+<!-- SCREENSHOT: id=led-wled-popup | format=gif | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Double-tap a WLED light → popup opens with effect/palette/speed controls → change effect → close. ~8s (use ScreenToGif) -->
+> **🎬 Animation needed:** WLED advanced popup — effect selection interaction *(gif)*
+
+<!-- SCREENSHOT: id=led-physical-strips | format=gif | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Film physical LED strips on printer — show state transition (idle blue → printing green). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** Physical LED strips — state transition on hardware *(gif)*
+
 ## Additional Guides
 
 | Guide | Description |
 |---|---|
 | [AUTOMATIONS.md](AUTOMATIONS.md) | How to enable/customize the interior light auto-reset automations |
-| [guides/CUSTOMIZATION_EXAMPLES.md](guides/CUSTOMIZATION_EXAMPLES.md) | Light presets, advanced automations, input helpers, Node-RED, webhooks |
-| [guides/ESP32_INTEGRATION.md](guides/ESP32_INTEGRATION.md) | ESPHome touchscreen button integration |
-| [guides/PHYSICAL_BUTTON_INTEGRATION.md](guides/PHYSICAL_BUTTON_INTEGRATION.md) | Zigbee, Z-Wave, WiFi, and wired button setups |
-| [guides/VISUAL_EXAMPLES.md](guides/VISUAL_EXAMPLES.md) | ASCII mockups and dashboard layout ideas |
-| [examples/dashboard-button-variants.yaml](examples/dashboard-button-variants.yaml) | 5 alternative reset-button styles (Mushroom, standard, entity, Bubble, horizontal stack) |
+| [CUSTOMIZATION_EXAMPLES.md](CUSTOMIZATION_EXAMPLES.md) | Light presets, advanced automations, input helpers, Node-RED, webhooks |
+| [ESP32_INTEGRATION.md](ESP32_INTEGRATION.md) | ESPHome touchscreen button integration |
+| [PHYSICAL_BUTTON_INTEGRATION.md](PHYSICAL_BUTTON_INTEGRATION.md) | Zigbee, Z-Wave, WiFi, and wired button setups |
+| [VISUAL_EXAMPLES.md](VISUAL_EXAMPLES.md) | ASCII mockups and dashboard layout ideas |
+| [dashboard-button-variants.yaml](dashboard-button-variants.yaml) | 5 alternative reset-button styles (Mushroom, standard, entity, Bubble, horizontal stack) |
+| [LED_CONTROLS_README.md](LED_CONTROLS_README.md) | Quick start guide for expanded LED controls grid |
+| [LED_CONTROLS_IMPLEMENTATION_SUMMARY.md](LED_CONTROLS_IMPLEMENTATION_SUMMARY.md) | Full implementation summary |
+| [led-controls.md](led-controls.md) | Comprehensive LED controls documentation (7 lights, WLED config, troubleshooting) |
+| [led-controls-visual.md](led-controls-visual.md) | Visual reference guide with ASCII layouts and state visualizations |
+| [led-controls-integration-examples.md](led-controls-integration-examples.md) | 9 integration methods with code examples |
 
 ## Key Entities
 
@@ -63,3 +86,35 @@ The `printer_led` package provides unified control over all LED lighting associa
 | `light.dig_quad_v3_segment_1` | Light | DigQuad front status segment |
 | `script.reset_interior_light_to_white` | Script | Reset MagWLED to white |
 | `input_boolean.show_printer_controls` | Helper | Toggle controls panel visibility |
+
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
+
+### Feature Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [WLED](../wled/README.md) | **Yes** | WLED controller configuration, presets, and state machine that drives the LED strips |
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| WLED controllers (DigQuad + MagWLED) | **Yes** | Physical LED controllers running WLED firmware |
+| [WLED HA integration](https://www.home-assistant.io/integrations/wled/) | **Yes** | Built-in HA integration for WLED device control |
+
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | `mushroom-light-card` for light controls |
+| [button-card](https://github.com/custom-cards/button-card) | **Yes** | Customizable LED toggle buttons |
+| [browser-mod](https://github.com/thomasloven/hass-browser_mod) | **Yes** | Popup dialogs for expanded LED controls |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [WLED](../wled/README.md) | Full WLED state machine, presets, and segment configuration |
+| [Printer Dashboards](../printer_dashboards/README.md) | Dashboard layout and placement |

@@ -1,7 +1,7 @@
 # Bambuddy Print Queue Dashboard Card
-# Displays the current print queue from Bambuddy with job counts and details.
-# Provides a quick link to the full queue management UI in Bambuddy.
-# See bambuddy/README.md for setup instructions.
+# Displays the current print queue from Bambuddy.
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 
 type: vertical-stack
 cards:
