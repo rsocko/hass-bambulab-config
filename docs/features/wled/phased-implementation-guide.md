@@ -346,10 +346,23 @@ Implementation notes:
 
 ### 4.1: Affected-Tray Error Targeting
 
+**Status**: In progress (v2 tray-fan-out + error differentiation live)
+
 Implement:
 1. Parse fault context to identify one or more affected trays (runout/jam/AMS fault).
 2. Overlay red/orange priority visuals on impacted tag-top segments during `S5_PAUSED_ERROR`.
 3. Preserve door progress/status priority and existing pause behavior.
+
+Initial implementation in repo:
+- `scripts/wled_3dprinter_apply_error_tray_overlay-script.yaml` (new)
+- `automations/wled_3dprinter_error_tray_overlay.yaml` (new)
+- `automations/wled_3dprinter_state_machine_orchestrator.yaml` (updated hook for `S5_PAUSED_ERROR`)
+
+Current scope (v2):
+- Parses tray references (`A1..B4`) from pause/error context and supports multi-tray tag fan-out when available.
+- Falls back to active-tray targeting when no explicit tray token is present.
+- For `ams_lost`, expands to the full affected AMS bank (`A1-A4` or `B1-B4`) when bank context is known.
+- Differentiates visuals by error class (`runout`, `jam`, `ams_lost`, `first_layer`, `generic`) with distinct color/effect profiles.
 
 Targets from scenario matrix:
 - `Filament runout` (Partial -> closer to Implemented)

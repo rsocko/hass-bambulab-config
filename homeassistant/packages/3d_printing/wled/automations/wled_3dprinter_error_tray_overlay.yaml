@@ -1,0 +1,31 @@
+- alias: "WLED 3D Printer - Error Tray Overlay"
+  id: wled_3dprinter_error_tray_overlay
+  description: >-
+    Re-apply affected tray targeting during S5_PAUSED_ERROR when active tray or
+    error context updates.
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_active_tray
+      id: active_tray_changed
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinter_smart_status
+        - sensor.ntk_ryansoffice_3dprinter_current_stage
+      id: error_context_changed
+    - trigger: state
+      entity_id: input_select.wled_3dprinter_core_state
+      to: S5_PAUSED_ERROR
+      id: entered_s5
+  conditions:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S5_PAUSED_ERROR
+  actions:
+    - delay:
+        seconds: 1
+    - action: script.wled_3dprinter_apply_error_tray_overlay
+      data: {}
