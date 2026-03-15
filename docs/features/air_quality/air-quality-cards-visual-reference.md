@@ -2,39 +2,33 @@
 
 This document provides a visual reference and detailed explanation of the air quality monitoring and control cards.
 
-## Card Layouts
+## Card Layout
 
-### Horizontal Layout (Desktop Optimized)
-
-The primary layout arranges all air quality sensors in a horizontal row, perfect for wide screens:
+The layout uses a consolidated header card followed by two rows of three cards each for improved text visibility:
 
 ```
-┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
-│   PM2.5     │     CO2     │     VOC     │    Temp     │  Humidity   │
-│  [Filter]   │ [Molecule]  │  [Chemical] │[Thermometer]│   [Water]   │
-│  12.3 µg/m³ │   650 ppm   │   85 ppb    │   22.5°C    │     45%     │
-│   [Green]   │   [Green]   │   [Green]   │   [Green]   │   [Green]   │
-└─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  🌬️ Air Quality                                         │
+│  Good / Moderate / Poor / Very Poor  (color-coded)       │
+└──────────────────────────────────────────────────────────┘
+┌──────────────┬──────────────┬──────────────┐
+│   PM2.5      │     CO2      │     VOC      │
+│  12.3 µg/m³  │   650 ppm    │   85 ppb     │
+│   [Green]    │   [Green]    │   [Green]    │
+└──────────────┴──────────────┴──────────────┘
+┌──────────────┬──────────────┬──────────────┐
+│    Temp      │  Humidity    │  Purifier    │
+│   22.5°C     │     45%      │  On · Gear 2 │
+│   [Green]    │   [Green]    │   [Amber]    │
+└──────────────┴──────────────┴──────────────┘
 ```
 
-Each card shows:
+Each sensor card shows:
 - Sensor name (top)
 - Current reading with unit (middle)
-- Color-coded icon (bottom) indicating status
+- Color-coded icon indicating status
 
-### Grid Layout (Mobile Optimized)
-
-Alternative 2-column grid layout for smaller screens:
-
-```
-┌─────────────┬─────────────┐
-│   PM2.5     │     CO2     │
-│  12.3 µg/m³ │   650 ppm   │
-├─────────────┼─────────────┤
-│     VOC     │  Purifier   │
-│   85 ppb    │   On - 66%  │
-└─────────────┴─────────────┘
-```
+The Purifier card opens a **browser_mod popup** on tap with on/off toggle and Low / Medium / High speed controls.
 
 ## Color Coding System
 
@@ -68,68 +62,81 @@ Measures off-gassing from printing materials:
 🔴 Red (Very Poor)     : 300+ ppb        - High VOCs, maximum filtration needed
 ```
 
-## Govee Air Purifier Control Card
+## Govee Air Purifier Control
 
-### Main Status Card
+### Purifier Card (Main Dashboard)
 
-Shows current purifier status with color-coded icon:
+The purifier is shown inline in the second sensor row. Color-coded icon indicates status:
 - **Grey**: Off or unavailable
-- **Green**: On, low speed (<30%)
-- **Amber**: On, medium speed (30-70%)
-- **Red**: On, high speed (>70%)
+- **Green**: On, Gear 1 (low)
+- **Amber**: On, Gear 2 (medium)
+- **Red**: On, Gear 3 (high)
 
-### Speed Control Buttons
+### Speed Control Popup
 
-Three-button layout for quick speed adjustment:
-- **Low (33%)**: Quiet operation, good air quality
-- **Medium (66%)**: Balanced purification
-- **High (100%)**: Maximum filtration
+Tapping the Purifier card opens a **browser_mod popup** with:
+- Power toggle (tap the status card to turn on/off)
+- Three speed buttons: **Low** (Gear 1) · **Medium** (Gear 2) · **High** (Gear 3)
+- Active gear is highlighted with its respective color
 
 ## Real-World Examples
 
 ### During Normal Operation
 ```
-PM2.5: 8.2 µg/m³ (Green)
-CO2: 580 ppm (Green)
-VOC: 65 ppb (Green)
-Status: Good - Air Quality Excellent
-Purifier: Off
+Header: Air Quality — Good (Green)
+PM2.5: 8.2 µg/m³ (Green) | CO2: 580 ppm (Green) | VOC: 65 ppb (Green)
+Temp: 22.5°C (Green) | Humidity: 45% (Green) | Purifier: Off (Grey)
 ```
 
 ### During 3D Printing (PLA)
 ```
-PM2.5: 18.5 µg/m³ (Yellow)
-CO2: 920 ppm (Yellow)
-VOC: 125 ppb (Yellow)
-Status: Moderate - Monitor
-Purifier: On - 66% (Auto-enabled)
+Header: Air Quality — Moderate (Yellow)
+PM2.5: 18.5 µg/m³ (Yellow) | CO2: 920 ppm (Yellow) | VOC: 125 ppb (Yellow)
+Temp: 24.1°C (Green) | Humidity: 42% (Green) | Purifier: On · Gear 2 (Amber)
 ```
 
 ### During 3D Printing (ABS - High VOC)
 ```
-PM2.5: 42.3 µg/m³ (Orange)
-CO2: 1050 ppm (Yellow)
-VOC: 285 ppb (Orange)
-Status: Poor - Purifier Recommended
-Purifier: On - 100% (Auto-adjusted to high)
+Header: Air Quality — Poor — Consider Purifier (Orange)
+PM2.5: 42.3 µg/m³ (Orange) | CO2: 1050 ppm (Yellow) | VOC: 285 ppb (Orange)
+Temp: 26.3°C (Green) | Humidity: 38% (Amber) | Purifier: On · Gear 3 (Red)
 ```
+
+## Bento Box Filter Card
+
+The Bento Box filter status is displayed as a single compact card:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ✅ Bento Box                                            │
+│  Good · HEPA 42% · Carbon 31%                            │
+└──────────────────────────────────────────────────────────┘
+```
+
+Tapping opens a **browser_mod popup** with:
+- Overall filter status header (Good / Monitor / Replace Soon / Replace Now)
+- HEPA filter detail: usage %, runtime hours, remaining hours, days since replacement
+- Carbon filter detail: same breakdown
+- Bento Box fan speed control
+- Compact Reset HEPA / Reset Carbon buttons
 
 ## Tips for Best Display
 
 ### Desktop Dashboards
-- Use horizontal-stack for all sensors
-- Full width section for visibility
+- Two rows of 3 sensor cards each provide good readability
+- Purifier and Bento Box popups keep the main view uncluttered
 - Group with other printer controls
 
 ### Mobile Dashboards
-- Use grid layout (2 columns)
-- Prioritize most important sensors
-- Make purifier control easily accessible
+- 3-card rows adapt well to smaller screens
+- Tap-to-popup interaction is mobile-friendly
 
 ### Integration with Other Cards
 ```
 [Printer Status] [Camera]
-[Air Quality Sensors Row]
-[Purifier Controls]
+[Air Quality Header]
+[PM2.5 | CO2 | VOC]
+[Temp | Humidity | Purifier]
+[Bento Box] (compact)
 [AMS Status]
 ```

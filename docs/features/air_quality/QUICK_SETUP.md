@@ -17,6 +17,7 @@ Get your air quality monitoring and automated purification running in 15 minutes
 4. Search for and install:
    - **Mushroom** - Required for card design
    - **card-mod** - Required for styling
+   - **browser-mod** - Required for popup dialogs
 
 5. Restart Home Assistant frontend (clear cache)
 
@@ -89,9 +90,9 @@ sensor.YOUR_PRINTER_task_name
    govee_air_purifier         → YOUR_PURIFIER_entity
    ```
 
-3. Copy the card section you want:
-   - **Lines 33-175**: Horizontal air quality sensors
-   - **Lines 177-357**: Govee purifier control cards
+3. The card file contains a consolidated layout:
+   - Status header + two rows of 3 sensors each (PM2.5, CO2, VOC, Temp, Humidity, Purifier)
+   - Purifier speed controls are accessible via a popup (tap the Purifier card)
 
 4. Paste into your Home Assistant dashboard:
    - Click **Edit Dashboard**
@@ -139,8 +140,8 @@ For each automation you want:
 ### Test Dashboard Cards
 1. Check all sensor readings are displaying
 2. Tap PM2.5 card - should show history graph
-3. Tap purifier card - should toggle on/off
-4. Tap speed buttons - should change purifier speed
+3. Tap Purifier card - should open popup with power toggle and speed controls
+4. Tap Bento Box card - should open popup with filter details and reset buttons
 
 ### Test Automations
 1. Go to **Settings > Automations & Scenes**

@@ -131,15 +131,16 @@ reset_carbon_filter:
         message: "Carbon filter counter reset"
 ```
 
-### Step 4: Add Dashboard Cards
+### Step 4: Add Dashboard Card
 
-Choose from 4 card styles in [homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml](../../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml):
-1. **Compact Horizontal** - Side-by-side filter status
-2. **Detailed Vertical** - Comprehensive info with reset buttons
-3. **Gauge Cards** - Visual meter representation
-4. **Progress Bars** - Bar chart style (requires bar-card)
+The Bento Box filter card in [bento-box-filter-cards.yaml](../../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml) displays a single compact status card on the main dashboard. Tapping it opens a browser_mod popup with:
+- Overall filter status (Good / Monitor / Replace Soon / Replace Now)
+- HEPA filter detail: usage %, runtime hours, remaining hours, days since replacement
+- Carbon filter detail: same breakdown
+- Bento Box fan speed control
+- Compact Reset HEPA / Reset Carbon buttons
 
-Copy desired style to your dashboard.
+Add to your dashboard via `!include` or copy-paste the YAML.
 
 ### Step 5: Initial Setup
 
@@ -167,12 +168,14 @@ The system works automatically:
 
 ### Monitoring
 
-**Dashboard Cards** show:
-- Current usage percentage
-- Total runtime hours
-- Days since last replacement
-- Status (Good / Monitor / Replace Soon / Replace Now)
-- Color-coded indicators
+**Main Dashboard Card** shows:
+- Overall status (Good / Monitor / Replace Soon / Replace Now) with color-coded icon
+- HEPA and Carbon usage percentages inline
+
+**Popup Detail** (tap main card) shows:
+- Per-filter usage %, runtime hours, remaining hours, days since replacement
+- Bento Box fan speed control
+- Reset buttons for each filter
 
 **Notifications** sent at:
 - **75%** - Monitor (yellow) - "Check filters"
@@ -182,10 +185,10 @@ The system works automatically:
 ### After Filter Replacement
 
 1. **Replace physical filters**
-2. **Reset counter via dashboard button** or:
+2. **Reset counter via popup** (tap Bento Box card → Reset HEPA / Reset Carbon) or:
    - Developer Tools > Services
    - Call `script.reset_hepa_filter` or `script.reset_carbon_filter`
-3. **Confirm reset** in dashboard (should show 0%)
+3. **Confirm reset** — card should show 0%
 
 ## Sensor Reference
 

@@ -90,6 +90,7 @@ Deploy using the GitHub Actions workflow with `selected_packages` including `air
 #### Required Custom Cards (HACS)
 - `mushroom` - Minimalist card designs
 - `card-mod` - Custom styling
+- `browser-mod` - Popup dialogs for purifier controls and Bento Box filter details
 
 #### Required Integrations
 - **AirGradient** - Official integration (device name: I-9PSL)
@@ -166,8 +167,8 @@ air_quality/
 │   ├── bento_box_filter_status.yaml
 │   └── bento_box_hepa_filter_usage.yaml
 └── dashboard_cards/
-    ├── air-quality-cards.yaml            # PM2.5, CO2, VOC, Temp, Humidity cards
-    └── bento-box-filter-cards.yaml       # Filter status monitoring cards
+    ├── air-quality-cards.yaml            # Consolidated AQ header + 2×3 sensor grid + purifier popup
+    └── bento-box-filter-cards.yaml       # Compact Bento Box status card with detail popup
 ```
 
 ### Automations
@@ -242,10 +243,10 @@ Adjust these percentages in the automation YAML files if your purifier uses diff
 
 ### Manual Control
 Use the dashboard cards to:
-- Monitor air quality in real-time
-- Toggle purifier on/off
-- Set purifier speed (Low/Medium/High)
-- View overall air quality status
+- Monitor air quality in real-time via the consolidated status header and sensor rows
+- Tap the Purifier card to open a popup with power toggle and speed controls (Low/Medium/High)
+- Tap the Bento Box card to see filter health, runtime, fan speed, and reset buttons
+- View overall air quality status (Good/Moderate/Poor/Very Poor)
 
 ### Automatic Operation
 Once configured, the automations will:

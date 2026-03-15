@@ -96,21 +96,16 @@ reset_carbon_filter:
 
 Reload scripts: Developer Tools > YAML > Scripts
 
-### Step 4: Add Dashboard Cards (2 minutes)
+### Step 4: Add Dashboard Card (2 minutes)
 
-Choose a style from [homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml):
-
-**Recommended: Compact Horizontal**
-```yaml
-type: horizontal-stack
-cards:
-  # [Copy HEPA and Carbon cards from file]
-```
+The Bento Box filter card in [bento-box-filter-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml) is a single compact mushroom card. Tapping it opens a browser_mod popup with full filter detail and reset buttons.
 
 1. Edit your dashboard
 2. Add card > Manual
-3. Paste YAML
+3. Paste the YAML from the file (or use `!include`)
 4. Save
+
+> **Requires:** mushroom, card-mod, and browser-mod (HACS)
 
 ### Step 5: Set Initial Values (Optional)
 
@@ -143,21 +138,21 @@ If your filters are already used:
 
 ### When You Replace Filters
 1. Replace physical filters
-2. Go to dashboard
-3. Tap "Reset HEPA" and "Reset Carbon" buttons
+2. Tap the Bento Box card on your dashboard to open the popup
+3. Tap "Reset HEPA" and/or "Reset Carbon" buttons in the popup
 4. Counters reset to 0%
 
 ## Dashboard Display
 
-You'll see:
+Main dashboard shows a single compact card:
 ```
-┌──────────────────┬──────────────────┐
-│   HEPA Filter    │  Carbon Filter   │
-│      45%         │      67%         │
-│     900h         │     670h         │
-│   [🟢 Good]      │  [🟡 Monitor]    │
-└──────────────────┴──────────────────┘
+┌──────────────────────────────────────┐
+│  ✅ Bento Box                        │
+│  Good · HEPA 45% · Carbon 67%       │
+└──────────────────────────────────────┘
 ```
+
+Tapping opens a popup with full details, fan speed control, and reset buttons.
 
 Color codes:
 - 🟢 Green: 0-74% (Good)

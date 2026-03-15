@@ -18,25 +18,24 @@ The issue requested:
 
 ### Dashboard Cards ([homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml))
 
-**Air Quality Monitoring (16KB, 579 lines):**
-- PM2.5 sensor card with color-coded status (green/yellow/orange/red)
-- CO2 sensor card for ventilation monitoring
-- VOC sensor card for off-gassing detection
-- Temperature and humidity cards
-- Horizontal layout for desktop (5 cards in row)
-- Grid layout alternative for mobile (2 columns)
+**Air Quality Monitoring:**
+- Consolidated status header card with Green/Yellow/Orange/Red color coding
+- Two rows of 3 sensor cards: PM2.5 · CO2 · VOC then Temp · Humidity · Purifier
+- Improved text visibility by splitting from 5-across to 3-per-row layout
 
 **Govee Purifier Control:**
-- Status card with on/off toggle
-- Speed control buttons (Low 33% / Medium 66% / High 100%)
-- Overall air quality status indicator
-- Color-coded visual feedback
+- Inline purifier status in second sensor row
+- Tap opens browser_mod popup with power toggle + Low/Medium/High speed controls
+- Speed buttons removed from main dashboard to reduce clutter
+
+**Bento Box Filter Status:**
+- Single compact card on main dashboard (status + HEPA/Carbon percentages)
+- Tap opens browser_mod popup with full filter health, runtime, fan speed, and reset controls
 
 **Features:**
-- Fully copy-paste ready
-- Extensive inline comments
-- Customization examples
-- Mobile and desktop optimized
+- Compact main dashboard footprint
+- Popup-based detail views via browser_mod
+- Requires mushroom, card-mod, and browser-mod
 
 ### Automations ([homeassistant/packages/3d_printing/air_quality/](../../../homeassistant/packages/3d_printing/air_quality/))
 
