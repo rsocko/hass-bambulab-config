@@ -12,21 +12,18 @@
 title: Filament Catalog
 path: filament-catalog
 icon: mdi:format-list-bulleted
-type: sections
-max_columns: 1
-sections:
-  # ============================================================
-  # Inventory KPI Summary
-  # ============================================================
-  - type: grid
+panel: true
+cards:
+  - type: vertical-stack
     cards:
+      # ============================================================
+      # Inventory KPI Summary
+      # ============================================================
       - !include ../dashboard_cards/catalog_inventory_kpi.yaml
 
-  # ============================================================
-  # All Spools (single auto-entities, sorted by location)
-  # ============================================================
-  - type: grid
-    cards:
+      # ============================================================
+      # All Spools (single auto-entities, sorted by location)
+      # ============================================================
       - type: custom:auto-entities
         show_empty: false
         card:
