@@ -48,18 +48,18 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Documentation Created
 
-2. **[docs/features/printer_dashboards/docs/printer-temps-cards.md](../features/printer_dashboards/docs/printer-temps-cards.md)** (7.6 KB)
+2. **[printer-temps-cards.md](printer-temps-cards.md)** (7.6 KB)
    - Comprehensive guide with installation, usage, and customization
    - Includes troubleshooting section
    - Covers entity types, update frequency, and temperature comparison logic
 
-3. **[docs/features/printer_dashboards/docs/printer-temps-quick-start.md](../features/printer_dashboards/docs/printer-temps-quick-start.md)** (3.7 KB)
+3. **[printer-temps-quick-start.md](printer-temps-quick-start.md)** (3.7 KB)
    - 5-minute setup guide
    - Step-by-step installation with prerequisites
    - Common issues and fixes
    - Layout options comparison
 
-4. **[docs/features/printer_dashboards/docs/printer-temps-visual-reference.md](../features/printer_dashboards/docs/printer-temps-visual-reference.md)** (7.8 KB)
+4. **[printer-temps-visual-reference.md](printer-temps-visual-reference.md)** (7.8 KB)
    - Visual ASCII art examples showing card appearance in different states
    - Color palette reference
    - Icon reference table
@@ -67,7 +67,7 @@ Successfully implemented standalone temperature display cards for Bambu Lab 3D p
 
 ### Updated Files
 
-5. **[docs/features/printer_dashboards/README.md](../features/printer_dashboards/README.md)**
+5. **[docs/features/printer_dashboards/README.md](../printer_dashboards/README.md)**
    - Added "Temperature Monitoring" section
   - Added `printer-temps.yaml` to file list
    - Links to documentation

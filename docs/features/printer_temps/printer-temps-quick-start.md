@@ -109,7 +109,7 @@ Place each card independently in your dashboard
 
 ## 📖 Full Documentation
 
-See [docs/features/printer_dashboards/docs/printer-temps-cards.md](printer-temps-cards.md) for:
+See [printer-temps-cards.md](printer-temps-cards.md) for:
 - Detailed customization options
 - Advanced layout examples
 - Troubleshooting guide

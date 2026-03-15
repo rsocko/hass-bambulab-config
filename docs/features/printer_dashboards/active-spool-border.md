@@ -202,12 +202,12 @@ return active ? 'inset 0 0 0 4px var(--primary-color), 0 0 10px var(--primary-co
 ## Related Features
 
 - [AMS Tray Popup](./ams-tray-popup.md) - Detailed popup when clicking a spool card
-- [Print Weight Bar Chart](./print-weight-bar-chart.md) - Visual weight breakdown by filament
+- [Print Weight Bar Chart](../print_weight_and_cost/print-weight-bar-chart.md) - Visual weight breakdown by filament
 
 ## Files Modified
 
 - [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing) - Main dashboard configuration containing all 9 spool button-cards
-- [docs/features/printer_dashboards/docs/active-spool-border.md](active-spool-border.md) - This documentation file
+- [docs/features/printer_dashboards/active-spool-border.md](active-spool-border.md) - This documentation file
 
 ## Technical Notes
 

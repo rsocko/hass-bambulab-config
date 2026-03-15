@@ -309,7 +309,7 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 |------|---------|
 | [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing) | Main dashboard — contains the popup tap_action JS |
 | [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml) | `spoolman_tray_map` sensor template |
-| [docs/features/printer_dashboards/docs/ams-tray-popup-visual.md](ams-tray-popup-visual.md) | Visual mockup and layout guide |
+| [ams-tray-popup-visual.md](ams-tray-popup-visual.md) | Visual mockup and layout guide |
 | [homeassistant/packages/3d_printing/spoolman_sync/](../../../../homeassistant/packages/3d_printing/spoolman_sync/) | Spoolman sync automations |
 
 

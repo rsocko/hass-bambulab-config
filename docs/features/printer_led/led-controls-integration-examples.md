@@ -394,8 +394,8 @@ For mobile devices:
 
 **Related Documentation:**
 - Main README: [docs/features/printer_dashboards/LED_CONTROLS_README.md](../LED_CONTROLS_README.md)
-- Full Documentation: [docs/features/printer_dashboards/docs/led-controls.md](led-controls.md)
-- Visual Guide: [docs/features/printer_dashboards/docs/led-controls-visual.md](led-controls-visual.md)
+- Full Documentation: [led-controls.md](led-controls.md)
+- Visual Guide: [led-controls-visual.md](led-controls-visual.md)
 
 
 

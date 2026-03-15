@@ -364,7 +364,7 @@ Potential keyboard shortcuts for power users:
 
 - **WLED Segment Visualization**: `/wled/docs/visual-installation-guide.md`
 - **Preset Visual Guide**: `/wled/docs/preset_based_visual_guide.md`
-- **AMS Tray Popup Visual**: `/docs/features/printer_dashboards/docs/ams-tray-popup-visual.md`
+- **AMS Tray Popup Visual**: `../printer_dashboards/ams-tray-popup-visual.md`
 
 ---
 

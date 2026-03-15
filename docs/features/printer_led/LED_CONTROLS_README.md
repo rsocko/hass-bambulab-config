@@ -63,8 +63,8 @@ Open advanced popup with:
 
 For detailed setup, customization, and troubleshooting:
 
-- **Main Documentation**: [docs/features/printer_dashboards/docs/led-controls.md](docs/led-controls.md)
-- **Visual Guide**: [docs/features/printer_dashboards/docs/led-controls-visual.md](docs/led-controls-visual.md)
+- **Main Documentation**: [led-controls.md](led-controls.md)
+- **Visual Guide**: [led-controls-visual.md](led-controls-visual.md)
 - **WLED Setup**: `/wled/README.md`
 
 ## 🔧 Prerequisites

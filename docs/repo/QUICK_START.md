@@ -162,9 +162,9 @@ See `IMPLEMENTATION_SUMMARY.md` for ideas on:
 ## 📚 More Information
 
 - **Full Details**: See `IMPLEMENTATION_SUMMARY.md`
-- **Technical Docs**: See [docs/features/printer_dashboards/docs/hms-error-alert-implementation.md](../features/printer_dashboards/docs/hms-error-alert-implementation.md)
-- **Testing Guide**: See [docs/features/printer_dashboards/docs/hms-error-testing-guide.md](../features/printer_dashboards/docs/hms-error-testing-guide.md)
-- **Visual Examples**: See [docs/features/printer_dashboards/docs/hms-error-ui-mockup.md](../features/printer_dashboards/docs/hms-error-ui-mockup.md)
+- **Technical Docs**: See [docs/features/hms_alert/hms-error-alert-implementation.md](../features/hms_alert/hms-error-alert-implementation.md)
+- **Testing Guide**: See [docs/features/hms_alert/hms-error-testing-guide.md](../features/hms_alert/hms-error-testing-guide.md)
+- **Visual Examples**: See [docs/features/hms_alert/hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md)
 
 ## ✅ Checklist Before Using
 
@@ -177,7 +177,7 @@ See `IMPLEMENTATION_SUMMARY.md` for ideas on:
 
 ---
 
-**Need Help?** Check the full documentation in the [docs/features/printer_dashboards/docs/](../features/printer_dashboards/docs/) folder!
+**Need Help?** Check the full documentation in the [docs/features/hms_alert/](../features/hms_alert/) folder!
 
 
 
