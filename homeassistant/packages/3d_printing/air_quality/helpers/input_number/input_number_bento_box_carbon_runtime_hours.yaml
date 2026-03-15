@@ -1,0 +1,8 @@
+bento_box_carbon_runtime_hours:
+  name: "Bento Box Carbon Filter Runtime"
+  min: 0
+  max: 10000
+  step: 0.1
+  unit_of_measurement: "h"
+  icon: mdi:air-filter
+  mode: box

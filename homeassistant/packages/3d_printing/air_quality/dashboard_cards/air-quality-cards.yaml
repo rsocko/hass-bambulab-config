@@ -19,8 +19,8 @@
 #
 # SETUP INSTRUCTIONS:
 # 1. Update entity names below to match your actual entities
-# 2. For Air Gradient sensor, replace 'airgradient_xxxx' with your device name
-# 3. For Govee air purifier, replace 'govee_air_purifier' with your device name
+# 2. Air Gradient sensor entities use 'i_9psl' prefix (AirGradient I-9PSL model)
+# 3. Govee purifier uses gv2mqtt: switch.ryans_office_air_power_switch + number.ryans_office_air_gearmode
 # 4. Copy the entire card configuration below into your dashboard
 # 5. Adjust thresholds in color logic if needed for your environment
 #
@@ -42,11 +42,11 @@ cards:
   - type: custom:mushroom-template-card
     primary: PM2.5
     secondary: |-
-      {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+      {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
       {{ pm25 | round(1) }} µg/m³
     icon: mdi:air-filter
     icon_color: |-
-      {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+      {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
       {% if pm25 < 12 %}
         green
       {% elif pm25 < 35 %}
@@ -58,7 +58,7 @@ cards:
       {% endif %}
     tap_action:
       action: more-info
-      entity: sensor.airgradient_pm25
+      entity: sensor.i_9psl_pm2_5
     card_mod:
       style: |
         ha-card {
@@ -76,11 +76,11 @@ cards:
   - type: custom:mushroom-template-card
     primary: CO2
     secondary: |-
-      {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+      {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
       {{ co2 }} ppm
     icon: mdi:molecule-co2
     icon_color: |-
-      {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+      {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
       {% if co2 < 800 %}
         green
       {% elif co2 < 1200 %}
@@ -92,7 +92,7 @@ cards:
       {% endif %}
     tap_action:
       action: more-info
-      entity: sensor.airgradient_co2
+      entity: sensor.i_9psl_carbon_dioxide
     card_mod:
       style: |
         ha-card {
@@ -110,11 +110,11 @@ cards:
   - type: custom:mushroom-template-card
     primary: VOC
     secondary: |-
-      {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+      {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
       {{ voc }} ppb
     icon: mdi:chemical-weapon
     icon_color: |-
-      {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+      {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
       {% if voc < 100 %}
         green
       {% elif voc < 200 %}
@@ -126,7 +126,7 @@ cards:
       {% endif %}
     tap_action:
       action: more-info
-      entity: sensor.airgradient_tvoc
+      entity: sensor.i_9psl_voc_index
     card_mod:
       style: |
         ha-card {
@@ -143,11 +143,11 @@ cards:
   - type: custom:mushroom-template-card
     primary: Temp
     secondary: |-
-      {% set temp = states('sensor.airgradient_temperature') | float(0) %}
-      {{ temp | round(1) }}°{{ state_attr('sensor.airgradient_temperature', 'unit_of_measurement') or 'C' }}
+      {% set temp = states('sensor.i_9psl_temperature') | float(0) %}
+      {{ temp | round(1) }}°{{ state_attr('sensor.i_9psl_temperature', 'unit_of_measurement') or 'C' }}
     icon: mdi:thermometer
     icon_color: |-
-      {% set temp = states('sensor.airgradient_temperature') | float(0) %}
+      {% set temp = states('sensor.i_9psl_temperature') | float(0) %}
       {% if temp < 18 %}
         blue
       {% elif temp < 24 %}
@@ -159,7 +159,7 @@ cards:
       {% endif %}
     tap_action:
       action: more-info
-      entity: sensor.airgradient_temperature
+      entity: sensor.i_9psl_temperature
     card_mod:
       style: |
         ha-card {
@@ -176,11 +176,11 @@ cards:
   - type: custom:mushroom-template-card
     primary: Humidity
     secondary: |-
-      {% set humidity = states('sensor.airgradient_humidity') | float(0) %}
+      {% set humidity = states('sensor.i_9psl_humidity') | float(0) %}
       {{ humidity | round(0) }}%
     icon: mdi:water-percent
     icon_color: |-
-      {% set humidity = states('sensor.airgradient_humidity') | float(0) %}
+      {% set humidity = states('sensor.i_9psl_humidity') | float(0) %}
       {% if humidity < 30 %}
         red
       {% elif humidity < 40 %}
@@ -194,7 +194,7 @@ cards:
       {% endif %}
     tap_action:
       action: more-info
-      entity: sensor.airgradient_humidity
+      entity: sensor.i_9psl_humidity
     card_mod:
       style: |
         ha-card {
@@ -218,33 +218,37 @@ cards:
   - type: custom:mushroom-template-card
     primary: Govee Air Purifier
     secondary: |-
-      {% if is_state('fan.govee_air_purifier', 'on') %}
-        {% set speed = state_attr('fan.govee_air_purifier', 'percentage') | int(0) %}
-        On - {{ speed }}%
-      {% elif is_state('fan.govee_air_purifier', 'off') %}
+      {% if is_state('switch.ryans_office_air_power_switch', 'on') %}
+        {% set gear = states('number.ryans_office_air_gearmode') | int(0) %}
+        On - Gear {{ gear }}
+      {% elif is_state('switch.ryans_office_air_power_switch', 'off') %}
         Off
       {% else %}
         Unavailable
       {% endif %}
     icon: mdi:air-purifier
     icon_color: |-
-      {% set state = states('fan.govee_air_purifier') %}
+      {% set state = states('switch.ryans_office_air_power_switch') %}
       {% if state == 'off' or state in ['unavailable', 'unknown'] %}
         grey
       {% else %}
-        {% set speed = state_attr('fan.govee_air_purifier', 'percentage') | int(0) %}
-        {% if speed < 30 %}
+        {% set gear = states('number.ryans_office_air_gearmode') | int(0) %}
+        {% if gear <= 1 %}
           green
-        {% elif speed < 70 %}
+        {% elif gear == 2 %}
           amber
         {% else %}
           red
         {% endif %}
       {% endif %}
     tap_action:
-      action: toggle
+      action: call-service
+      service: switch.toggle
+      target:
+        entity_id: switch.ryans_office_air_power_switch
     hold_action:
       action: more-info
+    entity: switch.ryans_office_air_power_switch
     card_mod:
       style: |
         ha-card {
@@ -259,72 +263,72 @@ cards:
   # ============================================================
   - type: horizontal-stack
     cards:
-      # Low Speed Button
+      # Low Speed Button (Gear 1)
       - type: custom:mushroom-template-card
         primary: Low
         icon: mdi:fan-speed-1
         icon_color: |-
-          {% set speed = state_attr('fan.govee_air_purifier', 'percentage') | int(0) %}
-          {% if speed > 0 and speed <= 33 %}
+          {% set gear = states('number.ryans_office_air_gearmode') | int(0) %}
+          {% if gear == 1 and is_state('switch.ryans_office_air_power_switch', 'on') %}
             green
           {% else %}
             grey
           {% endif %}
         tap_action:
           action: call-service
-          service: fan.set_percentage
+          service: number.set_value
           target:
-            entity_id: fan.govee_air_purifier
+            entity_id: number.ryans_office_air_gearmode
           data:
-            percentage: 33
+            value: 1
         card_mod:
           style: |
             ha-card {
               background: rgba(76, 175, 80, 0.05);
             }
 
-      # Medium Speed Button
+      # Medium Speed Button (Gear 2)
       - type: custom:mushroom-template-card
         primary: Medium
         icon: mdi:fan-speed-2
         icon_color: |-
-          {% set speed = state_attr('fan.govee_air_purifier', 'percentage') | int(0) %}
-          {% if speed > 33 and speed <= 66 %}
+          {% set gear = states('number.ryans_office_air_gearmode') | int(0) %}
+          {% if gear == 2 and is_state('switch.ryans_office_air_power_switch', 'on') %}
             amber
           {% else %}
             grey
           {% endif %}
         tap_action:
           action: call-service
-          service: fan.set_percentage
+          service: number.set_value
           target:
-            entity_id: fan.govee_air_purifier
+            entity_id: number.ryans_office_air_gearmode
           data:
-            percentage: 66
+            value: 2
         card_mod:
           style: |
             ha-card {
               background: rgba(255, 152, 0, 0.05);
             }
 
-      # High Speed Button
+      # High Speed Button (Gear 3)
       - type: custom:mushroom-template-card
         primary: High
         icon: mdi:fan-speed-3
         icon_color: |-
-          {% set speed = state_attr('fan.govee_air_purifier', 'percentage') | int(0) %}
-          {% if speed > 66 %}
+          {% set gear = states('number.ryans_office_air_gearmode') | int(0) %}
+          {% if gear >= 3 and is_state('switch.ryans_office_air_power_switch', 'on') %}
             red
           {% else %}
             grey
           {% endif %}
         tap_action:
           action: call-service
-          service: fan.set_percentage
+          service: number.set_value
           target:
-            entity_id: fan.govee_air_purifier
+            entity_id: number.ryans_office_air_gearmode
           data:
-            percentage: 100
+            value: 3
         card_mod:
           style: |
             ha-card {
@@ -338,9 +342,9 @@ cards:
   - type: custom:mushroom-template-card
     primary: Air Quality Status
     secondary: |-
-      {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
-      {% set co2 = states('sensor.airgradient_co2') | int(0) %}
-      {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+      {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+      {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+      {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
       {% if pm25 >= 55 or co2 >= 2000 or voc >= 300 %}
         Very Poor - Purifier Recommended
       {% elif pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
@@ -352,9 +356,9 @@ cards:
       {% endif %}
     icon: mdi:air-filter-outline
     icon_color: |-
-      {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
-      {% set co2 = states('sensor.airgradient_co2') | int(0) %}
-      {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+      {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+      {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+      {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
       {% if pm25 >= 55 or co2 >= 2000 or voc >= 300 %}
         red
       {% elif pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
@@ -387,11 +391,11 @@ cards:
 #   - type: custom:mushroom-template-card
 #     primary: PM2.5
 #     secondary: |-
-#       {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+#       {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
 #       {{ pm25 | round(1) }} µg/m³
 #     icon: mdi:air-filter
 #     icon_color: |-
-#       {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
+#       {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
 #       {% if pm25 < 12 %}
 #         green
 #       {% elif pm25 < 35 %}
@@ -403,16 +407,16 @@ cards:
 #       {% endif %}
 #     tap_action:
 #       action: more-info
-#       entity: sensor.airgradient_pm25
+#       entity: sensor.i_9psl_pm2_5
 #
 #   - type: custom:mushroom-template-card
 #     primary: CO2
 #     secondary: |-
-#       {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+#       {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
 #       {{ co2 }} ppm
 #     icon: mdi:molecule-co2
 #     icon_color: |-
-#       {% set co2 = states('sensor.airgradient_co2') | int(0) %}
+#       {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
 #       {% if co2 < 800 %}
 #         green
 #       {% elif co2 < 1200 %}
@@ -424,16 +428,16 @@ cards:
 #       {% endif %}
 #     tap_action:
 #       action: more-info
-#       entity: sensor.airgradient_co2
+#       entity: sensor.i_9psl_carbon_dioxide
 #
 #   - type: custom:mushroom-template-card
 #     primary: VOC
 #     secondary: |-
-#       {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+#       {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
 #       {{ voc }} ppb
 #     icon: mdi:chemical-weapon
 #     icon_color: |-
-#       {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+#       {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
 #       {% if voc < 100 %}
 #         green
 #       {% elif voc < 200 %}
@@ -445,7 +449,7 @@ cards:
 #       {% endif %}
 #     tap_action:
 #       action: more-info
-#       entity: sensor.airgradient_tvoc
+#       entity: sensor.i_9psl_voc_index
 #
 #   - type: custom:mushroom-template-card
 #     primary: Air Purifier

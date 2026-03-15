@@ -1,0 +1,33 @@
+- name: "Bento Box Filter Status"
+  unique_id: bento_box_filter_status
+  state: >
+    {% set hepa_usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
+    {% set carbon_usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
+    {% set max_usage = [hepa_usage, carbon_usage] | max %}
+    {% if max_usage >= 100 %}
+      Replace Now
+    {% elif max_usage >= 90 %}
+      Replace Soon
+    {% elif max_usage >= 75 %}
+      Monitor
+    {% else %}
+      Good
+    {% endif %}
+  icon: >
+    {% set hepa_usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
+    {% set carbon_usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
+    {% set max_usage = [hepa_usage, carbon_usage] | max %}
+    {% if max_usage >= 100 %}
+      mdi:alert-circle
+    {% elif max_usage >= 90 %}
+      mdi:alert
+    {% elif max_usage >= 75 %}
+      mdi:information
+    {% else %}
+      mdi:check-circle
+    {% endif %}
+  attributes:
+    hepa_status: "{{ state_attr('sensor.bento_box_hepa_filter_usage', 'status') }}"
+    carbon_status: "{{ state_attr('sensor.bento_box_carbon_filter_usage', 'status') }}"
+    hepa_usage_percent: "{{ states('sensor.bento_box_hepa_filter_usage') }}"
+    carbon_usage_percent: "{{ states('sensor.bento_box_carbon_filter_usage') }}"

@@ -1,0 +1,9 @@
+bento_box_carbon_max_hours:
+  name: "Bento Box Carbon Filter Max Hours"
+  min: 100
+  max: 10000
+  step: 50
+  initial: 1000
+  unit_of_measurement: "h"
+  icon: mdi:clock-outline
+  mode: box

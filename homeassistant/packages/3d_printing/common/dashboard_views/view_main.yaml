@@ -208,6 +208,8 @@ sections:
             size: 228
     - !include ../../printer_temps/dashboard_cards/printer-temps.yaml
     - !include ../../printer_controls/dashboard_cards/fan_controls_v2.yaml
+    - !include ../../air_quality/dashboard_cards/air-quality-cards.yaml
+    - !include ../../air_quality/dashboard_cards/bento-box-filter-cards.yaml
 - type: grid
   cards:
     - type: custom:button-card
