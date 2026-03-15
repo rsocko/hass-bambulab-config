@@ -56,13 +56,75 @@ wled_3dprinter_apply_active_tray_overlay:
           {% else %}
             0
           {% endif %}
-        color_hex: >-
+        color_hex_clean: >-
           {{ color_hex_raw | replace('#', '') | replace('"', '') | lower }}
+        color_hex: >-
+          {% if color_hex_clean | regex_match('^[0-9a-f]{8}$') %}
+            {{ color_hex_clean[0:6] }}
+          {% elif color_hex_clean | regex_match('^[0-9a-f]{6}$') %}
+            {{ color_hex_clean }}
+          {% else %}
+            
+          {% endif %}
         has_valid_color: >-
           {{ color_hex | regex_match('^[0-9a-f]{6}$') }}
-        color_r: "{{ color_hex[0:2] | int(0, 16) if has_valid_color else 255 }}"
-        color_g: "{{ color_hex[2:4] | int(0, 16) if has_valid_color else 220 }}"
-        color_b: "{{ color_hex[4:6] | int(0, 16) if has_valid_color else 180 }}"
+        base_r: "{{ color_hex[0:2] | int(0, 16) if has_valid_color else 0 }}"
+        base_g: "{{ color_hex[2:4] | int(0, 16) if has_valid_color else 0 }}"
+        base_b: "{{ color_hex[4:6] | int(0, 16) if has_valid_color else 0 }}"
+        luminance: >-
+          {{ (0.2126 * (base_r | float(0))) + (0.7152 * (base_g | float(0))) + (0.0722 * (base_b | float(0))) }}
+        is_black_like: >-
+          {{ (base_r | int(0) <= 20 and base_g | int(0) <= 20 and base_b | int(0) <= 20) or (luminance | float(0) < 18) }}
+        is_too_light: >-
+          {{ luminance | float(0) > 235 }}
+        boost_scale: >-
+          {% if luminance | float(0) > 0 and luminance | float(0) < 80 %}
+            {{ 80 / (luminance | float(0)) }}
+          {% else %}
+            1
+          {% endif %}
+        color_policy: >-
+          {% if not has_valid_color %}
+            fallback_invalid
+          {% elif is_black_like %}
+            fallback_black
+          {% elif is_too_light %}
+            fallback_light
+          {% elif luminance | float(0) < 80 %}
+            boosted_dark
+          {% else %}
+            exact
+          {% endif %}
+        color_r: >-
+          {% if color_policy in ['fallback_invalid', 'fallback_black'] %}
+            79
+          {% elif color_policy == 'fallback_light' %}
+            255
+          {% elif color_policy == 'boosted_dark' %}
+            {{ [((base_r | float(0)) * (boost_scale | float(1))) | round(0) | int, 255] | min }}
+          {% else %}
+            {{ base_r | int(0) }}
+          {% endif %}
+        color_g: >-
+          {% if color_policy in ['fallback_invalid', 'fallback_black'] %}
+            163
+          {% elif color_policy == 'fallback_light' %}
+            179
+          {% elif color_policy == 'boosted_dark' %}
+            {{ [((base_g | float(0)) * (boost_scale | float(1))) | round(0) | int, 255] | min }}
+          {% else %}
+            {{ base_g | int(0) }}
+          {% endif %}
+        color_b: >-
+          {% if color_policy in ['fallback_invalid', 'fallback_black'] %}
+            255
+          {% elif color_policy == 'fallback_light' %}
+            71
+          {% elif color_policy == 'boosted_dark' %}
+            {{ [((base_b | float(0)) * (boost_scale | float(1))) | round(0) | int, 255] | min }}
+          {% else %}
+            {{ base_b | int(0) }}
+          {% endif %}
     - condition: state
       entity_id: input_select.wled_3dprinter_core_state
       state: S3_PRINTING
@@ -71,7 +133,7 @@ wled_3dprinter_apply_active_tray_overlay:
         {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
     - condition: template
       value_template: >-
-        {{ tag_segment | int(0) > 0 and has_valid_color }}
+        {{ tag_segment | int(0) > 0 }}
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
         payload: >-
@@ -81,4 +143,5 @@ wled_3dprinter_apply_active_tray_overlay:
         name: WLED 3D Printer Active Tray Overlay
         message: >-
           Applied active tray overlay - tray={{ active_tray_state }},
-          segment={{ tag_segment }}, color=#{{ color_hex }}
+          segment={{ tag_segment }}, source=#{{ color_hex_clean }},
+          rgb={{ color_r }},{{ color_g }},{{ color_b }}, policy={{ color_policy }}
