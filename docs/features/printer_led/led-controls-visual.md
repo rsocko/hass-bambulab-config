@@ -1,8 +1,8 @@
 # LED Controls - Visual Reference Guide
 
-<!-- SCREENSHOT: id=led-visual-full-grid | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
-<!-- Capture: Full 7-light grid card with mix of on/off lights showing brightness sliders and status overview -->
-> **📸 Screenshot needed:** LED controls — full 7-light grid *(png)*
+<!-- SCREENSHOT: id=led-visual-full-grid | format=png | version=1.0 | package=printer_led | added=2026-03-15 | captured=2026-03-15 -->
+
+![LED controls — full 7-light grid](../../screenshots/images/led-controls-compact.png)
 
 <!-- SCREENSHOT: id=led-visual-wled-popup | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
 <!-- Capture: WLED advanced popup dialog showing effect/palette/speed/intensity controls and color picker -->

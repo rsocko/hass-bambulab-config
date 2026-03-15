@@ -7,6 +7,16 @@
     "obsidian-hassbambu": {
       "type": "http",
       "url": "http://127.0.0.1:27123/mcp"
+    },
+
+    "playwright": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\Users\\rysock\\AppData\\Roaming\\npm\\node_modules\\@playwright\\mcp\\cli.js",
+        "--browser", "msedge",
+        "--save-video=1280x720",
+        "--output-dir", "c:\\dev\\hass-bambulab-config\\docs\\screenshots"
+      ]
     }
   }
 }

@@ -2,9 +2,9 @@
 
 This document provides visual examples of how the fan control cards appear in different states.
 
-<!-- SCREENSHOT: id=fan-controls-printing | format=png | version=1.0 | package=printer_controls | added=2026-03-15 -->
-<!-- Capture: All 4 fan cards during active print — varying speeds, colored icons (match "Example 1: Printing" below) -->
-> **📸 Screenshot needed:** Fan controls — all fans active during print *(png)*
+<!-- SCREENSHOT: id=fan-controls-printing | format=png | version=1.0 | package=printer_controls | added=2026-03-15 | captured=2026-03-15 -->
+
+![Fan controls — all fans active during print](../../screenshots/images/fan-controls-printing.png)
 
 <!-- SCREENSHOT: id=fan-controls-idle | format=png | version=1.0 | package=printer_controls | added=2026-03-15 -->
 <!-- Capture: All 4 fan cards when idle — grey icons, 0%/Off values -->

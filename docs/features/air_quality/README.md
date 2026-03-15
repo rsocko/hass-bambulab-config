@@ -12,17 +12,17 @@ The air quality integration provides:
 
 ## Screenshots
 
-<!-- SCREENSHOT: id=air-quality-sensors-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
-<!-- Capture: All 5 sensor cards in good state (green indicators) — PM2.5, CO2, VOC, Temp, Humidity in horizontal row -->
-> **📸 Screenshot needed:** Air quality sensor cards — good state (all green) *(png)*
+<!-- SCREENSHOT: id=air-quality-sensors-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
+
+![Air quality sensor cards — good state (all green)](../../screenshots/images/air-quality-sensors-good.png)
 
 <!-- SCREENSHOT: id=air-quality-sensors-poor | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
 <!-- Capture: Sensor cards during ABS/ASA print showing orange/yellow warning indicators -->
 > **📸 Screenshot needed:** Air quality sensor cards — poor state during high-VOC print *(png)*
 
-<!-- SCREENSHOT: id=air-quality-purifier-controls | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
-<!-- Capture: Govee purifier control section showing ON state with speed buttons (Low/Medium/High) -->
-> **📸 Screenshot needed:** Govee air purifier control card *(png)*
+<!-- SCREENSHOT: id=air-quality-purifier-controls | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
+
+![Govee air purifier control card](../../screenshots/images/air-quality-purifier-controls.png)
 
 ## Features
 

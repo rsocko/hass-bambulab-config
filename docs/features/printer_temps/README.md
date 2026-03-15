@@ -21,9 +21,9 @@ Real-time nozzle and bed temperature monitoring cards with color-coded heating/c
 
 ## Screenshots
 
-<!-- SCREENSHOT: id=temp-cards-heating | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
-<!-- Capture: Both nozzle and bed cards in heating state (red) — nozzle target 220°C, bed target 80°C, current temps lower -->
-> **📸 Screenshot needed:** Temperature cards — heating state (red indicators) *(png)*
+<!-- SCREENSHOT: id=temp-cards-heating | format=png | version=1.0 | package=printer_temps | added=2026-03-15 | captured=2026-03-15 -->
+
+![Temperature cards — heating state (red indicators)](../../screenshots/images/temp-cards-heating.png)
 
 <!-- SCREENSHOT: id=temp-cards-cooling | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
 <!-- Capture: Both cards in cooling state (blue) — target 0°C, current temps still elevated -->

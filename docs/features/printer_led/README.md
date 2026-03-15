@@ -44,9 +44,9 @@ The `printer_led` package provides unified control over all LED lighting associa
 
 ## Screenshots
 
-<!-- SCREENSHOT: id=led-controls-compact | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
-<!-- Capture: Compact 6-button icon row in the dashboard header — show some lights on, some off -->
-> **📸 Screenshot needed:** LED controls — compact icon row *(png)*
+<!-- SCREENSHOT: id=led-controls-compact | format=png | version=1.0 | package=printer_led | added=2026-03-15 | captured=2026-03-15 -->
+
+![LED controls — compact icon row](../../screenshots/images/led-controls-compact.png)
 
 <!-- SCREENSHOT: id=led-controls-expanded-grid | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
 <!-- Capture: Full 7-light control grid showing all LED entities with brightness sliders and status -->

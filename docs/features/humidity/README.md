@@ -4,9 +4,9 @@ Monitor humidity levels across your room and AMS units with an easy-to-use Home 
 
 ## Screenshots
 
-<!-- SCREENSHOT: id=humidity-cards-desktop | format=png | version=1.0 | package=humidity | added=2026-03-15 -->
-<!-- Capture: Desktop view of all 3 humidity cards (AMS1, AMS2, Room) in optimal green state -->
-> **📸 Screenshot needed:** Humidity cards — desktop layout, optimal conditions *(png)*
+<!-- SCREENSHOT: id=humidity-cards-desktop | format=png | version=1.0 | package=humidity | added=2026-03-15 | captured=2026-03-15 -->
+
+![Humidity cards — desktop layout, optimal conditions](../../screenshots/images/humidity-cards-desktop.png)
 
 <!-- SCREENSHOT: id=humidity-cards-warning | format=png | version=1.0 | package=humidity | added=2026-03-15 -->
 <!-- Capture: Cards showing mixed states — one green (optimal), one amber (monitoring), one red (attention needed) -->

@@ -4,9 +4,9 @@ This document shows visual examples of how the temperature cards appear in diffe
 
 **Note**: As of v3, nozzle uses 3D printer heater icon, and target temp styling changes based on whether heating is on (target > 0) or off (target = 0). Color indicators only appear when the printer is actively printing or preparing to print.
 
-<!-- SCREENSHOT: id=temp-visual-heating | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
-<!-- Capture: Both nozzle + bed cards in heating state — red tinted background, red borders, bold target temp -->
-> **📸 Screenshot needed:** Temperature cards — heating state (red tint, borders) *(png)*
+<!-- SCREENSHOT: id=temp-visual-heating | format=png | version=1.0 | package=printer_temps | added=2026-03-15 | captured=2026-03-15 -->
+
+![Temperature cards — heating state (red tint, borders)](../../screenshots/images/temp-cards-heating.png)
 
 <!-- SCREENSHOT: id=temp-visual-cooling | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
 <!-- Capture: Both cards in cooling state — blue tinted background, blue borders -->

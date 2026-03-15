@@ -2,9 +2,9 @@
 
 This document shows what your air quality dashboard will look like after configuration.
 
-<!-- SCREENSHOT: id=air-quality-visual-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
-<!-- Capture: All 5 sensor cards in horizontal row with green/good indicators -->
-> **📸 Screenshot needed:** Air quality sensors — good state (all green) *(png)*
+<!-- SCREENSHOT: id=air-quality-visual-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
+
+![Air quality sensors — good state (all green)](../../screenshots/images/air-quality-sensors-good.png)
 
 <!-- SCREENSHOT: id=air-quality-visual-moderate | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
 <!-- Capture: Sensor cards with yellow/moderate indicators (during PLA print) -->
@@ -14,9 +14,9 @@ This document shows what your air quality dashboard will look like after configu
 <!-- Capture: Sensor cards with orange/poor indicators (during ABS/ASA print) -->
 > **📸 Screenshot needed:** Air quality sensors — poor state (orange) *(png)*
 
-<!-- SCREENSHOT: id=air-quality-visual-purifier | format=png | version=1.0 | package=air_quality | added=2026-03-15 -->
-<!-- Capture: Govee purifier section showing ON state at medium speed with Low/Medium/High buttons -->
-> **📸 Screenshot needed:** Govee purifier controls — ON at medium speed *(png)*
+<!-- SCREENSHOT: id=air-quality-visual-purifier | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->
+
+![Govee purifier controls — ON at medium speed](../../screenshots/images/air-quality-purifier-controls.png)
 
 ## Desktop View - Horizontal Layout
 
