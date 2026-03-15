@@ -29,20 +29,16 @@ wled_3dprinter_apply_active_tray_overlay:
             0
           {% endif %}
         ams_index: >-
-          {% set a = ams_index_attr | int(0) %}
-          {% if a in [1, 2] %}
-            {{ a }}
+          {% set a = ams_index_attr | int(-1) %}
+          {% if a in [0, 1] %}
+            {{ a + 1 }}
           {% else %}
             {{ ams_index_from_state | int(0) }}
           {% endif %}
         tray_slot: >-
           {% set t = tray_index_attr | int(-1) %}
-          {% if t == 0 %}
-            1
-          {% elif t in [1, 2, 3] and (tray_slot_from_state | int(0)) in [1, 2, 3, 4] %}
-            {{ tray_slot_from_state | int(0) }}
-          {% elif t in [1, 2, 3, 4] %}
-            {{ t }}
+          {% if t in [0, 1, 2, 3] %}
+            {{ t + 1 }}
           {% elif (tray_slot_from_state | int(0)) in [1, 2, 3, 4] %}
             {{ tray_slot_from_state | int(0) }}
           {% else %}
