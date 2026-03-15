@@ -1,0 +1,5 @@
+last_bambulab_error:
+  name: "Last Bambu Lab Error"
+  initial: "No errors"
+  max: 255
+  icon: mdi:alert-circle

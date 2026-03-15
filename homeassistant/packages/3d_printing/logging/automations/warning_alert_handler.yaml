@@ -1,0 +1,54 @@
+- alias: "Logging: Warning Alert Handler"
+  id: logging_warning_alert_handler
+  description: "Monitor system logs for warnings that may need attention"
+  mode: queued
+  max: 20
+  trigger:
+    # Trigger on WARNING level log entries
+    - platform: event
+      event_type: system_log_event
+      event_data:
+        level: WARNING
+  
+  condition:
+    # Only process logs from Bambu Lab components
+    - condition: template
+      value_template: >-
+        {{ trigger.event.data.name is defined and 
+           'bambulab' in trigger.event.data.name | lower }}
+  
+  action:
+    - variables:
+        log_message: "{{ trigger.event.data.message[0] if trigger.event.data.message is defined else 'Unknown warning' }}"
+        log_source: "{{ trigger.event.data.name }}"
+        timestamp: "{{ now().isoformat() }}"
+    
+    # Store warning in input_text for dashboard display
+    - service: text.set_value
+      target:
+        entity_id: input_text.last_bambulab_warning
+      data:
+        value: "[{{ timestamp }}] {{ log_source }}: {{ log_message }}"
+    
+    # Update warning counter
+    - service: counter.increment
+      target:
+        entity_id: counter.bambulab_warning_count
+    
+    # Only notify for repeated warnings (potential issues)
+    - condition: template
+      value_template: >-
+        {{ states('counter.bambulab_warning_count') | int > 5 }}
+    
+    - service: notify.persistent_notification
+      data:
+        title: "⚠️ Multiple Warnings Detected"
+        message: |
+          **{{ states('counter.bambulab_warning_count') }} warnings in recent history**
+          
+          Latest: {{ log_message }}
+          
+          Time: {{ timestamp }}
+          
+          Source: {{ log_source }}
+        notification_id: "bambulab_warnings"

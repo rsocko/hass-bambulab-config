@@ -1,0 +1,5 @@
+last_bambulab_warning:
+  name: "Last Bambu Lab Warning"
+  initial: "No warnings"
+  max: 255
+  icon: mdi:alert

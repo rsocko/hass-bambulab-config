@@ -1,0 +1,5 @@
+log_aggregation_buffer:
+  name: "Log Aggregation Buffer"
+  initial: "[]"
+  max: 65535
+  icon: mdi:text-box-multiple

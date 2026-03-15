@@ -1,0 +1,5 @@
+bambulab_warning_count:
+  name: "Bambu Lab Warning Count"
+  initial: 0
+  step: 1
+  icon: mdi:alert-outline

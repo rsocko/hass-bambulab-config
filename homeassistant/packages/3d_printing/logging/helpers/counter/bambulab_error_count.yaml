@@ -1,0 +1,5 @@
+bambulab_error_count:
+  name: "Bambu Lab Error Count"
+  initial: 0
+  step: 1
+  icon: mdi:counter
