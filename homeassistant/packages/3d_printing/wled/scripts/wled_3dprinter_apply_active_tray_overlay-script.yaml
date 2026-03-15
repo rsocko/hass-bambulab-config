@@ -1,0 +1,84 @@
+wled_3dprinter_apply_active_tray_overlay:
+  alias: WLED 3D Printer - Apply Active Tray Overlay
+  description: >-
+    During S3_PRINTING, override the active tray tag segment with the active
+    filament color from sensor.ntk_ryansoffice_3dprinter_active_tray.
+  mode: restart
+  sequence:
+    - variables:
+        active_tray_entity: sensor.ntk_ryansoffice_3dprinter_active_tray
+        active_tray_state: "{{ states(active_tray_entity) | string | trim }}"
+        ams_index_attr: >-
+          {{ state_attr(active_tray_entity, 'AMS Index') | default(state_attr(active_tray_entity, 'ams_index'), true) }}
+        tray_index_attr: >-
+          {{ state_attr(active_tray_entity, 'Tray Index') | default(state_attr(active_tray_entity, 'tray_index'), true) }}
+        color_hex_raw: >-
+          {{ state_attr(active_tray_entity, 'Color') | default(state_attr(active_tray_entity, 'color'), true) | string | trim }}
+        ams_index_from_state: >-
+          {% set s = active_tray_state | upper %}
+          {% if s | length >= 2 and s[0] in ['A', 'B'] and s[1] in ['1', '2', '3', '4'] %}
+            {{ 1 if s[0] == 'A' else 2 }}
+          {% else %}
+            0
+          {% endif %}
+        tray_slot_from_state: >-
+          {% set s = active_tray_state | upper %}
+          {% if s | length >= 2 and s[0] in ['A', 'B'] and s[1] in ['1', '2', '3', '4'] %}
+            {{ s[1] | int(0) }}
+          {% else %}
+            0
+          {% endif %}
+        ams_index: >-
+          {% set a = ams_index_attr | int(0) %}
+          {% if a in [1, 2] %}
+            {{ a }}
+          {% else %}
+            {{ ams_index_from_state | int(0) }}
+          {% endif %}
+        tray_slot: >-
+          {% set t = tray_index_attr | int(-1) %}
+          {% if t == 0 %}
+            1
+          {% elif t in [1, 2, 3] and (tray_slot_from_state | int(0)) in [1, 2, 3, 4] %}
+            {{ tray_slot_from_state | int(0) }}
+          {% elif t in [1, 2, 3, 4] %}
+            {{ t }}
+          {% elif (tray_slot_from_state | int(0)) in [1, 2, 3, 4] %}
+            {{ tray_slot_from_state | int(0) }}
+          {% else %}
+            0
+          {% endif %}
+        tag_segment: >-
+          {% if ams_index | int(0) == 1 and tray_slot | int(0) in [1, 2, 3, 4] %}
+            {{ 4 + (tray_slot | int(0)) }}
+          {% elif ams_index | int(0) == 2 and tray_slot | int(0) in [1, 2, 3, 4] %}
+            {{ 9 + (tray_slot | int(0)) }}
+          {% else %}
+            0
+          {% endif %}
+        color_hex: >-
+          {{ color_hex_raw | replace('#', '') | replace('"', '') | lower }}
+        has_valid_color: >-
+          {{ color_hex | regex_match('^[0-9a-f]{6}$') }}
+        color_r: "{{ color_hex[0:2] | int(0, 16) if has_valid_color else 255 }}"
+        color_g: "{{ color_hex[2:4] | int(0, 16) if has_valid_color else 220 }}"
+        color_b: "{{ color_hex[4:6] | int(0, 16) if has_valid_color else 180 }}"
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S3_PRINTING
+    - condition: template
+      value_template: >-
+        {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
+    - condition: template
+      value_template: >-
+        {{ tag_segment | int(0) > 0 and has_valid_color }}
+    - action: rest_command.wled_3dprinter_digquad_update_state
+      data:
+        payload: >-
+          {"seg": [{"id": {{ tag_segment }}, "col": [[{{ color_r }}, {{ color_g }}, {{ color_b }}]], "fx": 0}]}
+    - action: logbook.log
+      data:
+        name: WLED 3D Printer Active Tray Overlay
+        message: >-
+          Applied active tray overlay - tray={{ active_tray_state }},
+          segment={{ tag_segment }}, color=#{{ color_hex }}

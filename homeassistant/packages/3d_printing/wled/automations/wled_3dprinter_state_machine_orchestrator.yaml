@@ -85,11 +85,23 @@
         - action: script.wled_3dprinter_apply_core_state_to_presets
           data: {}
         - if:
+            - condition: state
+              entity_id: input_select.wled_3dprinter_core_state
+              state: S3_PRINTING
+          then:
+            - delay:
+                milliseconds: 500
+            - action: script.wled_3dprinter_apply_active_tray_overlay
+              data: {}
+            - action: script.wled_3dprinter_apply_progress_overlay
+              data: {}
+        - if:
             - condition: template
               value_template: >-
-                {{ states('input_select.wled_3dprinter_core_state') in ['S3_PRINTING', 'S4_PAUSED_USER', 'S5_PAUSED_ERROR'] }}
+                {{ states('input_select.wled_3dprinter_core_state') in ['S4_PAUSED_USER', 'S5_PAUSED_ERROR'] }}
           then:
             - delay:
                 milliseconds: 500
             - action: script.wled_3dprinter_apply_progress_overlay
               data: {}
+

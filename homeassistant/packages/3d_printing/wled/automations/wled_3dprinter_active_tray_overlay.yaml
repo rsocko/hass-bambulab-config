@@ -1,0 +1,34 @@
+- alias: "WLED 3D Printer - Active Tray Overlay"
+  id: wled_3dprinter_active_tray_overlay
+  description: >-
+    Re-apply active tray tag highlighting when the active tray changes during
+    S3_PRINTING. This keeps the correct tag segment highlighted with filament
+    color after AMS tray switches.
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_active_tray
+      id: active_tray_changed
+    - trigger: state
+      entity_id: input_select.wled_3dprinter_core_state
+      to: S3_PRINTING
+      id: entered_s3_printing
+  conditions:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S3_PRINTING
+  actions:
+    - action: logbook.log
+      data:
+        name: WLED 3D Printer Active Tray Overlay
+        message: >-
+          Trigger={{ trigger.id if trigger is defined and trigger.id is defined else 'unknown' }};
+          core_state={{ states('input_select.wled_3dprinter_core_state') }};
+          active_tray={{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') }}
+    - delay:
+        seconds: 1
+    - action: script.wled_3dprinter_apply_active_tray_overlay
+      data: {}

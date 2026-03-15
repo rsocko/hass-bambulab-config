@@ -281,8 +281,8 @@ Add scripts/automations that run **after** the core preset is applied to overrid
 
 **Approach**:
 1. Create a new script `wled_3dprinter_apply_active_tray_overlay` that:
-   - Reads the current active tray from `sensor.ntk_ryansoffice_3dprinter_active_tray` (or applicable entity)
-   - Gets the filament color (from Spoolman integration or manual helpers)
+   - Reads the current active tray from `sensor.ntk_ryansoffice_3dprinter_active_tray` (use the AMS Index and Tray Index attributes)
+   - Gets the filament color (active tray entity Color attribute)
    - Uses the WLED API to override the matching tag segment (5–8, 10–13) color
 2. Call this script from the orchestrator after `wled_3dprinter_apply_core_state_to_presets` completes, but **only when core_state is S3_PRINTING**
 
