@@ -1,0 +1,48 @@
+- alias: "WLED 3D Printer - Idle Telemetry Overlays"
+  id: wled_3dprinter_idle_telemetry_overlays
+  description: >-
+    Applies idle-only telemetry overlays for tray risk, humidity, and desiccant
+    age. Logic matches AMS tray dashboard detail/popup thresholds. Overlays are
+    suppressed outside S1_IDLE.
+  mode: restart
+  triggers:
+    - trigger: homeassistant
+      event: start
+      id: ha_start
+    - trigger: state
+      entity_id: input_select.wled_3dprinter_core_state
+      to: S1_IDLE
+      id: enter_idle
+    - trigger: state
+      entity_id: sensor.spoolman_tray_map
+      id: tray_map_changed
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
+        - sensor.3d_printer_ams_2_humidity_and_temp_humidity
+      id: humidity_changed
+    - trigger: state
+      entity_id:
+        - sensor.ntk_ryansoffice_3dprinter_print_weight
+        - input_text.print_weight_backup
+      id: print_weight_changed
+    - trigger: state
+      entity_id:
+        - input_number.wled_3dprinter_idle_tray_risk_threshold_grams
+        - input_number.wled_3dprinter_idle_humidity_warning_threshold
+      id: threshold_changed
+    - trigger: time_pattern
+      minutes: "/5"
+      id: periodic_refresh
+  conditions:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S1_IDLE
+  actions:
+    - delay:
+        seconds: 2
+    - action: script.wled_3dprinter_apply_idle_telemetry_overlays
+      data: {}

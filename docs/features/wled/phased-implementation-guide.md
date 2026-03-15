@@ -300,15 +300,33 @@ This is optional; the simpler approach in 3.2 (tag-top-only highlighting) may be
 
 ### 3.4: Telemetry Overlays (Idle-Only)
 
-Add idle-state-only visual overlays for:
-- **Tray risk**: Dim orange pulse on tags with low filament
-- **Humidity warnings**: Red pulse on AMS tray segments when desiccant is old
-- **Desiccant age**: Amber flash on tag for trays past desiccant replacement date
+Implemented idle-state-only visual overlays for:
+- **Tray risk**: Tag overlays on segments `5-8` and `10-13`, using the same risk thresholds shown in dashboard tray cards
+- **Humidity warnings**: Red pulse on AMS background segments `9` and `14`
+- **Desiccant age**: Per-tray tag overlays driven by `sensor.spoolman_tray_map` desiccant status
 
-These overlays should:
+Implementation notes:
 - Only activate when `input_select.wled_3dprinter_core_state == S1_IDLE`
-- Be suppressed during prep/printing/error/maintenance states
-- Be implemented as separate scripts called by additional automations
+- Suppressed during prep/printing/error/maintenance states by state conditions
+- Implemented as separate scripts coordinated by one idle overlay script and automation
+- Threshold and alert logic intentionally mirrors dashboard behavior from:
+   - `common/dashboard_cards/card_templates/ams_tray_detail.yaml`
+   - `common/dashboard_cards/card_templates/ams_tray_popup.yaml`
+   - `common/dashboard_cards/card_templates/ams_tray_label.yaml`
+
+#### Files Created / Modified
+
+| File | Change |
+|------|--------|
+| `helpers/input_number/wled_3dprinter_idle_tray_risk_threshold_grams.yaml` | **New** — low-filament threshold helper for idle tray risk overlays |
+| `helpers/input_number/wled_3dprinter_idle_humidity_warning_threshold.yaml` | **New** — humidity threshold helper for idle AMS background warnings |
+| `scripts/wled_3dprinter_apply_idle_telemetry_overlays-script.yaml` | **New** — idle overlay coordinator (preset reset + ordered overlay application) |
+| `scripts/wled_3dprinter_apply_idle_tray_risk_overlay-script.yaml` | **New** — tray risk overlay script with dashboard-matched thresholds |
+| `scripts/wled_3dprinter_apply_idle_humidity_overlay-script.yaml` | **New** — humidity warning overlay script for AMS background segments |
+| `scripts/wled_3dprinter_apply_idle_desiccant_overlay-script.yaml` | **New** — desiccant-age overlay script per tray/tag |
+| `automations/wled_3dprinter_idle_telemetry_overlays.yaml` | **New** — idle telemetry trigger automation |
+| `automations/wled_3dprinter_state_machine_orchestrator.yaml` | **Modified** — calls idle overlay coordinator when state is `S1_IDLE` |
+| `wled_loader.yaml` | **Modified** — adds `input_number` helper loader |
 
 ### 3.5: Phase 3 Validation
 
@@ -393,12 +411,19 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 - [ ] Resume restores progress overlay within ~2.5 seconds
 - [ ] Overlay skips gracefully when DigQuad IP is not set
 
-#### 3.2+ (Future)
-- [ ] Active tray tag highlights with filament color during printing
-- [ ] Inactive tags remain at neutral preset color
-- [ ] Tray switching mid-print updates the correct tag
-- [ ] Idle overlays appear only in idle state
-- [ ] Overlays suppress during non-idle states
+#### 3.2 (Implemented)
+- [x] Active tray tag highlights with filament color during printing
+- [x] Inactive tags remain at neutral preset color
+- [x] Tray switching mid-print updates the correct tag
+
+#### 3.3 (Deferred / Optional Advanced)
+- [ ] Preset-based segment switching (50-57) for active tray top+bottom control
+
+#### 3.4 (Implemented)
+- [x] Idle overlays appear only in idle state
+- [x] Overlays suppress during non-idle states
+- [x] Tray risk thresholds mirror AMS tray dashboard logic
+- [x] Desiccant status mapping mirrors AMS tray dashboard logic
 
 ---
 

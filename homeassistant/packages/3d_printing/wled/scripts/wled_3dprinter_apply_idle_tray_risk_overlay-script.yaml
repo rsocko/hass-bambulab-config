@@ -1,0 +1,107 @@
+wled_3dprinter_apply_idle_tray_risk_overlay:
+  alias: WLED 3D Printer - Apply Idle Tray Risk Overlay
+  description: >-
+    Mirrors AMS tray dashboard risk logic for alerts. Priority:
+    1) print-weight risk thresholds (detail/popup)
+    2) remaining-percent thresholds (tray label bar)
+    3) absolute low-grams threshold helper.
+  mode: restart
+  sequence:
+    - variables:
+        tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
+        backup_raw: "{{ states('input_text.print_weight_backup') | string | trim }}"
+        low_grams_threshold: >-
+          {{ states('input_number.wled_3dprinter_idle_tray_risk_threshold_grams') | float(200) }}
+        risk_segments_json: >-
+          {% if backup_raw not in ['unknown', 'unavailable', 'none', 'null', ''] %}
+            {% set backup_weights = backup_raw | from_json({}) %}
+          {% else %}
+            {% set backup_weights = dict() %}
+          {% endif %}
+          {% set trays = [
+            {'key': 'ams_1_tray_1', 'seg': 5, 'pw_key': 'AMS 1 Tray 1'},
+            {'key': 'ams_1_tray_2', 'seg': 6, 'pw_key': 'AMS 1 Tray 2'},
+            {'key': 'ams_1_tray_3', 'seg': 7, 'pw_key': 'AMS 1 Tray 3'},
+            {'key': 'ams_1_tray_4', 'seg': 8, 'pw_key': 'AMS 1 Tray 4'},
+            {'key': 'ams_2_tray_1', 'seg': 10, 'pw_key': 'AMS 2 Tray 1'},
+            {'key': 'ams_2_tray_2', 'seg': 11, 'pw_key': 'AMS 2 Tray 2'},
+            {'key': 'ams_2_tray_3', 'seg': 12, 'pw_key': 'AMS 2 Tray 3'},
+            {'key': 'ams_2_tray_4', 'seg': 13, 'pw_key': 'AMS 2 Tray 4'}
+          ] %}
+          {% set ns = namespace(seg=[]) %}
+          {% for item in trays %}
+            {% set tray = tray_map.get(item.key, {}) %}
+            {% set spool_id = tray.get('spool_id') %}
+            {% if spool_id %}
+              {% set spool_entity = 'sensor.spoolman_spool_' ~ spool_id %}
+              {% set remaining_raw = state_attr(spool_entity, 'remaining_weight') %}
+              {% set initial_raw = state_attr(spool_entity, 'initial_weight') %}
+              {% if remaining_raw is not none %}
+                {% set remaining = remaining_raw | float(0) %}
+                {% set initial = initial_raw | float(1000) %}
+                {% set pct = ((remaining / initial) * 100) if initial > 0 else none %}
+                {% set live_pw = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', item.pw_key) %}
+                {% set backup_pw = backup_weights.get(item.pw_key) %}
+                {% set pw_raw = live_pw if live_pw is not none else backup_pw %}
+                {% set print_weight = (pw_raw | float(0)) if pw_raw is not none else 0 %}
+                {% set severity = 'none' %}
+
+                {# Match detail/popup print weight severity #}
+                {% if print_weight > 0 %}
+                  {% if remaining < print_weight %}
+                    {% set severity = 'red' %}
+                  {% elif remaining < (print_weight * 1.1) %}
+                    {% set severity = 'orange' %}
+                  {% elif remaining < (print_weight * 1.2) %}
+                    {% set severity = 'yellow' %}
+                  {% endif %}
+                {% endif %}
+
+                {# Match label card bar thresholds if no print-weight alert #}
+                {% if severity == 'none' and pct is not none %}
+                  {% if pct <= 10 %}
+                    {% set severity = 'red' %}
+                  {% elif pct <= 25 %}
+                    {% set severity = 'orange' %}
+                  {% elif pct <= 50 %}
+                    {% set severity = 'yellow' %}
+                  {% endif %}
+                {% endif %}
+
+                {# Absolute low grams fallback #}
+                {% if severity == 'none' and remaining <= low_grams_threshold %}
+                  {% set severity = 'orange' %}
+                {% endif %}
+
+                {% if severity == 'yellow' %}
+                  {% set cfg = {'id': item.seg, 'col': [[255, 204, 0]], 'fx': 2, 'sx': 90, 'ix': 155} %}
+                  {% set ns.seg = ns.seg + [cfg] %}
+                {% elif severity == 'orange' %}
+                  {% set cfg = {'id': item.seg, 'col': [[255, 153, 0]], 'fx': 2, 'sx': 115, 'ix': 175} %}
+                  {% set ns.seg = ns.seg + [cfg] %}
+                {% elif severity == 'red' %}
+                  {% set cfg = {'id': item.seg, 'col': [[204, 0, 0]], 'fx': 1, 'sx': 185, 'ix': 190} %}
+                  {% set ns.seg = ns.seg + [cfg] %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.seg | tojson }}
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S1_IDLE
+    - condition: template
+      value_template: >-
+        {{ (risk_segments_json | from_json) | count > 0 }}
+    - action: rest_command.wled_3dprinter_digquad_update_state
+      data:
+        payload: >-
+          {"seg": {{ risk_segments_json }} }
+    - action: logbook.log
+      data:
+        name: WLED Idle Overlay - Tray Risk
+        message: >-
+          core_state={{ states('input_select.wled_3dprinter_core_state') }};
+          low_grams_threshold={{ low_grams_threshold | round(1) }};
+          segment_count={{ (risk_segments_json | from_json) | count }};
+          segments={{ (risk_segments_json | from_json) | map(attribute='id') | list | join(',') }}

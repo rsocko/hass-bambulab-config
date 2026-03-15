@@ -1,0 +1,54 @@
+wled_3dprinter_apply_idle_desiccant_overlay:
+  alias: WLED 3D Printer - Apply Idle Desiccant Overlay
+  description: >-
+    Mirrors AMS tray card desiccant icon logic from spoolman_tray_map.status.
+    Applies per-tray tag overlay only for non-green/non-empty statuses while idle.
+  mode: restart
+  sequence:
+    - variables:
+        tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
+        desiccant_segments_json: >-
+          {% set trays = [
+            {'key': 'ams_1_tray_1', 'seg': 5},
+            {'key': 'ams_1_tray_2', 'seg': 6},
+            {'key': 'ams_1_tray_3', 'seg': 7},
+            {'key': 'ams_1_tray_4', 'seg': 8},
+            {'key': 'ams_2_tray_1', 'seg': 10},
+            {'key': 'ams_2_tray_2', 'seg': 11},
+            {'key': 'ams_2_tray_3', 'seg': 12},
+            {'key': 'ams_2_tray_4', 'seg': 13}
+          ] %}
+          {% set ns = namespace(seg=[]) %}
+          {% for item in trays %}
+            {% set status = tray_map.get(item.key, {}).get('status', 'undefined') %}
+            {% if status not in ['green', 'empty'] %}
+              {% if status == 'yellow' %}
+                {% set cfg = {'id': item.seg, 'col': [[255, 204, 0]], 'fx': 2, 'sx': 90, 'ix': 150} %}
+              {% elif status == 'orange' %}
+                {% set cfg = {'id': item.seg, 'col': [[255, 153, 0]], 'fx': 2, 'sx': 110, 'ix': 170} %}
+              {% elif status == 'red' %}
+                {% set cfg = {'id': item.seg, 'col': [[204, 0, 0]], 'fx': 1, 'sx': 180, 'ix': 190} %}
+              {% else %}
+                {% set cfg = {'id': item.seg, 'col': [[158, 158, 158]], 'fx': 2, 'sx': 70, 'ix': 120} %}
+              {% endif %}
+              {% set ns.seg = ns.seg + [cfg] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.seg | tojson }}
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S1_IDLE
+    - condition: template
+      value_template: >-
+        {{ (desiccant_segments_json | from_json) | count > 0 }}
+    - action: rest_command.wled_3dprinter_digquad_update_state
+      data:
+        payload: >-
+          {"seg": {{ desiccant_segments_json }} }
+    - action: logbook.log
+      data:
+        name: WLED Idle Overlay - Desiccant
+        message: >-
+          core_state={{ states('input_select.wled_3dprinter_core_state') }};
+          segment_count={{ (desiccant_segments_json | from_json) | count }};
+          segments={{ (desiccant_segments_json | from_json) | map(attribute='id') | list | join(',') }}

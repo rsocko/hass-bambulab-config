@@ -8,7 +8,7 @@ The WLED system is controlled by a **Home Assistant state machine** that is live
 
 - **Phase 1 (Core State Machine)**: ✅ Complete — 9 core states (S0–S8), presets 101–109 on DigQuad, HA package with orchestrator + scripts + helpers
 - **Phase 2 (Segment Expansion)**: Not started — deploy full 15-segment layout and expand presets
-- **Phase 3 (Overlays & Advanced)**: Not started — active tray highlighting, telemetry overlays
+- **Phase 3 (Overlays & Advanced)**: In progress — 3.1, 3.2, and 3.4 implemented; 3.3 deferred (optional preset-based switching)
 
 See [ha-state-machine-package.md](ha-state-machine-package.md) for the authoritative state diagram and entity mapping. See [phased-implementation-guide.md](phased-implementation-guide.md) for the 3-phase plan.
 

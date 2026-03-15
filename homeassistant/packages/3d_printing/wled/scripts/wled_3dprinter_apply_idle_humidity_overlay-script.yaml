@@ -1,0 +1,43 @@
+wled_3dprinter_apply_idle_humidity_overlay:
+  alias: WLED 3D Printer - Apply Idle Humidity Overlay
+  description: >-
+    Applies AMS background humidity warnings while idle. Uses the same
+    humidity entities shown in the AMS dashboard headers.
+  mode: restart
+  sequence:
+    - variables:
+        humidity_threshold: >-
+          {{ states('input_number.wled_3dprinter_idle_humidity_warning_threshold') | float(60) }}
+        ams1_humidity: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity') | float(0) }}
+        ams2_humidity: >-
+          {{ states('sensor.3d_printer_ams_2_humidity_and_temp_humidity') | float(0) }}
+        humidity_segments_json: >-
+          {% set ns = namespace(seg=[]) %}
+          {% if ams1_humidity >= humidity_threshold %}
+            {% set ns.seg = ns.seg + [{'id': 9, 'col': [[255, 0, 0]], 'fx': 2, 'sx': 140, 'ix': 200}] %}
+          {% endif %}
+          {% if ams2_humidity >= humidity_threshold %}
+            {% set ns.seg = ns.seg + [{'id': 14, 'col': [[255, 0, 0]], 'fx': 2, 'sx': 140, 'ix': 200}] %}
+          {% endif %}
+          {{ ns.seg | tojson }}
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S1_IDLE
+    - condition: template
+      value_template: >-
+        {{ (humidity_segments_json | from_json) | count > 0 }}
+    - action: rest_command.wled_3dprinter_digquad_update_state
+      data:
+        payload: >-
+          {"seg": {{ humidity_segments_json }} }
+    - action: logbook.log
+      data:
+        name: WLED Idle Overlay - Humidity
+        message: >-
+          core_state={{ states('input_select.wled_3dprinter_core_state') }};
+          threshold={{ humidity_threshold | round(1) }};
+          ams1={{ ams1_humidity | round(1) }};
+          ams2={{ ams2_humidity | round(1) }};
+          segment_count={{ (humidity_segments_json | from_json) | count }};
+          segments={{ (humidity_segments_json | from_json) | map(attribute='id') | list | join(',') }}

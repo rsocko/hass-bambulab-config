@@ -51,6 +51,8 @@ The WLED system uses a **Home Assistant state machine** that:
 | `input_select.wled_3dprinter_core_state` | Select | Current state (S0–S8) |
 | `input_text.wled_3dprinter_last_event` | Text | Last E_* event (debug) |
 | `input_text.wled_3dprinter_last_transition_reason` | Text | Trigger detail (debug) |
+| `input_number.wled_3dprinter_idle_tray_risk_threshold_grams` | Number | Idle tray risk low-weight threshold |
+| `input_number.wled_3dprinter_idle_humidity_warning_threshold` | Number | Idle AMS humidity warning threshold |
 | `select.dig_quad_v3_preset` | WLED | Active DigQuad preset |
 | `select.magwled_preset` | WLED | Active MagWLED preset |
 
@@ -72,7 +74,7 @@ The skeleton presets (101–109) currently control **segments 0 and 1** only:
 |-------|-------|--------|
 | **Phase 1**: Core State Machine | HA helpers, scripts, orchestrator, skeleton presets 101-109 | ✅ Deployed |
 | **Phase 2**: Segment Expansion | Deploy full 15-segment layout on DigQuad, expand presets to style all segments | Not started |
-| **Phase 3**: Overlays & Advanced | Active tray highlighting, telemetry overlays, MagWLED coordination | Not started |
+| **Phase 3**: Overlays & Advanced | Active tray highlighting, telemetry overlays, MagWLED coordination | In progress (3.1/3.2/3.4 done; 3.3 deferred) |
 
 See [phased-implementation-guide.md](phased-implementation-guide.md) for full details and test guidance.
 

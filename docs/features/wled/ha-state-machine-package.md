@@ -128,11 +128,16 @@ Success criteria:
 
 **3.1 (✅ Implemented)**: Progress bar & status enhancement — dynamic Percent effect on segs 0/1 for print/layer progress via WLED JSON API; slow green breathe on seg 2 for healthy print status. See [phased-implementation-guide.md](phased-implementation-guide.md) § 3.1.
 
-**3.2+**: 
-1. Add active tray highlighting as scripts called after core preset application.
-2. Add tray risk overlays (`O_USED_TRAYS`, `O_USED_TRAY_RISK`) as separate scripts.
-3. Add humidity/desiccant overlays as idle/maintenance-only overlays.
-4. Add allocator logic only if you need temporary segment remaps.
+**3.2 (✅ Implemented)**:
+1. Active tray highlighting script + automation added and called after core preset application for `S3_PRINTING`.
+
+**3.3 (⏸ Deferred / Optional)**:
+1. Preset-based segment switching (50-57) for active tray top+bottom control remains optional and not required for current behavior.
+
+**3.4 (✅ Implemented)**:
+1. Idle telemetry overlays added as separate scripts plus coordinator automation.
+2. Tray risk, humidity, and desiccant overlay logic mirrors dashboard card behavior.
+3. Overlays are state-gated to `S1_IDLE` and suppressed in non-idle states.
 
 Success criteria:
 
@@ -158,4 +163,4 @@ Success criteria:
 1. Final entity names for DigQuad/MagWLED (`light.dig_quad_v3`, `light.magwled`) in your production HA instance.
 2. Preferred show mode behavior when `S6_FINISHING` transitions to idle.
 3. Whether maintenance should include additional stages beyond loading/unloading/cleaning.
-4. Which tray-risk sensors to use first for `O_USED_TRAY_RISK` implementation.
+4. Whether to keep idle tray-risk helper thresholds as-is or tune for your filament inventory.

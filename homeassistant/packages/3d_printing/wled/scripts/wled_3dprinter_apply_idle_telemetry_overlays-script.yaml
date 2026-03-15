@@ -1,0 +1,120 @@
+wled_3dprinter_apply_idle_telemetry_overlays:
+  alias: WLED 3D Printer - Apply Idle Telemetry Overlays
+  description: >-
+    Re-apply the idle core preset and then layer idle-only telemetry overlays
+    in priority order: desiccant, humidity, then tray risk.
+  mode: restart
+  sequence:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_select.wled_3dprinter_core_state
+      state: S1_IDLE
+    - condition: template
+      value_template: >-
+        {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
+    - action: script.wled_3dprinter_apply_core_state_to_presets
+      data: {}
+    - delay:
+        milliseconds: 300
+    - action: script.wled_3dprinter_apply_idle_desiccant_overlay
+      data: {}
+    - action: script.wled_3dprinter_apply_idle_humidity_overlay
+      data: {}
+    - action: script.wled_3dprinter_apply_idle_tray_risk_overlay
+      data: {}
+    - variables:
+        tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
+        humidity_threshold: >-
+          {{ states('input_number.wled_3dprinter_idle_humidity_warning_threshold') | float(60) }}
+        ams1_humidity: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity') | float(0) }}
+        ams2_humidity: >-
+          {{ states('sensor.3d_printer_ams_2_humidity_and_temp_humidity') | float(0) }}
+        desiccant_count: >-
+          {% set keys = [
+            'ams_1_tray_1','ams_1_tray_2','ams_1_tray_3','ams_1_tray_4',
+            'ams_2_tray_1','ams_2_tray_2','ams_2_tray_3','ams_2_tray_4'
+          ] %}
+          {% set ns = namespace(c=0) %}
+          {% for k in keys %}
+            {% set s = tray_map.get(k, {}).get('status', 'undefined') %}
+            {% if s not in ['green', 'empty'] %}
+              {% set ns.c = ns.c + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.c }}
+        humidity_count: >-
+          {{ (1 if ams1_humidity >= humidity_threshold else 0) + (1 if ams2_humidity >= humidity_threshold else 0) }}
+        tray_risk_count: >-
+          {% set low_grams_threshold = states('input_number.wled_3dprinter_idle_tray_risk_threshold_grams') | float(200) %}
+          {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
+          {% if backup_raw not in ['unknown', 'unavailable', 'none', 'null', ''] %}
+            {% set backup_weights = backup_raw | from_json({}) %}
+          {% else %}
+            {% set backup_weights = dict() %}
+          {% endif %}
+          {% set trays = [
+            {'key': 'ams_1_tray_1', 'pw_key': 'AMS 1 Tray 1'},
+            {'key': 'ams_1_tray_2', 'pw_key': 'AMS 1 Tray 2'},
+            {'key': 'ams_1_tray_3', 'pw_key': 'AMS 1 Tray 3'},
+            {'key': 'ams_1_tray_4', 'pw_key': 'AMS 1 Tray 4'},
+            {'key': 'ams_2_tray_1', 'pw_key': 'AMS 2 Tray 1'},
+            {'key': 'ams_2_tray_2', 'pw_key': 'AMS 2 Tray 2'},
+            {'key': 'ams_2_tray_3', 'pw_key': 'AMS 2 Tray 3'},
+            {'key': 'ams_2_tray_4', 'pw_key': 'AMS 2 Tray 4'}
+          ] %}
+          {% set ns = namespace(c=0) %}
+          {% for item in trays %}
+            {% set tray = tray_map.get(item.key, {}) %}
+            {% set spool_id = tray.get('spool_id') %}
+            {% if spool_id %}
+              {% set spool_entity = 'sensor.spoolman_spool_' ~ spool_id %}
+              {% set remaining_raw = state_attr(spool_entity, 'remaining_weight') %}
+              {% set initial_raw = state_attr(spool_entity, 'initial_weight') %}
+              {% if remaining_raw is not none %}
+                {% set remaining = remaining_raw | float(0) %}
+                {% set initial = initial_raw | float(1000) %}
+                {% set pct = ((remaining / initial) * 100) if initial > 0 else none %}
+                {% set live_pw = state_attr('sensor.ntk_ryansoffice_3dprinter_print_weight', item.pw_key) %}
+                {% set backup_pw = backup_weights.get(item.pw_key) %}
+                {% set pw_raw = live_pw if live_pw is not none else backup_pw %}
+                {% set print_weight = (pw_raw | float(0)) if pw_raw is not none else 0 %}
+                {% set severity = 'none' %}
+                {% if print_weight > 0 %}
+                  {% if remaining < print_weight %}
+                    {% set severity = 'red' %}
+                  {% elif remaining < (print_weight * 1.1) %}
+                    {% set severity = 'orange' %}
+                  {% elif remaining < (print_weight * 1.2) %}
+                    {% set severity = 'yellow' %}
+                  {% endif %}
+                {% endif %}
+                {% if severity == 'none' and pct is not none %}
+                  {% if pct <= 10 %}
+                    {% set severity = 'red' %}
+                  {% elif pct <= 25 %}
+                    {% set severity = 'orange' %}
+                  {% elif pct <= 50 %}
+                    {% set severity = 'yellow' %}
+                  {% endif %}
+                {% endif %}
+                {% if severity == 'none' and remaining <= low_grams_threshold %}
+                  {% set severity = 'orange' %}
+                {% endif %}
+                {% if severity != 'none' %}
+                  {% set ns.c = ns.c + 1 %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.c }}
+    - action: logbook.log
+      data:
+        name: WLED 3D Printer Idle Telemetry
+        message: >-
+          Applied idle telemetry overlays using dashboard-matched risk/desiccant logic;
+          desiccant={{ desiccant_count }};
+          humidity={{ humidity_count }};
+          tray_risk={{ tray_risk_count }}.

@@ -5,5 +5,6 @@ rest_command: !include_dir_merge_named rest_commands
 
 input_boolean: !include_dir_merge_named helpers/input_boolean
 input_button: !include_dir_merge_named helpers/input_button
+input_number: !include_dir_merge_named helpers/input_number
 input_select: !include_dir_merge_named helpers/input_select
 input_text: !include_dir_merge_named helpers/input_text
