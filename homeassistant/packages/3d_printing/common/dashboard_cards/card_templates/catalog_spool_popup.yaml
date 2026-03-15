@@ -562,7 +562,19 @@ catalog_spool_popup:
                       type: 'custom:button-card',
                       name: 'Open in Spoolman',
                       icon: 'fapro:filament-2',
-                      tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId },
+                      tap_action: {
+                        action: 'fire-dom-event',
+                        browser_mod: {
+                          service: 'browser_mod.sequence',
+                          data: {
+                            sequence: [
+                              { service: 'browser_mod.close_popup' },
+                              { service: 'browser_mod.delay', data: { time: 300 } },
+                              { service: 'browser_mod.javascript', data: { code: 'window.open("' + SPOOLMAN_BASE_URL + '/' + spoolId + '", "_blank")' } }
+                            ]
+                          }
+                        }
+                      },
                       styles: actionBtnStyle
                     },
                     {
