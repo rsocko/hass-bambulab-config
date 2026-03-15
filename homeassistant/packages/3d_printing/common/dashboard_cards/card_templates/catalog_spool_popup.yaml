@@ -1,250 +1,52 @@
 # catalog_spool_popup.yaml
-# Browser_mod popup template for the Filament Catalog.
-# Displays full spool details when a catalog_spool_card is tapped.
-# Reads directly from sensor.spoolman_spool_{id} attributes
-# (no dependency on sensor.spoolman_tray_map).
+# Lightweight popup trigger for the Filament Catalog.
+# This template is inherited by catalog_spool_card and evaluated on every
+# card render. To keep the main grid fast, only the entity_id and minimal
+# chart/action data are computed here. All heavy display logic lives in
+# catalog_spool_popup_content (rendered only when the popup opens).
 #
 # Inherited by: catalog_spool_card
 
 catalog_spool_popup:
   tap_action: |
     [[[
-      // --- Configuration ---
-      const SPOOLMAN_BASE_URL = 'http://spoolman.socko.us/spool/show';
-      const POPUP_SIZE = 'normal';
-      // ---------------------
-
       const spoolId = entity?.attributes?.id;
-      const spoolEntityId = entity?.entity_id;
-      const locationEntityId = spoolId ? 'select.spoolman_spool_' + spoolId + '_location' : null;
+      if (!spoolId) return { action: 'more-info' };
+
+      const eid = entity.entity_id;
+      const spoolIdInt = parseInt(spoolId, 10);
+      const SPOOLMAN_BASE_URL = 'http://spoolman.socko.us/spool/show';
       const spoolName = entity?.attributes?.friendly_name || 'Unknown Spool';
-      const filamentName = entity?.attributes?.filament_name || 'Unknown';
-      const material = entity?.attributes?.filament_material || 'Unknown';
-      const vendor = entity?.attributes?.filament_vendor_name || 'Unknown';
-      const location = entity?.attributes?.location || 'N/A';
-      const remainingWeight = entity?.attributes?.remaining_weight;
-      const initialWeight = entity?.attributes?.initial_weight || 1000;
-      const usedPercentage = entity?.attributes?.used_percentage;
-      const filamentId = entity?.attributes?.filament_id;
+      const nowISO = new Date().toISOString();
+
+      // --- Minimal chart config ---
       const rawColor = (entity?.attributes?.filament_color_hex || '888888').replace('#', '');
-      const r = parseInt(rawColor.substring(0, 2), 16) || 128;
-      const g = parseInt(rawColor.substring(2, 4), 16) || 128;
-      const b = parseInt(rawColor.substring(4, 6), 16) || 128;
       const colorHex = '#' + rawColor;
-      const luminance = (r * 299 + g * 587 + b * 114) / 1000;
-      const textColor = luminance > 128 ? '#000000' : '#ffffff';
-      const borderColor = luminance > 128 ? '#333333' : '#ffffff';
+      const lum = ((parseInt(rawColor.substring(0,2),16)||128)*299 + (parseInt(rawColor.substring(2,4),16)||128)*587 + (parseInt(rawColor.substring(4,6),16)||128)*114) / 1000;
+      const chartBg = lum > 128 ? '#2a2a2a' : '#f0f0f0';
+      const chartFg = lum > 128 ? '#cccccc' : '#333333';
+      const chartTheme = lum > 128 ? 'dark' : 'light';
 
-      // Desiccant status (same logic as spoolman_tray_map)
-      const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
-      const desiccantFilled = entity?.attributes?.extra_desiccant_filled;
-      let desiccantStatus = 'empty';
-      let desiccantDays = null;
-      if (hasDesiccant && desiccantFilled) {
-        desiccantDays = Math.floor((Date.now() - new Date(desiccantFilled)) / 86400000);
-        if (desiccantDays < 45) desiccantStatus = 'green';
-        else if (desiccantDays < 60) desiccantStatus = 'yellow';
-        else if (desiccantDays < 75) desiccantStatus = 'orange';
-        else desiccantStatus = 'red';
-      }
-      const desiccantMushColor = { green: 'green', yellow: 'yellow', orange: 'orange', red: 'red' }[desiccantStatus] || 'grey';
-      let desiccantText = 'No desiccant data';
-      if (desiccantFilled) {
-        const filledDate = new Date(desiccantFilled);
-        const dateStr = filledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        desiccantText = desiccantDays + (desiccantDays === 1 ? ' day ago' : ' days ago') + ' (' + dateStr + ')';
-      }
-
-      // Last dried
-      const lastDried = entity?.attributes?.extra_last_dried || '';
-      let lastDriedText = 'Never';
-      if (lastDried) {
-        const driedDate = new Date(lastDried);
-        lastDriedText = driedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      }
-
-      // UUID
-      const spoolUUID = entity?.attributes?.extra_spool_uuid || '';
-
-      // Color attributes (strip JSON quotes from Spoolman extra fields)
-      const stripQuotes = (v) => {
-        if (!v) return '';
-        const s = String(v);
-        return (s.startsWith('"') && s.endsWith('"')) ? s.slice(1, -1) : s;
-      };
-      const baseColor = stripQuotes(entity?.attributes?.filament_extra_primary_color);
-      const colorFamily = stripQuotes(entity?.attributes?.filament_extra_color_family);
-      const profileName = stripQuotes(entity?.attributes?.filament_extra_profile_name);
-      const typeDetailsRaw = entity?.attributes?.filament_extra_type_details || '';
-      let typeDetails = 'N/A';
-      if (typeDetailsRaw) {
-        try {
-          const parsed = JSON.parse(typeDetailsRaw);
-          typeDetails = Array.isArray(parsed) ? parsed.join(', ') : String(typeDetailsRaw);
-        } catch(e) {
-          typeDetails = stripQuotes(typeDetailsRaw);
-        }
-      }
-
-      // Base color icon color
-      const baseColorIconColor = (() => {
-        if (!baseColor) return 'grey';
-        const lc = baseColor.toLowerCase().trim();
-        const namedColors = {
-          'red': '#F44336', 'crimson': '#B71C1C', 'orange': '#FF9800', 'amber': '#FFC107',
-          'yellow': '#FFEB3B', 'gold': '#FFD700', 'lime': '#CDDC39', 'green': '#4CAF50',
-          'teal': '#009688', 'cyan': '#00BCD4', 'blue': '#2196F3', 'navy': '#1A237E',
-          'indigo': '#3F51B5', 'violet': '#9C27B0', 'purple': '#7B1FA2', 'magenta': '#E91E63',
-          'pink': '#F48FB1', 'rose': '#F06292', 'white': '#E0E0E0', 'silver': '#9E9E9E',
-          'gray': '#757575', 'grey': '#757575', 'black': '#424242', 'brown': '#795548',
-          'tan': '#D2B48C', 'rainbow': '#FF5722', 'transparent': '#9E9E9E'
-        };
-        return namedColors[lc] || colorHex;
-      })();
-      const baseColorLuminance = (() => {
-        const hex = baseColorIconColor.replace('#', '');
-        const br = parseInt(hex.substring(0, 2), 16) || 128;
-        const bg = parseInt(hex.substring(2, 4), 16) || 128;
-        const bb = parseInt(hex.substring(4, 6), 16) || 128;
-        return (br * 299 + bg * 587 + bb * 114) / 1000;
-      })();
-      const baseColorOutlineColor = baseColorLuminance > 180 ? '#333333' : '#cccccc';
-
-      // Multi-color support
-      const multiColorHexesRaw = entity?.attributes?.filament_multi_color_hexes || '';
-      const multiColorDirection = entity?.attributes?.filament_multi_color_direction || '';
-      const isMultiColor = !!multiColorHexesRaw;
-      const multiColorList = isMultiColor
-        ? multiColorHexesRaw.split(',').map(function(h) { return '#' + h.trim().replace(/^#/, ''); })
-        : [];
-      const gradientCSSDir = multiColorDirection === 'coaxial' ? 'to bottom' : 'to right';
-      const backgroundCSS = isMultiColor
-        ? 'linear-gradient(' + gradientCSSDir + ', ' + multiColorList.join(', ') + ')'
-        : colorHex;
-
-      // Multi-color text contrast
-      let headerTextColor = textColor;
-      let headerBorderColor = borderColor;
-      let multiTextShadow = '';
-      if (isMultiColor && multiColorList.length > 0) {
-        const lums = multiColorList.map(function(hex) {
-          const h = hex.replace('#', '');
-          const mr = parseInt(h.substring(0, 2), 16) || 128;
-          const mg = parseInt(h.substring(2, 4), 16) || 128;
-          const mb = parseInt(h.substring(4, 6), 16) || 128;
-          return (mr * 299 + mg * 587 + mb * 114) / 1000;
-        });
-        const avgLum = lums.reduce(function(a, b) { return a + b; }, 0) / lums.length;
-        const hasLight = lums.some(function(l) { return l > 128; });
-        const hasDark = lums.some(function(l) { return l <= 128; });
-        if (hasLight && hasDark) {
-          headerTextColor = '#ffffff';
-          headerBorderColor = 'rgba(255,255,255,0.6)';
-          multiTextShadow = '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.5)';
-        } else {
-          headerTextColor = avgLum > 128 ? '#000000' : '#ffffff';
-          headerBorderColor = avgLum > 128 ? '#333333' : '#ffffff';
-        }
-      }
-
-      // Filament totals (other spools of same filament)
-      const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
-      const filamentTotal = (filamentId !== undefined && filamentId !== null && filamentTotals)
-        ? filamentTotals[String(filamentId)]
-        : null;
-      const totalWeightText = filamentTotal
-        ? filamentTotal.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g (' + filamentTotal.count + (filamentTotal.count === 1 ? ' spool' : ' spools') + ')'
-        : 'N/A';
-      const otherSpools = (filamentTotal && filamentTotal.spools)
-        ? filamentTotal.spools
-            .filter(function(s) { return s.entity_id !== spoolEntityId; })
-            .map(function(s) {
-              return {
-                id: s.id, entityId: s.entity_id, name: s.name,
-                location: s.location,
-                remainingText: (s.remaining !== undefined && s.remaining !== null) ? s.remaining.toFixed(1) + ' g' : 'N/A'
-              };
-            })
-        : [];
-
-      // Cost calculation
-      const price = entity?.attributes?.price || entity?.attributes?.filament_price || null;
-      const valueCost = (price && remainingWeight !== undefined && remainingWeight !== null && initialWeight)
-        ? (remainingWeight / initialWeight * price)
-        : null;
-      const valueText = valueCost !== null
-        ? '$' + valueCost.toFixed(2)
-        : 'N/A';
-
-      // Purchase info
-      const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
-      const purchaseDate = entity?.attributes?.extra_purchase_date || '';
-      let purchaseText = '';
-      if (purchasedFrom) {
-        purchaseText = purchasedFrom;
-        if (purchaseDate) {
-          const pd = new Date(purchaseDate);
-          purchaseText += ' · ' + pd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-      }
-
-      // Print settings
-      const extruderTemp = entity?.attributes?.filament_settings_extruder_temp;
-      const bedTemp = entity?.attributes?.filament_settings_bed_temp;
-      const printSettingsText = (extruderTemp || bedTemp)
-        ? (extruderTemp ? extruderTemp + '°C' : '?') + ' / ' + (bedTemp ? bedTemp + '°C' : '?')
-        : '';
-
-      // Weight text
-      const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
-
-      // History chart config (capped at 30 days to avoid massive DB queries)
       const firstUsed = entity?.attributes?.first_used;
-      const MAX_CHART_DAYS = 30;
-      let historyHours = 168;
-      let historyLabel = '7 days';
+      let historyHours = 168, historyLabel = '7 days';
       if (firstUsed) {
-        const rawDays = Math.max(1, Math.floor((Date.now() - new Date(firstUsed)) / 86400000));
-        const days = Math.min(rawDays, MAX_CHART_DAYS);
-        historyHours = days * 24;
-        historyLabel = days + (days === 1 ? ' day' : ' days') + (rawDays > MAX_CHART_DAYS ? ' (last ' + MAX_CHART_DAYS + ')' : '');
+        const raw = Math.max(1, Math.floor((Date.now() - new Date(firstUsed)) / 86400000));
+        const d = Math.min(raw, 30);
+        historyHours = d * 24;
+        historyLabel = d + (d === 1 ? ' day' : ' days') + (raw > 30 ? ' (last 30)' : '');
       }
       const statsPeriod = historyHours > 168 ? 'day' : 'hour';
-      const chartBackground = luminance > 128 ? '#2a2a2a' : '#f0f0f0';
-      const chartForeColor = luminance > 128 ? '#cccccc' : '#333333';
-      const chartTheme = luminance > 128 ? 'dark' : 'light';
 
-      // Chart annotations
       const xAnnotations = [];
-      const addAnnotation = function(date, color, text) {
-        if (date) xAnnotations.push({ x: new Date(date).getTime(), borderColor: color, label: { text: text, style: { color: '#fff', background: color } } });
-      };
-      addAnnotation(firstUsed, '#4CAF50', 'First Use');
-      addAnnotation(desiccantFilled, '#2196F3', 'Desiccant Filled');
-      addAnnotation(lastDried, '#FF9800', 'Last Dried');
+      const ann = function(dt, c, t) { if (dt) xAnnotations.push({ x: new Date(dt).getTime(), borderColor: c, label: { text: t, style: { color: '#fff', background: c } } }); };
+      ann(firstUsed, '#4CAF50', 'First Use');
+      ann(entity?.attributes?.extra_desiccant_filled, '#2196F3', 'Desiccant Filled');
+      ann(entity?.attributes?.extra_last_dried, '#FF9800', 'Last Dried');
 
-      const headerLabel = 'Spool #' + spoolId + '  ·  ' + location;
-      const nowISO = new Date().toISOString();
-      const spoolIdInt = parseInt(spoolId, 10);
-
-      if (!spoolId) {
-        return { action: 'more-info' };
-      }
-
-      // --- Action button style (reusable) ---
-      const actionBtnStyle = {
-        grid: [
-          { 'grid-template-areas': '"i" "n"' },
-          { 'grid-template-rows': 'min-content min-content' },
-          { 'justify-items': 'center' },
-          { 'align-items': 'center' }
-        ],
-        card: [
-          { background: 'var(--primary-color)' },
-          { 'box-shadow': 'none' },
-          { 'border-radius': '6px' },
-          { padding: '6px' }
-        ],
+      // --- Action button style ---
+      const btnS = {
+        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
+        card: [{ background: 'var(--primary-color)' }, { 'box-shadow': 'none' }, { 'border-radius': '6px' }, { padding: '6px' }],
         name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
         icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
       };
@@ -255,289 +57,43 @@ catalog_spool_popup:
           service: 'browser_mod.popup',
           data: {
             title: spoolName,
-            size: POPUP_SIZE,
+            size: 'normal',
             content: {
               type: 'vertical-stack',
               cards: [
-                // --- Color banner header ---
+                // --- All display content (heavy JS only runs when popup opens) ---
                 {
                   type: 'custom:button-card',
-                  name: spoolName,
-                  label: headerLabel,
-                  show_label: true,
-                  show_icon: false,
+                  entity: eid,
+                  template: 'catalog_spool_popup_content',
                   tap_action: { action: 'none' },
-                  styles: {
-                    card: [
-                      { background: backgroundCSS },
-                      { border: '3px solid ' + headerBorderColor },
-                      { 'border-radius': '10px' },
-                      { padding: '14px 16px' },
-                      { cursor: 'default' },
-                      { 'user-select': 'text' }
-                    ],
-                    name: [
-                      { color: headerTextColor },
-                      { 'font-size': '18px' },
-                      { 'font-weight': '700' },
-                      { 'text-align': 'center' },
-                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
-                    ],
-                    label: [
-                      { color: headerTextColor },
-                      { 'font-size': '12px' },
-                      { opacity: '0.85' },
-                      { 'text-align': 'center' },
-                      { 'user-select': 'text' },
-                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
-                    ]
-                  }
+                  triggers_update: eid
                 },
-                // --- UUID chip ---
-                ...(spoolUUID ? [{
-                  type: 'custom:mushroom-chips-card',
-                  alignment: 'center',
-                  chips: [
-                    { type: 'template', icon: 'mdi:identifier', icon_color: 'grey', content: spoolUUID }
-                  ],
-                  card_mod: { style: 'ha-card { user-select: text; }' }
-                }] : []),
-                // --- Material / Vendor / Location chips ---
-                {
-                  type: 'custom:mushroom-chips-card',
-                  alignment: 'center',
-                  chips: [
-                    { type: 'template', icon: 'mdi:texture-box', icon_color: 'orange', content: 'Material: ' + material },
-                    { type: 'template', icon: 'mdi:factory', icon_color: 'purple', content: 'Vendor: ' + vendor },
-                    { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location, ...(locationEntityId ? { entity: locationEntityId, tap_action: { action: 'more-info' } } : {}) }
-                  ]
-                },
-                // --- Color / Family / Type chips ---
-                {
-                  type: 'custom:mushroom-chips-card',
-                  alignment: 'center',
-                  chips: [
-                    { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') },
-                    { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary: ' + (baseColor || 'N/A') },
-                    { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails },
-                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : [])
-                  ],
-                  card_mod: {
-                    style: {
-                      '$': 'mushroom-template-chip:nth-child(2)::part(icon) { filter: drop-shadow(0 1px 0 ' + baseColorOutlineColor + ') drop-shadow(0 -1px 0 ' + baseColorOutlineColor + ') drop-shadow(1px 0 0 ' + baseColorOutlineColor + ') drop-shadow(-1px 0 0 ' + baseColorOutlineColor + '); }'
-                    }
-                  }
-                },
-                // --- Entity image + filament name ---
-                {
-                  type: 'custom:button-card',
-                  entity: spoolEntityId,
-                  show_entity_picture: true,
-                  show_icon: false,
-                  show_name: true,
-                  show_label: true,
-                  name: filamentName,
-                  label: isMultiColor
-                    ? multiColorList.join(' \u00b7 ').toUpperCase() + '  \u2022  ' + multiColorDirection
-                    : colorHex.toUpperCase() + '  \u2022  RGB(' + r + ', ' + g + ', ' + b + ')',
-                  tap_action: { action: 'none' },
-                  styles: {
-                    card: [
-                      { background: backgroundCSS },
-                      { border: '3px solid ' + headerBorderColor },
-                      { 'border-radius': '8px' },
-                      { padding: '10px 16px' },
-                      { cursor: 'default' },
-                      { 'user-select': 'text' }
-                    ],
-                    grid: [
-                      { 'grid-template-areas': '"i n" "i l"' },
-                      { 'grid-template-columns': 'min-content 1fr' },
-                      { 'grid-template-rows': 'auto auto' },
-                      { 'align-items': 'center' },
-                      { 'justify-items': 'start' },
-                      { gap: '0 12px' }
-                    ],
-                    entity_picture: [
-                      { width: '40px' },
-                      { height: '40px' },
-                      { 'border-radius': '50%' },
-                      { border: '2px solid ' + headerBorderColor }
-                    ],
-                    name: [
-                      { color: headerTextColor },
-                      { 'font-size': '14px' },
-                      { 'font-weight': '700' },
-                      { 'text-align': 'left' },
-                      { 'user-select': 'text' },
-                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
-                    ],
-                    label: [
-                      { color: headerTextColor },
-                      { 'font-size': '12px' },
-                      { opacity: '0.85' },
-                      { 'text-align': 'left' },
-                      { 'user-select': 'text' },
-                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
-                    ]
-                  }
-                },
-                // --- Weight / Cost / Total KPIs ---
-                {
-                  type: 'horizontal-stack',
-                  cards: [
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: weightText,
-                      secondary: 'Remaining',
-                      icon: 'mdi:weight-gram',
-                      icon_color: 'teal',
-                      layout: 'vertical',
-                      fill_container: true
-                    },
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: valueText,
-                      secondary: 'Value Left',
-                      icon: 'mdi:currency-usd',
-                      icon_color: 'green',
-                      layout: 'vertical',
-                      fill_container: true
-                    },
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: totalWeightText,
-                      secondary: 'Total (all spools)',
-                      icon: 'mdi:layers-triple',
-                      icon_color: 'cyan',
-                      layout: 'vertical',
-                      fill_container: true
-                    }
-                  ]
-                },
-                // --- Other spools of same filament ---
-                ...(otherSpools.length > 0 ? [
-                  {
-                    type: 'markdown',
-                    content: (function() {
-                      let md = '<details>\n<summary><strong>\uD83D\uDCE6 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</strong></summary>\n\n';
-                      otherSpools.forEach(function(s) {
-                        md += '\u2022 **' + s.name + '** (Spool #' + s.id + ')  \n';
-                        md += '  \uD83D\uDCCD ' + s.location + ' \u2014 ' + s.remainingText + '\n\n';
-                      });
-                      md += '</details>';
-                      return md;
-                    })()
-                  }
-                ] : []),
-                // --- Desiccant / Last Dried ---
+                // --- Desiccant action buttons ---
                 {
                   type: 'custom:layout-card',
                   layout_type: 'custom:grid-layout',
-                  layout: {
-                    'grid-template-columns': '2fr 1fr',
-                    'grid-template-rows': 'auto auto',
-                    'grid-gap': '8px'
-                  },
+                  layout: { 'grid-template-columns': '1fr 1fr', 'grid-gap': '8px' },
                   cards: [
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: lastDriedText,
-                      secondary: 'Last Dried',
-                      icon: 'mdi:thermometer-lines',
-                      icon_color: 'deep-orange',
-                      layout: 'horizontal',
-                      fill_container: true,
-                      card_mod: { style: 'mushroom-state-info { overflow: visible !important; } .primary { white-space: normal !important; overflow: visible !important; word-break: break-word; }' }
-                    },
-                    {
-                      type: 'custom:button-card',
-                      name: 'Mark as Dried',
-                      icon: 'mdi:heat-wave',
-                      show_icon: true,
-                      show_name: true,
-                      show_label: false,
-                      tap_action: {
-                        action: 'call-service',
-                        service: 'spoolman.patch_spool',
-                        service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
-                      },
-                      styles: actionBtnStyle
-                    },
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: desiccantText,
-                      secondary: 'Desiccant',
-                      icon: desiccantStatus === 'empty' ? 'mdi:water-off' : 'mdi:water',
-                      icon_color: desiccantMushColor,
-                      layout: 'horizontal',
-                      fill_container: true
-                    },
-                    {
-                      type: 'custom:button-card',
-                      name: 'Mark as Refilled',
-                      icon: 'mdi:water-plus',
-                      show_icon: true,
-                      show_name: true,
-                      show_label: false,
-                      tap_action: {
-                        action: 'call-service',
-                        service: 'spoolman.patch_spool',
-                        service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
-                      },
-                      styles: actionBtnStyle
-                    }
+                    { type: 'custom:button-card', name: 'Mark as Dried', icon: 'mdi:heat-wave', show_icon: true, show_name: true, show_label: false, tap_action: { action: 'call-service', service: 'spoolman.patch_spool', service_data: { id: spoolIdInt, extra: { last_dried: nowISO } } }, styles: btnS },
+                    { type: 'custom:button-card', name: 'Mark Desiccant Refilled', icon: 'mdi:water-plus', show_icon: true, show_name: true, show_label: false, tap_action: { action: 'call-service', service: 'spoolman.patch_spool', service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } } }, styles: btnS }
                   ]
                 },
-                // --- Purchase info & print settings ---
-                ...((purchaseText || printSettingsText) ? [{
-                  type: 'custom:mushroom-chips-card',
-                  alignment: 'center',
-                  chips: [
-                    ...(purchaseText ? [{ type: 'template', icon: 'mdi:shopping', icon_color: 'amber', content: purchaseText }] : []),
-                    ...(printSettingsText ? [{ type: 'template', icon: 'mdi:printer-3d-nozzle', icon_color: 'blue-grey', content: (profileName ? profileName + ' · ' : '') + printSettingsText }] : [])
-                  ]
-                }] : []),
                 // --- Weight history chart ---
                 {
                   type: 'custom:apexcharts-card',
                   graph_span: historyHours + 'h',
-                  series: [{
-                    entity: spoolEntityId,
-                    name: 'Weight (g)',
-                    color: colorHex,
-                    stroke_width: 4,
-                    type: 'area',
-                    curve: 'smooth',
-                    statistics: { type: 'mean', period: statsPeriod }
-                  }],
-                  card_mod: {
-                    style: 'ha-card { background: ' + chartBackground + ' !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; } .apexcharts-toolbar svg { fill: ' + chartForeColor + ' !important; }'
-                  },
+                  series: [{ entity: eid, name: 'Weight (g)', color: colorHex, stroke_width: 4, type: 'area', curve: 'smooth', statistics: { type: 'mean', period: statsPeriod } }],
+                  card_mod: { style: 'ha-card { background: ' + chartBg + ' !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; } .apexcharts-toolbar svg { fill: ' + chartFg + ' !important; }' },
                   apex_config: {
-                    chart: {
-                      toolbar: {
-                        show: true,
-                        tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true }
-                      },
-                      background: chartBackground,
-                      foreColor: chartForeColor,
-                      zoom: { enabled: true, type: 'x' },
-                      animations: { enabled: false }
-                    },
+                    chart: { toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, background: chartBg, foreColor: chartFg, zoom: { enabled: true, type: 'x' }, animations: { enabled: false } },
                     theme: { mode: chartTheme },
-                    title: { text: 'Weight History (' + historyLabel + ')', style: { color: chartForeColor } },
-                    fill: {
-                      type: 'gradient',
-                      gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.05, stops: [0, 70, 100], type: 'vertical' }
-                    },
+                    title: { text: 'Weight History (' + historyLabel + ')', style: { color: chartFg } },
+                    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.05, stops: [0, 70, 100], type: 'vertical' } },
                     stroke: { curve: 'smooth', width: 4 },
-                    xaxis: { type: 'datetime', labels: { style: { colors: chartForeColor } } },
-                    yaxis: { labels: { style: { colors: chartForeColor } } },
-                    grid: {
-                      padding: { left: 0, right: 8 },
-                      row: { colors: ['rgba(128,128,128,0.05)', 'transparent'], opacity: 1 }
-                    },
+                    xaxis: { type: 'datetime', labels: { style: { colors: chartFg } } },
+                    yaxis: { labels: { style: { colors: chartFg } } },
+                    grid: { padding: { left: 0, right: 8 }, row: { colors: ['rgba(128,128,128,0.05)', 'transparent'], opacity: 1 } },
                     annotations: { xaxis: xAnnotations }
                   }
                 },
@@ -545,65 +101,12 @@ catalog_spool_popup:
                 {
                   type: 'custom:layout-card',
                   layout_type: 'custom:grid-layout',
-                  layout: {
-                    'grid-template-columns': '1fr 1fr 1fr 1fr',
-                    'grid-gap': '8px'
-                  },
+                  layout: { 'grid-template-columns': '1fr 1fr 1fr 1fr', 'grid-gap': '8px' },
                   cards: [
-                    {
-                      type: 'custom:button-card',
-                      entity: spoolEntityId,
-                      name: 'More Details',
-                      icon: 'mdi:information-outline',
-                      tap_action: { action: 'more-info' },
-                      styles: actionBtnStyle
-                    },
-                    {
-                      type: 'custom:button-card',
-                      name: 'Open in Spoolman',
-                      icon: 'fapro:filament-2',
-                      tap_action: {
-                        action: 'fire-dom-event',
-                        browser_mod: {
-                          service: 'browser_mod.sequence',
-                          data: {
-                            sequence: [
-                              { service: 'browser_mod.close_popup' },
-                              { service: 'browser_mod.delay', data: { time: 300 } },
-                              { service: 'browser_mod.javascript', data: { code: 'window.open("' + SPOOLMAN_BASE_URL + '/' + spoolId + '", "_blank")' } }
-                            ]
-                          }
-                        }
-                      },
-                      styles: actionBtnStyle
-                    },
-                    {
-                      type: 'custom:button-card',
-                      entity: spoolEntityId,
-                      name: 'Reload',
-                      icon: 'mdi:refresh',
-                      tap_action: {
-                        action: 'fire-dom-event',
-                        browser_mod: {
-                          service: 'browser_mod.sequence',
-                          data: {
-                            sequence: [
-                              { service: 'homeassistant.update_entity', data: { entity_id: spoolEntityId } },
-                              { service: 'browser_mod.delay', data: { time: 1500 } },
-                              { service: 'browser_mod.close_popup' }
-                            ]
-                          }
-                        }
-                      },
-                      styles: actionBtnStyle
-                    },
-                    {
-                      type: 'custom:button-card',
-                      name: 'Close',
-                      icon: 'mdi:close-circle-outline',
-                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } },
-                      styles: actionBtnStyle
-                    }
+                    { type: 'custom:button-card', entity: eid, name: 'More Details', icon: 'mdi:information-outline', tap_action: { action: 'more-info' }, styles: btnS },
+                    { type: 'custom:button-card', name: 'Open in Spoolman', icon: 'fapro:filament-2', tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }, styles: btnS },
+                    { type: 'custom:button-card', entity: eid, name: 'Reload', icon: 'mdi:refresh', tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } }, styles: btnS },
+                    { type: 'custom:button-card', name: 'Close', icon: 'mdi:close-circle-outline', tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }, styles: btnS }
                   ]
                 }
               ]
