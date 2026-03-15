@@ -83,10 +83,10 @@ wled_3dprinter_apply_error_tray_overlay:
               {% set ns.trays = ['B1', 'B2', 'B3', 'B4'] %}
             {% endif %}
           {% endif %}
-          {{ ns.trays | tojson }}
+          {{ ns.trays }}
         tag_segments_json: >-
           {% set ns = namespace(seg=[]) %}
-          {% for t in trays_from_context_json | from_json %}
+          {% for t in trays_from_context_json %}
             {% if t == 'A1' %}
               {% set ns.seg = ns.seg + [5] %}
             {% elif t == 'A2' %}
@@ -105,10 +105,10 @@ wled_3dprinter_apply_error_tray_overlay:
               {% set ns.seg = ns.seg + [13] %}
             {% endif %}
           {% endfor %}
-          {{ ns.seg | tojson }}
+          {{ ns.seg }}
         ams_segments_json: >-
           {% set ns = namespace(seg=[]) %}
-          {% for t in trays_from_context_json | from_json %}
+          {% for t in trays_from_context_json %}
             {% if t.startswith('A') and 3 not in ns.seg %}
               {% set ns.seg = ns.seg + [3] %}
             {% elif t.startswith('B') and 4 not in ns.seg %}
@@ -124,10 +124,10 @@ wled_3dprinter_apply_error_tray_overlay:
               {% set ns.seg = [3, 4] %}
             {% endif %}
           {% endif %}
-          {{ ns.seg | tojson }}
+          {{ ns.seg }}
         overlay_segments_json: >-
           {% set ns = namespace(seg=[]) %}
-          {% for seg_id in tag_segments_json | from_json %}
+          {% for seg_id in tag_segments_json %}
             {% if error_class == 'runout' %}
               {% set ns.seg = ns.seg + [{'id': seg_id | int(0), 'col': [[255, 0, 0]], 'fx': 1, 'sx': 190, 'ix': 195}] %}
             {% elif error_class == 'jam' %}
@@ -140,8 +140,8 @@ wled_3dprinter_apply_error_tray_overlay:
               {% set ns.seg = ns.seg + [{'id': seg_id | int(0), 'col': [[255, 0, 0]], 'fx': 1, 'sx': 175, 'ix': 180}] %}
             {% endif %}
           {% endfor %}
-          {% if error_class in ['runout', 'jam'] and (ams_segments_json | from_json | count) > 0 %}
-            {% for seg_id in ams_segments_json | from_json %}
+          {% if error_class in ['runout', 'jam'] and (ams_segments_json | count) > 0 %}
+            {% for seg_id in ams_segments_json %}
               {% if error_class == 'runout' %}
                 {% set ns.seg = ns.seg + [{'id': seg_id | int(0), 'col': [[120, 0, 0]], 'fx': 1, 'sx': 140, 'ix': 90}] %}
               {% else %}
@@ -149,8 +149,8 @@ wled_3dprinter_apply_error_tray_overlay:
               {% endif %}
             {% endfor %}
           {% endif %}
-          {% if error_class == 'ams_lost' and (ams_segments_json | from_json | count) > 0 %}
-            {% for seg_id in ams_segments_json | from_json %}
+          {% if error_class == 'ams_lost' and (ams_segments_json | count) > 0 %}
+            {% for seg_id in ams_segments_json %}
               {% set ns.seg = ns.seg + [{'id': seg_id | int(0), 'col': [[160, 64, 255]], 'fx': 2, 'sx': 90, 'ix': 180}] %}
             {% endfor %}
           {% endif %}
