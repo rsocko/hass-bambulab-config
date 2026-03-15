@@ -87,15 +87,27 @@ Each feature contributes dashboard cards — see feature-specific docs:
 
 > The AMS tray card templates are defined in the `button_card_templates:` block at the top of `lovelace.3d_printing` — no `configuration.yaml` changes needed.
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Core](../core/README.md) — Smart status sensor, base entities
-- [Common](../common/README.md) — Dashboard registration and view files
-- All feature packages that contribute `dashboard_cards/`
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+Printer Dashboards is the **aggregation layer** — it assembles cards contributed by all other features. Every feature with a `dashboard_cards/` directory is an implicit dependency.
 
-- [Core — Smart Status](../core/README.md) — Status mapping used throughout the dashboard
+### Feature Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| All features with `dashboard_cards/` | No (individually) | Each feature contributes cards via `!include` into `view_main.yaml`. Remove an `!include` line to remove that feature's cards from the dashboard. |
+
+### Custom Frontend Cards (HACS)
+
+See the [Custom Cards Required](#custom-cards-required-hacs) section above for the full list of 12 HACS cards. All are required for the full dashboard experience; `card-mod` is the only optional one (cosmetic styling).
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Core — Smart Status](../core/README.md) | Status mapping used throughout the dashboard |
 
 **Why `button_card_templates` is dashboard-level (not `configuration.yaml`):**
 button-card reads `button_card_templates` from the Lovelace dashboard config object itself

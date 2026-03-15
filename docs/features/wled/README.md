@@ -4,6 +4,27 @@
 
 This directory contains WLED configuration, documentation, and Home Assistant integration files for controlling LED strips on a Bambu Lab X1C printer with dual AMS units.
 
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it controls physical LED hardware via HA automations, not dashboard cards.
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [WLED](https://kno.wled.ge/) firmware on LED controllers | **Yes** | LED control firmware on DigQuad and/or MagWLED controllers |
+| [WLED HA integration](https://www.home-assistant.io/integrations/wled/) | **Yes** | Built-in HA integration for WLED device discovery and control |
+| DigQuad LED controller | **Yes** | 5-output controller driving 711 LEDs across 5 strips |
+| MagWLED LED controller | No | Interior lid light (48 LEDs) — currently offline. System works without it. |
+| 5V power supply (15–20A recommended) | **Yes** | Powers the LED strips — see [Power Considerations](#notes-and-recommendations) |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Printer LED](../printer_led/README.md) | Dashboard controls for the WLED lights — depends on this feature |
+| [Core](../core/README.md) | Smart status values drive state machine transitions (S0–S8) |
+
 ## Current Architecture: HA State Machine
 
 The system uses a **Home Assistant state machine** that monitors printer status, transitions through **9 core states** (S0–S8), and applies WLED presets (101–109) to the DigQuad controller automatically.

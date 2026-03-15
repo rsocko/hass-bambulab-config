@@ -24,13 +24,21 @@ Dashboard controls for printer operations: fan speed, print job actions, skip ob
 | [skip-objects-integration-options.md](skip-objects-integration-options.md) | Integration strategies for skip objects UI |
 | [printer-status-card-features.md](printer-status-card-features.md) | Print status card research and replication guide |
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Core](../core/README.md) — Smart status sensor (used for conditional display)
-- [Common](../common/README.md) — Cards included into `view_main.yaml`
-- `custom:mushroom-template-card` (HACS)
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+### Custom Frontend Cards (HACS)
 
-- [Printer Temps](../printer_temps/README.md) — Temperature cards often placed alongside fan controls
-- [Printer Dashboards](../printer_dashboards/README.md) — Layout and placement context
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | `mushroom-template-card` for fan and status cards |
+| [button-card](https://github.com/custom-cards/button-card) | **Yes** | Customizable control buttons |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Printer Temps](../printer_temps/README.md) | Temperature cards often placed alongside fan controls |
+| [Printer Dashboards](../printer_dashboards/README.md) | Layout and placement context |
+| [Air Quality](../air_quality/README.md) | Bento Box fan can be controlled from both packages |

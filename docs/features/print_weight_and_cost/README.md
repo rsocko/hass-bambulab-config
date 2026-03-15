@@ -28,13 +28,23 @@ Filament weight visualization and cost tracking for active prints, showing per-t
 | [print-weight-bar-chart.md](print-weight-bar-chart.md) | Stacked bar chart v2: weight labels, legend, color accuracy, troubleshooting |
 | [print-weight-per-tray.md](print-weight-per-tray.md) | Per-tray consumption display with color-coded remaining filament warnings |
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Spoolman Sync](../spoolman_sync/README.md) — Spool weight data and tray mapping
-- [Core](../core/README.md) — Print status and AMS tray entities
-- [Common](../common/README.md) — Included into `view_main.yaml`
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+This is a dashboard-card-only feature — it has no loader in `_feature_loaders.yaml` and is included via `!include` in `view_main.yaml`.
 
-- [Print Progress](../print_progress/README.md) — Progress tracking for the same print
-- [Printer Dashboards](../printer_dashboards/README.md) — Layout context
+### Feature Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [Spoolman Sync](../spoolman_sync/README.md) | **Yes** | Provides spool weight data and AMS tray mapping via `input_text.print_weight_backup` |
+
+> **Without Spoolman Sync**, the weight bar chart and per-tray cards will have no data to display. There is no way to disable this dependency — Spoolman Sync is required for this feature to function.
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Print Progress](../print_progress/README.md) | Progress tracking for the same print |
+| [Printer Dashboards](../printer_dashboards/README.md) | Layout context |

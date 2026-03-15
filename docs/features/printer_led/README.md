@@ -69,14 +69,34 @@ The `printer_led` package provides unified control over all LED lighting associa
 | `script.reset_interior_light_to_white` | Script | Reset MagWLED to white |
 | `input_boolean.show_printer_controls` | Helper | Toggle controls panel visibility |
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Core](../core/README.md) — Smart status sensor
-- [WLED](../wled/README.md) — WLED controller configuration and preset definitions
-- [Common](../common/README.md) — Dashboard view includes
-- `custom:mushroom-light-card`, `custom:button-card`, `browser-mod` (HACS)
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+### Feature Dependencies
 
-- [WLED](../wled/README.md) — Full WLED state machine, presets, and segment configuration
-- [Printer Dashboards](../printer_dashboards/README.md) — Dashboard layout and placement
+| Dependency | Required | Purpose |
+|---|---|---|
+| [WLED](../wled/README.md) | **Yes** | WLED controller configuration, presets, and state machine that drives the LED strips |
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| WLED controllers (DigQuad + MagWLED) | **Yes** | Physical LED controllers running WLED firmware |
+| [WLED HA integration](https://www.home-assistant.io/integrations/wled/) | **Yes** | Built-in HA integration for WLED device control |
+
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | `mushroom-light-card` for light controls |
+| [button-card](https://github.com/custom-cards/button-card) | **Yes** | Customizable LED toggle buttons |
+| [browser-mod](https://github.com/thomasloven/hass-browser_mod) | **Yes** | Popup dialogs for expanded LED controls |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [WLED](../wled/README.md) | Full WLED state machine, presets, and segment configuration |
+| [Printer Dashboards](../printer_dashboards/README.md) | Dashboard layout and placement |

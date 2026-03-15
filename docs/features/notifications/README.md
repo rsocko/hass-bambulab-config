@@ -4,6 +4,10 @@ Automated mobile notifications, camera snapshots, and TTS announcements for Bamb
 
 ## Dependencies & Requirements
 
+> **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it has no dashboard cards (automations and helpers only).
+
+### Required
+
 | Requirement | Why |
 |---|---|
 | **[ha-bambulab](https://github.com/greghesp/ha-bambulab) integration** | Provides printer sensors, camera entity, and device triggers (`event_print_started`, `event_print_finished`, `print_error` binary sensor) |
@@ -13,11 +17,18 @@ Automated mobile notifications, camera snapshots, and TTS announcements for Bamb
 
 ### Optional Dependencies
 
-| Dependency | Feature |
+| Dependency | Feature | How to Disable |
+|---|---|---|
+| A **light entity** near the printer | Snapshot lighting — turns on before capture for better photo quality | Leave `input_text.3dprinter_snapshot_light` empty |
+| A **media_player** entity with TTS support | Voice announcements for print events | Set `input_boolean.3dprinter_tts_enabled` to off |
+| **TTS integration** (e.g., Google TTS, Amazon Polly) | Required if using TTS announcements | Not needed if TTS is disabled |
+
+### Related Features
+
+| Feature | Relationship |
 |---|---|
-| A **light entity** near the printer | Snapshot lighting — turns on before capture for better photo quality |
-| A **media_player** entity with TTS support | Voice announcements for print events |
-| **TTS integration** (e.g., Google TTS, Amazon Polly) | Required if using TTS announcements |
+| [HMS Alert](../hms_alert/README.md) | Can trigger notifications based on HMS errors |
+| [Bambuddy Integration](../bambuddy_integration/README.md) | Shares camera snapshot logic |
 
 ## What Gets Deployed
 

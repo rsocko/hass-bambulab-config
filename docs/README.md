@@ -8,6 +8,18 @@ This folder contains all repository documentation organized by topic.
 - `features/` — Feature-level documentation, one folder per implementation package.
 - `infrastructure/` — Non-Home Assistant operational/infrastructure docs.
 
+## Foundation Packages
+
+Nearly every feature in this repository depends on two **foundation packages** and one **external integration**. If a feature's Dependencies section mentions "Foundation," it means these three:
+
+| Dependency | What It Provides |
+|---|---|
+| **[Core](features/core/README.md)** | Smart status sensor (`sensor.*_smart_status`), spoolman tray map, base template sensors. Wraps raw printer data into reusable entities consumed by almost every other feature. |
+| **[Common](features/common/README.md)** | Shared dashboard infrastructure — Lovelace registration, `view_main.yaml`, reusable `button_card_templates`. Any feature that contributes dashboard cards depends on Common. |
+| **[ha-bambulab](https://github.com/greghesp/ha-bambulab)** | The Bambu Lab Home Assistant integration. Provides all raw printer sensors, camera entity, device triggers, and AMS data that Core and other features build on. Must be installed and configured with your printer before any feature will work. |
+
+> **Tip:** Features that are purely dashboard-card packages (e.g., humidity, printer_temps, print_progress) depend on Core and Common but don't have their own feature loader — they are included via `!include` in `view_main.yaml`.
+
 ## Feature Docs
 
 Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_printing/`.
@@ -64,3 +76,28 @@ Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_print
 - `repo/IMPLEMENTATION_SUMMARY.md` — Implementation overview.
 - `repo/IMPLEMENTATION_NOTES.md` — AMS tray popup implementation details.
 - `repo/THIRD_PARTY_ATTRIBUTION.md` — Third-party inspiration and attribution.
+
+## Dependency Overview
+
+Every feature's README has a **Dependencies & Requirements** section in a consistent format. The table below gives a quick-reference summary. See each feature's README for full details including optional dependencies and how to disable them.
+
+| Feature | Core | Common | ha-bambulab | Other Feature Dependencies | Key External Dependencies |
+|---|:---:|:---:|:---:|---|---|
+| **core** | — | — | **Yes** | *(none — this is the foundation)* | — |
+| **common** | **Yes** | — | **Yes** | *(none — this is the foundation)* | button-card, browser-mod |
+| **air_quality** | **Yes** | **Yes** | **Yes** | printer_controls *(optional)* | AirGradient, Govee (gv2mqtt), Bento Box fan |
+| **bambuddy_integration** | **Yes** | — | **Yes** | notifications *(optional)* | Bambuddy service |
+| **filament_tag** | **Yes** | **Yes** | **Yes** | spoolman_sync | NFC reader, Spoolman |
+| **hms_alert** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom |
+| **humidity** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom, card-mod |
+| **logging** | — | — | — | *(none — standalone)* | Loki/Grafana *(optional)* |
+| **notifications** | **Yes** | — | **Yes** | *(none)* | Mobile app, light *(opt)*, TTS *(opt)* |
+| **openhasp_display** | **Yes** | — | **Yes** | printer_controls | OpenHASP hardware + integration |
+| **printer_controls** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom, button-card |
+| **printer_dashboards** | **Yes** | **Yes** | **Yes** | All features with `dashboard_cards/` | 12 HACS cards (see feature README) |
+| **printer_led** | **Yes** | **Yes** | **Yes** | wled | WLED controllers, mushroom, button-card |
+| **printer_temps** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom |
+| **print_progress** | **Yes** | **Yes** | **Yes** | *(none)* | button-card |
+| **print_weight_and_cost** | **Yes** | **Yes** | **Yes** | spoolman_sync | — |
+| **spoolman_sync** | **Yes** | — | **Yes** | *(none)* | Spoolman, Spoolman HA integration, REST |
+| **wled** | **Yes** | — | **Yes** | *(none)* | WLED hardware + firmware |

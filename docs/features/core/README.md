@@ -22,6 +22,16 @@ Core template sensors and automations that other features depend on. This packag
 | [SMART_STATUS.md](SMART_STATUS.md) | Full mapping table and implementation guide |
 | [smart-status-mapping.md](smart-status-mapping.md) | Quick reference for status classes, attributes, and reuse examples |
 
+## Dependencies & Requirements
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [ha-bambulab](https://github.com/greghesp/ha-bambulab) | **Yes** | Provides raw `print_status`, `current_stage`, AMS tray sensors, and device triggers that Core wraps into `smart_status` |
+
+> **Core has no feature dependencies** — it is itself the foundation that other features build on. It only requires the ha-bambulab integration to be installed and configured with your Bambu Lab printer.
+
 ## Dependents
 
 The following features consume `smart_status`:

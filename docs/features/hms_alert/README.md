@@ -28,14 +28,20 @@ Bambu Lab Health Management System (HMS) error detection, display, and alerting.
 | [hms-error-ui-mockup.md](hms-error-ui-mockup.md) | Visual mockup: layout diagrams, color scheme, responsive behavior |
 | [hms-error-testing-guide.md](hms-error-testing-guide.md) | Testing guide: prerequisites, test scenarios, troubleshooting |
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Core](../core/README.md) — Base printer integration entities
-- [Common](../common/README.md) — Dashboard view where the HMS banner is included
-- `custom:mushroom-template-card` (HACS)
-- `card-mod` (HACS, optional) — Enhanced red styling
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+### Custom Frontend Cards (HACS)
 
-- [Notifications](../notifications/README.md) — Can trigger alerts based on HMS errors
-- [Printer Dashboards](../printer_dashboards/README.md) — HMS banner placement in the main view
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | `mushroom-template-card` for the alert banner |
+| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | No | Enhanced red styling on the banner — cosmetic only |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Notifications](../notifications/README.md) | Can trigger mobile alerts based on HMS errors |
+| [Printer Dashboards](../printer_dashboards/README.md) | HMS banner placement in the main dashboard view |

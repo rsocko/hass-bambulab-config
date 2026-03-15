@@ -64,6 +64,39 @@ The air quality integration provides:
 - **Bento Box Fan** - ESP32-controlled enclosure fan
 - **Smart Switches** - For controlling dumb purifiers
 
+## Dependencies & Requirements
+
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
+
+### External Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [AirGradient](https://www.airgradient.com/) sensor (I-9PSL) | **Yes** | PM2.5, CO2, VOC, temperature, humidity sensors |
+| [Govee](https://github.com/wez/govee2mqtt) air purifier (via gv2mqtt) | **Yes** | Smart air purifier control — required for purifier automations |
+| Bento Box fan ([ESPHome](https://esphome.io/)) | No | Enclosure ventilation fan — disable by removing bento box automations from loader. Purifier automations work independently. |
+
+### Feature Dependencies
+
+| Dependency | Required | Purpose |
+|---|---|---|
+| [Printer Controls](../printer_controls/README.md) | No | Bento Box fan can also be managed from printer_controls — both packages can coexist |
+
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | Minimalist card designs for sensor display |
+| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | **Yes** | Custom styling for color-coded AQ indicators |
+| [browser-mod](https://github.com/thomasloven/hass-browser_mod) | No | Popup dialogs for purifier controls and Bento Box filter details |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Printer Controls](../printer_controls/README.md) | Bento Box fan also controllable from fan controls UI |
+| [Notifications](../notifications/README.md) | Air quality alerts use the notification service |
+
 ## Deployment
 
 This feature uses the standard loader deployment structure. It is loaded automatically when registered in `_feature_loaders.yaml`.

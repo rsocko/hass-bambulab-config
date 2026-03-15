@@ -31,13 +31,21 @@ Real-time nozzle and bed temperature monitoring cards with color-coded heating/c
 | [PRINTER_TEMPS_V2_CHANGES.md](PRINTER_TEMPS_V2_CHANGES.md) | V2 changelog |
 | [PRINTER_TEMPS_V3_CHANGES.md](PRINTER_TEMPS_V3_CHANGES.md) | V3 changelog |
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Core](../core/README.md) — Smart status sensor (used for heating/idle state detection)
-- [Common](../common/README.md) — Included into `view_main.yaml`
-- `custom:mushroom-template-card` (HACS)
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+This is a dashboard-card-only feature — it has no loader in `_feature_loaders.yaml` and is included via `!include` in `view_main.yaml`.
 
-- [Printer Controls](../printer_controls/README.md) — Fan controls often placed alongside temps
-- [Printer Dashboards](../printer_dashboards/README.md) — Layout and placement context
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | `mushroom-template-card` for temperature display |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Printer Controls](../printer_controls/README.md) | Fan controls often placed alongside temps |
+| [Printer Dashboards](../printer_dashboards/README.md) | Layout and placement context |

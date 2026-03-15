@@ -29,13 +29,21 @@ Animated print progress KPI cards showing layer count, percentage, time remainin
 | [print-progress-options-guide.md](print-progress-options-guide.md) | Comparison of all 13 variants with selection checklist |
 | [print-progress-dependencies.md](print-progress-dependencies.md) | Runtime dependency map: include chain, required entities, custom cards |
 
-## Dependencies
+## Dependencies & Requirements
 
-- [Core](../core/README.md) — Print status entities
-- [Common](../common/README.md) — Included into `view_main.yaml`
-- `custom:button-card` (HACS)
+> **Foundation:** This feature requires the [Core](../core/README.md) and [Common](../common/README.md) packages and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages).
 
-## See Also
+This is a dashboard-card-only feature — it has no loader in `_feature_loaders.yaml` and is included via `!include` in `view_main.yaml`.
 
-- [Print Weight & Cost](../print_weight_and_cost/README.md) — Weight and cost tracking for the current print
-- [Printer Dashboards](../printer_dashboards/README.md) — Layout context in the main view
+### Custom Frontend Cards (HACS)
+
+| Card | Required | Purpose |
+|---|---|---|
+| [button-card](https://github.com/custom-cards/button-card) | **Yes** | Animated KPI card rendering with CSS animations |
+
+### Related Features
+
+| Feature | Relationship |
+|---|---|
+| [Print Weight & Cost](../print_weight_and_cost/README.md) | Weight and cost tracking for the same print |
+| [Printer Dashboards](../printer_dashboards/README.md) | Layout context in the main view |
