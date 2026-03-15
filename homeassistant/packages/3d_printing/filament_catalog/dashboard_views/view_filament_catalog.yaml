@@ -6,6 +6,9 @@
 # Location headers self-hide when empty (count === 0).
 # Grid auto-entities hide when empty (show_empty: false).
 #
+# Uses panel: true + custom:layout-card (vertical-layout) for
+# full-width rendering that is compatible with auto-entities.
+#
 # Docs: docs/features/filament_catalog/filament-catalog.md
 
 title: Filament Catalog
@@ -13,7 +16,8 @@ path: filament-catalog
 icon: mdi:format-list-bulleted
 panel: true
 cards:
-  - type: vertical-stack
+  - type: custom:layout-card
+    layout_type: custom:vertical-layout
     cards:
       # ============================================================
       # Inventory KPI Summary
