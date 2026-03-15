@@ -1,4 +1,4 @@
-﻿# Home Assistant Deployable Root
+# Home Assistant Deployable Root
 
 This directory is intended to sync directly to Home Assistant `/config`.
 
