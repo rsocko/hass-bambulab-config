@@ -20,9 +20,9 @@ Dashboard controls for printer operations: fan speed, print job actions, skip ob
 
 ![Fan controls — desktop layout during active print](../../screenshots/images/fan-controls-desktop.png)
 
-<!-- SCREENSHOT: id=fan-controls-speed-states | format=gif | version=1.0 | package=printer_controls | added=2026-03-15 -->
-<!-- Capture: Record ~5s showing fan speed changes — tap slider, icon color changes from grey→blue→amber→red (use ScreenToGif) -->
-> **🎬 Animation needed:** Fan control icon color transitions at different speeds *(gif)*
+<!-- SCREENSHOT: id=fan-controls-speed-states | format=gif | version=1.0 | package=printer_controls | added=2026-03-15 | captured=2026-03-15 -->
+
+![Fan control icon color transitions at different speeds](../../screenshots/images/fan-controls-speed-states.gif)
 
 ## Documentation
 
