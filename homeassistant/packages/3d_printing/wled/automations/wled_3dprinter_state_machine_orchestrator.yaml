@@ -113,10 +113,14 @@
         - condition: template
           value_template: "{{ event_id != 'E_NOOP' or force_apply }}"
       then:
-        # On force-apply, re-establish segment boundaries via Base Layout first
+        # Re-establish segment boundaries via Base Layout when force-applied
+        # or when WLED has lost its 15-segment layout (e.g. device power-cycle)
+        - variables:
+            segments_missing: >-
+              {{ states('light.dig_quad_v3_segment_14') in ['unavailable', 'unknown'] }}
         - if:
             - condition: template
-              value_template: "{{ force_apply }}"
+              value_template: "{{ force_apply or segments_missing }}"
           then:
             - action: select.select_option
               target:
