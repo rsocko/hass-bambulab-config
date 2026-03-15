@@ -69,18 +69,18 @@ Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_print
 
 ## Repo Docs
 
-- `repo/DEPLOYMENT_STRUCTURE.md` — Deployment profiles, package scope, and workflow safety guards.
-- `repo/DASHBOARD_DEPLOYMENT_BEHAVIOR.md` — Dashboard/reload behavior and JS cache-bust procedure.
-- `repo/REPO_LAYOUT.md` — Repository file layout.
-- `repo/QUICK_START.md` — Quick start guide.
-- `repo/IMPLEMENTATION_SUMMARY.md` — Implementation overview.
-- `repo/IMPLEMENTATION_NOTES.md` — AMS tray popup implementation details.
-- `repo/THIRD_PARTY_ATTRIBUTION.md` — Third-party inspiration and attribution.
-- `repo/SCREENSHOT_GUIDE.md` — Screenshot & animation capture guide, versioning, and embedding conventions.
+- `repo/deployment-structure.md` — Deployment profiles, package scope, and workflow safety guards.
+- `repo/dashboard-deployment-behavior.md` — Dashboard/reload behavior and JS cache-bust procedure.
+- `repo/repo-layout.md` — Repository file layout.
+- `repo/quick-start.md` — Quick start guide.
+- `repo/implementation-summary.md` — Implementation overview.
+- `repo/implementation-notes.md` — AMS tray popup implementation details.
+- `repo/third-party-attribution.md` — Third-party inspiration and attribution.
+- `repo/screenshot-guide.md` — Screenshot & animation capture guide, versioning, and embedding conventions.
 
 ## Screenshots
 
-Visual assets are tracked in [`screenshots/README.md`](screenshots/README.md) — a checklist of all 65 planned screenshots and animations across the documentation. See [`repo/SCREENSHOT_GUIDE.md`](repo/SCREENSHOT_GUIDE.md) for capture tools, format recommendations, and versioning conventions.
+Visual assets are tracked in [`screenshots/README.md`](screenshots/README.md) — a checklist of all 65 planned screenshots and animations across the documentation. See [`repo/screenshot-guide.md`](repo/screenshot-guide.md) for capture tools, format recommendations, and versioning conventions.
 
 ## Dependency Overview
 

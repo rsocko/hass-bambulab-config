@@ -40,7 +40,7 @@ This repo is a collection of the configuration and automation that I use within 
   - first/last used datetime
   - filament usage upon print completion
   - refreshing Spoolman integration regularly
-### [LED Controls for Bambu Lab Printer](docs/features/printer_led/LED_CONTROLS_README.md)
+### [LED Controls for Bambu Lab Printer](docs/features/printer_led/led-controls-readme.md)
   - Control all printer lights (MagWLED, chamber, AMS, front display)
   - WLED RGBIC control with effects and palettes
   - Quick actions and status overview
@@ -77,7 +77,7 @@ This repo is a collection of the configuration and automation that I use within 
 
 This repository is organized to work with the HAOS deployment workflow and allowlist profiles in `.github/workflows/deploy-homeassistant-template.yml`.
 
-- Structure guide: [docs/repo/REPO_LAYOUT.md](docs/repo/REPO_LAYOUT.md)
+- Structure guide: [docs/repo/repo-layout.md](docs/repo/repo-layout.md)
 - Profile summary:
   - `yaml_only`: deploy all `*.yaml` / `*.yml`
   - `packages_only`: deploy only `packages/**/*.yaml` / `packages/**/*.yml`

@@ -42,7 +42,7 @@ sensor.airgradient_tvoc
 sensor.airgradient_co2
 ```
 
-> Prefer `sensor.<printer>_smart_status` (from [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml)) for new state-driven conditions and UI text. Keep `sensor.<printer>_print_status` here only if your automation logic still depends on raw integration values.
+> Prefer `sensor.<printer>_smart_status` (from [homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml)) for new state-driven conditions and UI text. Keep `sensor.<printer>_print_status` here only if your automation logic still depends on raw integration values.
 
 ### Step 3: Import Automation
 
@@ -236,17 +236,20 @@ All work together for comprehensive air management!
 3. ✅ Test with a PLA print
 4. ✅ Test with an ABS print (if available)
 5. ✅ Monitor and adjust thresholds as needed
-6. ✅ Read full documentation: [docs/bento-box-fan-filament-control.md](bento-box-fan-filament-control.md)
+6. ✅ Read full documentation: [bento-box-fan-filament-control.md](bento-box-fan-filament-control.md)
 
 ## Support
 
 Questions? Check:
-- Full documentation: [docs/bento-box-fan-filament-control.md](bento-box-fan-filament-control.md)
-- Main README: [docs/features/air_quality/README.md](../README.md)
+- Full documentation: [bento-box-fan-filament-control.md](bento-box-fan-filament-control.md)
+- Main README: [docs/features/air_quality/README.md](README.md)
 - Automation traces in Home Assistant
 - Logbook entries for "Bento Box Fan"
 
 **You're all set! The Bento Box fan will now intelligently manage ventilation based on what you're printing! 🖨️💨**
+
+
+
 
 
 

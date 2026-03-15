@@ -34,7 +34,7 @@ Bambu Lab Printer:
 
 #### 2. Dashboard Card Configuration
 
-Open [homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml](../../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml) and update:
+Open [homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml) and update:
 
 **Before:**
 ```yaml
@@ -593,7 +593,7 @@ If switching from different air quality sensor:
 
 **Need Help?**
 - Check README.md for detailed explanations
-- Review QUICK_SETUP.md for step-by-step guide
+- Review quick-setup.md for step-by-step guide
 - Check Home Assistant logs for errors
 - Review automation traces for troubleshooting
 
@@ -604,6 +604,7 @@ If switching from different air quality sensor:
 
 **Example Configurations:**
 All examples in this document are tested and working. Adjust entity names to match your setup and you should have a functional system within minutes!
+
 
 
 

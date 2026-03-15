@@ -76,7 +76,7 @@ Each feature contributes dashboard cards — see feature-specific docs:
 | [card-templates-README.md](card-templates-README.md) | Reusable button-card templates (AMS header, tray label, tray detail, tray popup) |
 | [animation-design-notes.md](animation-design-notes.md) | CSS animation design notes and patterns |
 | [multicolor-spool-testing.md](multicolor-spool-testing.md) | Testing guide for multi-color spool display |
-| [YAML_CONVERSION_STATUS.md](YAML_CONVERSION_STATUS.md) | YAML conversion status and known issues |
+| [yaml-conversion-status.md](yaml-conversion-status.md) | YAML conversion status and known issues |
 
 ## Custom Cards Required (HACS)
 
@@ -130,7 +130,7 @@ button-card reads `button_card_templates` from the Lovelace dashboard config obj
 (`ll.config`). It is not an HA integration key, so adding it to `configuration.yaml` will
 cause the HA config checker to reject it. The templates must live in the dashboard YAML.
 
-The source definitions are maintained directly in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing):
+The source definitions are maintained directly in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml):
 
 | File | Template Name | Purpose |
 |------|--------------|---------|
@@ -163,7 +163,7 @@ Each AMS section in the dashboard uses:
 `button_card_templates:` down to but not including `views:`) to the top of any other
 dashboard YAML.
 
-See the `button_card_templates:` section in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing) for the full variable reference.
+See the `button_card_templates:` section in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) for the full variable reference.
 
 ## Configuration
 
@@ -190,7 +190,7 @@ If you have a smart switch controlling printer power, update:
 ## Customization
 
 ### Top Bar Layout
-See [docs/top-bar-layout.md](docs/top-bar-layout.md) for details on customizing the top bar, including:
+See [top-bar-layout.md](top-bar-layout.md) for details on customizing the top bar, including:
 - Changing grid columns
 - Adjusting font sizes
 - Adding new cards
@@ -236,5 +236,7 @@ When making changes to the dashboard:
 - [Home Assistant Lovelace Documentation](https://www.home-assistant.io/lovelace/)
 - [Bambu Lab Integration](https://github.com/greghesp/ha-bambulab)
 - [HACS - Custom Card Installation](https://hacs.xyz/)
+
+
 
 

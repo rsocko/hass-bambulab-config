@@ -72,4 +72,5 @@ homeassistant/packages/3d_printing/printer_led/
 ## Related Docs
 
 - [README.md](README.md) — Printer LED package overview
-- [guides/CUSTOMIZATION_EXAMPLES.md](guides/CUSTOMIZATION_EXAMPLES.md) — Additional automation ideas and light presets
+- [customization-examples.md](customization-examples.md) — Additional automation ideas and light presets
+

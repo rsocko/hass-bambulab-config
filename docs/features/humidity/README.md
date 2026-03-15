@@ -94,7 +94,7 @@ These sensors are typically provided by the [Bambu Lab Home Assistant Integratio
 
 ### Step 2: Copy the Card Configuration
 
-1. Open the [humidity-card.yaml](../../../homeassistant/packages/3d_printing/humidity/dashboard_cards/humidity-card.yaml) file
+1. Open the [implementation-summary.md](implementation-summary.md) file
 2. Copy the entire YAML configuration
 3. Navigate to your Home Assistant dashboard
 4. Click **Edit Dashboard** (top right)

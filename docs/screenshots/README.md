@@ -1,6 +1,6 @@
 # Screenshot Capture Task Tracker
 
-> **Guide:** See [SCREENSHOT_GUIDE.md](../repo/SCREENSHOT_GUIDE.md) for format recommendations, capture tools, versioning, and embedding syntax.
+> **Guide:** See [screenshot-guide.md](../repo/screenshot-guide.md) for format recommendations, capture tools, versioning, and embedding syntax.
 
 ## Status Legend
 

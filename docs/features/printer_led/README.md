@@ -65,13 +65,13 @@ The `printer_led` package provides unified control over all LED lighting associa
 | Guide | Description |
 |---|---|
 | [AUTOMATIONS.md](AUTOMATIONS.md) | How to enable/customize the interior light auto-reset automations |
-| [CUSTOMIZATION_EXAMPLES.md](CUSTOMIZATION_EXAMPLES.md) | Light presets, advanced automations, input helpers, Node-RED, webhooks |
-| [ESP32_INTEGRATION.md](ESP32_INTEGRATION.md) | ESPHome touchscreen button integration |
-| [PHYSICAL_BUTTON_INTEGRATION.md](PHYSICAL_BUTTON_INTEGRATION.md) | Zigbee, Z-Wave, WiFi, and wired button setups |
-| [VISUAL_EXAMPLES.md](VISUAL_EXAMPLES.md) | ASCII mockups and dashboard layout ideas |
+| [customization-examples.md](customization-examples.md) | Light presets, advanced automations, input helpers, Node-RED, webhooks |
+| [esp32-integration.md](esp32-integration.md) | ESPHome touchscreen button integration |
+| [physical-button-integration.md](physical-button-integration.md) | Zigbee, Z-Wave, WiFi, and wired button setups |
+| [visual-examples.md](visual-examples.md) | ASCII mockups and dashboard layout ideas |
 | [dashboard-button-variants.yaml](dashboard-button-variants.yaml) | 5 alternative reset-button styles (Mushroom, standard, entity, Bubble, horizontal stack) |
-| [LED_CONTROLS_README.md](LED_CONTROLS_README.md) | Quick start guide for expanded LED controls grid |
-| [LED_CONTROLS_IMPLEMENTATION_SUMMARY.md](LED_CONTROLS_IMPLEMENTATION_SUMMARY.md) | Full implementation summary |
+| [led-controls-readme.md](led-controls-readme.md) | Quick start guide for expanded LED controls grid |
+| [led-controls-implementation-summary.md](led-controls-implementation-summary.md) | Full implementation summary |
 | [led-controls.md](led-controls.md) | Comprehensive LED controls documentation (7 lights, WLED config, troubleshooting) |
 | [led-controls-visual.md](led-controls-visual.md) | Visual reference guide with ASCII layouts and state visualizations |
 | [led-controls-integration-examples.md](led-controls-integration-examples.md) | 9 integration methods with code examples |
@@ -118,3 +118,4 @@ The `printer_led` package provides unified control over all LED lighting associa
 |---|---|
 | [WLED](../wled/README.md) | Full WLED state machine, presets, and segment configuration |
 | [Printer Dashboards](../printer_dashboards/README.md) | Dashboard layout and placement |
+

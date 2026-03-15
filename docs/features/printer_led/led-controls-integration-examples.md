@@ -10,7 +10,7 @@ The simplest method - copy the entire `led-controls-expanded.yaml` content direc
 1. Open your dashboard in edit mode
 2. Click "+ ADD CARD"
 3. Scroll down and select "Manual"
-4. Copy the entire content of [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml](../../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml)
+4. Copy the entire content of [homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml](../../../homeassistant/packages/3d_printing/printer_led/dashboard_cards/led-controls-expanded.yaml)
 5. Paste into the YAML editor
 6. Click "SAVE"
 
@@ -267,7 +267,7 @@ views:
 
 For the **hass-bambulab-config** repository structure, we recommend:
 
-1. **Primary Location**: Add as a new section in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing)
+1. **Primary Location**: Add as a new section in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml)
 2. **Position**: After the AMS status cards, before cameras
 3. **Layout**: Use the 2-column grid layout
 4. **Quick Actions**: Include the All On/Off buttons
@@ -393,9 +393,12 @@ For mobile devices:
 ---
 
 **Related Documentation:**
-- Main README: [docs/features/printer_dashboards/LED_CONTROLS_README.md](../LED_CONTROLS_README.md)
+- Main README: [docs/features/printer_dashboards/led-controls-readme.md](led-controls-readme.md)
 - Full Documentation: [led-controls.md](led-controls.md)
 - Visual Guide: [led-controls-visual.md](led-controls-visual.md)
+
+
+
 
 
 

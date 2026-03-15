@@ -32,8 +32,8 @@ OpenHASP touchscreen display configuration for Bambu Lab printer control panels.
 | [device-readme.md](device-readme.md) | General OpenHASP device setup |
 | [esp32s3-5inch-readme.md](esp32s3-5inch-readme.md) | ESP32-S3 5" display configuration |
 | [hass-config-readme.md](hass-config-readme.md) | Home Assistant configuration for OpenHASP |
-| [xtouch-2.8-inch-readme.md](xtouch-2.8-inch-readme.md) | xTouch 2.8" display setup |
-| [xtouch-2.8-inch-temperature-sensor.md](xtouch-2.8-inch-temperature-sensor.md) | Temperature sensor integration |
+| [xtouch-2-8-inch-readme.md](xtouch-2-8-inch-readme.md) | xTouch 2.8" display setup |
+| [xtouch-2-8-inch-temperature-sensor.md](xtouch-2-8-inch-temperature-sensor.md) | Temperature sensor integration |
 | [xtouch-openhasp-conversion-README.md](xtouch-openhasp-conversion-README.md) | xTouch to OpenHASP conversion guide |
 
 ## Dependencies & Requirements

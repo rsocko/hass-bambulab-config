@@ -237,7 +237,7 @@ The swatch uses `entity: spoolEntityId` in `custom:button-card` so the card auto
 The popup is self-contained in each card's `tap_action`.  
 To reuse on another dashboard or view:
 
-1. Copy the full `tap_action` string from one of the tray `custom:button-card` entries in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing)
+1. Copy the full `tap_action` string from one of the tray `custom:button-card` entries in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml)
 2. Paste it as the `tap_action` of any `custom:button-card` on the target dashboard
 3. Update the four constants at the top:
    ```javascript
@@ -249,7 +249,7 @@ To reuse on another dashboard or view:
 
 **Dependencies:**
 - `browser_mod` (HACS integration, registered in browser)
-- `sensor.spoolman_tray_map` template sensor (from [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml))
+- `sensor.spoolman_tray_map` template sensor (from [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml))
 - `sensor.spoolman_spool_*` entities (Spoolman HA integration)
 - Bambu Lab HA integration tray sensors
 
@@ -307,10 +307,12 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 
 | File | Purpose |
 |------|---------|
-| [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing) | Main dashboard — contains the popup tap_action JS |
-| [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml) | `spoolman_tray_map` sensor template |
+| [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml) | Main dashboard — contains the popup tap_action JS |
+| [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml) | `spoolman_tray_map` sensor template |
 | [ams-tray-popup-visual.md](ams-tray-popup-visual.md) | Visual mockup and layout guide |
-| [homeassistant/packages/3d_printing/spoolman_sync/](../../../../homeassistant/packages/3d_printing/spoolman_sync/) | Spoolman sync automations |
+| [homeassistant/packages/3d_printing/spoolman_sync/](../../../homeassistant/packages/3d_printing/spoolman_sync/) | Spoolman sync automations |
+
+
 
 
 

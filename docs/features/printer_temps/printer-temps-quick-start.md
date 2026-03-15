@@ -26,7 +26,7 @@ Two temperature cards showing:
 
 ### Step 3: Copy Card Configuration
 
-1. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
+1. Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
 2. Copy the full configuration (starts with `type: horizontal-stack`)
 3. Paste into your Home Assistant dashboard:
    - Edit Dashboard → Add Card → Manual Card → Paste → Save
@@ -133,6 +133,7 @@ Your printer temperature cards should now be displaying beautifully with color-c
 ---
 
 **Need Help?** See the full documentation or open an issue in the repository.
+
 
 
 

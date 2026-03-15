@@ -17,28 +17,28 @@ This is a collection of Home Assistant automations & scripts I have configured t
 ### 1. Update filament usage in Spoolman
 Upon completing a print, the filament used will be updated in Spoolman. 
 
-[Automation Details](docs/print_complete_update_filament_usage.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
+[Automation Details](print-complete-update-filament-usage.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
 
-[Automation Details](docs/active_tray_changed_update_spoolman.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
+[Automation Details](active-tray-changed-update-spoolman.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
 
 ### 3. Refresh Spoolman integration daily
 I noticed when first starting to use the Spoolman integration that it got out of sync and the Home Assistant entities were sometimes inaccurate (specifically the location was wrong and/or orphaned entities existed). 
 
 This script simply forced a reload of the integration on a nightly basis.
 
-[Automation Details](docs/reload_spoolman_integration_nightly.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/reload_spoolman_integration_nightly.yaml)
+[Automation Details](reload-spoolman-integration-nightly.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/)
 
 ### 4. Persistent error logging and manual recovery
 When the spoolman sync automation fails (e.g., spool not found), the system stores all necessary information for manual recovery. This includes print job details, AMS tray configuration, and comprehensive error information.
 
 **📚 Documentation:**
-- [Installation Guide](docs/error-logging/installation_guide.md) - Step-by-step setup instructions
-- [Quick Reference](docs/error-logging/quick_reference.md) - At-a-glance command reference
-- [Full Documentation](docs/error-logging/persistent_error_logging.md) - Complete system details
-- [Error Flow Diagram](docs/error-logging/error_logging_flow.md) - Visual flow and scenarios
+- [Installation Guide](installation-guide.md) - Step-by-step setup instructions
+- [Quick Reference](quick-reference.md) - At-a-glance command reference
+- [Full Documentation](persistent-error-logging.md) - Complete system details
+- [Error Flow Diagram](error-logging-flow.md) - Visual flow and scenarios
 
 **📄 Files:**
 - [Input Helpers Configuration](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)
@@ -89,18 +89,18 @@ attributes have time to populate before persistence data is stored.
 
 ### Spoolman Configuration Required
 
-- Custom Fields added to Spoolman — see [detailed instructions](docs/spoolman_custom_fields.md)
+- Custom Fields added to Spoolman — see [detailed instructions](spoolman-custom-fields.md)
 - One location in Spoolman called `AMS` (the "find spool" logic checks for spools in that location as an indicator they are active)
-- REST endpoint sensor configured for Spoolman API — see [detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md)
+- REST endpoint sensor configured for Spoolman API — see [detailed instructions](sensor-rest-spoolman-api-get-spools.md)
 
 ### Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
-- Custom Fields added to Spoolman as follows: ([detailed instructions](docs/spoolman_custom_fields.md))
+- Custom Fields added to Spoolman as follows: ([detailed instructions](spoolman-custom-fields.md))
 - One location in Spoolman called 'AMS' (since the 'find spool' logic checks for Spools in that location as an indicator that they are the active spool).
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
-- REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](docs/sensor_rest_spoolman_api_get_spools.md))
+- REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](sensor-rest-spoolman-api-get-spools.md))
 - Input helpers configured for error logging ([configuration file](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)) - Add this to your Home Assistant configuration
 
 ## Helper YAML Files & Configuration
@@ -205,3 +205,5 @@ shared read models for UI belong in `core`.
 
 ## Version Information
 2025-05-23 - v1.0.0 - Initial public release
+
+

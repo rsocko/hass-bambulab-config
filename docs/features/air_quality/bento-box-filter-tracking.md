@@ -133,7 +133,7 @@ reset_carbon_filter:
 
 ### Step 4: Add Dashboard Card
 
-The Bento Box filter card in [bento-box-filter-cards.yaml](../../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml) displays a single compact status card on the main dashboard. Tapping it opens a browser_mod popup with:
+The Bento Box filter card in [bento-box-filter-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/bento-box-filter-cards.yaml) displays a single compact status card on the main dashboard. Tapping it opens a browser_mod popup with:
 - Overall filter status (Good / Monitor / Replace Soon / Replace Now)
 - HEPA filter detail: usage %, runtime hours, remaining hours, days since replacement
 - Carbon filter detail: same breakdown
@@ -523,8 +523,8 @@ A: Yes! Adapt entity IDs for any fan entity in Home Assistant.
 ## Related Documentation
 
 - [Bento Box Fan Control](bento-box-fan-filament-control.md) - Main fan automation
-- [Air Quality Integration](../README.md) - Complete air quality system
-- [Filter Replacement Schedule](../FILTER_TRACKING_QUICK_SETUP.md) - Detailed maintenance guide
+- [Air Quality Integration](README.md) - Complete air quality system
+- [Filter Replacement Schedule](filter-tracking-quick-setup.md) - Detailed maintenance guide
 
 ## Summary
 
@@ -538,6 +538,9 @@ The Bento Box filter tracking system provides:
 ✅ **Integration** with existing air quality system  
 
 **No more guessing - know exactly when to replace your filters! 🔧🌬️✨**
+
+
+
 
 
 

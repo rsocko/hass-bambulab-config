@@ -45,9 +45,9 @@ Real-time nozzle and bed temperature monitoring cards with color-coded heating/c
 | [printer-temps-quick-start.md](printer-temps-quick-start.md) | 5-minute setup guide |
 | [printer-temps-visual-reference.md](printer-temps-visual-reference.md) | Visual examples and color palette reference |
 | [printer-temps-mockup.md](printer-temps-mockup.md) | ASCII mockups: desktop, mobile, and state transitions |
-| [PRINTER_TEMPS_IMPLEMENTATION.md](PRINTER_TEMPS_IMPLEMENTATION.md) | Implementation notes |
-| [PRINTER_TEMPS_V2_CHANGES.md](PRINTER_TEMPS_V2_CHANGES.md) | V2 changelog |
-| [PRINTER_TEMPS_V3_CHANGES.md](PRINTER_TEMPS_V3_CHANGES.md) | V3 changelog |
+| [printer-temps-implementation.md](printer-temps-implementation.md) | Implementation notes |
+| [printer-temps-v2-changes.md](printer-temps-v2-changes.md) | V2 changelog |
+| [printer-temps-v3-changes.md](printer-temps-v3-changes.md) | V3 changelog |
 
 ## Dependencies & Requirements
 

@@ -58,7 +58,7 @@ Based on the built-in HA Bambu Lab status card design:
    - Note the prefix (e.g., `ntk_ryansoffice_3dprinter`)
 
 2. **Copy Card Configuration**:
-  - Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
+  - Open [homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml](../../../homeassistant/packages/3d_printing/printer_temps/dashboard_cards/printer-temps.yaml)
   - Copy the full card configuration (single canonical horizontal stack)
 
 3. **Customize Entity Names**:
@@ -276,6 +276,7 @@ Found a bug or have an enhancement idea? Please open an issue in the repository!
 - Bambu Lab Integration 2.x
 - Mushroom Cards 3.x
 - card-mod 3.x
+
 
 
 

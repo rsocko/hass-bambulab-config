@@ -23,7 +23,7 @@ Integration with Bambuddy — a self-hosted print archive and management system 
 
 | File | Description |
 |------|-------------|
-| [BAMBUDDY_INTEGRATION.md](BAMBUDDY_INTEGRATION.md) | Full integration guide: API setup, authentication, automation details |
+| [bambuddy-integration.md](bambuddy-integration.md) | Full integration guide: API setup, authentication, automation details |
 
 ## Dependencies & Requirements
 

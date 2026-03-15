@@ -19,7 +19,7 @@ Core template sensors and automations that other features depend on. This packag
 
 | File | Description |
 |------|-------------|
-| [SMART_STATUS.md](SMART_STATUS.md) | Full mapping table and implementation guide |
+| [smart-status.md](smart-status.md) | Full mapping table and implementation guide |
 | [smart-status-mapping.md](smart-status-mapping.md) | Quick reference for status classes, attributes, and reuse examples |
 
 ## Dependencies & Requirements

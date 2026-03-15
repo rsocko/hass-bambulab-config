@@ -237,7 +237,7 @@ Modify the brightness comparison (default: `128`):
 The popup logic lives entirely within each tray card's `tap_action` JavaScript expression.
 To reuse it on another dashboard:
 
-1. Copy the `tap_action` JavaScript string from any tray's `custom:button-card` in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing)
+1. Copy the `tap_action` JavaScript string from any tray's `custom:button-card` in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml)
 2. Change the four constants at the top of the function:
    ```javascript
    const tray = 'ams_1_tray_1';          // tray key in spoolman_tray_map
@@ -249,7 +249,7 @@ To reuse it on another dashboard:
 
 **Requirements for the popup to work on any dashboard:**
 - `browser_mod` HACS integration installed and registered
-- `sensor.spoolman_tray_map` template sensor loaded (from [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml))
+- `sensor.spoolman_tray_map` template sensor loaded (from [homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml))
 - `sensor.spoolman_spool_*` entities from the Spoolman integration
 - The tray/external spool sensors from the Bambu Lab HA integration
 
@@ -270,6 +270,8 @@ The popup JavaScript is modular and easy to extend. Potential additions:
 ---
 
 For full implementation details, see [ams-tray-popup.md](ams-tray-popup.md)
+
+
 
 
 

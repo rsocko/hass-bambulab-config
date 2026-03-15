@@ -4,20 +4,20 @@ This guide covers all implemented Layer Progress + Print Progress card variants.
 
 ## Files
 
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-1-bottom-bar-static.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-1-bottom-bar-static.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-3-bottom-bar-animated.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-3-bottom-bar-animated.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-4-full-fill-vertical.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-4-full-fill-vertical.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-5-full-fill-horizontal.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-5-full-fill-horizontal.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-6-bottom-bar-milestones.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-6-bottom-bar-milestones.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-7-segmented-progress.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-7-segmented-progress.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-8a-fill-and-pie-grow.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-8a-fill-and-pie-grow.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-9-fill-pie-animated-bar.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-9-fill-pie-animated-bar.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-10-segmented-fill-pie.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-10-segmented-fill-pie.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-11-animated-segmented-fill-pie.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-11-animated-segmented-fill-pie.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-12-animated-fill-pie.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-12-animated-fill-pie.yaml)
-- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-13-sequential-segment-chase.yaml](../../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-13-sequential-segment-chase.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-1-bottom-bar-static.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-1-bottom-bar-static.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-3-bottom-bar-animated.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-3-bottom-bar-animated.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-4-full-fill-vertical.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-4-full-fill-vertical.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-5-full-fill-horizontal.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-5-full-fill-horizontal.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-6-bottom-bar-milestones.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-6-bottom-bar-milestones.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-7-segmented-progress.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-7-segmented-progress.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-8a-fill-and-pie-grow.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-8a-fill-and-pie-grow.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-9-fill-pie-animated-bar.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-9-fill-pie-animated-bar.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-10-segmented-fill-pie.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-10-segmented-fill-pie.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-11-animated-segmented-fill-pie.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-11-animated-segmented-fill-pie.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-12-animated-fill-pie.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-12-animated-fill-pie.yaml)
+- [homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-13-sequential-segment-chase.yaml](../../../homeassistant/packages/3d_printing/print_progress/dashboard_cards/print-progress-kpi-option-13-sequential-segment-chase.yaml)
 
-All thirteen options are included in the main dashboard under the existing KPI cards in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../../homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing).
+All thirteen options are included in the main dashboard under the existing KPI cards in [homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing](../../../homeassistant/packages/3d_printing/common/dashboards/3d_printing.yaml).
 
 ## Option Summary
 
@@ -100,6 +100,8 @@ When reviewing in Home Assistant:
 2. Confirm each option updates Layer and % values correctly
 3. Verify paused and idle color behavior
 4. Check mobile and desktop spacing in the options section
+
+
 
 
 

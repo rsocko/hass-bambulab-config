@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   - All 14 loader YAML files
   - All 11 bambuddy standalone YAML files
   - Automations, scripts, template sensors, dashboard cards, and config files across all 18 feature packages
-  - Where possible, links point to the specific doc page (e.g., `SMART_STATUS.md`, `skip-objects.md`) rather than just the feature README
+  - Where possible, links point to the specific doc page (e.g., `smart-status.md`, `skip-objects.md`) rather than just the feature README
 - `CHANGELOG.md` at repo root to track changes (#572)
 
 ### Changed
@@ -20,7 +20,7 @@ All notable changes to this project will be documented in this file.
 
 ## Documentation
 
-- [Quick Start](docs/repo/QUICK_START.md)
-- [Deployment Structure](docs/repo/DEPLOYMENT_STRUCTURE.md)
-- [Repo Layout](docs/repo/REPO_LAYOUT.md)
+- [Quick Start](docs/repo/quick-start.md)
+- [Deployment Structure](docs/repo/deployment-structure.md)
+- [Repo Layout](docs/repo/repo-layout.md)
 - [Feature Docs](docs/features/)
