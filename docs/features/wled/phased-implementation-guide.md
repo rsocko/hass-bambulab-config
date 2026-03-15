@@ -4,7 +4,7 @@
 
 ## Overview
 
-This guide describes a **3-phase** implementation approach aligned with the deployed HA state machine architecture. Phase 1 is already complete and running.
+This guide describes a **6-phase** implementation approach aligned with the deployed HA state machine architecture. Phase 1 is complete; Phases 2-6 progressively close remaining gaps from [light-scenarios.md](light-scenarios.md).
 
 ### Architecture Summary
 
@@ -211,7 +211,7 @@ If MagWLED is back online:
 
 ---
 
-## Phase 3: Overlays & Advanced Features
+## Phase 3: Core Overlays (3.1/3.2/3.4)
 
 **Goal**: Add dynamic progress visualization, active tray highlighting, telemetry overlays, and preset-based dynamic segments  
 **Status**: 3.1 implemented  
@@ -288,15 +288,7 @@ Add scripts/automations that run **after** the core preset is applied to overrid
 
 **Success criteria**: Active tray tag glows with filament color during printing; all other tags remain at the base preset's soft white.
 
-### 3.3: Preset-Based Segment Switching (Optional Advanced)
-
-For full tag top+bottom control, implement the preset-based segment reconfiguration from [preset-based-segments.md](preset-based-segments.md):
-
-- Presets 50–57: Each redefines segment boundaries so the active tag gets both top AND bottom control
-- HA automation switches to the appropriate preset when the active tray changes
-- ~500ms delay needed for WLED to reconfigure segments
-
-This is optional; the simpler approach in 3.2 (tag-top-only highlighting) may be sufficient.
+> Note: Former section 3.3 (preset-based segment switching) is intentionally moved to **Phase 6.1** so foundational behavior lands first.
 
 ### 3.4: Telemetry Overlays (Idle-Only)
 
@@ -348,6 +340,123 @@ Implementation notes:
 
 ---
 
+## Phase 4: Print/Error Telemetry Completion
+
+**Goal**: Convert key print/error scenarios from partial to fully targeted behavior (tray-aware where possible) without dynamic segment remap.
+
+### 4.1: Affected-Tray Error Targeting
+
+Implement:
+1. Parse fault context to identify one or more affected trays (runout/jam/AMS fault).
+2. Overlay red/orange priority visuals on impacted tag-top segments during `S5_PAUSED_ERROR`.
+3. Preserve door progress/status priority and existing pause behavior.
+
+Targets from scenario matrix:
+- `Filament runout` (Partial -> closer to Implemented)
+- `Filament tangle/jam` (Partial -> closer to Implemented)
+- `AMS communication error` (Partial -> closer to Implemented)
+- `Print paused (error)` affected-tray specificity
+
+### 4.2: Feed/Selection Context Enhancements
+
+Implement:
+1. Add tray overlay logic for `filament_loading` / `filament_unloading` stages.
+2. Add pre-print tray-selected visual (idle/prep-safe, suppress during higher-tier events).
+3. Keep all overlays tier-aware so T1/T0 events always preempt.
+
+Targets from scenario matrix:
+- `Filament loading` (Partial)
+- `Filament unloading` (Partial)
+- `AMS tray selected (pre-print)` (Not implemented)
+- `AMS tray actively feeding` (Partial)
+
+### 4.3: Multi-Tray Print Participation (Static)
+
+Implement:
+1. Identify trays used in current print from available print/spool context.
+2. Apply static multi-tag highlighting for participating trays in `S3_PRINTING`.
+3. Reuse tray-risk thresholds where possible without adding high-frequency segment churn.
+
+Targets from scenario matrix:
+- `Spools used in current print` (Not implemented)
+
+---
+
+## Phase 5: Environmental + Utility Scenarios
+
+**Goal**: Close remaining non-core operational scenarios (environmental alerts, visibility modes, utility states).
+
+### 5.1: Environmental Alert States
+
+Implement:
+1. Add explicit chamber temperature high/low alert overlays.
+2. Add door-open-during-print alert path.
+3. Add dedicated cooling-down visual distinct from prep.
+
+Targets from scenario matrix:
+- `Door open during print` (Not implemented)
+- `High chamber temperature` (Not implemented)
+- `Low chamber temperature` (Not implemented)
+- `Cooling down / fans post-print` (Not implemented)
+
+### 5.2: Humidity/Drying Operational Modes
+
+Implement:
+1. Add non-idle escalation path for humidity high when appropriate.
+2. Add explicit AMS drying mode visual profile.
+3. Keep current idle humidity/desiccant overlays as baseline behavior.
+
+Targets from scenario matrix:
+- `AMS drying mode` (Not implemented)
+- `AMS humidity high` (Partial)
+- `AMS humidity normal` (Partial)
+
+### 5.3: Utility Visibility Modes
+
+Implement:
+1. Add remote monitoring mode (camera-friendly illumination profile).
+2. Add night mode with strict brightness caps and preemption rules.
+3. Optionally define a dedicated chamber/manual-light profile if separate from baseline states.
+
+Targets from scenario matrix:
+- `Remote monitoring mode` (Not implemented)
+- `Night mode` (Not implemented)
+- `Chamber light manual mode` (Partial)
+
+---
+
+## Phase 6: Advanced Dynamic Segment Strategy
+
+**Goal**: Implement higher-complexity behavior that requires dynamic segment or preset-layout switching under the 16-segment cap.
+
+### 6.1: Preset-Based Segment Switching (Moved from former 3.3)
+
+Implement:
+1. Presets `50-57` with tray-focused segment definitions (active tray top+bottom emphasis).
+2. Automation to switch preset family on active-tray change with debounce (~500ms).
+3. Fallback logic back to baseline state presets if remap fails.
+
+### 6.2: Idle Rotation Scenes (R1/R2/R3)
+
+Implement:
+1. R1 desiccant scene, R2 filament-remaining scene, R3 decorative scene.
+2. Scheduler helpers (`enabled`, `scene`, `interval`) and lock/debounce.
+3. Strict suppression outside `S1_IDLE`.
+
+### 6.3: Allocator + Tier Finalization
+
+Implement:
+1. Add bounded dynamic segment pool and eviction policy (tier-first, FIFO intra-tier).
+2. Pin door progress/status + active tray signals.
+3. Enforce full tier preemption (`T0`..`T5`) and emergency fallback view.
+
+Targets from scenario matrix:
+- `Tag top + tag bottom full highlight for active tray` (Degraded -> improved)
+- `Per-tray tag-bottom semantics` (Degraded -> improved in focused/rotating modes)
+- `AMS independent hygrometer detail` (Degraded -> improved)
+
+---
+
 ## Rollback Plan
 
 ### Quick Disable
@@ -359,7 +468,9 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 | Phase 1 | Disable toggle; remove package from `_feature_loaders.yaml` |
 | Phase 2 | Re-upload skeleton presets (101–109 segment 0+1 only) from `wled/backups/digquad/2026-03-13 - 2 - Phase 1 Implemented/` or `wled_state_machine_presets_Digquad_skeleton.json` |
 | Phase 3.1 | Remove progress overlay automation + script + rest_command; revert preset 104 segs 0–2 to solid green; remove orchestrator progress overlay call |
-| Phase 3.2+ | Remove overlay scripts/automations; core presets continue to work |
+| Phase 3.2/3.4 | Remove active-tray and idle-telemetry overlay scripts/automations; core presets continue to work |
+| Phases 4-5 | Disable new overlay automations first, then remove related scripts/helpers incrementally |
+| Phase 6 | Revert to fixed-layout preset path (disable dynamic remap/allocator automations and restore baseline preset family) |
 
 ### Full Recovery
 1. Disable `input_boolean.wled_3dprinter_state_machine_enabled`
@@ -398,18 +509,18 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 ### Phase 3 (Overlays & Advanced)
 
 #### 3.1 Progress Bar & Status Enhancement
-- [ ] `input_text.wled_3dprinter_digquad_ip` set to DigQuad IP
-- [ ] `rest_command.wled_3dprinter_digquad_update_state` reachable (Developer Tools → Services)
-- [ ] Percent effect ID 98 confirmed on DigQuad WLED build
-- [ ] Updated preset 104 deployed to DigQuad
-- [ ] S3_PRINTING shows dim white base on segs 0 and 1
-- [ ] Seg 2 shows very slow green breathe during printing
-- [ ] Print progress fills seg 0 green proportionally
-- [ ] Layer progress fills seg 1 blue proportionally
-- [ ] Pause (user) overrides all door segments to yellow
-- [ ] Pause (error) overrides all door segments to red
-- [ ] Resume restores progress overlay within ~2.5 seconds
-- [ ] Overlay skips gracefully when DigQuad IP is not set
+- [x] `input_text.wled_3dprinter_digquad_ip` set to DigQuad IP
+- [x] `rest_command.wled_3dprinter_digquad_update_state` reachable (Developer Tools → Services)
+- [x] Percent effect ID 98 confirmed on DigQuad WLED build
+- [x] Updated preset 104 deployed to DigQuad
+- [x] S3_PRINTING shows dim white base on segs 0 and 1
+- [x] Seg 2 shows very slow green breathe during printing
+- [x] Print progress fills seg 0 green proportionally
+- [x] Layer progress fills seg 1 blue proportionally
+- [x] Pause (user) overrides all door segments to yellow
+- [x] Pause (error) overrides all door segments to red
+- [x] Resume restores progress overlay within ~2.5 seconds
+- [x] Overlay skips gracefully when DigQuad IP is not set
 
 #### 3.2 (Implemented)
 - [x] Active tray tag highlights with filament color during printing
@@ -424,6 +535,27 @@ Turn off `input_boolean.wled_3dprinter_state_machine_enabled` to stop the orches
 - [x] Overlays suppress during non-idle states
 - [x] Tray risk thresholds mirror AMS tray dashboard logic
 - [x] Desiccant status mapping mirrors AMS tray dashboard logic
+
+### Phase 4 (Print/Error Telemetry Completion)
+- [ ] Affected-tray targeting for runout/jam/AMS comm error overlays in paused-error path
+- [ ] Tray-aware overlays for loading/unloading stages
+- [ ] Pre-print tray-selected visual implemented
+- [ ] Multi-tray participation highlight for current print implemented
+
+### Phase 5 (Environmental + Utility)
+- [ ] Cooling-down visual separated from prep visuals
+- [ ] Door-open-during-print alert path implemented
+- [ ] Chamber temperature high/low alert paths implemented
+- [ ] AMS drying mode visual implemented
+- [ ] Non-idle humidity escalation policy implemented
+- [ ] Remote monitoring mode implemented
+- [ ] Night mode implemented
+
+### Phase 6 (Dynamic Segment Strategy)
+- [ ] Preset-based segment switching (50-57) implemented with fallback path
+- [ ] Idle rotation scenes R1/R2/R3 implemented and scheduler-backed
+- [ ] Dynamic segment allocator (tier-aware) implemented
+- [ ] Tier preemption + pinned segment policy validated end-to-end
 
 ---
 
@@ -460,6 +592,6 @@ If `automation.bambu_lab_wled_controller_advanced` is ON, it may override the st
 
 ---
 
-**Version**: 3.0 (Phase 3.1 Progress Enhancement — 2026-03-13)  
-**Phases**: 3 (Core ✅ → Segment Expansion → Overlays [3.1 ✅])  
-**Architecture**: HA State Machine → WLED Presets 101–109 + JSON API Overlays
+**Version**: 3.1 (Roadmap expanded to Phases 4-6 — 2026-03-15)  
+**Phases**: 6 (Core ✅ → Segment Expansion → Core Overlays ✅/deferred → Telemetry Completion → Environmental/Utility → Advanced Dynamic)  
+**Architecture**: HA State Machine → WLED Presets 100–109 + JSON API Overlays (+ optional dynamic segment remap in Phase 6)
