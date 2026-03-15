@@ -1,838 +1,608 @@
 # view_filament_catalog.yaml
-# Filament Catalog view — Phase 1: Location-grouped compact spool grid.
+# Filament Catalog view - Phase 1: Location-grouped compact spool grid.
 #
 # Displays all non-archived spools grouped by physical location,
 # with an inventory KPI summary at the top.
-# Each location section auto-hides when empty (show_empty: false).
+# Location headers self-hide when empty (count === 0).
+# Grid auto-entities hide when empty (show_empty: false).
 #
-# Uses custom:vertical-layout (layout-card) for efficient DOM handling.
 # Docs: docs/features/filament_catalog/filament-catalog.md
 
 title: Filament Catalog
 path: filament-catalog
 icon: mdi:format-list-bulleted
-type: custom:vertical-layout
+panel: true
 cards:
-  # ============================================================
-  # Inventory KPI Summary
-  # ============================================================
-  - !include ../dashboard_cards/catalog_inventory_kpi.yaml
+  - type: vertical-stack
+    cards:
+      # ============================================================
+      # Inventory KPI Summary
+      # ============================================================
+      - !include ../dashboard_cards/catalog_inventory_kpi.yaml
 
-  # ============================================================
-  # Location Sections (ordered by preference)
-  # Each location has a header + grid pair.
-  # Both use show_empty: false so they auto-hide when empty.
-  # ============================================================
+      # ============================================================
+      # Location Sections (ordered by preference)
+      # Static headers (self-hide when empty) + grid auto-entities.
+      # ============================================================
 
-  # --- AMS ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "AMS"
-        locationIcon: "fapro:filament-2"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "AMS"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "AMS"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- AMS ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "AMS"
+          locationIcon: "fapro:filament-2"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "AMS"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- AMS 2 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "AMS 2"
-        locationIcon: "fapro:filament-2"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "AMS 2"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "AMS 2"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- AMS 2 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "AMS 2"
+          locationIcon: "fapro:filament-2"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "AMS 2"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Under AMS (Top Shelf) ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Under AMS (Top Shelf)"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Under AMS (Top Shelf)"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Under AMS (Top Shelf)"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Under AMS (Top Shelf) ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Under AMS (Top Shelf)"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Under AMS (Top Shelf)"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Under AMS (Bottom Shelf) ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Under AMS (Bottom Shelf)"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Under AMS (Bottom Shelf)"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Under AMS (Bottom Shelf)"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Under AMS (Bottom Shelf) ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Under AMS (Bottom Shelf)"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Under AMS (Bottom Shelf)"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Shelf Near Door ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Shelf Near Door"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Shelf Near Door"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Shelf Near Door"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Shelf Near Door ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Shelf Near Door"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Shelf Near Door"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Laser Printer Shelf ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Laser Printer Shelf"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Laser Printer Shelf"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Laser Printer Shelf"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Laser Printer Shelf ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Laser Printer Shelf"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Laser Printer Shelf"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Under Desk (Right Side) ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Under Desk (Right Side)"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Under Desk (Right Side)"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Under Desk (Right Side)"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Under Desk (Right Side) ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Under Desk (Right Side)"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Under Desk (Right Side)"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Floor ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Floor"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Floor"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Floor"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Floor ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Floor"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Floor"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Shelf 1 (Top) ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Shelf 1 (Top)"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 1 (Top)"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 1 (Top)"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Shelf 1 (Top) ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Shelf 1 (Top)"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Shelf 1 (Top)"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Shelf 2 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Shelf 2"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 2"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 2"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Shelf 2 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Shelf 2"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Shelf 2"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Shelf 3 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Shelf 3"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 3"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 3"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Shelf 3 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Shelf 3"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Shelf 3"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Shelf 4 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Shelf 4"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 4"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Shelf 4"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Shelf 4 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Shelf 4"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Shelf 4"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Rack 1 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Rack 1"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 1"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 1"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Rack 1 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Rack 1"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Rack 1"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Rack 2 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Rack 2"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 2"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 2"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Rack 2 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Rack 2"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Rack 2"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Rack 3 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Rack 3"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 3"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 3"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Rack 3 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Rack 3"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Rack 3"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Rack 4 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Rack 4"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 4"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Rack 4"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Rack 4 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Rack 4"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Rack 4"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Under Rack 1 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Under Rack 1"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 1"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 1"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Under Rack 1 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Under Rack 1"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Under Rack 1"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Under Rack 2 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Under Rack 2"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 2"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 2"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Under Rack 2 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Under Rack 2"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Under Rack 2"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Under Rack 3 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Under Rack 3"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 3"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 3"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Under Rack 3 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Under Rack 3"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Under Rack 3"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Closet Under Rack 4 ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Closet Under Rack 4"
-        locationIcon: "mdi:wardrobe-outline"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 4"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Closet Under Rack 4"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Closet Under Rack 4 ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Closet Under Rack 4"
+          locationIcon: "mdi:wardrobe-outline"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Closet Under Rack 4"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name
 
-  # --- Cereal Dry Box - Closet ---
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: custom:button-card
-      template: catalog_location_header
-      entity: sensor.spoolman_filament_totals
-      variables:
-        locationName: "Cereal Dry Box - Closet"
-        locationIcon: "mdi:package-variant-closed"
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Cereal Dry Box - Closet"
-      exclude:
-        - attributes:
-            archived: true
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 5
-      square: false
-    card_param: cards
-    filter:
-      include:
-        - entity_id: /^sensor\.spoolman_spool_\d+$/
-          attributes:
-            location: "Cereal Dry Box - Closet"
-          options:
-            type: custom:button-card
-            template: catalog_spool_card
-      exclude:
-        - attributes:
-            archived: true
-    sort:
-      method: friendly_name
+      # --- Cereal Dry Box - Closet ---
+      - type: custom:button-card
+        template: catalog_location_header
+        entity: sensor.spoolman_filament_totals
+        variables:
+          locationName: "Cereal Dry Box - Closet"
+          locationIcon: "mdi:package-variant-closed"
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - entity_id: /^sensor\.spoolman_spool_\d+$/
+              attributes:
+                location: "Cereal Dry Box - Closet"
+              options:
+                type: custom:button-card
+                template: catalog_spool_card
+          exclude:
+            - attributes:
+                archived: true
+        sort:
+          method: friendly_name

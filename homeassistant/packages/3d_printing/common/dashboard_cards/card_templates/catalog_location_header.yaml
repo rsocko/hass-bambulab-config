@@ -1,8 +1,8 @@
 # catalog_location_header.yaml
 # Location section header for the Filament Catalog view.
 # Displays location name, spool count, and a separator line.
-# Designed to be used with auto-entities show_empty: false
-# so the header auto-hides when no spools exist at that location.
+# Self-hides when no spools exist at the given location (count === 0).
+# Used as a STATIC card in the view (not wrapped in auto-entities).
 #
 # Variables:
 #   locationName  - Display name (e.g., "AMS", "Closet Rack 1")
@@ -11,6 +11,7 @@
 catalog_location_header:
   type: custom:button-card
   entity: sensor.spoolman_filament_totals
+  triggers_update: sensor.spoolman_filament_totals
   show_icon: false
   show_name: false
   show_state: false
@@ -23,6 +24,16 @@ catalog_location_header:
       - box-shadow: none
       - padding: 6px 0
       - margin: 0
+      - display: |
+          [[[
+            const locName = variables.locationName || 'Unknown';
+            const count = Object.values(states).filter(e =>
+              /^sensor\.spoolman_spool_\d+$/.test(e.entity_id) &&
+              e.attributes.location === locName &&
+              !e.attributes.archived
+            ).length;
+            return count === 0 ? 'none' : '';
+          ]]]
     grid:
       - grid-template-areas: '"header"'
       - grid-template-columns: 1fr
