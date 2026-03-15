@@ -2,6 +2,12 @@
 
 Integration with Bambuddy — a self-hosted print archive and management system for Bambu Lab 3D printers.
 
+## Screenshots
+
+<!-- SCREENSHOT: id=bambuddy-integration-entities | format=png | version=1.0 | package=bambuddy_integration | added=2026-03-15 -->
+<!-- Capture: HA entities page showing Bambuddy REST sensors (print history, queue, statistics) -->
+> **📸 Screenshot needed:** Bambuddy integration — HA sensor entities *(png)*
+
 ## Implementation
 
 **Package**: [`homeassistant/packages/3d_printing/bambuddy_integration/`](../../../homeassistant/packages/3d_printing/bambuddy_integration/)

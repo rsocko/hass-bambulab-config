@@ -5,6 +5,22 @@
 Clicking any AMS tray card or the External Spool card opens a rich `browser_mod.popup` dialog.  
 The popup is built dynamically in JavaScript at click-time, so all values (color, weight, material, etc.) are live.
 
+<!-- SCREENSHOT: id=ams-popup-full-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Full AMS tray popup for a matched spool — all sections visible: header, chips, color swatch, weight, history chart, action buttons -->
+> **📸 Screenshot needed:** AMS tray popup — full matched spool view *(png)*
+
+<!-- SCREENSHOT: id=ams-popup-no-spool | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Fallback popup when no spool is matched — show "No Spool" state with raw tray entity details -->
+> **📸 Screenshot needed:** AMS tray popup — fallback/no spool matched *(png)*
+
+<!-- SCREENSHOT: id=ams-popup-weight-warning | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Popup showing "This Print" weight with red alert icon (spool won't have enough filament) -->
+> **📸 Screenshot needed:** AMS tray popup — insufficient filament warning *(png)*
+
+<!-- SCREENSHOT: id=ams-popup-desiccant-states | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Close-up of desiccant row showing different color states (green fresh → red old) -->
+> **📸 Screenshot needed:** AMS tray popup — desiccant status color states *(png)*
+
 ---
 
 ## Popup Layout (Spool Matched)

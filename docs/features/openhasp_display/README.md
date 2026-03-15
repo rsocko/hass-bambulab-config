@@ -11,6 +11,20 @@ OpenHASP touchscreen display configuration for Bambu Lab printer control panels.
 - **xTouch 2.8"** — Original Bambu Lab xTouch converted to OpenHASP
 - **ESP32-S3 5"** — Larger ESP32-S3 capacitive touchscreen
 
+## Screenshots
+
+<!-- SCREENSHOT: id=openhasp-esp32s3-5inch-home | format=png | version=1.0 | package=openhasp_display | added=2026-03-15 -->
+<!-- Capture: Photo of ESP32-S3 5" display showing home screen with printer status -->
+> **📸 Screenshot needed:** ESP32-S3 5" touchscreen — home screen *(png)*
+
+<!-- SCREENSHOT: id=openhasp-esp32s3-5inch-controls | format=gif | version=1.0 | package=openhasp_display | added=2026-03-15 -->
+<!-- Capture: Film touchscreen interaction — swipe between screens (home → temperature → controls). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** ESP32-S3 5" touchscreen — screen navigation *(gif)*
+
+<!-- SCREENSHOT: id=openhasp-xtouch-2.8-home | format=png | version=1.0 | package=openhasp_display | added=2026-03-15 -->
+<!-- Capture: Photo of xTouch 2.8" display showing home screen (if still available/active) -->
+> **📸 Screenshot needed:** xTouch 2.8" display — home screen *(png)*
+
 ## Documentation
 
 | File | Description |

@@ -42,6 +42,24 @@ The `printer_led` package provides unified control over all LED lighting associa
 
 3. (Optional) Enable automations — see [AUTOMATIONS.md](AUTOMATIONS.md).
 
+## Screenshots
+
+<!-- SCREENSHOT: id=led-controls-compact | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Compact 6-button icon row in the dashboard header — show some lights on, some off -->
+> **📸 Screenshot needed:** LED controls — compact icon row *(png)*
+
+<!-- SCREENSHOT: id=led-controls-expanded-grid | format=png | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Full 7-light control grid showing all LED entities with brightness sliders and status -->
+> **📸 Screenshot needed:** LED controls — expanded grid with all 7 lights *(png)*
+
+<!-- SCREENSHOT: id=led-wled-popup | format=gif | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Double-tap a WLED light → popup opens with effect/palette/speed controls → change effect → close. ~8s (use ScreenToGif) -->
+> **🎬 Animation needed:** WLED advanced popup — effect selection interaction *(gif)*
+
+<!-- SCREENSHOT: id=led-physical-strips | format=gif | version=1.0 | package=printer_led | added=2026-03-15 -->
+<!-- Capture: Film physical LED strips on printer — show state transition (idle blue → printing green). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** Physical LED strips — state transition on hardware *(gif)*
+
 ## Additional Guides
 
 | Guide | Description |

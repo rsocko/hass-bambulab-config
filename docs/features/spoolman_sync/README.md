@@ -1,5 +1,15 @@
 # Spoolman Sync - Home Assistant Automations
 
+## Screenshots
+
+<!-- SCREENSHOT: id=spoolman-persistent-notification | format=png | version=1.0 | package=spoolman_sync | added=2026-03-15 -->
+<!-- Capture: HA persistent notification showing a spoolman sync error with recovery data (error logging system output) -->
+> **📸 Screenshot needed:** Spoolman sync error — persistent notification with recovery data *(png)*
+
+<!-- SCREENSHOT: id=spoolman-self-test-pass | format=png | version=1.0 | package=spoolman_sync | added=2026-03-15 -->
+<!-- Capture: HA persistent notification showing self-test passing (green/OK status) -->
+> **📸 Screenshot needed:** Print weight persistence self-test — passing result *(png)*
+
 ## Description: 
 This is a collection of Home Assistant automations & scripts I have configured to automatically keep Spoolman updated based on actual print jobs and filament usage in my Bambu Lab P1S printer. It uses the Bambu Lab Home Assistant integration to react to various printer events and then reads and writes information on Spoolman as needed.
 

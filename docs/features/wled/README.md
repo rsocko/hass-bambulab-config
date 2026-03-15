@@ -25,6 +25,24 @@ This directory contains WLED configuration, documentation, and Home Assistant in
 | [Printer LED](../printer_led/README.md) | Dashboard controls for the WLED lights — depends on this feature |
 | [Core](../core/README.md) | Smart status values drive state machine transitions (S0–S8) |
 
+## Screenshots
+
+<!-- SCREENSHOT: id=wled-state-machine-printing | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Film physical DigQuad LED strips during state transition (S1 idle blue → S3 printing green with progress bar). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** Physical WLED strips — state transition idle → printing *(gif)*
+
+<!-- SCREENSHOT: id=wled-front-display-progress | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Film front C-shape LED strip showing print progress bar filling left-to-right. Phone camera → convert to GIF -->
+> **🎬 Animation needed:** Front display LED — print progress bar *(gif)*
+
+<!-- SCREENSHOT: id=wled-ams-tray-lighting | format=png | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Photo of AMS lid LED strips illuminating all 4 spool positions -->
+> **📸 Screenshot needed:** AMS tray LED lighting — spool illumination *(png)*
+
+<!-- SCREENSHOT: id=wled-error-state | format=gif | version=1.0 | package=wled | added=2026-03-15 -->
+<!-- Capture: Film LED strips in error state S6 (flashing red). Phone camera → convert to GIF -->
+> **🎬 Animation needed:** WLED error state — flashing red LEDs *(gif)*
+
 ## Current Architecture: HA State Machine
 
 The system uses a **Home Assistant state machine** that monitors printer status, transitions through **9 core states** (S0–S8), and applies WLED presets (101–109) to the DigQuad controller automatically.

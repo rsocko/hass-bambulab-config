@@ -16,6 +16,14 @@ Each feature package contributes cards via its `dashboard_cards/` directory, whi
 
 ## Dashboard Layout
 
+<!-- SCREENSHOT: id=dashboard-full-desktop | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Full dashboard view on desktop — show top bar, main content area, AMS tray section, and feature cards all visible -->
+> **📸 Screenshot needed:** Full dashboard — desktop overview *(png)*
+
+<!-- SCREENSHOT: id=dashboard-full-mobile | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Full dashboard view on mobile (use browser responsive mode ~375px width) -->
+> **📸 Screenshot needed:** Full dashboard — mobile overview *(png)*
+
 ### Top Bar
 Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](top-bar-layout.md) for layout design.
 
@@ -32,6 +40,14 @@ Prominent status bar optimized for desktop and mobile. See [top-bar-layout.md](t
 
 ### AMS Tray Popup
 Interactive popup dialogs for detailed spool information. See [ams-tray-popup.md](ams-tray-popup.md) and [ams-tray-popup-visual.md](ams-tray-popup-visual.md).
+
+<!-- SCREENSHOT: id=ams-tray-popup-matched | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: AMS tray popup open for a matched spool — show full popup with color swatch, weight, history chart, action buttons -->
+> **📸 Screenshot needed:** AMS tray popup — matched spool with full details *(png)*
+
+<!-- SCREENSHOT: id=ams-tray-popup-interaction | format=gif | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Record tap on AMS tray card → popup opens → scroll through details → close. ~5-8s loop (use ScreenToGif or ShareX GIF mode) -->
+> **🎬 Animation needed:** AMS tray popup — tap-to-open interaction *(gif)*
 
 ### AMS Header Cards
 Reusable `ams_header` button-card template placed above each AMS unit. See [card-templates-README.md](card-templates-README.md).

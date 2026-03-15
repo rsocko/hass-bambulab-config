@@ -19,6 +19,24 @@ Real-time nozzle and bed temperature monitoring cards with color-coded heating/c
 - Fixed semantic icons with temperature-based coloring
 - Horizontal compact layout for mobile and desktop
 
+## Screenshots
+
+<!-- SCREENSHOT: id=temp-cards-heating | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
+<!-- Capture: Both nozzle and bed cards in heating state (red) — nozzle target 220°C, bed target 80°C, current temps lower -->
+> **📸 Screenshot needed:** Temperature cards — heating state (red indicators) *(png)*
+
+<!-- SCREENSHOT: id=temp-cards-cooling | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
+<!-- Capture: Both cards in cooling state (blue) — target 0°C, current temps still elevated -->
+> **📸 Screenshot needed:** Temperature cards — cooling state (blue indicators) *(png)*
+
+<!-- SCREENSHOT: id=temp-cards-idle | format=png | version=1.0 | package=printer_temps | added=2026-03-15 -->
+<!-- Capture: Both cards in idle state (grey) — target 0°C, current temps at room temperature -->
+> **📸 Screenshot needed:** Temperature cards — idle state (grey) *(png)*
+
+<!-- SCREENSHOT: id=temp-cards-transition | format=gif | version=1.0 | package=printer_temps | added=2026-03-15 -->
+<!-- Capture: Record card transition from idle→heating→at-target — show color indicator changing grey→red→grey. ~8-10s (use ScreenToGif) -->
+> **🎬 Animation needed:** Temperature cards — heating cycle color transition *(gif)*
+
 ## Documentation
 
 | File | Description |

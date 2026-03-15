@@ -30,6 +30,16 @@ Automated mobile notifications, camera snapshots, and TTS announcements for Bamb
 | [HMS Alert](../hms_alert/README.md) | Can trigger notifications based on HMS errors |
 | [Bambuddy Integration](../bambuddy_integration/README.md) | Shares camera snapshot logic |
 
+## Screenshots
+
+<!-- SCREENSHOT: id=notification-print-complete | format=png | version=1.0 | package=notifications | added=2026-03-15 -->
+<!-- Capture: Mobile push notification showing print completion with camera snapshot image attached -->
+> **📸 Screenshot needed:** Print completion notification with camera snapshot *(png)*
+
+<!-- SCREENSHOT: id=notification-print-error | format=png | version=1.0 | package=notifications | added=2026-03-15 -->
+<!-- Capture: Critical error notification on mobile — show red/critical priority badge -->
+> **📸 Screenshot needed:** Print error critical notification *(png)*
+
 ## What Gets Deployed
 
 The notifications loader (`notifications_loader.yaml`) registers:

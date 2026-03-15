@@ -22,6 +22,20 @@ Animated print progress KPI cards showing layer count, percentage, time remainin
 - All animations stop on pause/stop/complete
 - 2×2 grid layout
 
+## Screenshots
+
+<!-- SCREENSHOT: id=print-progress-kpi-active | format=png | version=1.0 | package=print_progress | added=2026-03-15 -->
+<!-- Capture: 2×2 KPI card grid during active print — show Layer, Progress %, Time Remaining, Est. Completion with real values -->
+> **📸 Screenshot needed:** Print progress KPI cards — active print with real values *(png)*
+
+<!-- SCREENSHOT: id=print-progress-kpi-animation | format=gif | version=1.0 | package=print_progress | added=2026-03-15 -->
+<!-- Capture: Record ~5s loop of all 4 KPI cards animating — layer bounce, progress spin, clock rotate (use ScreenToGif) -->
+> **🎬 Animation needed:** Print progress KPI cards — CSS animations during active print *(gif)*
+
+<!-- SCREENSHOT: id=print-progress-kpi-idle | format=png | version=1.0 | package=print_progress | added=2026-03-15 -->
+<!-- Capture: KPI cards when printer is idle (no animation, zero/dash values) -->
+> **📸 Screenshot needed:** Print progress KPI cards — idle state *(png)*
+
 ## Documentation
 
 | File | Description |

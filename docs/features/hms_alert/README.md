@@ -20,6 +20,24 @@ Bambu Lab Health Management System (HMS) error detection, display, and alerting.
 - `binary_sensor.*_hms_errors` — `on` when errors present; attributes include `count` and `errors` array
 - HMS alert banner card — Conditional card that appears only when errors exist
 
+## Screenshots
+
+<!-- SCREENSHOT: id=hms-alert-single-error | format=png | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: Single HMS error expanded — show red banner with error description, code, and wiki link -->
+> **📸 Screenshot needed:** HMS alert banner — single error expanded *(png)*
+
+<!-- SCREENSHOT: id=hms-alert-multiple-errors | format=png | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: Multiple HMS errors (2-3) showing severity-colored cards (red/orange/yellow) in flex-wrap layout -->
+> **📸 Screenshot needed:** HMS alert banner — multiple errors with severity colors *(png)*
+
+<!-- SCREENSHOT: id=hms-alert-collapse-toggle | format=gif | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: Record expand/collapse toggle — tap chevron to collapse, tap again to expand. ~3-4s loop (use ScreenToGif) -->
+> **🎬 Animation needed:** HMS alert banner — expand/collapse interaction *(gif)*
+
+<!-- SCREENSHOT: id=hms-alert-no-errors | format=png | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: Dashboard with no errors present — show that HMS section is completely hidden (clean dashboard) -->
+> **📸 Screenshot needed:** Dashboard with no HMS errors — banner hidden *(png)*
+
 ## Documentation
 
 | File | Description |

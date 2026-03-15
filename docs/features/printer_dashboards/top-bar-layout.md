@@ -4,6 +4,14 @@
 
 The 3D Printer dashboard features a redesigned top bar that provides at-a-glance status information in a clear, organized layout optimized for both mobile and desktop viewing.
 
+<!-- SCREENSHOT: id=top-bar-desktop | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Full top bar on desktop (2-column grid) during active print — show status, progress, time, and camera cards -->
+> **📸 Screenshot needed:** Top bar — desktop 2-column grid during active print *(png)*
+
+<!-- SCREENSHOT: id=top-bar-mobile | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
+<!-- Capture: Top bar on mobile (single column wrap) — use browser responsive mode ~375px -->
+> **📸 Screenshot needed:** Top bar — mobile single-column layout *(png)*
+
 ## Design Philosophy
 
 The top bar replaces the previous small entity badges with larger, more readable cards organized into logical groups. This improves:

@@ -21,6 +21,16 @@ Filament weight visualization and cost tracking for active prints, showing per-t
 - Total weight display
 - Dark and light mode compatible
 
+## Screenshots
+
+<!-- SCREENSHOT: id=weight-bar-chart-multicolor | format=png | version=1.0 | package=print_weight_and_cost | added=2026-03-15 -->
+<!-- Capture: Stacked bar chart during a multi-color print — show 3-4 filament color segments with percentages and total weight -->
+> **📸 Screenshot needed:** Stacked filament weight bar chart — multi-color print *(png)*
+
+<!-- SCREENSHOT: id=weight-per-tray-warnings | format=png | version=1.0 | package=print_weight_and_cost | added=2026-03-15 -->
+<!-- Capture: Per-tray consumption cards showing color-coded warnings (green/yellow/orange/red based on remaining filament) -->
+> **📸 Screenshot needed:** Per-tray weight cards with color-coded warnings *(png)*
+
 ## Documentation
 
 | File | Description |

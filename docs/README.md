@@ -76,6 +76,11 @@ Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_print
 - `repo/IMPLEMENTATION_SUMMARY.md` — Implementation overview.
 - `repo/IMPLEMENTATION_NOTES.md` — AMS tray popup implementation details.
 - `repo/THIRD_PARTY_ATTRIBUTION.md` — Third-party inspiration and attribution.
+- `repo/SCREENSHOT_GUIDE.md` — Screenshot & animation capture guide, versioning, and embedding conventions.
+
+## Screenshots
+
+Visual assets are tracked in [`screenshots/README.md`](screenshots/README.md) — a checklist of all 65 planned screenshots and animations across the documentation. See [`repo/SCREENSHOT_GUIDE.md`](repo/SCREENSHOT_GUIDE.md) for capture tools, format recommendations, and versioning conventions.
 
 ## Dependency Overview
 

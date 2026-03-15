@@ -2,6 +2,12 @@
 
 NFC-based filament tag scanning and tracking. Allows associating physical filament spools with Spoolman spool records via NFC tags.
 
+## Screenshots
+
+<!-- SCREENSHOT: id=filament-tag-scan-result | format=png | version=1.0 | package=filament_tag | added=2026-03-15 -->
+<!-- Capture: HA UI showing a scanned NFC tag result with matched Spoolman spool details -->
+> **📸 Screenshot needed:** NFC filament tag scan — matched spool result *(png)*
+
 ## Implementation
 
 **Package**: [`homeassistant/packages/3d_printing/filament_tag/`](../../../homeassistant/packages/3d_printing/filament_tag/)

@@ -1,5 +1,17 @@
 # HMS Error Alert UI — Visual Guide
 
+<!-- SCREENSHOT: id=hms-ui-single-expanded | format=png | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: Single HMS error in expanded state — red banner + error detail card with severity, code, wiki link -->
+> **📸 Screenshot needed:** HMS alert — single error expanded *(png)*
+
+<!-- SCREENSHOT: id=hms-ui-multiple-errors | format=png | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: 2-3 HMS errors in expanded state — show severity-colored cards (red, orange, yellow) wrapping -->
+> **📸 Screenshot needed:** HMS alert — multiple errors with severity colors *(png)*
+
+<!-- SCREENSHOT: id=hms-ui-collapsed | format=png | version=1.0 | package=hms_alert | added=2026-03-15 -->
+<!-- Capture: Collapsed banner showing chevron-down and error summary in subtitle -->
+> **📸 Screenshot needed:** HMS alert — collapsed state *(png)*
+
 ## Dashboard Layout — Normal State (No Errors)
 
 The HMS alert section is completely hidden. The dashboard renders normally with no extra space consumed.

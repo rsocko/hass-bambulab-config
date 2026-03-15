@@ -2,6 +2,16 @@
 
 Shared dashboard infrastructure — layouts, views, reusable card templates, and the main Lovelace dashboard definition.
 
+## Screenshots
+
+<!-- SCREENSHOT: id=common-ams-header-card | format=png | version=1.0 | package=common | added=2026-03-15 -->
+<!-- Capture: AMS header card showing humidity/temperature indicators for one AMS unit -->
+> **📸 Screenshot needed:** AMS header card with humidity/temp indicators *(png)*
+
+<!-- SCREENSHOT: id=common-ams-tray-cards | format=png | version=1.0 | package=common | added=2026-03-15 -->
+<!-- Capture: Full AMS section showing header + 4 tray label/detail cards with filament colors and active spool border -->
+> **📸 Screenshot needed:** AMS section — header + 4 tray cards with filament colors *(png)*
+
 ## Implementation
 
 **Package**: [`homeassistant/packages/3d_printing/common/`](../../../homeassistant/packages/3d_printing/common/)
