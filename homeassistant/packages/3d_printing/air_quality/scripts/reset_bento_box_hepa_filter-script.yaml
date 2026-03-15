@@ -1,0 +1,22 @@
+reset_bento_box_hepa_filter:
+  alias: Reset Bento Box HEPA Filter Counter
+  description: Resets HEPA filter runtime hours to 0 and records the replacement date.
+  icon: mdi:air-filter
+  mode: single
+  sequence:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.bento_box_hepa_runtime_hours
+      data:
+        value: 0
+
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.bento_box_hepa_last_replaced
+      data:
+        datetime: "{{ now().isoformat() }}"
+
+    - action: logbook.log
+      data:
+        name: Bento Box HEPA Filter
+        message: "HEPA filter replaced. Runtime reset to 0 hours."
