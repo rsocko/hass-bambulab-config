@@ -1,3 +1,4 @@
+# Docs: docs/features/air_quality/bento-box-filter-tracking.md
 reset_bento_box_carbon_filter:
   alias: Reset Bento Box Carbon Filter Counter
   description: Resets carbon filter runtime hours to 0 and records the replacement date.

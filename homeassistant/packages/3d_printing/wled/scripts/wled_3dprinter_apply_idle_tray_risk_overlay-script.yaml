@@ -1,3 +1,4 @@
+# Docs: docs/features/wled/README.md
 wled_3dprinter_apply_idle_tray_risk_overlay:
   alias: WLED 3D Printer - Apply Idle Tray Risk Overlay
   description: >-

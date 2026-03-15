@@ -1,3 +1,4 @@
+# Docs: docs/features/notifications/README.md
 # Notify on HMS hardware/firmware errors via mobile push, persistent notification,
 # and optional TTS — using the same delivery helpers as the other print notifications.
 - alias: "HMS Error Notification with Snapshot"

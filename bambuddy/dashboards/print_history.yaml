@@ -1,7 +1,7 @@
 # Bambuddy Print History Dashboard Card
 # Displays recent print history from Bambuddy in a rich table layout.
-# Requires sensor.bambuddy_print_history and input helpers configured.
-# See bambuddy/README.md for setup instructions.
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 
 type: vertical-stack
 cards:

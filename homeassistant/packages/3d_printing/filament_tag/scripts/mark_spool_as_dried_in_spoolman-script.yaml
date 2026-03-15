@@ -1,3 +1,4 @@
+# Docs: docs/features/filament_tag/README.md
 mark_spool_as_dried_in_spoolman:
   sequence:
     - action: spoolman.patch_spool

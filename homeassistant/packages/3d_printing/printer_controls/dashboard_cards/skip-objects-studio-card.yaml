@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_controls/skip-objects.md
 # Skip Objects custom JS card
 #
 # A standalone, styled skip-objects card that calls bambu_lab.skip_objects directly.

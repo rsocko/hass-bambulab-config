@@ -1,3 +1,4 @@
+# Docs: docs/features/spoolman_sync/find_matching_spools.md
 match_inserted_tray_spool_in_spoolman:
   alias: Match Inserted Tray Spool in Spoolman
   description: >-

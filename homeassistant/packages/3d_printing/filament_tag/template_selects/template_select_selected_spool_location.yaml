@@ -1,3 +1,4 @@
+# Docs: docs/features/filament_tag/README.md
 - name: "Selected Spool Location"
   unique_id: filament_tag_selected_spool_location
   icon: mdi:map-marker

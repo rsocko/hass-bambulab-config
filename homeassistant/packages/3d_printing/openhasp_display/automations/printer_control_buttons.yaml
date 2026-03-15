@@ -1,3 +1,4 @@
+# Docs: docs/features/openhasp_display/README.md
 - alias: OpenHASP Printer Controls (Stop/Pause/Resume)
   id: openhasp_printer_controls_stop_pause_resume
   description: >

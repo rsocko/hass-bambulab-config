@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_controls/README.md
 # Script: bambu_mqtt_commands.yaml
 #
 # Direct MQTT command scripts for Bambu printers via Home Assistant's mqtt.publish.

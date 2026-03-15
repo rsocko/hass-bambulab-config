@@ -1,3 +1,4 @@
+# Docs: docs/features/hms_alert/hms-error-alert-implementation.md
 # Log HMS errors to logbook and system_log when the printer reports them.
 # This automation fires when the display wrapper transitions to 'on' (real
 # errors only — test-mode changes are excluded).  Each concurrent error is

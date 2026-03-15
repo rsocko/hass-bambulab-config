@@ -1,3 +1,4 @@
+# Docs: docs/features/air_quality/bento-box-filter-tracking.md
 - name: "Bento Box Carbon Filter Usage"
   unique_id: bento_box_carbon_filter_usage
   state: >

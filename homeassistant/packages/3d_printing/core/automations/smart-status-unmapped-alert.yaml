@@ -1,3 +1,4 @@
+# Docs: docs/features/core/SMART_STATUS.md
 - alias: "3D Printer - Smart Status: Unmapped Value Alert"
   id: 3d_printer_smart_status_unmapped_value_alert
   description: >-

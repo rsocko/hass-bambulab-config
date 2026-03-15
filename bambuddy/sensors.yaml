@@ -1,6 +1,7 @@
 # Bambuddy REST Sensors and Template Sensors
 # Pulls print history, queue, statistics, and printer status from Bambuddy API.
-# See README.md for setup and entity reference.
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 #
 # Add to configuration.yaml:
 #   sensor: !include bambuddy/sensors.yaml

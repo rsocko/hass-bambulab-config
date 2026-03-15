@@ -1,3 +1,4 @@
+# Docs: docs/features/openhasp_display/README.md
 - alias: Auto Manage ESP32 Screen Visibility
   id: openhasp_auto_manage_esp32_screen_visibility
   description: >

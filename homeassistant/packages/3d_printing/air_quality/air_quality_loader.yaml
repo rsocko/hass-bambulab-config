@@ -1,4 +1,5 @@
 # Air quality monitoring, Govee purifier control, and Bento Box filter tracking.
+# Docs: docs/features/air_quality/README.md
 automation: !include_dir_merge_list automations
 script: !include_dir_merge_named scripts
 

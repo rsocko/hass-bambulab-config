@@ -1,3 +1,4 @@
+# Docs: docs/features/spoolman_sync/active_tray_changed_update_spoolman.md
 - alias: "3D Printer - Active Tray Changed: Update Spoolman Last Used"
   id: active_tray_changed_update_spoolman_last_used
   description: >-

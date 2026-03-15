@@ -1,2 +1,5 @@
+# Common — shared dashboard layouts, views, and reusable card templates.
+# Docs: docs/features/common/README.md
+
 lovelace:
   dashboards: !include dashboards/_dashboards.yaml

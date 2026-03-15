@@ -1,3 +1,4 @@
+# Docs: docs/features/core/README.md
 - name: "spoolman_filament_totals"
   state: "ok"
   attributes:

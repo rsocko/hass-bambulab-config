@@ -1,11 +1,12 @@
 alias: "Bambuddy - Maintenance Alerts"
 id: bambuddy_maintenance_alerts
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 description: >
   Checks Bambuddy statistics to surface maintenance reminders in Home Assistant.
   Sends a persistent notification when the success rate drops below threshold,
   when the print count crosses a maintenance milestone, or when the printer
   reports a maintenance-related status.
-  See bambuddy/README.md for setup instructions.
 
 triggers:
   # Check every 6 hours

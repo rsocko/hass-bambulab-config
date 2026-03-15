@@ -1,3 +1,4 @@
+# Docs: docs/features/spoolman_sync/README.md
 manual_spoolman_recovery:
   sequence:
   # Parse the last error details

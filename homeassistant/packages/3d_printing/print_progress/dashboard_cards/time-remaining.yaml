@@ -1,3 +1,4 @@
+# Docs: docs/features/print_progress/README.md
 # Time Remaining KPI card
 # Extracted from view_main.yaml with total print time subhead
 # Subhead shows total estimated print time (sensor.total_estimated_print_time)

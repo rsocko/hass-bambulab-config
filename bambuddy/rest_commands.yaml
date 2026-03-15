@@ -1,6 +1,7 @@
 # Bambuddy REST Commands
 # Provides Home Assistant services for interacting with the Bambuddy API.
-# See README.md for setup and usage examples.
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 #
 # Add to configuration.yaml:
 #   rest_command: !include bambuddy/rest_commands.yaml

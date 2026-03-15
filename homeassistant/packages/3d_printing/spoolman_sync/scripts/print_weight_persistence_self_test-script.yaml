@@ -1,3 +1,4 @@
+# Docs: docs/features/spoolman_sync/print_weight_persistence.md
 print_weight_persistence_self_test:
   alias: Print Weight Persistence Self-Test
   description: >-

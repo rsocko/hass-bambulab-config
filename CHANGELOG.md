@@ -6,13 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Doc reference comments (`# Docs:`) in all YAML files linking to relevant documentation
+- `# Docs:` reference comments in ~100 YAML files linking to relevant documentation (#572)
+  - All 14 loader YAML files
+  - All 11 bambuddy standalone YAML files
+  - Automations, scripts, template sensors, dashboard cards, and config files across all 18 feature packages
+  - Where possible, links point to the specific doc page (e.g., `SMART_STATUS.md`, `skip-objects.md`) rather than just the feature README
 - `CHANGELOG.md` at repo root to track changes (#572)
 
 ### Changed
 
 - Bambuddy YAML headers now use `# Docs:` / `# Setup:` comments instead of inline prose references
-- Loader YAML files include a `# Docs:` comment pointing to their feature README
+- Verbose `description:` blocks in bambuddy automations trimmed — setup info moved to header comments
 
 ## Documentation
 

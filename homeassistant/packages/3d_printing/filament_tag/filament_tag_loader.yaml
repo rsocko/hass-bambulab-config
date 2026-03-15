@@ -1,4 +1,5 @@
 # Filament Tag package entities used by the filament tag dashboard view.
+# Docs: docs/features/filament_tag/README.md
 script: !include_dir_merge_named scripts
 
 input_text: !include_dir_merge_named helpers/input_text

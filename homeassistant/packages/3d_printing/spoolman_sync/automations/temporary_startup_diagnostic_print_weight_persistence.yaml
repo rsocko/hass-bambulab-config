@@ -1,3 +1,4 @@
+# Docs: docs/features/spoolman_sync/print_weight_persistence.md
 - alias: TEMPORARY - Startup Diagnostic - Print Weight Persistence
   id: temporary_startup_diagnostic_print_weight_persistence
   description: >-

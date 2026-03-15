@@ -1,3 +1,4 @@
+# Docs: docs/features/wled/ha-state-machine-package.md
 - alias: "WLED 3D Printer - State Machine Orchestrator"
   id: wled_3dprinter_state_machine_orchestrator
   description: >-

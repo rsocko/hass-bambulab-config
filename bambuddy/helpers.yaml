@@ -1,6 +1,7 @@
 # Bambuddy Integration Helpers
 # Configuration and state helpers for Bambuddy API integration
-# See README.md for setup instructions
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 
 input_text:
   # --- Bambuddy Server Configuration ---

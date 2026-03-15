@@ -1,3 +1,4 @@
+# Docs: docs/features/hms_alert/hms-error-alert-implementation.md
 - name: HMS Alert Display Wrapper
   unique_id: hms_alert_display_wrapper
   icon: mdi:alert-circle

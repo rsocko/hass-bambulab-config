@@ -1,7 +1,7 @@
 # Bambuddy Statistics Dashboard Card
-# Displays overall printing statistics from Bambuddy in a rich stat layout.
-# Requires sensor.bambuddy_statistics and template sensors configured.
-# See bambuddy/README.md for setup instructions.
+# Displays overall printing statistics from Bambuddy.
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 
 type: vertical-stack
 cards:

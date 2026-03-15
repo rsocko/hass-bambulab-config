@@ -1,11 +1,12 @@
 alias: "Bambuddy - Webhook Handler"
 id: bambuddy_webhook_handler
+# Docs: docs/features/bambuddy_integration/README.md
+# Setup: bambuddy/README.md
 description: >
   Receives webhook events from Bambuddy and acts on them in Home Assistant.
   Supports print_started, print_finished, print_failed, and queue_ready events.
   Configure a webhook in Bambuddy pointing to:
     http(s)://your-ha-instance/api/webhook/bambuddy_events
-  See bambuddy/README.md for setup instructions.
 
 triggers:
   - trigger: webhook

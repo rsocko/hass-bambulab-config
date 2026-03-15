@@ -1,2 +1,5 @@
+# Printer Controls — fan speed, print job actions, skip objects, and status card features.
+# Docs: docs/features/printer_controls/README.md
+
 input_boolean: !include_dir_merge_named helpers
 script: !include_dir_merge_named scripts

@@ -1,3 +1,4 @@
+# Docs: docs/features/logging/README.md
 - alias: "Logging: Error Alert Handler"
   id: logging_error_alert_handler
   description: "Monitor system logs for critical errors and trigger alerts"

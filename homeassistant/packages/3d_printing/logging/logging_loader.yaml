@@ -1,5 +1,6 @@
 # Logging package — centralized logger config, structured logging script,
 # error/warning alert automations, and counter/input_text helpers.
+# Docs: docs/features/logging/README.md
 automation: !include_dir_merge_list automations
 script: !include_dir_merge_named scripts
 

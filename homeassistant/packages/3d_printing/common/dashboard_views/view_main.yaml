@@ -1,3 +1,4 @@
+# Docs: docs/features/printer_dashboards/README.md
 title: Home
 # Keep at 3 so HMS sections with column_span: 3 always render full-width
 max_columns: 3
@@ -104,6 +105,7 @@ sections:
         - !include ../../print_progress/dashboard_cards/estimated-completion-time.yaml
     - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
     - !include ../../print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml
+    - !include ../../power_monitoring/dashboard_cards/power-usage-card.yaml
   columns: 2
   square: false
 - type: grid
