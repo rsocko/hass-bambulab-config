@@ -18,7 +18,7 @@ This folder contains all repository documentation organized by topic.
 
 - [[docs/features/air_quality/README|Air Quality]]
 - [[docs/features/humidity/README|Humidity]]
-- [[docs/features/interior_light/README|Interior Light]]
+- [[docs/features/printer_led/README|Printer LED]]
 - [[docs/features/logging/README|Logging]]
 - [[docs/features/notifications/README|Notifications]]
 - [[hass-config-readme]]`features/openhasp/`
