@@ -21,10 +21,12 @@
       backup_raw_trimmed: "{{ backup_raw | trim }}"
       backup_present: "{{ backup_raw_trimmed not in ['unknown', 'unavailable', 'none', 'None', ''] }}"
       backup_parsed: "{{ backup_raw_trimmed | from_json(None) }}"
-      # Backup must be a valid JSON object string to be considered usable
+      # NativeEnvironment may auto-parse the JSON string into a native dict,
+      # so backup_raw_trimmed can be either a string or an already-parsed mapping.
+      # Check both: already a mapping OR successfully parsed via from_json.
       backup_available: >-
         {{ backup_present and
-           backup_parsed is mapping }}
+           (backup_raw_trimmed is mapping or backup_parsed is mapping) }}
       backup_invalid: "{{ backup_present and not backup_available }}"
 
   # If we may need backup data, give print_weight state a short chance to repopulate after restart.
