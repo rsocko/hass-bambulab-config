@@ -435,7 +435,13 @@ badges:
   show_name: false
   show_state: true
   show_icon: true
-  entity: sensor.3d_printer_ip_address
+  entity: input_boolean.screenshot_mode
+  icon: mdi:eye-off
+- type: entity
+  show_name: false
+  show_state: true
+  show_icon: true
+  entity: sensor.3d_printer_ip_address_display
   icon: mdi:ip-network
 - type: entity
   show_name: true
@@ -455,7 +461,7 @@ badges:
   show_name: true
   show_state: true
   show_icon: true
-  entity: sensor.3d_printer_serial_number
+  entity: sensor.3d_printer_serial_number_display
   icon: mdi:barcode
 - type: entity
   show_name: true
@@ -486,6 +492,6 @@ card:
     <div style="display:flex;align-items:center;padding:4px 0;">
       <div style="text-align:right;line-height:1.4;flex:1;">
         <div style="font-size:11px;font-weight:400;opacity:0.55;">3D Printer</div>
-        <div style="font-size:22px;font-weight:700;">{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') | default('Unknown') }}</div>
+        <div style="font-size:22px;font-weight:700;">{{ states('sensor.3d_printer_name_display') }}</div>
       </div>
     </div>
