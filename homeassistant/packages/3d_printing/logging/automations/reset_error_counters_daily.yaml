@@ -1,0 +1,12 @@
+- alias: "Logging: Reset Error Counters Daily"
+  id: logging_reset_error_counters_daily
+  description: "Reset error and warning counters at midnight"
+  trigger:
+    - platform: time
+      at: "00:00:00"
+  action:
+    - service: counter.reset
+      target:
+        entity_id:
+          - counter.bambulab_error_count
+          - counter.bambulab_warning_count

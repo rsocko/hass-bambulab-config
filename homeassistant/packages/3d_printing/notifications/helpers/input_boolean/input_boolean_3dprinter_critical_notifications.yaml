@@ -1,0 +1,4 @@
+3dprinter_critical_notifications:
+  name: Printer Critical Notifications
+  icon: mdi:bell-alert
+  initial: false

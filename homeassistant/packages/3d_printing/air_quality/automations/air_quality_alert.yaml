@@ -10,7 +10,7 @@ description: >
 triggers:
   # PM2.5 exceeds unhealthy threshold (35 µg/m³)
   - trigger: numeric_state
-    entity_id: sensor.airgradient_pm25
+    entity_id: sensor.i_9psl_pm2_5
     above: 35
     for:
       minutes: 2
@@ -18,7 +18,7 @@ triggers:
   
   # CO2 exceeds poor threshold (1200 ppm)
   - trigger: numeric_state
-    entity_id: sensor.airgradient_co2
+    entity_id: sensor.i_9psl_carbon_dioxide
     above: 1200
     for:
       minutes: 5
@@ -26,7 +26,7 @@ triggers:
   
   # VOC exceeds poor threshold (200 ppb or index)
   - trigger: numeric_state
-    entity_id: sensor.airgradient_tvoc
+    entity_id: sensor.i_9psl_voc_index
     above: 200
     for:
       minutes: 2
@@ -45,7 +45,7 @@ actions:
             data:
               title: "⚠️ High PM2.5 Detected"
               message: >
-                PM2.5 level is {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+                PM2.5 level is {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
                 (Unhealthy: >35).
                 
                 Consider:
@@ -61,7 +61,7 @@ actions:
             data:
               title: "High PM2.5 Detected"
               message: >
-                **Current PM2.5:** {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+                **Current PM2.5:** {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
                 
                 **Status:** Unhealthy (>35 µg/m³)
                 
@@ -70,7 +70,7 @@ actions:
                 - Keep windows closed
                 - Monitor printer area during and after prints
                 
-                **Govee Purifier:** {{ states('fan.govee_air_purifier') }}
+                **Govee Purifier:** {{ states('switch.ryans_office_air_power_switch') }} (Gear {{ states('number.ryans_office_air_gearmode') }})
               notification_id: air_quality_pm25_alert
       
       # CO2 High Alert
@@ -82,7 +82,7 @@ actions:
             data:
               title: "⚠️ High CO2 Detected"
               message: >
-                CO2 level is {{ states('sensor.airgradient_co2') }} ppm
+                CO2 level is {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
                 (Poor: >1200).
                 
                 Consider:
@@ -98,7 +98,7 @@ actions:
             data:
               title: "High CO2 Detected"
               message: >
-                **Current CO2:** {{ states('sensor.airgradient_co2') }} ppm
+                **Current CO2:** {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
                 
                 **Status:** Poor (>1200 ppm)
                 
@@ -119,7 +119,7 @@ actions:
             data:
               title: "⚠️ High VOC Detected"
               message: >
-                VOC level is {{ states('sensor.airgradient_tvoc') }} ppb
+                VOC level is {{ states('sensor.i_9psl_voc_index') }} ppb
                 (Poor: >200).
                 
                 Consider:
@@ -135,7 +135,7 @@ actions:
             data:
               title: "High VOC Detected"
               message: >
-                **Current VOC:** {{ states('sensor.airgradient_tvoc') }} ppb
+                **Current VOC:** {{ states('sensor.i_9psl_voc_index') }} ppb
                 
                 **Status:** Poor (>200 ppb)
                 
@@ -153,9 +153,9 @@ actions:
       name: Air Quality Alert
       message: >
         Air quality alert triggered: {{ trigger.id }}
-        PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
-        CO2: {{ states('sensor.airgradient_co2') }} ppm
-        VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+        PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
+        CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+        VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
 
 mode: single
 max_exceeded: silent

@@ -295,7 +295,7 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 
 | Enhancement | Notes |
 |------------|-------|
-| Location dropdown | `input_select` calling `spoolman.patch_spool` to change location in-popup |
+| ~~Location dropdown~~ | **Implemented** — uses native `select.spoolman_spool_{id}_location` entity from Spoolman integration v1.1 |
 | Total inventory | Sum weight across all spools of same material type |
 | Quality/age warnings | Alert when `first_used` > configurable age threshold |
 | Custom notes | Display/edit `extra.notes` field per spool |

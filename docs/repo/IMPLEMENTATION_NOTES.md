@@ -113,7 +113,7 @@ Each popup uses JavaScript templates (`[[[...]]]]`) for:
 Based on the original issue requirements:
 
 ✅ Show history of weight remaining - **Implemented** (7-day chart)
-❌ Allow location change - **Not implemented** (documented as future enhancement)
+✅ Allow location change - **Implemented** (native spoolman spool location select entity from v1.1)
 ✅ Button to reset Desiccant filled date - **Implemented** (with confirmation)
 ✅ Show icon/color - **Implemented** (large color swatch with smart text color)
 ❌ Show other fields - **Partially implemented** (access via More Details button)
@@ -169,28 +169,23 @@ The implementation should be tested in the following scenarios:
 
 The following features are documented but not yet implemented:
 
-1. **Location Management**
-   - Dropdown selector for spool location
-   - Service call to update Spoolman location
-   - List of available locations
-
-2. **Extended Spool Information**
+1. **Extended Spool Information**
    - Material type display (PLA, PETG, etc.)
    - Vendor/manufacturer name
    - Total spool weight
    - Date opened/first used
 
-3. **Related Spools**
+2. **Related Spools**
    - Show other spools with same color
    - Show other spools with same material
    - Quick location finder
 
-4. **Print Integration**
+3. **Print Integration**
    - Estimated consumption for current print
    - Weight needed per color
    - Sufficiency warning
 
-5. **Advanced Features**
+4. **Advanced Features**
    - Filament age tracking
    - Custom notes/ratings
    - Print success rate

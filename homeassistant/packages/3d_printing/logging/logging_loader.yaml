@@ -1,0 +1,9 @@
+# Logging package — centralized logger config, structured logging script,
+# error/warning alert automations, and counter/input_text helpers.
+automation: !include_dir_merge_list automations
+script: !include_dir_merge_named scripts
+
+logger: !include integrations/logger.yaml
+
+counter: !include_dir_merge_named helpers/counter
+input_text: !include_dir_merge_named helpers/input_text

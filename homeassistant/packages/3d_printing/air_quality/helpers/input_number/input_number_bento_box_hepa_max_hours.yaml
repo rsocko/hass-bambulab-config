@@ -1,0 +1,9 @@
+bento_box_hepa_max_hours:
+  name: "Bento Box HEPA Filter Max Hours"
+  min: 100
+  max: 10000
+  step: 50
+  initial: 2000
+  unit_of_measurement: "h"
+  icon: mdi:clock-outline
+  mode: box

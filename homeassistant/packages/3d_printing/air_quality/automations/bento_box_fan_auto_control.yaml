@@ -65,9 +65,9 @@ actions:
   - variables:
       filament_type: >
         {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | upper }}
-      pm25: "{{ states('sensor.airgradient_pm25') | float(0) }}"
-      voc: "{{ states('sensor.airgradient_tvoc') | int(0) }}"
-      co2: "{{ states('sensor.airgradient_co2') | int(0) }}"
+      pm25: "{{ states('sensor.i_9psl_pm2_5') | float(0) }}"
+      voc: "{{ states('sensor.i_9psl_voc_index') | int(0) }}"
+      co2: "{{ states('sensor.i_9psl_carbon_dioxide') | int(0) }}"
       is_printing: >
         {{ is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') }}
       
@@ -79,8 +79,8 @@ actions:
       # Calculate target fan speed based on multiple factors
       target_speed: >
         {% set filament_type = state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | upper %}
-        {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
-        {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+        {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+        {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
         {% set is_printing = is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') %}
         
         {% set high_voc_materials = ['ABS', 'ASA', 'PC', 'NYLON', 'HIPS', 'POLYCARBONATE'] %}

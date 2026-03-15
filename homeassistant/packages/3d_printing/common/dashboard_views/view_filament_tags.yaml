@@ -16,6 +16,7 @@ cards:
     has_spool: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state]"
   entities:
     - sensor.selected_spool
+    - select.selected_spool_location
   card:
     type: custom:bubble-card
     card_type: button
@@ -56,29 +57,18 @@ cards:
     sub_button:
       main: []
       bottom:
-        - entity: ${selected_entity}
+        - entity: select.selected_spool_location
           icon: fas:location-dot
-          tap_action:
-            action: "${ has_spool ? 'more-info' : 'none' }"
           show_background: true
           state_background: false
           show_icon: true
-          show_attribute: ${ has_spool }
-          attribute: location
+          show_state: ${ has_spool }
         - entity: ${selected_entity}
           icon: mdi:weight-gram
           tap_action:
             action: "${ has_spool ? 'more-info' : 'none' }"
           state_background: false
           show_state: ${ has_spool }
-- type: custom:bubble-card
-  card_type: separator
-  sub_button:
-    main: []
-    bottom: []
-  name: Change Location
-  icon: mdi:map-marker-distance
-  card_layout: large
 - type: custom:config-template-card
   entities:
     - sensor.selected_spool
@@ -118,71 +108,6 @@ cards:
           icon: fas:arrow-right-to-bracket
           show_state: false
           state_background: false
-- type: custom:layout-card
-  layout_type: custom:grid-layout
-  layout:
-    grid-template-columns: 1fr auto
-    grid-gap: 12px
-  cards:
-    - type: entities
-      entities:
-        - entity: input_select.spool_location_choice
-          name: 'Move to:'
-          secondary_info: none
-      theme: Metro Blue
-      card_mod:
-        style: |
-          ha-card {
-            font-size: 1.4rem;
-          }
-    - show_name: false
-      show_icon: true
-      type: button
-      icon: mdi:refresh-circle
-      name: ''
-      tap_action:
-        action: perform-action
-        perform_action: automation.trigger
-        target:
-          entity_id: automation.spoolman_location_sync
-        data:
-          skip_condition: true
-      show_state: false
-      theme: Metro Blue
-      card_mod:
-        style: |
-          ha-card {
-            width: 70px;       /* icon-sized */
-            height: 55px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          ha-icon {
-            width: 48px;
-            height: 48px;
-          }
-- type: custom:config-template-card
-  entities:
-    - sensor.selected_spool
-    - input_select.spool_location_choice
-  variables:
-    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
-    spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
-    new_location: states['input_select.spool_location_choice'].state
-  card:
-    type: custom:bubble-card
-    card_type: button
-    button_type: name
-    name: ${new_location}
-    icon: mdi:tray-arrow-down
-    show_icon: true
-    tap_action:
-      action: "${spool_id ? 'call-service' : 'none'}"
-      service: script.update_spool_location
-      service_data:
-        spool_id: ${spool_id}
-        location: ${new_location}
 - type: custom:bubble-card
   card_type: separator
   sub_button:
@@ -258,9 +183,11 @@ cards:
           - text-align: center
           - white-space: nowrap
     - type: custom:button-card
+      entity: script.refill_desiccant_update_date
       icon: mdi:clock-check-outline
       label: |
         [[[
+          if (entity?.state === 'on') return 'Saving...';
           const selected_entity = states['sensor.selected_spool']?.state;
           const spool_entity = selected_entity ? states[selected_entity] : null;
           return spool_entity?.attributes?.id ? 'Mark as refilled' : 'Select spool first';
@@ -304,6 +231,11 @@ cards:
           - width: 25px
           - height: 25px
           - margin-bottom: 2px
+          - animation: |
+              [[[
+                if (entity?.state === 'on') return 'spin 1s linear infinite';
+                return 'none';
+              ]]]
         label:
           - font-size: 14px
           - font-weight: bold
@@ -375,9 +307,11 @@ cards:
           - text-align: center
           - white-space: nowrap
     - type: custom:button-card
+      entity: script.mark_spool_as_dried_in_spoolman
       icon: mdi:heat-wave
       label: |
         [[[
+          if (entity?.state === 'on') return 'Saving...';
           const selected_entity = states['sensor.selected_spool']?.state;
           const spool_entity = selected_entity ? states[selected_entity] : null;
           return spool_entity?.attributes?.id ? 'Mark as Dried' : 'Select spool first';
@@ -421,6 +355,11 @@ cards:
           - width: 25px
           - height: 25px
           - margin-bottom: 2px
+          - animation: |
+              [[[
+                if (entity?.state === 'on') return 'spin 1s linear infinite';
+                return 'none';
+              ]]]
         label:
           - font-size: 14px
           - font-weight: bold
@@ -439,17 +378,21 @@ cards:
     filament_id: new URLSearchParams(location.search).get("filament_id")
   card:
     type: custom:bubble-card
-    card_type: button
-    name: Load from Query String
-    icon: mdi:download
-    tap_action:
-      action: call-service
-      service: input_text.set_value
-      service_data:
-        entity_id: input_text.filament_id
-        value: "${ filament_id || '' }"
-    button_type: name
+    card_type: sub-buttons
+    hide_main_background: false
+    rows: 0.938
     sub_button:
       main: []
-      bottom: []
-    card_layout: large
+      bottom:
+        - tap_action:
+            action: perform-action
+            perform_action: input_text.set_value
+            target:
+              entity_id: input_text.filament_id
+            data:
+              value: "${ filament_id || '' }"
+          name: Load from Query String
+          show_name: true
+          icon: mdi:download
+          show_state: false
+          state_background: false

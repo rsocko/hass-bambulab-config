@@ -1,0 +1,9 @@
+# Air quality monitoring, Govee purifier control, and Bento Box filter tracking.
+automation: !include_dir_merge_list automations
+script: !include_dir_merge_named scripts
+
+input_number: !include_dir_merge_named helpers/input_number
+input_datetime: !include_dir_merge_named helpers/input_datetime
+input_boolean: !include_dir_merge_named helpers/input_boolean
+template:
+  - sensor: !include_dir_merge_list template_sensors

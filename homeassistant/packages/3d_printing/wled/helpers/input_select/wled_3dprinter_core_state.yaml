@@ -11,4 +11,3 @@ wled_3dprinter_core_state:
     - S6_FINISHING
     - S7_MAINTENANCE
     - S8_SHOW
-  initial: S1_IDLE

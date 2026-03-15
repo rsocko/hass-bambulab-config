@@ -1,0 +1,4 @@
+3dprinter_fault_message:
+  name: Print Fault Message
+  max: 255
+  initial: "{{printer_name}} encountered an error during {{task_name}}"

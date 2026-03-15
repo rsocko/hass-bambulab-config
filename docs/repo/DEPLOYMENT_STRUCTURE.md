@@ -30,7 +30,6 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
 │   │       ├── common/
 │   │       ├── air_quality/
 │   │       ├── humidity/
-│   │       ├── interior_light/
 │   │       ├── logging/
 │   │       ├── notifications/
 │   │       ├── openhasp_display/

@@ -1,0 +1,4 @@
+3dprinter_tts_enabled:
+  name: Printer TTS Enabled
+  icon: mdi:volume-high
+  initial: false

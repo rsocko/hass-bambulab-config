@@ -1,0 +1,5 @@
+bento_box_hepa_last_replaced:
+  name: "Bento Box HEPA Filter Last Replaced"
+  has_date: true
+  has_time: true
+  icon: mdi:calendar-check

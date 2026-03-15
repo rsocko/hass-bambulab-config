@@ -1,0 +1,5 @@
+bento_box_carbon_last_replaced:
+  name: "Bento Box Carbon Filter Last Replaced"
+  has_date: true
+  has_time: true
+  icon: mdi:calendar-check

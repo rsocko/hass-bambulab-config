@@ -58,16 +58,10 @@ cards:
         #root {
           display: grid !important;
           grid-template-columns: minmax(0, 4fr) minmax(68px, 1fr) minmax(68px, 1fr);
-          align-items: stretch;
+          align-items: center;
           column-gap: 12px;
           row-gap: 12px;
           padding: 0 6px;
-        }
-        #root > *:first-child {
-          align-self: start;
-        }
-        #root > *:not(:first-child) {
-          align-self: center;
         }
         #root > * {
           min-width: 0 !important;

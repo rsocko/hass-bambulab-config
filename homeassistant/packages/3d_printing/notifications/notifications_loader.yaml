@@ -1,0 +1,7 @@
+# Printer notification automations and input helpers.
+automation: !include_dir_merge_list automations
+
+input_boolean: !include_dir_merge_named helpers/input_boolean
+input_number: !include_dir_merge_named helpers/input_number
+input_text: !include_dir_merge_named helpers/input_text
+input_datetime: !include_dir_merge_named helpers/input_datetime

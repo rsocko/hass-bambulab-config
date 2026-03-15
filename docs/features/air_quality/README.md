@@ -64,140 +64,143 @@ The air quality integration provides:
 - **Bento Box Fan** - ESP32-controlled enclosure fan
 - **Smart Switches** - For controlling dumb purifiers
 
-## Installation
+## Deployment
 
-### 1. Install Required Custom Cards
+This feature uses the standard loader deployment structure. It is loaded automatically when registered in `_feature_loaders.yaml`.
 
-Install via HACS:
+### Loader Registration
+
+The air quality loader is registered in [`homeassistant/packages/3d_printing/_feature_loaders.yaml`](../../../homeassistant/packages/3d_printing/_feature_loaders.yaml):
+
+```yaml
+air_quality_loader: !include air_quality/air_quality_loader.yaml
+```
+
+The loader file [`air_quality_loader.yaml`](../../../homeassistant/packages/3d_printing/air_quality/air_quality_loader.yaml) includes:
+- `automation:` → all automations via `!include_dir_merge_list automations`
+- `input_number:` → filter tracking thresholds via `!include_dir_merge_named helpers/input_number`
+- `input_datetime:` → filter replacement dates via `!include_dir_merge_named helpers/input_datetime`
+- `input_boolean:` → filter tracking toggle via `!include_dir_merge_named helpers/input_boolean`
+- `template: sensor:` → filter usage sensors via `!include_dir_merge_list template_sensors`
+
+Deploy using the GitHub Actions workflow with `selected_packages` including `air_quality`, or use `packages_only` / `packages_www` profiles for full deploys.
+
+### Prerequisites
+
+#### Required Custom Cards (HACS)
 - `mushroom` - Minimalist card designs
 - `card-mod` - Custom styling
 
-### 2. Install Required Integrations
+#### Required Integrations
+- **AirGradient** - Official integration (device name: I-9PSL)
+- **Govee** - Via [gv2mqtt](https://github.com/wez/govee2mqtt) MQTT bridge for purifier control
 
-#### AirGradient Integration
-**Option A: Official AirGradient Integration**
-1. Add integration via Settings > Devices & Services
-2. Search for "AirGradient"
-3. Enter your device's IP address
-4. Device entities will be created automatically
+### Entity Reference
 
-**Option B: ESPHome (DIY)**
-1. Flash ESPHome firmware to your AirGradient device
-2. Add ESPHome integration
-3. Configure sensor entities in ESPHome YAML
+The following entity IDs are used throughout this feature (verified against live HA instance):
 
-#### Govee Integration
-1. Install "Govee" integration via HACS
-2. Add integration via Settings > Devices & Services
-3. Log in with your Govee account
-4. Select your air purifier device
+```yaml
+# AirGradient I-9PSL Air Quality Sensor
+sensor.i_9psl_pm2_5              # PM2.5 (µg/m³)
+sensor.i_9psl_carbon_dioxide      # CO2 (ppm)
+sensor.i_9psl_voc_index           # VOC index
+sensor.i_9psl_temperature         # Temperature
+sensor.i_9psl_humidity            # Humidity (%)
 
-### 3. Add Dashboard Cards
+# Govee Air Purifier (via gv2mqtt)
+switch.ryans_office_air_power_switch    # Power on/off
+select.ryans_office_air_mode            # Mode: Auto, Custom, gearMode
+number.ryans_office_air_gearmode        # Speed: 1 (Low), 2 (Medium), 3 (High)
 
-1. Open the dashboard file: [homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml)
-2. **Update entity names** to match your devices:
-   ```yaml
-   # Update these entity names throughout the file:
-   sensor.airgradient_pm25          -> sensor.YOUR_SENSOR_pm25
-   sensor.airgradient_co2           -> sensor.YOUR_SENSOR_co2
-   sensor.airgradient_tvoc          -> sensor.YOUR_SENSOR_tvoc
-   sensor.airgradient_temperature   -> sensor.YOUR_SENSOR_temperature
-   sensor.airgradient_humidity      -> sensor.YOUR_SENSOR_humidity
-   fan.govee_air_purifier           -> fan.YOUR_PURIFIER
-   fan.bento_box_fan                -> fan.YOUR_FAN (if applicable)
-   ```
-3. Copy the desired card section(s) from the file
-4. Paste into your Home Assistant dashboard
-5. Save and refresh
+# Bento Box Fan (ESPHome)
+fan.3dprinter_controller_box_bento_box_fan  # Bento Box enclosure fan
 
-### 4. Configure Automations
+# Printer (update device triggers with your device ID)
+YOUR_PRINTER_DEVICE_ID_HERE      -> Your Bambu Lab device ID
+sensor.ntk_ryansoffice_3dprinter_* -> Your printer sensor entities
+```
 
-#### Step 1: Update Entity Names
-For each automation file in the [homeassistant/packages/3d_printing/air_quality/](../../../homeassistant/packages/3d_printing/air_quality/) directory:
+Get your printer device ID from: Settings > Devices & Services > Bambu Lab > [Your Printer] > Copy Device ID
 
-1. **Get your printer device ID:**
-   ```
-   Settings > Devices & Services > Bambu Lab > [Your Printer] > Copy Device ID
-   ```
+> **Note:** The Govee purifier uses gear modes (1-3), not percentage-based speed. The automations
+> set `select.ryans_office_air_mode` to `gearMode` then adjust `number.ryans_office_air_gearmode`.
 
-2. **Update automation entity names:**
-   - `YOUR_PRINTER_DEVICE_ID_HERE` → Your printer's device ID
-   - `sensor.ntk_ryansoffice_3dprinter_*` → Your printer sensor entities
-   - `sensor.airgradient_*` → Your air quality sensor entities
-   - `fan.govee_air_purifier` → Your purifier entity
-   - `fan.bento_box_fan` → Your fan entity (or remove if not used)
+### Dashboard Integration
 
-#### Step 2: Import Automations
-1. Go to Settings > Automations & Scenes
-2. Click "+" to add automation
-3. Click "⋮" menu > "Edit in YAML"
-4. Copy contents from automation file
-5. Paste and save
-6. Repeat for each automation file
+Add the air quality cards to `view_main.yaml` by including them in the fan controls section:
 
-#### Step 3: Test Automations
-1. Manually trigger by clicking "Run" in automation editor
-2. Check that entities are correctly referenced
-3. Verify notifications are received
-4. Monitor logbook for automation activity
+```yaml
+# In view_main.yaml, after the fan_controls_v2 include:
+- !include ../../air_quality/dashboard_cards/air-quality-cards.yaml
+- !include ../../air_quality/dashboard_cards/bento-box-filter-cards.yaml
+```
 
-## Files
+See [Deployment Recommendations](#deployment-recommendations) below for placement guidance.
 
-### Dashboard Cards
-- **[homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml](../../../homeassistant/packages/3d_printing/air_quality/dashboard_cards/air-quality-cards.yaml)** - Complete dashboard card configurations
-  - Air quality sensor cards (horizontal layout)
-  - Govee purifier control card with speed buttons
-  - Overall air quality status indicator
-  - Alternative grid layout for mobile
+## File Structure
+
+```text
+air_quality/
+├── air_quality_loader.yaml              # Feature loader (registered in _feature_loaders.yaml)
+├── automations/
+│   ├── air_quality_alert.yaml           # PM2.5/CO2/VOC threshold alerts
+│   ├── auto_adjust_purifier_speed.yaml  # Dynamic purifier speed during printing
+│   ├── bento_box_fan_auto_control.yaml  # Filament-aware enclosure ventilation
+│   ├── bento_box_filter_alerts.yaml     # Filter replacement notifications
+│   ├── bento_box_filter_runtime_tracking.yaml  # Fan runtime accumulation
+│   ├── print_complete_continue_purifier.yaml   # 30-min post-print filtering
+│   └── print_started_auto_purifier.yaml        # Auto-enable on print start
+├── helpers/
+│   ├── input_boolean/
+│   │   └── input_boolean_bento_box_filter_tracking_enabled.yaml
+│   ├── input_datetime/
+│   │   ├── input_datetime_bento_box_carbon_last_replaced.yaml
+│   │   └── input_datetime_bento_box_hepa_last_replaced.yaml
+│   └── input_number/
+│       ├── input_number_bento_box_carbon_max_hours.yaml
+│       ├── input_number_bento_box_carbon_runtime_hours.yaml
+│       ├── input_number_bento_box_hepa_max_hours.yaml
+│       └── input_number_bento_box_hepa_runtime_hours.yaml
+├── template_sensors/
+│   ├── bento_box_carbon_filter_usage.yaml
+│   ├── bento_box_filter_status.yaml
+│   └── bento_box_hepa_filter_usage.yaml
+└── dashboard_cards/
+    ├── air-quality-cards.yaml            # PM2.5, CO2, VOC, Temp, Humidity cards
+    └── bento-box-filter-cards.yaml       # Filter status monitoring cards
+```
 
 ### Automations
-- **`air_quality_alert.yaml`** - Alerts when air quality degrades
-  - Monitors PM2.5, CO2, VOC thresholds
-  - Sends notifications and persistent alerts
-  - Configurable thresholds for each pollutant
 
-- **`print_started_auto_purifier.yaml`** - Auto-enable purifier when print starts
-  - Turns on purifier at speed based on current air quality
-  - Sends notification with air quality readings
-  - Note: Bento Box fan now controlled by separate automation
+| File | Purpose |
+|---|---|
+| `air_quality_alert.yaml` | Sends notifications when PM2.5 >35, CO2 >1200, or VOC >200 |
+| `auto_adjust_purifier_speed.yaml` | Adjusts purifier speed every 5 min based on readings (only during/after prints) |
+| `bento_box_fan_auto_control.yaml` | Filament-aware Bento Box fan control (detects ABS/ASA/PC/Nylon/HIPS) |
+| `bento_box_filter_alerts.yaml` | Alerts at 75%/90%/100% filter usage thresholds |
+| `bento_box_filter_runtime_tracking.yaml` | Accumulates fan runtime every minute when fan is on |
+| `print_complete_continue_purifier.yaml` | Keeps purifier running 30 min post-print, then adjusts/stops |
+| `print_started_auto_purifier.yaml` | Turns on purifier at appropriate speed when print starts |
 
-- **`auto_adjust_purifier_speed.yaml`** - Dynamic speed adjustment during printing
-  - Checks air quality every 5 minutes
-  - Adjusts purifier speed based on readings
-  - Only runs during or within 30 min after printing
+### Helpers
 
-- **`print_complete_continue_purifier.yaml`** - Post-print air filtering
-  - Keeps purifier running for 30 minutes
-  - Turns off if air quality is good
-  - Reduces to low speed if moderate
-  - Continues if air quality is still poor
-  - Note: Bento Box fan now controlled by separate automation
+| Entity | Type | Purpose |
+|---|---|---|
+| `input_number.bento_box_hepa_runtime_hours` | input_number | HEPA filter accumulated runtime |
+| `input_number.bento_box_carbon_runtime_hours` | input_number | Carbon filter accumulated runtime |
+| `input_number.bento_box_hepa_max_hours` | input_number | HEPA replacement threshold (default: 2000h) |
+| `input_number.bento_box_carbon_max_hours` | input_number | Carbon replacement threshold (default: 1000h) |
+| `input_datetime.bento_box_hepa_last_replaced` | input_datetime | Date of last HEPA replacement |
+| `input_datetime.bento_box_carbon_last_replaced` | input_datetime | Date of last carbon replacement |
+| `input_boolean.bento_box_filter_tracking_enabled` | input_boolean | Enable/disable filter tracking |
 
-- **`bento_box_fan_auto_control.yaml`** - Filament-aware Bento Box fan control
-  - **Detects high-VOC filaments** (ABS, ASA, PC, Nylon, HIPS)
-  - **Adjusts speed** based on filament type + air quality
-  - **Independent operation** - not tied to chamber fan or purifier
-  - **Extended filtering** - runs 45 minutes post-print for toxic materials
-  - **Smart notifications** - alerts when printing with high-VOC materials
-  - See [Bento Box Fan Documentation](docs/bento-box-fan-filament-control.md) for details
+### Template Sensors
 
-- **`bento_box_filter_helpers.yaml`** - Filter tracking input helpers (NEW!)
-  - **Runtime tracking** for HEPA and carbon filters
-  - **Usage percentage** calculations
-  - **Replacement date** tracking
-  - **Configurable thresholds** for filter lifespan
-
-- **`bento_box_filter_runtime_tracking.yaml`** - Automatic runtime accumulation (NEW!)
-  - **Tracks fan runtime** every minute when fan is on
-  - **Updates both filters** simultaneously
-  - **Can be disabled** via toggle if needed
-
-- **`bento_box_filter_alerts.yaml`** - Filter replacement notifications (NEW!)
-  - **Alerts at 75%** - Monitor filters
-  - **Alerts at 90%** - Order replacements
-  - **Alerts at 100%** - Replace immediately
-  - **Persistent notifications** for overdue filters
-  - See [Filter Tracking Documentation](docs/bento-box-filter-tracking.md) for details
+| Entity | Purpose |
+|---|---|
+| `sensor.bento_box_hepa_filter_usage` | HEPA filter usage % with status attributes |
+| `sensor.bento_box_carbon_filter_usage` | Carbon filter usage % with status attributes |
+| `sensor.bento_box_filter_status` | Combined filter status (Good/Monitor/Replace Soon/Replace Now) |
 
 ## Configuration
 
@@ -390,6 +393,50 @@ When making improvements:
 2. Update entity names in examples
 3. Document any new thresholds or settings
 4. Update this README with new features
+
+## Deployment Recommendations
+
+### Dashboard Placement
+
+The air quality cards fit naturally **below the fan controls** in the main dashboard view. This groups all ventilation/air-quality-related information together:
+
+```
+view_main.yaml section order (grid #2):
+  printer-led-controls
+  printer_controls (conditional)
+  camera
+  printer-temps
+  fan_controls_v2           <-- existing fan controls
+  air-quality-cards          <-- ADD HERE
+  bento-box-filter-cards     <-- ADD HERE
+```
+
+Add these two lines to [view_main.yaml](../../../homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml) right after the `fan_controls_v2` include:
+
+```yaml
+    - !include ../../air_quality/dashboard_cards/air-quality-cards.yaml
+    - !include ../../air_quality/dashboard_cards/bento-box-filter-cards.yaml
+```
+
+### Bento Box Fan Control Interaction
+
+The `printer_controls` feature displays the Bento Box fan as a manual control card, while `air_quality` automatically adjusts the same fan based on air quality and filament type. This is by design:
+
+- **Automatic mode** (air_quality) runs during and after prints
+- **Manual override** (printer_controls card) lets you tap the card to open the more-info dialog and override speed
+- The automatic control uses `mode: restart`, so it will resume automatic adjustments on the next scheduled check (every 5 minutes)
+
+If you want fully manual control, disable the `bento_box_fan_auto_control` automation from the HA UI.
+
+### Optional Sub-Features
+
+You can deploy subsets of this feature by removing automations you don't need:
+
+| If you don't have... | Remove these automations |
+|---|---|
+| Govee Air Purifier | `print_started_auto_purifier`, `auto_adjust_purifier_speed`, `print_complete_continue_purifier` |
+| Bento Box Fan | `bento_box_fan_auto_control`, `bento_box_filter_runtime_tracking`, `bento_box_filter_alerts` |
+| AirGradient Sensor | `air_quality_alert`, `auto_adjust_purifier_speed` (sensor-dependent portions) |
 
 ## Related Integrations
 

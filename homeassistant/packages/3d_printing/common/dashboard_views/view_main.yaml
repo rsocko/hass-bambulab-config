@@ -93,77 +93,7 @@ sections:
                     line-height: 1.3 !important;
                     word-break: break-word !important;
                   }
-            - type: custom:button-card
-              entity: sensor.ntk_ryansoffice_3dprinter_task_name
-              show_name: false
-              show_state: false
-              show_icon: false
-              tap_action:
-                action: none
-              custom_fields:
-                chips: |
-                  [[[
-                    const chips = [];
-                    const toTitleCase = s => s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-                    const validState = v => v !== null && v !== undefined && v !== '' && v !== 'unknown' && v !== 'unavailable';
-                    const numObjects = states['sensor.ntk_ryansoffice_3dprinter_printable_objects']?.state;
-                    if (validState(numObjects) && parseInt(numObjects, 10) > 1) {
-                      chips.push(`<span class="chip"><ha-icon icon="mdi:shape-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${numObjects} objects</span>`);
-                    }
-                    const skipped = states['sensor.ntk_ryansoffice_3dprinter_skipped_objects']?.state;
-                    if (validState(skipped) && parseInt(skipped, 10) >= 1) {
-                      chips.push(`<span class="chip chip-warn"><ha-icon icon="mdi:close-circle-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${skipped} skipped</span>`);
-                    }
-                    const nozzleSize = states['sensor.ntk_ryansoffice_3dprinter_nozzle_diameter']?.state;
-                    const nozzleType = states['sensor.ntk_ryansoffice_3dprinter_nozzle_type']?.state;
-                    if (validState(nozzleSize)) {
-                      const typeLabel = validState(nozzleType) ? ` · ${toTitleCase(nozzleType)}` : '';
-                      chips.push(`<span class="chip"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${nozzleSize}mm${typeLabel}</span>`);
-                    }
-                    const bedType = states['sensor.ntk_ryansoffice_3dprinter_print_bed_type']?.state;
-                    if (validState(bedType)) {
-                      chips.push(`<span class="chip"><ha-icon icon="mdi:table-furniture" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${toTitleCase(bedType)}</span>`);
-                    }
-                    const printType = states['sensor.ntk_ryansoffice_3dprinter_print_type']?.state;
-                    if (validState(printType) && printType !== 'idle') {
-                      chips.push(`<span class="chip"><ha-icon icon="mdi:layers-outline" style="--mdc-icon-size:13px;vertical-align:middle;"></ha-icon>&nbsp;${String(printType).toUpperCase()}</span>`);
-                    }
-                    if (chips.length === 0) return `<div></div>`;
-                    return `<div class="chips-row">${chips.join('')}</div>`;
-                  ]]]
-              styles:
-                card:
-                  - padding: 4px 8px
-                  - background: transparent
-                  - box-shadow: none
-                  - border: none
-                custom_fields:
-                  chips:
-                    - width: 100%
-                    - text-align: left
-              extra_styles: |
-                .chips-row {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 4px;
-                  padding: 2px 0;
-                }
-                .chip {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 2px;
-                  padding: 2px 7px;
-                  border-radius: 12px;
-                  font-size: 11px;
-                  font-weight: 500;
-                  background: rgba(128, 128, 128, 0.15);
-                  color: var(--primary-text-color);
-                  white-space: nowrap;
-                }
-                .chip-warn {
-                  background: rgba(255, 152, 0, 0.2);
-                  color: #f57c00;
-                }
+            - !include ../../common/dashboard_cards/print-detail-chips.yaml
       grid_options:
         columns: full
         rows: auto
@@ -278,6 +208,8 @@ sections:
             size: 228
     - !include ../../printer_temps/dashboard_cards/printer-temps.yaml
     - !include ../../printer_controls/dashboard_cards/fan_controls_v2.yaml
+    - !include ../../air_quality/dashboard_cards/air-quality-cards.yaml
+    - !include ../../air_quality/dashboard_cards/bento-box-filter-cards.yaml
 - type: grid
   cards:
     - type: custom:button-card

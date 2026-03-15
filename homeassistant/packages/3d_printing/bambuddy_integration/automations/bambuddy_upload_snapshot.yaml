@@ -1,0 +1,56 @@
+alias: Bambuddy - Upload Print Snapshot on Completion
+id: bambuddy_upload_print_snapshot_on_completion
+description: >
+  Optional automation to upload printer snapshot to Bambuddy archive.
+  Requires Bambuddy server setup and configuration.
+  See docs/features/bambuddy_integration/BAMBUDDY_INTEGRATION.md for setup instructions.
+  
+  Note: This automation waits 5 seconds after print completion to ensure
+  the snapshot from print_complete_notification is ready.
+triggers:
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_finished
+    trigger: device
+
+conditions:
+  - condition: state
+    entity_id: input_boolean.bambuddy_integration_enabled
+    state: "on"
+  - condition: template
+    value_template: "{{ states('input_text.current_print_archive_id') != '' }}"
+
+actions:
+  # Wait for print_complete_notification to take snapshot
+  - delay:
+      seconds: 5
+
+  - variables:
+      archive_id: "{{ states('input_text.current_print_archive_id') }}"
+      api_key: "{{ states('input_text.bambuddy_api_key') }}"
+      base_url: "{{ states('input_text.bambuddy_base_url') }}"
+
+  # Upload latest snapshot to Bambuddy using shell command
+  # This uses the most recently created snapshot file
+  # Note: This requires curl and bash commands to be available
+  - action: shell_command.bambuddy_upload_latest_snapshot
+    data:
+      archive_id: "{{ archive_id }}"
+      api_key: "{{ api_key }}"
+      base_url: "{{ base_url }}"
+    continue_on_error: true
+
+  # Log the upload attempt
+  - action: logbook.log
+    data:
+      name: Bambuddy Upload
+      message: "Uploaded latest snapshot to Bambuddy archive {{ archive_id }}"
+
+  # Clear the archive ID after upload
+  - action: text.set_value
+    target:
+      entity_id: input_text.current_print_archive_id
+    data:
+      value: ""
+
+mode: single

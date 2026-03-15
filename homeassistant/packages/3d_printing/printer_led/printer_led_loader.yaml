@@ -1,2 +1,10 @@
 input_boolean: !include helpers/input_boolean_show_printer_controls.yaml
 script: !include scripts/reset_interior_light_to_white-script.yaml
+
+# Optional: Interior light auto-reset automations
+# These automations automatically reset the MagWLED interior light to white
+# in response to printer state changes (door open, print complete, idle after error).
+# To enable, uncomment the line below and reload automations.
+# See docs/features/printer_led/AUTOMATIONS.md for details.
+#
+# automation: !include automations/printer_led_automations.yaml

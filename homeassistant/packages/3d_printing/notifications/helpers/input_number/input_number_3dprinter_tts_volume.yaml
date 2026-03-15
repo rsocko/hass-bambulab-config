@@ -1,0 +1,8 @@
+3dprinter_tts_volume:
+  name: TTS Volume
+  min: 0
+  max: 100
+  step: 5
+  unit_of_measurement: "%"
+  icon: mdi:volume-high
+  initial: 50

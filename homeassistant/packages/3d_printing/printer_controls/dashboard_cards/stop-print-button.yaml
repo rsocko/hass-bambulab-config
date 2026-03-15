@@ -2,8 +2,6 @@
 # Stop Print Button — Compact Icon Button
 # ============================================================
 # A small, icon-only stop button for halting the active print.
-# Mirrors the stop logic from the OpenHASP printer control buttons
-# (printer_control_buttons.yaml / officetouch5.yaml p1b84).
 #
 # Behavior:
 #   - Active/Paused print → red button (#f44336) with white stop icon
@@ -11,14 +9,16 @@
 #   - Tap shows a confirmation dialog before stopping
 #   - Hover: button brightens when enabled
 #
-# can_stop logic (matches OpenHASP):
-#   is_paused  = status_class == 'paused' or smart_status == 'paused'
-#   is_active  = status_class in [printing, active]
-#                or smart_status in [printing, preparing, heating, leveling]
-#   can_stop   = is_active or is_paused
+# State logic (matches ha_bambulab_cards):
+#   Checks the actual HA entity availability of the stop button
+#   entity rather than a hardcoded smart_status list.
+#   The ha-bambulab integration marks the entity available/
+#   unavailable based on the printer's real state, covering
+#   ALL stages automatically.
+#
+#   can_stop = stop entity is not 'unavailable'
 #
 # Entity:  button.ntk_ryansoffice_3dprinter_stop_printing
-# Sensor:  sensor.ntk_ryansoffice_3dprinter_smart_status
 #
 # Prerequisites:
 #   - custom:button-card (HACS)
@@ -55,23 +55,15 @@ styles:
     - justify-content: center
     - background-color: |
         [[[
-          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-          const status = smart?.state?.toLowerCase() ?? '';
-          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-          const paused = cls === 'paused' || status === 'paused';
-          const active = ['printing', 'active'].includes(cls) ||
-                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-          return (active || paused) ? '#f44336' : '#444444';
+          const stop = states['button.ntk_ryansoffice_3dprinter_stop_printing'];
+          const canStop = stop?.state !== 'unavailable';
+          return canStop ? '#f44336' : '#444444';
         ]]]
     - opacity: |
         [[[
-          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-          const status = smart?.state?.toLowerCase() ?? '';
-          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-          const paused = cls === 'paused' || status === 'paused';
-          const active = ['printing', 'active'].includes(cls) ||
-                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-          return (active || paused) ? '1' : '0.5';
+          const stop = states['button.ntk_ryansoffice_3dprinter_stop_printing'];
+          const canStop = stop?.state !== 'unavailable';
+          return canStop ? '1' : '0.5';
         ]]]
     - transition: background-color 0.2s, opacity 0.2s, filter 0.2s
     - box-shadow: none
@@ -80,23 +72,15 @@ styles:
     - height: 26px
     - color: |
         [[[
-          const smart = states['sensor.ntk_ryansoffice_3dprinter_smart_status'];
-          const status = smart?.state?.toLowerCase() ?? '';
-          const cls = (smart?.attributes?.status_class ?? '').toLowerCase();
-          const paused = cls === 'paused' || status === 'paused';
-          const active = ['printing', 'active'].includes(cls) ||
-                         ['printing', 'preparing', 'heating', 'leveling'].includes(status);
-          return (active || paused) ? '#ffffff' : '#888888';
+          const stop = states['button.ntk_ryansoffice_3dprinter_stop_printing'];
+          const canStop = stop?.state !== 'unavailable';
+          return canStop ? '#ffffff' : '#888888';
         ]]]
   grid:
     - grid-template-areas: '"i"'
 card_mod:
   style: |
-    {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-    {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-    {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-    {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
-    {% set can_stop = is_active or is_paused %}
+    {% set can_stop = not is_state('button.ntk_ryansoffice_3dprinter_stop_printing', 'unavailable') %}
     ha-card {
       overflow: visible;
       transition: background-color 0.2s ease, transform 0.15s ease, filter 0.2s ease;

@@ -1,0 +1,4 @@
+3dprinter_notification_service:
+  name: Notification Service
+  max: 255
+  initial: "notify.notify"

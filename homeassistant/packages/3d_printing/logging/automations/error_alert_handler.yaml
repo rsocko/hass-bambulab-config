@@ -1,0 +1,164 @@
+- alias: "Logging: Error Alert Handler"
+  id: logging_error_alert_handler
+  description: "Monitor system logs for critical errors and trigger alerts"
+  mode: queued
+  max: 20
+  trigger:
+    # Trigger on ERROR level log entries
+    - platform: event
+      event_type: system_log_event
+      event_data:
+        level: ERROR
+  
+  condition:
+    # Only process logs from Bambu Lab components
+    - condition: template
+      value_template: >-
+        {{ trigger.event.data.name is defined and 
+           'bambulab' in trigger.event.data.name | lower }}
+  
+  action:
+    - variables:
+        log_message: "{{ trigger.event.data.message[0] if trigger.event.data.message is defined else 'Unknown error' }}"
+        log_source: "{{ trigger.event.data.name }}"
+        timestamp: "{{ now().isoformat() }}"
+        
+    # Store error in input_text for dashboard display
+    - service: text.set_value
+      target:
+        entity_id: input_text.last_bambulab_error
+      data:
+        value: "[{{ timestamp }}] {{ log_source }}: {{ log_message }}"
+    
+    # Update error counter
+    - service: counter.increment
+      target:
+        entity_id: counter.bambulab_error_count
+    
+    # Send notification for critical errors
+    - choose:
+        # Print completion errors
+        - conditions:
+            - condition: template
+              value_template: "{{ 'Print Complete ERROR' in log_message }}"
+          sequence:
+            - service: notify.persistent_notification
+              data:
+                title: "🚨 Print Completion Error"
+                message: |
+                  **Print job failed to update in Spoolman**
+                  
+                  {{ log_message }}
+                  
+                  Time: {{ timestamp }}
+                  
+                  Check logs for details: Settings > System > Logs
+                # Fixed notification_id so only the latest error shows (overwrites previous)
+                # and the notification persists across Home Assistant restarts.
+                notification_id: "bambulab_print_complete_error"
+            
+            # Log to system log and logbook for persistent cross-restart record
+            - service: system_log.write
+              data:
+                message: "Error Alert Handler: Print completion error detected — {{ log_message }}"
+                level: error
+                logger: homeassistant.components.bambulab.error_alerts
+            - service: logbook.log
+              data:
+                name: "Bambu Lab Error Alert"
+                message: "Print completion error: {{ log_message }}"
+            
+            # Flash WLED red for visual alert (if configured)
+            - service: light.turn_on
+              target:
+                entity_id: light.bambu_lab_wled
+              data:
+                effect: "Solid"
+                rgb_color: [255, 0, 0]
+                brightness: 255
+              continue_on_error: true
+        
+        # Spool matching errors
+        - conditions:
+            - condition: template
+              value_template: "{{ 'Find Matching Spool ERROR' in log_message }}"
+          sequence:
+            - service: notify.persistent_notification
+              data:
+                title: "⚠️ Spool Matching Issue"
+                message: |
+                  **Unable to match spool in Spoolman**
+                  
+                  {{ log_message }}
+                  
+                  Time: {{ timestamp }}
+                  
+                  This may indicate duplicate UUIDs or ambiguous spool data.
+                # Fixed notification_id so only the latest error shows (overwrites previous)
+                notification_id: "bambulab_spool_match_error"
+            
+            # Log to system log and logbook for persistent cross-restart record
+            - service: system_log.write
+              data:
+                message: "Error Alert Handler: Spool matching error detected — {{ log_message }}"
+                level: error
+                logger: homeassistant.components.bambulab.error_alerts
+            - service: logbook.log
+              data:
+                name: "Bambu Lab Error Alert"
+                message: "Spool matching error: {{ log_message }}"
+        
+        # UUID conflict errors (data integrity)
+        - conditions:
+            - condition: template
+              value_template: "{{ 'same UUID' in log_message }}"
+          sequence:
+            - service: notify.persistent_notification
+              data:
+                title: "🔴 Data Integrity Alert"
+                message: |
+                  **CRITICAL: Duplicate UUID detected in Spoolman**
+                  
+                  {{ log_message }}
+                  
+                  Time: {{ timestamp }}
+                  
+                  **Action Required**: Review and fix duplicate UUIDs in Spoolman database.
+                # Fixed notification_id so only the latest alert shows (overwrites previous)
+                notification_id: "bambulab_uuid_conflict"
+            
+            # Log to system log and logbook for persistent cross-restart record
+            - service: system_log.write
+              data:
+                message: "Error Alert Handler: UUID conflict detected — {{ log_message }}"
+                level: error
+                logger: homeassistant.components.bambulab.error_alerts
+            - service: logbook.log
+              data:
+                name: "Bambu Lab Error Alert"
+                message: "UUID conflict: {{ log_message }}"
+      
+      # Default: Send generic error notification
+      default:
+        - service: notify.persistent_notification
+          data:
+            title: "⚠️ Bambu Lab Error"
+            message: |
+              **{{ log_source }}**
+              
+              {{ log_message }}
+              
+              Time: {{ timestamp }}
+            # Fixed notification_id so only the latest error shows (overwrites previous)
+            notification_id: "bambulab_error_latest"
+        
+        # Log to system log and logbook for persistent cross-restart record
+        - service: system_log.write
+          data:
+            message: "Error Alert Handler: Error detected from {{ log_source }} — {{ log_message }}"
+            level: error
+            logger: homeassistant.components.bambulab.error_alerts
+        - service: logbook.log
+          data:
+            name: "Bambu Lab Error Alert"
+            message: "Error from {{ log_source }}: {{ log_message }}"

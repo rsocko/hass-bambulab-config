@@ -1,146 +1,15 @@
 # ============================================================
 # Bento Box Filter Monitoring Dashboard Cards
 # ============================================================
-# Copy and paste these cards into your Home Assistant dashboard
-# to monitor and manage Bento Box HEPA and carbon filter status.
-#
-# These cards display:
-# - Filter usage percentages
-# - Runtime hours
-# - Days since last replacement
-# - Replacement status with color coding
-# - Easy reset buttons for after filter replacement
+# Displays filter usage, runtime, and replacement controls for
+# Bento Box HEPA and carbon filters.
 #
 # REQUIRED CUSTOM CARDS:
 # - mushroom (via HACS)
 # - card-mod (via HACS) - optional, for styling
 #
-# SETUP:
-# 1. Add bento_box_filter_helpers.yaml to your configuration
-# 2. Restart Home Assistant or reload input helpers
-# 3. Copy desired card sections below to your dashboard
+# REQUIRED: air_quality package deployed (helpers + template sensors)
 # ============================================================
-
-# ============================================================
-# OPTION 1: COMPACT HORIZONTAL LAYOUT
-# ============================================================
-# Shows both filters side-by-side, ideal for desktop
-
-type: horizontal-stack
-cards:
-  # HEPA Filter Status Card
-  - type: custom:mushroom-template-card
-    primary: HEPA Filter
-    secondary: |-
-      {% set usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
-      {% set hours = states('input_number.bento_box_hepa_runtime_hours') | round(0) %}
-      {{ usage | round(0) }}% · {{ hours }}h
-    icon: mdi:air-filter
-    icon_color: |-
-      {% set usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
-      {% if usage >= 100 %}
-        red
-      {% elif usage >= 90 %}
-        orange
-      {% elif usage >= 75 %}
-        yellow
-      {% else %}
-        green
-      {% endif %}
-    badge_icon: |-
-      {% set status = state_attr('sensor.bento_box_hepa_filter_usage', 'status') %}
-      {% if status == 'overdue' %}
-        mdi:alert-circle
-      {% elif status == 'replace_soon' %}
-        mdi:alert
-      {% elif status == 'warning' %}
-        mdi:information
-      {% else %}
-        mdi:check-circle
-      {% endif %}
-    badge_color: |-
-      {% set status = state_attr('sensor.bento_box_hepa_filter_usage', 'status') %}
-      {% if status == 'overdue' %}
-        red
-      {% elif status == 'replace_soon' %}
-        orange
-      {% elif status == 'warning' %}
-        yellow
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: more-info
-    hold_action:
-      action: more-info
-    card_mod:
-      style: |
-        ha-card {
-          background: rgba(33, 150, 243, 0.05);
-        }
-        ha-card:hover {
-          background: rgba(33, 150, 243, 0.1);
-        }
-  
-  # Carbon Filter Status Card
-  - type: custom:mushroom-template-card
-    primary: Carbon Filter
-    secondary: |-
-      {% set usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
-      {% set hours = states('input_number.bento_box_carbon_runtime_hours') | round(0) %}
-      {{ usage | round(0) }}% · {{ hours }}h
-    icon: mdi:air-filter
-    icon_color: |-
-      {% set usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
-      {% if usage >= 100 %}
-        red
-      {% elif usage >= 90 %}
-        orange
-      {% elif usage >= 75 %}
-        yellow
-      {% else %}
-        green
-      {% endif %}
-    badge_icon: |-
-      {% set status = state_attr('sensor.bento_box_carbon_filter_usage', 'status') %}
-      {% if status == 'overdue' %}
-        mdi:alert-circle
-      {% elif status == 'replace_soon' %}
-        mdi:alert
-      {% elif status == 'warning' %}
-        mdi:information
-      {% else %}
-        mdi:check-circle
-      {% endif %}
-    badge_color: |-
-      {% set status = state_attr('sensor.bento_box_carbon_filter_usage', 'status') %}
-      {% if status == 'overdue' %}
-        red
-      {% elif status == 'replace_soon' %}
-        orange
-      {% elif status == 'warning' %}
-        yellow
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: more-info
-    hold_action:
-      action: more-info
-    card_mod:
-      style: |
-        ha-card {
-          background: rgba(156, 39, 176, 0.05);
-        }
-        ha-card:hover {
-          background: rgba(156, 39, 176, 0.1);
-        }
-
----
-# ============================================================
-# OPTION 2: DETAILED VERTICAL LAYOUT
-# ============================================================
-# Shows comprehensive filter information with reset buttons
 
 type: vertical-stack
 cards:
@@ -167,55 +36,118 @@ cards:
         ha-card {
           background: rgba(76, 175, 80, 0.05);
         }
-  
-  # HEPA Filter Details
-  - type: custom:mushroom-template-card
-    primary: HEPA Filter
-    secondary: |-
-      Usage: {{ states('sensor.bento_box_hepa_filter_usage') | round(0) }}%
-      Runtime: {{ states('input_number.bento_box_hepa_runtime_hours') | round(0) }}h / {{ states('input_number.bento_box_hepa_max_hours') | round(0) }}h
-      Days since replacement: {{ state_attr('sensor.bento_box_hepa_filter_usage', 'days_since_replacement') }}
-    icon: mdi:air-filter
-    icon_color: |-
-      {% set usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
-      {% if usage >= 100 %}
-        red
-      {% elif usage >= 90 %}
-        orange
-      {% elif usage >= 75 %}
-        yellow
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: more-info
-      entity: sensor.bento_box_hepa_filter_usage
-    layout: vertical
-  
-  # Carbon Filter Details
-  - type: custom:mushroom-template-card
-    primary: Carbon Filter
-    secondary: |-
-      Usage: {{ states('sensor.bento_box_carbon_filter_usage') | round(0) }}%
-      Runtime: {{ states('input_number.bento_box_carbon_runtime_hours') | round(0) }}h / {{ states('input_number.bento_box_carbon_max_hours') | round(0) }}h
-      Days since replacement: {{ state_attr('sensor.bento_box_carbon_filter_usage', 'days_since_replacement') }}
-    icon: mdi:air-filter
-    icon_color: |-
-      {% set usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
-      {% if usage >= 100 %}
-        red
-      {% elif usage >= 90 %}
-        orange
-      {% elif usage >= 75 %}
-        yellow
-      {% else %}
-        green
-      {% endif %}
-    tap_action:
-      action: more-info
-      entity: sensor.bento_box_carbon_filter_usage
-    layout: vertical
-  
+
+  # Compact filter status - side by side
+  - type: horizontal-stack
+    cards:
+      # HEPA Filter Status Card
+      - type: custom:mushroom-template-card
+        primary: HEPA Filter
+        secondary: |-
+          {% set usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
+          {% set hours = states('input_number.bento_box_hepa_runtime_hours') | round(0) %}
+          {{ usage | round(0) }}% · {{ hours }}h
+        icon: mdi:air-filter
+        icon_color: |-
+          {% set usage = states('sensor.bento_box_hepa_filter_usage') | float(0) %}
+          {% if usage >= 100 %}
+            red
+          {% elif usage >= 90 %}
+            orange
+          {% elif usage >= 75 %}
+            yellow
+          {% else %}
+            green
+          {% endif %}
+        badge_icon: |-
+          {% set status = state_attr('sensor.bento_box_hepa_filter_usage', 'status') %}
+          {% if status == 'overdue' %}
+            mdi:alert-circle
+          {% elif status == 'replace_soon' %}
+            mdi:alert
+          {% elif status == 'warning' %}
+            mdi:information
+          {% else %}
+            mdi:check-circle
+          {% endif %}
+        badge_color: |-
+          {% set status = state_attr('sensor.bento_box_hepa_filter_usage', 'status') %}
+          {% if status == 'overdue' %}
+            red
+          {% elif status == 'replace_soon' %}
+            orange
+          {% elif status == 'warning' %}
+            yellow
+          {% else %}
+            green
+          {% endif %}
+        tap_action:
+          action: more-info
+        hold_action:
+          action: more-info
+        card_mod:
+          style: |
+            ha-card {
+              background: rgba(33, 150, 243, 0.05);
+            }
+            ha-card:hover {
+              background: rgba(33, 150, 243, 0.1);
+            }
+
+      # Carbon Filter Status Card
+      - type: custom:mushroom-template-card
+        primary: Carbon Filter
+        secondary: |-
+          {% set usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
+          {% set hours = states('input_number.bento_box_carbon_runtime_hours') | round(0) %}
+          {{ usage | round(0) }}% · {{ hours }}h
+        icon: mdi:air-filter
+        icon_color: |-
+          {% set usage = states('sensor.bento_box_carbon_filter_usage') | float(0) %}
+          {% if usage >= 100 %}
+            red
+          {% elif usage >= 90 %}
+            orange
+          {% elif usage >= 75 %}
+            yellow
+          {% else %}
+            green
+          {% endif %}
+        badge_icon: |-
+          {% set status = state_attr('sensor.bento_box_carbon_filter_usage', 'status') %}
+          {% if status == 'overdue' %}
+            mdi:alert-circle
+          {% elif status == 'replace_soon' %}
+            mdi:alert
+          {% elif status == 'warning' %}
+            mdi:information
+          {% else %}
+            mdi:check-circle
+          {% endif %}
+        badge_color: |-
+          {% set status = state_attr('sensor.bento_box_carbon_filter_usage', 'status') %}
+          {% if status == 'overdue' %}
+            red
+          {% elif status == 'replace_soon' %}
+            orange
+          {% elif status == 'warning' %}
+            yellow
+          {% else %}
+            green
+          {% endif %}
+        tap_action:
+          action: more-info
+        hold_action:
+          action: more-info
+        card_mod:
+          style: |
+            ha-card {
+              background: rgba(156, 39, 176, 0.05);
+            }
+            ha-card:hover {
+              background: rgba(156, 39, 176, 0.1);
+            }
+
   # Reset Buttons
   - type: horizontal-stack
     cards:
@@ -225,189 +157,51 @@ cards:
         icon: mdi:restart
         tap_action:
           action: call-service
-          service: script.reset_hepa_filter
+          service: script.turn_on
+          target:
+            entity_id: script.reset_bento_box_hepa_filter
         hold_action:
           action: none
-      
+
       # Reset Carbon Filter
       - type: button
         name: Reset Carbon
         icon: mdi:restart
         tap_action:
           action: call-service
-          service: script.reset_carbon_filter
+          service: script.turn_on
+          target:
+            entity_id: script.reset_bento_box_carbon_filter
         hold_action:
           action: none
 
----
 # ============================================================
-# OPTION 3: GAUGE CARDS
+# ALTERNATIVE LAYOUTS (commented out)
 # ============================================================
-# Visual gauge representation of filter usage
-
-type: vertical-stack
-cards:
-  # HEPA Filter Gauge
-  - type: gauge
-    entity: sensor.bento_box_hepa_filter_usage
-    name: HEPA Filter
-    unit: "%"
-    min: 0
-    max: 100
-    needle: true
-    severity:
-      green: 0
-      yellow: 75
-      orange: 90
-      red: 100
-  
-  # Carbon Filter Gauge
-  - type: gauge
-    entity: sensor.bento_box_carbon_filter_usage
-    name: Carbon Filter
-    unit: "%"
-    min: 0
-    max: 100
-    needle: true
-    severity:
-      green: 0
-      yellow: 75
-      orange: 90
-      red: 100
-
----
-# ============================================================
-# OPTION 4: PROGRESS BAR CARDS
-# ============================================================
-# Using entities card with bars
-
-type: entities
-entities:
-  - entity: sensor.bento_box_hepa_filter_usage
-    name: HEPA Filter
-    icon: mdi:air-filter
-    type: custom:bar-card
-    positions:
-      icon: outside
-      name: inside
-    severity:
-      - color: green
-        from: 0
-        to: 75
-      - color: yellow
-        from: 75
-        to: 90
-      - color: orange
-        from: 90
-        to: 100
-      - color: red
-        from: 100
-        to: 200
-  
-  - entity: sensor.bento_box_carbon_filter_usage
-    name: Carbon Filter
-    icon: mdi:air-filter
-    type: custom:bar-card
-    positions:
-      icon: outside
-      name: inside
-    severity:
-      - color: green
-        from: 0
-        to: 75
-      - color: yellow
-        from: 75
-        to: 90
-      - color: orange
-        from: 90
-        to: 100
-      - color: red
-        from: 100
-        to: 200
-
----
-# ============================================================
-# FILTER RESET SCRIPTS
-# ============================================================
-# Add these scripts to your scripts.yaml or create separate files
-# These provide easy filter reset functionality
-
-# scripts.yaml content:
-reset_hepa_filter:
-  alias: Reset HEPA Filter Counter
-  description: Resets HEPA filter runtime and updates replacement date
-  sequence:
-    - action: input_number.set_value
-      target:
-        entity_id: input_number.bento_box_hepa_runtime_hours
-      data:
-        value: 0
-    
-    - action: input_datetime.set_datetime
-      target:
-        entity_id: input_datetime.bento_box_hepa_last_replaced
-      data:
-        datetime: "{{ now().isoformat() }}"
-    
-    - action: notify.notify
-      data:
-        title: "✅ HEPA Filter Reset"
-        message: "HEPA filter counter has been reset. Replacement date recorded."
-    
-    - action: logbook.log
-      data:
-        name: HEPA Filter Replaced
-        message: "HEPA filter counter reset to 0 hours. Replacement date: {{ now().strftime('%Y-%m-%d %H:%M') }}"
-
-reset_carbon_filter:
-  alias: Reset Carbon Filter Counter
-  description: Resets carbon filter runtime and updates replacement date
-  sequence:
-    - action: input_number.set_value
-      target:
-        entity_id: input_number.bento_box_carbon_runtime_hours
-      data:
-        value: 0
-    
-    - action: input_datetime.set_datetime
-      target:
-        entity_id: input_datetime.bento_box_carbon_last_replaced
-      data:
-        datetime: "{{ now().isoformat() }}"
-    
-    - action: notify.notify
-      data:
-        title: "✅ Carbon Filter Reset"
-        message: "Carbon filter counter has been reset. Replacement date recorded."
-    
-    - action: logbook.log
-      data:
-        name: Carbon Filter Replaced
-        message: "Carbon filter counter reset to 0 hours. Replacement date: {{ now().strftime('%Y-%m-%d %H:%M') }}"
-
-# ============================================================
-# CUSTOMIZATION TIPS:
-# ============================================================
-# 1. Adjust max hours thresholds:
-#    - Default HEPA: 2000 hours
-#    - Default Carbon: 1000 hours
-#    - Modify in input_number entities or via UI
-#
-# 2. Color thresholds:
-#    - Green: 0-74%
-#    - Yellow: 75-89%
-#    - Orange: 90-99%
-#    - Red: 100%+
-#
-# 3. Add to existing dashboard:
-#    - Choose compact layout for integration with other cards
-#    - Use detailed layout for dedicated filter monitoring section
-#
-# 4. Mobile optimization:
-#    - Compact horizontal layout works well on mobile
-#    - Consider using entities card for simplicity
-#
-# 5. Filter replacement reminders:
-#    - Alerts automation will notify at 75%, 90%, and 100%
-#    - Customize notification thresholds in alert automation
-# ============================================================
+# GAUGE CARDS - uncomment and replace the vertical-stack above
+# type: vertical-stack
+# cards:
+#   - type: gauge
+#     entity: sensor.bento_box_hepa_filter_usage
+#     name: HEPA Filter
+#     unit: "%"
+#     min: 0
+#     max: 100
+#     needle: true
+#     severity:
+#       green: 0
+#       yellow: 75
+#       orange: 90
+#       red: 100
+#   - type: gauge
+#     entity: sensor.bento_box_carbon_filter_usage
+#     name: Carbon Filter
+#     unit: "%"
+#     min: 0
+#     max: 100
+#     needle: true
+#     severity:
+#       green: 0
+#       yellow: 75
+#       orange: 90
+#       red: 100

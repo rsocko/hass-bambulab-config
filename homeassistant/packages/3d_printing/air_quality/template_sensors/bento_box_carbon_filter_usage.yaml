@@ -1,0 +1,41 @@
+- name: "Bento Box Carbon Filter Usage"
+  unique_id: bento_box_carbon_filter_usage
+  state: >
+    {% set runtime = states('input_number.bento_box_carbon_runtime_hours') | float(0) %}
+    {% set max_hours = states('input_number.bento_box_carbon_max_hours') | float(1000) %}
+    {{ ((runtime / max_hours) * 100) | round(1) }}
+  unit_of_measurement: "%"
+  icon: >
+    {% set usage = ((states('input_number.bento_box_carbon_runtime_hours') | float(0) / states('input_number.bento_box_carbon_max_hours') | float(1000)) * 100) | round(1) %}
+    {% if usage < 75 %}
+      mdi:air-filter
+    {% elif usage < 90 %}
+      mdi:air-filter-remove
+    {% else %}
+      mdi:alert-circle
+    {% endif %}
+  attributes:
+    runtime_hours: "{{ states('input_number.bento_box_carbon_runtime_hours') | float(0) | round(1) }}"
+    max_hours: "{{ states('input_number.bento_box_carbon_max_hours') | float(1000) | round(0) }}"
+    remaining_hours: >
+      {% set runtime = states('input_number.bento_box_carbon_runtime_hours') | float(0) %}
+      {% set max_hours = states('input_number.bento_box_carbon_max_hours') | float(1000) %}
+      {{ (max_hours - runtime) | round(1) }}
+    status: >
+      {% set usage = ((states('input_number.bento_box_carbon_runtime_hours') | float(0) / states('input_number.bento_box_carbon_max_hours') | float(1000)) * 100) | round(1) %}
+      {% if usage >= 100 %}
+        overdue
+      {% elif usage >= 90 %}
+        replace_soon
+      {% elif usage >= 75 %}
+        warning
+      {% else %}
+        good
+      {% endif %}
+    days_since_replacement: >
+      {% set last_replaced = states('input_datetime.bento_box_carbon_last_replaced') %}
+      {% if last_replaced not in ['unknown', 'unavailable', ''] %}
+        {{ ((as_timestamp(now()) - as_timestamp(last_replaced)) / 86400) | round(0) }}
+      {% else %}
+        unknown
+      {% endif %}

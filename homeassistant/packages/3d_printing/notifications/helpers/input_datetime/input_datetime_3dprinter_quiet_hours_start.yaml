@@ -1,0 +1,5 @@
+3dprinter_quiet_hours_start:
+  name: Quiet Hours Start
+  has_time: true
+  has_date: false
+  initial: "22:00:00"

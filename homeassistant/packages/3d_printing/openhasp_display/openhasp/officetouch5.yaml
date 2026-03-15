@@ -777,53 +777,37 @@ objects:
     properties:
       "bg_grad_dir": 0
       "bg_color": >
-        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-        {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
-        {{ '#f44336' if (is_active or is_paused) else '#444444' }}
+        {% set can_stop = not is_state('button.ntk_ryansoffice_3dprinter_stop_printing', 'unavailable') %}
+        {{ '#f44336' if can_stop else '#444444' }}
       "border_color": >
-        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-        {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
-        {{ '#b71c1c' if (is_active or is_paused) else '#333333' }}
+        {% set can_stop = not is_state('button.ntk_ryansoffice_3dprinter_stop_printing', 'unavailable') %}
+        {{ '#b71c1c' if can_stop else '#333333' }}
   - obj: p1b86 # Pause button - shown when actively printing (not paused)
     properties:
       "hidden": >
-        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-        {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
-        {{ not (is_active and not is_paused) }}
+        {% set can_pause = not is_state('button.ntk_ryansoffice_3dprinter_pause_printing', 'unavailable') %}
+        {{ not can_pause }}
       "bg_grad_dir": 0
       "bg_color": "#fb8c00"
       "border_color": "#e65100"
   - obj: p1b87 # Pause icon - shown with pause button
     properties:
       "hidden": >
-        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-        {% set is_active = status_class in ['printing', 'active'] or smart_status in ['printing', 'preparing', 'heating', 'leveling'] %}
-        {{ not (is_active and not is_paused) }}
+        {% set can_pause = not is_state('button.ntk_ryansoffice_3dprinter_pause_printing', 'unavailable') %}
+        {{ not can_pause }}
   - obj: p1b88 # Resume button - shown when paused
     properties:
       "hidden": >
-        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-        {{ not is_paused }}
+        {% set can_resume = not is_state('button.ntk_ryansoffice_3dprinter_resume_printing', 'unavailable') %}
+        {{ not can_resume }}
       "bg_grad_dir": 0
       "bg_color": "#43a047"
       "border_color": "#1b5e20"
   - obj: p1b89 # Resume icon - shown with resume button
     properties:
       "hidden": >
-        {% set smart_status = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
-        {% set status_class = state_attr('sensor.ntk_ryansoffice_3dprinter_smart_status', 'status_class') | default('', true) | lower %}
-        {% set is_paused = status_class == 'paused' or smart_status == 'paused' %}
-        {{ not is_paused }}
+        {% set can_resume = not is_state('button.ntk_ryansoffice_3dprinter_resume_printing', 'unavailable') %}
+        {{ not can_resume }}
 
   - obj: p2b41 # Controls page hint text
     properties:

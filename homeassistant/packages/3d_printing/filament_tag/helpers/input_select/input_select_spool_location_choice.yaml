@@ -1,5 +1,0 @@
-spool_location_choice:
-  name: spool_location_choice
-  options:
-    - Unkown
-  icon: mdi:map-marker

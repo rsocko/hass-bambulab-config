@@ -18,23 +18,34 @@ triggers:
 conditions: []
 
 actions:
-  # Ensure purifier is running at appropriate speed
-  - action: fan.turn_on
-    target:
-      entity_id: fan.govee_air_purifier
-    data:
-      percentage: >
-        {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
-        {% set co2 = states('sensor.airgradient_co2') | int(0) %}
-        {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
-        
-        {# If air quality is poor, run at high speed #}
+  # Calculate post-print gear based on air quality
+  - variables:
+      post_print_gear: >
+        {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+        {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+        {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
         {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
-          80
-        {# Otherwise run at medium speed for post-print filtering #}
+          3
         {% else %}
-          66
+          2
         {% endif %}
+  
+  # Ensure purifier is on and set gear
+  - action: switch.turn_on
+    target:
+      entity_id: switch.ryans_office_air_power_switch
+  
+  - action: select.select_option
+    target:
+      entity_id: select.ryans_office_air_mode
+    data:
+      option: gearMode
+  
+  - action: number.set_value
+    target:
+      entity_id: number.ryans_office_air_gearmode
+    data:
+      value: "{{ post_print_gear }}"
   
   # Note: Bento Box fan is now controlled by dedicated automation
   # (bento_box_fan_auto_control.yaml) based on air quality and filament type
@@ -46,7 +57,7 @@ actions:
       message: >
         Print completed: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
         Air purifier will run for 30 minutes to filter residual particles.
-        Initial speed: {{ state_attr('fan.govee_air_purifier', 'percentage') }}%.
+        Initial gear: {{ states('number.ryans_office_air_gearmode') }}.
   
   # Send notification
   - action: notify.notify
@@ -56,10 +67,10 @@ actions:
         Print completed: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
         
         Air purifier will continue running for 30 minutes.
-        Current speed: {{ state_attr('fan.govee_air_purifier', 'percentage') }}%
+        Current gear: {{ states('number.ryans_office_air_gearmode') }}
         
-        PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
-        VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+        PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
+        VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
       data:
         notification_id: print_complete_air
         tag: print_control
@@ -74,9 +85,9 @@ actions:
       - conditions:
           - condition: template
             value_template: >
-              {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
-              {% set co2 = states('sensor.airgradient_co2') | int(0) %}
-              {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+              {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+              {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+              {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
               {{ pm25 >= 35 or co2 >= 1200 or voc >= 200 }}
         sequence:
           - action: logbook.log
@@ -84,9 +95,9 @@ actions:
               name: Air Purification Extended
               message: >
                 Air quality still poor after 30 minutes. Keeping purifier running.
-                PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³,
-                CO2: {{ states('sensor.airgradient_co2') }} ppm,
-                VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+                PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³,
+                CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm,
+                VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
           
           - action: notify.notify
             data:
@@ -96,9 +107,9 @@ actions:
                 
                 Keeping purifier running.
                 
-                PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
-                CO2: {{ states('sensor.airgradient_co2') }} ppm
-                VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+                PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
+                CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+                VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
               data:
                 notification_id: purification_extended
                 tag: air_quality
@@ -107,39 +118,39 @@ actions:
       - conditions:
           - condition: template
             value_template: >
-              {% set pm25 = states('sensor.airgradient_pm25') | float(0) %}
-              {% set co2 = states('sensor.airgradient_co2') | int(0) %}
-              {% set voc = states('sensor.airgradient_tvoc') | int(0) %}
+              {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+              {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+              {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
               {{ pm25 >= 12 or co2 >= 800 or voc >= 100 }}
         sequence:
-          - action: fan.set_percentage
+          - action: number.set_value
             target:
-              entity_id: fan.govee_air_purifier
+              entity_id: number.ryans_office_air_gearmode
             data:
-              percentage: 33
+              value: 1
           
           - action: logbook.log
             data:
               name: Air Purifier Reduced
               message: >
-                Air quality moderate after 30 minutes. Reduced purifier to low speed.
-                PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
+                Air quality moderate after 30 minutes. Reduced purifier to gear 1.
+                PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
                 Note: Bento Box fan controlled by separate automation.
     
     # Default: Air quality is good, turn off purifier
     default:
-      - action: fan.turn_off
+      - action: switch.turn_off
         target:
-          entity_id: fan.govee_air_purifier
+          entity_id: switch.ryans_office_air_power_switch
       
       - action: logbook.log
         data:
           name: Air Purification Complete
           message: >
             Air quality good after 30 minutes. Turned off purifier.
-            PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³,
-            CO2: {{ states('sensor.airgradient_co2') }} ppm,
-            VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+            PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³,
+            CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm,
+            VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
             Note: Bento Box fan controlled by separate automation.
       
       - action: notify.notify
@@ -150,9 +161,9 @@ actions:
             
             Purifier turned off.
             
-            PM2.5: {{ states('sensor.airgradient_pm25') | round(1) }} µg/m³
-            CO2: {{ states('sensor.airgradient_co2') }} ppm
-            VOC: {{ states('sensor.airgradient_tvoc') }} ppb
+            PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
+            CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+            VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
           data:
             notification_id: purification_complete
             tag: air_quality
