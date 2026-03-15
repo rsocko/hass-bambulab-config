@@ -1,0 +1,8 @@
+3dprinter_snapshot_light_brightness:
+  name: Snapshot Light Brightness
+  min: 1
+  max: 100
+  step: 1
+  unit_of_measurement: "%"
+  icon: mdi:brightness-percent
+  initial: 100

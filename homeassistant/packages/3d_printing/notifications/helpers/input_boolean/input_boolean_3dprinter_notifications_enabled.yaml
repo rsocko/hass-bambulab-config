@@ -1,0 +1,4 @@
+3dprinter_notifications_enabled:
+  name: Printer Notifications Enabled
+  icon: mdi:bell
+  initial: true

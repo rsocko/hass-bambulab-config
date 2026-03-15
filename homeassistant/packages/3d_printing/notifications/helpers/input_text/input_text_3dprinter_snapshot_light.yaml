@@ -1,0 +1,4 @@
+3dprinter_snapshot_light:
+  name: Snapshot Light Entity
+  max: 255
+  initial: ""
