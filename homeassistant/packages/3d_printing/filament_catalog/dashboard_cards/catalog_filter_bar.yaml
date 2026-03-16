@@ -113,7 +113,8 @@ cards:
               ha-card {
                 border-radius: 999px !important;
                 overflow: hidden !important;
-                padding: 6px 10px !important;
+                padding: 2px 8px !important;
+                max-width: 480px !important;
               }
               #states {
                 padding: 0 !important;
@@ -121,14 +122,15 @@ cards:
             hui-input-text-entity-row $: |
               .mdc-text-field,
               ha-textfield {
-                --mdc-filled-text-field-container-height: 36px;
-                min-height: 36px !important;
-                height: 36px !important;
+                --mdc-filled-text-field-container-height: 30px;
+                min-height: 30px !important;
+                height: 30px !important;
                 border-radius: 999px !important;
               }
               .mdc-text-field__input {
                 padding-top: 0 !important;
                 padding-bottom: 0 !important;
+                font-size: 14px !important;
               }
         entities:
           - entity: input_text.filament_catalog_search
