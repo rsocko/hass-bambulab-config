@@ -1,6 +1,6 @@
 # Filament Catalog — Design Document
 
-> **Status**: Phase 1–4 complete (5 phases total)
+> **Status**: Phase 1–4 complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
 > **Last updated**: 2026-03-16
 
 ## Problem Statement
@@ -689,35 +689,76 @@ New `input_select.filament_catalog_sort`:
 
 ### Phase 5: Metrics, Insights & Alert Analytics (Future)
 **Value**: Visual analytics for inventory management with proactive alert visibility — all in one place.
+**Status**: Not started
 
 > Phase 5 combines the original alert-counting concept (former Phase 5) with statistics and charts (former Phase 7). Rather than building dedicated alert UI, filtering tabs, or summary cards, alert counts surface **as chart data** alongside other inventory metrics. Phase 3 already provides card-level visual indicators (left border, badges, desiccant icons); this phase adds the aggregate "how many and what kind" view.
+>
+> **Sub-phase structure**: Phase 5 is broken into five incremental sub-phases (5A–5E). Each sub-phase is independently deployable and valuable. Sub-phases 5A–5C depend only on existing Spoolman entity data. Sub-phase 5D requires a print history data source (Bambuddy, custom webhook, or similar). Sub-phase 5E is a parallel infrastructure track for advanced BI tooling.
 
-#### Alert Metrics (Incorporated from Former Phase 5)
+#### Issue Tracker
 
-Instead of a standalone alert summary card or dedicated alert tab, alert counts appear as chart segments:
+All Phase 5 work is tracked in [GitHub Project #18](https://github.com/users/rsocko/projects/18/views/1). The table below maps each sub-phase to its source issues:
 
-| Alert Category | Trigger | How It Surfaces |
+| Sub-Phase | Issues |
+|---|---|
+| **5A** | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150), [#152](https://github.com/rsocko/hass-bambulab-config/issues/152), [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102), [#133](https://github.com/rsocko/hass-bambulab-config/issues/133), [#118](https://github.com/rsocko/hass-bambulab-config/issues/118), [#117](https://github.com/rsocko/hass-bambulab-config/issues/117), [#135](https://github.com/rsocko/hass-bambulab-config/issues/135), [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| **5B** | [#115](https://github.com/rsocko/hass-bambulab-config/issues/115) |
+| **5C** | [#641](https://github.com/rsocko/hass-bambulab-config/issues/641), [#104](https://github.com/rsocko/hass-bambulab-config/issues/104) |
+| **5D** | [#116](https://github.com/rsocko/hass-bambulab-config/issues/116), [#649](https://github.com/rsocko/hass-bambulab-config/issues/649), [#650](https://github.com/rsocko/hass-bambulab-config/issues/650), [#110](https://github.com/rsocko/hass-bambulab-config/issues/110), [#111](https://github.com/rsocko/hass-bambulab-config/issues/111), [#112](https://github.com/rsocko/hass-bambulab-config/issues/112), [#113](https://github.com/rsocko/hass-bambulab-config/issues/113), [#114](https://github.com/rsocko/hass-bambulab-config/issues/114), [#642](https://github.com/rsocko/hass-bambulab-config/issues/642) |
+| **5E** | [#149](https://github.com/rsocko/hass-bambulab-config/issues/149), [#109](https://github.com/rsocko/hass-bambulab-config/issues/109), [#130](https://github.com/rsocko/hass-bambulab-config/issues/130), [#148](https://github.com/rsocko/hass-bambulab-config/issues/148), [#106](https://github.com/rsocko/hass-bambulab-config/issues/106), [#107](https://github.com/rsocko/hass-bambulab-config/issues/107) |
+
+---
+
+#### Phase 5A: Inventory Insights & Alert Analytics
+**Data source**: Spoolman entities only (available now)
+**Dependency**: Phases 1–2
+**Estimated Complexity**: High
+
+Phase 5A delivers the core metrics panel using data already present on `sensor.spoolman_spool_*` entities. No print history or external data sources required.
+
+##### 5A.1 — Inventory Distribution Charts
+
+| Chart | Type | Data Source | Issue |
+|---|---|---|---|
+| Weight by Material | Pie | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Weight by Vendor | Pie | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Weight by Color Family | Pie | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Spools per Location | Bar | Count of spools grouped by `location` | — |
+
+These charts answer: "How is my filament inventory distributed?" All data is directly available from spool entity attributes. The pie charts use `remaining_weight` (not `initial_weight`) to reflect *current* inventory value rather than what was purchased.
+
+##### 5A.2 — Alert Aggregation Charts
+
+Instead of a standalone alert summary card or dedicated alert tab, alert counts appear as chart segments. Phase 3's card visuals already handle per-spool indicators; this answers "how many of each problem do I have?" at a glance.
+
+| Alert Category | Trigger | Issue(s) |
 |---|---|---|
-| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < threshold | Bar in alert-type breakdown chart |
-| **Desiccant Overdue** | `extra_desiccant_filled` age > 60 days | Bar in alert-type breakdown chart |
-| **Needs Drying** | `extra_last_dried` > 90 days AND `extra_sealed = false` | Bar in alert-type breakdown chart |
-| **Nearly Empty** | `remaining_weight` < 50g | Bar in alert-type breakdown chart |
-| **Unused (Stale)** | `last_used` > 6 months ago | Bar in alert-type breakdown chart |
+| **Running Low** | `remaining_weight` < stock threshold (tiered: Red/Orange/Yellow) | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
+| **Nearly Empty** | `remaining_weight` < 50g | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
+| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < threshold | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
+| **Desiccant Overdue** | `extra_desiccant_filled` age > 60 days (tiered: R/O/Y/G/Missing) | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
+| **Missing Desiccant** | `extra_desiccant_in_spool = false` for custom or other spools | [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102) |
+| **Needs Drying** | `extra_last_dried` > 90 days AND `extra_sealed = false` | — |
+| **Unused (Stale)** | `last_used` > 6 months ago | — |
 
-No new card-level badges, filter toggles, or alert tabs are needed — Phase 3's card visuals already handle per-spool indicators. This phase answers "how many of each problem do I have?" at a glance.
+The horizontal bar chart uses clickable segments that set the corresponding catalog filter (existing Phase 2 toggle or new lightweight `input_boolean` where needed).
 
-#### Chart & Insight Features
+##### 5A.3 — Data Quality Reports
 
-1. **Pie chart**: Weight distribution by material / vendor / color family (`custom:apexcharts-card`)
-2. **Bar chart**: Spools per location
-3. **Horizontal bar chart**: Alert counts by type (Repurchase, Desiccant, Drying, Empty, Stale)
-4. **Inventory value trend**: Total $ value over time (requires HA long-term statistics on a value sensor)
-5. **Usage rate**: Weight consumed per week/month per spool (derived from weight history)
-6. **Filament recommendation**: Based on what's running low, suggest what to reorder (stretch goal)
+Proactive detection of inventory data issues. Rendered as a compact card list below the charts (or as a dedicated "Health Check" section in the insights panel).
 
-#### Implementation Design: How & Where
+| Report | Description | Issue |
+|---|---|---|
+| **Multiple Unsealed Duplicates** | Flags filaments where >1 spool is unsealed for the same `filament_id` — indicates a spool that should be consumed before opening another | [#133](https://github.com/rsocko/hass-bambulab-config/issues/133) |
+| **Orphan Filaments** | Filament definitions in Spoolman with zero associated spools — candidates for cleanup | [#118](https://github.com/rsocko/hass-bambulab-config/issues/118) |
+| **Duplicate Hex Colors** | Multiple filaments sharing the same `filament_color_hex` — may cause incorrect AMS color matching | [#117](https://github.com/rsocko/hass-bambulab-config/issues/117) |
+| **AMS vs. Spoolman Weight Drift** | Compares AMS-reported weight with Spoolman `remaining_weight` for spools currently loaded in AMS trays — flags significant discrepancies | [#135](https://github.com/rsocko/hass-bambulab-config/issues/135) |
 
-##### Placement: Collapsible Metrics Panel at Top of Catalog View
+> **Note on #135 (AMS Weight Drift)**: Requires cross-referencing `sensor.spoolman_spool_*` with the `spoolman_tray_map` to identify which spools are currently in AMS trays and compare weights. The threshold for "significant discrepancy" needs to be defined (e.g., >10% or >50g drift).
+
+##### 5A Implementation Design
+
+###### Placement: Collapsible Metrics Panel at Top of Catalog View
 
 The metrics panel lives **inside** the existing Filament Catalog view — not on a separate view/tab. It sits between the KPI chips and the filter bar as a collapsible `<details>`-style section (using `custom:fold-entity-row` or a conditional card gated by a toggle):
 
@@ -730,7 +771,8 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 │       ├── Row 1: [Pie: Weight by Material] [Pie: Weight by Vendor]
 │       ├── Row 2: [Bar: Spools per Location]
 │       ├── Row 3: [Bar: Alert Counts by Type]  ← clickable segments
-│       └── Row 4: [Line: Inventory Value Trend] (if historical data available)
+│       ├── Row 4: [Data Quality: Issues Found]  ← compact list
+│       └── (Rows 5+: added incrementally by 5B–5D)
 │
 ├── Filter Bar (existing)
 └── Single auto-entities grid (existing)
@@ -745,11 +787,11 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 - Popups are good for single-entity detail (spool popup), but metrics benefit from persistent visibility while scrolling through the catalog.
 - A user might open the insights panel, see "5 desiccant overdue," click that bar segment to filter, then scroll the catalog — all without dismissing anything.
 
-##### Toggle Helper
+###### Toggle Helper
 
 `input_boolean.filament_catalog_show_insights` — Controls visibility of the metrics panel. Default: off (collapsed). The toggle chip appears in the KPI row or as a standalone mushroom chip.
 
-##### Clickable Chart Segments → Filter Integration
+###### Clickable Chart Segments → Filter Integration
 
 Chart segments are **interactive** — tapping a segment applies the corresponding filter to the catalog grid below:
 
@@ -765,25 +807,33 @@ Chart segments are **interactive** — tapping a segment applies the correspondi
 
 > **Note**: For alert types that don't have existing filter toggles (Needs Drying, Stale), clicking those bars could set a search term or add new lightweight `input_boolean` toggles. Alternatively, these can initially be display-only with filter integration added incrementally.
 
-##### Template Sensor: `sensor.filament_catalog_metrics`
+###### Template Sensor: `sensor.filament_catalog_metrics`
 
 A dedicated template sensor pre-computes all chart data server-side to avoid heavy JS in apexcharts configs:
 
 ```yaml
 attributes:
+  # 5A.1 — Distribution
   weight_by_material_json: '{"PLA": 45200, "PETG": 12300, ...}'  # grams
   weight_by_vendor_json: '{"Bambu Lab": 38000, "Sunlu": 15000, ...}'
   weight_by_color_family_json: '{"Blues": 12000, "Reds": 8000, ...}'
   spools_by_location_json: '{"AMS": 5, "Closet Shelf 1": 12, ...}'
-  alert_counts_json: '{"repurchase": 2, "desiccant": 5, "drying": 3, "empty": 1, "stale": 4}'
+
+  # 5A.2 — Alerts
+  alert_counts_json: '{"repurchase": 2, "desiccant": 5, "drying": 3, "empty": 1, "stale": 4, "missing_desiccant": 2}'
   alert_entity_ids_json: '{"repurchase": ["sensor.spoolman_spool_12", ...], ...}'
+
+  # 5A.3 — Data Quality
+  data_quality_json: '{"multiple_unsealed": [...], "orphan_filaments": [...], "duplicate_hex": [...], "ams_weight_drift": [...]}'
+
+  # Summary
   total_inventory_value: 3245.50
   avg_cost_per_kg: 22.50
 ```
 
 The sensor triggers on `sensor.spoolman_filament_totals` changes (same as the filter sensor), so it recomputes only when spool data changes — not on every state change.
 
-##### Modularity: Card-Per-Chart Pattern
+###### Modularity: Card-Per-Chart Pattern
 
 Each chart is its own includable card file, making it easy to add/remove/reorder:
 
@@ -794,9 +844,11 @@ filament_catalog/
 │   ├── insights/
 │   │   ├── chart_weight_by_material.yaml    ← apexcharts-card (pie)
 │   │   ├── chart_weight_by_vendor.yaml      ← apexcharts-card (pie)
+│   │   ├── chart_weight_by_color_family.yaml ← apexcharts-card (pie)
 │   │   ├── chart_spools_by_location.yaml    ← apexcharts-card (bar)
 │   │   ├── chart_alert_counts.yaml          ← apexcharts-card (horizontal bar, clickable)
-│   │   └── chart_inventory_trend.yaml       ← apexcharts-card (line, if data available)
+│   │   ├── card_data_quality_reports.yaml   ← button-card list of data quality issues
+│   │   └── (future sub-phase charts added here)
 │   └── ...
 ├── template_sensors/
 │   └── filament_catalog_metrics.yaml        ← pre-computed chart data
@@ -804,29 +856,256 @@ filament_catalog/
 
 The `catalog_insights_panel.yaml` is a `conditional` card (condition: `input_boolean.filament_catalog_show_insights` is on) wrapping a `vertical-stack` of `horizontal-stack` rows that `!include` each chart card. Adding a new chart = create the card file + add an `!include` line.
 
-##### Performance Considerations
+###### Performance Considerations
 
 - **`triggers_update`**: Every chart card MUST use `triggers_update: sensor.filament_catalog_metrics` to prevent re-render on unrelated entity changes.
 - **Conditional wrapper**: When the insights panel is collapsed (toggle off), the chart cards are not rendered at all — zero performance cost.
 - **No additional `auto-entities`**: Charts read from the pre-computed template sensor attributes, not from entity iteration.
 - **Apex chart settings**: Disable animations (`chart.animations.enabled: false`), limit data points for trend charts.
 
-#### Files to Create/Modify
+###### 5A Files to Create/Modify
 
 | File | Action |
 |---|---|
-| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Create** — Pre-computed chart data |
+| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Create** — Pre-computed chart + alert + data quality data |
 | `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Create** — Conditional wrapper for insights section |
 | `filament_catalog/dashboard_cards/insights/chart_weight_by_material.yaml` | **Create** — Pie chart |
 | `filament_catalog/dashboard_cards/insights/chart_weight_by_vendor.yaml` | **Create** — Pie chart |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_color_family.yaml` | **Create** — Pie chart |
 | `filament_catalog/dashboard_cards/insights/chart_spools_by_location.yaml` | **Create** — Bar chart |
 | `filament_catalog/dashboard_cards/insights/chart_alert_counts.yaml` | **Create** — Alert breakdown (clickable) |
-| `filament_catalog/dashboard_cards/insights/chart_inventory_trend.yaml` | **Create** — Line chart (stretch) |
+| `filament_catalog/dashboard_cards/insights/card_data_quality_reports.yaml` | **Create** — Data quality issue list |
 | `filament_catalog/helpers/input_boolean/filament_catalog_show_insights.yaml` | **Create** — Insights panel toggle |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modify** — Insert insights panel between KPIs and filter bar |
 | `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modify** — Add insights toggle chip (optional) |
 
-#### Estimated Complexity: High
+---
+
+#### Phase 5B: Cost Analytics
+**Data source**: Spoolman `price` / `filament_price` attributes (available now)
+**Dependency**: Phase 5A (metrics sensor + insights panel infrastructure)
+**Estimated Complexity**: Medium
+
+Phase 5B extends the metrics sensor and insights panel with cost-focused analytics. All data comes from the existing `price` and `filament_price` spool attributes — no print history required for the base cost views.
+
+##### Charts & KPIs
+
+| Chart / KPI | Type | Data Source | Issue |
+|---|---|---|---|
+| Avg Cost per kg by Material | Bar | `price / initial_weight` grouped by `filament_material` | [#115](https://github.com/rsocko/hass-bambulab-config/issues/115) |
+| Avg Cost per kg by Vendor | Bar | `price / initial_weight` grouped by `filament_vendor_name` | [#115](https://github.com/rsocko/hass-bambulab-config/issues/115) |
+| Inventory Value by Material | Stacked bar | `(remaining_weight / initial_weight) × price` grouped by material | — |
+| Inventory Value Trend | Line | HA long-term statistics on `sensor.filament_catalog_metrics.total_inventory_value` | — |
+| Total Spent (all-time) | KPI chip | Sum of `price` across all spools (including archived) | — |
+
+> **Note on Inventory Value Trend**: Requires HA Recorder to track `sensor.filament_catalog_metrics` over time. The line chart will only have data from the point the sensor is created onward. Consider whether this should be a separate `sensor.filament_inventory_value` (numeric state) for better HA statistics integration.
+
+##### Metrics Sensor Additions
+
+New attributes added to `sensor.filament_catalog_metrics`:
+
+```yaml
+attributes:
+  # ... existing 5A attributes ...
+
+  # 5B — Cost
+  avg_cost_per_kg_by_material_json: '{"PLA": 22.50, "PETG": 28.00, ...}'   # $/kg
+  avg_cost_per_kg_by_vendor_json: '{"Bambu Lab": 25.00, "Sunlu": 18.00, ...}'
+  inventory_value_by_material_json: '{"PLA": 1200.00, "PETG": 450.00, ...}'
+  total_spent_all_time: 4500.00    # includes archived spools
+```
+
+##### 5B Files to Create/Modify
+
+| File | Action |
+|---|---|
+| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Modify** — Add cost attributes |
+| `filament_catalog/dashboard_cards/insights/chart_cost_by_material.yaml` | **Create** — Bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_cost_by_vendor.yaml` | **Create** — Bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_inventory_value_trend.yaml` | **Create** — Line chart (requires HA statistics) |
+| `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Modify** — Add cost row |
+
+---
+
+#### Phase 5C: Usage & Recency Analytics
+**Data source**: Spoolman `last_used` / `first_used` attributes + HA weight history
+**Dependency**: Phase 5A (metrics sensor + insights panel infrastructure)
+**Estimated Complexity**: Medium
+
+Phase 5C leverages the `last_used` and `first_used` timestamps already on spool entities, plus HA's long-term statistics on `remaining_weight`, to surface usage patterns. No external print history integration is required — but the insights become richer once Phase 5D adds per-print data.
+
+##### Charts & Features
+
+| Chart / Feature | Type | Data Source | Issue |
+|---|---|---|---|
+| Recently Used Spools | Card strip / list | Top N spools sorted by `last_used` descending | [#641](https://github.com/rsocko/hass-bambulab-config/issues/641) |
+| Usage by Color | Pie / bar | `initial_weight - remaining_weight` grouped by `filament_extra_primary_color` | [#104](https://github.com/rsocko/hass-bambulab-config/issues/104) |
+| Usage Rate (weight/week) | Line sparkline | HA long-term statistics on `sensor.spoolman_spool_{id}` `remaining_weight` | — |
+| Stale Spool Identification | Ranked list | Spools where `last_used` > 6 months ago, sorted by staleness | — |
+| Spool Lifecycle Timeline | Horizontal bar | `registered → first_used → last_used → now` per spool | — |
+
+##### Recently Used Spools — Multi-Surface Feature ([#641](https://github.com/rsocko/hass-bambulab-config/issues/641))
+
+This issue requests showing recently used spools in several places:
+1. **Insights panel**: A horizontal strip of the 5–10 most recently used spool cards (compact `catalog_spool_card` at reduced size)
+2. **Main dashboard**: A "Recent Spools" card showing the last 3–5 used spools as mini swatches with names
+3. **Mobile-friendly picker**: A sort option "Last Used (Recent)" already exists in Phase 4 — may be sufficient for the mobile use case
+
+The "recently used" data comes from `last_used` on each spool entity. The `stacked bar graph or line chart` suggested in the issue would show usage frequency over time — this overlaps with Phase 5D's print history charts and can be enhanced once that data is available.
+
+##### Usage by Color ([#104](https://github.com/rsocko/hass-bambulab-config/issues/104))
+
+Total weight consumed (`initial_weight - remaining_weight`) grouped by primary color. Renders as a pie chart where each slice uses the actual `filament_color_hex` as its fill color — creating a visually distinctive chart that immediately communicates color usage patterns.
+
+> **Limitation**: This shows *total consumed to date*, not consumption over a specific period. Period-based consumption tracking (e.g., "grams of blue used this month") requires print history data (Phase 5D) or snapshotting weight values over time via HA statistics.
+
+##### Metrics Sensor Additions
+
+```yaml
+attributes:
+  # ... existing 5A/5B attributes ...
+
+  # 5C — Usage & Recency
+  recently_used_json: '[{"entity_id": "sensor.spoolman_spool_42", "last_used": "2026-03-15T...", "name": "..."}, ...]'
+  usage_by_color_json: '{"#4169E1": 1200, "#FF0000": 800, ...}'   # grams consumed, keyed by hex
+  usage_by_color_family_json: '{"Blues": 3400, "Reds": 2100, ...}'
+  stale_spools_json: '[{"entity_id": "...", "last_used": "2025-08-01", "days_idle": 228}, ...]'
+```
+
+##### 5C Files to Create/Modify
+
+| File | Action |
+|---|---|
+| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Modify** — Add usage/recency attributes |
+| `filament_catalog/dashboard_cards/insights/card_recently_used.yaml` | **Create** — Recent spools strip |
+| `filament_catalog/dashboard_cards/insights/chart_usage_by_color.yaml` | **Create** — Color-aware pie chart |
+| `filament_catalog/dashboard_cards/insights/card_stale_spools.yaml` | **Create** — Stale spool ranked list |
+| `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Modify** — Add usage row |
+
+---
+
+#### Phase 5D: Print History Analytics
+**Data source**: Print history (Bambuddy, custom webhook, or combination) + Power monitoring
+**Dependency**: Phase 5A + **Print history integration** (not yet built)
+**Estimated Complexity**: High
+**Status**: ⚠️ Blocked — print history data source not yet determined
+
+> **Critical dependency**: Phase 5D requires a structured print history data source that does not yet exist in this project. The data source decision is tracked across several open issues:
+> - [#251](https://github.com/rsocko/hass-bambulab-config/issues/251) — **Explore Bambuddy** (confirmed to have print archive; confirmed to record weight by filament for multi-filament prints)
+> - [#248](https://github.com/rsocko/hass-bambulab-config/issues/248) — Look into OpenSpoolman for print history / spool usage
+> - [#249](https://github.com/rsocko/hass-bambulab-config/issues/249) — Review Printstack capabilities
+> - [#235](https://github.com/rsocko/hass-bambulab-config/issues/235) — Review NodeRed Automation for History++
+> - [#197](https://github.com/rsocko/hass-bambulab-config/issues/197) / [#198](https://github.com/rsocko/hass-bambulab-config/issues/198) — Define fields / metadata to store
+>
+> Until the print history data model is finalized, this sub-phase documents the **desired metrics** so the data source requirements are clear. The charts below describe *what* to display; the exact template sensor attributes will depend on the chosen data source's schema.
+
+##### Print Time Metrics
+
+| Chart | Type | Description | Issue |
+|---|---|---|---|
+| Activity Heatmap | GitHub-style grid | Days × weeks grid colored by hours printed or number of prints per day. Each cell colored by intensity. | [#110](https://github.com/rsocko/hass-bambulab-config/issues/110) |
+| Hours per Week | Bar | Weekly print hours over the last N weeks | [#111](https://github.com/rsocko/hass-bambulab-config/issues/111) |
+| Hours per Month | Bar | Monthly print hours over the last N months | [#112](https://github.com/rsocko/hass-bambulab-config/issues/112) |
+| Utilization Rate | KPI / gauge | Percentage of days in the last 30/90/365 days with at least one active print | [#113](https://github.com/rsocko/hass-bambulab-config/issues/113) |
+
+> **Implementation note**: The GitHub-style activity heatmap ([#110](https://github.com/rsocko/hass-bambulab-config/issues/110)) may require a custom card or creative use of `apexcharts-card` heatmap series. Alternatively, a `custom:button-card` with CSS grid rendering colored cells from a template sensor attribute could work within the existing card ecosystem.
+
+##### Cost per Print
+
+| Chart / KPI | Type | Description | Issue |
+|---|---|---|---|
+| Filament Cost per Print | KPI / bar | `Σ(weight_used × cost_per_g)` for each print — derived from spool IDs used per print | [#116](https://github.com/rsocko/hass-bambulab-config/issues/116) |
+| Power Cost per Print | KPI | Printer power consumption during print × electricity rate | [#649](https://github.com/rsocko/hass-bambulab-config/issues/649) |
+| Total Cost per Print | KPI | Filament cost + power cost | [#649](https://github.com/rsocko/hass-bambulab-config/issues/649) |
+| Per-Print Power Breakdown | Bar / line | Estimated vs. actual power per print; cumulative power over time | [#650](https://github.com/rsocko/hass-bambulab-config/issues/650) |
+
+> **Note on power data ([#649](https://github.com/rsocko/hass-bambulab-config/issues/649), [#650](https://github.com/rsocko/hass-bambulab-config/issues/650))**: Power monitoring for the printer is a separate feature area (see `power_monitoring/` docs). Per-print power requires correlating print start/end timestamps with power sensor readings. Estimated power could come from print duration × average wattage. Actual power requires integration with a smart plug or energy monitor. Whether this shows estimated, actual, or cumulative data is an open design question.
+
+##### Energy vs. Print Time ([#114](https://github.com/rsocko/hass-bambulab-config/issues/114))
+
+Scatter plot or dual-axis chart showing energy consumption (kWh) vs. print time (hours) per print. Useful for identifying inefficient prints (high energy for short prints, or vice versa). Requires both print history timestamps and power monitoring data.
+
+##### Spool-to-Print Tracking ([#642](https://github.com/rsocko/hass-bambulab-config/issues/642))
+
+Each print record should store:
+- `filament_id` and `spool_id` for every spool used
+- Material/color metadata for each spool at time of print
+- Flag for unidentified filament (spool could not be matched)
+- Multi-filament prints: weight consumed per spool
+
+This enables rich queries like "which prints used this spool?" and "show all prints with PLA" that feed the charts above. The exact schema depends on the print history data source decision.
+
+> **Open questions for 5D**:
+> 1. Will Bambuddy be the primary print history source, or will a custom webhook/database be built?
+> 2. Does Bambuddy expose print history via HA entities, REST API, or both?
+> 3. How will multi-filament print records link to individual spool IDs?
+> 4. What is the electricity rate source — manual input_number, or fetched from a utility integration?
+> 5. Should power data come from a smart plug (actual) or estimated from print duration?
+
+##### 5D Files to Create/Modify (Tentative)
+
+| File | Action |
+|---|---|
+| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Modify** — Add print history attributes |
+| `filament_catalog/dashboard_cards/insights/chart_print_activity_heatmap.yaml` | **Create** — GitHub-style activity grid |
+| `filament_catalog/dashboard_cards/insights/chart_print_hours_weekly.yaml` | **Create** — Weekly bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_print_hours_monthly.yaml` | **Create** — Monthly bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_cost_per_print.yaml` | **Create** — Per-print cost breakdown |
+| `filament_catalog/dashboard_cards/insights/chart_energy_vs_time.yaml` | **Create** — Scatter / dual-axis |
+| `filament_catalog/dashboard_cards/insights/kpi_utilization_rate.yaml` | **Create** — Printer utilization gauge |
+| `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Modify** — Add print history rows |
+
+---
+
+#### Phase 5E: Advanced BI & External Tooling
+**Data source**: Various (Spoolman, HA, Prometheus, Grafana)
+**Dependency**: Independent — can run in parallel with 5A–5D
+**Estimated Complexity**: Variable (research + infrastructure)
+**Status**: ⚠️ Research / exploration phase
+
+Phase 5E is a parallel track exploring external BI tooling as an alternative or complement to the HA-native insights panel. These are longer-horizon items that may influence the approach for 5A–5D or provide more powerful visualization capabilities.
+
+| Item | Description | Issue |
+|---|---|---|
+| **Prometheus Integration** | Push Spoolman spool data to Prometheus for time-series storage. Enables historical queries not possible with HA Recorder alone. | [#149](https://github.com/rsocko/hass-bambulab-config/issues/149) |
+| **Grafana Dashboards** | Build Grafana dashboards for spool info/history. May embed in HA via `webpage` card or run standalone. | [#109](https://github.com/rsocko/hass-bambulab-config/issues/109), [#130](https://github.com/rsocko/hass-bambulab-config/issues/130) |
+| **Filametrics Exploration** | Research Filametrics features, reports, and metrics for inspiration and potential integration. | [#148](https://github.com/rsocko/hass-bambulab-config/issues/148) |
+| **SimplyPrint Reports** | Catalog available reports from SimplyPrint to determine if any can be reused or extended. | [#106](https://github.com/rsocko/hass-bambulab-config/issues/106) |
+| **PowerBI Prototypes** | Create prototype dashboards in PowerBI for advanced analytics that may be difficult in HA. | [#107](https://github.com/rsocko/hass-bambulab-config/issues/107) |
+
+> **Decision**: Phase 5E outputs should feed *back* into the design of 5A–5D. For example, if Grafana proves significantly better for time-series charts, Phase 5D's print history charts might embed Grafana panels rather than using `apexcharts-card`. The Prometheus integration ([#149](https://github.com/rsocko/hass-bambulab-config/issues/149)) is particularly relevant — it could become the long-term statistics backend for inventory value trends (5B) and usage rate tracking (5C).
+
+##### Relationship to HA-Native Charts
+
+The HA-native approach (apexcharts-card + template sensors) is the **primary path** for Phases 5A–5C because:
+- No additional infrastructure needed
+- Charts live inline with the catalog (contextual)
+- Clickable segments integrate with catalog filters (interactive)
+- Zero-cost when collapsed
+
+External tools (Grafana, PowerBI) are better suited for:
+- Complex time-series queries spanning months/years
+- Multi-dimensional drill-down (not feasible in HA cards)
+- Print history analytics requiring SQL-like queries
+- Sharing dashboards with others who don't have HA access
+
+The two approaches are not mutually exclusive — simple/interactive charts stay in HA, while complex analytics can live in Grafana.
+
+---
+
+#### Phase 5 Summary
+
+| Sub-Phase | Description | Data Source | Blocked? | Effort |
+|---|---|---|---|---|
+| **5A** | Inventory insights, alerts, data quality | Spoolman entities | No | High |
+| **5B** | Cost analytics | Spoolman `price` attributes | No | Medium |
+| **5C** | Usage & recency | Spoolman `last_used` + HA statistics | No | Medium |
+| **5D** | Print history analytics | Bambuddy / TBD | **Yes** — print history not yet built | High |
+| **5E** | External BI tooling | Various | No (research) | Variable |
+
+**Recommended order**: 5A → 5B → 5C (can start 5E research in parallel at any time) → 5D (once print history source is determined)
+
+#### Estimated Complexity: High (total across all sub-phases)
 
 ---
 
@@ -891,13 +1170,20 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 ## Implementation Priority Summary
 
 | Phase | Description | Effort | Dependency | Status |
-|---|---|---|---|
+|---|---|---|---|---|
 | **1** | Compact spool grid + popup + KPIs | Medium-High | None | ✅ Complete |
 | **2** | Filters, search, stock threshold helper | High | Phase 1 | ✅ Complete |
 | **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | ✅ Complete |
 | **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | ✅ Complete |
-| **5** | Metrics, insights & alert analytics | High | Phase 1; benefits from 2, 4 | |
+| **5A** | Inventory insights, alerts, data quality | High | Phase 1; benefits from 2, 4 | |
+| **5B** | Cost analytics | Medium | Phase 5A | |
+| **5C** | Usage & recency analytics | Medium | Phase 5A | |
+| **5D** | Print history analytics | High | Phase 5A + print history source (TBD) | ⚠️ Blocked |
+| **5E** | Advanced BI & external tooling | Variable | Independent (research) | |
 
-**Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
+**Recommended order**: Phase 1 → 2 → 3 → 4 → **5A → 5B → 5C** (start 5E research in parallel) → **5D** (once print history source is determined)
 
-Phases 1–4 are complete. Phase 5 (metrics, insights & alert analytics) is the next step — it combines inventory statistics/charts with alert-count breakdowns, all in a collapsible panel within the existing catalog view.
+Phases 1–4 are complete. Phase 5 is broken into five incremental sub-phases:
+- **5A–5C** are unblocked and use existing Spoolman data — these are the immediate next steps
+- **5D** requires a print history integration (Bambuddy, OpenSpoolman, or custom) that is still being evaluated ([#251](https://github.com/rsocko/hass-bambulab-config/issues/251), [#248](https://github.com/rsocko/hass-bambulab-config/issues/248), [#249](https://github.com/rsocko/hass-bambulab-config/issues/249))
+- **5E** is an independent research track that can proceed at any time and may influence the implementation approach for 5A–5D
