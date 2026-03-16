@@ -139,7 +139,7 @@ cards:
                 transform: translateY(-50%) !important;
               }
               .mdc-floating-label--float-above {
-                top: 8px !important;
+                top: 5px !important;
                 transform: translateY(0) scale(0.75) !important;
               }
         entities:
