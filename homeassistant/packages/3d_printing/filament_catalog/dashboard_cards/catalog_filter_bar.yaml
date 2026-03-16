@@ -118,7 +118,7 @@ cards:
               #states {
                 padding: 0 !important;
               }
-            hui-input-text-entity-row $: |
+            hui-input-text-entity-row $ ha-textfield $: |
               .mdc-text-field {
                 width: 95% !important;
               }
