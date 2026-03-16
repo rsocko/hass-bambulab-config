@@ -1,18 +1,14 @@
-# catalog_filter_bar.yaml
-# Filter controls for the Filament Catalog phase 2 experience.
-
 type: vertical-stack
 cards:
   - type: custom:bubble-card
     card_type: separator
     name: Filter Spools
     icon: mdi:filter-variant
-
   - type: custom:bubble-card
     card_type: sub-buttons
     entity: sensor.filament_catalog_filtered_spools
     hide_main_background: false
-    rows: 3
+    rows: 2.313
     sub_button:
       main: []
       bottom_layout: rows
@@ -99,7 +95,6 @@ cards:
               fill_width: true
           buttons_layout: inline
           justify_content: fill
-
   - type: horizontal-stack
     cards:
       - type: entities
@@ -148,3 +143,5 @@ cards:
             tap_action:
               action: call-service
               service: script.filament_catalog_clear_filters
+grid_options:
+  columns: full
