@@ -57,9 +57,8 @@ cards:
         --bubble-sub-slider-background-color: rgba(120, 120, 120, 0.18) !important;
       }
     sub_button:
-      main: []
-      bottom_layout: rows
-      bottom:
+      main_layout: rows
+      main:
         - group:
             - entity: input_select.filament_catalog_filter_material
               sub_button_type: select
