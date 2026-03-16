@@ -93,6 +93,14 @@ cards:
               tap_action:
                 action: toggle
               fill_width: true
+            - entity: input_boolean.filament_catalog_large_cards
+              name: Large Cards
+              icon: mdi:view-grid-plus
+              show_name: true
+              show_state: false
+              tap_action:
+                action: toggle
+              fill_width: true
           buttons_layout: inline
           justify_content: fill
   - type: horizontal-stack

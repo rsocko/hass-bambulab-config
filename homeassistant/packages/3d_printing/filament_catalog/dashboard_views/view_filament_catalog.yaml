@@ -1,11 +1,11 @@
 # view_filament_catalog.yaml
-# Filament Catalog view - Phase 1: Compact spool grid.
+# Filament Catalog view - Phase 1-3: Compact/Large spool grid.
 #
 # Displays all non-archived spools sorted by location,
 # with an inventory KPI summary at the top.
 #
-# Uses a SINGLE auto-entities instance (not per-location) to minimize
-# state-change processing and keep the main thread responsive.
+# Uses conditional cards to switch between compact (5 col) and large (3 col)
+# grid based on input_boolean.filament_catalog_large_cards toggle.
 #
 # Docs: docs/features/filament_catalog/filament-catalog.md
 
@@ -27,51 +27,111 @@ cards:
       - !include ../dashboard_cards/catalog_filter_bar.yaml
 
       # ============================================================
-      # All Spools (single auto-entities, sorted by location)
+      # All Spools — Compact grid (5 columns, default)
       # ============================================================
-      - type: custom:auto-entities
-        show_empty: false
+      - type: conditional
+        conditions:
+          - entity: input_boolean.filament_catalog_large_cards
+            state_not: "on"
         card:
-          type: grid
-          columns: 5
-          square: false
-        card_param: cards
-        filter:
-          template: >
-            {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
-            {% set cards = namespace(items=[]) %}
-            {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
-              {% for spool in states.sensor %}
-                {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
-                  {% set archived_raw = spool.attributes.get('archived', false) %}
-                  {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-                  {% if not archived %}
-                    {% set cards.items = cards.items + [{
-                      'entity': spool.entity_id,
-                      'type': 'custom:button-card',
-                      'template': 'catalog_spool_card'
-                    }] %}
+          type: custom:auto-entities
+          show_empty: false
+          card:
+            type: grid
+            columns: 5
+            square: false
+          card_param: cards
+          filter:
+            template: >
+              {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
+              {% set cards = namespace(items=[]) %}
+              {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
+                {% for spool in states.sensor %}
+                  {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
+                    {% set archived_raw = spool.attributes.get('archived', false) %}
+                    {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+                    {% if not archived %}
+                      {% set cards.items = cards.items + [{
+                        'entity': spool.entity_id,
+                        'type': 'custom:button-card',
+                        'template': 'catalog_spool_card'
+                      }] %}
+                    {% endif %}
                   {% endif %}
-                {% endif %}
-              {% endfor %}
-            {% else %}
-              {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-              {% if filtered_json is string %}
-                {% set filtered = filtered_json | from_json %}
-              {% elif filtered_json is iterable %}
-                {% set filtered = filtered_json | list %}
+                {% endfor %}
               {% else %}
-                {% set filtered = [] %}
+                {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+                {% if filtered_json is string %}
+                  {% set filtered = filtered_json | from_json %}
+                {% elif filtered_json is iterable %}
+                  {% set filtered = filtered_json | list %}
+                {% else %}
+                  {% set filtered = [] %}
+                {% endif %}
+                {% for entity_id in filtered %}
+                  {% set cards.items = cards.items + [{
+                    'entity': entity_id,
+                    'type': 'custom:button-card',
+                    'template': 'catalog_spool_card'
+                  }] %}
+                {% endfor %}
               {% endif %}
-              {% for entity_id in filtered %}
-                {% set cards.items = cards.items + [{
-                  'entity': entity_id,
-                  'type': 'custom:button-card',
-                  'template': 'catalog_spool_card'
-                }] %}
-              {% endfor %}
-            {% endif %}
-            {{ cards.items | tojson }}
-        sort:
-          method: attribute
-          attribute: location
+              {{ cards.items | tojson }}
+          sort:
+            method: attribute
+            attribute: location
+
+      # ============================================================
+      # All Spools — Large grid (3 columns)
+      # ============================================================
+      - type: conditional
+        conditions:
+          - entity: input_boolean.filament_catalog_large_cards
+            state: "on"
+        card:
+          type: custom:auto-entities
+          show_empty: false
+          card:
+            type: grid
+            columns: 3
+            square: false
+          card_param: cards
+          filter:
+            template: >
+              {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
+              {% set cards = namespace(items=[]) %}
+              {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
+                {% for spool in states.sensor %}
+                  {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
+                    {% set archived_raw = spool.attributes.get('archived', false) %}
+                    {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+                    {% if not archived %}
+                      {% set cards.items = cards.items + [{
+                        'entity': spool.entity_id,
+                        'type': 'custom:button-card',
+                        'template': 'catalog_spool_card'
+                      }] %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+              {% else %}
+                {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+                {% if filtered_json is string %}
+                  {% set filtered = filtered_json | from_json %}
+                {% elif filtered_json is iterable %}
+                  {% set filtered = filtered_json | list %}
+                {% else %}
+                  {% set filtered = [] %}
+                {% endif %}
+                {% for entity_id in filtered %}
+                  {% set cards.items = cards.items + [{
+                    'entity': entity_id,
+                    'type': 'custom:button-card',
+                    'template': 'catalog_spool_card'
+                  }] %}
+                {% endfor %}
+              {% endif %}
+              {{ cards.items | tojson }}
+          sort:
+            method: attribute
+            attribute: location

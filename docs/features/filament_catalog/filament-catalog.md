@@ -569,37 +569,58 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 
 ---
 
-### Phase 3: Enhanced Card Visuals & Density Toggle
+### Phase 3: Enhanced Card Visuals & Density Toggle ✅
 **Value**: Richer visual detail + user-controlled density.
+**Status**: Complete.
 
 #### Enhancements to `catalog_spool_card`
-1. **"Low Stock" badge** — Red overlay when `remaining_weight < 100g`
-2. **"Sealed" indicator** — Lock icon for `extra_sealed = true`
-3. **Last used timestamp** — Subtle "Used 4d ago" text from `last_used`
-4. **Multi-spool count badge** — "×3" if `spoolman_filament_totals` shows multiple spools
-5. **Color-coded left border** based on desiccant status (green/yellow/orange/red)
-6. **Price per gram** — Small text showing `$X.XX/g` on card
+1. **"Low Stock" badge** — Red weight text + inset red box-shadow when `remaining_weight < 100g`
+2. **"Sealed" indicator** — `mdi:package-variant-closed` icon (blue) in the status icon slot when `extra_sealed = true`. When sealed, the desiccant age icon is **never** shown.
+3. **Last used timestamp** — Subtle "Used Xd ago" text in bottom-right of card from `last_used`
+4. **Multi-spool count badge** — "×N" shown next to remaining weight if `spoolman_filament_totals` reports multiple spools of the same filament
+5. **Color-coded left border** based on desiccant status:
+   - `< 45 days`: green (`#4CAF50`)
+   - `45–59 days`: yellow (`#ffcc00`)
+   - `60–74 days`: orange (`#ff9900`)
+   - `≥ 75 days`: red (`#cc0000`)
+   - Sealed or no desiccant data: transparent (consistent 3px width)
+6. **Type details in subhead** — Label now shows `Material · Type1 · Type2 - Vendor` (dot-delimited type details parsed from `filament_extra_type_details`)
+7. **Taller weight progress bar** — Increased from 3px to 5px (1.5×) for better visibility
+8. **Lighter subhead & weight % font** — Label and weight percentage use `var(--primary-text-color)` at `opacity: 0.55` for improved readability over `var(--secondary-text-color)`
 
 #### Density Toggle
 
-New `input_select.filament_catalog_density` helper with options: `Compact`, `Medium`, `Spacious`.
+New `input_boolean.filament_catalog_large_cards` helper — a simple on/off toggle.
 
-| Density | Card Height | Content | Columns (desktop) |
-|---|---|---|---|
-| **Compact** | ~60px | Image + name + weight + material + bar | 5-6 |
-| **Medium** | ~100px | + vendor + last used + desiccant border + badges | 4 |
-| **Spacious** | ~140px | + purchase info + full weight % + cost | 3 |
+| Mode | Columns (desktop) | Description |
+|---|---|---|
+| **Off** (default) | 5 | Compact grid — all Phase 3 enhancements visible |
+| **On** | 3 | Large grid — wider cards with more room for labels and details |
 
-The `catalog_spool_card` template reads this helper and adjusts its layout via conditional CSS/grid areas.
+The view uses two `conditional` card wrappers around `auto-entities` instances: one for compact (5 columns, shown when toggle is off/unavailable) and one for large (3 columns, shown when toggle is on). Both use the same `catalog_spool_card` template and filter logic. The toggle button is in the filter bar's third row.
 
-#### Files to Modify
+#### Files Modified / Created
 
 | File | Action |
 |---|---|
-| `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modify** — Enhanced visuals + density modes |
-| `filament_catalog/helpers/` | **Modify** — Add density helper (`input_select`) |
+| `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modified** — All Phase 3 card enhancements |
+| `filament_catalog/helpers/input_boolean/filament_catalog_large_cards.yaml` | **Created** — Large cards toggle |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** — Conditional compact/large grid |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** — Added Large Cards toggle button |
 
-#### Estimated Complexity: Medium
+#### Grid Layout (card template)
+
+```
+Row 1: [entity_picture] [name]           [remaining_weight ×N] [status_icon]
+Row 2: [entity_picture] [label: mat·types-vendor]               [label]
+Row 3: [entity_picture] [weight_bar ————————————————]           [weight_bar]
+Row 4: [location_label]                   [last_used]
+```
+
+- `status_icon`: sealed icon (blue `mdi:package-variant-closed`) OR desiccant warning (`mdi:water` in yellow/orange/red). Sealed always takes priority.
+- `remaining_weight`: turns red and shows `×N` badge when low stock / multi-spool.
+- `border-left`: 3px color-coded by desiccant age (always 3px width for layout consistency).
+- `box-shadow`: subtle red inset glow for low-stock spools (`< 100g`).
 
 ---
 
@@ -769,7 +790,7 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 |---|---|---|---|
 | **1** | Compact spool grid + popup + KPIs | Medium-High | None | ✅ Complete |
 | **2** | Filters, search, stock threshold helper | High | Phase 1 | ✅ Complete |
-| **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | |
+| **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | ✅ Complete |
 | **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | |
 | **5** | Alerts & flags | High | Phase 1; benefits from 2 | |
 | **6** | Location management (quick-action → drag-drop) | Medium → High | Phase 1 | |
@@ -777,4 +798,4 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 
 **Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
 
-Phases 1-2 are complete. Phase 3 (density toggle + enhanced visuals) is the next recommended step now that the core grid and filtering interaction pattern is solid.
+Phases 1-3 are complete. Phase 4 (tabbed views + sort options) is the next recommended step now that the compact grid, filters, and enhanced visuals are solid.

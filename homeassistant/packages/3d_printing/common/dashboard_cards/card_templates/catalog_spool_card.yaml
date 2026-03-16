@@ -1,8 +1,11 @@
 # catalog_spool_card.yaml
 # Compact spool card for the Filament Catalog grid view.
-# Displays entity picture, filament name, material, vendor,
-# remaining weight, weight bar, and desiccant indicator.
+# Displays entity picture, filament name, material + type(s), vendor,
+# remaining weight, weight bar, sealed/desiccant indicator, and last used.
 # Tap opens catalog_spool_popup via browser_mod.
+#
+# Phase 3 enhancements: low stock badge, sealed icon, desiccant left border,
+# multi-spool count, last used timestamp.
 #
 # Designed for use with auto-entities (card_param: cards).
 # The entity is set automatically by auto-entities.
@@ -24,14 +27,28 @@ catalog_spool_card:
     [[[
       const material = entity?.attributes?.filament_material || '';
       const vendor = entity?.attributes?.filament_vendor_name || '';
-      return material + (material && vendor ? ' · ' : '') + vendor;
+      const typeRaw = entity?.attributes?.filament_extra_type_details || '';
+      let types = '';
+      if (typeRaw && typeRaw !== '[]' && typeRaw !== 'None' && typeRaw !== 'none') {
+        try { const p = JSON.parse(typeRaw); types = Array.isArray(p) ? p.join(' \u00b7 ') : ''; }
+        catch(e) { types = String(typeRaw).replace(/[\[\]"]/g, '').split(',').map(t => t.trim()).filter(Boolean).join(' \u00b7 '); }
+      }
+      const front = [material, types].filter(Boolean).join(' \u00b7 ');
+      return front + (front && vendor ? ' - ' : '') + vendor;
     ]]]
   custom_fields:
     remaining_weight: |
       [[[
         const w = entity?.attributes?.remaining_weight;
         if (w === undefined || w === null) return '';
-        return `<span style="font-size:11px; font-weight:600; color:var(--primary-text-color);">${w.toFixed(0)}g</span>`;
+        const filamentId = entity?.attributes?.filament_id;
+        const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
+        const ft = (filamentId != null && totals) ? totals[String(filamentId)] : null;
+        const count = ft ? ft.count : 1;
+        const countBadge = count > 1 ? ` <span style="font-size:9px;opacity:0.6;">\u00d7${count}</span>` : '';
+        const isLow = w < 100;
+        const color = isLow ? '#f44336' : 'var(--primary-text-color)';
+        return `<span style="font-size:11px; font-weight:600; color:${color};">${w.toFixed(0)}g${countBadge}</span>`;
       ]]]
     weight_bar: |
       [[[
@@ -43,10 +60,15 @@ catalog_spool_card:
         else if (remainPct > 25) barColor = '#FFC107';
         else if (remainPct > 10) barColor = '#FF9800';
         else barColor = '#f44336';
-        return `<div style="display:flex;align-items:center;gap:4px;"><div style="flex:1;height:3px;background:rgba(128,128,128,0.2);border-radius:2px;overflow:hidden;"><div style="width:${remainPct}%;height:100%;background:${barColor};border-radius:2px;"></div></div><span style="font-size:9px;color:var(--secondary-text-color);white-space:nowrap;">${remainPct.toFixed(0)}%</span></div>`;
+        return `<div style="display:flex;align-items:center;gap:4px;"><div style="flex:1;height:5px;background:rgba(128,128,128,0.2);border-radius:3px;overflow:hidden;"><div style="width:${remainPct}%;height:100%;background:${barColor};border-radius:3px;"></div></div><span style="font-size:9px;color:var(--primary-text-color);opacity:0.55;white-space:nowrap;">${remainPct.toFixed(0)}%</span></div>`;
       ]]]
-    desiccant_icon: |
+    status_icon: |
       [[[
+        const isSealed = entity?.attributes?.extra_sealed;
+        const sealed = isSealed === true || isSealed === 'true' || isSealed === 'True' || isSealed === 1 || isSealed === '1';
+        if (sealed) {
+          return `<ha-icon icon="mdi:package-variant-closed" style="--mdc-icon-size:14px; color:#42A5F5;"></ha-icon>`;
+        }
         const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
         const filled = entity?.attributes?.extra_desiccant_filled;
         if (!hasDesiccant || !filled) return '';
@@ -57,6 +79,17 @@ catalog_spool_card:
         else if (days < 75) color = '#ff9900';
         else color = '#cc0000';
         return `<ha-icon icon="mdi:water" style="--mdc-icon-size:14px; color:${color};"></ha-icon>`;
+      ]]]
+    last_used: |
+      [[[
+        const lu = entity?.attributes?.last_used;
+        if (!lu) return '';
+        const days = Math.floor((Date.now() - new Date(lu)) / 86400000);
+        let text;
+        if (days === 0) text = 'Today';
+        else if (days === 1) text = '1d ago';
+        else text = days + 'd ago';
+        return `<span style="font-size:9px; color:var(--primary-text-color); opacity:0.45; white-space:nowrap;">${text}</span>`;
       ]]]
     location_label: |
       [[[
@@ -69,6 +102,28 @@ catalog_spool_card:
       - padding: 6px 8px
       - border-radius: 8px
       - overflow: hidden
+      - border-left: |
+          [[[
+            const isSealed = entity?.attributes?.extra_sealed;
+            const sealed = isSealed === true || isSealed === 'true' || isSealed === 'True' || isSealed === 1 || isSealed === '1';
+            if (sealed) return '3px solid transparent';
+            const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
+            const filled = entity?.attributes?.extra_desiccant_filled;
+            if (!hasDesiccant || !filled) return '3px solid transparent';
+            const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
+            if (days < 45) return '3px solid #4CAF50';
+            if (days < 60) return '3px solid #ffcc00';
+            if (days < 75) return '3px solid #ff9900';
+            return '3px solid #cc0000';
+          ]]]
+      - box-shadow: |
+          [[[
+            const w = entity?.attributes?.remaining_weight;
+            if (w !== undefined && w !== null && w < 100) {
+              return 'inset 0 0 0 1px rgba(244,67,54,0.4)';
+            }
+            return 'none';
+          ]]]
       - background: |
           [[[
             const hexes = entity?.attributes?.filament_multi_color_hexes || '';
@@ -91,7 +146,7 @@ catalog_spool_card:
             return `rgba(${r},${g},${b},0.25)`;
           ]]]
     grid:
-      - grid-template-areas: '"i n remaining_weight desiccant_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label location_label location_label"'
+      - grid-template-areas: '"i n remaining_weight status_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label last_used last_used"'
       - grid-template-columns: 44px minmax(0, 1fr) auto auto
       - grid-template-rows: auto auto auto auto
       - align-items: center
@@ -118,7 +173,8 @@ catalog_spool_card:
       - justify-self: start
     label:
       - font-size: 10px
-      - color: var(--secondary-text-color)
+      - color: var(--primary-text-color)
+      - opacity: 0.55
       - white-space: nowrap
       - overflow: hidden
       - text-overflow: ellipsis
@@ -128,10 +184,10 @@ catalog_spool_card:
         - justify-self: end
       weight_bar:
         - width: 100%
-        - padding-right: 2px
-      desiccant_icon:
+      status_icon:
         - justify-self: end
-        - padding-left: 2px
+      last_used:
+        - justify-self: end
       location_label:
         - justify-self: start
         - padding-top: 1px
