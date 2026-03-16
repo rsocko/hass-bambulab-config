@@ -577,16 +577,17 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 1. **"Low Stock" badge** — Red weight text + inset red box-shadow when `remaining_weight < 100g`
 2. **"Sealed" indicator** — `mdi:package-variant-closed` icon (blue) in the status icon slot when `extra_sealed = true`. When sealed, the desiccant age icon is **never** shown.
 3. **Last used timestamp** — Subtle "Used Xd ago" text in bottom-right of card from `last_used`
-4. **Multi-spool count badge** — "×N" shown next to remaining weight if `spoolman_filament_totals` reports multiple spools of the same filament
-5. **Color-coded left border** based on desiccant status:
-   - `< 45 days`: green (`#4CAF50`)
-   - `45–59 days`: yellow (`#ffcc00`)
-   - `60–74 days`: orange (`#ff9900`)
-   - `≥ 75 days`: red (`#cc0000`)
-   - Sealed or no desiccant data: transparent (consistent 3px width)
-6. **Type details in subhead** — Label now shows `Material · Type1 · Type2 - Vendor` (dot-delimited type details parsed from `filament_extra_type_details`)
-7. **Taller weight progress bar** — Increased from 3px to 5px (1.5×) for better visibility
-8. **Lighter subhead & weight % font** — Label and weight percentage use `var(--primary-text-color)` at `opacity: 0.55` for improved readability over `var(--secondary-text-color)`
+4. **Alert-priority left border** — 3px left border color reflects the **worst** active alert across desiccant age and remaining weight:
+   - **No alerts**: transparent (no decoration)
+   - **Yellow** (`#FFC107`): desiccant 45–59 days old OR remaining weight 25–50%
+   - **Orange** (`#FF9800`): desiccant 60–74 days old OR remaining weight 10–25%
+   - **Red** (`#f44336`): desiccant ≥ 75 days old OR remaining weight ≤ 10%
+   - **Light gray** (`#bdbdbd`): desiccant is present but fill date is undefined
+   - **Sealed**: transparent (no decoration)
+   - When multiple alert conditions exist, the most severe color wins (e.g., yellow desiccant + red weight → red border)
+5. **Type details in subhead** — Label now shows `Material · Type1 · Type2 - Vendor` (dot-delimited type details parsed from `filament_extra_type_details`)
+6. **Taller weight progress bar** — Increased from 3px to 5px (1.5×) for better visibility
+7. **Lighter subhead & weight % font** — Label and weight percentage use `var(--primary-text-color)` at `opacity: 0.55` for improved readability over `var(--secondary-text-color)`
 
 #### Density Toggle
 
@@ -611,15 +612,15 @@ The view uses two `conditional` card wrappers around `auto-entities` instances: 
 #### Grid Layout (card template)
 
 ```
-Row 1: [entity_picture] [name]           [remaining_weight ×N] [status_icon]
-Row 2: [entity_picture] [label: mat·types-vendor]               [label]
-Row 3: [entity_picture] [weight_bar ————————————————]           [weight_bar]
+Row 1: [entity_picture] [name]           [remaining_weight] [status_icon]
+Row 2: [entity_picture] [label: mat·types-vendor]             [label]
+Row 3: [entity_picture] [weight_bar ————————————————]         [weight_bar]
 Row 4: [location_label]                   [last_used]
 ```
 
 - `status_icon`: sealed icon (blue `mdi:package-variant-closed`) OR desiccant warning (`mdi:water` in yellow/orange/red). Sealed always takes priority.
-- `remaining_weight`: turns red and shows `×N` badge when low stock / multi-spool.
-- `border-left`: 3px color-coded by desiccant age (always 3px width for layout consistency).
+- `remaining_weight`: turns red when low stock (`< 100g`).
+- `border-left`: 3px color-coded by worst active alert (desiccant age or remaining weight). Transparent when no alerts; light gray when desiccant date is undefined.
 - `box-shadow`: subtle red inset glow for low-stock spools (`< 100g`).
 
 ---

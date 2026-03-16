@@ -4,8 +4,8 @@
 # remaining weight, weight bar, sealed/desiccant indicator, and last used.
 # Tap opens catalog_spool_popup via browser_mod.
 #
-# Phase 3 enhancements: low stock badge, sealed icon, desiccant left border,
-# multi-spool count, last used timestamp.
+# Phase 3 enhancements: low stock badge, sealed icon, alert-priority left border,
+# last used timestamp.
 #
 # Designed for use with auto-entities (card_param: cards).
 # The entity is set automatically by auto-entities.
@@ -41,14 +41,9 @@ catalog_spool_card:
       [[[
         const w = entity?.attributes?.remaining_weight;
         if (w === undefined || w === null) return '';
-        const filamentId = entity?.attributes?.filament_id;
-        const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
-        const ft = (filamentId != null && totals) ? totals[String(filamentId)] : null;
-        const count = ft ? ft.count : 1;
-        const countBadge = count > 1 ? ` <span style="font-size:9px;opacity:0.6;">\u00d7${count}</span>` : '';
         const isLow = w < 100;
         const color = isLow ? '#f44336' : 'var(--primary-text-color)';
-        return `<span style="font-size:11px; font-weight:600; color:${color};">${w.toFixed(0)}g${countBadge}</span>`;
+        return `<span style="font-size:11px; font-weight:600; color:${color};">${w.toFixed(0)}g</span>`;
       ]]]
     weight_bar: |
       [[[
@@ -107,14 +102,30 @@ catalog_spool_card:
             const isSealed = entity?.attributes?.extra_sealed;
             const sealed = isSealed === true || isSealed === 'true' || isSealed === 'True' || isSealed === 1 || isSealed === '1';
             if (sealed) return '3px solid transparent';
+            let severity = 0;
             const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
             const filled = entity?.attributes?.extra_desiccant_filled;
-            if (!hasDesiccant || !filled) return '3px solid transparent';
-            const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
-            if (days < 45) return '3px solid #4CAF50';
-            if (days < 60) return '3px solid #ffcc00';
-            if (days < 75) return '3px solid #ff9900';
-            return '3px solid #cc0000';
+            let desiccantUndefined = false;
+            if (hasDesiccant && !filled) {
+              desiccantUndefined = true;
+            } else if (hasDesiccant && filled) {
+              const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
+              if (days >= 75) severity = 3;
+              else if (days >= 60) severity = Math.max(severity, 2);
+              else if (days >= 45) severity = Math.max(severity, 1);
+            }
+            const usedPct = entity?.attributes?.used_percentage;
+            if (usedPct !== undefined && usedPct !== null) {
+              const remainPct = Math.min(Math.max(100 - usedPct, 0), 100);
+              if (remainPct <= 10) severity = Math.max(severity, 3);
+              else if (remainPct <= 25) severity = Math.max(severity, 2);
+              else if (remainPct <= 50) severity = Math.max(severity, 1);
+            }
+            if (severity === 3) return '3px solid #f44336';
+            if (severity === 2) return '3px solid #FF9800';
+            if (severity === 1) return '3px solid #FFC107';
+            if (desiccantUndefined) return '3px solid #bdbdbd';
+            return '3px solid transparent';
           ]]]
       - box-shadow: |
           [[[
