@@ -4,13 +4,13 @@
 type: vertical-stack
 cards:
   - type: custom:bubble-card
-    card_type: sub-buttons
-    entity: sensor.filament_catalog_filtered_spools
+    card_type: separator
     name: Filter Spools
     icon: mdi:filter-variant
-    show_name: true
-    show_icon: true
-    show_state: false
+
+  - type: custom:bubble-card
+    card_type: sub-buttons
+    entity: sensor.filament_catalog_filtered_spools
     hide_main_background: false
     rows: 3
     sub_button:
@@ -108,19 +108,24 @@ cards:
           style:
             .: |
               ha-card {
-                padding-top: 0 !important;
-                padding-bottom: 0 !important;
+                border-radius: 999px !important;
+                overflow: hidden !important;
+                padding: 6px 10px !important;
               }
               #states {
-                padding-top: 0 !important;
-                padding-bottom: 0 !important;
+                padding: 0 !important;
               }
             hui-input-text-entity-row $: |
               .mdc-text-field,
               ha-textfield {
-                --mdc-filled-text-field-container-height: 44px;
-                min-height: 44px !important;
-                height: 44px !important;
+                --mdc-filled-text-field-container-height: 36px;
+                min-height: 36px !important;
+                height: 36px !important;
+                border-radius: 999px !important;
+              }
+              .mdc-text-field__input {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
               }
         entities:
           - entity: input_text.filament_catalog_search
