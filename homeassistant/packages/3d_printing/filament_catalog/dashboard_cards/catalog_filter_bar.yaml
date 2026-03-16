@@ -3,12 +3,24 @@
 
 type: vertical-stack
 cards:
-  - type: entities
-    show_header_toggle: false
-    entities:
-      - entity: input_text.filament_catalog_search
-        name: Search Filament
-        secondary_info: none
+  - type: horizontal-stack
+    cards:
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: input_text.filament_catalog_search
+            name: Search Filament
+            secondary_info: none
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.filament_catalog_filtered_spools
+        name: Matches
+        icon: mdi:counter
+        show_name: true
+        show_state: true
+        tap_action:
+          action: more-info
 
   - type: custom:bubble-card
     card_type: button
@@ -16,9 +28,24 @@ cards:
     entity: sensor.filament_catalog_filtered_spools
     name: Catalog Filters
     icon: mdi:filter-variant
-    show_state: true
+    show_state: false
     card_layout: large-sub-buttons-grid
-    rows: 3
+    rows: 2
+    styles: |
+      .bubble-sub-button {
+        min-height: 36px !important;
+      }
+      .bubble-sub-button-text {
+        font-size: 12px !important;
+      }
+      /* Repurchase slider: keep it interactive but visually neutral (no bright blue fill). */
+      .bubble-sub-button-6 .bubble-range-fill {
+        background: rgba(140, 140, 140, 0.55) !important;
+        opacity: 1 !important;
+      }
+      .bubble-sub-button-6 {
+        --bubble-sub-slider-background-color: rgba(120, 120, 120, 0.18) !important;
+      }
     sub_button:
       - entity: input_select.filament_catalog_filter_material
         sub_button_type: select
@@ -80,17 +107,11 @@ cards:
           action: toggle
       - entity: input_boolean.filament_catalog_filter_unsealed_only
         name: Unsealed
-        icon: mdi:package-variant-open
+        icon: mdi:lock-open-variant
         show_name: true
         show_state: false
         tap_action:
           action: toggle
-      - entity: sensor.filament_catalog_filtered_spools
-        name: Matches
-        icon: mdi:counter
-        show_name: true
-        show_state: true
-        show_background: false
       - name: Clear All
         icon: mdi:filter-remove
         show_name: true
