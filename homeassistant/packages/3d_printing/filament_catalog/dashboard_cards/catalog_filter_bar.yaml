@@ -3,100 +3,126 @@
 
 type: vertical-stack
 cards:
-  - type: grid
-    columns: 3
-    square: false
-    cards:
-      - type: custom:bubble-card
-        card_type: select
-        entity: input_select.filament_catalog_filter_material
-        name: Material
-        icon: mdi:flask-outline
-      - type: custom:bubble-card
-        card_type: select
-        entity: input_select.filament_catalog_filter_vendor
-        name: Vendor
-        icon: mdi:factory
-      - type: custom:bubble-card
-        card_type: select
-        entity: input_select.filament_catalog_filter_color
-        name: Color
-        icon: mdi:palette-outline
-      - type: custom:bubble-card
-        card_type: select
-        entity: input_select.filament_catalog_filter_color_family
-        name: Family
-        icon: mdi:format-color-fill
-      - type: custom:bubble-card
-        card_type: select
-        entity: input_select.filament_catalog_filter_type
-        name: Type
-        icon: mdi:shape-outline
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        entity: sensor.filament_catalog_filtered_spools
-        name: Matches
-        icon: mdi:counter
+  - type: entities
+    show_header_toggle: false
+    entities:
+      - entity: input_text.filament_catalog_search
+        name: Search Filament
+        secondary_info: none
 
-  - type: horizontal-stack
-    cards:
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        entity: input_text.filament_catalog_search
-        name: Search
-        icon: mdi:magnify
-        tap_action:
-          action: more-info
-        sub_button:
-          bottom:
-            - icon: mdi:close-circle-outline
-              name: Clear
+  - type: custom:bubble-card
+    card_type: sub-buttons
+    hide_main_background: true
+    rows: 1.1
+    styles: |
+      .bubble-sub-button {
+        min-height: 38px !important;
+      }
+      .bubble-sub-button-text {
+        font-size: 12px !important;
+      }
+    sub_button:
+      main: []
+      bottom_layout: rows
+      bottom:
+        - group:
+            - entity: input_select.filament_catalog_filter_material
+              sub_button_type: select
+              name: Material
+              icon: mdi:flask-outline
+              show_name: true
+              show_state: true
+              fill_width: true
+            - entity: input_select.filament_catalog_filter_vendor
+              sub_button_type: select
+              name: Vendor
+              icon: mdi:factory
+              show_name: true
+              show_state: true
+              fill_width: true
+            - entity: input_select.filament_catalog_filter_color
+              sub_button_type: select
+              name: Color
+              icon: mdi:palette-outline
+              show_name: true
+              show_state: true
+              fill_width: true
+          buttons_layout: inline
+          justify_content: fill
+        - group:
+            - entity: input_select.filament_catalog_filter_color_family
+              sub_button_type: select
+              name: Family
+              icon: mdi:format-color-fill
+              show_name: true
+              show_state: true
+              fill_width: true
+            - entity: input_select.filament_catalog_filter_type
+              sub_button_type: select
+              name: Type
+              icon: mdi:shape-outline
+              show_name: true
+              show_state: true
+              fill_width: true
+            - entity: input_number.filament_catalog_repurchase_threshold
+              sub_button_type: slider
+              name: Repurchase g
+              icon: mdi:weight-gram
+              show_name: true
+              show_state: true
+              fill_width: true
+              tap_to_slide: true
+          buttons_layout: inline
+          justify_content: fill
+        - group:
+            - entity: input_boolean.filament_catalog_filter_needs_repurchase
+              name: Repurchase
+              icon: mdi:alert-circle-outline
+              show_name: true
+              show_state: false
+              tap_action:
+                action: toggle
+              fill_width: true
+            - entity: input_boolean.filament_catalog_filter_desiccant_old
+              name: Desiccant
+              icon: mdi:water-alert
+              show_name: true
+              show_state: false
+              tap_action:
+                action: toggle
+              fill_width: true
+            - entity: input_boolean.filament_catalog_filter_low_stock
+              name: Low Stock
+              icon: mdi:archive-alert-outline
+              show_name: true
+              show_state: false
+              tap_action:
+                action: toggle
+              fill_width: true
+          buttons_layout: inline
+          justify_content: fill
+        - group:
+            - entity: input_boolean.filament_catalog_filter_unsealed_only
+              name: Unsealed
+              icon: mdi:package-variant-open
+              show_name: true
+              show_state: false
+              tap_action:
+                action: toggle
+              fill_width: true
+            - entity: sensor.filament_catalog_filtered_spools
+              name: Matches
+              icon: mdi:counter
+              show_name: true
+              show_state: true
+              show_background: false
+              fill_width: true
+            - name: Clear All
+              icon: mdi:filter-remove
               show_name: true
               tap_action:
                 action: call-service
-                service: input_text.set_value
-                target:
-                  entity_id: input_text.filament_catalog_search
-                data:
-                  value: ""
-      - type: custom:bubble-card
-        card_type: button
-        button_type: slider
-        entity: input_number.filament_catalog_repurchase_threshold
-        name: Repurchase (g)
-        icon: mdi:weight-gram
-
-  - type: grid
-    columns: 3
-    square: false
-    cards:
-      - type: custom:bubble-card
-        card_type: button
-        entity: input_boolean.filament_catalog_filter_needs_repurchase
-        name: Repurchase
-        icon: mdi:alert-circle-outline
-      - type: custom:bubble-card
-        card_type: button
-        entity: input_boolean.filament_catalog_filter_desiccant_old
-        name: Desiccant
-        icon: mdi:water-alert
-      - type: custom:bubble-card
-        card_type: button
-        entity: input_boolean.filament_catalog_filter_low_stock
-        name: Low Stock
-        icon: mdi:archive-alert-outline
-      - type: custom:bubble-card
-        card_type: button
-        entity: input_boolean.filament_catalog_filter_unsealed_only
-        name: Unsealed
-        icon: mdi:package-variant-open
-      - type: custom:bubble-card
-        card_type: button
-        button_type: name
-        name: Clear All
-        icon: mdi:filter-remove
-        tap_action:
-          action: call-service
-          service: script.filament_catalog_clear_filters
+                service: script.filament_catalog_clear_filters
+              fill_width: true
+          buttons_layout: inline
+          justify_content: fill
