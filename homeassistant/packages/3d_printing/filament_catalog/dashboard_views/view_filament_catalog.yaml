@@ -3,10 +3,12 @@
 # tabbed grouping (By Location/Material/Vendor/Color Family/Alerts/All)
 # and configurable sort order.
 #
-# Each group emits a full-width header card + a nested grid card into
-# a vertical-stack auto-entities. This gives headers natural full width
-# while spool cards stay in their column grid. Still only ONE auto-entities
-# visible at a time (critical performance constraint).
+# Group headers use type:markdown cards inside the same flat grid.
+# card_mod on the grid uses CSS :has() to make markdown card wrappers
+# span all columns (grid-column: 1 / -1). This avoids nested card
+# structures that auto-entities can't handle.
+#
+# Still only ONE auto-entities visible at a time (critical perf constraint).
 #
 # Uses conditional cards to switch between compact (5 col) and large (3 col)
 # grid based on input_boolean.filament_catalog_large_cards toggle.
@@ -32,10 +34,8 @@ cards:
 
       # ============================================================
       # All Spools — Compact grid (5 columns, default)
-      # auto-entities wraps a vertical-stack. Each group emits:
-      #   1. A full-width catalog_group_header card
-      #   2. A type:grid card containing that group's spool cards
-      # Non-grouped tabs emit a single grid with all spools.
+      # Group headers are type:markdown cards that span all columns
+      # via card_mod CSS :has() on the grid card.
       # ============================================================
       - type: conditional
         conditions:
@@ -45,20 +45,26 @@ cards:
           type: custom:auto-entities
           show_empty: false
           card:
-            type: vertical-stack
+            type: grid
+            columns: 5
+            square: false
+            card_mod:
+              style: |
+                div:has(> hui-markdown-card) {
+                  grid-column: 1 / -1 !important;
+                }
           card_param: cards
           filter:
             template: >
               {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
               {% set cards = namespace(items=[]) %}
               {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
-                {% set spool_cards = namespace(items=[]) %}
                 {% for spool in states.sensor %}
                   {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
                     {% set archived_raw = spool.attributes.get('archived', false) %}
                     {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
                     {% if not archived %}
-                      {% set spool_cards.items = spool_cards.items + [{
+                      {% set cards.items = cards.items + [{
                         'entity': spool.entity_id,
                         'type': 'custom:button-card',
                         'template': 'catalog_spool_card'
@@ -66,14 +72,6 @@ cards:
                     {% endif %}
                   {% endif %}
                 {% endfor %}
-                {% if spool_cards.items | length > 0 %}
-                  {% set cards.items = cards.items + [{
-                    'type': 'grid',
-                    'columns': 5,
-                    'square': false,
-                    'cards': spool_cards.items
-                  }] %}
-                {% endif %}
               {% else %}
                 {% set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) %}
                 {% if gj is string %}
@@ -85,33 +83,22 @@ cards:
                 {% endif %}
                 {% for group in groups %}
                   {% if group.get('name', '') != '' %}
+                    {% set hc = '<div style="display:flex;align-items:center;width:100%"><span style="font-size:13px;font-weight:600;color:var(--primary-text-color)">' ~ (group.name | e) ~ '</span><span style="font-size:11px;color:var(--secondary-text-color);margin-left:6px">(' ~ group.count ~ ')</span><div style="flex:1;height:1px;background:var(--divider-color,rgba(255,255,255,0.12));margin-left:10px"></div></div>' %}
                     {% set cards.items = cards.items + [{
-                      'type': 'custom:button-card',
-                      'template': 'catalog_group_header',
-                      'entity': 'sensor.spoolman_filament_totals',
-                      'triggers_update': 'sensor.spoolman_filament_totals',
-                      'variables': {
-                        'groupName': group.name,
-                        'groupCount': group.count
+                      'type': 'markdown',
+                      'content': hc,
+                      'card_mod': {
+                        'style': 'ha-card { background:none !important; border:none !important; box-shadow:none !important; padding:6px 4px 0 4px !important; margin:0 !important; }'
                       }
                     }] %}
                   {% endif %}
-                  {% set spool_cards = namespace(items=[]) %}
                   {% for entity_id in group.get('entities', []) %}
-                    {% set spool_cards.items = spool_cards.items + [{
+                    {% set cards.items = cards.items + [{
                       'entity': entity_id,
                       'type': 'custom:button-card',
                       'template': 'catalog_spool_card'
                     }] %}
                   {% endfor %}
-                  {% if spool_cards.items | length > 0 %}
-                    {% set cards.items = cards.items + [{
-                      'type': 'grid',
-                      'columns': 5,
-                      'square': false,
-                      'cards': spool_cards.items
-                    }] %}
-                  {% endif %}
                 {% endfor %}
               {% endif %}
               {{ cards.items | tojson }}
@@ -128,20 +115,26 @@ cards:
           type: custom:auto-entities
           show_empty: false
           card:
-            type: vertical-stack
+            type: grid
+            columns: 3
+            square: false
+            card_mod:
+              style: |
+                div:has(> hui-markdown-card) {
+                  grid-column: 1 / -1 !important;
+                }
           card_param: cards
           filter:
             template: >
               {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
               {% set cards = namespace(items=[]) %}
               {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
-                {% set spool_cards = namespace(items=[]) %}
                 {% for spool in states.sensor %}
                   {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
                     {% set archived_raw = spool.attributes.get('archived', false) %}
                     {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
                     {% if not archived %}
-                      {% set spool_cards.items = spool_cards.items + [{
+                      {% set cards.items = cards.items + [{
                         'entity': spool.entity_id,
                         'type': 'custom:button-card',
                         'template': 'catalog_spool_card'
@@ -149,14 +142,6 @@ cards:
                     {% endif %}
                   {% endif %}
                 {% endfor %}
-                {% if spool_cards.items | length > 0 %}
-                  {% set cards.items = cards.items + [{
-                    'type': 'grid',
-                    'columns': 3,
-                    'square': false,
-                    'cards': spool_cards.items
-                  }] %}
-                {% endif %}
               {% else %}
                 {% set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) %}
                 {% if gj is string %}
@@ -168,33 +153,22 @@ cards:
                 {% endif %}
                 {% for group in groups %}
                   {% if group.get('name', '') != '' %}
+                    {% set hc = '<div style="display:flex;align-items:center;width:100%"><span style="font-size:13px;font-weight:600;color:var(--primary-text-color)">' ~ (group.name | e) ~ '</span><span style="font-size:11px;color:var(--secondary-text-color);margin-left:6px">(' ~ group.count ~ ')</span><div style="flex:1;height:1px;background:var(--divider-color,rgba(255,255,255,0.12));margin-left:10px"></div></div>' %}
                     {% set cards.items = cards.items + [{
-                      'type': 'custom:button-card',
-                      'template': 'catalog_group_header',
-                      'entity': 'sensor.spoolman_filament_totals',
-                      'triggers_update': 'sensor.spoolman_filament_totals',
-                      'variables': {
-                        'groupName': group.name,
-                        'groupCount': group.count
+                      'type': 'markdown',
+                      'content': hc,
+                      'card_mod': {
+                        'style': 'ha-card { background:none !important; border:none !important; box-shadow:none !important; padding:6px 4px 0 4px !important; margin:0 !important; }'
                       }
                     }] %}
                   {% endif %}
-                  {% set spool_cards = namespace(items=[]) %}
                   {% for entity_id in group.get('entities', []) %}
-                    {% set spool_cards.items = spool_cards.items + [{
+                    {% set cards.items = cards.items + [{
                       'entity': entity_id,
                       'type': 'custom:button-card',
                       'template': 'catalog_spool_card'
                     }] %}
                   {% endfor %}
-                  {% if spool_cards.items | length > 0 %}
-                    {% set cards.items = cards.items + [{
-                      'type': 'grid',
-                      'columns': 3,
-                      'square': false,
-                      'cards': spool_cards.items
-                    }] %}
-                  {% endif %}
                 {% endfor %}
               {% endif %}
               {{ cards.items | tojson }}
