@@ -43,6 +43,26 @@ catalog_spool_popup:
       ann(entity?.attributes?.extra_desiccant_filled, '#2196F3', 'Desiccant Filled');
       ann(entity?.attributes?.extra_last_dried, '#FF9800', 'Last Dried');
 
+      // --- Desiccant / Dried display (matches AMS popup) ---
+      const hasDes = entity?.attributes?.extra_desiccant_in_spool;
+      const desFilled = entity?.attributes?.extra_desiccant_filled;
+      let desStatus = 'empty', desDays = null;
+      if (hasDes && desFilled) {
+        desDays = Math.floor((Date.now() - new Date(desFilled)) / 86400000);
+        if (desDays < 45) desStatus = 'green'; else if (desDays < 60) desStatus = 'yellow'; else if (desDays < 75) desStatus = 'orange'; else desStatus = 'red';
+      }
+      const desMushColor = { green: 'green', yellow: 'yellow', orange: 'orange', red: 'red' }[desStatus] || 'grey';
+      let desText = 'No desiccant data';
+      if (desFilled) {
+        desDays = Math.floor((Date.now() - new Date(desFilled)) / 86400000);
+        const fd = new Date(desFilled);
+        desText = desDays + (desDays === 1 ? ' day ago' : ' days ago') + ' (' + fd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ')';
+      }
+      const desIcon = desStatus === 'empty' ? 'mdi:water-off' : 'mdi:water';
+      const lastDried = entity?.attributes?.extra_last_dried || '';
+      let lastDriedText = 'Never';
+      if (lastDried) { lastDriedText = new Date(lastDried).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+
       // --- Action button style ---
       const btnS = {
         grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
@@ -92,21 +112,80 @@ catalog_spool_popup:
                   tap_action: { action: 'none' },
                   triggers_update: eid
                 },
+                // --- Desiccant / Dried info + action buttons (matches AMS popup layout) ---
+                {
+                  type: 'custom:layout-card',
+                  layout_type: 'custom:grid-layout',
+                  layout: {
+                    'grid-template-columns': '2fr 1fr',
+                    'grid-template-rows': 'auto auto',
+                    'grid-gap': '8px'
+                  },
+                  cards: [
+                    {
+                      type: 'custom:mushroom-template-card',
+                      primary: lastDriedText,
+                      secondary: 'Last Dried',
+                      icon: 'mdi:thermometer-lines',
+                      icon_color: 'deep-orange',
+                      layout: 'horizontal',
+                      fill_container: true,
+                      card_mod: { style: 'mushroom-state-info { overflow: visible !important; } .primary { white-space: normal !important; overflow: visible !important; word-break: break-word; }' }
+                    },
+                    {
+                      type: 'custom:button-card',
+                      name: 'Mark as Dried',
+                      icon: 'mdi:heat-wave',
+                      show_icon: true,
+                      show_name: true,
+                      show_label: false,
+                      tap_action: {
+                        action: 'call-service',
+                        service: 'spoolman.patch_spool',
+                        service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
+                      },
+                      styles: {
+                        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
+                        card: [{ background: 'var(--primary-color)' }, { 'border-radius': '8px' }, { 'box-shadow': 'none' }, { padding: '8px' }],
+                        icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }],
+                        name: [{ color: 'white' }, { 'font-size': '11px' }, { 'font-weight': '600' }, { 'text-align': 'center' }, { 'white-space': 'nowrap' }]
+                      }
+                    },
+                    {
+                      type: 'custom:mushroom-template-card',
+                      primary: desText,
+                      secondary: 'Desiccant',
+                      icon: desIcon,
+                      icon_color: desMushColor,
+                      layout: 'horizontal',
+                      fill_container: true
+                    },
+                    {
+                      type: 'custom:button-card',
+                      name: 'Mark as Refilled',
+                      icon: 'mdi:water-plus',
+                      show_icon: true,
+                      show_name: true,
+                      show_label: false,
+                      tap_action: {
+                        action: 'call-service',
+                        service: 'spoolman.patch_spool',
+                        service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
+                      },
+                      styles: {
+                        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
+                        card: [{ background: 'var(--primary-color)' }, { 'border-radius': '8px' }, { 'box-shadow': 'none' }, { padding: '8px' }],
+                        icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }],
+                        name: [{ color: 'white' }, { 'font-size': '11px' }, { 'font-weight': '600' }, { 'text-align': 'center' }, { 'white-space': 'nowrap' }]
+                      }
+                    }
+                  ]
+                },
                 // --- Other spools (markdown, same pattern as AMS popup) ---
                 ...(otherSpools.length > 0 ? [{
                   type: 'markdown',
                   content: otherSpoolsMd
                 }] : []),
-                // --- Desiccant action buttons ---
-                {
-                  type: 'custom:layout-card',
-                  layout_type: 'custom:grid-layout',
-                  layout: { 'grid-template-columns': '1fr 1fr', 'grid-gap': '8px' },
-                  cards: [
-                    { type: 'custom:button-card', name: 'Mark as Dried', icon: 'mdi:heat-wave', show_icon: true, show_name: true, show_label: false, tap_action: { action: 'call-service', service: 'spoolman.patch_spool', service_data: { id: spoolIdInt, extra: { last_dried: nowISO } } }, styles: btnS },
-                    { type: 'custom:button-card', name: 'Mark Desiccant Refilled', icon: 'mdi:water-plus', show_icon: true, show_name: true, show_label: false, tap_action: { action: 'call-service', service: 'spoolman.patch_spool', service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } } }, styles: btnS }
-                  ]
-                },
                 // --- Weight history chart ---
                 {
                   type: 'custom:apexcharts-card',

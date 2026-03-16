@@ -96,27 +96,6 @@ catalog_spool_popup_content:
         // UUID
         const uuid = entity?.attributes?.extra_spool_uuid || '';
 
-        // Desiccant
-        const hasDes = entity?.attributes?.extra_desiccant_in_spool;
-        const desFilled = entity?.attributes?.extra_desiccant_filled;
-        let desStatus = 'empty', desDays = null;
-        if (hasDes && desFilled) {
-          desDays = Math.floor((Date.now() - new Date(desFilled)) / 86400000);
-          if (desDays < 45) desStatus = 'green'; else if (desDays < 60) desStatus = 'yellow'; else if (desDays < 75) desStatus = 'orange'; else desStatus = 'red';
-        }
-        const desColor = { green: '#4CAF50', yellow: '#FFC107', orange: '#FF9800', red: '#f44336' }[desStatus] || '#9E9E9E';
-        let desText = 'No desiccant data';
-        if (desFilled) {
-          const fd = new Date(desFilled);
-          desText = desDays + (desDays === 1 ? ' day ago' : ' days ago') + ' (' + fd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ')';
-        }
-        const desIcon = desStatus === 'empty' ? 'mdi:water-off' : 'mdi:water';
-
-        // Last dried
-        const lastDried = entity?.attributes?.extra_last_dried || '';
-        let driedText = 'Never';
-        if (lastDried) { driedText = new Date(lastDried).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-
         // Weight / Cost per gram
         const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
         const price = entity?.attributes?.price || entity?.attributes?.filament_price || null;
@@ -212,18 +191,6 @@ catalog_spool_popup_content:
                 <ha-icon icon="mdi:layers-triple" style="--mdc-icon-size:24px;color:#00BCD4;"></ha-icon>
                 <div style="font-size:14px;font-weight:600;margin-top:4px;">${totalWt}</div>
                 <div style="font-size:11px;color:var(--secondary-text-color);">Total (all spools)</div>
-              </div>
-            </div>
-
-            <!-- Desiccant / Dried -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <div style="background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
-                <ha-icon icon="mdi:thermometer-lines" style="--mdc-icon-size:24px;color:#FF5722;"></ha-icon>
-                <div><div style="font-size:13px;font-weight:600;">${driedText}</div><div style="font-size:11px;color:var(--secondary-text-color);">Last Dried</div></div>
-              </div>
-              <div style="background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
-                <ha-icon icon="${desIcon}" style="--mdc-icon-size:24px;color:${desColor};"></ha-icon>
-                <div><div style="font-size:13px;font-weight:600;">${desText}</div><div style="font-size:11px;color:var(--secondary-text-color);">Desiccant</div></div>
               </div>
             </div>
 
