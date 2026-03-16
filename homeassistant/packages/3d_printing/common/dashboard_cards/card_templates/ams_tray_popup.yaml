@@ -67,7 +67,8 @@ ams_tray_popup:
       const vendor = spoolEntity?.attributes?.filament_vendor_name || 'Unknown';
       const location = spoolEntity?.attributes?.location || 'N/A';
       const filamentName = spoolEntity?.attributes?.filament_name || material;
-      const baseColor = spoolEntity?.attributes?.filament_extra_primary_color || '';
+      const sq = function(v) { if (!v) return ''; const s = String(v); return (s.startsWith('"') && s.endsWith('"')) ? s.slice(1, -1) : s; };
+      const baseColor = sq(spoolEntity?.attributes?.filament_extra_primary_color);
       const baseColorIconColor = (() => {
         if (!baseColor) return 'grey';
         const lc = baseColor.toLowerCase().trim();
@@ -90,7 +91,7 @@ ams_tray_popup:
         return (br * 299 + bg * 587 + bb * 114) / 1000;
       })();
       const baseColorOutlineColor = baseColorLuminance > 180 ? '#333333' : '#cccccc';
-      const colorFamily = spoolEntity?.attributes?.filament_extra_color_family || '';
+      const colorFamily = sq(spoolEntity?.attributes?.filament_extra_color_family);
       const typeDetailsRaw = spoolEntity?.attributes?.filament_extra_type_details || '';
       const lastDried = spoolEntity?.attributes?.extra_last_dried || '';
       const spoolUUID = spoolEntity?.attributes?.extra_spool_uuid || '';
