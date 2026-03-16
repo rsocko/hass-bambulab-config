@@ -58,8 +58,8 @@ catalog_group_header:
         const count = variables?.groupCount || 0;
         return `
           <div style="display:flex; align-items:center; width:100%;">
-            <span style="font-size:13px; font-weight:600; color:var(--primary-text-color); white-space:nowrap;">${name}</span>
-            <span style="font-size:11px; font-weight:400; color:var(--secondary-text-color); margin-left:6px;">(${count})</span>
+            <span style="font-size:15px; font-weight:600; color:var(--primary-text-color); white-space:nowrap;">${name}</span>
+            <span style="font-size:12px; font-weight:400; color:var(--secondary-text-color); margin-left:6px;">(${count})</span>
             <div style="flex:1; height:1px; background:var(--divider-color, rgba(255,255,255,0.12)); margin-left:10px;"></div>
           </div>
         `;
