@@ -1,0 +1,123 @@
+# Docs: docs/features/filament_catalog/filament-catalog.md
+alias: "Filament Catalog: Sync Filter Options"
+id: filament_catalog_sync_filter_options
+description: >-
+  Dynamically populate filter dropdown options from actual spoolman spool
+  attributes. Runs on HA start (with delay for entity loading),
+  when spoolman data changes, and every 6 hours as a safety net.
+
+triggers:
+  - trigger: homeassistant
+    event: start
+  - trigger: state
+    entity_id: sensor.spoolman_filament_totals
+  - trigger: time_pattern
+    hours: "/6"
+
+conditions: []
+
+actions:
+  # Allow spoolman entities to fully load after HA restart.
+  # trigger.platform is undefined on manual runs — default('') keeps it safe.
+  - if:
+      - condition: template
+        value_template: "{{ trigger.platform | default('') == 'homeassistant' }}"
+    then:
+      - delay:
+          minutes: 2
+
+  - variables:
+      filter_options: >-
+        {%- set ns = namespace(
+          materials=[], vendors=[], colors=[],
+          color_families=[], types=[], locations=[]
+        ) -%}
+        {%- for s in states.sensor
+            if s.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
+          {%- set attrs = s.attributes -%}
+          {%- set archived = attrs.get('archived', false)
+              in [true, 'true', 'True', 1, '1'] -%}
+          {%- if not archived -%}
+            {%- set v = attrs.get('filament_material', '') | string | trim -%}
+            {%- if v and v not in ns.materials -%}
+              {%- set ns.materials = ns.materials + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('filament_vendor_name', '') | string | trim -%}
+            {%- if v and v not in ns.vendors -%}
+              {%- set ns.vendors = ns.vendors + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('filament_extra_primary_color', '')
+                | string | replace('"', '') | trim -%}
+            {%- if v and v not in ns.colors -%}
+              {%- set ns.colors = ns.colors + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('filament_extra_color_family', '')
+                | string | replace('"', '') | trim -%}
+            {%- if v and v not in ns.color_families -%}
+              {%- set ns.color_families = ns.color_families + [v] -%}
+            {%- endif -%}
+            {%- set raw = attrs.get('filament_extra_type_details', '')
+                | string -%}
+            {%- if raw and raw not in
+                ['', 'None', 'none', 'unknown', 'unavailable', '[]'] -%}
+              {%- set items = raw | replace('[', '') | replace(']', '')
+                  | replace('"', '') -%}
+              {%- for t in items.split(',') -%}
+                {%- set v = t | trim -%}
+                {%- if v and v not in ns.types -%}
+                  {%- set ns.types = ns.types + [v] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- set v = attrs.get('location', '') | string | trim -%}
+            {%- if v and v not in ns.locations -%}
+              {%- set ns.locations = ns.locations + [v] -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{
+          {
+            'materials': ['All'] + (ns.materials | sort),
+            'vendors': ['All'] + (ns.vendors | sort),
+            'colors': ['All'] + (ns.colors | sort),
+            'color_families': ['All'] + (ns.color_families | sort),
+            'types': ['All'] + (ns.types | sort),
+            'locations': ['All'] + (ns.locations | sort)
+          }
+        }}
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_material
+    data:
+      options: "{{ filter_options.materials }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_vendor
+    data:
+      options: "{{ filter_options.vendors }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_color
+    data:
+      options: "{{ filter_options.colors }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_color_family
+    data:
+      options: "{{ filter_options.color_families }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_type
+    data:
+      options: "{{ filter_options.types }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_location
+    data:
+      options: "{{ filter_options.locations }}"

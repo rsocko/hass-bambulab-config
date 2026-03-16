@@ -1,15 +1,6 @@
 filament_catalog_filter_color_family:
   name: Filament Catalog Color Family
   icon: mdi:format-color-fill
+  # Options are dynamically populated by the sync_filter_options automation
   options:
     - All
-    - Blacks & Whites
-    - Grays & Silvers
-    - Blues
-    - Reds
-    - Greens
-    - Yellows & Oranges
-    - Purples & Pinks
-    - Browns & Naturals
-    - Multi-Color
-    - Transparent

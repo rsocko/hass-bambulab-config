@@ -1,14 +1,6 @@
 filament_catalog_filter_material:
   name: Filament Catalog Material
   icon: mdi:shape
+  # Options are dynamically populated by the sync_filter_options automation
   options:
     - All
-    - PLA
-    - PETG
-    - ABS
-    - ASA
-    - TPU
-    - PA
-    - PC
-    - PVA
-    - HIPS

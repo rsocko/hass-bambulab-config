@@ -1,7 +1,7 @@
 # Filament Catalog — Design Document
 
-> **Status**: Phase 1 complete, Phase 2+ planned
-> **Last updated**: 2026-03-15
+> **Status**: Phase 1 complete, Phase 2 complete
+> **Last updated**: 2026-03-16
 
 ## Problem Statement
 
@@ -30,6 +30,7 @@ The current `view_filament_catalog.yaml` renders every Spoolman spool using a `c
 | **Card density** | Compact default (Phase 1); density toggle is a future phase | 165 spools demands compact; medium/spacious as future option |
 | **Cost info** | Include where appropriate | `price` is populated on spools; inventory value summary is viable |
 | **Archived spools** | Excluded by default | `archived: false` filter; 165 count is active spools only |
+| **Filter dropdown options** | Dynamically populated from spoolman entities | Avoids stale hardcoded lists; `sync_filter_options` automation runs on HA start (2-min delay), spoolman changes, and every 6h. Supports manual trigger. |
 | **Feature placement** | New `filament_catalog/` feature package | See [Feature Structure](#feature-structure) below |
 
 ---
@@ -53,10 +54,15 @@ This matches the pattern established by `filament_tag/`, `spoolman_sync/`, `air_
 homeassistant/packages/3d_printing/
 ├── filament_catalog/
 │   ├── filament_catalog_loader.yaml          ← HA package loader
+│   ├── automations/
+│   │   └── sync_filter_options.yaml          ← Dynamically populates filter dropdowns from spoolman data
 │   ├── helpers/
-│   │   └── filament_catalog_helpers.yaml     ← input_select filters, input_text search, input_number threshold
+│   │   ├── input_boolean/                    ← Toggle filters (low stock, desiccant old)
+│   │   ├── input_number/                     ← Stock threshold
+│   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, etc.)
+│   │   └── input_text/                       ← Free-text search
 │   ├── template_sensors/
-│   │   ├── filament_catalog_filter.yaml      ← Computed filtered spool list (Phase 2)
+│   │   ├── template_sensor_filament_catalog_filter.yaml  ← Server-side filtered spool list
 │   │   └── filament_catalog_alerts.yaml      ← Alert computations (Phase 5)
 │   ├── dashboard_cards/
 │   │   ├── card_templates/
@@ -90,8 +96,8 @@ homeassistant/packages/3d_printing/
 
 ### Migration Path
 
-- Phase 1: Create `filament_catalog/` with `dashboard_cards/` and `dashboard_views/` (dashboard-only, no loader needed yet)
-- Phase 2: Add `helpers/`, `template_sensors/`, and `filament_catalog_loader.yaml` when filter state and search are needed
+- Phase 1: Create `filament_catalog/` with `dashboard_cards/` and `dashboard_views/` (dashboard-only, no loader needed yet) — **DONE**
+- Phase 2: Add `helpers/`, `template_sensors/`, `automations/`, and `filament_catalog_loader.yaml` — **DONE**
 
 ---
 
@@ -438,70 +444,101 @@ Adapted from existing patterns but with scale-aware design (compact cards, auto-
 
 ---
 
-### Phase 2: Filters & Search
+### Phase 2: Filters & Search — IMPLEMENTED
+**Status**: ✅ Complete (2026-03-16)
 **Value**: Find specific spools fast. Essential at 165 spools.
 
 > **Performance constraint**: The filter implementation MUST use a single `auto-entities` instance. The template sensor approach (Option B below) is the correct path — it filters server-side and the view's single `auto-entities` references the filtered list.
 
-#### Filter Architecture: Template Sensor Approach (Option B)
+#### Filter Architecture: Template Sensor Approach
 
-At 165 spools, client-side filtering via `config-template-card` is too slow. Instead, a Jinja2 template sensor computes the filtered list server-side.
+At 165 spools, client-side filtering via `config-template-card` is too slow. Instead, a Jinja2 template sensor (`sensor.filament_catalog_filtered_spools`) computes the filtered list server-side.
 
-##### New Helpers
+##### Helpers
 
 | Helper | Type | Purpose |
 |---|---|---|
-| `input_select.filament_catalog_filter_material` | input_select | `All`, `PLA`, `PETG`, `ABS`, `TPU`, … |
-| `input_select.filament_catalog_filter_vendor` | input_select | `All`, `Bambu Lab`, `Sunlu`, `ELEGOO`, … |
-| `input_select.filament_catalog_filter_color` | input_select | `All`, `Blue`, `Red`, `Gray`, `White`, … |
-| `input_select.filament_catalog_filter_color_family` | input_select | `All`, `Blues`, `Reds`, `Blacks & Whites`, … |
-| `input_select.filament_catalog_filter_type` | input_select | `All`, `Matte`, `Silk`, `Metallic`, `Marble`, … |
+| `input_select.filament_catalog_filter_material` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_vendor` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_color` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_color_family` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_type` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_location` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_sealed` | input_select | `All`, `Sealed`, `Unsealed` (static) |
 | `input_text.filament_catalog_search` | input_text | Free-text search across name, vendor, color |
-| `input_number.filament_catalog_repurchase_threshold` | input_number | Default 150g, min 0, max 500, step 10 |
+| `input_number.filament_catalog_stock_threshold` | input_number | Default 150g, min 0, max 500 |
+| `input_boolean.filament_catalog_filter_low_stock` | input_boolean | Toggle: show only low-stock spools |
+| `input_boolean.filament_catalog_filter_desiccant_old` | input_boolean | Toggle: show only spools with desiccant >45 days |
+
+##### Dynamic Filter Option Sync
+
+Filter dropdown options are **not hardcoded**. The `input_select` YAML files define only `['All']` as a startup default. Actual values are populated dynamically by the `sync_filter_options` automation.
+
+**Automation: `filament_catalog_sync_filter_options`** (`automations/sync_filter_options.yaml`)
+
+Triggers:
+1. **HA start** — with a 2-minute delay to allow spoolman entities to fully load
+2. **`sensor.spoolman_filament_totals` state change** — fires when spools are added, removed, or updated
+3. **`time_pattern` every 6 hours** — safety net for any missed changes
+4. **Manual trigger** — supported; safely skips the startup delay via `trigger.platform | default('')`
+
+Behavior:
+- Single pass through all non-archived `sensor.spoolman_spool_*` entities
+- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location)
+- Strips JSON outer quotes from `filament_extra_primary_color` and `filament_extra_color_family`
+- Flattens the `filament_extra_type_details` JSON array into individual type values
+- Calls `input_select.set_options` for each dropdown with `['All'] + sorted_unique_values`
+- If a user's current selection no longer exists in the updated list, HA automatically resets to `All` (first option)
+
+This approach avoids constant recomputation — the automation only runs when spoolman data actually changes, not on every template sensor evaluation.
 
 ##### Template Sensor: `sensor.filament_catalog_filtered_spools`
 
 Jinja2 template that:
 1. Iterates all `sensor.spoolman_spool_*` entities
 2. Excludes `archived = true`
-3. Applies each active filter (skip if `All`)
-4. Applies text search (case-insensitive match on `friendly_name`, `filament_vendor_name`, `filament_extra_primary_color`)
-5. Outputs JSON list of matching entity IDs
+3. Applies each active dropdown filter (skip if `All`)
+4. Applies toggle filters (low stock, desiccant old)
+5. Applies text search (case-insensitive match on `friendly_name`, `filament_name`, `filament_vendor_name`, `filament_extra_primary_color`, `filament_extra_color_family`)
+6. Outputs JSON list of matching entity IDs as `entity_ids_json` attribute
+7. Provides `active_filter_summary` attribute listing active filter names
 
 The view's `auto-entities` references this sensor to decide which spools to display.
 
 ##### Filter Bar Design
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ 🔍 [___search___]                                                │
-│ Material ▼  Vendor ▼  Color ▼  Family ▼  Type ▼    [Clear All] │
+│ Material ▼  Vendor ▼  Color ▼  Family ▼                        │
+│ Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]          │
+│ Sealed ▼  [Desiccant Old]                                      │
+│ 🔍 [___search___]              [123 Matches]  [Clear All]      │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Each filter rendered as a `mushroom-select-card` or compact `button-card` dropdown. "Clear All" button resets all filters to `All` and clears search text.
+Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns, slider for stock threshold, and toggle for boolean filters. "Clear All" calls `script.filament_catalog_clear_filters` which resets all helpers to defaults.
 
-##### State-Based Filters (toggle chips below the filter bar)
+##### State-Based Filters (toggle chips in the filter bar)
 
 | Filter | Logic | UI |
 |---|---|---|
-| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight < input_number.threshold` | Toggle chip |
-| **Desiccant Old (Y/O/R)** | `extra_desiccant_filled` age > 45 days | Toggle chip |
-| **Low Stock** | `remaining_weight < 100g` | Toggle chip |
-| **Unsealed Only** | `extra_sealed = false` | Toggle chip |
+| **Desiccant Old** | `extra_desiccant_filled` age > 45 days | Toggle |
+| **Low Stock** | `remaining_weight < stock_threshold` | Toggle |
+| **Sealed State** | `extra_sealed` true/false | Dropdown (`All`/`Sealed`/`Unsealed`) |
 
-#### Files to Create/Modify
+#### Files Created/Modified
 
-| File | Action |
-|---|---|
-| `filament_catalog/filament_catalog_loader.yaml` | **Create** — HA package loader |
-| `filament_catalog/helpers/filament_catalog_helpers.yaml` | **Create** — All input helpers |
-| `filament_catalog/template_sensors/filament_catalog_filter.yaml` | **Create** — Server-side filtered spool list |
-| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Create** — Filter bar card |
-| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modify** — Integrate filter bar above spool grid |
-| `_feature_loaders.yaml` | **Modify** — Register `filament_catalog` loader |
-
-#### Estimated Complexity: High
-Server-side template sensor with multi-field filtering, new helpers, loader registration.
+| File | Action | Notes |
+|---|---|---|
+| `filament_catalog/filament_catalog_loader.yaml` | **Modified** | Added `automation: !include_dir_list automations` |
+| `filament_catalog/automations/sync_filter_options.yaml` | **Created** | Dynamic filter option sync automation |
+| `filament_catalog/helpers/input_select/*.yaml` (6 files) | **Modified** | Replaced hardcoded options with `['All']` default |
+| `filament_catalog/helpers/input_select/filament_catalog_filter_sealed.yaml` | **Unchanged** | Static options (`All`/`Sealed`/`Unsealed`) |
+| `filament_catalog/helpers/input_boolean/*.yaml` (2 files) | **Created** | Low stock and desiccant old toggles |
+| `filament_catalog/helpers/input_number/filament_catalog_stock_threshold.yaml` | **Created** | Configurable stock threshold |
+| `filament_catalog/helpers/input_text/filament_catalog_search.yaml` | **Created** | Free-text search input |
+| `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Created** | Server-side filtered spool list |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Created** | Filter bar card (bubble-card) |
+| `filament_catalog/scripts/filament_catalog_clear_filters.yaml` | **Created** | Reset all filters script |
 
 ---
 
