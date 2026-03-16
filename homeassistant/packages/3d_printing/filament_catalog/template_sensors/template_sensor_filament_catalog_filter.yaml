@@ -6,9 +6,12 @@
         {% set entity_ids_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
         {% if entity_ids_json in [none, '', 'unknown', 'unavailable'] %}
           0
+        {% elif entity_ids_json is string %}
+          {{ (entity_ids_json | from_json) | length }}
+        {% elif entity_ids_json is iterable %}
+          {{ entity_ids_json | list | length }}
         {% else %}
-          {% set entity_ids = entity_ids_json | from_json %}
-          {{ entity_ids | length }}
+          0
         {% endif %}
       attributes:
         entity_ids_json: >-
@@ -24,7 +27,7 @@
           {%- set filter_low_stock = is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}
           {%- set filter_unsealed_only = is_state('input_boolean.filament_catalog_filter_unsealed_only', 'on') -%}
           {%- set ns = namespace(matches=[]) -%}
-          {%- for spool in states.sensor if spool.entity_id.startswith('sensor.spoolman_spool_') -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
             {%- set attrs = spool.attributes -%}
             {%- set archived_raw = attrs.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -41,7 +44,8 @@
               {%- set is_unsealed = attrs.get('extra_sealed') in [false, 'false', 'False', 0, '0'] -%}
               {%- set needs_repurchase = remaining_weight < repurchase_threshold -%}
               {%- if spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
-                {%- set desiccant_age_days = ((as_timestamp(now()) - as_timestamp(spool_filled)) / 86400) | float(0) -%}
+                {%- set spool_filled_ts = as_timestamp(spool_filled, 0) | float(0) -%}
+                {%- set desiccant_age_days = ((as_timestamp(now()) - spool_filled_ts) / 86400) | float(0) if spool_filled_ts > 0 else 0 -%}
               {%- else -%}
                 {%- set desiccant_age_days = 0 -%}
               {%- endif -%}
@@ -67,8 +71,12 @@
           {% set entity_ids_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
           {% if entity_ids_json in [none, '', 'unknown', 'unavailable'] %}
             []
-          {% else %}
+          {% elif entity_ids_json is string %}
             {{ entity_ids_json | from_json | tojson }}
+          {% elif entity_ids_json is iterable %}
+            {{ entity_ids_json | list | tojson }}
+          {% else %}
+            []
           {% endif %}
         active_filter_summary: >-
           {%- set active = [] -%}

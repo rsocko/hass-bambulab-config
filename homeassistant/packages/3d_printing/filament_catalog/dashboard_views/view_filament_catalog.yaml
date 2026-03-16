@@ -42,8 +42,8 @@ cards:
             {% set cards = namespace(items=[]) %}
             {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
               {% for spool in states.sensor %}
-                {% if spool.entity_id.startswith('sensor.spoolman_spool_') %}
-                  {% set archived_raw = spool.attributes.archived | default(false) %}
+                {% if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') %}
+                  {% set archived_raw = spool.attributes.get('archived', false) %}
                   {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
                   {% if not archived %}
                     {% set cards.items = cards.items + [{
@@ -56,7 +56,13 @@ cards:
               {% endfor %}
             {% else %}
               {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-              {% set filtered = filtered_json | from_json %}
+              {% if filtered_json is string %}
+                {% set filtered = filtered_json | from_json %}
+              {% elif filtered_json is iterable %}
+                {% set filtered = filtered_json | list %}
+              {% else %}
+                {% set filtered = [] %}
+              {% endif %}
               {% for entity_id in filtered %}
                 {% set cards.items = cards.items + [{
                   'entity': entity_id,
