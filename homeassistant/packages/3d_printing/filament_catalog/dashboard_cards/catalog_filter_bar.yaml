@@ -31,18 +31,10 @@ cards:
 
   - type: custom:bubble-card
     card_type: sub-buttons
-    hide_main_background: true
+    hide_main_background: false
+    rows: 2
     styles: |
-      ha-card {
-        margin-top: 12px !important;
-      }
-      .bubble-sub-button {
-        min-height: 36px !important;
-      }
-      .bubble-sub-button-text {
-        font-size: 12px !important;
-      }
-      /* Neutralize stock-threshold slider chip while keeping slider behavior. */
+      /* Keep stock-threshold slider chip neutral without changing layout positioning. */
       .bubble-sub-button-7 .bubble-sub-button-background,
       .bubble-sub-button-7 .bubble-sub-button {
         background: rgba(40, 40, 40, 0.95) !important;
