@@ -12,4 +12,5 @@ filament_catalog_sort:
     - "Cost (High to Low)"
     - "Cost (Low to High)"
     - "Vendor then Name"
+    - "Hue"
   initial: "Name (A-Z)"

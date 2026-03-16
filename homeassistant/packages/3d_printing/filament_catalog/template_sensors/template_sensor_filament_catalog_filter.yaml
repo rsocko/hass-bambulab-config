@@ -95,6 +95,37 @@
                   {%- set sk = (attrs.get('price', 0) or 0) | float(0) -%}
                 {%- elif sort_option == 'Vendor then Name' -%}
                   {%- set sk = (vendor ~ ' ' ~ (filament_name if filament_name else friendly_name)) | lower -%}
+                {%- elif sort_option == 'Hue' -%}
+                  {%- set hx = (primary_color | default('')) | replace('#', '') | lower -%}
+                  {%- if hx | length >= 6 -%}
+                    {%- set r_f = (hx[0:2] | int(0, 16)) / 255.0 -%}
+                    {%- set g_f = (hx[2:4] | int(0, 16)) / 255.0 -%}
+                    {%- set b_f = (hx[4:6] | int(0, 16)) / 255.0 -%}
+                    {%- set cmax = [r_f, g_f, b_f] | max -%}
+                    {%- set cmin = [r_f, g_f, b_f] | min -%}
+                    {%- set delta = cmax - cmin -%}
+                    {%- if delta < 0.001 -%}
+                      {%- set hue_val = 0.0 -%}
+                      {%- set sat_val = 0.0 -%}
+                    {%- elif (cmax - r_f) | abs < 0.001 -%}
+                      {%- set hue_val = 60.0 * (((g_f - b_f) / delta) % 6) -%}
+                      {%- set sat_val = delta / cmax -%}
+                    {%- elif (cmax - g_f) | abs < 0.001 -%}
+                      {%- set hue_val = 60.0 * (((b_f - r_f) / delta) + 2) -%}
+                      {%- set sat_val = delta / cmax -%}
+                    {%- else -%}
+                      {%- set hue_val = 60.0 * (((r_f - g_f) / delta) + 4) -%}
+                      {%- set sat_val = delta / cmax -%}
+                    {%- endif -%}
+                    {%- set hue_norm = hue_val if hue_val >= 0 else hue_val + 360.0 -%}
+                    {%- if sat_val < 0.08 -%}
+                      {%- set sk = 361.0 + cmax -%}
+                    {%- else -%}
+                      {%- set sk = hue_norm -%}
+                    {%- endif -%}
+                  {%- else -%}
+                    {%- set sk = 999.0 -%}
+                  {%- endif -%}
                 {%- else -%}
                   {%- set sk = (filament_name if filament_name else friendly_name) | lower -%}
                 {%- endif -%}
