@@ -5,8 +5,11 @@ type: vertical-stack
 cards:
   - type: custom:bubble-card
     card_type: sub-buttons
-    hide_main_background: true
+    entity: sensor.filament_catalog_filtered_spools
+    hide_main_background: false
+    rows: 3
     sub_button:
+      main: []
       bottom_layout: rows
       bottom:
         - group:
