@@ -1,5 +1,5 @@
 # catalog_inventory_kpi.yaml
-# Inventory summary card showing total spools, filaments, weight, and value.
+# Inventory summary card showing total spools, filaments, weight, and avg cost per kg.
 # Displayed at the top of the Filament Catalog view.
 
 type: custom:button-card
@@ -35,15 +35,19 @@ custom_fields:
       const filamentIds = new Set(allSpools.map(s => s.attributes.filament_id).filter(Boolean));
       const totalFilaments = filamentIds.size;
       const totalWeight = allSpools.reduce((sum, s) => sum + (s.attributes.remaining_weight || 0), 0);
-      const totalValue = allSpools.reduce((sum, s) => {
+      let totalCost = 0, costSpoolCount = 0;
+      allSpools.forEach(s => {
         const price = s.attributes.price || s.attributes.filament_price || 0;
-        const remaining = s.attributes.remaining_weight || 0;
         const initial = s.attributes.initial_weight || 1000;
-        return sum + (initial > 0 ? (remaining / initial * price) : 0);
-      }, 0);
+        if (price > 0 && initial > 0) {
+          totalCost += price / initial * 1000;
+          costSpoolCount++;
+        }
+      });
+      const avgCostPerKg = costSpoolCount > 0 ? (totalCost / costSpoolCount) : 0;
 
       const weightKg = (totalWeight / 1000).toFixed(1);
-      const valueStr = '$' + totalValue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      const avgCostStr = avgCostPerKg > 0 ? '$' + avgCostPerKg.toFixed(2) + '/kg' : 'N/A';
 
       const pill = (icon, text, color) => `
         <div style="display:inline-flex; align-items:center; gap:4px; background:rgba(128,128,128,0.1); border-radius:20px; padding:5px 10px 5px 6px; line-height:1;">
@@ -57,7 +61,7 @@ custom_fields:
           ${pill('fapro:filament-2', totalSpools + ' spools', '#42A5F5')}
           ${pill('mdi:layers-triple', totalFilaments + ' filaments', '#7E57C2')}
           ${pill('mdi:weight-gram', weightKg + ' kg', '#26A69A')}
-          ${pill('mdi:currency-usd', valueStr + ' inventory', '#66BB6A')}
+          ${pill('mdi:currency-usd', 'Avg ' + avgCostStr, '#66BB6A')}
         </div>
       `;
     ]]]

@@ -117,11 +117,11 @@ catalog_spool_popup_content:
         let driedText = 'Never';
         if (lastDried) { driedText = new Date(lastDried).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
 
-        // Weight / Value
+        // Weight / Cost per gram
         const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
         const price = entity?.attributes?.price || entity?.attributes?.filament_price || null;
-        const valCost = (price && remainingWeight != null && initialWeight) ? (remainingWeight / initialWeight * price) : null;
-        const valueText = valCost !== null ? '$' + valCost.toFixed(2) : 'N/A';
+        const costPerG = (price && initialWeight) ? (price / initialWeight) : null;
+        const costPerGText = costPerG !== null ? '$' + costPerG.toFixed(3) + '/g' : 'N/A';
 
         // Filament totals
         const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
@@ -144,9 +144,12 @@ catalog_spool_popup_content:
         const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
         const purchaseDate = entity?.attributes?.extra_purchase_date || '';
         let purchaseHTML = '';
-        if (purchasedFrom || purchaseDate) {
-          let txt = purchasedFrom;
-          if (purchaseDate) { txt += (txt ? ' · ' : '') + new Date(purchaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+        if (purchasedFrom || purchaseDate || price) {
+          let parts = [];
+          if (purchasedFrom) parts.push('Purchased from ' + purchasedFrom);
+          if (purchaseDate) parts.push('on ' + new Date(purchaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+          if (price) parts.push('for $' + Number(price).toFixed(2));
+          const txt = parts.join(' ');
           purchaseHTML = '<div style="text-align:center;margin:4px 0;"><span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:shopping" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + txt + '</span></div>';
         }
 
@@ -214,8 +217,8 @@ catalog_spool_popup_content:
               </div>
               <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
                 <ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:24px;color:#66BB6A;"></ha-icon>
-                <div style="font-size:14px;font-weight:600;margin-top:4px;">${valueText}</div>
-                <div style="font-size:11px;color:var(--secondary-text-color);">Value Left</div>
+                <div style="font-size:14px;font-weight:600;margin-top:4px;">${costPerGText}</div>
+                <div style="font-size:11px;color:var(--secondary-text-color);">Cost per g</div>
               </div>
               <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
                 <ha-icon icon="mdi:layers-triple" style="--mdc-icon-size:24px;color:#00BCD4;"></ha-icon>

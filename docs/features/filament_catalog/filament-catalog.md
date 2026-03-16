@@ -1,6 +1,6 @@
 # Filament Catalog — Design Document
 
-> **Status**: Design finalized, ready for Phase 1 implementation
+> **Status**: Phase 1 complete, Phase 2+ planned
 > **Last updated**: 2026-03-15
 
 ## Problem Statement
@@ -201,6 +201,53 @@ Used to change spool location from the catalog popup.
 | Chips/filters | `custom:mushroom-chips-card` | Quick filter toggle indicators |
 | Template logic | `custom:config-template-card` | Dynamic entity resolution |
 
+### Performance Constraints (Discovered in Phase 1)
+
+Phase 1 implementation revealed critical performance constraints at 165 spools / 21 locations. These constraints **must** inform all future phases.
+
+#### Hard Rule: ONE `auto-entities` Instance Per View
+
+Each `auto-entities` instance subscribes to ALL Home Assistant entity state changes and re-evaluates its regex filters on every update. At 165 spools with ~500+ total HA entities:
+
+- **21 auto-entities** (one per location grid): Completely blocked the browser main thread. View navigation broke — clicking other view tabs did nothing (icon changed but content never swapped). This persisted across ALL view types tested (`panel: true`, `custom:vertical-layout`, `type: sections`).
+- **42 auto-entities** (21 headers + 21 grids): Even worse — same navigation failure plus visibly slow rendering.
+- **1 auto-entities**: Navigation works instantly. Load time ~0.5s.
+
+The view type was irrelevant — the issue was purely the number of `auto-entities` instances.
+
+#### What Was Tried and Failed
+
+| Approach | Result | Why It Failed |
+|---|---|---|
+| 42 `auto-entities` (original: 21 header + 21 grid) | View navigation completely broken | 42 independent state subscriptions saturated main thread |
+| 21 `auto-entities` (headers converted to static cards) | View navigation still broken | 21 instances still too many |
+| `type: custom:vertical-layout` (layout-card as view type) | Navigation broken | View type was not the cause |
+| `panel: true` + `vertical-stack` wrapper | Spools didn't render (empty view) | `vertical-stack` incompatible with `auto-entities` child rendering |
+| `panel: true` + `custom:layout-card` (vertical-layout) wrapper | Spools rendered but navigation still broken | Still had 21 auto-entities inside |
+| `type: sections` + `max_columns: 1` | Navigation still broken with 21 auto-entities | View type was never the issue |
+| 1 `auto-entities` + `type: sections` | Navigation worked but cards not full width | `sections` view adds its own padding/margins |
+| **1 `auto-entities` + `panel: true` + `vertical-stack`** | **Everything works** | Single auto-entities + panel full-width = correct solution |
+
+#### What Worked
+
+| Fix | Impact |
+|---|---|
+| Reducing to 1 `auto-entities` instance | **Fixed view switching** — the critical blocker |
+| `panel: true` with `vertical-stack` | Full-width card rendering |
+| `triggers_update: sensor.spoolman_filament_totals` on KPI/header cards | Prevents re-render on unrelated entity changes |
+| Removing `triggers_update: all` from spool cards | Prevents every card re-rendering on every state change |
+| Capping apex chart to 30 days + disabling animations | Popup chart loads in ~2s instead of 10+ |
+| Splitting popup into lightweight trigger (110 lines) + heavy content template (221 lines) | Popup JS only runs when opened, not on card render |
+| Dynamic `statsPeriod` (hour ≤7d, day >7d) | Reduces chart data points |
+
+#### Implications for Future Phases
+
+1. **Phase 2 (Filters)**: Cannot use multiple `auto-entities` for filtered sub-views. Must use a single `auto-entities` with a template sensor controlling the entity list, or use `auto-entities` `filter.template` with JS.
+2. **Phase 4 (Tabbed Views)**: Each tab's grouped view (By Material, By Vendor, etc.) must use ONE auto-entities with `sort` — cannot use per-group auto-entities. Location grouping headers must be rendered differently (e.g., card-level JS that inserts visual separators, or a single `button-card` template that conditionally shows a header when location changes).
+3. **Phase 3 (Density Toggle)**: Safe — only changes card template CSS, no auto-entities impact.
+4. **Phase 5 (Alerts)**: Alert badges on cards are safe (template JS). Alert summary card should use `triggers_update` to avoid re-render storms.
+5. **General**: Any card using `Object.values(states).filter()` MUST have `triggers_update` set to a specific entity to prevent running on every state change.
+
 ### New Template Cards Needed
 
 1. **`catalog_spool_card`** — Standalone compact spool card. Reads attributes directly from `sensor.spoolman_spool_{id}` (no `spoolman_tray_map` dependency).
@@ -215,22 +262,52 @@ The existing `ams_tray_detail` reads spool data through the `sensor.spoolman_tra
 
 | Concern | Mitigation |
 |---|---|
-| Render performance | Compact cards (~60px), collapsible sections (only expanded sections render cards) |
-| Scroll fatigue | Collapsible location groups; search/filter in Phase 2 |
+| Render performance | Compact cards (~60px), single `auto-entities` instance for entire view |
+| Scroll fatigue | Location label on each card; search/filter in Phase 2 |
 | Template sensor overhead | `spoolman_filament_totals` already processes all spools; avoid duplicating heavy computation |
-| `auto-entities` limit | Split into per-location sections rather than one giant auto-entities call |
+| `auto-entities` limit | **CRITICAL: Use ONE auto-entities instance.** Multiple instances (21+) block HA's main thread and break view navigation. See [Performance Constraints](#performance-constraints-discovered-in-phase-1). |
+| `button-card` JS evaluation | Remove `triggers_update: all`; use `triggers_update: <specific_entity>` to prevent re-render storms |
+| `Object.values(states)` cost | Each call iterates all HA entities (~500+). Minimize usage; pin to `triggers_update` so it runs infrequently |
 
 ---
 
 ## Phased Implementation Plan
 
-### Phase 1: Location-Grouped Compact Spool Grid (MVP)
-**Value**: Immediately useful — organized by physical location, visual identity, compact for 165 spools, collapsible sections.
+### Phase 1: Compact Spool Grid (MVP) — IMPLEMENTED
+**Status**: ✅ Complete (2026-03-15)
+**Value**: Immediately useful — all 165 spools in a single responsive grid with visual identity, location labels, popup details, and inventory KPIs.
+
+> **Important**: The original Phase 1 design called for per-location grouped sections using 42 `auto-entities` instances (21 header + 21 grid). This was **abandoned** due to catastrophic performance — see [Performance Constraints](#performance-constraints-discovered-in-phase-1). The shipped implementation uses a single flat grid.
+
+#### Shipped View Structure
+```
+view_filament_catalog.yaml (panel: true + vertical-stack)
+├── Inventory KPI chips (total spools, filaments, weight, avg cost per kg)
+│
+└── Single auto-entities grid (columns: 5)
+    ├── [Card] [Card] [Card] [Card] [Card]   ← sorted by location attribute
+    ├── [Card] [Card] [Card] [Card] [Card]
+    └── ... (all 165 non-archived spools)
+```
+
+- **No location section headers** — replaced by a location label on each spool card
+- **Single `auto-entities` instance** — sorts all spools by `location` attribute
+- **`panel: true`** — full-width rendering
+- **View switching works** — confirmed functional with this architecture
+
+#### What Was Deferred from Original Phase 1 Design
+
+| Planned Feature | Status | Reason |
+|---|---|---|
+| Per-location section headers | Deferred | Required 21+ auto-entities, broke navigation |
+| Collapsible sections | Deferred | Depends on section headers |
+| `group_by: attribute` on `location` | Not used | auto-entities `group_by` creates sub-instances |
+| Preferred location ordering | Partial | `sort: attribute: location` gives alphabetical, not custom order |
 
 #### View Structure
 ```
 view_filament_catalog.yaml
-├── Heading: "Filament Catalog" + inventory KPI chips (total spools, total weight, total value)
+├── Heading: "Filament Catalog" + inventory KPI chips (total spools, total weight, avg cost per kg)
 │
 ├── Location Section: "AMS" (5) ─────────────── [collapsible, expanded by default]
 │   └── auto-entities grid of compact catalog_spool_cards
@@ -255,11 +332,7 @@ view_filament_catalog.yaml
 
 #### Collapsible Section Strategy
 
-**Approach**: Each location is a `vertical-stack` containing:
-1. A `catalog_location_header` button card (tappable to expand/collapse)
-2. A `conditional` card wrapping the `auto-entities` grid, controlled by an `input_boolean` per logical group
-
-**Simplified approach for Phase 1**: Use `auto-entities` with `group_by: attribute` on `location`, which creates automatic grouped sections. This avoids per-location `input_boolean` helpers and gives us instant location grouping. Collapsibility can be added in Phase 2/3 via `fold-entity-row` or per-section conditionals.
+> **Note**: Collapsible sections were **not implemented** in Phase 1 due to the single-auto-entities constraint. The flat grid with location labels replaced grouped sections. If location grouping is revisited in Phase 4, it must use a single auto-entities instance with JS-based visual separators (not per-location auto-entities).
 
 #### `catalog_spool_card` — Compact Design (~60px height)
 
@@ -304,8 +377,8 @@ Reuses the structure and visual language of `ams_tray_popup` with catalog-specif
 │  └────┘                                              │
 │                                                      │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │  782.0 g │ │ $12.50   │ │  1.8 kg  │            │  ← weight / cost / total (all spools)
-│  │Remaining │ │Value Left│ │Total Inv │            │
+│  │  782.0 g │ │$0.025/g  │ │  1.8 kg  │            │  ← weight / cost per g / total (all spools)
+│  │Remaining │ │Cost per g│ │Total Inv │            │
 │  └──────────┘ └──────────┘ └──────────┘            │
 │                                                      │
 │  📦 2 other spools of same filament                 │  ← expandable
@@ -322,7 +395,7 @@ Reuses the structure and visual language of `ams_tray_popup` with catalog-specif
 │  │         ╲________╲____                   │       │
 │  └──────────────────────────────────────────┘       │
 │                                                      │
-│  ℹ️ Purchased from: Bambu Lab · Dec 12, 2024       │  ← purchase info
+│  ℹ️ Purchased from: Bambu Lab on Dec 12, 2024 for $24.99│  ← purchase info
 │  🖨 Profile: Bambu PLA Matte · 220°C / 60°C       │  ← print settings
 │                                                      │
 │  [🔗 Open in Spoolman]  [📍 Change Location]       │  ← action buttons
@@ -331,8 +404,8 @@ Reuses the structure and visual language of `ams_tray_popup` with catalog-specif
 
 Key differences from `ams_tray_popup`:
 - **No "This Print" weight comparison** — catalog context has no active print concept
-- **Cost card added** — Shows $ value remaining = `(remaining_weight / initial_weight) * price`
-- **Purchase info row** — `extra_purchased_from` + `extra_purchase_date`
+- **Cost per g card** — Shows cost per gram = `price / initial_weight`
+- **Purchase info row** — `extra_purchased_from` + `extra_purchase_date` + `price` ("Purchased from X on Y for $Z")
 - **Print settings row** — `filament_settings_extruder_temp` / `filament_settings_bed_temp` + `filament_extra_profile_name`
 - **Location change button** — Prominent action to change location via `select.spoolman_spool_{id}_location`
 
@@ -340,31 +413,35 @@ Key differences from `ams_tray_popup`:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  📦 165 spools · 132 filaments · 98.2 kg remaining · $2,134│
-└─────────────────────────────────────────────────────────────┘
+│  📦 165 spools · 132 filaments · 98.2 kg remaining · Avg $22.50/kg│
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-Computed via JS in a `custom:button-card` that iterates all `sensor.spoolman_spool_*` entities. Shows total spools (excluding archived), unique filament count, total remaining weight, and total inventory value.
+Computed via JS in a `custom:button-card` that iterates all `sensor.spoolman_spool_*` entities. Shows total spools (excluding archived), unique filament count, total remaining weight, and average cost per kg across spools with known prices.
 
-#### Files to Create/Modify
+#### Files Created/Modified
 
-| File | Action |
-|---|---|
-| `filament_catalog/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Create** — Compact button-card template |
-| `filament_catalog/dashboard_cards/card_templates/catalog_spool_popup.yaml` | **Create** — Popup template (browser_mod) |
-| `filament_catalog/dashboard_cards/card_templates/catalog_location_header.yaml` | **Create** — Location section header |
-| `filament_catalog/dashboard_cards/catalog_inventory_kpi.yaml` | **Create** — Top-of-view KPI summary |
-| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Create** — New view (replaces common version) |
-| `common/dashboards/3d_printing.yaml` | **Modify** — Update `!include` path + add `button_card_templates` from catalog |
-| `common/dashboard_views/view_filament_catalog.yaml` | **Delete** — Replaced by `filament_catalog/` version |
+| File | Action | Notes |
+|---|---|---|
+| `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Created** | Compact button-card template with location label row |
+| `common/dashboard_cards/card_templates/catalog_spool_popup.yaml` | **Created** | Lightweight popup trigger (110 lines) — only chart config + action buttons |
+| `common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml` | **Created** | Heavy popup display content (221 lines) — rendered on-demand in popup |
+| `common/dashboard_cards/card_templates/catalog_location_header.yaml` | **Created** | Location section header (self-hiding). Not currently used in view but available for future phases |
+| `filament_catalog/dashboard_cards/catalog_inventory_kpi.yaml` | **Created** | Top-of-view KPI summary with `triggers_update` |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Created** | 48-line view: `panel: true` + `vertical-stack` + single `auto-entities` |
+| `common/dashboards/3d_printing.yaml` | **Modified** | Updated `!include` path + `button_card_templates` merge |
 
 #### Estimated Complexity: Medium-High
 Adapted from existing patterns but with scale-aware design (compact cards, auto-entities group_by, JS-computed KPIs).
+
+> **Actual complexity**: High. The performance investigation consumed significant effort — multiple iterations of view type changes, auto-entities reductions, and template restructuring were required before finding the working architecture.
 
 ---
 
 ### Phase 2: Filters & Search
 **Value**: Find specific spools fast. Essential at 165 spools.
+
+> **Performance constraint**: The filter implementation MUST use a single `auto-entities` instance. The template sensor approach (Option B below) is the correct path — it filters server-side and the view's single `auto-entities` references the filtered list.
 
 #### Filter Architecture: Template Sensor Approach (Option B)
 
@@ -464,6 +541,11 @@ The `catalog_spool_card` template reads this helper and adjusts its layout via c
 
 ### Phase 4: Tabbed Views & Sort Options
 **Value**: Multiple perspectives on 165 spools.
+
+> **Performance constraint**: Each tab view MUST use a single `auto-entities` instance. Per-group sections (e.g., per-material, per-vendor) cannot use separate `auto-entities` per group. Options:
+> 1. Single `auto-entities` sorted by the relevant attribute (same as Phase 1 location sort) with location labels on cards
+> 2. A template sensor per tab that outputs entity IDs in the desired group order, consumed by one `auto-entities`
+> 3. A custom button-card template that inserts visual separator rows when the group attribute changes (requires JS in the card template)
 
 #### Tab Structure
 ```
@@ -619,15 +701,15 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 
 ## Implementation Priority Summary
 
-| Phase | Description | Effort | Dependency |
+| Phase | Description | Effort | Dependency | Status |
 |---|---|---|---|
-| **1** | Location-grouped compact grid + popup + KPIs | Medium-High | None |
-| **2** | Filters, search, repurchase threshold helper | High | Phase 1 |
-| **3** | Enhanced card visuals + density toggle | Medium | Phase 1 |
-| **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 |
-| **5** | Alerts & flags | High | Phase 1; benefits from 2 |
-| **6** | Location management (quick-action → drag-drop) | Medium → High | Phase 1 |
-| **7** | Statistics & charts | Medium | Phase 1; benefits from 4 |
+| **1** | Compact spool grid + popup + KPIs | Medium-High | None | ✅ Complete |
+| **2** | Filters, search, repurchase threshold helper | High | Phase 1 | |
+| **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | |
+| **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | |
+| **5** | Alerts & flags | High | Phase 1; benefits from 2 | |
+| **6** | Location management (quick-action → drag-drop) | Medium → High | Phase 1 | |
+| **7** | Statistics & charts | Medium | Phase 1; benefits from 4 | |
 
 **Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
 
