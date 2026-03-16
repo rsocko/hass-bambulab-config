@@ -1,5 +1,5 @@
-filament_catalog_repurchase_threshold:
-  name: Filament Catalog Repurchase Threshold
+filament_catalog_stock_threshold:
+  name: Filament Catalog Stock Threshold
   min: 0
   max: 500
   step: 10

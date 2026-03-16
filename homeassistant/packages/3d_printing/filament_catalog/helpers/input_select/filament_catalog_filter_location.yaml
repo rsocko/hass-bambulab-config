@@ -1,0 +1,17 @@
+filament_catalog_filter_location:
+  name: Filament Catalog Location
+  icon: mdi:map-marker
+  options:
+    - All
+    - AMS
+    - AMS 2
+    - Closet Rack 1
+    - Closet Rack 2
+    - Closet Rack 3
+    - Closet Shelf 2
+    - Closet Shelf 3
+    - Closet Under Rack 1
+    - Closet Under Rack 2
+    - Closet Under Rack 3
+    - Cereal Dry Box - Closet
+    - Under Desk (Right Side)

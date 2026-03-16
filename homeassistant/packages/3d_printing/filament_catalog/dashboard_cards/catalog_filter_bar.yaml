@@ -21,6 +21,13 @@ cards:
         show_state: true
         tap_action:
           action: more-info
+        sub_button:
+          - name: Clear All
+            icon: mdi:filter-remove
+            show_name: true
+            tap_action:
+              action: call-service
+              service: script.filament_catalog_clear_filters
 
   - type: custom:bubble-card
     card_type: button
@@ -32,7 +39,7 @@ cards:
     show_name: false
     show_icon: false
     card_layout: large-sub-buttons-grid
-    rows: 2
+    rows: 3
     styles: |
       .bubble-name-container,
       .bubble-icon-container,
@@ -45,95 +52,105 @@ cards:
       }
       .bubble-sub-button-container {
         width: 100% !important;
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        display: flex !important;
+        flex-wrap: wrap !important;
         gap: 8px !important;
       }
       .bubble-sub-button {
         min-height: 36px !important;
-        width: 100% !important;
+        flex: 1 1 calc(25% - 8px) !important;
+        min-width: 170px !important;
       }
       .bubble-sub-button-text {
         font-size: 12px !important;
       }
-      /* Neutral slider styling: keep interactive behavior but remove bright accent fill. */
-      .bubble-range-fill {
-        background: rgba(145, 145, 145, 0.5) !important;
+      /* Neutralize the stock-threshold slider chip (main view), keep slider interaction intact in popup/editor. */
+      .bubble-sub-button-7 .bubble-sub-button-background,
+      .bubble-sub-button-7 .bubble-sub-button {
+        background: rgba(40, 40, 40, 0.95) !important;
+      }
+      .bubble-sub-button-7 .bubble-range-fill,
+      .bubble-sub-button-7 .bubble-sub-slider .bubble-range-fill {
+        background: rgba(130, 130, 130, 0.45) !important;
         opacity: 1 !important;
       }
-      .bubble-sub-slider,
-      .bubble-sub-button-slider-1 {
+      .bubble-sub-button-7 .bubble-sub-slider,
+      .bubble-sub-button-7 .bubble-sub-button-slider-1 {
         --bubble-sub-slider-background-color: rgba(120, 120, 120, 0.18) !important;
       }
     sub_button:
-      - entity: input_select.filament_catalog_filter_material
-        sub_button_type: select
-        name: Material
-        icon: mdi:flask-outline
-        show_name: true
-        show_state: true
-      - entity: input_select.filament_catalog_filter_vendor
-        sub_button_type: select
-        name: Vendor
-        icon: mdi:factory
-        show_name: true
-        show_state: true
-      - entity: input_select.filament_catalog_filter_color
-        sub_button_type: select
-        name: Color
-        icon: mdi:palette-outline
-        show_name: true
-        show_state: true
-      - entity: input_select.filament_catalog_filter_color_family
-        sub_button_type: select
-        name: Family
-        icon: mdi:format-color-fill
-        show_name: true
-        show_state: true
-      - entity: input_select.filament_catalog_filter_type
-        sub_button_type: select
-        name: Type
-        icon: mdi:shape-outline
-        show_name: true
-        show_state: true
-      - entity: input_number.filament_catalog_repurchase_threshold
-        sub_button_type: slider
-        name: Repurchase g
-        icon: mdi:weight-gram
-        show_name: true
-        show_state: true
-        tap_to_slide: true
-      - entity: input_boolean.filament_catalog_filter_needs_repurchase
-        name: Repurchase
-        icon: mdi:alert-circle-outline
-        show_name: true
-        show_state: false
-        tap_action:
-          action: toggle
-      - entity: input_boolean.filament_catalog_filter_desiccant_old
-        name: Desiccant
-        icon: mdi:water-alert
-        show_name: true
-        show_state: false
-        tap_action:
-          action: toggle
-      - entity: input_boolean.filament_catalog_filter_low_stock
-        name: Low Stock
-        icon: mdi:archive-alert-outline
-        show_name: true
-        show_state: false
-        tap_action:
-          action: toggle
-      - entity: input_boolean.filament_catalog_filter_unsealed_only
-        name: Unsealed
-        icon: mdi:lock-open-variant
-        show_name: true
-        show_state: false
-        tap_action:
-          action: toggle
-      - name: Clear All
-        icon: mdi:filter-remove
-        show_name: true
-        tap_action:
-          action: call-service
-          service: script.filament_catalog_clear_filters
+      main: []
+      bottom:
+        - entity: input_select.filament_catalog_filter_material
+          sub_button_type: select
+          name: Material
+          icon: mdi:flask-outline
+          show_name: true
+          show_state: true
+          fill_width: true
+        - entity: input_select.filament_catalog_filter_vendor
+          sub_button_type: select
+          name: Vendor
+          icon: mdi:factory
+          show_name: true
+          show_state: true
+          fill_width: true
+        - entity: input_select.filament_catalog_filter_color
+          sub_button_type: select
+          name: Color
+          icon: mdi:palette-outline
+          show_name: true
+          show_state: true
+          fill_width: true
+        - entity: input_select.filament_catalog_filter_color_family
+          sub_button_type: select
+          name: Family
+          icon: mdi:format-color-fill
+          show_name: true
+          show_state: true
+          fill_width: true
+        - entity: input_select.filament_catalog_filter_type
+          sub_button_type: select
+          name: Type
+          icon: mdi:shape-outline
+          show_name: true
+          show_state: true
+          fill_width: true
+        - entity: input_select.filament_catalog_filter_location
+          sub_button_type: select
+          name: Location
+          icon: mdi:map-marker
+          show_name: true
+          show_state: true
+          fill_width: true
+        - entity: input_number.filament_catalog_stock_threshold
+          sub_button_type: slider
+          name: Stock Threshold
+          icon: mdi:weight-gram
+          show_name: true
+          show_state: true
+          tap_to_slide: true
+          fill_width: true
+        - entity: input_boolean.filament_catalog_filter_low_stock
+          name: Low Stock
+          icon: mdi:archive-alert-outline
+          show_name: true
+          show_state: false
+          tap_action:
+            action: toggle
+          fill_width: true
+        - entity: input_boolean.filament_catalog_filter_desiccant_old
+          name: Desiccant
+          icon: mdi:water-alert
+          show_name: true
+          show_state: false
+          tap_action:
+            action: toggle
+          fill_width: true
+        - entity: input_select.filament_catalog_filter_sealed
+          sub_button_type: select
+          name: Sealed
+          icon: mdi:package-variant-closed
+          show_name: true
+          show_state: true
+          fill_width: true

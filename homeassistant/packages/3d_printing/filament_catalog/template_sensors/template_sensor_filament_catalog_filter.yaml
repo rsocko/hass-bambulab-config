@@ -20,12 +20,12 @@
           {%- set filter_color = states('input_select.filament_catalog_filter_color') -%}
           {%- set filter_color_family = states('input_select.filament_catalog_filter_color_family') -%}
           {%- set filter_type = states('input_select.filament_catalog_filter_type') -%}
+          {%- set filter_location = states('input_select.filament_catalog_filter_location') -%}
+          {%- set filter_sealed = states('input_select.filament_catalog_filter_sealed') -%}
           {%- set search_text = states('input_text.filament_catalog_search') | lower | trim -%}
-          {%- set repurchase_threshold = states('input_number.filament_catalog_repurchase_threshold') | float(150) -%}
-          {%- set filter_needs_repurchase = is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}
+          {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
           {%- set filter_desiccant_old = is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}
           {%- set filter_low_stock = is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}
-          {%- set filter_unsealed_only = is_state('input_boolean.filament_catalog_filter_unsealed_only', 'on') -%}
           {%- set ns = namespace(matches=[]) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
             {%- set attrs = spool.attributes -%}
@@ -36,13 +36,14 @@
               {%- set vendor = attrs.get('filament_vendor_name', '') | string -%}
               {%- set friendly_name = attrs.get('friendly_name', spool.name) | string -%}
               {%- set filament_name = attrs.get('filament_name', '') | string -%}
+              {%- set location = attrs.get('location', '') | string -%}
               {%- set primary_color = attrs.get('filament_extra_primary_color', '') | string | replace('"', '') -%}
               {%- set color_family = attrs.get('filament_extra_color_family', '') | string | replace('"', '') -%}
               {%- set type_details = attrs.get('filament_extra_type_details', '') | string | replace('[', '') | replace(']', '') | replace('"', '') | lower -%}
               {%- set remaining_weight = attrs.get('remaining_weight', 0) | float(0) -%}
               {%- set spool_filled = attrs.get('extra_desiccant_filled', '') -%}
-              {%- set is_unsealed = attrs.get('extra_sealed') in [false, 'false', 'False', 0, '0'] -%}
-              {%- set needs_repurchase = remaining_weight < repurchase_threshold -%}
+              {%- set is_sealed = attrs.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set is_low_stock = remaining_weight < stock_threshold -%}
               {%- if spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
                 {%- set spool_filled_ts = as_timestamp(spool_filled, 0) | float(0) -%}
                 {%- set desiccant_age_days = ((as_timestamp(now()) - spool_filled_ts) / 86400) | float(0) if spool_filled_ts > 0 else 0 -%}
@@ -56,12 +57,12 @@
               {%- set matches_color = filter_color == 'All' or primary_color | lower == filter_color | lower -%}
               {%- set matches_color_family = filter_color_family == 'All' or color_family | lower == filter_color_family | lower -%}
               {%- set matches_type = filter_type == 'All' or filter_type | lower in type_details -%}
+              {%- set matches_location = filter_location == 'All' or location | lower == filter_location | lower -%}
+              {%- set matches_sealed = filter_sealed == 'All' or (filter_sealed == 'Sealed' and is_sealed) or (filter_sealed == 'Unsealed' and (not is_sealed)) -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
-              {%- set matches_repurchase = (not filter_needs_repurchase) or needs_repurchase -%}
+              {%- set matches_low_stock = (not filter_low_stock) or is_low_stock -%}
               {%- set matches_desiccant = (not filter_desiccant_old) or has_old_desiccant -%}
-              {%- set matches_low_stock = (not filter_low_stock) or (remaining_weight < 100) -%}
-              {%- set matches_unsealed = (not filter_unsealed_only) or is_unsealed -%}
-              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_search and matches_repurchase and matches_desiccant and matches_low_stock and matches_unsealed -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock -%}
                 {%- set ns.matches = ns.matches + [spool.entity_id] -%}
               {%- endif -%}
             {%- endif -%}
@@ -85,9 +86,9 @@
           {%- if states('input_select.filament_catalog_filter_color') != 'All' -%}{%- set active = active + ['Color'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_color_family') != 'All' -%}{%- set active = active + ['Color Family'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_type') != 'All' -%}{%- set active = active + ['Type'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_location') != 'All' -%}{%- set active = active + ['Location'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_sealed') != 'All' -%}{%- set active = active + ['Sealed State'] -%}{%- endif -%}
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
-          {%- if is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}{%- set active = active + ['Needs Repurchase'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}{%- set active = active + ['Desiccant Old'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}{%- set active = active + ['Low Stock'] -%}{%- endif -%}
-          {%- if is_state('input_boolean.filament_catalog_filter_unsealed_only', 'on') -%}{%- set active = active + ['Unsealed Only'] -%}{%- endif -%}
           {{ active | join(', ') if active | count > 0 else 'None' }}

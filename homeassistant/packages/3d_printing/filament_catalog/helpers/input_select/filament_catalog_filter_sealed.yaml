@@ -1,0 +1,7 @@
+filament_catalog_filter_sealed:
+  name: Filament Catalog Sealed State
+  icon: mdi:package-variant-closed
+  options:
+    - All
+    - Sealed
+    - Unsealed
