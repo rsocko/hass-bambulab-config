@@ -1,0 +1,11 @@
+# Filament Catalog package entities used by the filament catalog dashboard view.
+# Docs: docs/features/filament_catalog/filament-catalog.md
+
+script: !include_dir_merge_named scripts
+
+input_boolean: !include_dir_merge_named helpers/input_boolean
+input_number: !include_dir_merge_named helpers/input_number
+input_select: !include_dir_merge_named helpers/input_select
+input_text: !include_dir_merge_named helpers/input_text
+
+template: !include_dir_merge_list template_sensors

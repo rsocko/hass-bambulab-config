@@ -1,0 +1,27 @@
+# Docs: docs/features/filament_catalog/filament-catalog.md
+filament_catalog_clear_filters:
+  alias: Filament Catalog Clear Filters
+  description: Reset all catalog filters, toggles, and search text to defaults.
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id:
+          - input_select.filament_catalog_filter_material
+          - input_select.filament_catalog_filter_vendor
+          - input_select.filament_catalog_filter_color
+          - input_select.filament_catalog_filter_color_family
+          - input_select.filament_catalog_filter_type
+      data:
+        option: All
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.filament_catalog_search
+      data:
+        value: ""
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.filament_catalog_filter_needs_repurchase
+          - input_boolean.filament_catalog_filter_desiccant_old
+          - input_boolean.filament_catalog_filter_low_stock
+          - input_boolean.filament_catalog_filter_unsealed_only

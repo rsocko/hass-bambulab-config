@@ -1,0 +1,15 @@
+filament_catalog_filter_vendor:
+  name: Filament Catalog Vendor
+  icon: mdi:factory
+  options:
+    - All
+    - Bambu Lab
+    - Sunlu
+    - ELEGOO
+    - eSUN
+    - Polymaker
+    - OVERTURE
+    - Hatchbox
+    - Prusament
+    - Creality
+    - Generic

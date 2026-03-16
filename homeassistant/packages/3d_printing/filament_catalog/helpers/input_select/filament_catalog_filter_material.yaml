@@ -1,0 +1,14 @@
+filament_catalog_filter_material:
+  name: Filament Catalog Material
+  icon: mdi:shape
+  options:
+    - All
+    - PLA
+    - PETG
+    - ABS
+    - ASA
+    - TPU
+    - PA
+    - PC
+    - PVA
+    - HIPS

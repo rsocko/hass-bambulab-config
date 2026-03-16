@@ -1,0 +1,63 @@
+# catalog_filter_bar.yaml
+# Filter controls for the Filament Catalog phase 2 experience.
+
+type: vertical-stack
+cards:
+  - type: entities
+    title: Filters
+    show_header_toggle: false
+    entities:
+      - entity: input_text.filament_catalog_search
+        name: Search
+      - type: divider
+      - entity: input_select.filament_catalog_filter_material
+        name: Material
+      - entity: input_select.filament_catalog_filter_vendor
+        name: Vendor
+      - entity: input_select.filament_catalog_filter_color
+        name: Color
+      - entity: input_select.filament_catalog_filter_color_family
+        name: Color Family
+      - entity: input_select.filament_catalog_filter_type
+        name: Type
+      - entity: input_number.filament_catalog_repurchase_threshold
+        name: Repurchase Threshold
+  - type: custom:mushroom-chips-card
+    chips:
+      - type: entity
+        entity: input_boolean.filament_catalog_filter_needs_repurchase
+        name: Needs Repurchase
+        icon_color: red
+        content_info: none
+        tap_action:
+          action: toggle
+      - type: entity
+        entity: input_boolean.filament_catalog_filter_desiccant_old
+        name: Desiccant Old
+        icon_color: orange
+        content_info: none
+        tap_action:
+          action: toggle
+      - type: entity
+        entity: input_boolean.filament_catalog_filter_low_stock
+        name: Low Stock
+        icon_color: amber
+        content_info: none
+        tap_action:
+          action: toggle
+      - type: entity
+        entity: input_boolean.filament_catalog_filter_unsealed_only
+        name: Unsealed
+        icon_color: blue
+        content_info: none
+        tap_action:
+          action: toggle
+      - type: action
+        icon: mdi:filter-remove
+        icon_color: green
+        tap_action:
+          action: call-service
+          service: script.filament_catalog_clear_filters
+        hold_action:
+          action: more-info
+          entity: sensor.filament_catalog_filtered_spools

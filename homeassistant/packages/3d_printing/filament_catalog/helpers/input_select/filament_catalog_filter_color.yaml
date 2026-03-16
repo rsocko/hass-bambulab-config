@@ -1,0 +1,19 @@
+filament_catalog_filter_color:
+  name: Filament Catalog Color
+  icon: mdi:palette
+  options:
+    - All
+    - Black
+    - White
+    - Gray
+    - Blue
+    - Red
+    - Green
+    - Yellow
+    - Orange
+    - Purple
+    - Pink
+    - Brown
+    - Silver
+    - Gold
+    - Transparent

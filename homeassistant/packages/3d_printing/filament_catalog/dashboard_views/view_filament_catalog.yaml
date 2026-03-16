@@ -22,6 +22,11 @@ cards:
       - !include ../dashboard_cards/catalog_inventory_kpi.yaml
 
       # ============================================================
+      # Filters & Search (Phase 2)
+      # ============================================================
+      - !include ../dashboard_cards/catalog_filter_bar.yaml
+
+      # ============================================================
       # All Spools (single auto-entities, sorted by location)
       # ============================================================
       - type: custom:auto-entities
@@ -32,14 +37,18 @@ cards:
           square: false
         card_param: cards
         filter:
-          include:
-            - entity_id: /^sensor\.spoolman_spool_\d+$/
-              options:
-                type: custom:button-card
-                template: catalog_spool_card
-          exclude:
-            - attributes:
-                archived: true
+          template: >
+            {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+            {% set filtered = filtered_json | from_json %}
+            {% set cards = namespace(items=[]) %}
+            {% for entity_id in filtered %}
+              {% set cards.items = cards.items + [{
+                'entity': entity_id,
+                'type': 'custom:button-card',
+                'template': 'catalog_spool_card'
+              }] %}
+            {% endfor %}
+            {{ cards.items | tojson }}
         sort:
           method: attribute
           attribute: location

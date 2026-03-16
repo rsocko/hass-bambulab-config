@@ -1,0 +1,14 @@
+filament_catalog_filter_type:
+  name: Filament Catalog Type
+  icon: mdi:tag-multiple
+  options:
+    - All
+    - Matte
+    - Silk
+    - Metallic
+    - Marble
+    - Carbon Fiber
+    - Wood
+    - Glitter
+    - Glow
+    - Translucent

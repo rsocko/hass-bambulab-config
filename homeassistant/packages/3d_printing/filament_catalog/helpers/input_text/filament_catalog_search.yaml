@@ -1,0 +1,5 @@
+filament_catalog_search:
+  name: Filament Catalog Search
+  icon: mdi:magnify
+  max: 100
+  initial: ""
