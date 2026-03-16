@@ -17,7 +17,7 @@
         # ================================================================
         # Primary computation: filter, sort, and group all spools.
         # Output: list of {name, count, entities} group objects.
-        # For non-grouped tabs (All, Alerts), a single group with name "".
+        # For non-grouped tabs (All), a single group with name "".
         # ================================================================
         grouped_entity_ids_json: >-
           {%- set filter_material = states('input_select.filament_catalog_filter_material') -%}
@@ -35,7 +35,6 @@
           {%- set sort_option = states('input_select.filament_catalog_sort') | default('Name (A-Z)', true) -%}
           {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family'} -%}
           {%- set group_attr = group_attr_map.get(tab, '') -%}
-          {%- set is_alerts_tab = tab == 'Alerts' -%}
           {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Cost (High to Low)'] -%}
           {%- set ns = namespace(matches=[]) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
@@ -73,8 +72,7 @@
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
               {%- set matches_low_stock = (not filter_low_stock) or is_low_stock -%}
               {%- set matches_desiccant = (not filter_desiccant_old) or has_old_desiccant -%}
-              {%- set matches_alerts = (not is_alerts_tab) or is_low_stock or has_old_desiccant -%}
-              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock and matches_alerts -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock -%}
                 {%- if group_attr == 'location' -%}
                   {%- set gv = location if location else 'Unknown' -%}
                 {%- elif group_attr == 'filament_material' -%}
@@ -166,6 +164,4 @@
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}{%- set active = active + ['Desiccant Old'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}{%- set active = active + ['Low Stock'] -%}{%- endif -%}
-          {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
-          {%- if tab == 'Alerts' -%}{%- set active = active + ['Alerts Only'] -%}{%- endif -%}
           {{ active | join(', ') if active | count > 0 else 'None' }}

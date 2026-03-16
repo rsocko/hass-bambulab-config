@@ -292,10 +292,11 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 ├── Inventory KPI chips (total spools, filaments, weight, avg cost per kg)
 │
 ├── Filter Bar (Phase 2)
-│   ├── Row 1: Material ▼  Vendor ▼  Color ▼  Family ▼
-│   ├── Row 2: Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]
-│   ├── Row 3: Sealed ▼  [Desiccant Old]
-│   └── Row 4: 🔍 [search]  [123 Matches]  [Clear All]
+│   ├── Row 1: View ▼  Sort ▼
+│   ├── Row 2: Material ▼  Vendor ▼  Color ▼  Family ▼
+│   ├── Row 3: Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]
+│   ├── Row 4: Sealed ▼  [Desiccant Old]  [Large Cards]
+│   └── Row 5: 🔍 [search]  [123 Matches]  [Clear All]
 │
 └── Single auto-entities grid (columns: 5)
     ├── Source: sensor.filament_catalog_filtered_spools (entity_ids_json)
@@ -534,9 +535,10 @@ The view's `auto-entities` references this sensor to decide which spools to disp
 ##### Filter Bar Design
 ```
 ┌──────────────────────────────────────────────────────────────────┐
+│ View ▼  Sort ▼                                                  │
 │ Material ▼  Vendor ▼  Color ▼  Family ▼                        │
 │ Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]          │
-│ Sealed ▼  [Desiccant Old]                                      │
+│ Sealed ▼  [Desiccant Old]  [Large Cards]                        │
 │ 🔍 [___search___]              [123 Matches]  [Clear All]      │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -638,7 +640,7 @@ Row 4: [location_label]                   [last_used]
 
 #### Tab Structure
 ```
-[ By Location | By Material | By Vendor | By Color Family | By Filament | Alerts | All ]
+[ By Location | By Material | By Vendor | By Color Family | By Filament | All ]
 ```
 
 - **By Location** (default): Current Phase 1 layout — single auto-entities sorted by `location` attribute
@@ -646,8 +648,9 @@ Row 4: [location_label]                   [last_used]
 - **By Vendor**: Sections: Bambu Lab, Sunlu, ELEGOO, etc.
 - **By Color Family**: Sections: Blues, Reds, Greens, Blacks & Whites, Rainbow, etc.
 - **By Filament**: Aggregated view from `spoolman_filament_totals` — one row per `filament_id` with expandable spool list. Collapses 165 spools → 132 rows (and many are single-spool, so effectively shorter).
-- **Alerts**: Only spools needing attention (low stock, desiccant old, repurchase)
 - **All**: Single flat grid with sort control
+
+> **Note**: "Alerts" was originally a tab but was removed since it behaves as a filter, not a grouping perspective. The existing Low Stock and Desiccant Old toggles in the filter bar serve this purpose.
 
 #### Sort Controls
 
@@ -664,8 +667,6 @@ New `input_select.filament_catalog_sort`:
 
 **Sorting approach**: Two-pass stable sort in the template sensor: (1) sort by `sk` (sort key from selected sort option, with direction), (2) stable sort by `gv` (group attribute). This yields primary group ordering with secondary sort within groups.
 
-**Alerts tab**: Additional filter `matches_alerts` requires at least one alert condition (low stock OR desiccant old) when active. No group headers — flat sorted list.
-
 **"All" tab**: Flat sorted list, no group headers.
 
 **"By Filament" tab**: Deferred to future phase — requires aggregated view with different card template.
@@ -674,10 +675,10 @@ New `input_select.filament_catalog_sort`:
 
 | File | Action | Notes |
 |---|---|---|
-| `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Color Family, Alerts, All |
+| `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Color Family, All |
 | `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Cost, Vendor then Name (ascending/descending) |
 | `common/dashboard_cards/card_templates/catalog_group_header.yaml` | **Created** | Lightweight group separator — reads variables only, no entity iteration |
-| `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort/alerts logic, derived `entity_ids_json` from grouped output |
+| `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort logic, derived `entity_ids_json` from grouped output |
 | `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View (tab) and Sort dropdowns in new top row |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** | Replaced auto-entities templates to use grouped data with inline headers; removed `sort:` property |
 
