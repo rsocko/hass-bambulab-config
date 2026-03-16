@@ -126,7 +126,7 @@ cards:
                 height: 45px !important;
               }
               .mdc-text-field__input {
-                padding-top: 22px !important;
+                padding-top: 14px !important;
                 padding-bottom: 0px !important;
               }
         entities:
