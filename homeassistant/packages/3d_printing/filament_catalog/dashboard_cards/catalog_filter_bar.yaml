@@ -33,88 +33,66 @@ cards:
     card_type: sub-buttons
     hide_main_background: false
     sub_button:
-      main: []
-      bottom_layout: rows
-      bottom:
-        - group:
-            - entity: input_select.filament_catalog_filter_material
-              sub_button_type: select
-              name: Material
-              icon: mdi:flask-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_vendor
-              sub_button_type: select
-              name: Vendor
-              icon: mdi:factory
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_color
-              sub_button_type: select
-              name: Color
-              icon: mdi:palette-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_color_family
-              sub_button_type: select
-              name: Family
-              icon: mdi:format-color-fill
-              show_name: true
-              show_state: true
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
-        - group:
-            - entity: input_select.filament_catalog_filter_type
-              sub_button_type: select
-              name: Type
-              icon: mdi:shape-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_location
-              sub_button_type: select
-              name: Location
-              icon: mdi:map-marker
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_number.filament_catalog_stock_threshold
-              sub_button_type: slider
-              name: Stock Threshold
-              icon: mdi:weight-gram
-              show_name: true
-              show_state: true
-              tap_to_slide: true
-              fill_width: true
-            - entity: input_boolean.filament_catalog_filter_low_stock
-              name: Low Stock
-              icon: mdi:archive-alert-outline
-              show_name: true
-              show_state: false
-              tap_action:
-                action: toggle
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
-        - group:
-            - entity: input_select.filament_catalog_filter_sealed
-              sub_button_type: select
-              name: Sealed
-              icon: mdi:package-variant-closed
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_boolean.filament_catalog_filter_desiccant_old
-              name: Desiccant
-              icon: mdi:water-alert
-              show_name: true
-              show_state: false
-              tap_action:
-                action: toggle
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
+      - entity: input_select.filament_catalog_filter_material
+        sub_button_type: select
+        name: Material
+        icon: mdi:flask-outline
+        show_name: true
+        show_state: true
+      - entity: input_select.filament_catalog_filter_vendor
+        sub_button_type: select
+        name: Vendor
+        icon: mdi:factory
+        show_name: true
+        show_state: true
+      - entity: input_select.filament_catalog_filter_color
+        sub_button_type: select
+        name: Color
+        icon: mdi:palette-outline
+        show_name: true
+        show_state: true
+      - entity: input_select.filament_catalog_filter_color_family
+        sub_button_type: select
+        name: Family
+        icon: mdi:format-color-fill
+        show_name: true
+        show_state: true
+      - entity: input_select.filament_catalog_filter_type
+        sub_button_type: select
+        name: Type
+        icon: mdi:shape-outline
+        show_name: true
+        show_state: true
+      - entity: input_select.filament_catalog_filter_location
+        sub_button_type: select
+        name: Location
+        icon: mdi:map-marker
+        show_name: true
+        show_state: true
+      - entity: input_number.filament_catalog_stock_threshold
+        sub_button_type: slider
+        name: Stock Threshold
+        icon: mdi:weight-gram
+        show_name: true
+        show_state: true
+        tap_to_slide: true
+      - entity: input_boolean.filament_catalog_filter_low_stock
+        name: Low Stock
+        icon: mdi:archive-alert-outline
+        show_name: true
+        show_state: false
+        tap_action:
+          action: toggle
+      - entity: input_select.filament_catalog_filter_sealed
+        sub_button_type: select
+        name: Sealed
+        icon: mdi:package-variant-closed
+        show_name: true
+        show_state: true
+      - entity: input_boolean.filament_catalog_filter_desiccant_old
+        name: Desiccant
+        icon: mdi:water-alert
+        show_name: true
+        show_state: false
+        tap_action:
+          action: toggle
