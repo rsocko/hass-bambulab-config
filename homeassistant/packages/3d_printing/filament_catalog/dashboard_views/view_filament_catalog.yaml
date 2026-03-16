@@ -38,16 +38,33 @@ cards:
         card_param: cards
         filter:
           template: >
-            {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-            {% set filtered = filtered_json | from_json %}
+            {% set sensor_state = states('sensor.filament_catalog_filtered_spools') %}
             {% set cards = namespace(items=[]) %}
-            {% for entity_id in filtered %}
-              {% set cards.items = cards.items + [{
-                'entity': entity_id,
-                'type': 'custom:button-card',
-                'template': 'catalog_spool_card'
-              }] %}
-            {% endfor %}
+            {% if sensor_state in ['unknown', 'unavailable', 'none', 'None', ''] %}
+              {% for spool in states.sensor %}
+                {% if spool.entity_id.startswith('sensor.spoolman_spool_') %}
+                  {% set archived_raw = spool.attributes.archived | default(false) %}
+                  {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+                  {% if not archived %}
+                    {% set cards.items = cards.items + [{
+                      'entity': spool.entity_id,
+                      'type': 'custom:button-card',
+                      'template': 'catalog_spool_card'
+                    }] %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+              {% set filtered = filtered_json | from_json %}
+              {% for entity_id in filtered %}
+                {% set cards.items = cards.items + [{
+                  'entity': entity_id,
+                  'type': 'custom:button-card',
+                  'template': 'catalog_spool_card'
+                }] %}
+              {% endfor %}
+            {% endif %}
             {{ cards.items | tojson }}
         sort:
           method: attribute

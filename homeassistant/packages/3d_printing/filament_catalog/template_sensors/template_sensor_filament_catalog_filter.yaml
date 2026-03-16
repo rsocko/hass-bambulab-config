@@ -4,8 +4,12 @@
       icon: mdi:filter-variant
       state: >
         {% set entity_ids_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-        {% set entity_ids = entity_ids_json | from_json %}
-        {{ entity_ids | length }}
+        {% if entity_ids_json in [none, '', 'unknown', 'unavailable'] %}
+          0
+        {% else %}
+          {% set entity_ids = entity_ids_json | from_json %}
+          {{ entity_ids | length }}
+        {% endif %}
       attributes:
         entity_ids_json: >
           {% set filter_material = states('input_select.filament_catalog_filter_material') %}
@@ -24,8 +28,11 @@
           {% set filament_totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) %}
           {% set ns = namespace(matches=[]) %}
 
-          {% for spool in states.sensor | selectattr('entity_id', 'match', '^sensor\\.spoolman_spool_\\d+$') %}
-            {% if not (spool.attributes.archived | default(false)) %}
+          {% for spool in states.sensor %}
+            {% if spool.entity_id.startswith('sensor.spoolman_spool_') %}
+              {% set archived_raw = spool.attributes.archived | default(false) %}
+              {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+              {% if not archived %}
               {% set material = spool.attributes.filament_material | default('') | string %}
               {% set vendor = spool.attributes.filament_vendor_name | default('') | string %}
               {% set friendly_name = spool.attributes.friendly_name | default(spool.name) | string %}
@@ -69,6 +76,7 @@
 
               {% if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_search and matches_state_filters %}
                 {% set ns.matches = ns.matches + [spool.entity_id] %}
+              {% endif %}
               {% endif %}
             {% endif %}
           {% endfor %}
