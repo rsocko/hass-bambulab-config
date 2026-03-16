@@ -125,18 +125,9 @@ cards:
               .mdc-text-field--filled {
                 height: 45px !important;
               }
-              .mdc-floating-label {
-                top: 10px !important;
-                font-size: 12px !important;
-              }
-              .mdc-floating-label--float-above {
-                top: 14px !important;
-                font-size: 10px !important;
-              }
               .mdc-text-field__input {
-                padding-top: 20px !important;
-                padding-bottom: 2px !important;
-                font-size: 14px !important;
+                padding-top: 22px !important;
+                padding-bottom: 0px !important;
               }
         entities:
           - entity: input_text.filament_catalog_search
