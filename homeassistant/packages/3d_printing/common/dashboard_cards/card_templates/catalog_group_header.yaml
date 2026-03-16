@@ -1,7 +1,8 @@
 # catalog_group_header.yaml
 # Lightweight group separator for the Filament Catalog grid view.
 # Renders a group name, spool count, and a horizontal line.
-# Spans all grid columns via card_mod :host style set in auto-entities config.
+# Spans all grid columns via JS DOM traversal that finds the parent
+# grid item wrapper and sets grid-column: 1 / -1 on it.
 #
 # Variables (set by auto-entities filter template):
 #   groupName  - Group label (e.g., "PLA", "AMS", "Bambu Lab")
@@ -35,6 +36,24 @@ catalog_group_header:
   custom_fields:
     header: |
       [[[
+        // Force the parent grid-item wrapper to span all columns.
+        // Runs once via setTimeout after the card is in the DOM.
+        setTimeout(() => {
+          try {
+            let el = this?.shadowRoot?.host;
+            while (el) {
+              const parentStyle = el.parentElement
+                ? getComputedStyle(el.parentElement).display
+                : '';
+              if (parentStyle === 'grid') {
+                el.style.gridColumn = '1 / -1';
+                break;
+              }
+              el = el.parentElement;
+            }
+          } catch(e) {}
+        }, 50);
+
         const name = variables?.groupName || 'Unknown';
         const count = variables?.groupCount || 0;
         return `

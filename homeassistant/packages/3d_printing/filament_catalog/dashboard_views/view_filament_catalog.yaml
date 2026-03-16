@@ -3,10 +3,9 @@
 # tabbed grouping (By Location/Material/Vendor/Color Family/Alerts/All)
 # and configurable sort order.
 #
-# Group headers use type:markdown cards inside the same flat grid.
-# card_mod on the grid uses CSS :has() to make markdown card wrappers
-# span all columns (grid-column: 1 / -1). This avoids nested card
-# structures that auto-entities can't handle.
+# Group headers are catalog_group_header button-cards in the same flat
+# grid. They span all columns via JS DOM traversal in the template
+# (sets grid-column: 1/-1 on the parent grid-item wrapper).
 #
 # Still only ONE auto-entities visible at a time (critical perf constraint).
 #
@@ -34,8 +33,8 @@ cards:
 
       # ============================================================
       # All Spools — Compact grid (5 columns, default)
-      # Group headers are type:markdown cards that span all columns
-      # via card_mod CSS :has() on the grid card.
+      # Group headers use catalog_group_header template which
+      # spans all columns via JS DOM traversal.
       # ============================================================
       - type: conditional
         conditions:
@@ -48,11 +47,6 @@ cards:
             type: grid
             columns: 5
             square: false
-            card_mod:
-              style: |
-                div:has(> hui-markdown-card) {
-                  grid-column: 1 / -1 !important;
-                }
           card_param: cards
           filter:
             template: >
@@ -83,12 +77,14 @@ cards:
                 {% endif %}
                 {% for group in groups %}
                   {% if group.get('name', '') != '' %}
-                    {% set hc = '<div style="display:flex;align-items:center;width:100%"><span style="font-size:13px;font-weight:600;color:var(--primary-text-color)">' ~ (group.name | e) ~ '</span><span style="font-size:11px;color:var(--secondary-text-color);margin-left:6px">(' ~ group.count ~ ')</span><div style="flex:1;height:1px;background:var(--divider-color,rgba(255,255,255,0.12));margin-left:10px"></div></div>' %}
                     {% set cards.items = cards.items + [{
-                      'type': 'markdown',
-                      'content': hc,
-                      'card_mod': {
-                        'style': 'ha-card { background:none !important; border:none !important; box-shadow:none !important; padding:6px 4px 0 4px !important; margin:0 !important; }'
+                      'type': 'custom:button-card',
+                      'template': 'catalog_group_header',
+                      'entity': 'sensor.spoolman_filament_totals',
+                      'triggers_update': 'sensor.spoolman_filament_totals',
+                      'variables': {
+                        'groupName': group.name,
+                        'groupCount': group.count
                       }
                     }] %}
                   {% endif %}
@@ -118,11 +114,6 @@ cards:
             type: grid
             columns: 3
             square: false
-            card_mod:
-              style: |
-                div:has(> hui-markdown-card) {
-                  grid-column: 1 / -1 !important;
-                }
           card_param: cards
           filter:
             template: >
@@ -153,12 +144,14 @@ cards:
                 {% endif %}
                 {% for group in groups %}
                   {% if group.get('name', '') != '' %}
-                    {% set hc = '<div style="display:flex;align-items:center;width:100%"><span style="font-size:13px;font-weight:600;color:var(--primary-text-color)">' ~ (group.name | e) ~ '</span><span style="font-size:11px;color:var(--secondary-text-color);margin-left:6px">(' ~ group.count ~ ')</span><div style="flex:1;height:1px;background:var(--divider-color,rgba(255,255,255,0.12));margin-left:10px"></div></div>' %}
                     {% set cards.items = cards.items + [{
-                      'type': 'markdown',
-                      'content': hc,
-                      'card_mod': {
-                        'style': 'ha-card { background:none !important; border:none !important; box-shadow:none !important; padding:6px 4px 0 4px !important; margin:0 !important; }'
+                      'type': 'custom:button-card',
+                      'template': 'catalog_group_header',
+                      'entity': 'sensor.spoolman_filament_totals',
+                      'triggers_update': 'sensor.spoolman_filament_totals',
+                      'variables': {
+                        'groupName': group.name,
+                        'groupCount': group.count
                       }
                     }] %}
                   {% endif %}
