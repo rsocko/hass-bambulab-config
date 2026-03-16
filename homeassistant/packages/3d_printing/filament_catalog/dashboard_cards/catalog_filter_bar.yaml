@@ -32,22 +32,6 @@ cards:
   - type: custom:bubble-card
     card_type: sub-buttons
     hide_main_background: false
-    rows: 2
-    styles: |
-      /* Keep stock-threshold slider chip neutral without changing layout positioning. */
-      .bubble-sub-button-7 .bubble-sub-button-background,
-      .bubble-sub-button-7 .bubble-sub-button {
-        background: rgba(40, 40, 40, 0.95) !important;
-      }
-      .bubble-sub-button-7 .bubble-range-fill,
-      .bubble-sub-button-7 .bubble-sub-slider .bubble-range-fill {
-        background: rgba(130, 130, 130, 0.45) !important;
-        opacity: 1 !important;
-      }
-      .bubble-sub-button-7 .bubble-sub-slider,
-      .bubble-sub-button-7 .bubble-sub-button-slider-1 {
-        --bubble-sub-slider-background-color: rgba(120, 120, 120, 0.18) !important;
-      }
     sub_button:
       main: []
       bottom_layout: rows
