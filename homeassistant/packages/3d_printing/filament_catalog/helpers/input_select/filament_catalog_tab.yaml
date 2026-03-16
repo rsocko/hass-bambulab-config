@@ -1,0 +1,12 @@
+# Docs: docs/features/filament_catalog/filament-catalog.md
+filament_catalog_tab:
+  name: "Filament Catalog Tab"
+  icon: mdi:tab
+  options:
+    - "By Location"
+    - "By Material"
+    - "By Vendor"
+    - "By Color Family"
+    - "Alerts"
+    - "All"
+  initial: "By Location"

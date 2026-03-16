@@ -1,0 +1,15 @@
+# Docs: docs/features/filament_catalog/filament-catalog.md
+filament_catalog_sort:
+  name: "Filament Catalog Sort"
+  icon: mdi:sort
+  options:
+    - "Name (A-Z)"
+    - "Name (Z-A)"
+    - "Weight (Low to High)"
+    - "Weight (High to Low)"
+    - "Last Used (Recent)"
+    - "Last Used (Oldest)"
+    - "Cost (High to Low)"
+    - "Cost (Low to High)"
+    - "Vendor then Name"
+  initial: "Name (A-Z)"

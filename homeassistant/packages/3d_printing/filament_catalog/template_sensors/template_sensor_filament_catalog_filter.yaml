@@ -3,18 +3,23 @@
       unique_id: filament_catalog_filtered_spools
       icon: mdi:filter-variant
       state: >
-        {% set entity_ids_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-        {% if entity_ids_json in [none, '', 'unknown', 'unavailable'] %}
+        {% set ej = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+        {% if ej in [none, '', 'unknown', 'unavailable'] %}
           0
-        {% elif entity_ids_json is string %}
-          {{ (entity_ids_json | from_json) | length }}
-        {% elif entity_ids_json is iterable %}
-          {{ entity_ids_json | list | length }}
+        {% elif ej is string %}
+          {{ (ej | from_json) | length }}
+        {% elif ej is iterable %}
+          {{ ej | list | length }}
         {% else %}
           0
         {% endif %}
       attributes:
-        entity_ids_json: >-
+        # ================================================================
+        # Primary computation: filter, sort, and group all spools.
+        # Output: list of {name, count, entities} group objects.
+        # For non-grouped tabs (All, Alerts), a single group with name "".
+        # ================================================================
+        grouped_entity_ids_json: >-
           {%- set filter_material = states('input_select.filament_catalog_filter_material') -%}
           {%- set filter_vendor = states('input_select.filament_catalog_filter_vendor') -%}
           {%- set filter_color = states('input_select.filament_catalog_filter_color') -%}
@@ -26,6 +31,12 @@
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
           {%- set filter_desiccant_old = is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}
           {%- set filter_low_stock = is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}
+          {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
+          {%- set sort_option = states('input_select.filament_catalog_sort') | default('Name (A-Z)', true) -%}
+          {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family'} -%}
+          {%- set group_attr = group_attr_map.get(tab, '') -%}
+          {%- set is_alerts_tab = tab == 'Alerts' -%}
+          {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Cost (High to Low)'] -%}
           {%- set ns = namespace(matches=[]) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
             {%- set attrs = spool.attributes -%}
@@ -62,20 +73,84 @@
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
               {%- set matches_low_stock = (not filter_low_stock) or is_low_stock -%}
               {%- set matches_desiccant = (not filter_desiccant_old) or has_old_desiccant -%}
-              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock -%}
-                {%- set ns.matches = ns.matches + [spool.entity_id] -%}
+              {%- set matches_alerts = (not is_alerts_tab) or is_low_stock or has_old_desiccant -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock and matches_alerts -%}
+                {%- if group_attr == 'location' -%}
+                  {%- set gv = location if location else 'Unknown' -%}
+                {%- elif group_attr == 'filament_material' -%}
+                  {%- set gv = material if material else 'Unknown' -%}
+                {%- elif group_attr == 'filament_vendor_name' -%}
+                  {%- set gv = vendor if vendor else 'Unknown' -%}
+                {%- elif group_attr == 'filament_extra_color_family' -%}
+                  {%- set gv = color_family if color_family else 'Unknown' -%}
+                {%- else -%}
+                  {%- set gv = '' -%}
+                {%- endif -%}
+                {%- if sort_option in ['Name (A-Z)', 'Name (Z-A)'] -%}
+                  {%- set sk = (filament_name if filament_name else friendly_name) | lower -%}
+                {%- elif sort_option in ['Weight (Low to High)', 'Weight (High to Low)'] -%}
+                  {%- set sk = remaining_weight -%}
+                {%- elif sort_option in ['Last Used (Recent)', 'Last Used (Oldest)'] -%}
+                  {%- set lu_raw = attrs.get('last_used', '') -%}
+                  {%- set sk = as_timestamp(lu_raw, 0) | float(0) if lu_raw not in [none, '', 'unknown', 'unavailable'] else 0.0 -%}
+                {%- elif sort_option in ['Cost (High to Low)', 'Cost (Low to High)'] -%}
+                  {%- set sk = (attrs.get('price', 0) or 0) | float(0) -%}
+                {%- elif sort_option == 'Vendor then Name' -%}
+                  {%- set sk = (vendor ~ ' ' ~ (filament_name if filament_name else friendly_name)) | lower -%}
+                {%- else -%}
+                  {%- set sk = (filament_name if filament_name else friendly_name) | lower -%}
+                {%- endif -%}
+                {%- set ns.matches = ns.matches + [{'eid': spool.entity_id, 'gv': gv, 'sk': sk}] -%}
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
-          {{ ns.matches | tojson }}
+          {%- set step1 = ns.matches | sort(attribute='sk', reverse=sort_reverse) -%}
+          {%- set sorted_items = step1 | sort(attribute='gv') if group_attr else step1 -%}
+          {%- set res = namespace(groups=[], curr='__SENTINEL__', ents=[], cnt=0) -%}
+          {%- for item in sorted_items -%}
+            {%- if item.gv != res.curr -%}
+              {%- if res.curr != '__SENTINEL__' -%}
+                {%- set res.groups = res.groups + [{'name': res.curr, 'count': res.cnt, 'entities': res.ents}] -%}
+              {%- endif -%}
+              {%- set res.curr = item.gv -%}
+              {%- set res.ents = [item.eid] -%}
+              {%- set res.cnt = 1 -%}
+            {%- else -%}
+              {%- set res.ents = res.ents + [item.eid] -%}
+              {%- set res.cnt = res.cnt + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- if res.curr != '__SENTINEL__' -%}
+            {%- set res.groups = res.groups + [{'name': res.curr, 'count': res.cnt, 'entities': res.ents}] -%}
+          {%- endif -%}
+          {{ res.groups | tojson }}
+        # ================================================================
+        # Flat entity ID list derived from grouped output (for count & compat)
+        # ================================================================
+        entity_ids_json: >-
+          {%- set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) -%}
+          {%- if gj is string -%}
+            {%- set groups = gj | from_json -%}
+          {%- elif gj is iterable -%}
+            {%- set groups = gj | list -%}
+          {%- else -%}
+            {%- set groups = [] -%}
+          {%- endif -%}
+          {%- set ns = namespace(ids=[]) -%}
+          {%- for g in groups -%}
+            {%- for eid in g.get('entities', []) -%}
+              {%- set ns.ids = ns.ids + [eid] -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {{ ns.ids | tojson }}
         entity_ids: >
-          {% set entity_ids_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-          {% if entity_ids_json in [none, '', 'unknown', 'unavailable'] %}
+          {% set ej = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+          {% if ej in [none, '', 'unknown', 'unavailable'] %}
             []
-          {% elif entity_ids_json is string %}
-            {{ entity_ids_json | from_json | tojson }}
-          {% elif entity_ids_json is iterable %}
-            {{ entity_ids_json | list | tojson }}
+          {% elif ej is string %}
+            {{ ej | from_json | tojson }}
+          {% elif ej is iterable %}
+            {{ ej | list | tojson }}
           {% else %}
             []
           {% endif %}
@@ -91,4 +166,6 @@
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}{%- set active = active + ['Desiccant Old'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}{%- set active = active + ['Low Stock'] -%}{%- endif -%}
+          {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
+          {%- if tab == 'Alerts' -%}{%- set active = active + ['Alerts Only'] -%}{%- endif -%}
           {{ active | join(', ') if active | count > 0 else 'None' }}

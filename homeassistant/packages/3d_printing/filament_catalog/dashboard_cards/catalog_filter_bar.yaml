@@ -8,11 +8,28 @@ cards:
     card_type: sub-buttons
     entity: sensor.filament_catalog_filtered_spools
     hide_main_background: false
-    rows: 2.313
+    rows: 3.08
     sub_button:
       main: []
       bottom_layout: rows
       bottom:
+        - group:
+            - entity: input_select.filament_catalog_tab
+              sub_button_type: select
+              name: View
+              icon: mdi:tab
+              show_name: true
+              show_state: true
+              fill_width: true
+            - entity: input_select.filament_catalog_sort
+              sub_button_type: select
+              name: Sort
+              icon: mdi:sort
+              show_name: true
+              show_state: true
+              fill_width: true
+          buttons_layout: inline
+          justify_content: fill
         - group:
             - entity: input_select.filament_catalog_filter_material
               sub_button_type: select

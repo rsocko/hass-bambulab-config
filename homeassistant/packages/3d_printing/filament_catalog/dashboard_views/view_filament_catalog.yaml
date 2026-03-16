@@ -1,8 +1,11 @@
 # view_filament_catalog.yaml
-# Filament Catalog view - Phase 1-3: Compact/Large spool grid.
+# Filament Catalog view - Phase 1-4: Compact/Large spool grid with
+# tabbed grouping (By Location/Material/Vendor/Color Family/Alerts/All)
+# and configurable sort order.
 #
-# Displays all non-archived spools sorted by location,
-# with an inventory KPI summary at the top.
+# Groups are rendered as inline header separators within a single
+# auto-entities instance (critical: only ONE auto-entities visible at a time).
+# Sorting and grouping are computed server-side by the template sensor.
 #
 # Uses conditional cards to switch between compact (5 col) and large (3 col)
 # grid based on input_boolean.filament_catalog_large_cards toggle.
@@ -22,12 +25,14 @@ cards:
       - !include ../dashboard_cards/catalog_inventory_kpi.yaml
 
       # ============================================================
-      # Filters & Search (Phase 2)
+      # Filters, Tabs & Sort (Phase 2 + Phase 4)
       # ============================================================
       - !include ../dashboard_cards/catalog_filter_bar.yaml
 
       # ============================================================
       # All Spools — Compact grid (5 columns, default)
+      # Reads grouped_entity_ids_json from sensor and injects
+      # catalog_group_header cards at group boundaries.
       # ============================================================
       - type: conditional
         conditions:
@@ -60,29 +65,44 @@ cards:
                   {% endif %}
                 {% endfor %}
               {% else %}
-                {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-                {% if filtered_json is string %}
-                  {% set filtered = filtered_json | from_json %}
-                {% elif filtered_json is iterable %}
-                  {% set filtered = filtered_json | list %}
+                {% set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) %}
+                {% if gj is string %}
+                  {% set groups = gj | from_json %}
+                {% elif gj is iterable %}
+                  {% set groups = gj | list %}
                 {% else %}
-                  {% set filtered = [] %}
+                  {% set groups = [] %}
                 {% endif %}
-                {% for entity_id in filtered %}
-                  {% set cards.items = cards.items + [{
-                    'entity': entity_id,
-                    'type': 'custom:button-card',
-                    'template': 'catalog_spool_card'
-                  }] %}
+                {% for group in groups %}
+                  {% if group.get('name', '') != '' %}
+                    {% set cards.items = cards.items + [{
+                      'type': 'custom:button-card',
+                      'template': 'catalog_group_header',
+                      'entity': 'sensor.spoolman_filament_totals',
+                      'triggers_update': 'sensor.spoolman_filament_totals',
+                      'variables': {
+                        'groupName': group.name,
+                        'groupCount': group.count
+                      },
+                      'card_mod': {
+                        'style': ':host { grid-column: 1 / -1 !important; }'
+                      }
+                    }] %}
+                  {% endif %}
+                  {% for entity_id in group.get('entities', []) %}
+                    {% set cards.items = cards.items + [{
+                      'entity': entity_id,
+                      'type': 'custom:button-card',
+                      'template': 'catalog_spool_card'
+                    }] %}
+                  {% endfor %}
                 {% endfor %}
               {% endif %}
               {{ cards.items | tojson }}
-          sort:
-            method: attribute
-            attribute: location
 
       # ============================================================
       # All Spools — Large grid (3 columns)
+      # Same grouped logic, wider cards.
       # ============================================================
       - type: conditional
         conditions:
@@ -115,23 +135,37 @@ cards:
                   {% endif %}
                 {% endfor %}
               {% else %}
-                {% set filtered_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
-                {% if filtered_json is string %}
-                  {% set filtered = filtered_json | from_json %}
-                {% elif filtered_json is iterable %}
-                  {% set filtered = filtered_json | list %}
+                {% set gj = state_attr('sensor.filament_catalog_filtered_spools', 'grouped_entity_ids_json') | default('[]', true) %}
+                {% if gj is string %}
+                  {% set groups = gj | from_json %}
+                {% elif gj is iterable %}
+                  {% set groups = gj | list %}
                 {% else %}
-                  {% set filtered = [] %}
+                  {% set groups = [] %}
                 {% endif %}
-                {% for entity_id in filtered %}
-                  {% set cards.items = cards.items + [{
-                    'entity': entity_id,
-                    'type': 'custom:button-card',
-                    'template': 'catalog_spool_card'
-                  }] %}
+                {% for group in groups %}
+                  {% if group.get('name', '') != '' %}
+                    {% set cards.items = cards.items + [{
+                      'type': 'custom:button-card',
+                      'template': 'catalog_group_header',
+                      'entity': 'sensor.spoolman_filament_totals',
+                      'triggers_update': 'sensor.spoolman_filament_totals',
+                      'variables': {
+                        'groupName': group.name,
+                        'groupCount': group.count
+                      },
+                      'card_mod': {
+                        'style': ':host { grid-column: 1 / -1 !important; }'
+                      }
+                    }] %}
+                  {% endif %}
+                  {% for entity_id in group.get('entities', []) %}
+                    {% set cards.items = cards.items + [{
+                      'entity': entity_id,
+                      'type': 'custom:button-card',
+                      'template': 'catalog_spool_card'
+                    }] %}
+                  {% endfor %}
                 {% endfor %}
               {% endif %}
               {{ cards.items | tojson }}
-          sort:
-            method: attribute
-            attribute: location

@@ -1,6 +1,6 @@
 # Filament Catalog — Design Document
 
-> **Status**: Phase 1 complete, Phase 2 complete
+> **Status**: Phase 1–4 complete
 > **Last updated**: 2026-03-16
 
 ## Problem Statement
@@ -625,13 +625,16 @@ Row 4: [location_label]                   [last_used]
 
 ---
 
-### Phase 4: Tabbed Views & Sort Options
+### Phase 4: Tabbed Views & Sort Options — IMPLEMENTED
+**Status**: ✅ Complete (2026-03-16)
 **Value**: Multiple perspectives on 165 spools.
 
 > **Performance constraint**: Each tab view MUST use a single `auto-entities` instance. Per-group sections (e.g., per-material, per-vendor) cannot use separate `auto-entities` per group. Options:
 > 1. Single `auto-entities` sorted by the relevant attribute (same as Phase 1 location sort) with location labels on cards
 > 2. A template sensor per tab that outputs entity IDs in the desired group order, consumed by one `auto-entities`
 > 3. A custom button-card template that inserts visual separator rows when the group attribute changes (requires JS in the card template)
+>
+> **Shipped approach**: Combined options 2 and 3. The template sensor outputs a `grouped_entity_ids_json` attribute containing pre-sorted, pre-grouped entity lists. The auto-entities filter template reads this and injects lightweight `catalog_group_header` cards (spanning all grid columns via `card_mod :host`) at group boundaries. No `Object.values(states)` in headers — group name and count are passed as variables.
 
 #### Tab Structure
 ```
@@ -655,14 +658,30 @@ New `input_select.filament_catalog_sort`:
 - `Cost (High → Low)` / `Cost (Low → High)`
 - `Vendor → Name`
 
-#### Files to Create/Modify
+#### Shipped Architecture
 
-| File | Action |
-|---|---|
-| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Replace** — Full tabbed layout |
-| `filament_catalog/helpers/filament_catalog_helpers.yaml` | **Modify** — Add sort helper |
+**Grouping approach**: Server-side grouped output in `sensor.filament_catalog_filtered_spools` → `grouped_entity_ids_json` attribute. Each group is `{name, count, entities}`. The auto-entities filter template iterates groups and injects `catalog_group_header` cards at boundaries. Groups span all grid columns via `card_mod: style: ':host { grid-column: 1 / -1 !important; }'`.
 
-#### Estimated Complexity: Medium
+**Sorting approach**: Two-pass stable sort in the template sensor: (1) sort by `sk` (sort key from selected sort option, with direction), (2) stable sort by `gv` (group attribute). This yields primary group ordering with secondary sort within groups.
+
+**Alerts tab**: Additional filter `matches_alerts` requires at least one alert condition (low stock OR desiccant old) when active. No group headers — flat sorted list.
+
+**"All" tab**: Flat sorted list, no group headers.
+
+**"By Filament" tab**: Deferred to future phase — requires aggregated view with different card template.
+
+#### Files Created/Modified
+
+| File | Action | Notes |
+|---|---|---|
+| `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Color Family, Alerts, All |
+| `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Cost, Vendor then Name (ascending/descending) |
+| `common/dashboard_cards/card_templates/catalog_group_header.yaml` | **Created** | Lightweight group separator — reads variables only, no entity iteration |
+| `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort/alerts logic, derived `entity_ids_json` from grouped output |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View (tab) and Sort dropdowns in new top row |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** | Replaced auto-entities templates to use grouped data with inline headers; removed `sort:` property |
+
+#### Estimated Complexity: Medium (Actual: Medium-High)
 
 ---
 
@@ -792,11 +811,11 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 | **1** | Compact spool grid + popup + KPIs | Medium-High | None | ✅ Complete |
 | **2** | Filters, search, stock threshold helper | High | Phase 1 | ✅ Complete |
 | **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | ✅ Complete |
-| **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | |
+| **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | ✅ Complete |
 | **5** | Alerts & flags | High | Phase 1; benefits from 2 | |
 | **6** | Location management (quick-action → drag-drop) | Medium → High | Phase 1 | |
 | **7** | Statistics & charts | Medium | Phase 1; benefits from 4 | |
 
 **Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
 
-Phases 1-3 are complete. Phase 4 (tabbed views + sort options) is the next recommended step now that the compact grid, filters, and enhanced visuals are solid.
+Phases 1-4 are complete. Phase 5 (advanced alerts & flags) is the next recommended step now that the compact grid, filters, enhanced visuals, and tabbed grouping are solid.

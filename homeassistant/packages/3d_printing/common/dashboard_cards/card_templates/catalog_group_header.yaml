@@ -1,0 +1,47 @@
+# catalog_group_header.yaml
+# Lightweight group separator for the Filament Catalog grid view.
+# Renders a group name, spool count, and a horizontal line.
+# Spans all grid columns via card_mod :host style set in auto-entities config.
+#
+# Variables (set by auto-entities filter template):
+#   groupName  - Group label (e.g., "PLA", "AMS", "Bambu Lab")
+#   groupCount - Number of spools in this group
+#
+# No entity iteration — reads only passed variables. Ultra-fast render.
+
+catalog_group_header:
+  type: custom:button-card
+  entity: sensor.spoolman_filament_totals
+  triggers_update: sensor.spoolman_filament_totals
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - border: none
+      - box-shadow: none
+      - padding: 8px 4px 2px 4px
+      - margin: 0
+    grid:
+      - grid-template-areas: '"header"'
+      - grid-template-columns: 1fr
+    custom_fields:
+      header:
+        - padding: 0
+        - margin: 0
+  custom_fields:
+    header: |
+      [[[
+        const name = variables?.groupName || 'Unknown';
+        const count = variables?.groupCount || 0;
+        return `
+          <div style="display:flex; align-items:center; width:100%;">
+            <span style="font-size:13px; font-weight:600; color:var(--primary-text-color); white-space:nowrap;">${name}</span>
+            <span style="font-size:11px; font-weight:400; color:var(--secondary-text-color); margin-left:6px;">(${count})</span>
+            <div style="flex:1; height:1px; background:var(--divider-color, rgba(255,255,255,0.12)); margin-left:10px;"></div>
+          </div>
+        `;
+      ]]]
