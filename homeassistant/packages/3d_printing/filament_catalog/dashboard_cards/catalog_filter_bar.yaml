@@ -3,25 +3,45 @@
 
 type: vertical-stack
 cards:
-  - type: entities
-    title: Filters
-    show_header_toggle: false
-    entities:
-      - entity: input_text.filament_catalog_search
+  - type: grid
+    columns: 3
+    square: false
+    cards:
+      - type: tile
+        entity: input_text.filament_catalog_search
         name: Search
-      - type: divider
-      - entity: input_select.filament_catalog_filter_material
+      - type: tile
+        entity: input_select.filament_catalog_filter_material
         name: Material
-      - entity: input_select.filament_catalog_filter_vendor
+      - type: tile
+        entity: input_select.filament_catalog_filter_vendor
         name: Vendor
-      - entity: input_select.filament_catalog_filter_color
+      - type: tile
+        entity: input_select.filament_catalog_filter_color
         name: Color
-      - entity: input_select.filament_catalog_filter_color_family
-        name: Color Family
-      - entity: input_select.filament_catalog_filter_type
+      - type: tile
+        entity: input_select.filament_catalog_filter_color_family
+        name: Family
+      - type: tile
+        entity: input_select.filament_catalog_filter_type
         name: Type
-      - entity: input_number.filament_catalog_repurchase_threshold
-        name: Repurchase Threshold
+  - type: custom:mushroom-chips-card
+    chips:
+      - type: entity
+        entity: input_number.filament_catalog_repurchase_threshold
+        name: Repurchase g
+        content_info: state
+        tap_action:
+          action: more-info
+      - type: action
+        icon: mdi:filter-remove
+        icon_color: green
+        tap_action:
+          action: call-service
+          service: script.filament_catalog_clear_filters
+        hold_action:
+          action: more-info
+          entity: sensor.filament_catalog_filtered_spools
   - type: custom:mushroom-chips-card
     chips:
       - type: entity
