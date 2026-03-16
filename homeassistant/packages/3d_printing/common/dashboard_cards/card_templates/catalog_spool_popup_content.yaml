@@ -135,7 +135,14 @@ catalog_spool_popup_content:
           othersHTML = '<details style="margin:8px 0;"><summary style="cursor:pointer;font-weight:600;font-size:13px;">📦 ' + others.length + ' other spool' + (others.length === 1 ? '' : 's') + ' of same filament</summary><div style="padding:6px 0;">';
           others.forEach(function(s) {
             const rem = (s.remaining != null) ? s.remaining.toFixed(1) + ' g' : 'N/A';
-            othersHTML += '<div style="font-size:12px;padding:2px 0;">• <b>' + (s.name || 'Spool') + '</b> (#' + s.id + ') — 📍 ' + (s.location || 'N/A') + ' — ' + rem + '</div>';
+            const eid = s.entity_id || '';
+            othersHTML += '<div class="other-spool-row" data-entity="' + eid + '" style="font-size:12px;padding:6px 8px;margin:2px 0;border-radius:8px;background:var(--card-background-color,#1c1c1c);cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity 0.15s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1">' +
+              '<ha-icon icon="mdi:circle" style="--mdc-icon-size:10px;color:#2196F3;flex-shrink:0;"></ha-icon>' +
+              '<span style="flex:1;min-width:0;"><b>' + (s.name || 'Spool') + '</b> (#' + s.id + ')</span>' +
+              '<span style="font-size:11px;color:var(--secondary-text-color);white-space:nowrap;">📍 ' + (s.location || 'N/A') + '</span>' +
+              '<span style="font-size:11px;font-weight:600;white-space:nowrap;">' + rem + '</span>' +
+              '<ha-icon icon="mdi:chevron-right" style="--mdc-icon-size:16px;color:var(--secondary-text-color);flex-shrink:0;"></ha-icon>' +
+              '</div>';
           });
           othersHTML += '</div></details>';
         }
@@ -174,7 +181,11 @@ catalog_spool_popup_content:
           return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;line-height:1;"><ha-icon icon="' + icon + '" style="--mdc-icon-size:16px;color:' + color + ';display:flex;"></ha-icon>' + text + '</span>';
         };
 
-        return `
+        // ============================================================
+        // Build DOM element (enables click handlers for Other Spools & Location pill)
+        // ============================================================
+        const container = document.createElement('div');
+        container.innerHTML = `
           <div style="display:flex;flex-direction:column;gap:8px;">
             <!-- Banner -->
             <div style="background:${bgCSS};border:3px solid ${hbColor};border-radius:10px;padding:14px 16px;text-align:center;user-select:text;">
@@ -188,7 +199,7 @@ catalog_spool_popup_content:
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
               ${pill('mdi:texture-box', 'Material: ' + material, '#FF9800')}
               ${pill('mdi:factory', 'Vendor: ' + vendor, '#9C27B0')}
-              ${pill('mdi:map-marker', 'Location: ' + location, '#2196F3')}
+              <span class="location-pill" style="display:inline-flex;align-items:center;gap:4px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);border-radius:20px;padding:5px 10px;font-size:12px;line-height:1;cursor:pointer;transition:opacity 0.15s;"><ha-icon icon="mdi:map-marker" style="--mdc-icon-size:16px;color:#2196F3;display:flex;"></ha-icon>Location: ${location}<ha-icon icon="mdi:pencil" style="--mdc-icon-size:12px;color:#2196F3;display:flex;margin-left:2px;"></ha-icon></span>
             </div>
 
             <!-- Color / Family / Type -->
@@ -247,4 +258,30 @@ catalog_spool_popup_content:
             </div>
           </div>
         `;
+
+        // --- Click handlers for Other Spools rows (#653) ---
+        container.querySelectorAll('.other-spool-row').forEach(function(row) {
+          row.addEventListener('click', function() {
+            const eid = row.getAttribute('data-entity');
+            if (!eid) return;
+            const evt = new Event('hass-more-info', {bubbles: true, composed: true});
+            evt.detail = {entityId: eid};
+            container.dispatchEvent(evt);
+          });
+        });
+
+        // --- Click handler for Location pill (#654) ---
+        const locPill = container.querySelector('.location-pill');
+        if (locPill) {
+          locPill.addEventListener('mouseover', function() { locPill.style.opacity = '0.7'; });
+          locPill.addEventListener('mouseout', function() { locPill.style.opacity = '1'; });
+          locPill.addEventListener('click', function() {
+            const locEid = 'select.spoolman_spool_' + spoolId + '_location';
+            const evt = new Event('hass-more-info', {bubbles: true, composed: true});
+            evt.detail = {entityId: locEid};
+            container.dispatchEvent(evt);
+          });
+        }
+
+        return container;
       ]]]
