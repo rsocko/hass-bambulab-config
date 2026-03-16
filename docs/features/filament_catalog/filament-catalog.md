@@ -1,6 +1,6 @@
 # Filament Catalog — Design Document
 
-> **Status**: Phase 1–4 complete
+> **Status**: Phase 1–4 complete (5 phases total)
 > **Last updated**: 2026-03-16
 
 ## Problem Statement
@@ -65,7 +65,7 @@ homeassistant/packages/3d_printing/
 │   │   └── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
 │   ├── template_sensors/
 │   │   ├── template_sensor_filament_catalog_filter.yaml  ← Server-side filtered spool list
-│   │   └── filament_catalog_alerts.yaml      ← Alert computations (Phase 5 — not yet created)
+│   │   └── filament_catalog_metrics.yaml      ← Metrics & alert computations (Phase 5 — not yet created)
 │   ├── dashboard_cards/
 │   │   ├── catalog_filter_bar.yaml           ← Filter bar with dropdowns, toggles, search (Phase 2)
 │   │   └── catalog_inventory_kpi.yaml        ← Inventory KPI summary chips
@@ -252,7 +252,7 @@ The view type was irrelevant — the issue was purely the number of `auto-entiti
 1. **Phase 2 (Filters)**: Cannot use multiple `auto-entities` for filtered sub-views. Must use a single `auto-entities` with a template sensor controlling the entity list, or use `auto-entities` `filter.template` with JS.
 2. **Phase 4 (Tabbed Views)**: Each tab's grouped view (By Material, By Vendor, etc.) must use ONE auto-entities with `sort` — cannot use per-group auto-entities. Location grouping headers must be rendered differently (e.g., card-level JS that inserts visual separators, or a single `button-card` template that conditionally shows a header when location changes).
 3. **Phase 3 (Density Toggle)**: Safe — only changes card template CSS, no auto-entities impact.
-4. **Phase 5 (Alerts)**: Alert badges on cards are safe (template JS). Alert summary card should use `triggers_update` to avoid re-render storms.
+4. **Phase 5 (Metrics & Insights)**: Chart cards are safe — they read from a pre-computed template sensor. All chart cards MUST use `triggers_update: sensor.filament_catalog_metrics` to avoid re-render storms. The collapsible insights panel has zero cost when hidden (conditional card).
 5. **General**: Any card using `Object.values(states).filter()` MUST have `triggers_update` set to a specific entity to prevent running on every state change.
 
 ### New Template Cards Needed
@@ -686,77 +686,159 @@ New `input_select.filament_catalog_sort`:
 
 ---
 
-### Phase 5: Advanced Alerts & Flags (Future)
-**Value**: Proactive inventory management.
+### Phase 5: Metrics, Insights & Alert Analytics (Future)
+**Value**: Visual analytics for inventory management with proactive alert visibility — all in one place.
 
-#### Alert Types
+> Phase 5 combines the original alert-counting concept (former Phase 5) with statistics and charts (former Phase 7). Rather than building dedicated alert UI, filtering tabs, or summary cards, alert counts surface **as chart data** alongside other inventory metrics. Phase 3 already provides card-level visual indicators (left border, badges, desiccant icons); this phase adds the aggregate "how many and what kind" view.
 
-| Alert | Trigger | Visual |
+#### Alert Metrics (Incorporated from Former Phase 5)
+
+Instead of a standalone alert summary card or dedicated alert tab, alert counts appear as chart segments:
+
+| Alert Category | Trigger | How It Surfaces |
 |---|---|---|
-| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < `input_number.filament_catalog_stock_threshold` (default 150g) | Red badge |
-| **Desiccant Overdue** | `extra_desiccant_filled` age > 60 days (orange/red threshold) | Orange water drop |
-| **Needs Drying** | `extra_last_dried` > 90 days (or never) AND `extra_sealed = false` | Yellow heat icon |
-| **Nearly Empty** | `remaining_weight` < 50g | Warning badge |
-| **Unused (Stale)** | `last_used` > 6 months ago | Gray-out card |
+| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < threshold | Bar in alert-type breakdown chart |
+| **Desiccant Overdue** | `extra_desiccant_filled` age > 60 days | Bar in alert-type breakdown chart |
+| **Needs Drying** | `extra_last_dried` > 90 days AND `extra_sealed = false` | Bar in alert-type breakdown chart |
+| **Nearly Empty** | `remaining_weight` < 50g | Bar in alert-type breakdown chart |
+| **Unused (Stale)** | `last_used` > 6 months ago | Bar in alert-type breakdown chart |
 
-#### Alert Summary Card
+No new card-level badges, filter toggles, or alert tabs are needed — Phase 3's card visuals already handle per-spool indicators. This phase answers "how many of each problem do I have?" at a glance.
+
+#### Chart & Insight Features
+
+1. **Pie chart**: Weight distribution by material / vendor / color family (`custom:apexcharts-card`)
+2. **Bar chart**: Spools per location
+3. **Horizontal bar chart**: Alert counts by type (Repurchase, Desiccant, Drying, Empty, Stale)
+4. **Inventory value trend**: Total $ value over time (requires HA long-term statistics on a value sensor)
+5. **Usage rate**: Weight consumed per week/month per spool (derived from weight history)
+6. **Filament recommendation**: Based on what's running low, suggest what to reorder (stretch goal)
+
+#### Implementation Design: How & Where
+
+##### Placement: Collapsible Metrics Panel at Top of Catalog View
+
+The metrics panel lives **inside** the existing Filament Catalog view — not on a separate view/tab. It sits between the KPI chips and the filter bar as a collapsible `<details>`-style section (using `custom:fold-entity-row` or a conditional card gated by a toggle):
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ ⚠️ Inventory Alerts                                             │
-│ 🔴 2 repurchase  🟠 5 desiccant  🟡 3 drying  ⚠️ 1 empty      │
-│                                                   [View All →] │
-└─────────────────────────────────────────────────────────────────┘
+view_filament_catalog.yaml (panel: true + vertical-stack)
+├── Inventory KPI chips (existing)
+│
+├── [📊 Show Insights]  ← input_boolean toggle or mushroom chip
+│   └── Collapsible Metrics Panel (shown when toggle is on)
+│       ├── Row 1: [Pie: Weight by Material] [Pie: Weight by Vendor]
+│       ├── Row 2: [Bar: Spools per Location]
+│       ├── Row 3: [Bar: Alert Counts by Type]  ← clickable segments
+│       └── Row 4: [Line: Inventory Value Trend] (if historical data available)
+│
+├── Filter Bar (existing)
+└── Single auto-entities grid (existing)
 ```
 
-Placed below the KPI summary card. Tapping a chip switches to the Alerts tab with that filter pre-selected.
+**Why not a separate tab or view?**
+- A separate view would break the flow — users want to see metrics *and then act* on the catalog below.
+- A separate tab inside `tabbed-card` would need its own `auto-entities` instance (performance violation) or require leaving the catalog context.
+- A collapsible panel keeps it zero-cost when hidden, and contextually useful when shown.
 
-#### Template Sensor: `sensor.filament_catalog_alerts`
+**Why not a popup?**
+- Popups are good for single-entity detail (spool popup), but metrics benefit from persistent visibility while scrolling through the catalog.
+- A user might open the insights panel, see "5 desiccant overdue," click that bar segment to filter, then scroll the catalog — all without dismissing anything.
 
-Computes alert counts and entity lists for each category. Used by both the summary card and the Alerts tab.
+##### Toggle Helper
+
+`input_boolean.filament_catalog_show_insights` — Controls visibility of the metrics panel. Default: off (collapsed). The toggle chip appears in the KPI row or as a standalone mushroom chip.
+
+##### Clickable Chart Segments → Filter Integration
+
+Chart segments are **interactive** — tapping a segment applies the corresponding filter to the catalog grid below:
+
+| Chart | Click Action |
+|---|---|
+| Pie: Weight by Material → "PLA" slice | Sets `input_select.filament_catalog_filter_material` to `PLA` |
+| Bar: Spools per Location → "AMS" bar | Sets `input_select.filament_catalog_filter_location` to `AMS` |
+| Bar: Alert Counts → "Desiccant Overdue" bar | Turns on `input_boolean.filament_catalog_filter_desiccant_old` |
+| Bar: Alert Counts → "Low Stock" bar | Turns on `input_boolean.filament_catalog_filter_low_stock` |
+| Bar: Alert Counts → "Needs Drying" / "Stale" | Sets a new dedicated filter or search term (see below) |
+
+**Implementation**: `custom:apexcharts-card` supports `chart.events.dataPointSelection` which can trigger a `browser_mod` service call or `fire-dom-event`. For HA-native integration, each clickable segment calls `input_select.select_option` or `input_boolean.turn_on` via `tap_action: call-service`.
+
+> **Note**: For alert types that don't have existing filter toggles (Needs Drying, Stale), clicking those bars could set a search term or add new lightweight `input_boolean` toggles. Alternatively, these can initially be display-only with filter integration added incrementally.
+
+##### Template Sensor: `sensor.filament_catalog_metrics`
+
+A dedicated template sensor pre-computes all chart data server-side to avoid heavy JS in apexcharts configs:
+
+```yaml
+attributes:
+  weight_by_material_json: '{"PLA": 45200, "PETG": 12300, ...}'  # grams
+  weight_by_vendor_json: '{"Bambu Lab": 38000, "Sunlu": 15000, ...}'
+  weight_by_color_family_json: '{"Blues": 12000, "Reds": 8000, ...}'
+  spools_by_location_json: '{"AMS": 5, "Closet Shelf 1": 12, ...}'
+  alert_counts_json: '{"repurchase": 2, "desiccant": 5, "drying": 3, "empty": 1, "stale": 4}'
+  alert_entity_ids_json: '{"repurchase": ["sensor.spoolman_spool_12", ...], ...}'
+  total_inventory_value: 3245.50
+  avg_cost_per_kg: 22.50
+```
+
+The sensor triggers on `sensor.spoolman_filament_totals` changes (same as the filter sensor), so it recomputes only when spool data changes — not on every state change.
+
+##### Modularity: Card-Per-Chart Pattern
+
+Each chart is its own includable card file, making it easy to add/remove/reorder:
+
+```
+filament_catalog/
+├── dashboard_cards/
+│   ├── catalog_insights_panel.yaml          ← wrapper: conditional on toggle + vertical-stack
+│   ├── insights/
+│   │   ├── chart_weight_by_material.yaml    ← apexcharts-card (pie)
+│   │   ├── chart_weight_by_vendor.yaml      ← apexcharts-card (pie)
+│   │   ├── chart_spools_by_location.yaml    ← apexcharts-card (bar)
+│   │   ├── chart_alert_counts.yaml          ← apexcharts-card (horizontal bar, clickable)
+│   │   └── chart_inventory_trend.yaml       ← apexcharts-card (line, if data available)
+│   └── ...
+├── template_sensors/
+│   └── filament_catalog_metrics.yaml        ← pre-computed chart data
+```
+
+The `catalog_insights_panel.yaml` is a `conditional` card (condition: `input_boolean.filament_catalog_show_insights` is on) wrapping a `vertical-stack` of `horizontal-stack` rows that `!include` each chart card. Adding a new chart = create the card file + add an `!include` line.
+
+##### Performance Considerations
+
+- **`triggers_update`**: Every chart card MUST use `triggers_update: sensor.filament_catalog_metrics` to prevent re-render on unrelated entity changes.
+- **Conditional wrapper**: When the insights panel is collapsed (toggle off), the chart cards are not rendered at all — zero performance cost.
+- **No additional `auto-entities`**: Charts read from the pre-computed template sensor attributes, not from entity iteration.
+- **Apex chart settings**: Disable animations (`chart.animations.enabled: false`), limit data points for trend charts.
 
 #### Files to Create/Modify
 
 | File | Action |
 |---|---|
-| `filament_catalog/template_sensors/filament_catalog_alerts.yaml` | **Create** — Alert computation |
-| `filament_catalog/dashboard_cards/catalog_alert_summary.yaml` | **Create** — Alert summary card |
-| `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modify** — Alert badges on cards |
+| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Create** — Pre-computed chart data |
+| `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Create** — Conditional wrapper for insights section |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_material.yaml` | **Create** — Pie chart |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_vendor.yaml` | **Create** — Pie chart |
+| `filament_catalog/dashboard_cards/insights/chart_spools_by_location.yaml` | **Create** — Bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_alert_counts.yaml` | **Create** — Alert breakdown (clickable) |
+| `filament_catalog/dashboard_cards/insights/chart_inventory_trend.yaml` | **Create** — Line chart (stretch) |
+| `filament_catalog/helpers/input_boolean/filament_catalog_show_insights.yaml` | **Create** — Insights panel toggle |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modify** — Insert insights panel between KPIs and filter bar |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modify** — Add insights toggle chip (optional) |
 
 #### Estimated Complexity: High
 
 ---
 
-### Phase 6: Location Management & Drag-and-Drop (Future)
-**Value**: Reorganize spool locations from the HA dashboard.
+## Non-Requirements
 
-#### Phased Approach
+The following features have been explicitly evaluated and **will not be implemented** in the Filament Catalog:
 
-**6a. Quick-action location buttons** (in `catalog_spool_popup`):
-- Already partially available via Location chip → `more-info` on `select.spoolman_spool_{id}_location`
-- Add dedicated "Move to…" section with quick-action buttons for common locations (AMS, AMS 2, shelves)
-- Low effort, high value
-
-**6b. Drag-and-drop** (future custom card):
-- Would require a custom Lovelace card using HTML5 DnD or Sortable.js
-- Calls `select.select_option` on `select.spoolman_spool_{id}_location` on drop
-- Standalone HACS custom card project — out of scope for YAML-only implementation
-
----
-
-### Phase 7: Density-Aware Statistics & Charts (Future)
-**Value**: Visual analytics for inventory management.
-
-#### Features
-1. **Pie chart**: Weight distribution by material / vendor / color family (`custom:apexcharts-card`)
-2. **Bar chart**: Spools per location
-3. **Inventory value trend**: Total $ value over time (requires historical data)
-4. **Usage rate**: Weight consumed per week/month per spool
-5. **Filament recommendation**: Based on what's running low, suggest what to reorder
-
-#### Files to Create
-| File | Action |
+| Feature | Reason |
 |---|---|
-| `filament_catalog/dashboard_cards/catalog_statistics.yaml` | **Create** — Statistics cards |
+| **Drag-and-drop spool reordering / location management** | Would require a custom Lovelace card (HTML5 DnD or Sortable.js) — fundamentally not a YAML-dashboard feature. Spoolman's own UI already provides drag-and-drop location management. The catalog popup's existing Location chip → `more-info` on `select.spoolman_spool_{id}_location` is sufficient for individual moves. |
+| **Dedicated Alerts tab / view** | Alert counts are surfaced as chart data in the Metrics & Insights panel (Phase 5). Per-spool alert indicators already exist as card-level badges and border colors (Phase 3). A standalone alerts tab would duplicate existing functionality. |
+| **Custom Lovelace card development** | The catalog is built entirely with existing community cards (`button-card`, `auto-entities`, `apexcharts-card`, `bubble-card`, etc.). No custom JavaScript card development is planned. |
+| **Spoolman data editing beyond location** | Editing spool metadata (name, vendor, material, notes, etc.) is Spoolman's domain. The catalog is a read-focused dashboard with limited write actions (mark dried, refill desiccant, change location). |
 
 ---
 
@@ -766,7 +848,7 @@ The Spoolman screenshot shows a location-grouped layout with:
 - Location headers with spool count badges (5, 5, 6, 8 spools per group)
 - Spool cards: ID + name, material + weight + spool size, last used timestamp
 - Colored swatch circle per spool
-- Drag handles (our Phase 6b)
+- Drag handles (not planned — see [Non-Requirements](#non-requirements))
 - Edit/visibility toggles
 
 Our Phase 1 catalog achieves the same organizational structure but scaled for 21 locations and with:
@@ -785,7 +867,7 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 
 1. **Cost tracking** — `price` attribute enables per-spool value calculation: `(remaining_weight / initial_weight) * price`. Show on popup cards and in KPI summary.
 
-2. **Filament type breakdown** — Pie chart (via `custom:apexcharts-card`) showing weight distribution by material, vendor, or color family. Phase 7 feature.
+2. **Filament type breakdown** — Pie chart (via `custom:apexcharts-card`) showing weight distribution by material, vendor, or color family. Phase 5 feature.
 
 3. **"Similar spools" in popup** — When viewing a spool, show other spools with the same `filament_extra_primary_color` as alternatives (not just same `filament_id`).
 
@@ -813,10 +895,8 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 | **2** | Filters, search, stock threshold helper | High | Phase 1 | ✅ Complete |
 | **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | ✅ Complete |
 | **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | ✅ Complete |
-| **5** | Alerts & flags | High | Phase 1; benefits from 2 | |
-| **6** | Location management (quick-action → drag-drop) | Medium → High | Phase 1 | |
-| **7** | Statistics & charts | Medium | Phase 1; benefits from 4 | |
+| **5** | Metrics, insights & alert analytics | High | Phase 1; benefits from 2, 4 | |
 
-**Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
+**Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
 
-Phases 1-4 are complete. Phase 5 (advanced alerts & flags) is the next recommended step now that the compact grid, filters, enhanced visuals, and tabbed grouping are solid.
+Phases 1–4 are complete. Phase 5 (metrics, insights & alert analytics) is the next step — it combines inventory statistics/charts with alert-count breakdowns, all in a collapsible panel within the existing catalog view.
