@@ -3,32 +3,6 @@
 
 type: vertical-stack
 cards:
-  - type: horizontal-stack
-    cards:
-      - type: entities
-        show_header_toggle: false
-        entities:
-          - entity: input_text.filament_catalog_search
-            name: Search Filament
-            secondary_info: none
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        entity: sensor.filament_catalog_filtered_spools
-        name: Matches
-        icon: mdi:counter
-        show_name: true
-        show_state: true
-        tap_action:
-          action: more-info
-        sub_button:
-          - name: Clear All
-            icon: mdi:filter-remove
-            show_name: true
-            tap_action:
-              action: call-service
-              service: script.filament_catalog_clear_filters
-
   - type: custom:bubble-card
     card_type: sub-buttons
     hide_main_background: true
@@ -117,3 +91,29 @@ cards:
               fill_width: true
           buttons_layout: inline
           justify_content: fill
+
+  - type: horizontal-stack
+    cards:
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: input_text.filament_catalog_search
+            name: Search Filament
+            secondary_info: none
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.filament_catalog_filtered_spools
+        name: Matches
+        icon: mdi:counter
+        show_name: true
+        show_state: true
+        tap_action:
+          action: more-info
+        sub_button:
+          - name: Clear All
+            icon: mdi:filter-remove
+            show_name: true
+            tap_action:
+              action: call-service
+              service: script.filament_catalog_clear_filters
