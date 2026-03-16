@@ -660,6 +660,7 @@ New `input_select.filament_catalog_sort`:
 - `Last Used (Recent)` / `Last Used (Oldest)`
 - `Cost (High → Low)` / `Cost (Low → High)`
 - `Vendor → Name`
+- `Hue` — Sorts by color hue in rainbow order (red → orange → yellow → green → cyan → blue → purple). Converts each spool's `filament_extra_primary_color` hex to HSV hue (0–360°). Near-achromatic colors (saturation < 8% — whites, grays, blacks) sort after all chromatic colors, ordered by brightness. Spools with missing or invalid hex values sort last. When a group-by tab is active, hue sorting applies within each group.
 
 #### Shipped Architecture
 
@@ -676,7 +677,7 @@ New `input_select.filament_catalog_sort`:
 | File | Action | Notes |
 |---|---|---|
 | `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Color Family, All |
-| `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Cost, Vendor then Name (ascending/descending) |
+| `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Cost, Vendor then Name (ascending/descending), Hue (rainbow color sort) |
 | `common/dashboard_cards/card_templates/catalog_group_header.yaml` | **Created** | Lightweight group separator — reads variables only, no entity iteration |
 | `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort logic, derived `entity_ids_json` from grouped output |
 | `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View (tab) and Sort dropdowns in new top row |
