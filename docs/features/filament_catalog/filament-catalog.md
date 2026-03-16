@@ -24,7 +24,7 @@ The current `view_filament_catalog.yaml` renders every Spoolman spool using a `c
 | Question | Decision | Rationale |
 |---|---|---|
 | **Location discovery** | Dynamic with ordered preference list | 21 locations exist; new ones may be added. Preferred order defined, unknown locations sort to end. |
-| **Repurchase threshold** | Configurable `input_number`, default 150g | ~15% of a 1kg spool; adjustable from the UI |
+| **Stock threshold** | Configurable `input_number.filament_catalog_stock_threshold`, default 150g | ~15% of a 1kg spool; adjustable from the UI. Originally called "repurchase threshold" — consolidated with the Low Stock toggle filter in Phase 2. |
 | **Desiccant thresholds** | Reuse `spoolman_tray_map` logic exactly | Consistent throughout: green (<45d), yellow (45-60d), orange (60-75d), red (>75d) |
 | **Default mobile view** | Location-grouped | Mirrors physical layout; no strong mobile-specific need yet |
 | **Card density** | Compact default (Phase 1); density toggle is a future phase | 165 spools demands compact; medium/spacious as future option |
@@ -61,16 +61,14 @@ homeassistant/packages/3d_printing/
 │   │   ├── input_number/                     ← Stock threshold
 │   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, etc.)
 │   │   └── input_text/                       ← Free-text search
+│   ├── scripts/
+│   │   └── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
 │   ├── template_sensors/
 │   │   ├── template_sensor_filament_catalog_filter.yaml  ← Server-side filtered spool list
-│   │   └── filament_catalog_alerts.yaml      ← Alert computations (Phase 5)
+│   │   └── filament_catalog_alerts.yaml      ← Alert computations (Phase 5 — not yet created)
 │   ├── dashboard_cards/
-│   │   ├── card_templates/
-│   │   │   ├── catalog_spool_card.yaml       ← Individual spool card (button-card template)
-│   │   │   ├── catalog_spool_popup.yaml      ← Spool detail popup (browser_mod)
-│   │   │   └── catalog_location_header.yaml  ← Location section header
-│   │   ├── catalog_filter_bar.yaml           ← Filter chip bar (Phase 2)
-│   │   └── catalog_alert_summary.yaml        ← Alert summary card (Phase 5)
+│   │   ├── catalog_filter_bar.yaml           ← Filter bar with dropdowns, toggles, search (Phase 2)
+│   │   └── catalog_inventory_kpi.yaml        ← Inventory KPI summary chips
 │   └── dashboard_views/
 │       └── view_filament_catalog.yaml        ← The main catalog view
 ├── common/
@@ -78,6 +76,10 @@ homeassistant/packages/3d_printing/
 │   │   └── 3d_printing.yaml                  ← Updated to !include from filament_catalog/
 │   └── dashboard_cards/
 │       └── card_templates/
+│           ├── catalog_spool_card.yaml        ← Compact spool card (button-card template)
+│           ├── catalog_spool_popup.yaml       ← Lightweight popup trigger (~110 lines)
+│           ├── catalog_spool_popup_content.yaml ← Heavy popup display (~221 lines, on-demand)
+│           ├── catalog_location_header.yaml   ← Location section header (available for Phase 4)
 │           └── (ams_* templates stay here — shared by both printer view and catalog)
 ```
 
@@ -91,8 +93,7 @@ homeassistant/packages/3d_printing/
    # After:
    - !include ../../filament_catalog/dashboard_views/view_filament_catalog.yaml
    ```
-3. **`common/dashboard_cards/card_templates/`** — The shared `ams_tray_popup`, `ams_tray_detail`, etc. stay in `common/` since they're used by both the printer dashboard and (potentially) the catalog popup.
-4. **`filament_catalog/dashboard_cards/card_templates/`** — New catalog-specific card templates are registered via `button_card_templates` merge in the dashboard YAML.
+3. **`common/dashboard_cards/card_templates/`** — Both shared `ams_*` templates and catalog-specific templates (`catalog_spool_card`, `catalog_spool_popup`, `catalog_spool_popup_content`, `catalog_location_header`) live here, registered via the `button_card_templates` merge in the dashboard YAML.
 
 ### Migration Path
 
@@ -290,10 +291,18 @@ The existing `ams_tray_detail` reads spool data through the `sensor.spoolman_tra
 view_filament_catalog.yaml (panel: true + vertical-stack)
 ├── Inventory KPI chips (total spools, filaments, weight, avg cost per kg)
 │
+├── Filter Bar (Phase 2)
+│   ├── Row 1: Material ▼  Vendor ▼  Color ▼  Family ▼
+│   ├── Row 2: Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]
+│   ├── Row 3: Sealed ▼  [Desiccant Old]
+│   └── Row 4: 🔍 [search]  [123 Matches]  [Clear All]
+│
 └── Single auto-entities grid (columns: 5)
+    ├── Source: sensor.filament_catalog_filtered_spools (entity_ids_json)
+    ├── Fallback: all non-archived spools (if sensor unavailable)
     ├── [Card] [Card] [Card] [Card] [Card]   ← sorted by location attribute
     ├── [Card] [Card] [Card] [Card] [Card]
-    └── ... (all 165 non-archived spools)
+    └── ... (filtered spools, or all 165 when no filters active)
 ```
 
 - **No location section headers** — replaced by a location label on each spool card
@@ -310,110 +319,127 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 | `group_by: attribute` on `location` | Not used | auto-entities `group_by` creates sub-instances |
 | Preferred location ordering | Partial | `sort: attribute: location` gives alphabetical, not custom order |
 
-#### View Structure
+#### Original Design (Abandoned)
+
+The original Phase 1 design called for per-location collapsible sections with 21+ `auto-entities` instances. This was abandoned due to catastrophic performance. The per-location section headers and collapsible groups are deferred to Phase 4, which must use JS-based visual separators within a single `auto-entities` instance.
+
+<details>
+<summary>Click to expand original design (for historical reference)</summary>
+
 ```
 view_filament_catalog.yaml
-├── Heading: "Filament Catalog" + inventory KPI chips (total spools, total weight, avg cost per kg)
+├── Heading: "Filament Catalog" + inventory KPI chips
 │
 ├── Location Section: "AMS" (5) ─────────────── [collapsible, expanded by default]
 │   └── auto-entities grid of compact catalog_spool_cards
-│       ├── [Card] [Card] [Card] [Card] [Card]
 │
 ├── Location Section: "AMS 2" (5) ──────────── [collapsible, expanded by default]
 │   └── auto-entities grid
 │
-├── Location Section: "Under AMS (Top Shelf)" (6) ── [collapsible]
-│   └── ...
-│
-├── Location Section: "Under AMS (Bottom Shelf)" (8) ── [collapsible]
-│   └── ...
-│
-├── Location Section: "Closet Shelf 1 (Top)" ── [collapsible, collapsed by default]
-│   └── ...
-│
-│  ... (17 more location sections, dynamically generated)
+│  ... (19 more location sections, dynamically generated)
 │
 └── Location Section: "(Unknown)" ── [catch-all for new locations]
 ```
 
-#### Collapsible Section Strategy
-
-> **Note**: Collapsible sections were **not implemented** in Phase 1 due to the single-auto-entities constraint. The flat grid with location labels replaced grouped sections. If location grouping is revisited in Phase 4, it must use a single auto-entities instance with JS-based visual separators (not per-location auto-entities).
+</details>
 
 #### `catalog_spool_card` — Compact Design (~60px height)
 
 ```
 ┌─────────────────────────────────────────┐
-│ ┌────┐ Bambu Lab - Silk+ Blue    782g  │  ← entity picture + name + weight
-│ │ 🖼 │ PLA  ░░░░░░▓▓▓▓▓▓▓ 78%    💧  │  ← material + weight bar + desiccant
-│ └────┘                                  │
+│ ┌────┐ Silk+ Blue                782g  │  ← entity picture + filament name + weight
+│ │ 🖼 │ PLA · Bambu Lab              💧  │  ← material · vendor label + desiccant
+│ └────┘ ░░░░░░▓▓▓▓▓▓▓ 78%              │  ← weight bar
+│ Under AMS (Top Shelf)                   │  ← location label
 └─────────────────────────────────────────┘
   background: filament_color_hex at 25% opacity (gradient if multi-color)
   tap → catalog_spool_popup (browser_mod)
 ```
 
+Grid layout: 4 rows × 4 columns
+```
+grid-template-areas:
+  "i  n              remaining_weight  desiccant_icon"
+  "i  l              l                 l"
+  "i  weight_bar     weight_bar        weight_bar"
+  "location_label    location_label    location_label  location_label"
+```
+
 Components:
-- **Background**: `filament_color_hex` at 25% opacity (multi-color gradient if applicable) — reuses `ams_tray_detail` logic
-- **Entity image**: `show_entity_picture: true` from `entity_picture` attribute (40×40px circle)
-- **Name**: `friendly_name` — contrast-aware text color based on background luminance
-- **Weight text**: `remaining_weight` + `g` suffix, right-aligned
-- **Material**: Small text (e.g., "PLA") below name
-- **Weight bar**: Uses pre-computed `used_percentage` — green/yellow/orange/red thresholds from `ams_tray_label`
-- **Desiccant indicator**: Water drop icon, color-coded using `spoolman_tray_map` desiccant logic (same thresholds: <45d green, 45-60d yellow, 60-75d orange, >75d red). Only shown for non-green status.
+- **Background**: `filament_color_hex` at 25% opacity (multi-color gradient if applicable, direction-aware: `coaxial` = vertical, `longitudinal` = horizontal)
+- **Entity image** (`i`): `show_entity_picture: true` from `entity_picture` attribute (36×36px circle, colored border from `filament_color_hex`)
+- **Name** (`n`): `filament_name` (falls back to `friendly_name`), 12px bold, truncated
+- **Label** (`l`): `filament_material` + ` · ` + `filament_vendor_name`, 10px secondary color
+- **Remaining weight**: `remaining_weight` formatted as `Xg`, 11px bold, right-aligned
+- **Weight bar**: Uses pre-computed `used_percentage` — green (>50%) / yellow (>25%) / orange (>10%) / red (≤10%), 3px height
+- **Desiccant indicator**: `mdi:water` icon, self-contained age calculation from `extra_desiccant_filled`. Hidden when <45 days (healthy). Color-coded: yellow (45-60d), orange (60-75d), red (>75d).
+- **Location label**: `location` attribute, 11px, full-width span
 - **Tap action**: Opens `catalog_spool_popup`
 
 #### `catalog_spool_popup` Design
 
-Reuses the structure and visual language of `ams_tray_popup` with catalog-specific adaptations:
+The popup is split into two templates for performance:
+- **`catalog_spool_popup`** (~110 lines) — Lightweight trigger inherited by `catalog_spool_card`. Computes only chart config, action button data, and `fire-dom-event` tap action. Evaluated on every card render.
+- **`catalog_spool_popup_content`** (~221 lines) — Heavy display template with all visual content. Rendered only on-demand when the popup opens (1 card at a time).
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ┌─ Color Banner ──────────────────────────────────┐│
+│  ┌─ Color Banner ──────────────────────────────────┐│  ← catalog_spool_popup_content
 │  │  Bambu Lab - Silk+ Blue                         ││
-│  │  AMS · Slot 1  •  Spool #137                    ││
+│  │  Spool #137  ·  Under AMS (Top Shelf)           ││
 │  └─────────────────────────────────────────────────┘│
 │                                                      │
 │  [UUID chip if available]                            │
 │                                                      │
-│  [Material: PLA] [Vendor: Bambu Lab] [📍 Location]  │  ← tap location → more-info select
+│  [Material: PLA] [Vendor: Bambu Lab] [📍 Location✏]│  ← location pill has edit icon
 │  [Family: Blues] [● Primary: Blue] [Type: Silk]      │
+│  [✨ Multi-Color · longitudinal]                     │  ← shown only for multi-color
 │                                                      │
 │  ┌────┐  Silk+ Blue PLA                             │  ← entity image + filament name
-│  │ 🖼 │  #4169E1 • RGB(65,105,225)                  │     + hex/RGB label
+│  │ 🖼 │  #4169E1 • RGB(65,105,225)                  │     + hex/RGB label (or multi-color list)
 │  └────┘                                              │
 │                                                      │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │  782.0 g │ │$0.025/g  │ │  1.8 kg  │            │  ← weight / cost per g / total (all spools)
-│  │Remaining │ │Cost per g│ │Total Inv │            │
-│  └──────────┘ └──────────┘ └──────────┘            │
+│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
+│  │  782.0 g │ │$0.025/g  │ │ 1,234.5 g        │    │  ← weight / cost per g / total across
+│  │Remaining │ │Cost per g│ │ Total (3 spools) │    │     all spools of same filament
+│  └──────────┘ └──────────┘ └──────────────────┘    │
 │                                                      │
-│  📦 2 other spools of same filament                 │  ← expandable
-│    • Silk+ Blue #2 (Spool #138) — Closet Rack 1    │
-│    • Silk+ Blue #3 (Spool #139) — AMS 2            │
+│  📦 2 other spools of same filament                 │  ← expandable <details>
+│    • Silk+ Blue #2 (#138) — 📍 Closet Rack 1 456g  │     shows id, location, weight
+│    • Silk+ Blue #3 (#139) — 📍 AMS 2         312g  │     clickable rows
 │                                                      │
-│  🔥 Last Dried: Mar 1, 2026    [Mark as Dried]     │
-│  💧 Desiccant: 12 days ago     [Refill Desiccant]  │
+│  ┌────────────────────┐ ┌────────────────────┐      │
+│  │ 🔥 Last Dried      │ │ 💧 Desiccant       │      │  ← 2-col grid
+│  │ Mar 1, 2026        │ │ 12 days ago        │      │
+│  └────────────────────┘ └────────────────────┘      │
 │                                                      │
-│  📈 Weight History (since first use)                │  ← apexcharts-card
-│  ┌──────────────────────────────────────────┐       │
-│  │  ╲                                       │       │
-│  │    ╲___         ╲                        │       │
-│  │         ╲________╲____                   │       │
+│  ℹ️ Purchased from: Bambu Lab on Dec 12, 2024 for $24.99│
+│  🖨 Profile: Bambu PLA Matte · 220°C / 60°C       │
+│                                                      │  ← end of catalog_spool_popup_content
+│ ─────────────────────────────────────────────────── │
+│  [🔥 Mark as Dried]  [💧 Mark Desiccant Refilled]  │  ← 2-col action row (catalog_spool_popup)
+│                                                      │
+│  📈 Weight History (up to 30 days)                  │  ← apexcharts-card with annotations:
+│  ┌──────────────────────────────────────────┐       │     🟢 First Use  🔵 Desiccant  🟠 Last Dried
+│  │  ╲              adaptive theme           │       │     hour period ≤7d, day period >7d
+│  │    ╲___         ╲   (light/dark based    │       │     animations disabled for speed
+│  │         ╲________╲  on filament color)   │       │
 │  └──────────────────────────────────────────┘       │
 │                                                      │
-│  ℹ️ Purchased from: Bambu Lab on Dec 12, 2024 for $24.99│  ← purchase info
-│  🖨 Profile: Bambu PLA Matte · 220°C / 60°C       │  ← print settings
-│                                                      │
-│  [🔗 Open in Spoolman]  [📍 Change Location]       │  ← action buttons
+│  [ℹ️ More Details] [🔗 Spoolman] [🔄 Reload] [✕ Close]│  ← 4-col action row
 └─────────────────────────────────────────────────────┘
 ```
 
-Key differences from `ams_tray_popup`:
+Key design choices:
 - **No "This Print" weight comparison** — catalog context has no active print concept
-- **Cost per g card** — Shows cost per gram = `price / initial_weight`
-- **Purchase info row** — `extra_purchased_from` + `extra_purchase_date` + `price` ("Purchased from X on Y for $Z")
-- **Print settings row** — `filament_settings_extruder_temp` / `filament_settings_bed_temp` + `filament_extra_profile_name`
-- **Location change button** — Prominent action to change location via `select.spoolman_spool_{id}_location`
+- **Cost per g KPI** — `price / initial_weight` (falls back to `filament_price`)
+- **Filament totals KPI** — Total weight and spool count across all spools of the same `filament_id`, from `sensor.spoolman_filament_totals`
+- **Purchase info pill** — `extra_purchased_from` + `extra_purchase_date` + `price`
+- **Print settings pill** — `filament_extra_profile_name` + extruder/bed temps
+- **Desiccant action buttons** — `spoolman.patch_spool` with `extra.last_dried` or `extra.desiccant_filled` set to `now`
+- **Reload** — Calls `homeassistant.update_entity`, waits 1.5s, then closes popup
+- **Open in Spoolman** — Direct link to `http://spoolman.socko.us/spool/show/{id}`
+- **Adaptive chart theme** — Background and text color flip based on filament color luminance
 
 #### Inventory KPI Summary (Top of View)
 
@@ -438,7 +464,7 @@ Computed via JS in a `custom:button-card` that iterates all `sensor.spoolman_spo
 | `common/dashboards/3d_printing.yaml` | **Modified** | Updated `!include` path + `button_card_templates` merge |
 
 #### Estimated Complexity: Medium-High
-Adapted from existing patterns but with scale-aware design (compact cards, auto-entities group_by, JS-computed KPIs).
+Adapted from existing patterns but with scale-aware design (compact cards, single auto-entities sorted by location, JS-computed KPIs).
 
 > **Actual complexity**: High. The performance investigation consumed significant effort — multiple iterations of view type changes, auto-entities reductions, and template restructuring were required before finding the working architecture.
 
@@ -448,7 +474,7 @@ Adapted from existing patterns but with scale-aware design (compact cards, auto-
 **Status**: ✅ Complete (2026-03-16)
 **Value**: Find specific spools fast. Essential at 165 spools.
 
-> **Performance constraint**: The filter implementation MUST use a single `auto-entities` instance. The template sensor approach (Option B below) is the correct path — it filters server-side and the view's single `auto-entities` references the filtered list.
+> **Performance constraint**: The filter implementation uses a single `auto-entities` instance. The template sensor approach filters server-side and the view's single `auto-entities` references the filtered entity list via `sensor.filament_catalog_filtered_spools`.
 
 #### Filter Architecture: Template Sensor Approach
 
@@ -539,6 +565,7 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 | `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Created** | Server-side filtered spool list |
 | `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Created** | Filter bar card (bubble-card) |
 | `filament_catalog/scripts/filament_catalog_clear_filters.yaml` | **Created** | Reset all filters script |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** | Added filter bar include + template sensor-based auto-entities filter |
 
 ---
 
@@ -569,8 +596,8 @@ The `catalog_spool_card` template reads this helper and adjusts its layout via c
 
 | File | Action |
 |---|---|
-| `filament_catalog/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modify** — Enhanced visuals + density modes |
-| `filament_catalog/helpers/filament_catalog_helpers.yaml` | **Modify** — Add density helper |
+| `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modify** — Enhanced visuals + density modes |
+| `filament_catalog/helpers/` | **Modify** — Add density helper (`input_select`) |
 
 #### Estimated Complexity: Medium
 
@@ -589,7 +616,7 @@ The `catalog_spool_card` template reads this helper and adjusts its layout via c
 [ By Location | By Material | By Vendor | By Color Family | By Filament | Alerts | All ]
 ```
 
-- **By Location** (default): Phase 1 layout with `group_by: attribute: location`
+- **By Location** (default): Current Phase 1 layout — single auto-entities sorted by `location` attribute
 - **By Material**: Sections: PLA, PETG, ABS, TPU, etc.
 - **By Vendor**: Sections: Bambu Lab, Sunlu, ELEGOO, etc.
 - **By Color Family**: Sections: Blues, Reds, Greens, Blacks & Whites, Rainbow, etc.
@@ -624,7 +651,7 @@ New `input_select.filament_catalog_sort`:
 
 | Alert | Trigger | Visual |
 |---|---|---|
-| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < `input_number.filament_catalog_repurchase_threshold` (default 150g) | Red badge |
+| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < `input_number.filament_catalog_stock_threshold` (default 150g) | Red badge |
 | **Desiccant Overdue** | `extra_desiccant_filled` age > 60 days (orange/red threshold) | Orange water drop |
 | **Needs Drying** | `extra_last_dried` > 90 days (or never) AND `extra_sealed = false` | Yellow heat icon |
 | **Nearly Empty** | `remaining_weight` < 50g | Warning badge |
@@ -651,7 +678,7 @@ Computes alert counts and entity lists for each category. Used by both the summa
 |---|---|
 | `filament_catalog/template_sensors/filament_catalog_alerts.yaml` | **Create** — Alert computation |
 | `filament_catalog/dashboard_cards/catalog_alert_summary.yaml` | **Create** — Alert summary card |
-| `filament_catalog/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modify** — Alert badges on cards |
+| `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modify** — Alert badges on cards |
 
 #### Estimated Complexity: High
 
@@ -741,7 +768,7 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 | Phase | Description | Effort | Dependency | Status |
 |---|---|---|---|
 | **1** | Compact spool grid + popup + KPIs | Medium-High | None | ✅ Complete |
-| **2** | Filters, search, repurchase threshold helper | High | Phase 1 | |
+| **2** | Filters, search, stock threshold helper | High | Phase 1 | ✅ Complete |
 | **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | |
 | **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | |
 | **5** | Alerts & flags | High | Phase 1; benefits from 2 | |
@@ -750,4 +777,4 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 
 **Recommended starting order**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
 
-At 165 spools, **Phase 2 (filters/search) is now the immediate follow-up to Phase 1** — scrolling through 21 location groups without filtering is not practical for daily use. Phase 3 (density toggle + enhanced visuals) can follow once the core interaction pattern is solid.
+Phases 1-2 are complete. Phase 3 (density toggle + enhanced visuals) is the next recommended step now that the core grid and filtering interaction pattern is solid.
