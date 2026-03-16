@@ -26,24 +26,43 @@ cards:
     card_type: button
     button_type: state
     entity: sensor.filament_catalog_filtered_spools
-    name: Catalog Filters
+    name: ""
     icon: mdi:filter-variant
     show_state: false
+    show_name: false
+    show_icon: false
     card_layout: large-sub-buttons-grid
     rows: 2
     styles: |
+      .bubble-name-container,
+      .bubble-icon-container,
+      .bubble-state {
+        display: none !important;
+      }
+      .card-content {
+        width: 100% !important;
+        margin: 0 !important;
+      }
+      .bubble-sub-button-container {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 8px !important;
+      }
       .bubble-sub-button {
         min-height: 36px !important;
+        width: 100% !important;
       }
       .bubble-sub-button-text {
         font-size: 12px !important;
       }
-      /* Repurchase slider: keep it interactive but visually neutral (no bright blue fill). */
-      .bubble-sub-button-6 .bubble-range-fill {
-        background: rgba(140, 140, 140, 0.55) !important;
+      /* Neutral slider styling: keep interactive behavior but remove bright accent fill. */
+      .bubble-range-fill {
+        background: rgba(145, 145, 145, 0.5) !important;
         opacity: 1 !important;
       }
-      .bubble-sub-button-6 {
+      .bubble-sub-slider,
+      .bubble-sub-button-slider-1 {
         --bubble-sub-slider-background-color: rgba(120, 120, 120, 0.18) !important;
       }
     sub_button:
