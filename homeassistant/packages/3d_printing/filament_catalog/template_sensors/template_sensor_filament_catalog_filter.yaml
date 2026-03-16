@@ -25,7 +25,8 @@
           {% set filter_low_stock = is_state('input_boolean.filament_catalog_filter_low_stock', 'on') %}
           {% set filter_unsealed_only = is_state('input_boolean.filament_catalog_filter_unsealed_only', 'on') %}
 
-          {% set filament_totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) %}
+          {% set filament_totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') %}
+          {% set filament_totals = filament_totals_raw if filament_totals_raw is mapping else {} %}
           {% set ns = namespace(matches=[]) %}
 
           {% for spool in states.sensor %}
@@ -82,6 +83,13 @@
           {% endfor %}
 
           {{ ns.matches | tojson }}
+        entity_ids: >
+          {% set entity_ids_json = state_attr('sensor.filament_catalog_filtered_spools', 'entity_ids_json') | default('[]', true) %}
+          {% if entity_ids_json in [none, '', 'unknown', 'unavailable'] %}
+            []
+          {% else %}
+            {{ entity_ids_json | from_json }}
+          {% endif %}
         active_filter_summary: >
           {% set active = [] %}
           {% if states('input_select.filament_catalog_filter_material') != 'All' %}
