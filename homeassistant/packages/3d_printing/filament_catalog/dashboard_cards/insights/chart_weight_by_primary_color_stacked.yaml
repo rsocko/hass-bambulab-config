@@ -2,7 +2,6 @@ type: custom:apexcharts-card
 header:
   show: true
   title: Weight by Primary Color
-graph_span: 1d
 apex_config:
   chart:
     type: bar
@@ -13,10 +12,16 @@ apex_config:
       show: false
   plotOptions:
     bar:
-      horizontal: true
+      horizontal: false
       distributed: true
       borderRadius: 4
   xaxis:
+    type: category
+    labels:
+      rotate: -45
+    title:
+      text: Primary Color
+  yaxis:
     title:
       text: kg
   legend:

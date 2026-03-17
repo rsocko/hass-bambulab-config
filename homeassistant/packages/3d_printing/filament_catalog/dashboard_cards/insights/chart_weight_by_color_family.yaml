@@ -2,7 +2,6 @@ type: custom:apexcharts-card
 header:
   show: true
   title: Weight by Color Family
-graph_span: 1d
 apex_config:
   chart:
     type: bar
@@ -13,9 +12,15 @@ apex_config:
       show: false
   plotOptions:
     bar:
-      horizontal: true
+      horizontal: false
       borderRadius: 4
   xaxis:
+    type: category
+    labels:
+      rotate: -35
+    title:
+      text: Color Family
+  yaxis:
     title:
       text: kg
   legend:
@@ -28,7 +33,7 @@ series:
       const raw = entity?.attributes?.weight_by_color_family_json;
       const obj = (raw && typeof raw === 'object') ? raw : {};
       return Object.entries(obj)
-        .map(([k, v]) => ({ x: k, y: Number(v || 0) / 1000 }))
-        .filter(p => p.y > 0)
-        .sort((a, b) => b.y - a.y)
+        .map(([k, v]) => [k, Number(v || 0) / 1000])
+        .filter(p => p[1] > 0)
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 12);

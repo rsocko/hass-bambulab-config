@@ -4,7 +4,6 @@ cards:
     header:
       show: true
       title: Alert Analytics
-    graph_span: 1d
     apex_config:
       chart:
         type: bar
@@ -15,9 +14,15 @@ cards:
           show: false
       plotOptions:
         bar:
-          horizontal: true
+          horizontal: false
           borderRadius: 4
       xaxis:
+        type: category
+        labels:
+          rotate: -35
+        title:
+          text: Alert Type
+      yaxis:
         title:
           text: spools
       legend:
@@ -39,9 +44,9 @@ cards:
             stale: 'Stale'
           };
           return Object.entries(obj)
-            .map(([k, v]) => ({ x: labelMap[k] || k, y: Number(v || 0) }))
-            .filter(p => p.y > 0)
-            .sort((a, b) => b.y - a.y);
+            .map(([k, v]) => [labelMap[k] || k, Number(v || 0)])
+            .filter(p => p[1] > 0)
+            .sort((a, b) => b[1] - a[1]);
   - type: grid
     columns: 4
     square: false
