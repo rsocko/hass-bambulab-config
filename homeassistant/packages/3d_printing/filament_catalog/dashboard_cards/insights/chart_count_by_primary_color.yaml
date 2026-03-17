@@ -29,7 +29,7 @@ series:
         try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
       }
       return Object.entries(obj)
-        .map(([k, v]) => ({ x: k, y: Number(v || 0) }))
-        .filter(p => p.y > 0)
-        .sort((a, b) => b.y - a.y)
+        .map(([k, v]) => [k, Number(v || 0)])
+        .filter(p => p[1] > 0)
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 15);
