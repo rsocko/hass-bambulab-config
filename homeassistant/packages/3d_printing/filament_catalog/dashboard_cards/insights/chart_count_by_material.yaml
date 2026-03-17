@@ -1,23 +1,34 @@
-type: custom:button-card
-entity: sensor.filament_catalog_metrics
-triggers_update: sensor.filament_catalog_metrics
-show_icon: false
-show_name: false
-show_state: false
-styles:
-  card:
-    - padding: 12px
-    - border-radius: 12px
-custom_fields:
-  chart: |
-    [[[ 
-      let data = {};
-      try { data = JSON.parse(entity?.attributes?.count_by_material_json || '{}'); } catch (e) {}
-      const rows = Object.entries(data).sort((a,b) => b[1]-a[1]).slice(0, 8);
-      const max = rows.length ? rows[0][1] : 1;
-      const line = (name, count) => {
-        const pct = Math.max(4, Math.round((count / max) * 100));
-        return `<div style="margin:5px 0;"><div style="display:flex;justify-content:space-between;font-size:11px;"><span>${name}</span><span>${count}</span></div><div style="height:6px;background:rgba(120,120,120,0.2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#1E88E5;"></div></div></div>`;
-      };
-      return `<div><div style="font-weight:700;font-size:13px;margin-bottom:6px;">Count by Material</div>${rows.map(([n,c])=>line(n,c)).join('') || '<div style="opacity:0.7;font-size:12px;">No data</div>'}</div>`;
-    ]]]
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Count by Material
+graph_span: 1d
+apex_config:
+  chart:
+    type: bar
+    height: 260
+    animations:
+      enabled: false
+    toolbar:
+      show: false
+  plotOptions:
+    bar:
+      horizontal: true
+      borderRadius: 4
+  xaxis:
+    title:
+      text: spools
+  legend:
+    show: false
+series:
+  - entity: sensor.filament_catalog_metrics
+    name: spools
+    color: '#1E88E5'
+    data_generator: |
+      const raw = entity?.attributes?.count_by_material_json;
+      const obj = (raw && typeof raw === 'object') ? raw : {};
+      return Object.entries(obj)
+        .map(([k, v]) => ({ x: k, y: Number(v || 0) }))
+        .filter(p => p.y > 0)
+        .sort((a, b) => b.y - a.y)
+        .slice(0, 12);

@@ -15,7 +15,11 @@ custom_fields:
   body: |
     [[[ 
       const safeParse = (raw, fallback) => {
-        try { return JSON.parse(raw || ''); } catch (e) { return fallback; }
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw === 'string' && raw.trim()) {
+          try { return JSON.parse(raw); } catch (e) { return fallback; }
+        }
+        return fallback;
       };
       const quality = safeParse(entity?.attributes?.data_quality_json, {});
       const duplicates = (quality.multiple_unsealed_duplicates || []).length;

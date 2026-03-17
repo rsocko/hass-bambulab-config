@@ -720,9 +720,9 @@ Phase 5A delivers the core metrics panel using data already present on `sensor.s
 
 | Chart | Type | Data Source | Issue | Notes |
 |---|---|---|---|---|
-| Weight by Material | Pie/Bar | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as lightweight bar-style card for performance |
-| Weight by Vendor | Pie/Bar | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as lightweight bar-style card for performance |
-| Weight by Color Family | Pie/Bar | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as lightweight bar-style card for performance |
+| Weight by Material | Pie/Bar | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
+| Weight by Vendor | Pie/Bar | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
+| Weight by Color Family | Pie/Bar | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
 | Spools per Location | Bar | Count of spools grouped by `location` | — | |
 | Weight by Primary Color | Stacked Bar | `filament_extra_primary_color` + `filament_color_hex` + `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as a stacked bar with real filament colors |
 

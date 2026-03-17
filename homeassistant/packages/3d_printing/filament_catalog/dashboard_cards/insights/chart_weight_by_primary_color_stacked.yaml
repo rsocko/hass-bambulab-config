@@ -1,30 +1,36 @@
-type: custom:button-card
-entity: sensor.filament_catalog_metrics
-triggers_update: sensor.filament_catalog_metrics
-show_icon: false
-show_name: false
-show_state: false
-styles:
-  card:
-    - padding: 12px
-    - border-radius: 12px
-custom_fields:
-  body: |
-    [[[ 
-      let segs = [];
-      try { segs = JSON.parse(entity?.attributes?.primary_color_weight_segments_json || '[]'); } catch (e) {}
-      segs = Array.isArray(segs) ? segs.filter(s => (Number(s.weight)||0) > 0).slice(0, 12) : [];
-      const total = segs.reduce((sum, s) => sum + (Number(s.weight)||0), 0);
-      const bar = segs.length ? segs.map(s => {
-        const w = Number(s.weight) || 0;
-        const pct = total > 0 ? Math.max((w / total) * 100, 1) : 0;
-        const color = /^#([0-9a-f]{6})$/i.test(String(s.hex || '')) ? s.hex : '#9e9e9e';
-        return `<div title="${s.name}: ${(w/1000).toFixed(2)} kg" style="height:100%;width:${pct}%;background:${color};"></div>`;
-      }).join('') : '<div style="height:100%;width:100%;background:rgba(120,120,120,0.2);"></div>';
-      const chips = segs.slice(0, 6).map(s => {
-        const w = Number(s.weight) || 0;
-        const color = /^#([0-9a-f]{6})$/i.test(String(s.hex || '')) ? s.hex : '#9e9e9e';
-        return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(120,120,120,0.12);margin:2px 4px 2px 0;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};border:1px solid rgba(0,0,0,0.2);"></span>${s.name} ${(w/1000).toFixed(1)}kg</span>`;
-      }).join('');
-      return `<div><div style="font-weight:700;font-size:13px;margin-bottom:6px;">Weight by Primary Color (Stacked)</div><div style="height:12px;border-radius:99px;overflow:hidden;display:flex;background:rgba(120,120,120,0.2);margin-bottom:8px;">${bar}</div><div>${chips || '<span style="opacity:0.7;font-size:12px;">No data</span>'}</div></div>`;
-    ]]]
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Weight by Primary Color
+graph_span: 1d
+apex_config:
+  chart:
+    type: bar
+    height: 300
+    animations:
+      enabled: false
+    toolbar:
+      show: false
+  plotOptions:
+    bar:
+      horizontal: true
+      distributed: true
+      borderRadius: 4
+  xaxis:
+    title:
+      text: kg
+  legend:
+    show: false
+series:
+  - entity: sensor.filament_catalog_metrics
+    name: kg
+    data_generator: |
+      const raw = entity?.attributes?.primary_color_weight_segments_json;
+      const segs = Array.isArray(raw) ? raw : [];
+      return segs
+        .filter(s => Number(s?.weight || 0) > 0)
+        .slice(0, 15)
+        .map(s => {
+          const color = /^#([0-9a-f]{6})$/i.test(String(s?.hex || '')) ? s.hex : '#9e9e9e';
+          return { x: s.name || 'Unknown', y: Number(s.weight || 0) / 1000, fillColor: color };
+        });

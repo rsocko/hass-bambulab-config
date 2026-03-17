@@ -1,33 +1,34 @@
-type: custom:button-card
-entity: sensor.filament_catalog_metrics
-triggers_update: sensor.filament_catalog_metrics
-show_icon: false
-show_name: false
-show_state: false
-styles:
-  card:
-    - padding: 12px
-    - border-radius: 12px
-  custom_fields:
-    chart:
-      - text-align: left
-custom_fields:
-  chart: |
-    [[[ 
-      const raw = entity?.attributes?.weight_by_color_family_json || '{}';
-      let data = {};
-      try { data = JSON.parse(raw); } catch (e) { data = {}; }
-      const rows = Object.entries(data)
-        .map(([k, v]) => [k, Number(v) || 0])
-        .filter(([, v]) => v > 0)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8);
-      const max = rows.length ? rows[0][1] : 1;
-      const line = (name, grams) => {
-        const pct = Math.max(4, Math.round((grams / max) * 100));
-        const kg = (grams / 1000).toFixed(1);
-        return `<div style="margin:5px 0;"><div style="display:flex;justify-content:space-between;font-size:11px;"><span>${name}</span><span>${kg} kg</span></div><div style="height:6px;background:rgba(120,120,120,0.2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#AB47BC;"></div></div></div>`;
-      };
-      const body = rows.length ? rows.map(([name, grams]) => line(name, grams)).join('') : '<div style="opacity:0.7;font-size:12px;">No data</div>';
-      return `<div><div style="font-weight:700;font-size:13px;margin-bottom:6px;">Weight by Color Family</div>${body}</div>`;
-    ]]]
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Weight by Color Family
+graph_span: 1d
+apex_config:
+  chart:
+    type: bar
+    height: 260
+    animations:
+      enabled: false
+    toolbar:
+      show: false
+  plotOptions:
+    bar:
+      horizontal: true
+      borderRadius: 4
+  xaxis:
+    title:
+      text: kg
+  legend:
+    show: false
+series:
+  - entity: sensor.filament_catalog_metrics
+    name: kg
+    color: '#AB47BC'
+    data_generator: |
+      const raw = entity?.attributes?.weight_by_color_family_json;
+      const obj = (raw && typeof raw === 'object') ? raw : {};
+      return Object.entries(obj)
+        .map(([k, v]) => ({ x: k, y: Number(v || 0) / 1000 }))
+        .filter(p => p.y > 0)
+        .sort((a, b) => b.y - a.y)
+        .slice(0, 12);
