@@ -72,7 +72,11 @@
           {% elif (not show_mode_enabled) and current_core_state == 'S8_SHOW' and smart_status == 'Idle' %}
             E_SHOW_OFF
           {% elif smart_status == 'Print Finished' %}
-            E_PRINT_DONE
+            {% if current_core_state == 'S6_FINISHING' and stage == 'idle' %}
+              E_IDLE
+            {% else %}
+              E_PRINT_DONE
+            {% endif %}
           {% elif smart_status.startswith('Paused') %}
             {% if 'runout' in smart_status_lc or 'clog' in smart_status_lc or 'ams lost' in smart_status_lc or 'first layer error' in smart_status_lc %}
               E_PAUSE_ERROR

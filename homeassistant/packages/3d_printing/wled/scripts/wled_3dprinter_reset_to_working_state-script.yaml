@@ -54,7 +54,11 @@ wled_3dprinter_reset_to_working_state:
           {% elif show_mode and smart_status == 'Idle' %}
             S8_SHOW
           {% elif smart_status == 'Print Finished' %}
-            S6_FINISHING
+            {% if stage == 'idle' %}
+              S1_IDLE
+            {% else %}
+              S6_FINISHING
+            {% endif %}
           {% elif smart_status.startswith('Paused') %}
             {% if 'runout' in smart_lc or 'clog' in smart_lc or 'ams lost' in smart_lc or 'first layer error' in smart_lc or hms_errors == 'on' %}
               S5_PAUSED_ERROR

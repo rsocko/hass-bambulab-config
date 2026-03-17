@@ -19,11 +19,18 @@
 
 ---
 
-## Issue 1: WLED State Machine Stuck in S6_FINISHING
+## Issue 1: WLED State Machine Stuck in S6_FINISHING — RESOLVED
 
 **Severity:** HIGH
 **Category:** Direct — repo code
-**Files involved:**
+**Status:** RESOLVED (2026-03-16)
+**Fix:** Option C — orchestrator exit condition
+**Files modified:**
+
+- `homeassistant/packages/3d_printing/wled/automations/wled_3dprinter_state_machine_orchestrator.yaml`
+- `homeassistant/packages/3d_printing/wled/scripts/wled_3dprinter_reset_to_working_state-script.yaml`
+
+**Files involved (original assessment):**
 
 - `homeassistant/packages/3d_printing/core/template_sensors/smart_status.yaml`
 - `homeassistant/packages/3d_printing/wled/automations/wled_3dprinter_state_machine_orchestrator.yaml`
@@ -55,6 +62,20 @@ The WLED state machine (`input_select.wled_3dprinter_core_state`) is stuck at `S
 - **B) Modify `smart_status.yaml`:** Treat `status=finish AND stage=idle` as `"Idle"` instead of `"Print Finished"`. Risk: the "Print Complete" notification chain may depend on the `"Print Finished"` state persisting briefly.
 - **C) Add an orchestrator condition:** Map `"Print Finished"` → `E_IDLE` when `stage == idle` AND current state is already `S6_FINISHING`. The first transition to `S6_FINISHING` still fires, but subsequent evaluations allow the exit.
 
+### Resolution (2026-03-16)
+
+**Option C was implemented.** Two files were modified:
+
+1. **Orchestrator** (`wled_3dprinter_state_machine_orchestrator.yaml`): The `event_id` computation for `smart_status == 'Print Finished'` now checks whether the state machine is already in `S6_FINISHING` with `stage == idle`. If so, it emits `E_IDLE` instead of `E_PRINT_DONE`, allowing the state machine to exit to `S1_IDLE`.
+
+2. **Reset script** (`wled_3dprinter_reset_to_working_state-script.yaml`): The `correct_state` computation for `smart_status == 'Print Finished'` now resolves to `S1_IDLE` (instead of `S6_FINISHING`) when `stage == idle`, so a manual reset also correctly resolves the stuck state.
+
+**How it works:**
+- First evaluation after print completes: `smart_status = "Print Finished"`, `current_core_state ≠ S6_FINISHING` → `E_PRINT_DONE` fires → transitions to `S6_FINISHING` (preserves finishing preset + notification chain)
+- Next evaluation: `smart_status` still = `"Print Finished"`, but `current_core_state == S6_FINISHING` and `stage == idle` → `E_IDLE` fires → transitions to `S1_IDLE` (idle telemetry overlays resume)
+
+**Immediate fix:** The live HA instance was manually corrected by setting `input_select.wled_3dprinter_core_state` to `S1_IDLE` and re-applying the idle preset + telemetry overlays. The YAML changes require deployment and a config reload (`automation.reload` + `script.reload`, or HA restart) to take permanent effect.
+
 ---
 
 ## Issue 2: 165 Spoolman Estimated Runout Sensors = `unknown`
@@ -78,18 +99,19 @@ Bulk-disable these entities in HA (Developer Tools → Entities) to reduce state
 
 ---
 
-## Issue 3: Orphaned / Stale Entity Registrations
+## Issue 3: Orphaned / Stale Entity Registrations — RESOLVED
 
 **Severity:** MEDIUM
 **Category:** Direct — repo cleanup
+**Status:** RESOLVED (2026-03-16)
 
 ### Affected Entities
 
 | Entity | State | Details |
 |--------|-------|---------|
-| `automation.spoolman_location_sync` | unavailable (`restored: true`) | YAML config was removed; entity persists in registry |
-| `select.spoolman_unique_locations` | unavailable (`restored: true`) | Helper config was removed; entity persists in registry |
-| `sensor.spoolman_locations_web` | unknown | REST sensor or template; **not defined anywhere in repo** |
+| `automation.spoolman_location_sync` | ~~unavailable (`restored: true`)~~ **deleted** | YAML config was removed; entity persists in registry |
+| `select.spoolman_unique_locations` | ~~unavailable (`restored: true`)~~ **deleted** | Helper config was removed; entity persists in registry |
+| `sensor.spoolman_locations_web` | ~~unknown~~ **deleted** | REST sensor or template; **not defined anywhere in repo** |
 
 ### Analysis
 
@@ -97,10 +119,15 @@ These entities had their underlying YAML configuration removed at some point, bu
 
 The only reference to `spoolman_location_sync` in the entire codebase is inside a backup dashboard file (`backups/dashboards/lovelace.3d_printing.original.2026-03-02.yaml`), not in any active configuration.
 
-### Recommended Action
+### Resolution (2026-03-16)
 
-1. Delete these orphaned entities from HA via **Developer Tools → Entities → (search) → Delete**
-2. Verify no active dashboard views or automations reference them (confirmed: none in current repo)
+All three orphaned entities were deleted from HA via Developer Tools → Entities. Verified against the live HA instance:
+
+- `automation.spoolman_location_sync` — **not found** (confirmed removed)
+- `select.spoolman_unique_locations` — **not found** (confirmed removed)
+- `sensor.spoolman_locations_web` — **not found** (confirmed removed)
+
+No active automations, scripts, or dashboards reference these entities. The `restored: true` startup warnings will no longer occur.
 
 ---
 
@@ -225,7 +252,7 @@ These entities show `unavailable` but this is **normal** when the printer is not
 | Priority | Issue | Effort | Impact | Type |
 |----------|-------|--------|--------|------|
 | **1** | WLED S6_FINISHING stuck state | Medium (template/automation edit) | High — visible LED behavior broken | Code fix |
-| **2** | Orphaned entity cleanup | Low (entity registry deletion in HA UI) | Medium — removes startup warnings + noise | Housekeeping |
+| ~~**2**~~ | ~~Orphaned entity cleanup~~ | ~~Low~~ | ~~Medium~~ | **RESOLVED** |
 | **3** | Tapo C111 camera controls | Low–Med (integration troubleshooting) | Medium — restores camera management | Investigation |
 | **4** | MagWLED presets unavailable | Low (firmware/integration check) | Low — not critical to 3D printing | Investigation |
 | **5** | Spoolman estimated_runout bulk disable | Low (entity management in HA UI) | Low — reduces entity bloat | Housekeeping |

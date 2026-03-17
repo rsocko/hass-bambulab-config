@@ -68,7 +68,8 @@ stateDiagram-v2
 | `E_PAUSE_USER` | Paused with no explicit fault | `sensor.ntk_ryansoffice_3dprinter_smart_status startswith('Paused')` and no fault token and `binary_sensor.ntk_ryansoffice_3dprinter_hms_errors == 'off'` |
 | `E_PAUSE_ERROR` | Paused due to fault/runout | `smart_status` includes runout/clog/AMS-lost/first-layer-error or `binary_sensor.ntk_ryansoffice_3dprinter_hms_errors == 'on'` |
 | `E_RESUME` | Return from paused to printing | `smart_status == 'Printing'` while `input_select.wled_3dprinter_core_state in ['S4_PAUSED_USER','S5_PAUSED_ERROR']` |
-| `E_PRINT_DONE` | Print finished | `sensor.ntk_ryansoffice_3dprinter_smart_status == 'Print Finished'` |
+| `E_PRINT_DONE` | Print finished | `sensor.ntk_ryansoffice_3dprinter_smart_status == 'Print Finished'` AND `input_select.wled_3dprinter_core_state != 'S6_FINISHING'` |
+| `E_IDLE` (from finish) | Print finished + stage idle + already in S6 | `smart_status == 'Print Finished'` AND `core_state == 'S6_FINISHING'` AND `stage == 'idle'` → exits to `S1_IDLE` |
 | `E_MAINT_START` | Maintenance transition from idle/finishing | `sensor.ntk_ryansoffice_3dprinter_current_stage` in maintenance stage set: `cleaning_nozzle_tip`, `filament_loading`, `filament_unloading`, `calibrating_extrusion`, `calibrating_extrusion_flow`, `calibrating_micro_lidar`, `calibrating_motor_noise`, `absolute_accuracy_calibration`, `check_absolute_accuracy_before_calibration`, `check_absolute_accuracy_after_calibration`, `calibrate_nozzle_offset`, `laser_calibration`, `calibrate_birdeye_camera`, `motor_noise_showoff`, `check_door_and_cover`, `check_quick_release`, `check_plaform`, `check_birdeye_camera_position` |
 | `E_SHOW_ON` | Manual show-mode request while idle | `input_boolean.wled_3dprinter_show_mode_enabled == 'on'` and smart status idle |
 | `E_SHOW_OFF` | Exit show mode while idle | `input_boolean.wled_3dprinter_show_mode_enabled == 'off'` and current state `S8_SHOW` |
