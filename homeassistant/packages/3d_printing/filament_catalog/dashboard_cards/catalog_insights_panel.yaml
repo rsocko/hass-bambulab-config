@@ -47,40 +47,30 @@ cards:
             - entity: sensor.filament_catalog_count_material_other
               name: Other
               color: '#90A4AE'
-        - type: custom:apexcharts-card
-          chart_type: donut
-          header:
-            show: true
-            title: Alert Distribution
-          apex_config:
-            chart:
-              height: 240
-              animations:
-                enabled: false
-              toolbar:
-                show: false
-            legend:
-              show: true
-              position: bottom
-          series:
+        - type: custom:raptor-bar-next-card
+          title: Alert Distribution
+          show_icon: true
+          show_value: always
+          show_minmax: false
+          entities:
             - entity: sensor.filament_catalog_alert_low_stock
               name: Low Stock
-              color: '#EF5350'
+              bar_color: '#EF5350'
             - entity: sensor.filament_catalog_alert_nearly_empty
               name: Nearly Empty
-              color: '#F06292'
+              bar_color: '#F06292'
             - entity: sensor.filament_catalog_alert_needs_repurchase
               name: Needs Repurchase
-              color: '#FF7043'
+              bar_color: '#FF7043'
             - entity: sensor.filament_catalog_alert_desiccant_overdue
               name: Desiccant Overdue
-              color: '#29B6F6'
+              bar_color: '#29B6F6'
             - entity: sensor.filament_catalog_alert_missing_desiccant
               name: Missing Desiccant
-              color: '#26C6DA'
+              bar_color: '#26C6DA'
             - entity: sensor.filament_catalog_alert_needs_drying
               name: Needs Drying
-              color: '#FFA726'
+              bar_color: '#FFA726'
             - entity: sensor.filament_catalog_alert_stale
               name: Stale
-              color: '#9E9E9E'
+              bar_color: '#9E9E9E'
