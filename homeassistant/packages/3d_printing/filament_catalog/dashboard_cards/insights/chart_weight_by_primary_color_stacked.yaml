@@ -13,7 +13,6 @@ apex_config:
   plotOptions:
     bar:
       horizontal: false
-      distributed: true
       borderRadius: 4
   xaxis:
     type: category
@@ -30,6 +29,7 @@ series:
   - entity: sensor.filament_catalog_metrics
     name: kg
     type: bar
+    color: '#FFA726'
     data_generator: |
       const raw = entity?.attributes?.primary_color_weight_segments_json;
       let segs = [];
@@ -41,7 +41,4 @@ series:
       return segs
         .filter(s => Number(s?.weight || 0) > 0)
         .slice(0, 15)
-        .map(s => {
-          const color = /^#([0-9a-f]{6})$/i.test(String(s?.hex || '')) ? s.hex : '#9e9e9e';
-          return { x: s.name || 'Unknown', y: Number(s.weight || 0) / 1000, fillColor: color };
-        });
+        .map(s => ({ x: s.name || 'Unknown', y: Number(s.weight || 0) / 1000 }));

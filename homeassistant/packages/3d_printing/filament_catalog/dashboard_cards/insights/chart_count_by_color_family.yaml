@@ -1,5 +1,5 @@
 type: custom:apexcharts-card
-chart_type: donut
+chart_type: bar
 header:
   show: true
   title: Count by Color Family
@@ -11,11 +11,20 @@ apex_config:
     toolbar:
       show: false
   plotOptions:
-    pie:
-      donut:
-        size: 55%
+    bar:
+      horizontal: false
+      borderRadius: 4
+  xaxis:
+    type: category
+    labels:
+      rotate: -35
+    title:
+      text: Color Family
+  yaxis:
+    title:
+      text: spools
   legend:
-    show: true
+    show: false
 series:
   - entity: sensor.filament_catalog_metrics
     name: spools
@@ -29,7 +38,7 @@ series:
         try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
       }
       return Object.entries(obj)
-        .map(([k, v]) => [k, Number(v || 0)])
-        .filter(p => p[1] > 0)
-        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => ({ x: k, y: Number(v || 0) }))
+        .filter(p => p.y > 0)
+        .sort((a, b) => b.y - a.y)
         .slice(0, 12);
