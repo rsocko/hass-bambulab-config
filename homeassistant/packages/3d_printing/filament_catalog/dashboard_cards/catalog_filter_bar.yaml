@@ -118,14 +118,6 @@ cards:
               tap_action:
                 action: toggle
               fill_width: true
-            - entity: input_boolean.filament_catalog_show_insights
-              name: Insights
-              icon: mdi:chart-box-outline
-              show_name: true
-              show_state: false
-              tap_action:
-                action: toggle
-              fill_width: true
           buttons_layout: inline
           justify_content: fill
   - type: horizontal-stack
