@@ -1,0 +1,23 @@
+type: custom:button-card
+entity: sensor.filament_catalog_metrics
+triggers_update: sensor.filament_catalog_metrics
+show_icon: false
+show_name: false
+show_state: false
+styles:
+  card:
+    - padding: 12px
+    - border-radius: 12px
+custom_fields:
+  chart: |
+    [[[ 
+      let data = {};
+      try { data = JSON.parse(entity?.attributes?.count_by_primary_color_json || '{}'); } catch (e) {}
+      const rows = Object.entries(data).sort((a,b) => b[1]-a[1]).slice(0, 10);
+      const max = rows.length ? rows[0][1] : 1;
+      const line = (name, count) => {
+        const pct = Math.max(4, Math.round((count / max) * 100));
+        return `<div style="margin:5px 0;"><div style="display:flex;justify-content:space-between;font-size:11px;"><span>${name}</span><span>${count}</span></div><div style="height:6px;background:rgba(120,120,120,0.2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#F4511E;"></div></div></div>`;
+      };
+      return `<div><div style="font-weight:700;font-size:13px;margin-bottom:6px;">Count by Primary Color</div>${rows.map(([n,c])=>line(n,c)).join('') || '<div style="opacity:0.7;font-size:12px;">No data</div>'}</div>`;
+    ]]]

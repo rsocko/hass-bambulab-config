@@ -701,7 +701,7 @@ All Phase 5 work is tracked in [GitHub Project #18](https://github.com/users/rso
 
 | Sub-Phase | Issues |
 |---|---|
-| **5A** | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150), [#152](https://github.com/rsocko/hass-bambulab-config/issues/152), [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102), [#133](https://github.com/rsocko/hass-bambulab-config/issues/133), [#118](https://github.com/rsocko/hass-bambulab-config/issues/118), [#117](https://github.com/rsocko/hass-bambulab-config/issues/117), [#135](https://github.com/rsocko/hass-bambulab-config/issues/135), [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| **5A** | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150), [#152](https://github.com/rsocko/hass-bambulab-config/issues/152), [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102), [#133](https://github.com/rsocko/hass-bambulab-config/issues/133), [#118](https://github.com/rsocko/hass-bambulab-config/issues/118), [#117](https://github.com/rsocko/hass-bambulab-config/issues/117), [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
 | **5B** | [#115](https://github.com/rsocko/hass-bambulab-config/issues/115) |
 | **5C** | [#641](https://github.com/rsocko/hass-bambulab-config/issues/641), [#104](https://github.com/rsocko/hass-bambulab-config/issues/104) |
 | **5D** | [#116](https://github.com/rsocko/hass-bambulab-config/issues/116), [#649](https://github.com/rsocko/hass-bambulab-config/issues/649), [#650](https://github.com/rsocko/hass-bambulab-config/issues/650), [#110](https://github.com/rsocko/hass-bambulab-config/issues/110), [#111](https://github.com/rsocko/hass-bambulab-config/issues/111), [#112](https://github.com/rsocko/hass-bambulab-config/issues/112), [#113](https://github.com/rsocko/hass-bambulab-config/issues/113), [#114](https://github.com/rsocko/hass-bambulab-config/issues/114), [#642](https://github.com/rsocko/hass-bambulab-config/issues/642) |
@@ -718,15 +718,26 @@ Phase 5A delivers the core metrics panel using data already present on `sensor.s
 
 ##### 5A.1 — Inventory Distribution Charts
 
-| Chart | Type | Data Source | Issue |
-|---|---|---|---|
-| Weight by Material | Pie | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
-| Weight by Vendor | Pie | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
-| Weight by Color Family | Pie | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
-| Spools per Location | Bar | Count of spools grouped by `location` | — |
+| Chart | Type | Data Source | Issue | Notes |
+|---|---|---|---|---|
+| Weight by Material | Pie/Bar | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as lightweight bar-style card for performance |
+| Weight by Vendor | Pie/Bar | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as lightweight bar-style card for performance |
+| Weight by Color Family | Pie/Bar | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as lightweight bar-style card for performance |
+| Spools per Location | Bar | Count of spools grouped by `location` | — | |
+| Weight by Primary Color | Stacked Bar | `filament_extra_primary_color` + `filament_color_hex` + `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as a stacked bar with real filament colors |
 
 These charts answer: "How is my filament inventory distributed?" All data is directly available from spool entity attributes. The pie charts use `remaining_weight` (not `initial_weight`) to reflect *current* inventory value rather than what was purchased.
 
+##### 5A.1.1 — Inventory Distribution Charts (by count of Spool)
+
+| Chart | Type | Data Source | Issue |
+|---|---|---|---|
+| Count by Material | Pie/Bar | Count of spools grouped by `filament_material` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Count by Vendor | Pie/Bar | Count of spools grouped by `filament_vendor_name` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Count by Color Family | Pie/Bar | Count of spools grouped by `filament_extra_color_family` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Count by Primary Color | Pie/Bar | Count of spools grouped by `filament_extra_primary_color` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+
+These charts answer: "How is my filament inventory distributed but using count instead of weight?" All data is directly available from spool entity attributes.
 ##### 5A.2 — Alert Aggregation Charts
 
 Instead of a standalone alert summary card or dedicated alert tab, alert counts appear as chart segments. Phase 3's card visuals already handle per-spool indicators; this answers "how many of each problem do I have?" at a glance.
@@ -752,9 +763,8 @@ Proactive detection of inventory data issues. Rendered as a compact card list be
 | **Multiple Unsealed Duplicates** | Flags filaments where >1 spool is unsealed for the same `filament_id` — indicates a spool that should be consumed before opening another | [#133](https://github.com/rsocko/hass-bambulab-config/issues/133) |
 | **Orphan Filaments** | Filament definitions in Spoolman with zero associated spools — candidates for cleanup | [#118](https://github.com/rsocko/hass-bambulab-config/issues/118) |
 | **Duplicate Hex Colors** | Multiple filaments sharing the same `filament_color_hex` — may cause incorrect AMS color matching | [#117](https://github.com/rsocko/hass-bambulab-config/issues/117) |
-| **AMS vs. Spoolman Weight Drift** | Compares AMS-reported weight with Spoolman `remaining_weight` for spools currently loaded in AMS trays — flags significant discrepancies | [#135](https://github.com/rsocko/hass-bambulab-config/issues/135) |
 
-> **Note on #135 (AMS Weight Drift)**: Requires cross-referencing `sensor.spoolman_spool_*` with the `spoolman_tray_map` to identify which spools are currently in AMS trays and compare weights. The threshold for "significant discrepancy" needs to be defined (e.g., >10% or >50g drift).
+> **Scope decision**: AMS vs. Spoolman weight drift is removed from Filament Catalog quality checks. This signal is more actionable on the main dashboard while a spool is actively in AMS, and provides limited value in static catalog analytics.
 
 ##### 5A Implementation Design
 
@@ -817,6 +827,11 @@ attributes:
   weight_by_material_json: '{"PLA": 45200, "PETG": 12300, ...}'  # grams
   weight_by_vendor_json: '{"Bambu Lab": 38000, "Sunlu": 15000, ...}'
   weight_by_color_family_json: '{"Blues": 12000, "Reds": 8000, ...}'
+  count_by_material_json: '{"PLA": 42, "PETG": 16, ...}'
+  count_by_vendor_json: '{"Bambu Lab": 31, "Sunlu": 28, ...}'
+  count_by_color_family_json: '{"Blues": 19, "Reds": 12, ...}'
+  count_by_primary_color_json: '{"Blue": 14, "Gray": 10, ...}'
+  primary_color_weight_segments_json: '[{"name":"Blue","weight":8200,"hex":"#4169E1"}, ...]'
   spools_by_location_json: '{"AMS": 5, "Closet Shelf 1": 12, ...}'
 
   # 5A.2 — Alerts
@@ -824,7 +839,7 @@ attributes:
   alert_entity_ids_json: '{"repurchase": ["sensor.spoolman_spool_12", ...], ...}'
 
   # 5A.3 — Data Quality
-  data_quality_json: '{"multiple_unsealed": [...], "orphan_filaments": [...], "duplicate_hex": [...], "ams_weight_drift": [...]}'
+  data_quality_json: '{"multiple_unsealed": [...], "orphan_filaments": [...], "duplicate_hex": [...]}'
 
   # Summary
   total_inventory_value: 3245.50
@@ -845,6 +860,11 @@ filament_catalog/
 │   │   ├── chart_weight_by_material.yaml    ← apexcharts-card (pie)
 │   │   ├── chart_weight_by_vendor.yaml      ← apexcharts-card (pie)
 │   │   ├── chart_weight_by_color_family.yaml ← apexcharts-card (pie)
+│   │   ├── chart_weight_by_primary_color_stacked.yaml ← stacked color segments
+│   │   ├── chart_count_by_material.yaml     ← count distribution
+│   │   ├── chart_count_by_vendor.yaml       ← count distribution
+│   │   ├── chart_count_by_color_family.yaml ← count distribution
+│   │   ├── chart_count_by_primary_color.yaml ← count distribution
 │   │   ├── chart_spools_by_location.yaml    ← apexcharts-card (bar)
 │   │   ├── chart_alert_counts.yaml          ← apexcharts-card (horizontal bar, clickable)
 │   │   ├── card_data_quality_reports.yaml   ← button-card list of data quality issues

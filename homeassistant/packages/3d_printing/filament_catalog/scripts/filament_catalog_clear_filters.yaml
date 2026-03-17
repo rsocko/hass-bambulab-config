@@ -25,4 +25,9 @@ filament_catalog_clear_filters:
         entity_id:
           - input_boolean.filament_catalog_filter_desiccant_old
           - input_boolean.filament_catalog_filter_low_stock
+          - input_boolean.filament_catalog_filter_nearly_empty
+          - input_boolean.filament_catalog_filter_needs_repurchase
+          - input_boolean.filament_catalog_filter_needs_drying
+          - input_boolean.filament_catalog_filter_stale
+          - input_boolean.filament_catalog_filter_missing_desiccant
 

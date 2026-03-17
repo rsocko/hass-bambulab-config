@@ -1,0 +1,130 @@
+type: vertical-stack
+cards:
+  - type: custom:bubble-card
+    card_type: separator
+    name: Alert Analytics
+    icon: mdi:alert-decagram-outline
+  - type: grid
+    columns: 4
+    square: false
+    cards:
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Low Stock
+        icon: mdi:archive-alert-outline
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).low_stock || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_low_stock
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Nearly Empty
+        icon: mdi:archive-alert
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).nearly_empty || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_nearly_empty
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Needs Repurchase
+        icon: mdi:cart-alert
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).needs_repurchase || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_needs_repurchase
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Desiccant Overdue
+        icon: mdi:water-alert
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).desiccant_overdue || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_desiccant_old
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Missing Desiccant
+        icon: mdi:water-off
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).missing_desiccant || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_missing_desiccant
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Needs Drying
+        icon: mdi:tumble-dryer-alert
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).needs_drying || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_needs_drying
+      - type: custom:button-card
+        entity: sensor.filament_catalog_metrics
+        triggers_update: sensor.filament_catalog_metrics
+        name: Stale
+        icon: mdi:clock-alert-outline
+        show_state: true
+        state_display: |
+          [[[ 
+            const raw = entity?.attributes?.alert_counts_json || '{}';
+            try { return (JSON.parse(raw).stale || 0) + ' spools'; } catch (e) { return '0 spools'; }
+          ]]]
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_stale
+      - type: custom:button-card
+        entity: script.filament_catalog_clear_filters
+        name: Clear Alerts
+        icon: mdi:filter-remove
+        show_state: false
+        tap_action:
+          action: call-service
+          service: script.filament_catalog_clear_filters
