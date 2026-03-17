@@ -20,26 +20,7 @@ cards:
           content: >-
             **Insights are running in safe mode while we isolate UI performance.**
             This card intentionally avoids heavy client-side data generators.
-        - type: custom:apexcharts-card
-          graph_span: 24h
-          header:
-            show: true
-            title: Total Spools (24h Trend)
-          apex_config:
-            chart:
-              height: 240
-              animations:
-                enabled: false
-              toolbar:
-                show: false
-          series:
-            - entity: sensor.filament_catalog_metrics
-              name: Total spools
-              type: line
-              stroke_width: 3
-              group_by:
-                func: max
-                duration: 1h
+        - !include insights/chart_count_by_material.yaml
         - type: entities
           title: Metrics Snapshot
           show_header_toggle: false
