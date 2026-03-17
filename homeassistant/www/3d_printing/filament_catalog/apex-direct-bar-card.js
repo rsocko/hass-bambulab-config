@@ -1,6 +1,6 @@
-class ApexDirectBarCard extends HTMLElement {
-  static _apexReadyPromise = null;
+var apexDirectBarReadyPromise = null;
 
+class ApexDirectBarCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -8,7 +8,7 @@ class ApexDirectBarCard extends HTMLElement {
     this._config = null;
     this._chart = null;
     this._container = null;
-    this._isRendering = false;
+    this._renderQueued = false;
   }
 
   setConfig(config) {
@@ -17,27 +17,23 @@ class ApexDirectBarCard extends HTMLElement {
     }
 
     this._config = {
-      title: "Bar Chart",
-      height: 280,
-      value_name: "spools",
+      title: config.title || "Bar Chart",
+      height: config.height || 280,
+      value_name: config.value_name || "value",
       entities: config.entities,
-      ...config,
     };
 
     this._renderShell();
-    this._scheduleRender();
+    this._queueRender();
   }
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._config) {
-      return;
-    }
-    this._scheduleRender();
+    this._queueRender();
   }
 
   disconnectedCallback() {
-    if (this._chart) {
+    if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
       this._chart = null;
     }
@@ -48,46 +44,36 @@ class ApexDirectBarCard extends HTMLElement {
   }
 
   _renderShell() {
-    if (!this.shadowRoot) {
-      return;
-    }
-
-    this.shadowRoot.innerHTML = `
-      <style>
-        ha-card {
-          padding: 12px;
-        }
-        .title {
-          font-size: 1rem;
-          font-weight: 500;
-          margin: 0 0 8px 0;
-        }
-        .error {
-          color: var(--error-color);
-          font-size: 0.9rem;
-          line-height: 1.35;
-        }
-      </style>
-      <ha-card>
-        <div class="title">${this._config.title}</div>
-        <div id="chart"></div>
-      </ha-card>
-    `;
+    this.shadowRoot.innerHTML =
+      '<style>' +
+      'ha-card{padding:12px;}' +
+      '.title{font-size:1rem;font-weight:500;margin:0 0 8px 0;}' +
+      '.error{color:var(--error-color);font-size:.9rem;line-height:1.35;}' +
+      '</style>' +
+      '<ha-card>' +
+      '<div class="title">' + this._escapeHtml(this._config.title) + '</div>' +
+      '<div id="chart"></div>' +
+      '</ha-card>';
 
     this._container = this.shadowRoot.getElementById("chart");
   }
 
-  _scheduleRender() {
-    if (this._isRendering) {
+  _queueRender() {
+    var self = this;
+    if (self._renderQueued) {
       return;
     }
+    self._renderQueued = true;
 
-    this._isRendering = true;
     Promise.resolve()
-      .then(() => this._renderChart())
-      .catch((err) => this._showError(err?.message || String(err)))
-      .finally(() => {
-        this._isRendering = false;
+      .then(function () {
+        return self._renderChart();
+      })
+      .catch(function (err) {
+        self._showError(err && err.message ? err.message : String(err));
+      })
+      .then(function () {
+        self._renderQueued = false;
       });
   }
 
@@ -96,29 +82,25 @@ class ApexDirectBarCard extends HTMLElement {
       return;
     }
 
-    const ApexChartsCtor = await this._ensureApexCharts();
+    var ApexChartsCtor = await this._ensureApexCharts();
     if (!ApexChartsCtor) {
-      throw new Error(
-        "ApexCharts runtime not available. Verify /hacsfiles/apexcharts-card/apexcharts-card.js is loaded as a Lovelace resource."
-      );
+      throw new Error("ApexCharts runtime unavailable. Ensure apexcharts-card resource is loaded.");
     }
 
-    const rows = this._config.entities.map((entry) => {
-      const st = this._hass.states[entry.entity];
-      const raw = st ? st.state : "0";
-      const value = Number.parseFloat(raw);
-      return {
-        name: entry.name || st?.attributes?.friendly_name || entry.entity,
-        color: entry.color || "#42A5F5",
-        value: Number.isFinite(value) ? value : 0,
-      };
-    });
+    var rows = this._config.entities.map(
+      function (entry) {
+        var st = this._hass.states[entry.entity];
+        var raw = st ? st.state : "0";
+        var parsed = parseFloat(raw);
+        return {
+          x: entry.name || (st && st.attributes && st.attributes.friendly_name) || entry.entity,
+          y: isFinite(parsed) ? parsed : 0,
+          fillColor: entry.color || "#42A5F5",
+        };
+      }.bind(this),
+    );
 
-    const categories = rows.map((r) => r.name);
-    const values = rows.map((r) => r.value);
-    const colors = rows.map((r) => r.color);
-
-    const options = {
+    var options = {
       chart: {
         type: "bar",
         height: this._config.height,
@@ -128,34 +110,24 @@ class ApexDirectBarCard extends HTMLElement {
       series: [
         {
           name: this._config.value_name,
-          data: values,
+          data: rows,
         },
       ],
       plotOptions: {
         bar: {
           horizontal: true,
           borderRadius: 4,
-          distributed: true,
+          distributed: false,
         },
       },
-      colors,
+      xaxis: {
+        title: { text: this._config.value_name },
+      },
       dataLabels: {
         enabled: true,
       },
-      xaxis: {
-        title: {
-          text: this._config.value_name,
-        },
-      },
-      yaxis: {
-        categories,
-      },
-      grid: {
-        strokeDashArray: 3,
-      },
-      legend: {
-        show: false,
-      },
+      legend: { show: false },
+      grid: { strokeDashArray: 3 },
     };
 
     if (!this._chart) {
@@ -172,43 +144,50 @@ class ApexDirectBarCard extends HTMLElement {
       return window.ApexCharts;
     }
 
-    if (!ApexDirectBarCard._apexReadyPromise) {
-      ApexDirectBarCard._apexReadyPromise = new Promise((resolve) => {
-        // If apexcharts-card already loaded ApexCharts globally, this resolves immediately.
+    if (!apexDirectBarReadyPromise) {
+      apexDirectBarReadyPromise = new Promise(function (resolve) {
         if (window.ApexCharts) {
           resolve(window.ApexCharts);
           return;
         }
-
-        const script = document.createElement("script");
-        script.src = "/hacsfiles/apexcharts-card/apexcharts-card.js";
-        script.onload = () => resolve(window.ApexCharts || null);
-        script.onerror = () => resolve(null);
-        document.head.appendChild(script);
+        resolve(null);
       });
     }
 
-    return ApexDirectBarCard._apexReadyPromise;
+    return apexDirectBarReadyPromise;
   }
 
   _showError(message) {
     if (!this.shadowRoot) {
       return;
     }
-    const chartEl = this.shadowRoot.getElementById("chart");
+    var chartEl = this.shadowRoot.getElementById("chart");
     if (!chartEl) {
       return;
     }
-    chartEl.innerHTML = `<div class="error">${message}</div>`;
+    chartEl.innerHTML = '<div class="error">' + this._escapeHtml(message) + "</div>";
+  }
+
+  _escapeHtml(input) {
+    return String(input)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 }
 
-customElements.define("apex-direct-bar-card", ApexDirectBarCard);
+if (!customElements.get("apex-direct-bar-card")) {
+  customElements.define("apex-direct-bar-card", ApexDirectBarCard);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "apex-direct-bar-card",
-  name: "Apex Direct Bar Card",
-  preview: false,
-  description: "Direct ApexCharts.js bar card for categorical sensors",
-});
+if (!window.customCards.find(function (c) { return c.type === "apex-direct-bar-card"; })) {
+  window.customCards.push({
+    type: "apex-direct-bar-card",
+    name: "Apex Direct Bar Card",
+    preview: false,
+    description: "Direct ApexCharts.js bar card for categorical sensors",
+  });
+}
