@@ -16,22 +16,33 @@ cards:
     card:
       type: vertical-stack
       cards:
-        - type: horizontal-stack
-          cards:
-            - !include insights/chart_weight_by_material.yaml
-            - !include insights/chart_weight_by_vendor.yaml
-        - type: horizontal-stack
-          cards:
-            - !include insights/chart_weight_by_color_family.yaml
-            - !include insights/chart_spools_by_location.yaml
-        - !include insights/chart_weight_by_primary_color_stacked.yaml
-        - type: horizontal-stack
-          cards:
-            - !include insights/chart_count_by_material.yaml
-            - !include insights/chart_count_by_vendor.yaml
-        - type: horizontal-stack
-          cards:
-            - !include insights/chart_count_by_color_family.yaml
-            - !include insights/chart_count_by_primary_color.yaml
-        - !include insights/chart_alert_counts.yaml
-        - !include insights/card_data_quality_reports.yaml
+        - type: markdown
+          content: >-
+            **Insights are running in safe mode while we isolate UI performance.**
+            This card intentionally avoids heavy client-side data generators.
+        - type: custom:apexcharts-card
+          graph_span: 24h
+          header:
+            show: true
+            title: Total Spools (24h Trend)
+          apex_config:
+            chart:
+              height: 240
+              animations:
+                enabled: false
+              toolbar:
+                show: false
+          series:
+            - entity: sensor.filament_catalog_metrics
+              name: Total spools
+              type: line
+              stroke_width: 3
+              group_by:
+                func: max
+                duration: 1h
+        - type: entities
+          title: Metrics Snapshot
+          show_header_toggle: false
+          entities:
+            - entity: sensor.filament_catalog_metrics
+              name: Total Active Spools

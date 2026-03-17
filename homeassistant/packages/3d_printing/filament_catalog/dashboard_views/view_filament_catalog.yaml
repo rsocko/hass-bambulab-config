@@ -28,8 +28,8 @@ cards:
 
       # ============================================================
       # Insights Panel (Phase 5A)
-      # Temporarily disabled while isolating frontend performance regressions.
       # ============================================================
+      - !include ../dashboard_cards/catalog_insights_panel.yaml
 
       # ============================================================
       # Filters, Tabs & Sort (Phase 2 + Phase 4)
