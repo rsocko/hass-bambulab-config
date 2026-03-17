@@ -1,0 +1,78 @@
+- trigger:
+    - platform: state
+      entity_id:
+        - sensor.filament_catalog_metrics
+  sensor:
+    - name: Filament Catalog Count Material PLA
+      unique_id: filament_catalog_count_material_pla
+      icon: mdi:alpha-p-box-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'count_by_material_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {% set ns = namespace(v=0) %}
+        {% for k, v in obj.items() %}
+          {% if (k | string | upper) == 'PLA' %}
+            {% set ns.v = ns.v + (v | int(0)) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.v }}
+    - name: Filament Catalog Count Material PETG
+      unique_id: filament_catalog_count_material_petg
+      icon: mdi:alpha-p-box-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'count_by_material_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {% set ns = namespace(v=0) %}
+        {% for k, v in obj.items() %}
+          {% if (k | string | upper) == 'PETG' %}
+            {% set ns.v = ns.v + (v | int(0)) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.v }}
+    - name: Filament Catalog Count Material ABS
+      unique_id: filament_catalog_count_material_abs
+      icon: mdi:alpha-a-box-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'count_by_material_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {% set ns = namespace(v=0) %}
+        {% for k, v in obj.items() %}
+          {% set material = k | string | upper %}
+          {% if material in ['ABS', 'ASA'] %}
+            {% set ns.v = ns.v + (v | int(0)) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.v }}
+    - name: Filament Catalog Count Material TPU
+      unique_id: filament_catalog_count_material_tpu
+      icon: mdi:alpha-t-box-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'count_by_material_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {% set ns = namespace(v=0) %}
+        {% for k, v in obj.items() %}
+          {% if (k | string | upper) == 'TPU' %}
+            {% set ns.v = ns.v + (v | int(0)) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.v }}
+    - name: Filament Catalog Count Material Other
+      unique_id: filament_catalog_count_material_other
+      icon: mdi:shape-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'count_by_material_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {% set total = states('sensor.filament_catalog_metrics') | int(0) %}
+        {% set known = namespace(v=0) %}
+        {% for k, v in obj.items() %}
+          {% set material = k | string | upper %}
+          {% if material in ['PLA', 'PETG', 'ABS', 'ASA', 'TPU'] %}
+            {% set known.v = known.v + (v | int(0)) %}
+          {% endif %}
+        {% endfor %}
+        {{ [total - known.v, 0] | max }}

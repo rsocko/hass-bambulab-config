@@ -15,10 +15,10 @@ cards:
         state: "on"
     card:
       type: custom:apexcharts-card
-      graph_span: 24h
+      chart_type: donut
       header:
         show: true
-        title: Total Active Spools (24h)
+        title: Count by Material
       apex_config:
         chart:
           height: 240
@@ -26,11 +26,22 @@ cards:
             enabled: false
           toolbar:
             show: false
+        legend:
+          show: true
+          position: bottom
       series:
-        - entity: sensor.filament_catalog_metrics
-          name: Total spools
-          type: line
-          stroke_width: 3
-          group_by:
-            func: max
-            duration: 1h
+        - entity: sensor.filament_catalog_count_material_pla
+          name: PLA
+          color: '#42A5F5'
+        - entity: sensor.filament_catalog_count_material_petg
+          name: PETG
+          color: '#66BB6A'
+        - entity: sensor.filament_catalog_count_material_abs
+          name: ABS/ASA
+          color: '#FFA726'
+        - entity: sensor.filament_catalog_count_material_tpu
+          name: TPU
+          color: '#AB47BC'
+        - entity: sensor.filament_catalog_count_material_other
+          name: Other
+          color: '#90A4AE'
