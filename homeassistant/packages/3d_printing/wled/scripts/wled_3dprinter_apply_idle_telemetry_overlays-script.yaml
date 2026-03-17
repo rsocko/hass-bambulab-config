@@ -2,8 +2,10 @@
 wled_3dprinter_apply_idle_telemetry_overlays:
   alias: WLED 3D Printer - Apply Idle Telemetry Overlays
   description: >-
-    Re-apply the idle core preset and then layer idle-only telemetry overlays
-    in priority order: desiccant, humidity, then tray risk.
+    Layer idle-only telemetry overlays in priority order: desiccant, humidity,
+    then tray risk. Only re-applies the base preset when WLED is in an
+    unexpected state (not "SM S1 Idle" or "unknown") to avoid a race condition
+    where the preset overwrites REST overlay commands before they take effect.
   mode: restart
   sequence:
     - condition: state
@@ -15,10 +17,19 @@ wled_3dprinter_apply_idle_telemetry_overlays:
     - condition: template
       value_template: >-
         {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
-    - action: script.wled_3dprinter_apply_core_state_to_presets
-      data: {}
-    - delay:
-        milliseconds: 300
+    # Only re-apply the base preset when WLED is in an unexpected state.
+    # "SM S1 Idle" = orchestrator just set it; "unknown" = overlays already
+    # modified segments (normal). Skipping avoids a race where the 15-segment
+    # preset takes >300ms to propagate and overwrites the REST overlay calls.
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('select.dig_quad_v3_preset') not in ['SM S1 Idle', 'unknown'] }}
+      then:
+        - action: script.wled_3dprinter_apply_core_state_to_presets
+          data: {}
+        - delay:
+            seconds: 2
     - action: script.wled_3dprinter_apply_idle_desiccant_overlay
       data: {}
     - action: script.wled_3dprinter_apply_idle_humidity_overlay
