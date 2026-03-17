@@ -1,5 +1,5 @@
 type: custom:apexcharts-card
-chart_type: bar
+chart_type: line
 header:
   show: true
   title: Count by Color Family
@@ -28,6 +28,7 @@ apex_config:
 series:
   - entity: sensor.filament_catalog_metrics
     name: spools
+    type: column
     color: '#8E24AA'
     data_generator: |
       const raw = entity?.attributes?.count_by_color_family_json;

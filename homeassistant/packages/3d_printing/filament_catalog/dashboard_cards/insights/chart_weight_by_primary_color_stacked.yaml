@@ -1,5 +1,5 @@
 type: custom:apexcharts-card
-chart_type: bar
+chart_type: line
 header:
   show: true
   title: Weight by Primary Color
@@ -28,7 +28,7 @@ apex_config:
 series:
   - entity: sensor.filament_catalog_metrics
     name: kg
-    type: bar
+    type: column
     color: '#FFA726'
     data_generator: |
       const raw = entity?.attributes?.primary_color_weight_segments_json;

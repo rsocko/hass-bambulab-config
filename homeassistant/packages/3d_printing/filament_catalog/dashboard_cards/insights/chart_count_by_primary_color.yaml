@@ -1,5 +1,5 @@
 type: custom:apexcharts-card
-chart_type: bar
+chart_type: line
 header:
   show: true
   title: Count by Primary Color
@@ -28,6 +28,7 @@ apex_config:
 series:
   - entity: sensor.filament_catalog_metrics
     name: spools
+    type: column
     color: '#F4511E'
     data_generator: |
       const raw = entity?.attributes?.count_by_primary_color_json;

@@ -1,5 +1,5 @@
 type: custom:apexcharts-card
-chart_type: bar
+chart_type: line
 header:
   show: true
   title: Spools per Location
@@ -28,7 +28,7 @@ apex_config:
 series:
   - entity: sensor.filament_catalog_metrics
     name: spools
-    type: bar
+    type: column
     color: '#FFA726'
     data_generator: |
       const raw = entity?.attributes?.spools_by_location_json;

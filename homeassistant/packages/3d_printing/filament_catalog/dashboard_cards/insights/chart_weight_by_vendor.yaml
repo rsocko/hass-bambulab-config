@@ -1,5 +1,5 @@
 type: custom:apexcharts-card
-chart_type: bar
+chart_type: line
 header:
   show: true
   title: Weight by Vendor
@@ -28,6 +28,7 @@ apex_config:
 series:
   - entity: sensor.filament_catalog_metrics
     name: kg
+    type: column
     color: '#66BB6A'
     data_generator: |
       const raw = entity?.attributes?.weight_by_vendor_json;
