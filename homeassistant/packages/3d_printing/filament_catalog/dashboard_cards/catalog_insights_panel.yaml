@@ -14,16 +14,23 @@ cards:
       - entity: input_boolean.filament_catalog_show_insights
         state: "on"
     card:
-      type: vertical-stack
-      cards:
-        - type: markdown
-          content: >-
-            **Insights are running in safe mode while we isolate UI performance.**
-            This card intentionally avoids heavy client-side data generators.
-        - !include insights/chart_count_by_material.yaml
-        - type: entities
-          title: Metrics Snapshot
-          show_header_toggle: false
-          entities:
-            - entity: sensor.filament_catalog_metrics
-              name: Total Active Spools
+      type: custom:apexcharts-card
+      graph_span: 24h
+      header:
+        show: true
+        title: Total Active Spools (24h)
+      apex_config:
+        chart:
+          height: 240
+          animations:
+            enabled: false
+          toolbar:
+            show: false
+      series:
+        - entity: sensor.filament_catalog_metrics
+          name: Total spools
+          type: line
+          stroke_width: 3
+          group_by:
+            func: max
+            duration: 1h
