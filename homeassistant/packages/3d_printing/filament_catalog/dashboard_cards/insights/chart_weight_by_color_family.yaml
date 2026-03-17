@@ -1,10 +1,10 @@
 type: custom:apexcharts-card
+chart_type: donut
 header:
   show: true
   title: Weight by Color Family
 apex_config:
   chart:
-    type: donut
     height: 260
     animations:
       enabled: false

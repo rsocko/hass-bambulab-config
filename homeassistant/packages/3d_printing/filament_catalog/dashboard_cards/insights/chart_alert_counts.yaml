@@ -1,12 +1,12 @@
 type: vertical-stack
 cards:
   - type: custom:apexcharts-card
+    chart_type: bar
     header:
       show: true
       title: Alert Analytics
     apex_config:
       chart:
-        type: bar
         height: 300
         animations:
           enabled: false

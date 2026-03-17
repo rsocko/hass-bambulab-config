@@ -1,10 +1,10 @@
 type: custom:apexcharts-card
+chart_type: bar
 header:
   show: true
   title: Spools per Location
 apex_config:
   chart:
-    type: bar
     height: 260
     animations:
       enabled: false

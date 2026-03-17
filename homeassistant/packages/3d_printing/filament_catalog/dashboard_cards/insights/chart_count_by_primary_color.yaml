@@ -1,10 +1,10 @@
 type: custom:apexcharts-card
+chart_type: donut
 header:
   show: true
   title: Count by Primary Color
 apex_config:
   chart:
-    type: donut
     height: 300
     animations:
       enabled: false
