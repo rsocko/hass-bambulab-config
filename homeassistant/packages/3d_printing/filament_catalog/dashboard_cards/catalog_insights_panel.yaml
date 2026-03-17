@@ -1,0 +1,75 @@
+type: vertical-stack
+cards:
+  - type: custom:bubble-card
+    card_type: button
+    button_type: state
+    entity: input_boolean.filament_catalog_show_insights
+    name: Insights
+    icon: mdi:chart-box-outline
+    show_state: true
+    tap_action:
+      action: toggle
+  - type: conditional
+    conditions:
+      - entity: input_boolean.filament_catalog_show_insights
+        state: "on"
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:apexcharts-card
+          chart_type: donut
+          header:
+            show: true
+            title: Count by Material
+          apex_config:
+            chart:
+              height: 240
+              animations:
+                enabled: false
+              toolbar:
+                show: false
+            legend:
+              show: true
+              position: bottom
+          series:
+            - entity: sensor.filament_catalog_count_material_pla
+              name: PLA
+              color: '#42A5F5'
+            - entity: sensor.filament_catalog_count_material_petg
+              name: PETG
+              color: '#66BB6A'
+            - entity: sensor.filament_catalog_count_material_abs
+              name: ABS/ASA
+              color: '#FFA726'
+            - entity: sensor.filament_catalog_count_material_tpu
+              name: TPU
+              color: '#AB47BC'
+            - entity: sensor.filament_catalog_count_material_other
+              name: Other
+              color: '#90A4AE'
+        - type: custom:apex-direct-bar-card
+          title: Alert Distribution
+          value_name: spools
+          height: 280
+          entities:
+            - entity: sensor.filament_catalog_alert_low_stock
+              name: Low Stock
+              color: '#EF5350'
+            - entity: sensor.filament_catalog_alert_nearly_empty
+              name: Nearly Empty
+              color: '#F06292'
+            - entity: sensor.filament_catalog_alert_needs_repurchase
+              name: Needs Repurchase
+              color: '#FF7043'
+            - entity: sensor.filament_catalog_alert_desiccant_overdue
+              name: Desiccant Overdue
+              color: '#29B6F6'
+            - entity: sensor.filament_catalog_alert_missing_desiccant
+              name: Missing Desiccant
+              color: '#26C6DA'
+            - entity: sensor.filament_catalog_alert_needs_drying
+              name: Needs Drying
+              color: '#FFA726'
+            - entity: sensor.filament_catalog_alert_stale
+              name: Stale
+              color: '#9E9E9E'

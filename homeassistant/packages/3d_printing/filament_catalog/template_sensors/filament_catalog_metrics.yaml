@@ -1,0 +1,391 @@
+- trigger:
+    - platform: state
+      entity_id:
+        - sensor.spoolman_filament_totals
+    - platform: time_pattern
+      hours: "/1"
+  sensor:
+    - name: Filament Catalog Metrics
+      unique_id: filament_catalog_metrics
+      icon: mdi:chart-box-outline
+      state: >-
+        {%- set ns = namespace(total=0) -%}
+        {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- set archived_raw = spool.attributes.get('archived', false) -%}
+          {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+          {%- if not archived -%}
+            {%- set ns.total = ns.total + 1 -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ ns.total }}
+      attributes:
+        generated_at: "{{ now().isoformat() }}"
+        weight_by_material_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_material', 'Unknown') | string | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set grams = spool.attributes.get('remaining_weight', 0) | float(0) -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | float(0)) + grams}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        weight_by_vendor_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_vendor_name', 'Unknown') | string | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set grams = spool.attributes.get('remaining_weight', 0) | float(0) -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | float(0)) + grams}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        weight_by_color_family_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_extra_color_family', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set grams = spool.attributes.get('remaining_weight', 0) | float(0) -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | float(0)) + grams}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        count_by_material_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_material', 'Unknown') | string | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        count_by_vendor_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_vendor_name', 'Unknown') | string | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        count_by_color_family_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_extra_color_family', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        count_by_primary_color_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('filament_extra_primary_color', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        primary_color_weight_segments_json: >-
+          {%- set names = namespace(weights={}, hexes={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set name = a.get('filament_extra_primary_color', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set name = name if name not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set grams = a.get('remaining_weight', 0) | float(0) -%}
+              {%- set hx = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- set hx = '#' ~ hx[0:6] if hx | length >= 6 else '#9e9e9e' -%}
+              {%- set names.weights = names.weights | combine({name: (names.weights.get(name, 0) | float(0)) + grams}) -%}
+              {%- if names.hexes.get(name) in [none, ''] -%}
+                {%- set names.hexes = names.hexes | combine({name: hx}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set segs = namespace(items=[]) -%}
+          {%- for name, grams in names.weights.items() -%}
+            {%- set segs.items = segs.items + [{
+              'name': name,
+              'weight': grams | round(1),
+              'hex': names.hexes.get(name, '#9e9e9e')
+            }] -%}
+          {%- endfor -%}
+          {{ segs.items | sort(attribute='weight', reverse=true) | tojson }}
+        spools_by_location_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set key = spool.attributes.get('location', 'Unknown') | string | trim -%}
+              {%- set key = key if key not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
+        alert_counts_json: >-
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
+          {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
+          {%- set filament_counts = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set fid = spool.attributes.get('filament_id') -%}
+              {%- if fid not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set key = fid | string -%}
+                {%- set filament_counts.data = filament_counts.data | combine({key: (filament_counts.data.get(key, 0) | int(0)) + 1}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_overdue=0, missing_desiccant=0, needs_drying=0, stale=0) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set remaining = a.get('remaining_weight', 0) | float(0) -%}
+              {%- set sealed = a.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set has_desiccant = a.get('extra_desiccant_in_spool') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set fid = a.get('filament_id') | string -%}
+              {%- set des_raw = a.get('extra_desiccant_filled', '') -%}
+              {%- set dry_raw = a.get('extra_last_dried', '') -%}
+              {%- set used_raw = a.get('last_used', '') -%}
+              {%- if des_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set des_ts = as_timestamp(des_raw, 0) | float(0) -%}
+                {%- set des_days = ((now_ts - des_ts) / 86400) | float(0) if des_ts > 0 else 0 -%}
+              {%- else -%}
+                {%- set des_days = 0 -%}
+              {%- endif -%}
+              {%- if dry_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set dry_ts = as_timestamp(dry_raw, 0) | float(0) -%}
+                {%- set dry_days = ((now_ts - dry_ts) / 86400) | float(0) if dry_ts > 0 else 0 -%}
+              {%- else -%}
+                {%- set dry_days = 0 -%}
+              {%- endif -%}
+              {%- if used_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set used_ts = as_timestamp(used_raw, 0) | float(0) -%}
+                {%- set used_days = ((now_ts - used_ts) / 86400) | float(0) if used_ts > 0 else 99999 -%}
+              {%- else -%}
+                {%- set used_days = 99999 -%}
+              {%- endif -%}
+              {%- if remaining < stock_threshold -%}
+                {%- set counts.low_stock = counts.low_stock + 1 -%}
+              {%- endif -%}
+              {%- if remaining < 50 -%}
+                {%- set counts.nearly_empty = counts.nearly_empty + 1 -%}
+              {%- endif -%}
+              {%- if remaining < stock_threshold and (filament_counts.data.get(fid, 0) | int(0)) == 1 -%}
+                {%- set counts.needs_repurchase = counts.needs_repurchase + 1 -%}
+              {%- endif -%}
+              {%- if not sealed and des_days > 60 -%}
+                {%- set counts.desiccant_overdue = counts.desiccant_overdue + 1 -%}
+              {%- endif -%}
+              {%- if not sealed and not has_desiccant -%}
+                {%- set counts.missing_desiccant = counts.missing_desiccant + 1 -%}
+              {%- endif -%}
+              {%- if not sealed and dry_days > 90 -%}
+                {%- set counts.needs_drying = counts.needs_drying + 1 -%}
+              {%- endif -%}
+              {%- if used_days > 180 -%}
+                {%- set counts.stale = counts.stale + 1 -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ {
+            'low_stock': counts.low_stock,
+            'nearly_empty': counts.nearly_empty,
+            'needs_repurchase': counts.needs_repurchase,
+            'desiccant_overdue': counts.desiccant_overdue,
+            'missing_desiccant': counts.missing_desiccant,
+            'needs_drying': counts.needs_drying,
+            'stale': counts.stale
+          } | tojson }}
+        alert_entity_ids_json: >-
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
+          {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
+          {%- set filament_counts = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set fid = spool.attributes.get('filament_id') -%}
+              {%- if fid not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set key = fid | string -%}
+                {%- set filament_counts.data = filament_counts.data | combine({key: (filament_counts.data.get(key, 0) | int(0)) + 1}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set ids = namespace(
+            low_stock=[], nearly_empty=[], needs_repurchase=[], desiccant_overdue=[],
+            missing_desiccant=[], needs_drying=[], stale=[]
+          ) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set eid = spool.entity_id -%}
+              {%- set remaining = a.get('remaining_weight', 0) | float(0) -%}
+              {%- set sealed = a.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set has_desiccant = a.get('extra_desiccant_in_spool') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set fid = a.get('filament_id') | string -%}
+              {%- set des_raw = a.get('extra_desiccant_filled', '') -%}
+              {%- set dry_raw = a.get('extra_last_dried', '') -%}
+              {%- set used_raw = a.get('last_used', '') -%}
+              {%- if des_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set des_ts = as_timestamp(des_raw, 0) | float(0) -%}
+                {%- set des_days = ((now_ts - des_ts) / 86400) | float(0) if des_ts > 0 else 0 -%}
+              {%- else -%}
+                {%- set des_days = 0 -%}
+              {%- endif -%}
+              {%- if dry_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set dry_ts = as_timestamp(dry_raw, 0) | float(0) -%}
+                {%- set dry_days = ((now_ts - dry_ts) / 86400) | float(0) if dry_ts > 0 else 0 -%}
+              {%- else -%}
+                {%- set dry_days = 0 -%}
+              {%- endif -%}
+              {%- if used_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set used_ts = as_timestamp(used_raw, 0) | float(0) -%}
+                {%- set used_days = ((now_ts - used_ts) / 86400) | float(0) if used_ts > 0 else 99999 -%}
+              {%- else -%}
+                {%- set used_days = 99999 -%}
+              {%- endif -%}
+              {%- if remaining < stock_threshold -%}{%- set ids.low_stock = ids.low_stock + [eid] -%}{%- endif -%}
+              {%- if remaining < 50 -%}{%- set ids.nearly_empty = ids.nearly_empty + [eid] -%}{%- endif -%}
+              {%- if remaining < stock_threshold and (filament_counts.data.get(fid, 0) | int(0)) == 1 -%}
+                {%- set ids.needs_repurchase = ids.needs_repurchase + [eid] -%}
+              {%- endif -%}
+              {%- if not sealed and des_days > 60 -%}{%- set ids.desiccant_overdue = ids.desiccant_overdue + [eid] -%}{%- endif -%}
+              {%- if not sealed and not has_desiccant -%}{%- set ids.missing_desiccant = ids.missing_desiccant + [eid] -%}{%- endif -%}
+              {%- if not sealed and dry_days > 90 -%}{%- set ids.needs_drying = ids.needs_drying + [eid] -%}{%- endif -%}
+              {%- if used_days > 180 -%}{%- set ids.stale = ids.stale + [eid] -%}{%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ {
+            'low_stock': ids.low_stock,
+            'nearly_empty': ids.nearly_empty,
+            'needs_repurchase': ids.needs_repurchase,
+            'desiccant_overdue': ids.desiccant_overdue,
+            'missing_desiccant': ids.missing_desiccant,
+            'needs_drying': ids.needs_drying,
+            'stale': ids.stale
+          } | tojson }}
+        data_quality_json: >-
+          {%- set unsealed_by_filament = namespace(data={}) -%}
+          {%- set hex_to_filaments = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set fid = a.get('filament_id') | string -%}
+              {%- set sealed = a.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- if not sealed and fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+                {%- set existing = unsealed_by_filament.data.get(fid, []) -%}
+                {%- set unsealed_by_filament.data = unsealed_by_filament.data | combine({fid: existing + [spool.entity_id]}) -%}
+              {%- endif -%}
+              {%- set hx = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- if hx | length >= 6 and fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+                {%- set hex_existing = hex_to_filaments.data.get(hx, []) -%}
+                {%- if fid not in hex_existing -%}
+                  {%- set hex_to_filaments.data = hex_to_filaments.data | combine({hx: hex_existing + [fid]}) -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set multiple_unsealed = namespace(items=[]) -%}
+          {%- for fid, entities in unsealed_by_filament.data.items() -%}
+            {%- if entities | count > 1 -%}
+              {%- set multiple_unsealed.items = multiple_unsealed.items + [{
+                'filament_id': fid,
+                'count': entities | count,
+                'entity_ids': entities
+              }] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set duplicate_hex = namespace(items=[]) -%}
+          {%- for hx, filament_ids in hex_to_filaments.data.items() -%}
+            {%- if filament_ids | count > 1 -%}
+              {%- set duplicate_hex.items = duplicate_hex.items + [{
+                'hex': '#' ~ hx,
+                'count': filament_ids | count,
+                'filament_ids': filament_ids
+              }] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+          {%- set orphan_filaments = namespace(items=[]) -%}
+          {%- for fil in states.sensor if fil.entity_id is match('^sensor\.spoolman_filament_\d+$') -%}
+            {%- set fid = fil.attributes.get('id', fil.entity_id.split('_')[-1]) | string -%}
+            {%- set total_info = totals.get(fid) if totals is mapping else none -%}
+            {%- set total_info = totals.get(fid | int(0)) if total_info in [none, ''] and totals is mapping else total_info -%}
+            {%- set cnt = total_info.get('count', 0) | int(0) if total_info is mapping else 0 -%}
+            {%- if cnt == 0 -%}
+              {%- set orphan_filaments.items = orphan_filaments.items + [{
+                'entity_id': fil.entity_id,
+                'filament_id': fid,
+                'name': fil.attributes.get('friendly_name', fil.name)
+              }] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ {
+            'multiple_unsealed_duplicates': multiple_unsealed.items,
+            'orphan_filaments': orphan_filaments.items,
+            'duplicate_hex_colors': duplicate_hex.items
+          } | tojson }}
+        total_inventory_value: >-
+          {%- set ns = namespace(value=0) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set remaining = a.get('remaining_weight', 0) | float(0) -%}
+              {%- set initial = a.get('initial_weight', 0) | float(0) -%}
+              {%- set price = (a.get('price', 0) or a.get('filament_price', 0)) | float(0) -%}
+              {%- if initial > 0 and price > 0 and remaining > 0 -%}
+                {%- set ns.value = ns.value + ((remaining / initial) * price) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ ns.value | round(2) }}
+        avg_cost_per_kg: >-
+          {%- set ns = namespace(total=0, count=0) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set price = (a.get('price', 0) or a.get('filament_price', 0)) | float(0) -%}
+              {%- set initial = a.get('initial_weight', 0) | float(0) -%}
+              {%- if price > 0 and initial > 0 -%}
+                {%- set ns.total = ns.total + ((price / initial) * 1000) -%}
+                {%- set ns.count = ns.count + 1 -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ (ns.total / ns.count) | round(2) if ns.count > 0 else 0 }}

@@ -1,0 +1,61 @@
+- trigger:
+    - platform: state
+      entity_id:
+        - sensor.filament_catalog_metrics
+  sensor:
+    - name: Filament Catalog Alert Low Stock
+      unique_id: filament_catalog_alert_low_stock
+      icon: mdi:archive-alert-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('low_stock', 0) | int(0) }}
+    - name: Filament Catalog Alert Nearly Empty
+      unique_id: filament_catalog_alert_nearly_empty
+      icon: mdi:archive-alert
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('nearly_empty', 0) | int(0) }}
+    - name: Filament Catalog Alert Needs Repurchase
+      unique_id: filament_catalog_alert_needs_repurchase
+      icon: mdi:cart-alert
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('needs_repurchase', 0) | int(0) }}
+    - name: Filament Catalog Alert Desiccant Overdue
+      unique_id: filament_catalog_alert_desiccant_overdue
+      icon: mdi:water-alert
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('desiccant_overdue', 0) | int(0) }}
+    - name: Filament Catalog Alert Missing Desiccant
+      unique_id: filament_catalog_alert_missing_desiccant
+      icon: mdi:water-remove
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('missing_desiccant', 0) | int(0) }}
+    - name: Filament Catalog Alert Needs Drying
+      unique_id: filament_catalog_alert_needs_drying
+      icon: mdi:tumble-dryer-alert
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('needs_drying', 0) | int(0) }}
+    - name: Filament Catalog Alert Stale
+      unique_id: filament_catalog_alert_stale
+      icon: mdi:clock-alert-outline
+      unit_of_measurement: spools
+      state: >-
+        {% set raw = state_attr('sensor.filament_catalog_metrics', 'alert_counts_json') %}
+        {% set obj = raw if raw is mapping else (raw | default('{}', true) | from_json) %}
+        {{ obj.get('stale', 0) | int(0) }}

@@ -1,0 +1,45 @@
+type: custom:apexcharts-card
+chart_type: line
+header:
+  show: true
+  title: Count by Vendor
+apex_config:
+  chart:
+    height: 260
+    animations:
+      enabled: false
+    toolbar:
+      show: false
+  plotOptions:
+    bar:
+      horizontal: false
+      borderRadius: 4
+  xaxis:
+    type: category
+    labels:
+      rotate: -35
+    title:
+      text: Vendor
+  yaxis:
+    title:
+      text: spools
+  legend:
+    show: false
+series:
+  - entity: sensor.filament_catalog_metrics
+    name: spools
+    type: column
+    color: '#43A047'
+    data_generator: |
+      const raw = entity?.attributes?.count_by_vendor_json;
+      let obj = {};
+      if (raw && typeof raw === 'object') {
+        obj = raw;
+      } else if (typeof raw === 'string' && raw.trim()) {
+        try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
+      }
+      return Object.entries(obj)
+        .map(([k, v]) => ({ x: k, y: Number(v || 0) }))
+        .filter(p => p.y > 0)
+        .sort((a, b) => b.y - a.y)
+        .slice(0, 12);

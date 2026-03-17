@@ -27,6 +27,11 @@ cards:
       - !include ../dashboard_cards/catalog_inventory_kpi.yaml
 
       # ============================================================
+      # Insights Panel (Phase 5A)
+      # ============================================================
+      - !include ../dashboard_cards/catalog_insights_panel.yaml
+
+      # ============================================================
       # Filters, Tabs & Sort (Phase 2 + Phase 4)
       # ============================================================
       - !include ../dashboard_cards/catalog_filter_bar.yaml

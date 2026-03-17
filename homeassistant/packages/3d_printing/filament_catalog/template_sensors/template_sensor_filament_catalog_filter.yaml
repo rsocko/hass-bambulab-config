@@ -31,8 +31,15 @@
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
           {%- set filter_desiccant_old = is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}
           {%- set filter_low_stock = is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}
+          {%- set filter_nearly_empty = is_state('input_boolean.filament_catalog_filter_nearly_empty', 'on') -%}
+          {%- set filter_needs_repurchase = is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}
+          {%- set filter_needs_drying = is_state('input_boolean.filament_catalog_filter_needs_drying', 'on') -%}
+          {%- set filter_stale = is_state('input_boolean.filament_catalog_filter_stale', 'on') -%}
+          {%- set filter_missing_desiccant = is_state('input_boolean.filament_catalog_filter_missing_desiccant', 'on') -%}
           {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
           {%- set sort_option = states('input_select.filament_catalog_sort') | default('Name (A-Z)', true) -%}
+          {%- set totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family'} -%}
           {%- set group_attr = group_attr_map.get(tab, '') -%}
           {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Cost (High to Low)'] -%}
@@ -51,16 +58,46 @@
               {%- set color_family = attrs.get('filament_extra_color_family', '') | string | replace('"', '') -%}
               {%- set type_details = attrs.get('filament_extra_type_details', '') | string | replace('[', '') | replace(']', '') | replace('"', '') | lower -%}
               {%- set remaining_weight = attrs.get('remaining_weight', 0) | float(0) -%}
+              {%- set filament_id = attrs.get('filament_id') -%}
               {%- set spool_filled = attrs.get('extra_desiccant_filled', '') -%}
+              {%- set last_dried_raw = attrs.get('extra_last_dried', '') -%}
+              {%- set last_used_raw = attrs.get('last_used', '') -%}
+              {%- set has_desiccant = attrs.get('extra_desiccant_in_spool') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
               {%- set is_sealed = attrs.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
               {%- set is_low_stock = remaining_weight < stock_threshold -%}
+              {%- set is_nearly_empty = remaining_weight < 50 -%}
+              {%- if totals is mapping and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set fil_total = totals.get(filament_id) -%}
+                {%- if fil_total in [none, ''] -%}
+                  {%- set fil_total = totals.get(filament_id | string) -%}
+                {%- endif -%}
+                {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
+              {%- else -%}
+                {%- set filament_count = 0 -%}
+              {%- endif -%}
+              {%- set is_needs_repurchase = filament_count == 1 and remaining_weight < stock_threshold -%}
               {%- if spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
                 {%- set spool_filled_ts = as_timestamp(spool_filled, 0) | float(0) -%}
-                {%- set desiccant_age_days = ((as_timestamp(now()) - spool_filled_ts) / 86400) | float(0) if spool_filled_ts > 0 else 0 -%}
+                {%- set desiccant_age_days = ((now_ts - spool_filled_ts) / 86400) | float(0) if spool_filled_ts > 0 else 0 -%}
               {%- else -%}
                 {%- set desiccant_age_days = 0 -%}
               {%- endif -%}
+              {%- if last_dried_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set last_dried_ts = as_timestamp(last_dried_raw, 0) | float(0) -%}
+                {%- set days_since_dried = ((now_ts - last_dried_ts) / 86400) | float(0) if last_dried_ts > 0 else 0 -%}
+              {%- else -%}
+                {%- set days_since_dried = 0 -%}
+              {%- endif -%}
+              {%- if last_used_raw not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set last_used_ts = as_timestamp(last_used_raw, 0) | float(0) -%}
+                {%- set days_since_used = ((now_ts - last_used_ts) / 86400) | float(0) if last_used_ts > 0 else 99999 -%}
+              {%- else -%}
+                {%- set days_since_used = 99999 -%}
+              {%- endif -%}
               {%- set has_old_desiccant = desiccant_age_days > 45 -%}
+              {%- set is_needs_drying = (not is_sealed) and (days_since_dried > 90) -%}
+              {%- set is_stale = days_since_used > 180 -%}
+              {%- set is_missing_desiccant = (not is_sealed) and (not has_desiccant) -%}
               {%- set search_blob = (friendly_name ~ ' ' ~ filament_name ~ ' ' ~ vendor ~ ' ' ~ primary_color ~ ' ' ~ color_family) | lower -%}
               {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
               {%- set matches_vendor = filter_vendor == 'All' or vendor | lower == filter_vendor | lower -%}
@@ -72,7 +109,12 @@
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
               {%- set matches_low_stock = (not filter_low_stock) or is_low_stock -%}
               {%- set matches_desiccant = (not filter_desiccant_old) or has_old_desiccant -%}
-              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock -%}
+              {%- set matches_nearly_empty = (not filter_nearly_empty) or is_nearly_empty -%}
+              {%- set matches_needs_repurchase = (not filter_needs_repurchase) or is_needs_repurchase -%}
+              {%- set matches_needs_drying = (not filter_needs_drying) or is_needs_drying -%}
+              {%- set matches_stale = (not filter_stale) or is_stale -%}
+              {%- set matches_missing_desiccant = (not filter_missing_desiccant) or is_missing_desiccant -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
                 {%- if group_attr == 'location' -%}
                   {%- set gv = location if location else 'Unknown' -%}
                 {%- elif group_attr == 'filament_material' -%}
@@ -195,4 +237,9 @@
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}{%- set active = active + ['Desiccant Old'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}{%- set active = active + ['Low Stock'] -%}{%- endif -%}
+          {%- if is_state('input_boolean.filament_catalog_filter_nearly_empty', 'on') -%}{%- set active = active + ['Nearly Empty'] -%}{%- endif -%}
+          {%- if is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}{%- set active = active + ['Needs Repurchase'] -%}{%- endif -%}
+          {%- if is_state('input_boolean.filament_catalog_filter_needs_drying', 'on') -%}{%- set active = active + ['Needs Drying'] -%}{%- endif -%}
+          {%- if is_state('input_boolean.filament_catalog_filter_stale', 'on') -%}{%- set active = active + ['Stale'] -%}{%- endif -%}
+          {%- if is_state('input_boolean.filament_catalog_filter_missing_desiccant', 'on') -%}{%- set active = active + ['Missing Desiccant'] -%}{%- endif -%}
           {{ active | join(', ') if active | count > 0 else 'None' }}

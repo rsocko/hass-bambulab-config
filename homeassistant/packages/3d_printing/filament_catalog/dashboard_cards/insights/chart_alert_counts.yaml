@@ -1,0 +1,91 @@
+type: vertical-stack
+cards:
+  - type: custom:apexcharts-card
+    chart_type: line
+    header:
+      show: true
+      title: Alert Analytics
+    apex_config:
+      chart:
+        height: 300
+        animations:
+          enabled: false
+        toolbar:
+          show: false
+      plotOptions:
+        bar:
+          horizontal: false
+          borderRadius: 4
+      xaxis:
+        type: category
+        labels:
+          rotate: -35
+        title:
+          text: Alert Type
+      yaxis:
+        title:
+          text: spools
+      legend:
+        show: false
+    series:
+      - entity: sensor.filament_catalog_metrics
+        name: spools
+        type: column
+        color: '#EF5350'
+        data_generator: |
+          const raw = entity?.attributes?.alert_counts_json;
+          let obj = {};
+          if (raw && typeof raw === 'object') {
+            obj = raw;
+          } else if (typeof raw === 'string' && raw.trim()) {
+            try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
+          }
+          const labelMap = {
+            low_stock: 'Low Stock',
+            nearly_empty: 'Nearly Empty',
+            needs_repurchase: 'Needs Repurchase',
+            desiccant_overdue: 'Desiccant Overdue',
+            missing_desiccant: 'Missing Desiccant',
+            needs_drying: 'Needs Drying',
+            stale: 'Stale'
+          };
+          return Object.entries(obj)
+            .map(([k, v]) => ({ x: labelMap[k] || k, y: Number(v || 0) }))
+            .filter(p => p.y > 0)
+            .sort((a, b) => b.y - a.y);
+  - type: grid
+    columns: 4
+    square: false
+    cards:
+      - type: custom:button-card
+        name: Low Stock
+        icon: mdi:archive-alert-outline
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_low_stock
+      - type: custom:button-card
+        name: Nearly Empty
+        icon: mdi:archive-alert
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_nearly_empty
+      - type: custom:button-card
+        name: Repurchase
+        icon: mdi:cart-alert
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_needs_repurchase
+      - type: custom:button-card
+        name: Desiccant
+        icon: mdi:water-alert
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.filament_catalog_filter_desiccant_old
