@@ -134,7 +134,7 @@ wled_3dprinter_apply_active_tray_overlay:
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
         payload: >-
-          {"seg": [{"id": {{ tag_segment }}, "col": [[{{ color_r }}, {{ color_g }}, {{ color_b }}]], "fx": 0}]}
+          {{ {'seg': [{'id': tag_segment | int, 'col': [[color_r | int, color_g | int, color_b | int]], 'fx': 0}]} | tojson }}
     - action: logbook.log
       data:
         name: WLED 3D Printer Active Tray Overlay

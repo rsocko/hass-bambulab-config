@@ -41,15 +41,15 @@ wled_3dprinter_apply_idle_desiccant_overlay:
       state: S1_IDLE
     - condition: template
       value_template: >-
-        {{ (desiccant_segments_json | from_json) | count > 0 }}
+        {{ desiccant_segments_json | count > 0 }}
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
         payload: >-
-          {"seg": {{ desiccant_segments_json }} }
+          {{ {'seg': desiccant_segments_json} | tojson }}
     - action: logbook.log
       data:
         name: WLED Idle Overlay - Desiccant
         message: >-
           core_state={{ states('input_select.wled_3dprinter_core_state') }};
-          segment_count={{ (desiccant_segments_json | from_json) | count }};
-          segments={{ (desiccant_segments_json | from_json) | map(attribute='id') | list | join(',') }}
+          segment_count={{ desiccant_segments_json | count }};
+          segments={{ desiccant_segments_json | map(attribute='id') | list | join(',') }}

@@ -28,7 +28,8 @@ wled_3dprinter_apply_progress_overlay:
         {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
-        payload: '{"seg": [{"id": 0, "ix": {{ seg0_ix }}}, {"id": 1, "ix": {{ seg1_ix }}}]}'
+        payload: >-
+          {{ {'seg': [{'id': 0, 'ix': seg0_ix | int}, {'id': 1, 'ix': seg1_ix | int}]} | tojson }}
     - action: logbook.log
       data:
         name: WLED 3D Printer Progress Overlay

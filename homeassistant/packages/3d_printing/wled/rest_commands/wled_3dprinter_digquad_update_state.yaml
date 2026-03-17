@@ -1,8 +1,8 @@
 # Docs: docs/features/wled/README.md
-# Note: HA's NativeEnvironment may convert JSON-like template output from
-# script data fields into a Python dict. Use tojson to ensure valid JSON.
+# Note: HA NativeEnvironment may convert JSON dict payloads from script data
+# fields to Python dicts. Use tojson to ensure valid JSON for WLED API.
 wled_3dprinter_digquad_update_state:
   url: "http://{{ states('input_text.wled_3dprinter_digquad_ip') }}/json/state"
   method: POST
   content_type: "application/json"
-  payload: "{{ payload | tojson if payload is not string else payload }}"
+  payload: "{{ payload | tojson if payload is mapping else payload }}"

@@ -27,11 +27,11 @@ wled_3dprinter_apply_idle_humidity_overlay:
       state: S1_IDLE
     - condition: template
       value_template: >-
-        {{ (humidity_segments_json | from_json) | count > 0 }}
+        {{ humidity_segments_json | count > 0 }}
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
         payload: >-
-          {"seg": {{ humidity_segments_json }} }
+          {{ {'seg': humidity_segments_json} | tojson }}
     - action: logbook.log
       data:
         name: WLED Idle Overlay - Humidity
@@ -40,5 +40,5 @@ wled_3dprinter_apply_idle_humidity_overlay:
           threshold={{ humidity_threshold | round(1) }};
           ams1={{ ams1_humidity | round(1) }};
           ams2={{ ams2_humidity | round(1) }};
-          segment_count={{ (humidity_segments_json | from_json) | count }};
-          segments={{ (humidity_segments_json | from_json) | map(attribute='id') | list | join(',') }}
+          segment_count={{ humidity_segments_json | count }};
+          segments={{ humidity_segments_json | map(attribute='id') | list | join(',') }}
