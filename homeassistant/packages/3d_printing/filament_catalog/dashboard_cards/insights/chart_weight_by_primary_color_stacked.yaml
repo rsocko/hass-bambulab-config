@@ -29,9 +29,15 @@ apex_config:
 series:
   - entity: sensor.filament_catalog_metrics
     name: kg
+    type: bar
     data_generator: |
       const raw = entity?.attributes?.primary_color_weight_segments_json;
-      const segs = Array.isArray(raw) ? raw : [];
+      let segs = [];
+      if (Array.isArray(raw)) {
+        segs = raw;
+      } else if (typeof raw === 'string' && raw.trim()) {
+        try { segs = JSON.parse(raw); } catch (e) { segs = []; }
+      }
       return segs
         .filter(s => Number(s?.weight || 0) > 0)
         .slice(0, 15)
