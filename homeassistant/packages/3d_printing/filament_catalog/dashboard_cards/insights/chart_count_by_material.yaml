@@ -1,16 +1,30 @@
 type: custom:apex-direct-bar-card
 title: Count by Material
 chart_type: donut
-height: 260
+height: 300
 value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: count_by_material_json
-max_items: 8
+max_items: 12
+legend_position: right
+legend_show: true
+legend_font_size: 13px
+legend_max_width: 250
+legend_item_margin_vertical: 6
+legend_item_margin_horizontal: 12
+legend_offset_y: 8
 default_color: '#1E88E5'
 color_map:
   PLA: '#42A5F5'
+  'PLA 2': '#1E88E5'
+  'PLA+ 2.0': '#1976D2'
+  'PLA+WOOD': '#8D6E63'
+  'PLA-S (PLA for Support)': '#4FC3F7'
+  'PLA Shiny Silk': '#BA68C8'
   PETG: '#66BB6A'
   ABS: '#FFA726'
   ASA: '#FFA726'
+  'TPU 95A': '#26A69A'
+  'TPU-95A': '#00897B'
   TPU: '#AB47BC'
   Unknown: '#90A4AE'

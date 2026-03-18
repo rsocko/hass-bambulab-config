@@ -28,6 +28,13 @@ class ApexDirectBarCard extends HTMLElement {
       height: config.height || 280,
       value_name: config.value_name || "value",
       chart_type: config.chart_type || "bar",
+      legend_show: config.legend_show !== false,
+      legend_position: config.legend_position || "bottom",
+      legend_font_size: config.legend_font_size || "12px",
+      legend_max_width: Number(config.legend_max_width || 220),
+      legend_item_margin_vertical: Number(config.legend_item_margin_vertical || 4),
+      legend_item_margin_horizontal: Number(config.legend_item_margin_horizontal || 8),
+      legend_offset_y: Number(config.legend_offset_y || 0),
       entities: hasEntities ? config.entities : [],
       source_entity: config.source_entity || null,
       source_attribute: config.source_attribute || null,
@@ -254,12 +261,17 @@ class ApexDirectBarCard extends HTMLElement {
     var chartType = this._config.chart_type === "donut" ? "donut" : "bar";
     var labels = rows.map(function (r) { return String(r.x || ""); });
     var colors = rows.map(function (r) { return r.fillColor || self._config.default_color; });
+    var isDark = !!(this._hass && this._hass.themes && this._hass.themes.darkMode);
+    var textColor = isDark ? "#D1D5DB" : "#1F2937";
+    var strongTextColor = isDark ? "#F3F4F6" : "#111827";
+    var gridColor = isDark ? "rgba(148,163,184,0.28)" : "rgba(71,85,105,0.22)";
 
     if (chartType === "donut") {
       return {
         chart: {
           type: "donut",
           height: this._config.height,
+          foreColor: textColor,
           toolbar: { show: false },
           animations: { enabled: false },
           events: {
@@ -272,15 +284,37 @@ class ApexDirectBarCard extends HTMLElement {
         labels: labels,
         colors: colors,
         legend: {
-          show: true,
-          position: "bottom",
+          show: this._config.legend_show,
+          position: this._config.legend_position,
+          width: this._config.legend_max_width,
+          offsetY: this._config.legend_offset_y,
+          itemMargin: {
+            horizontal: this._config.legend_item_margin_horizontal,
+            vertical: this._config.legend_item_margin_vertical,
+          },
+          markers: {
+            width: 10,
+            height: 10,
+            radius: 10,
+          },
+          labels: {
+            colors: textColor,
+            useSeriesColors: false,
+          },
+          fontSize: this._config.legend_font_size,
         },
         dataLabels: {
           enabled: true,
+          style: {
+            colors: [strongTextColor],
+          },
         },
         stroke: {
           show: true,
           width: 1,
+        },
+        tooltip: {
+          theme: isDark ? "dark" : "light",
         },
         plotOptions: {
           pie: {
@@ -296,6 +330,7 @@ class ApexDirectBarCard extends HTMLElement {
       chart: {
         type: "bar",
         height: this._config.height,
+        foreColor: textColor,
         toolbar: { show: false },
         animations: { enabled: false },
         events: {
@@ -316,12 +351,36 @@ class ApexDirectBarCard extends HTMLElement {
       xaxis: {
         categories: labels,
         title: { text: this._config.value_name },
+        labels: {
+          style: {
+            colors: textColor,
+          },
+        },
+        axisBorder: {
+          color: gridColor,
+        },
+      },
+      yaxis: {
+        labels: {
+          style: {
+            colors: labels.map(function () { return textColor; }),
+          },
+        },
       },
       dataLabels: {
         enabled: true,
+        style: {
+          colors: [strongTextColor],
+        },
       },
       legend: { show: false },
-      grid: { strokeDashArray: 3 },
+      tooltip: {
+        theme: isDark ? "dark" : "light",
+      },
+      grid: {
+        strokeDashArray: 3,
+        borderColor: gridColor,
+      },
     };
   }
 
