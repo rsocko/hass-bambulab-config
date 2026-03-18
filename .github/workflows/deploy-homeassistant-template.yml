@@ -143,7 +143,7 @@ jobs:
       HA_SSH_KNOWN_HOSTS: ${{ secrets.HA_SSH_KNOWN_HOSTS }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
