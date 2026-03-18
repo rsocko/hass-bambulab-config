@@ -72,10 +72,12 @@
           {% elif (not show_mode_enabled) and current_core_state == 'S8_SHOW' and smart_status == 'Idle' %}
             E_SHOW_OFF
           {% elif smart_status == 'Print Finished' %}
-            {% if current_core_state == 'S6_FINISHING' and stage == 'idle' %}
+            {% if current_core_state in ['S3_PRINTING', 'S2_PREP', 'S4_PAUSED_USER', 'S5_PAUSED_ERROR'] %}
+              E_PRINT_DONE
+            {% elif current_core_state == 'S6_FINISHING' %}
               E_IDLE
             {% else %}
-              E_PRINT_DONE
+              E_NOOP
             {% endif %}
           {% elif smart_status.startswith('Paused') %}
             {% if 'runout' in smart_status_lc or 'clog' in smart_status_lc or 'ams lost' in smart_status_lc or 'first layer error' in smart_status_lc %}
@@ -171,5 +173,25 @@
               state: S5_PAUSED_ERROR
           then:
             - action: script.wled_3dprinter_apply_error_tray_overlay
+              data: {}
+        # S6_FINISHING auto-timeout: show green "done" preset for 5 minutes,
+        # then transition to S1_IDLE and apply idle telemetry overlays.
+        # mode: restart ensures any trigger during the wait re-evaluates normally.
+        - if:
+            - condition: state
+              entity_id: input_select.wled_3dprinter_core_state
+              state: S6_FINISHING
+          then:
+            - delay:
+                minutes: 5
+            - action: script.wled_3dprinter_transition_from_event
+              data:
+                event_id: E_IDLE
+                reason: "S6 celebration timeout (5 min)"
+            - action: script.wled_3dprinter_apply_core_state_to_presets
+              data: {}
+            - delay:
+                seconds: 2
+            - action: script.wled_3dprinter_apply_idle_telemetry_overlays
               data: {}
 
