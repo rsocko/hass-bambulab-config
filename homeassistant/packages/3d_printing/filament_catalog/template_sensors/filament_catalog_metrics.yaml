@@ -134,6 +134,32 @@
             }] -%}
           {%- endfor -%}
           {{ segs.items | sort(attribute='weight', reverse=true) | tojson }}
+        primary_color_count_segments_json: >-
+          {%- set names = namespace(counts={}, hexes={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set name = a.get('filament_extra_primary_color', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set name = name if name not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set hx = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- set hx = '#' ~ hx[0:6] if hx | length >= 6 else '#9e9e9e' -%}
+              {%- set names.counts = names.counts | combine({name: (names.counts.get(name, 0) | int(0)) + 1}) -%}
+              {%- if names.hexes.get(name) in [none, ''] -%}
+                {%- set names.hexes = names.hexes | combine({name: hx}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set segs = namespace(items=[]) -%}
+          {%- for name, cnt in names.counts.items() -%}
+            {%- set segs.items = segs.items + [{
+              'name': name,
+              'count': cnt | int(0),
+              'hex': names.hexes.get(name, '#9e9e9e')
+            }] -%}
+          {%- endfor -%}
+          {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
         spools_by_location_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}

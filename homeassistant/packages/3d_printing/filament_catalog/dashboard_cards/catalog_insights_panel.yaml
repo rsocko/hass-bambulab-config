@@ -32,6 +32,5 @@ cards:
           cards:
             - !include insights/chart_weight_by_primary_color_stacked.yaml
             - !include insights/chart_count_by_primary_color.yaml
-        - !include insights/chart_spools_by_location.yaml
         - !include insights/chart_alert_counts.yaml
         - !include insights/card_data_quality_reports.yaml

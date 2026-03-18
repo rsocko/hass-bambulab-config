@@ -27,7 +27,12 @@ class ApexDirectBarCard extends HTMLElement {
       title: config.title || "Bar Chart",
       height: config.height || 280,
       value_name: config.value_name || "value",
+      value_decimals: config.value_decimals === undefined || config.value_decimals === null
+        ? null
+        : Number(config.value_decimals),
       chart_type: config.chart_type || "bar",
+      bar_mode: config.bar_mode || "standard",
+      stack_category: config.stack_category || "Total",
       legend_show: config.legend_show !== false,
       legend_position: config.legend_position || "bottom",
       legend_font_size: config.legend_font_size || "12px",
@@ -46,6 +51,7 @@ class ApexDirectBarCard extends HTMLElement {
       max_items: Number(config.max_items || 12),
       sort_desc: config.sort_desc !== false,
       horizontal: config.horizontal !== false,
+      auto_color_by_label: config.auto_color_by_label === true,
       label_map: config.label_map && typeof config.label_map === "object" ? config.label_map : {},
       color_map: config.color_map && typeof config.color_map === "object" ? config.color_map : {},
       tap_actions: config.tap_actions && typeof config.tap_actions === "object" ? config.tap_actions : {},
@@ -195,7 +201,9 @@ class ApexDirectBarCard extends HTMLElement {
           function (item) {
             var key = String(item && item[this._config.label_key] != null ? item[this._config.label_key] : "Unknown");
             var value = Number(item && item[this._config.value_key] != null ? item[this._config.value_key] : 0);
-            var color = item && item[this._config.color_key] ? String(item[this._config.color_key]) : (this._config.color_map[key] || this._config.default_color);
+            var color = item && item[this._config.color_key]
+              ? String(item[this._config.color_key])
+              : (this._config.color_map[key] || (this._config.auto_color_by_label ? this._colorFromLabel(key) : this._config.default_color));
             return {
               x: this._config.label_map[key] || key,
               source_key: key,
@@ -218,7 +226,7 @@ class ApexDirectBarCard extends HTMLElement {
               x: this._config.label_map[key] || key,
               source_key: key,
               y: isFinite(value) ? value * scale : 0,
-              fillColor: this._config.color_map[key] || this._config.default_color,
+              fillColor: this._config.color_map[key] || (this._config.auto_color_by_label ? this._colorFromLabel(key) : this._config.default_color),
               tap_action: this._config.tap_actions[key] || null,
             };
           }.bind(this)
@@ -315,6 +323,11 @@ class ApexDirectBarCard extends HTMLElement {
         },
         tooltip: {
           theme: isDark ? "dark" : "light",
+          y: {
+            formatter: function (value) {
+              return self._formatValue(value);
+            },
+          },
         },
         plotOptions: {
           pie: {
@@ -322,6 +335,80 @@ class ApexDirectBarCard extends HTMLElement {
               size: "48%",
             },
           },
+        },
+      };
+    }
+
+    if (this._config.bar_mode === "stacked_single_category") {
+      return {
+        chart: {
+          type: "bar",
+          height: this._config.height,
+          foreColor: textColor,
+          stacked: true,
+          toolbar: { show: false },
+          animations: { enabled: false },
+          events: {
+            dataPointSelection: function (_event, _chartCtx, opts) {
+              self._handlePointSelection(opts);
+            },
+          },
+        },
+        series: rows.map(function (r) {
+          return {
+            name: String(r.x || "Series"),
+            data: [Number(r.y || 0)],
+            color: r.fillColor,
+          };
+        }),
+        xaxis: {
+          categories: [this._config.stack_category],
+          title: { text: this._config.value_name },
+          labels: {
+            style: {
+              colors: textColor,
+            },
+          },
+          axisBorder: {
+            color: gridColor,
+          },
+        },
+        yaxis: {
+          labels: {
+            style: {
+              colors: [textColor],
+            },
+          },
+        },
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            borderRadius: 2,
+          },
+        },
+        dataLabels: {
+          enabled: false,
+        },
+        legend: {
+          show: this._config.legend_show,
+          position: this._config.legend_position,
+          labels: {
+            colors: textColor,
+            useSeriesColors: false,
+          },
+          fontSize: this._config.legend_font_size,
+        },
+        tooltip: {
+          theme: isDark ? "dark" : "light",
+          y: {
+            formatter: function (value) {
+              return self._formatValue(value);
+            },
+          },
+        },
+        grid: {
+          strokeDashArray: 3,
+          borderColor: gridColor,
         },
       };
     }
@@ -369,6 +456,9 @@ class ApexDirectBarCard extends HTMLElement {
       },
       dataLabels: {
         enabled: true,
+        formatter: function (value) {
+          return self._formatValue(value);
+        },
         style: {
           colors: [strongTextColor],
         },
@@ -376,6 +466,11 @@ class ApexDirectBarCard extends HTMLElement {
       legend: { show: false },
       tooltip: {
         theme: isDark ? "dark" : "light",
+        y: {
+          formatter: function (value) {
+            return self._formatValue(value);
+          },
+        },
       },
       grid: {
         strokeDashArray: 3,
@@ -419,7 +514,7 @@ class ApexDirectBarCard extends HTMLElement {
       return;
     }
 
-    var idx = opts.dataPointIndex;
+    var idx = this._config.bar_mode === "stacked_single_category" ? opts.seriesIndex : opts.dataPointIndex;
     var rows = this._lastRows || this._buildRows();
     if (idx < 0 || idx >= rows.length) {
       return;
@@ -451,6 +546,35 @@ class ApexDirectBarCard extends HTMLElement {
     if (errorEl && errorEl.parentElement) {
       errorEl.parentElement.removeChild(errorEl);
     }
+  }
+
+  _formatValue(value) {
+    var n = Number(value);
+    if (!isFinite(n)) {
+      return String(value);
+    }
+    if (this._config.value_decimals !== null && isFinite(this._config.value_decimals)) {
+      return n.toFixed(Math.max(0, this._config.value_decimals));
+    }
+    return String(n);
+  }
+
+  _colorFromLabel(label) {
+    var s = String(label || "").toLowerCase();
+    if (s.includes("black") && s.includes("white")) return "#94A3B8";
+    if (s.includes("rainbow")) return "#8E44AD";
+    if (s.includes("brown")) return "#8D6E63";
+    if (s.includes("black")) return "#374151";
+    if (s.includes("white")) return "#CBD5E1";
+    if (s.includes("gray") || s.includes("grey") || s.includes("silver")) return "#9CA3AF";
+    if (s.includes("blue")) return "#3B82F6";
+    if (s.includes("green")) return "#22C55E";
+    if (s.includes("red")) return "#EF4444";
+    if (s.includes("orange")) return "#F97316";
+    if (s.includes("yellow")) return "#EAB308";
+    if (s.includes("purple") || s.includes("violet")) return "#8B5CF6";
+    if (s.includes("pink")) return "#EC4899";
+    return this._config.default_color;
   }
 
   async _resolveApexCharts() {

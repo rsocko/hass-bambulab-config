@@ -2,6 +2,7 @@ type: custom:apex-direct-bar-card
 title: Weight by Primary Color
 height: 300
 value_name: kg
+value_decimals: 1
 source_entity: sensor.filament_catalog_metrics
 source_attribute: primary_color_weight_segments_json
 source_mode: array
@@ -10,4 +11,9 @@ value_key: weight
 color_key: hex
 value_scale: 0.001
 max_items: 15
+bar_mode: stacked_single_category
+stack_category: Weight Distribution
+legend_show: true
+legend_position: right
+legend_font_size: 12px
 default_color: '#FFA726'

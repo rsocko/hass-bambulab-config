@@ -5,4 +5,9 @@ value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: count_by_color_family_json
 max_items: 12
+auto_color_by_label: true
 default_color: '#8E24AA'
+color_map:
+  'Blacks & Whites': '#94A3B8'
+  Browns: '#8D6E63'
+  Rainbow: '#8E44AD'

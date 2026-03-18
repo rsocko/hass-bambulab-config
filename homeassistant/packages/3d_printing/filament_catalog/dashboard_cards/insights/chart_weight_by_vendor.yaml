@@ -2,8 +2,10 @@ type: custom:apex-direct-bar-card
 title: Weight by Vendor
 height: 280
 value_name: kg
+value_decimals: 1
 source_entity: sensor.filament_catalog_metrics
 source_attribute: weight_by_vendor_json
 value_scale: 0.001
 max_items: 12
+horizontal: false
 default_color: '#66BB6A'
