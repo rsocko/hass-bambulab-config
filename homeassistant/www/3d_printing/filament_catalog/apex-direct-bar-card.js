@@ -1,4 +1,5 @@
 var apexDirectBarReadyPromise = null;
+var apexDirectImportTried = false;
 
 class ApexDirectBarCard extends HTMLElement {
   constructor() {
@@ -95,9 +96,9 @@ class ApexDirectBarCard extends HTMLElement {
         return {
           x: entry.name || (st && st.attributes && st.attributes.friendly_name) || entry.entity,
           y: isFinite(parsed) ? parsed : 0,
-          fillColor: entry.color || "#42A5F5",
+          fillColor: entry.color || "#42A5F5"
         };
-      }.bind(this),
+      }.bind(this)
     );
 
     var options = {
@@ -145,16 +146,31 @@ class ApexDirectBarCard extends HTMLElement {
     }
 
     if (!apexDirectBarReadyPromise) {
-      apexDirectBarReadyPromise = new Promise(function (resolve) {
-        if (window.ApexCharts) {
-          resolve(window.ApexCharts);
-          return;
-        }
-        resolve(null);
-      });
+      apexDirectBarReadyPromise = this._resolveApexCharts();
     }
 
     return apexDirectBarReadyPromise;
+  }
+
+  async _resolveApexCharts() {
+    if (window.ApexCharts) {
+      return window.ApexCharts;
+    }
+
+    if (!apexDirectImportTried) {
+      apexDirectImportTried = true;
+      try {
+        await import("/hacsfiles/apexcharts-card/apexcharts-card.js");
+      } catch (_err) {
+        // Ignore import errors and continue fallback checks.
+      }
+    }
+
+    if (window.ApexCharts) {
+      return window.ApexCharts;
+    }
+
+    return null;
   }
 
   _showError(message) {
