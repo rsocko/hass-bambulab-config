@@ -123,15 +123,50 @@ fi
 # Fetch existing resources
 existing_json="$(ha core api get /api/config/lovelace/resources 2>/dev/null || echo '[]')"
 
-# Build lookup of existing URLs (base path without query string)
+# Build lookup of existing resources by base URL (without query string)
 declare -A existing_urls=()
-while IFS= read -r existing_url; do
-  [ -z "$existing_url" ] && continue
-  base_url="${existing_url%%\?*}"
-  existing_urls["$base_url"]=1
-done < <(echo "$existing_json" | grep -o '"url"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/"url"[[:space:]]*:[[:space:]]*"//;s/"$//')
+declare -A existing_ids=()
+declare -A existing_types=()
+
+if command -v python3 >/dev/null 2>&1; then
+  while IFS='|' read -r existing_id existing_url existing_type; do
+    [ -z "$existing_url" ] && continue
+    base_url="${existing_url%%\?*}"
+    existing_urls["$base_url"]="$existing_url"
+    existing_ids["$base_url"]="$existing_id"
+    existing_types["$base_url"]="$existing_type"
+  done < <(python3 - "$existing_json" <<'PY'
+import json
+import sys
+
+raw = sys.argv[1] if len(sys.argv) > 1 else "[]"
+try:
+    data = json.loads(raw)
+except Exception:
+    data = []
+
+if not isinstance(data, list):
+    data = []
+
+for item in data:
+    if not isinstance(item, dict):
+        continue
+    rid = str(item.get("id", ""))
+    url = str(item.get("url", ""))
+    rtype = str(item.get("res_type", item.get("type", "module")))
+    print(f"{rid}|{url}|{rtype}")
+PY
+)
+else
+  while IFS= read -r existing_url; do
+    [ -z "$existing_url" ] && continue
+    base_url="${existing_url%%\?*}"
+    existing_urls["$base_url"]="$existing_url"
+  done < <(echo "$existing_json" | grep -o '"url"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/"url"[[:space:]]*:[[:space:]]*"//;s/"$//')
+fi
 
 created=0
+updated=0
 skipped=0
 
 IFS=';' read -ra entries <<< "$desired_input"
@@ -142,8 +177,36 @@ for entry in "${entries[@]}"; do
   base_url="${url%%\?*}"
 
   if [ -n "${existing_urls[$base_url]+x}" ]; then
-    echo "SKIP (exists): $url"
-    skipped=$((skipped + 1))
+    existing_url="${existing_urls[$base_url]}"
+    existing_id="${existing_ids[$base_url]:-}"
+
+    if [ "$existing_url" = "$url" ]; then
+      echo "SKIP (exists): $url"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    if [ "$dry_run" = "true" ]; then
+      echo "WOULD UPDATE: $existing_url -> $url"
+      updated=$((updated + 1))
+      continue
+    fi
+
+    if [ -z "$existing_id" ]; then
+      echo "WARN: Existing resource URL differs, but ID is unavailable in this shell context. Skipping update: $existing_url -> $url"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    echo "UPDATING: $existing_url -> $url (type=$res_type, id=$existing_id)"
+    update_result="$(ha core api post \
+      --raw-json "{\"url\":\"$url\",\"res_type\":\"$res_type\"}" \
+      "/api/config/lovelace/resources/$existing_id" 2>&1)" || {
+      echo "  ERROR: $update_result"
+      continue
+    }
+    echo "  OK"
+    updated=$((updated + 1))
     continue
   fi
 
@@ -165,9 +228,9 @@ for entry in "${entries[@]}"; do
 done
 
 if [ "$dry_run" = "true" ]; then
-  echo "Dry-run summary: $created would be created, $skipped already registered."
+  echo "Dry-run summary: $created would be created, $updated would be updated, $skipped already registered."
 else
-  echo "Resource sync complete: $created created, $skipped already registered."
+  echo "Resource sync complete: $created created, $updated updated, $skipped already registered."
 fi
 REMOTE_SYNC
 2>&1)"

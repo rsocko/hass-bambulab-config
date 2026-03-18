@@ -68,8 +68,9 @@ This is handled by the `Sync Lovelace resources to HA storage` workflow step, wh
 
 1. Reads `common/dashboards/_resources.yaml` as the source of truth.
 2. SSHes into HA and fetches the current Lovelace resource list via the Supervisor API.
-3. Compares URLs (stripping query strings) and creates any missing entries.
-4. Skips resources that are already registered.
+3. Compares by base URL (query string stripped) to detect matching resources.
+4. Creates missing entries and updates existing entries when the URL (for example `?v=` cache-bust suffix) changes.
+5. Skips resources that are already registered with the same URL.
 
 The step runs in dry-run mode during `dry_run=true` deploys (preview only, no changes).
 
@@ -89,6 +90,8 @@ If the automated sync fails (for example, Supervisor token issue), register manu
 2. URL: `/local/3d_printing/<feature>/<filename>.js`
 3. Type: **JavaScript Module**
 4. Hard refresh browser (`Ctrl+F5`)
+
+If a registered JS resource still fails to load, verify the underlying static file exists at the corresponding `/config/www/...` path (served as `/local/...`). Registration in HA storage and file deployment are separate steps; a missing file will produce a browser 404 even when the resource entry exists.
 
 ## 4) Restart required or not?
 

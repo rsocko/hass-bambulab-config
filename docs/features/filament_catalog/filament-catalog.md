@@ -65,7 +65,7 @@ homeassistant/packages/3d_printing/
 │   │   └── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
 │   ├── template_sensors/
 │   │   ├── template_sensor_filament_catalog_filter.yaml  ← Server-side filtered spool list
-│   │   └── filament_catalog_metrics.yaml      ← Metrics & alert computations (Phase 5 — not yet created)
+│   │   └── filament_catalog_metrics.yaml      ← Metrics & alert computations (Phase 5)
 │   ├── dashboard_cards/
 │   │   ├── catalog_filter_bar.yaml           ← Filter bar with dropdowns, toggles, search (Phase 2)
 │   │   └── catalog_inventory_kpi.yaml        ← Inventory KPI summary chips
