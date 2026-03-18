@@ -28,7 +28,6 @@
         print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') }}"
         camera_entity: "camera.ntk_ryansoffice_3dprinter_camera"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
-        notification_service: "{{ states('input_text.3dprinter_notification_service') }}"
         snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_HMS_ERROR.jpg"
         error_count: >-
           {{ state_attr('binary_sensor.hms_alert_display_wrapper', 'Count') | int(0) }}
@@ -92,7 +91,11 @@
             entity_id: "{{ snapshot_light }}"
 
     # Send mobile notification with snapshot
-    - action: "{{ notification_service }}"
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_ryphone16
+          - notify.mobile_app_rypad10
       data:
         title: >-
           {% if worst_severity == 'critical' %}🔴 Critical HMS Error

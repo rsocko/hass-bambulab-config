@@ -19,10 +19,13 @@
     - variables:
         printer_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') }}"
         task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
-        notification_service: "{{ states('input_text.3dprinter_notification_service') }}"
 
     # Send simple notification
-    - action: "{{ notification_service }}"
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_ryphone16
+          - notify.mobile_app_rypad10
       data:
         title: "Print Started"
         message: "{{ printer_name }} started printing {{ task_name }}"

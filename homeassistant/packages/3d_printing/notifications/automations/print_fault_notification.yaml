@@ -24,7 +24,6 @@
         print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') }}"
         camera_entity: "camera.ntk_ryansoffice_3dprinter_camera"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
-        notification_service: "{{ states('input_text.3dprinter_notification_service') }}"
         fault_message_template: "{{ states('input_text.3dprinter_fault_message') }}"
         snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
 
@@ -71,7 +70,11 @@
           {{ msg }}
 
     # Send mobile notification with snapshot (CRITICAL)
-    - action: "{{ notification_service }}"
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_ryphone16
+          - notify.mobile_app_rypad10
       data:
         title: "⚠️ Print Error"
         message: "{{ notification_message }}"

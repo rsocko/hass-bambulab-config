@@ -22,7 +22,6 @@
         print_weight: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}"
         camera_entity: "camera.ntk_ryansoffice_3dprinter_camera"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
-        notification_service: "{{ states('input_text.3dprinter_notification_service') }}"
         success_message_template: "{{ states('input_text.3dprinter_success_message') }}"
         snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_{{ task_name | replace(' ', '_') }}.jpg"
 
@@ -69,7 +68,11 @@
           {{ msg }}
 
     # Send mobile notification with snapshot
-    - action: "{{ notification_service }}"
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_ryphone16
+          - notify.mobile_app_rypad10
       data:
         title: "Print Complete ✓"
         message: "{{ notification_message }}"
