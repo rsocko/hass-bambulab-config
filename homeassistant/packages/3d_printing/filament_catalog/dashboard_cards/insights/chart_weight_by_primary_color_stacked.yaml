@@ -1,44 +1,13 @@
-type: custom:apexcharts-card
-chart_type: line
-header:
-  show: true
-  title: Weight by Primary Color
-apex_config:
-  chart:
-    height: 300
-    animations:
-      enabled: false
-    toolbar:
-      show: false
-  plotOptions:
-    bar:
-      horizontal: false
-      borderRadius: 4
-  xaxis:
-    type: category
-    labels:
-      rotate: -45
-    title:
-      text: Primary Color
-  yaxis:
-    title:
-      text: kg
-  legend:
-    show: false
-series:
-  - entity: sensor.filament_catalog_metrics
-    name: kg
-    type: column
-    color: '#FFA726'
-    data_generator: |
-      const raw = entity?.attributes?.primary_color_weight_segments_json;
-      let segs = [];
-      if (Array.isArray(raw)) {
-        segs = raw;
-      } else if (typeof raw === 'string' && raw.trim()) {
-        try { segs = JSON.parse(raw); } catch (e) { segs = []; }
-      }
-      return segs
-        .filter(s => Number(s?.weight || 0) > 0)
-        .slice(0, 15)
-        .map(s => ({ x: s.name || 'Unknown', y: Number(s.weight || 0) / 1000 }));
+type: custom:apex-direct-bar-card
+title: Weight by Primary Color
+height: 300
+value_name: kg
+source_entity: sensor.filament_catalog_metrics
+source_attribute: primary_color_weight_segments_json
+source_mode: array
+label_key: name
+value_key: weight
+color_key: hex
+value_scale: 0.001
+max_items: 15
+default_color: '#FFA726'

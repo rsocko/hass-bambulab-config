@@ -13,15 +13,36 @@ class ApexDirectBarCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || !Array.isArray(config.entities) || config.entities.length === 0) {
-      throw new Error("apex-direct-bar-card requires a non-empty entities array");
+    if (!config) {
+      throw new Error("apex-direct-bar-card requires configuration");
+    }
+
+    var hasEntities = Array.isArray(config.entities) && config.entities.length > 0;
+    var hasSource = !!(config.source_entity && config.source_attribute);
+    if (!hasEntities && !hasSource) {
+      throw new Error("apex-direct-bar-card requires either entities[] or source_entity + source_attribute");
     }
 
     this._config = {
       title: config.title || "Bar Chart",
       height: config.height || 280,
       value_name: config.value_name || "value",
-      entities: config.entities,
+      chart_type: config.chart_type || "bar",
+      entities: hasEntities ? config.entities : [],
+      source_entity: config.source_entity || null,
+      source_attribute: config.source_attribute || null,
+      source_mode: config.source_mode || "object",
+      label_key: config.label_key || "name",
+      value_key: config.value_key || "value",
+      color_key: config.color_key || "color",
+      value_scale: Number(config.value_scale || 1),
+      max_items: Number(config.max_items || 12),
+      sort_desc: config.sort_desc !== false,
+      horizontal: config.horizontal !== false,
+      label_map: config.label_map && typeof config.label_map === "object" ? config.label_map : {},
+      color_map: config.color_map && typeof config.color_map === "object" ? config.color_map : {},
+      tap_actions: config.tap_actions && typeof config.tap_actions === "object" ? config.tap_actions : {},
+      default_color: config.default_color || "#42A5F5",
     };
 
     this._renderShell();
@@ -88,42 +109,43 @@ class ApexDirectBarCard extends HTMLElement {
       throw new Error("ApexCharts runtime unavailable. Ensure apexcharts-card resource is loaded.");
     }
 
-    var rows = this._config.entities.map(
-      function (entry) {
-        var st = this._hass.states[entry.entity];
-        var raw = st ? st.state : "0";
-        var parsed = parseFloat(raw);
-        return {
-          x: entry.name || (st && st.attributes && st.attributes.friendly_name) || entry.entity,
-          y: isFinite(parsed) ? parsed : 0,
-          fillColor: entry.color || "#42A5F5"
-        };
-      }.bind(this)
-    );
+    var rows = this._buildRows();
+    this._lastRows = rows;
+
+    if (rows.length === 0) {
+      this._showError("No chart data available.");
+      return;
+    }
+
+    this._clearError();
+
+    var self = this;
 
     var options = {
       chart: {
-        type: "bar",
+        type: this._config.chart_type,
         height: this._config.height,
         toolbar: { show: false },
         animations: { enabled: false },
-      },
-      series: [
-        {
-          name: this._config.value_name,
-          data: rows,
+        events: {
+          dataPointSelection: function (_event, _chartCtx, opts) {
+            self._handlePointSelection(opts);
+          },
         },
-      ],
-      plotOptions: {
+      },
+      series: this._buildSeries(rows),
+      labels: this._config.chart_type === "donut" ? rows.map(function (r) { return r.x; }) : undefined,
+      colors: rows.map(function (r) { return r.fillColor; }),
+      plotOptions: this._config.chart_type === "bar" ? {
         bar: {
-          horizontal: true,
+          horizontal: this._config.horizontal,
           borderRadius: 4,
           distributed: false,
         },
-      },
-      xaxis: {
+      } : undefined,
+      xaxis: this._config.chart_type === "bar" ? {
         title: { text: this._config.value_name },
-      },
+      } : undefined,
       dataLabels: {
         enabled: true,
       },
@@ -150,6 +172,179 @@ class ApexDirectBarCard extends HTMLElement {
     }
 
     return apexDirectBarReadyPromise;
+  }
+
+  _buildRows() {
+    if (this._config.entities.length > 0) {
+      return this._buildRowsFromEntities();
+    }
+    return this._buildRowsFromSource();
+  }
+
+  _buildRowsFromEntities() {
+    var self = this;
+    return this._config.entities
+      .map(function (entry) {
+        var st = self._hass.states[entry.entity];
+        var raw = st ? st.state : "0";
+        var parsed = parseFloat(raw);
+        return {
+          x: entry.name || (st && st.attributes && st.attributes.friendly_name) || entry.entity,
+          y: isFinite(parsed) ? parsed : 0,
+          fillColor: entry.color || self._config.default_color,
+          tap_action: entry.tap_action || null,
+        };
+      })
+      .filter(function (row) {
+        return isFinite(row.y) && row.y > 0;
+      });
+  }
+
+  _buildRowsFromSource() {
+    var st = this._hass.states[this._config.source_entity];
+    if (!st || !st.attributes) {
+      return [];
+    }
+
+    var raw = st.attributes[this._config.source_attribute];
+    var parsedData = this._parseSource(raw);
+
+    var scale = isFinite(this._config.value_scale) && this._config.value_scale > 0 ? this._config.value_scale : 1;
+    var rows = [];
+
+    if (Array.isArray(parsedData)) {
+      rows = parsedData
+        .map(
+          function (item) {
+            var key = String(item && item[this._config.label_key] != null ? item[this._config.label_key] : "Unknown");
+            var value = Number(item && item[this._config.value_key] != null ? item[this._config.value_key] : 0);
+            var color = item && item[this._config.color_key] ? String(item[this._config.color_key]) : (this._config.color_map[key] || this._config.default_color);
+            return {
+              x: this._config.label_map[key] || key,
+              source_key: key,
+              y: isFinite(value) ? value * scale : 0,
+              fillColor: color,
+              tap_action: this._config.tap_actions[key] || null,
+            };
+          }.bind(this)
+        )
+        .filter(function (row) {
+          return isFinite(row.y) && row.y > 0;
+        });
+    } else {
+      rows = Object.entries(parsedData)
+        .map(
+          function (pair) {
+            var key = String(pair[0]);
+            var value = Number(pair[1] || 0);
+            return {
+              x: this._config.label_map[key] || key,
+              source_key: key,
+              y: isFinite(value) ? value * scale : 0,
+              fillColor: this._config.color_map[key] || this._config.default_color,
+              tap_action: this._config.tap_actions[key] || null,
+            };
+          }.bind(this)
+        )
+        .filter(function (row) {
+          return isFinite(row.y) && row.y > 0;
+        });
+    }
+
+    rows.sort(
+      function (a, b) {
+        return this._config.sort_desc ? b.y - a.y : a.y - b.y;
+      }.bind(this)
+    );
+
+    if (this._config.max_items > 0 && rows.length > this._config.max_items) {
+      rows = rows.slice(0, this._config.max_items);
+    }
+
+    return rows;
+  }
+
+  _buildSeries(rows) {
+    if (this._config.chart_type === "donut") {
+      return rows.map(function (r) {
+        return Number(r.y || 0);
+      });
+    }
+    return [
+      {
+        name: this._config.value_name,
+        data: rows,
+      },
+    ];
+  }
+
+  _parseSource(raw) {
+    if (this._config.source_mode === "array") {
+      if (Array.isArray(raw)) {
+        return raw;
+      }
+      if (typeof raw === "string" && raw.trim()) {
+        try {
+          var arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr : [];
+        } catch (_err) {
+          return [];
+        }
+      }
+      return [];
+    }
+
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      return raw;
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        var obj = JSON.parse(raw);
+        return obj && typeof obj === "object" && !Array.isArray(obj) ? obj : {};
+      } catch (_err2) {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  _handlePointSelection(opts) {
+    if (!opts || typeof opts.dataPointIndex !== "number" || !this._chart || !this._hass) {
+      return;
+    }
+
+    var idx = opts.dataPointIndex;
+    var rows = this._lastRows || this._buildRows();
+    if (idx < 0 || idx >= rows.length) {
+      return;
+    }
+
+    var action = rows[idx].tap_action;
+    if (!action || action.action !== "call-service" || !action.service) {
+      return;
+    }
+
+    var serviceParts = String(action.service).split(".");
+    if (serviceParts.length !== 2) {
+      return;
+    }
+
+    var domain = serviceParts[0];
+    var service = serviceParts[1];
+    var data = action.data && typeof action.data === "object" ? action.data : {};
+    var target = action.target && typeof action.target === "object" ? action.target : undefined;
+
+    this._hass.callService(domain, service, data, target);
+  }
+
+  _clearError() {
+    if (!this.shadowRoot) {
+      return;
+    }
+    var errorEl = this.shadowRoot.querySelector(".error");
+    if (errorEl && errorEl.parentElement) {
+      errorEl.parentElement.removeChild(errorEl);
+    }
   }
 
   async _resolveApexCharts() {
