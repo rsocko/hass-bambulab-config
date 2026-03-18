@@ -102,7 +102,7 @@ entities:
             barHTML += `<div style="display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">`;
             barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px; flex-shrink: 0;"></span>`;
             barHTML += `<span>${item.name}: $${item.cost.toFixed(2)}</span>`;
-            barHTML += `<span style="white-space: nowrap; opacity: 0.65;"> (${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</span>`;
+            barHTML += `<span style="white-space: nowrap; opacity: 0.65; margin-left: 4px;">(${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</span>`;
             barHTML += `</div>`;
           });
           barHTML += '</div>';
