@@ -160,6 +160,57 @@
             }] -%}
           {%- endfor -%}
           {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
+        primary_color_weight_stack_segments_json: >-
+          {%- set stacks = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set primary = a.get('filament_extra_primary_color', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set primary = primary if primary not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set hx_raw = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- set hx = '#' ~ hx_raw[0:6] if hx_raw | length >= 6 else '#9e9e9e' -%}
+              {%- set grams = a.get('remaining_weight', 0) | float(0) -%}
+              {%- set key = primary ~ '|' ~ hx -%}
+              {%- set stacks.data = stacks.data | combine({key: (stacks.data.get(key, 0) | float(0)) + grams}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set segs = namespace(items=[]) -%}
+          {%- for key, grams in stacks.data.items() -%}
+            {%- set parts = key.split('|') -%}
+            {%- set segs.items = segs.items + [{
+              'primary': parts[0],
+              'hex': parts[1],
+              'weight': grams | round(1)
+            }] -%}
+          {%- endfor -%}
+          {{ segs.items | sort(attribute='weight', reverse=true) | tojson }}
+        primary_color_count_stack_segments_json: >-
+          {%- set stacks = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set primary = a.get('filament_extra_primary_color', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set primary = primary if primary not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set hx_raw = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- set hx = '#' ~ hx_raw[0:6] if hx_raw | length >= 6 else '#9e9e9e' -%}
+              {%- set key = primary ~ '|' ~ hx -%}
+              {%- set stacks.data = stacks.data | combine({key: (stacks.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set segs = namespace(items=[]) -%}
+          {%- for key, cnt in stacks.data.items() -%}
+            {%- set parts = key.split('|') -%}
+            {%- set segs.items = segs.items + [{
+              'primary': parts[0],
+              'hex': parts[1],
+              'count': cnt | int(0)
+            }] -%}
+          {%- endfor -%}
+          {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
         spools_by_location_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}

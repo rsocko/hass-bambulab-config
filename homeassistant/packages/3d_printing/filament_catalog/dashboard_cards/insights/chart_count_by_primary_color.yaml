@@ -3,14 +3,15 @@ title: Count by Primary Color
 height: 300
 value_name: spools
 source_entity: sensor.filament_catalog_metrics
-source_attribute: primary_color_count_segments_json
+source_attribute: primary_color_count_stack_segments_json
 source_mode: array
-label_key: name
+label_key: primary
+category_key: primary
+segment_key: hex
 value_key: count
 color_key: hex
 max_items: 15
-bar_mode: stacked_single_category
-stack_category: Spool Count Distribution
+bar_mode: stacked_by_category
 legend_show: true
 legend_position: right
 legend_font_size: 12px

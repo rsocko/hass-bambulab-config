@@ -4,15 +4,16 @@ height: 300
 value_name: kg
 value_decimals: 1
 source_entity: sensor.filament_catalog_metrics
-source_attribute: primary_color_weight_segments_json
+source_attribute: primary_color_weight_stack_segments_json
 source_mode: array
-label_key: name
+label_key: primary
+category_key: primary
+segment_key: hex
 value_key: weight
 color_key: hex
 value_scale: 0.001
 max_items: 15
-bar_mode: stacked_single_category
-stack_category: Weight Distribution
+bar_mode: stacked_by_category
 legend_show: true
 legend_position: right
 legend_font_size: 12px

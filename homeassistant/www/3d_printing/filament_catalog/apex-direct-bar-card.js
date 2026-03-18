@@ -47,6 +47,8 @@ class ApexDirectBarCard extends HTMLElement {
       label_key: config.label_key || "name",
       value_key: config.value_key || "value",
       color_key: config.color_key || "color",
+      category_key: config.category_key || null,
+      segment_key: config.segment_key || null,
       value_scale: Number(config.value_scale || 1),
       max_items: Number(config.max_items || 12),
       sort_desc: config.sort_desc !== false,
@@ -207,6 +209,8 @@ class ApexDirectBarCard extends HTMLElement {
             return {
               x: this._config.label_map[key] || key,
               source_key: key,
+              category: this._config.category_key ? String(item[this._config.category_key] || key) : null,
+              segment: this._config.segment_key ? String(item[this._config.segment_key] || key) : null,
               y: isFinite(value) ? value * scale : 0,
               fillColor: color,
               tap_action: this._config.tap_actions[key] || null,
@@ -413,6 +417,110 @@ class ApexDirectBarCard extends HTMLElement {
       };
     }
 
+    if (this._config.bar_mode === "stacked_by_category") {
+      var categories = [];
+      var categoryIndex = {};
+      var seriesMap = {};
+      var seriesOrder = [];
+
+      rows.forEach(function (row) {
+        var cat = String(row.category || row.x || "Unknown");
+        var seg = String(row.segment || row.x || "Segment");
+
+        if (categoryIndex[cat] === undefined) {
+          categoryIndex[cat] = categories.length;
+          categories.push(cat);
+          seriesOrder.forEach(function (existing) {
+            seriesMap[existing].data.push(0);
+          });
+        }
+
+        if (!seriesMap[seg]) {
+          seriesMap[seg] = {
+            name: seg,
+            data: new Array(categories.length).fill(0),
+            color: row.fillColor,
+          };
+          seriesOrder.push(seg);
+        }
+
+        while (seriesMap[seg].data.length < categories.length) {
+          seriesMap[seg].data.push(0);
+        }
+
+        var idx = categoryIndex[cat];
+        seriesMap[seg].data[idx] = (seriesMap[seg].data[idx] || 0) + Number(row.y || 0);
+      });
+
+      var stackedSeries = seriesOrder.map(function (name) {
+        return seriesMap[name];
+      });
+
+      return {
+        chart: {
+          type: "bar",
+          height: this._config.height,
+          foreColor: textColor,
+          stacked: true,
+          toolbar: { show: false },
+          animations: { enabled: false },
+        },
+        series: stackedSeries,
+        xaxis: {
+          categories: categories,
+          title: { text: this._config.value_name },
+          labels: {
+            style: {
+              colors: textColor,
+            },
+          },
+          axisBorder: {
+            color: gridColor,
+          },
+        },
+        yaxis: {
+          labels: {
+            style: {
+              colors: [textColor],
+            },
+            formatter: function (value) {
+              return self._formatValue(value);
+            },
+          },
+        },
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            borderRadius: 2,
+          },
+        },
+        dataLabels: {
+          enabled: false,
+        },
+        legend: {
+          show: this._config.legend_show,
+          position: this._config.legend_position,
+          labels: {
+            colors: textColor,
+            useSeriesColors: false,
+          },
+          fontSize: this._config.legend_font_size,
+        },
+        tooltip: {
+          theme: isDark ? "dark" : "light",
+          y: {
+            formatter: function (value) {
+              return self._formatValue(value);
+            },
+          },
+        },
+        grid: {
+          strokeDashArray: 3,
+          borderColor: gridColor,
+        },
+      };
+    }
+
     return {
       chart: {
         type: "bar",
@@ -451,6 +559,9 @@ class ApexDirectBarCard extends HTMLElement {
         labels: {
           style: {
             colors: labels.map(function () { return textColor; }),
+          },
+          formatter: function (value) {
+            return self._formatValue(value);
           },
         },
       },
