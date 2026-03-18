@@ -90,12 +90,29 @@
           target:
             entity_id: "{{ snapshot_light }}"
 
-    # Send mobile notification with snapshot
-    - action: notify.send_message
-      target:
-        entity_id:
-          - notify.mobile_app_ryphone16
-          - notify.mobile_app_rypad10
+    # Send mobile notification with snapshot to Ryan's devices
+    - action: notify.mobile_app_ryphone16
+      data:
+        title: >-
+          {% if worst_severity == 'critical' %}🔴 Critical HMS Error
+          {% elif worst_severity == 'serious' %}🟠 Serious HMS Error
+          {% elif worst_severity == 'medium' %}🟡 HMS Warning
+          {% else %}⚪ HMS Notice{% endif %}
+        message: >-
+          {{ printer_name }} reported {{ error_count }} HMS error{{ 's' if error_count > 1 }}
+          (worst: {{ worst_severity }})
+
+          {{ error_summary }}
+        data:
+          image: "/local/printer_snapshots/{{ snapshot_filename }}"
+          push:
+            interruption-level: "{{ 'critical' if is_urgent else 'active' }}"
+          actions:
+            - action: "URI"
+              title: "View Printer"
+              uri: "/lovelace/3d-printing"
+
+    - action: notify.mobile_app_rypad10
       data:
         title: >-
           {% if worst_severity == 'critical' %}🔴 Critical HMS Error

@@ -1,4 +1,4 @@
 3dprinter_notification_service:
   name: Notification Service
   max: 255
-  initial: "notify.send_message"
+  initial: "notify.mobile_app_ryphone16"

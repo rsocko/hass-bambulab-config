@@ -69,12 +69,21 @@
           {% set msg = msg | replace('{{print_status}}', print_status) %}
           {{ msg }}
 
-    # Send mobile notification with snapshot (CRITICAL)
-    - action: notify.send_message
-      target:
-        entity_id:
-          - notify.mobile_app_ryphone16
-          - notify.mobile_app_rypad10
+    # Send mobile notification with snapshot (CRITICAL) to Ryan's devices
+    - action: notify.mobile_app_ryphone16
+      data:
+        title: "⚠️ Print Error"
+        message: "{{ notification_message }}"
+        data:
+          image: "/local/printer_snapshots/{{ snapshot_filename }}"
+          push:
+            interruption-level: critical
+          actions:
+            - action: "URI"
+              title: "View Printer"
+              uri: "/lovelace/3d-printing"
+
+    - action: notify.mobile_app_rypad10
       data:
         title: "⚠️ Print Error"
         message: "{{ notification_message }}"
