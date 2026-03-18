@@ -86,13 +86,15 @@ on:
           - "false"
           - "true"
       post_deploy_action:
-        description: "Action after deploy: none, reload domains, or restart core"
+        description: "Action after deploy: none, reload domains, refresh lovelace YAML dashboards, both, or restart core"
         required: true
         type: choice
         default: none
         options:
           - none
           - reload_domains
+          - refresh_lovelace_yaml
+          - reload_domains_and_lovelace
           - restart_core
       reload_domains_strict:
         description: "When post_deploy_action=reload_domains, fail if any domain reload fails"
@@ -1003,6 +1005,12 @@ jobs:
             reload_domains)
               echo "Executing expanded domain reloads (best-effort loop with summary)."
               ;;
+            refresh_lovelace_yaml)
+              echo "Executing Lovelace YAML dashboard refresh (forces HA to re-read dashboard YAML from disk)."
+              ;;
+            reload_domains_and_lovelace)
+              echo "Executing domain reloads + Lovelace YAML dashboard refresh."
+              ;;
             restart_core)
               echo "Executing Home Assistant Core restart"
               ;;
@@ -1037,6 +1045,72 @@ jobs:
             done
           fi
 
+          do_reload_domains() {
+            # These domains are commonly edited in package-based repos and support reload services.
+            local reload_domains=(
+              automation
+              script
+              template
+              scene
+              group
+              input_boolean
+              input_number
+              input_text
+              input_select
+              input_datetime
+              input_button
+              timer
+              counter
+              person
+              zone
+            )
+
+            local successes=()
+            local failures=()
+
+            for domain in "${reload_domains[@]}"; do
+              echo "Reloading domain: $domain"
+              if domain_output="$(ha core api post --raw-json '{}' "/api/services/$domain/reload" 2>&1)"; then
+                successes+=("$domain")
+                echo "  OK: $domain"
+              else
+                failures+=("$domain")
+                echo "  ERROR: $domain"
+                echo "$domain_output"
+              fi
+            done
+
+            local success_count="${#successes[@]}"
+            local failure_count="${#failures[@]}"
+            local total_count="${#reload_domains[@]}"
+
+            echo "Reload summary: total=$total_count succeeded=$success_count failed=$failure_count"
+            if [ "$success_count" -gt 0 ]; then
+              echo "Reloaded domains: ${successes[*]}"
+            fi
+
+            if [ "$failure_count" -gt 0 ]; then
+              echo "Failed domains: ${failures[*]}"
+              if [ "$reload_strict" = "true" ]; then
+                echo "Strict mode enabled: failing because one or more domain reloads failed."
+                return 1
+              fi
+
+              echo "Strict mode disabled: continuing despite domain reload failures."
+            fi
+          }
+
+          do_refresh_lovelace() {
+            echo "Refreshing Lovelace YAML dashboards..."
+            if lovelace_output="$(ha core api post --raw-json '{}' "/api/services/lovelace/reload" 2>&1)"; then
+              echo "  OK: lovelace/reload"
+            else
+              echo "  ERROR: lovelace/reload"
+              echo "$lovelace_output"
+              return 1
+            fi
+          }
+
           case "$action_to_run" in
             none)
               echo "No post-deploy action selected."
@@ -1045,58 +1119,15 @@ jobs:
               ha core restart
               ;;
             reload_domains)
-              # These domains are commonly edited in package-based repos and support reload services.
-              reload_domains=(
-                automation
-                script
-                template
-                scene
-                group
-                input_boolean
-                input_number
-                input_text
-                input_select
-                input_datetime
-                input_button
-                timer
-                counter
-                person
-                zone
-              )
-
-              successes=()
-              failures=()
-
-              for domain in "${reload_domains[@]}"; do
-                echo "Reloading domain: $domain"
-                if domain_output="$(ha core api post --raw-json '{}' "/api/services/$domain/reload" 2>&1)"; then
-                  successes+=("$domain")
-                  echo "  OK: $domain"
-                else
-                  failures+=("$domain")
-                  echo "  ERROR: $domain"
-                  echo "$domain_output"
-                fi
-              done
-
-              success_count="${#successes[@]}"
-              failure_count="${#failures[@]}"
-              total_count="${#reload_domains[@]}"
-
-              echo "Reload summary: total=$total_count succeeded=$success_count failed=$failure_count"
-              if [ "$success_count" -gt 0 ]; then
-                echo "Reloaded domains: ${successes[*]}"
-              fi
-
-              if [ "$failure_count" -gt 0 ]; then
-                echo "Failed domains: ${failures[*]}"
-                if [ "$reload_strict" = "true" ]; then
-                  echo "Strict mode enabled: failing because one or more domain reloads failed."
-                  exit 1
-                fi
-
-                echo "Strict mode disabled: continuing despite domain reload failures."
-              fi
+              do_reload_domains
+              ;;
+            refresh_lovelace_yaml)
+              do_refresh_lovelace
+              ;;
+            reload_domains_and_lovelace)
+              do_reload_domains
+              echo ""
+              do_refresh_lovelace
               ;;
             *)
               echo "Unknown post-deploy action: $action_to_run"
@@ -1142,6 +1173,71 @@ jobs:
               done
             fi
 
+            do_reload_domains() {
+              local reload_domains=(
+                automation
+                script
+                template
+                scene
+                group
+                input_boolean
+                input_number
+                input_text
+                input_select
+                input_datetime
+                input_button
+                timer
+                counter
+                person
+                zone
+              )
+
+              local successes=()
+              local failures=()
+
+              for domain in "${reload_domains[@]}"; do
+                echo "Reloading domain: $domain"
+                if domain_output="$(ha core api post --raw-json '{}' "/api/services/$domain/reload" 2>&1)"; then
+                  successes+=("$domain")
+                  echo "  OK: $domain"
+                else
+                  failures+=("$domain")
+                  echo "  ERROR: $domain"
+                  echo "$domain_output"
+                fi
+              done
+
+              local success_count="${#successes[@]}"
+              local failure_count="${#failures[@]}"
+              local total_count="${#reload_domains[@]}"
+
+              echo "Reload summary: total=$total_count succeeded=$success_count failed=$failure_count"
+              if [ "$success_count" -gt 0 ]; then
+                echo "Reloaded domains: ${successes[*]}"
+              fi
+
+              if [ "$failure_count" -gt 0 ]; then
+                echo "Failed domains: ${failures[*]}"
+                if [ "$reload_strict" = "true" ]; then
+                  echo "Strict mode enabled: failing because one or more domain reloads failed."
+                  return 1
+                fi
+
+                echo "Strict mode disabled: continuing despite domain reload failures."
+              fi
+            }
+
+            do_refresh_lovelace() {
+              echo "Refreshing Lovelace YAML dashboards..."
+              if lovelace_output="$(ha core api post --raw-json '{}' "/api/services/lovelace/reload" 2>&1)"; then
+                echo "  OK: lovelace/reload"
+              else
+                echo "  ERROR: lovelace/reload"
+                echo "$lovelace_output"
+                return 1
+              fi
+            }
+
             case "$action_to_run" in
               none)
                 echo "No post-deploy action selected."
@@ -1150,57 +1246,15 @@ jobs:
                 ha core restart
                 ;;
               reload_domains)
-                reload_domains=(
-                  automation
-                  script
-                  template
-                  scene
-                  group
-                  input_boolean
-                  input_number
-                  input_text
-                  input_select
-                  input_datetime
-                  input_button
-                  timer
-                  counter
-                  person
-                  zone
-                )
-
-                successes=()
-                failures=()
-
-                for domain in "${reload_domains[@]}"; do
-                  echo "Reloading domain: $domain"
-                  if domain_output="$(ha core api post --raw-json '{}' "/api/services/$domain/reload" 2>&1)"; then
-                    successes+=("$domain")
-                    echo "  OK: $domain"
-                  else
-                    failures+=("$domain")
-                    echo "  ERROR: $domain"
-                    echo "$domain_output"
-                  fi
-                done
-
-                success_count="${#successes[@]}"
-                failure_count="${#failures[@]}"
-                total_count="${#reload_domains[@]}"
-
-                echo "Reload summary: total=$total_count succeeded=$success_count failed=$failure_count"
-                if [ "$success_count" -gt 0 ]; then
-                  echo "Reloaded domains: ${successes[*]}"
-                fi
-
-                if [ "$failure_count" -gt 0 ]; then
-                  echo "Failed domains: ${failures[*]}"
-                  if [ "$reload_strict" = "true" ]; then
-                    echo "Strict mode enabled: failing because one or more domain reloads failed."
-                    exit 1
-                  fi
-
-                  echo "Strict mode disabled: continuing despite domain reload failures."
-                fi
+                do_reload_domains
+                ;;
+              refresh_lovelace_yaml)
+                do_refresh_lovelace
+                ;;
+              reload_domains_and_lovelace)
+                do_reload_domains
+                echo ""
+                do_refresh_lovelace
                 ;;
               *)
                 echo "Unknown post-deploy action: $action_to_run"

@@ -99,10 +99,16 @@ Workflow dispatch includes `post_deploy_action` and `reload_domains_strict`:
     - `automation`, `script`, `template`, `scene`, `group`, `input_boolean`, `input_number`, `input_text`, `input_select`, `input_datetime`, `input_button`, `timer`, `counter`, `person`, `zone`
   - Always prints a success/failure summary in workflow logs.
   - Default behavior (`reload_domains_strict=false`) is non-blocking: failed domain reloads are reported but do not fail the workflow.
+- `post_deploy_action=refresh_lovelace_yaml`:
+  - Calls `lovelace/reload` to force HA to re-read YAML-mode dashboard files from disk.
+  - Use this when only dashboard card/view YAML changed and no domain reloads are needed.
+- `post_deploy_action=reload_domains_and_lovelace`:
+  - Runs domain reloads (same as `reload_domains`) followed by a Lovelace YAML refresh.
+  - Recommended for deploys that include both package YAML (sensors, automations, etc.) and dashboard card changes.
 - `post_deploy_action=restart_core`:
   - Runs `ha core restart`.
 
-`reload_domains_strict` applies only when `post_deploy_action=reload_domains`:
+`reload_domains_strict` applies only when `post_deploy_action` includes domain reloads (`reload_domains` or `reload_domains_and_lovelace`):
 
 - `reload_domains_strict=false` (default): report failures, continue workflow.
 - `reload_domains_strict=true`: fail workflow if any domain reload fails.
