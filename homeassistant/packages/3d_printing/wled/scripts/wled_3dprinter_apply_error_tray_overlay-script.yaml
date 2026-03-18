@@ -164,11 +164,11 @@ wled_3dprinter_apply_error_tray_overlay:
         {{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}
     - condition: template
       value_template: >-
-        {{ (overlay_segments_json | from_json) | count > 0 }}
+        {{ overlay_segments_json | count > 0 }}
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
         payload: >-
-          {"seg": {{ overlay_segments_json }} }
+          {{ {'seg': overlay_segments_json} | tojson }}
     - action: logbook.log
       data:
         name: WLED 3D Printer Error Tray Overlay
@@ -176,4 +176,4 @@ wled_3dprinter_apply_error_tray_overlay:
           error_class={{ error_class }}; smart_status={{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }};
           stage={{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') }};
           active_tray={{ active_tray_state }}; trays={{ trays_from_context_json }};
-          segments={{ (overlay_segments_json | from_json) | map(attribute='id') | list | join(',') }}
+          segments={{ overlay_segments_json | map(attribute='id') | list | join(',') }}
