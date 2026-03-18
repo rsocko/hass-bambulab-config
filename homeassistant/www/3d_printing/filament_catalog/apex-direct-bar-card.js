@@ -121,37 +121,7 @@ class ApexDirectBarCard extends HTMLElement {
 
     var self = this;
 
-    var options = {
-      chart: {
-        type: this._config.chart_type,
-        height: this._config.height,
-        toolbar: { show: false },
-        animations: { enabled: false },
-        events: {
-          dataPointSelection: function (_event, _chartCtx, opts) {
-            self._handlePointSelection(opts);
-          },
-        },
-      },
-      series: this._buildSeries(rows),
-      labels: this._config.chart_type === "donut" ? rows.map(function (r) { return r.x; }) : undefined,
-      colors: rows.map(function (r) { return r.fillColor; }),
-      plotOptions: this._config.chart_type === "bar" ? {
-        bar: {
-          horizontal: this._config.horizontal,
-          borderRadius: 4,
-          distributed: false,
-        },
-      } : undefined,
-      xaxis: this._config.chart_type === "bar" ? {
-        title: { text: this._config.value_name },
-      } : undefined,
-      dataLabels: {
-        enabled: true,
-      },
-      legend: { show: false },
-      grid: { strokeDashArray: 3 },
-    };
+    var options = this._buildChartOptions(rows, self);
 
     if (!this._chart) {
       this._chart = new ApexChartsCtor(this._container, options);
@@ -273,9 +243,86 @@ class ApexDirectBarCard extends HTMLElement {
     return [
       {
         name: this._config.value_name,
-        data: rows,
+        data: rows.map(function (r) {
+          return Number(r.y || 0);
+        }),
       },
     ];
+  }
+
+  _buildChartOptions(rows, self) {
+    var chartType = this._config.chart_type === "donut" ? "donut" : "bar";
+    var labels = rows.map(function (r) { return String(r.x || ""); });
+    var colors = rows.map(function (r) { return r.fillColor || self._config.default_color; });
+
+    if (chartType === "donut") {
+      return {
+        chart: {
+          type: "donut",
+          height: this._config.height,
+          toolbar: { show: false },
+          animations: { enabled: false },
+          events: {
+            dataPointSelection: function (_event, _chartCtx, opts) {
+              self._handlePointSelection(opts);
+            },
+          },
+        },
+        series: this._buildSeries(rows),
+        labels: labels,
+        colors: colors,
+        legend: {
+          show: true,
+          position: "bottom",
+        },
+        dataLabels: {
+          enabled: true,
+        },
+        stroke: {
+          show: true,
+          width: 1,
+        },
+        plotOptions: {
+          pie: {
+            donut: {
+              size: "48%",
+            },
+          },
+        },
+      };
+    }
+
+    return {
+      chart: {
+        type: "bar",
+        height: this._config.height,
+        toolbar: { show: false },
+        animations: { enabled: false },
+        events: {
+          dataPointSelection: function (_event, _chartCtx, opts) {
+            self._handlePointSelection(opts);
+          },
+        },
+      },
+      series: this._buildSeries(rows),
+      colors: colors,
+      plotOptions: {
+        bar: {
+          horizontal: this._config.horizontal,
+          borderRadius: 4,
+          distributed: true,
+        },
+      },
+      xaxis: {
+        categories: labels,
+        title: { text: this._config.value_name },
+      },
+      dataLabels: {
+        enabled: true,
+      },
+      legend: { show: false },
+      grid: { strokeDashArray: 3 },
+    };
   }
 
   _parseSource(raw) {
