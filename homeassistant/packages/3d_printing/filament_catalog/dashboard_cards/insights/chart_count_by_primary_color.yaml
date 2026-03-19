@@ -10,7 +10,7 @@ category_key: primary
 segment_key: segment_label
 value_key: count
 color_key: hex
-max_items: 0
+max_items: 15
 bar_mode: stacked_by_category
 legend_show: false
 legend_position: right

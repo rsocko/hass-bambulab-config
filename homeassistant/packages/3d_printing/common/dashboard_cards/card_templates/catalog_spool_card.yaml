@@ -68,10 +68,13 @@ catalog_spool_card:
         const filled = entity?.attributes?.extra_desiccant_filled;
         if (!hasDesiccant || !filled) return '';
         const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
-        if (days < 45) return '';
+        const desYellow = parseFloat(states['input_number.desiccant_threshold_yellow_days']?.state) || 45;
+        const desOrange = parseFloat(states['input_number.desiccant_threshold_orange_days']?.state) || 60;
+        const desRed = parseFloat(states['input_number.desiccant_threshold_red_days']?.state) || 75;
+        if (days < desYellow) return '';
         let color;
-        if (days < 60) color = '#ffcc00';
-        else if (days < 75) color = '#ff9900';
+        if (days < desOrange) color = '#ffcc00';
+        else if (days < desRed) color = '#ff9900';
         else color = '#cc0000';
         return `<ha-icon icon="mdi:water" style="--mdc-icon-size:14px; color:${color};"></ha-icon>`;
       ]]]
@@ -110,9 +113,12 @@ catalog_spool_card:
               desiccantUndefined = true;
             } else if (hasDesiccant && filled) {
               const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
-              if (days >= 75) severity = 3;
-              else if (days >= 60) severity = Math.max(severity, 2);
-              else if (days >= 45) severity = Math.max(severity, 1);
+              const desYellow = parseFloat(states['input_number.desiccant_threshold_yellow_days']?.state) || 45;
+              const desOrange = parseFloat(states['input_number.desiccant_threshold_orange_days']?.state) || 60;
+              const desRed = parseFloat(states['input_number.desiccant_threshold_red_days']?.state) || 75;
+              if (days >= desRed) severity = 3;
+              else if (days >= desOrange) severity = Math.max(severity, 2);
+              else if (days >= desYellow) severity = Math.max(severity, 1);
             }
             const usedPct = entity?.attributes?.used_percentage;
             if (usedPct !== undefined && usedPct !== null) {

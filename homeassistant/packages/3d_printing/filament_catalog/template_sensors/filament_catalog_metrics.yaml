@@ -211,7 +211,7 @@
               'weight': grams | round(1)
             }] -%}
           {%- endfor -%}
-          {{ segs.items | sort(attribute='weight', reverse=true) | tojson }}
+          {{ segs.items | sort(attribute='weight', reverse=true)[:20] | tojson }}
         primary_color_count_stack_segments_json: >-
           {%- set stacks = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
@@ -240,7 +240,7 @@
               'count': cnt | int(0)
             }] -%}
           {%- endfor -%}
-          {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
+          {{ segs.items | sort(attribute='count', reverse=true)[:20] | tojson }}
         spools_by_location_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
@@ -256,6 +256,7 @@
         alert_counts_json: >-
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
+          {%- set des_overdue_threshold = states('input_number.desiccant_threshold_orange_days') | float(60) -%}
           {%- set filament_counts = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
@@ -308,7 +309,7 @@
               {%- if remaining < stock_threshold and (filament_counts.data.get(fid, 0) | int(0)) == 1 -%}
                 {%- set counts.needs_repurchase = counts.needs_repurchase + 1 -%}
               {%- endif -%}
-              {%- if not sealed and des_days > 60 -%}
+              {%- if not sealed and des_days > des_overdue_threshold -%}
                 {%- set counts.desiccant_overdue = counts.desiccant_overdue + 1 -%}
               {%- endif -%}
               {%- if not sealed and not has_desiccant -%}
@@ -334,6 +335,7 @@
         alert_entity_ids_json: >-
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
+          {%- set des_overdue_threshold = states('input_number.desiccant_threshold_orange_days') | float(60) -%}
           {%- set filament_counts = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
@@ -386,7 +388,7 @@
               {%- if remaining < stock_threshold and (filament_counts.data.get(fid, 0) | int(0)) == 1 -%}
                 {%- set ids.needs_repurchase = ids.needs_repurchase + [eid] -%}
               {%- endif -%}
-              {%- if not sealed and des_days > 60 -%}{%- set ids.desiccant_overdue = ids.desiccant_overdue + [eid] -%}{%- endif -%}
+              {%- if not sealed and des_days > des_overdue_threshold -%}{%- set ids.desiccant_overdue = ids.desiccant_overdue + [eid] -%}{%- endif -%}
               {%- if not sealed and not has_desiccant -%}{%- set ids.missing_desiccant = ids.missing_desiccant + [eid] -%}{%- endif -%}
               {%- if not sealed and dry_days > 90 -%}{%- set ids.needs_drying = ids.needs_drying + [eid] -%}{%- endif -%}
               {%- if used_days > 180 -%}{%- set ids.stale = ids.stale + [eid] -%}{%- endif -%}

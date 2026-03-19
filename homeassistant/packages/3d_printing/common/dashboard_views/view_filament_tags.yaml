@@ -172,10 +172,13 @@ cards:
                 const date = spool_entity?.attributes?.extra_desiccant_filled;
                 if (!date) return 'gray';
 
-                const months = ((Date.now() - new Date(date)) / 86400000) / 30.437;
-                if (months > 2.5) return 'red';
-                if (months > 2.0) return 'orange';
-                if (months > 1.5) return 'yellow';
+                const days = Math.floor((Date.now() - new Date(date)) / 86400000);
+                const desYellow = parseFloat(states['input_number.desiccant_threshold_yellow_days']?.state) || 45;
+                const desOrange = parseFloat(states['input_number.desiccant_threshold_orange_days']?.state) || 60;
+                const desRed = parseFloat(states['input_number.desiccant_threshold_red_days']?.state) || 75;
+                if (days >= desRed) return 'red';
+                if (days >= desOrange) return 'orange';
+                if (days >= desYellow) return 'yellow';
                 return 'green';
               ]]]
         label:

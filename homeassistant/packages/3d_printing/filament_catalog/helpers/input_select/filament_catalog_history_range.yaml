@@ -3,5 +3,5 @@ filament_catalog_history_range:
   options:
     - Last 30 Days
     - Full History
-  initial: Full History
+  initial: Last 30 Days
   icon: mdi:chart-timeline-variant

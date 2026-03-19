@@ -1,0 +1,9 @@
+desiccant_threshold_yellow_days:
+  name: Desiccant Threshold - Yellow (days)
+  icon: mdi:water-alert
+  min: 7
+  max: 120
+  step: 1
+  unit_of_measurement: days
+  mode: box
+  initial: 45

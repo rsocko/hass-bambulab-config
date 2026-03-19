@@ -1,0 +1,9 @@
+desiccant_threshold_red_days:
+  name: Desiccant Threshold - Red (days)
+  icon: mdi:water-remove
+  min: 7
+  max: 365
+  step: 1
+  unit_of_measurement: days
+  mode: box
+  initial: 75

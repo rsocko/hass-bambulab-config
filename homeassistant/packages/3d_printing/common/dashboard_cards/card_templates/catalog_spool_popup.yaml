@@ -51,10 +51,13 @@ catalog_spool_popup:
       // --- Desiccant / Dried display (matches AMS popup) ---
       const hasDes = entity?.attributes?.extra_desiccant_in_spool;
       const desFilled = entity?.attributes?.extra_desiccant_filled;
+      const desYellow = parseFloat(states['input_number.desiccant_threshold_yellow_days']?.state) || 45;
+      const desOrange = parseFloat(states['input_number.desiccant_threshold_orange_days']?.state) || 60;
+      const desRed = parseFloat(states['input_number.desiccant_threshold_red_days']?.state) || 75;
       let desStatus = 'empty', desDays = null;
       if (hasDes && desFilled) {
         desDays = Math.floor((Date.now() - new Date(desFilled)) / 86400000);
-        if (desDays < 45) desStatus = 'green'; else if (desDays < 60) desStatus = 'yellow'; else if (desDays < 75) desStatus = 'orange'; else desStatus = 'red';
+        if (desDays < desYellow) desStatus = 'green'; else if (desDays < desOrange) desStatus = 'yellow'; else if (desDays < desRed) desStatus = 'orange'; else desStatus = 'red';
       }
       const desMushColor = { green: 'green', yellow: 'yellow', orange: 'orange', red: 'red' }[desStatus] || 'grey';
       let desText = 'No desiccant data';

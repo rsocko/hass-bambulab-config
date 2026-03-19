@@ -94,7 +94,8 @@
               {%- else -%}
                 {%- set days_since_used = 99999 -%}
               {%- endif -%}
-              {%- set has_old_desiccant = desiccant_age_days > 45 -%}
+              {%- set des_old_threshold = states('input_number.desiccant_threshold_yellow_days') | float(45) -%}
+              {%- set has_old_desiccant = desiccant_age_days > des_old_threshold -%}
               {%- set is_needs_drying = (not is_sealed) and (days_since_dried > 90) -%}
               {%- set is_stale = days_since_used > 180 -%}
               {%- set is_missing_desiccant = (not is_sealed) and (not has_desiccant) -%}

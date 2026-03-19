@@ -125,15 +125,18 @@
             {% set filled_ts = none %}
           {% endif %}
 
+          {% set des_yellow = states('input_number.desiccant_threshold_yellow_days') | float(45) %}
+          {% set des_orange = states('input_number.desiccant_threshold_orange_days') | float(60) %}
+          {% set des_red = states('input_number.desiccant_threshold_red_days') | float(75) %}
           {% if not desiccant or not filled_ts %}
             {% set status = 'undefined' %}
           {% else %}
             {% set age = (now_ts - filled_ts) / 86400 %}
-            {% if age < 30 %}
+            {% if age < des_yellow %}
               {% set status = 'green' %}
-            {% elif age < 45 %}
+            {% elif age < des_orange %}
               {% set status = 'yellow' %}
-            {% elif age < 60 %}
+            {% elif age < des_red %}
               {% set status = 'orange' %}
             {% else %}
               {% set status = 'red' %}
