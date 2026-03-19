@@ -91,16 +91,15 @@
             {%- if not archived -%}
               {%- set raw = spool.attributes.get('filament_extra_type_details', '') | string -%}
               {%- set cleaned = raw | replace('[', '') | replace(']', '') | replace('"', '') -%}
-              {%- set found = namespace(any=false, seen=[]) -%}
+              {%- set flags = namespace(has_type=false) -%}
               {%- for t in cleaned.split(',') -%}
                 {%- set key = t | trim -%}
-                {%- if key and key not in ['unknown', 'unavailable', 'None', 'none'] and key not in found.seen -%}
-                  {%- set found.any = true -%}
-                  {%- set found.seen = found.seen + [key] -%}
+                {%- if key and key not in ['unknown', 'unavailable', 'None', 'none'] -%}
+                  {%- set flags.has_type = true -%}
                   {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
                 {%- endif -%}
               {%- endfor -%}
-              {%- if not found.any -%}
+              {%- if not flags.has_type -%}
                 {%- set buckets.data = buckets.data | combine({'Unknown': (buckets.data.get('Unknown', 0) | int(0)) + 1}) -%}
               {%- endif -%}
             {%- endif -%}
