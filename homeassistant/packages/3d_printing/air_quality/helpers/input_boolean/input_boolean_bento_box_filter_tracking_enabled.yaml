@@ -1,4 +1,3 @@
 bento_box_filter_tracking_enabled:
   name: "Bento Box Filter Tracking Enabled"
   icon: mdi:toggle-switch
-  initial: true

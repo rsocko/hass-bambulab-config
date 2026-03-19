@@ -6,4 +6,3 @@ desiccant_threshold_yellow_days:
   step: 1
   unit_of_measurement: days
   mode: box
-  initial: 45

@@ -3,7 +3,6 @@ filament_catalog_stock_threshold:
   min: 0
   max: 500
   step: 10
-  initial: 150
   unit_of_measurement: g
   icon: mdi:scale-balance
   mode: box

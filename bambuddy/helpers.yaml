@@ -8,19 +8,16 @@ input_text:
   bambuddy_api_base_url:
     name: Bambuddy API Base URL
     max: 255
-    initial: "http://localhost:8000"
     icon: mdi:server
 
   bambuddy_api_key:
     name: Bambuddy API Key
     max: 255
-    initial: ""
     icon: mdi:key
 
   bambuddy_printer_id:
     name: Bambuddy Printer ID
     max: 100
-    initial: ""
     icon: mdi:printer-3d
 
   # --- State Storage ---
@@ -54,5 +51,4 @@ input_number:
     min: 5
     max: 50
     step: 5
-    initial: 10
     icon: mdi:format-list-numbered

@@ -1,4 +1,3 @@
 bambuddy_base_url:
   name: Bambuddy Base URL
   max: 255
-  initial: "http://localhost:8000/api/v1"

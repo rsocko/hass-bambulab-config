@@ -1,4 +1,3 @@
 bambuddy_integration_enabled:
   name: Bambuddy Integration Enabled
   icon: mdi:archive
-  initial: false

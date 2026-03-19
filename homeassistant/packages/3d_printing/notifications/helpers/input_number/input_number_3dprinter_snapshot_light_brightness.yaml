@@ -5,4 +5,3 @@
   step: 1
   unit_of_measurement: "%"
   icon: mdi:brightness-percent
-  initial: 100

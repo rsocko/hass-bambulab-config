@@ -2,4 +2,3 @@
   name: Quiet Hours End
   has_time: true
   has_date: false
-  initial: "08:00:00"

@@ -6,4 +6,3 @@ wled_3dprinter_idle_tray_risk_threshold_grams:
   step: 25
   unit_of_measurement: g
   mode: slider
-  initial: 200

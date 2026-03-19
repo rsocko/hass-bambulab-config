@@ -1,4 +1,3 @@
 3dprinter_success_message:
   name: Print Success Message
   max: 255
-  initial: "{{printer_name}} has finished printing {{task_name}}"
