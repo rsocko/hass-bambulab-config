@@ -95,7 +95,7 @@
             {% endif %}
           {% elif stage in maintenance_stages and current_core_state in ['S1_IDLE', 'S6_FINISHING', 'S7_MAINTENANCE'] and smart_status not in ['Printing', 'Preparing Print'] %}
             E_MAINT_START
-          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer'] %}
+          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Waiting for Bed Temp', 'Thermal Preconditioning', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer'] %}
             E_PREP_START
           {% elif smart_status == 'Idle' %}
             E_IDLE

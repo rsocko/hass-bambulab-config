@@ -69,7 +69,7 @@ wled_3dprinter_reset_to_working_state:
             S3_PRINTING
           {% elif stage in maintenance_stages and smart_status not in ['Printing', 'Preparing Print'] %}
             S7_MAINTENANCE
-          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer'] %}
+          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Waiting for Bed Temp', 'Thermal Preconditioning', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer'] %}
             S2_PREP
           {% elif smart_status == 'Idle' %}
             S1_IDLE
