@@ -171,17 +171,21 @@
               {%- set primary = primary if primary not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
               {%- set hx_raw = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
               {%- set hx = '#' ~ hx_raw[0:6] if hx_raw | length >= 6 else '#9e9e9e' -%}
+              {%- set filament_name = a.get('filament_name', a.get('friendly_name', spool.name)) | string | replace('"', '') | replace('###', '-') | trim -%}
+              {%- set filament_name = filament_name if filament_name not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown Filament' -%}
+              {%- set segment_label = filament_name ~ ' (' ~ hx ~ ')' -%}
               {%- set grams = a.get('remaining_weight', 0) | float(0) -%}
-              {%- set key = primary ~ '|' ~ hx -%}
+              {%- set key = primary ~ '###' ~ segment_label ~ '###' ~ hx -%}
               {%- set stacks.data = stacks.data | combine({key: (stacks.data.get(key, 0) | float(0)) + grams}) -%}
             {%- endif -%}
           {%- endfor -%}
           {%- set segs = namespace(items=[]) -%}
           {%- for key, grams in stacks.data.items() -%}
-            {%- set parts = key.split('|') -%}
+            {%- set parts = key.split('###') -%}
             {%- set segs.items = segs.items + [{
               'primary': parts[0],
-              'hex': parts[1],
+              'segment_label': parts[1],
+              'hex': parts[2],
               'weight': grams | round(1)
             }] -%}
           {%- endfor -%}
@@ -197,16 +201,20 @@
               {%- set primary = primary if primary not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
               {%- set hx_raw = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
               {%- set hx = '#' ~ hx_raw[0:6] if hx_raw | length >= 6 else '#9e9e9e' -%}
-              {%- set key = primary ~ '|' ~ hx -%}
+              {%- set filament_name = a.get('filament_name', a.get('friendly_name', spool.name)) | string | replace('"', '') | replace('###', '-') | trim -%}
+              {%- set filament_name = filament_name if filament_name not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown Filament' -%}
+              {%- set segment_label = filament_name ~ ' (' ~ hx ~ ')' -%}
+              {%- set key = primary ~ '###' ~ segment_label ~ '###' ~ hx -%}
               {%- set stacks.data = stacks.data | combine({key: (stacks.data.get(key, 0) | int(0)) + 1}) -%}
             {%- endif -%}
           {%- endfor -%}
           {%- set segs = namespace(items=[]) -%}
           {%- for key, cnt in stacks.data.items() -%}
-            {%- set parts = key.split('|') -%}
+            {%- set parts = key.split('###') -%}
             {%- set segs.items = segs.items + [{
               'primary': parts[0],
-              'hex': parts[1],
+              'segment_label': parts[1],
+              'hex': parts[2],
               'count': cnt | int(0)
             }] -%}
           {%- endfor -%}

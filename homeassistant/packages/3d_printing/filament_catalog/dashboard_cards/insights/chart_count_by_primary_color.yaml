@@ -7,12 +7,12 @@ source_attribute: primary_color_count_stack_segments_json
 source_mode: array
 label_key: primary
 category_key: primary
-segment_key: hex
+segment_key: segment_label
 value_key: count
 color_key: hex
-max_items: 15
+max_items: 0
 bar_mode: stacked_by_category
-legend_show: true
+legend_show: false
 legend_position: right
 legend_font_size: 12px
 default_color: '#F4511E'

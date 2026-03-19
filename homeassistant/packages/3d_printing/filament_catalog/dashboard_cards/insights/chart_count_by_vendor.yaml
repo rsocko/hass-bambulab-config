@@ -5,4 +5,5 @@ value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: count_by_vendor_json
 max_items: 12
-default_color: '#43A047'
+horizontal: false
+default_color: '#66BB6A'

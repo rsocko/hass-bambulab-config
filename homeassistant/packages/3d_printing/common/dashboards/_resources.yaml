@@ -2,5 +2,5 @@
   type: module
 - url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
   type: module
-- url: /local/3d_printing/filament_catalog/apex-direct-bar-card.js?v=9
+- url: /local/3d_printing/filament_catalog/apex-direct-bar-card.js?v=11
   type: module
