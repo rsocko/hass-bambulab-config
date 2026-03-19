@@ -29,7 +29,7 @@ catalog_spool_popup:
 
       const firstUsed = entity?.attributes?.first_used;
       const historyModeEntity = 'input_select.filament_catalog_history_range';
-      const historyMode = states[historyModeEntity]?.state || 'Last 30 Days';
+      const historyMode = states[historyModeEntity]?.state || 'Full History';
       const useFullHistory = historyMode === 'Full History';
       let historyHours = 168, historyLabel = '7 days';
       if (firstUsed) {
@@ -191,16 +191,6 @@ catalog_spool_popup:
                   type: 'markdown',
                   content: otherSpoolsMd
                 }] : []),
-                // --- History range selector ---
-                {
-                  type: 'entities',
-                  entities: [
-                    {
-                      entity: historyModeEntity,
-                      name: 'History Range'
-                    }
-                  ]
-                },
                 // --- Weight history chart ---
                 {
                   type: 'custom:apexcharts-card',
