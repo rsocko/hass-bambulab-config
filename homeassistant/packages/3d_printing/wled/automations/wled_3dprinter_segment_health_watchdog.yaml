@@ -1,0 +1,88 @@
+# Periodic watchdog that detects WLED DigQuad segment layout collapse during
+# active states and recovers by re-applying the SM Base Layout + current preset.
+# Addresses known WLED firmware bug where 15-segment layout collapses to ~5
+# segments mid-print, leaving all LEDs on the default amber color.
+- alias: "WLED 3D Printer - Segment Health Watchdog"
+  id: wled_3dprinter_segment_health_watchdog
+  description: >-
+    Every 5 minutes during active states (S3_PRINTING, S2_PREP, S4_PAUSED_USER,
+    S5_PAUSED_ERROR), checks whether segment 14 is still available.
+    If segments have collapsed, re-applies SM Base Layout, waits for segment
+    re-creation, then re-applies the current state preset and overlays.
+  mode: single
+  triggers:
+    - trigger: time_pattern
+      minutes: "/5"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('input_select.wled_3dprinter_core_state') in
+           ['S2_PREP', 'S3_PRINTING', 'S4_PAUSED_USER', 'S5_PAUSED_ERROR',
+            'S6_FINISHING', 'S7_MAINTENANCE'] }}
+    - condition: template
+      value_template: >-
+        {{ states('light.dig_quad_v3_segment_14') in ['unavailable', 'unknown'] }}
+    - condition: state
+      entity_id: device_tracker.wled_dig_quad_v3
+      state: "home"
+  actions:
+    - action: logbook.log
+      data:
+        name: WLED Segment Watchdog
+        message: >-
+          Segment layout collapse detected (seg14={{ states('light.dig_quad_v3_segment_14') }}).
+          Re-applying SM Base Layout and state preset for {{ states('input_select.wled_3dprinter_core_state') }}.
+    - action: select.select_option
+      target:
+        entity_id: select.dig_quad_v3_preset
+      data:
+        option: "SM Base Layout"
+    - delay:
+        seconds: 3
+    - action: script.wled_3dprinter_apply_core_state_to_presets
+      data: {}
+    - if:
+        - condition: state
+          entity_id: input_select.wled_3dprinter_core_state
+          state: S3_PRINTING
+      then:
+        - delay:
+            milliseconds: 500
+        - action: script.wled_3dprinter_apply_active_tray_overlay
+          data: {}
+        - action: script.wled_3dprinter_apply_progress_overlay
+          data: {}
+    - if:
+        - condition: state
+          entity_id: input_select.wled_3dprinter_core_state
+          state: S1_IDLE
+      then:
+        - delay:
+            seconds: 2
+        - action: script.wled_3dprinter_apply_idle_telemetry_overlays
+          data: {}
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('input_select.wled_3dprinter_core_state') in ['S4_PAUSED_USER', 'S5_PAUSED_ERROR'] }}
+      then:
+        - delay:
+            milliseconds: 500
+        - action: script.wled_3dprinter_apply_progress_overlay
+          data: {}
+    - if:
+        - condition: state
+          entity_id: input_select.wled_3dprinter_core_state
+          state: S5_PAUSED_ERROR
+      then:
+        - action: script.wled_3dprinter_apply_error_tray_overlay
+          data: {}
+    - action: logbook.log
+      data:
+        name: WLED Segment Watchdog
+        message: >-
+          Recovery complete. seg14={{ states('light.dig_quad_v3_segment_14') }},
+          preset={{ states('select.dig_quad_v3_preset') }}
