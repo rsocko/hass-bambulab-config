@@ -28,9 +28,6 @@ cards:
           cards:
             - !include insights/chart_weight_by_color_family.yaml
             - !include insights/chart_count_by_color_family.yaml
-        - type: horizontal-stack
-          cards:
-            - !include insights/chart_weight_by_primary_color_stacked.yaml
-            - !include insights/chart_count_by_primary_color.yaml
+        - !include insights/chart_weight_by_primary_color_stacked.yaml
         - !include insights/chart_alert_counts.yaml
         - !include insights/card_data_quality_reports.yaml

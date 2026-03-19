@@ -28,12 +28,17 @@ catalog_spool_popup:
       const chartTheme = lum > 128 ? 'dark' : 'light';
 
       const firstUsed = entity?.attributes?.first_used;
+      const historyModeEntity = 'input_select.filament_catalog_history_range';
+      const historyMode = states[historyModeEntity]?.state || 'Full History';
+      const useFullHistory = historyMode === 'Full History';
       let historyHours = 168, historyLabel = '7 days';
       if (firstUsed) {
         const raw = Math.max(1, Math.floor((Date.now() - new Date(firstUsed)) / 86400000));
-        const d = Math.min(raw, 30);
+        const d = useFullHistory ? raw : Math.min(raw, 30);
         historyHours = d * 24;
-        historyLabel = d + (d === 1 ? ' day' : ' days') + (raw > 30 ? ' (last 30)' : '');
+        historyLabel = useFullHistory
+          ? d + (d === 1 ? ' day' : ' days') + ' (full)'
+          : d + (d === 1 ? ' day' : ' days') + (raw > 30 ? ' (last 30)' : '');
       }
       const statsPeriod = historyHours > 168 ? 'day' : 'hour';
 
