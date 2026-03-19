@@ -83,6 +83,29 @@
             {%- endif -%}
           {%- endfor -%}
           {{ buckets.data | tojson }}
+        count_by_type_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set raw = spool.attributes.get('filament_extra_type_details', '') | string -%}
+              {%- set cleaned = raw | replace('[', '') | replace(']', '') | replace('"', '') -%}
+              {%- set found = namespace(any=false, seen=[]) -%}
+              {%- for t in cleaned.split(',') -%}
+                {%- set key = t | trim -%}
+                {%- if key and key not in ['unknown', 'unavailable', 'None', 'none'] and key not in found.seen -%}
+                  {%- set found.any = true -%}
+                  {%- set found.seen = found.seen + [key] -%}
+                  {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {%- if not found.any -%}
+                {%- set buckets.data = buckets.data | combine({'Unknown': (buckets.data.get('Unknown', 0) | int(0)) + 1}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ buckets.data | tojson }}
         count_by_color_family_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}

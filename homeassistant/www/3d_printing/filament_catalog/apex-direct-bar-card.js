@@ -288,7 +288,9 @@ class ApexDirectBarCard extends HTMLElement {
   _buildChartOptions(rows, self) {
     var chartType = this._config.chart_type === "donut"
       ? "donut"
-      : (this._config.chart_type === "treemap" ? "treemap" : "bar");
+      : (this._config.chart_type === "treemap"
+        ? "treemap"
+        : (this._config.chart_type === "radar" ? "radar" : "bar"));
     var labels = rows.map(function (r) { return String(r.x || ""); });
     var colors = rows.map(function (r) { return r.fillColor || self._config.default_color; });
     var isDark = !!(this._hass && this._hass.themes && this._hass.themes.darkMode);
@@ -410,6 +412,82 @@ class ApexDirectBarCard extends HTMLElement {
         },
         grid: {
           strokeDashArray: 0,
+          borderColor: gridColor,
+        },
+      };
+    }
+
+    if (chartType === "radar") {
+      return {
+        chart: {
+          type: "radar",
+          height: this._config.height,
+          foreColor: textColor,
+          toolbar: { show: false },
+          animations: { enabled: false },
+          events: {
+            dataPointSelection: function (_event, _chartCtx, opts) {
+              self._handlePointSelection(opts);
+            },
+          },
+        },
+        series: this._buildSeries(rows),
+        labels: labels,
+        colors: [this._config.default_color],
+        stroke: {
+          width: 2,
+        },
+        fill: {
+          opacity: 0.2,
+        },
+        markers: {
+          size: 4,
+        },
+        xaxis: {
+          labels: {
+            style: {
+              colors: labels.map(function () { return textColor; }),
+            },
+          },
+        },
+        yaxis: {
+          labels: {
+            style: {
+              colors: [textColor],
+            },
+            formatter: function (value) {
+              return self._formatValue(value);
+            },
+          },
+        },
+        dataLabels: {
+          enabled: true,
+          formatter: function (value) {
+            return self._formatValue(value);
+          },
+          style: {
+            colors: [strongTextColor],
+          },
+        },
+        legend: {
+          show: this._config.legend_show,
+          position: this._config.legend_position,
+          labels: {
+            colors: textColor,
+            useSeriesColors: false,
+          },
+          fontSize: this._config.legend_font_size,
+        },
+        tooltip: {
+          theme: isDark ? "dark" : "light",
+          y: {
+            formatter: function (value) {
+              return self._formatValue(value);
+            },
+          },
+        },
+        grid: {
+          strokeDashArray: 3,
           borderColor: gridColor,
         },
       };

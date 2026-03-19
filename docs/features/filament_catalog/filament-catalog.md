@@ -1,7 +1,7 @@
 # Filament Catalog — Design Document
 
 > **Status**: Phase 1–4 complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
-> **Last updated**: 2026-03-18
+> **Last updated**: 2026-03-19
 
 ## Problem Statement
 
@@ -722,13 +722,13 @@ Phase 5A delivers the core metrics panel using data already present on `sensor.s
 
 | Chart | Type | Data Source | Issue | Notes |
 |---|---|---|---|---|
-| Weight by Material | Pie/Bar | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
+| Weight by Material | Tree map | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `custom:apex-direct-bar-card` with `chart_type: treemap` |
 | Weight by Vendor | Pie/Bar | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
 | Weight by Color Family | Pie/Bar | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
 | Spools per Location | Bar | Count of spools grouped by `location` | — | |
-| Weight by Primary Color | Stacked Bar | `filament_extra_primary_color` + `filament_color_hex` + `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as a stacked bar with real filament colors |
+| Weight by Primary Color | Stacked Bar | `filament_extra_primary_color` + `filament_color_hex` + `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as a stacked bar with real filament colors and `max_items: 0` (show all filaments) |
 
-These charts answer: "How is my filament inventory distributed?" All data is directly available from spool entity attributes. The pie charts use `remaining_weight` (not `initial_weight`) to reflect *current* inventory value rather than what was purchased.
+These charts answer: "How is my filament inventory distributed?" All data is directly available from spool entity attributes. These distribution charts use `remaining_weight` (not `initial_weight`) to reflect *current* inventory value rather than what was purchased.
 
 ##### 5A.1.1 — Inventory Distribution Charts (by count of Spool)
 
@@ -737,9 +737,10 @@ These charts answer: "How is my filament inventory distributed?" All data is dir
 | Count by Material | Pie/Bar | Count of spools grouped by `filament_material` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
 | Count by Vendor | Pie/Bar | Count of spools grouped by `filament_vendor_name` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
 | Count by Color Family | Pie/Bar | Count of spools grouped by `filament_extra_color_family` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
-| Count by Primary Color | Pie/Bar | Count of spools grouped by `filament_extra_primary_color` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
 
 These charts answer: "How is my filament inventory distributed but using count instead of weight?" All data is directly available from spool entity attributes.
+
+> **Update**: The dedicated "Count by Primary Color" chart was removed from the insights panel.
 ##### 5A.2 — Alert Aggregation Charts
 
 Instead of a standalone alert summary card or dedicated alert tab, alert counts appear as chart segments. Phase 3's card visuals already handle per-spool indicators; this answers "how many of each problem do I have?" at a glance.
@@ -780,11 +781,13 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 │
 ├── [📊 Show Insights]  ← input_boolean toggle or mushroom chip
 │   └── Collapsible Metrics Panel (shown when toggle is on)
-│       ├── Row 1: [Pie: Weight by Material] [Pie: Weight by Vendor]
-│       ├── Row 2: [Bar: Spools per Location]
-│       ├── Row 3: [Bar: Alert Counts by Type]  ← clickable segments
-│       ├── Row 4: [Data Quality: Issues Found]  ← compact list
-│       └── (Rows 5+: added incrementally by 5B–5D)
+│       ├── Row 1: [Tree map: Weight by Material] [Donut: Count by Material]
+│       ├── Row 2: [Bar: Weight by Vendor] [Bar: Count by Vendor]
+│       ├── Row 3: [Bar: Weight by Color Family] [Bar: Count by Color Family]
+│       ├── Row 4: [Stacked Bar: Weight by Primary Color (all filaments)]
+│       ├── Row 5: [Bar: Alert Counts by Type]  ← clickable segments
+│       ├── Row 6: [Data Quality: Issues Found]  ← compact list
+│       └── (Rows 7+: added incrementally by 5B–5D)
 │
 ├── Filter Bar (existing)
 └── Single auto-entities grid (existing)
@@ -809,7 +812,7 @@ Chart segments are **interactive** — tapping a segment applies the correspondi
 
 | Chart | Click Action |
 |---|---|
-| Pie: Weight by Material → "PLA" slice | Sets `input_select.filament_catalog_filter_material` to `PLA` |
+| Tree map: Weight by Material → "PLA" tile | Sets `input_select.filament_catalog_filter_material` to `PLA` |
 | Bar: Spools per Location → "AMS" bar | Sets `input_select.filament_catalog_filter_location` to `AMS` |
 | Bar: Alert Counts → "Desiccant Overdue" bar | Turns on `input_boolean.filament_catalog_filter_desiccant_old` |
 | Bar: Alert Counts → "Low Stock" bar | Turns on `input_boolean.filament_catalog_filter_low_stock` |
@@ -859,16 +862,15 @@ filament_catalog/
 ├── dashboard_cards/
 │   ├── catalog_insights_panel.yaml          ← wrapper: conditional on toggle + vertical-stack
 │   ├── insights/
-│   │   ├── chart_weight_by_material.yaml    ← apexcharts-card (pie)
-│   │   ├── chart_weight_by_vendor.yaml      ← apexcharts-card (pie)
-│   │   ├── chart_weight_by_color_family.yaml ← apexcharts-card (pie)
+│   │   ├── chart_weight_by_material.yaml    ← custom apex-direct-bar-card (treemap)
+│   │   ├── chart_weight_by_vendor.yaml      ← custom apex-direct-bar-card (bar)
+│   │   ├── chart_weight_by_color_family.yaml ← custom apex-direct-bar-card (bar)
 │   │   ├── chart_weight_by_primary_color_stacked.yaml ← stacked color segments
 │   │   ├── chart_count_by_material.yaml     ← count distribution
 │   │   ├── chart_count_by_vendor.yaml       ← count distribution
 │   │   ├── chart_count_by_color_family.yaml ← count distribution
-│   │   ├── chart_count_by_primary_color.yaml ← count distribution
-│   │   ├── chart_spools_by_location.yaml    ← apexcharts-card (bar)
-│   │   ├── chart_alert_counts.yaml          ← apexcharts-card (horizontal bar, clickable)
+│   │   ├── chart_spools_by_location.yaml    ← custom apex-direct-bar-card (bar)
+│   │   ├── chart_alert_counts.yaml          ← custom apex-direct-bar-card (horizontal bar, clickable)
 │   │   ├── card_data_quality_reports.yaml   ← button-card list of data quality issues
 │   │   └── (future sub-phase charts added here)
 │   └── ...

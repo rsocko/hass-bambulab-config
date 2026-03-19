@@ -1,9 +1,9 @@
 type: custom:apex-direct-bar-card
-title: Count by Vendor
+title: Count by Type
 height: 280
+chart_type: radar
 value_name: spools
 source_entity: sensor.filament_catalog_metrics
-source_attribute: count_by_vendor_json
+source_attribute: count_by_type_json
 max_items: 12
-horizontal: false
 default_color: '#66BB6A'
