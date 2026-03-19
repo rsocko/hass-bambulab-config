@@ -1,0 +1,7 @@
+filament_catalog_history_range:
+  name: Filament Catalog History Range
+  options:
+    - Last 30 Days
+    - Full History
+  initial: Last 30 Days
+  icon: mdi:chart-timeline-variant
