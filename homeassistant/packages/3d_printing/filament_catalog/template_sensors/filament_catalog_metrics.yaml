@@ -211,7 +211,8 @@
               'weight': grams | round(1)
             }] -%}
           {%- endfor -%}
-          {{ segs.items | sort(attribute='weight', reverse=true)[:20] | tojson }}
+          {%- set sorted_segs = segs.items | sort(attribute='weight', reverse=true) -%}
+          {{ sorted_segs[:20] | tojson }}
         primary_color_count_stack_segments_json: >-
           {%- set stacks = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
@@ -240,7 +241,8 @@
               'count': cnt | int(0)
             }] -%}
           {%- endfor -%}
-          {{ segs.items | sort(attribute='count', reverse=true)[:20] | tojson }}
+          {%- set sorted_segs = segs.items | sort(attribute='count', reverse=true) -%}
+          {{ sorted_segs[:20] | tojson }}
         spools_by_location_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
