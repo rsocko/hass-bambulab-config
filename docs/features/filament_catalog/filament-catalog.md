@@ -1,7 +1,7 @@
 # Filament Catalog — Design Document
 
 > **Status**: Phase 1–4 complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
-> **Last updated**: 2026-03-16
+> **Last updated**: 2026-03-18
 
 ## Problem Statement
 
@@ -420,7 +420,7 @@ The popup is split into two templates for performance:
 │ ─────────────────────────────────────────────────── │
 │  [🔥 Mark as Dried]  [💧 Mark Desiccant Refilled]  │  ← 2-col action row (catalog_spool_popup)
 │                                                      │
-│  📈 Weight History (up to 30 days)                  │  ← apexcharts-card with annotations:
+│  📈 Weight History (default: full history)          │  ← apexcharts-card with annotations:
 │  ┌──────────────────────────────────────────┐       │     🟢 First Use  🔵 Desiccant  🟠 Last Dried
 │  │  ╲              adaptive theme           │       │     hour period ≤7d, day period >7d
 │  │    ╲___         ╲   (light/dark based    │       │     animations disabled for speed
@@ -441,6 +441,7 @@ Key design choices:
 - **Reload** — Calls `homeassistant.update_entity`, waits 1.5s, then closes popup
 - **Open in Spoolman** — Direct link to `http://spoolman.socko.us/spool/show/{id}`
 - **Adaptive chart theme** — Background and text color flip based on filament color luminance
+- **History range behavior** — Chart span is controlled by `input_select.filament_catalog_history_range` (`Last 30 Days` / `Full History`). The popup no longer renders a range dropdown; default helper value is `Full History`, and it can be changed manually via HA entity tools.
 
 #### Inventory KPI Summary (Top of View)
 
@@ -492,6 +493,7 @@ At 165 spools, client-side filtering via `config-template-card` is too slow. Ins
 | `input_select.filament_catalog_filter_type` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_location` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_sealed` | input_select | `All`, `Sealed`, `Unsealed` (static) |
+| `input_select.filament_catalog_history_range` | input_select | Popup chart history control: `Last 30 Days` or `Full History` (default `Full History`) |
 | `input_text.filament_catalog_search` | input_text | Free-text search across name, vendor, color |
 | `input_number.filament_catalog_stock_threshold` | input_number | Default 150g, min 0, max 500 |
 | `input_boolean.filament_catalog_filter_low_stock` | input_boolean | Toggle: show only low-stock spools |
