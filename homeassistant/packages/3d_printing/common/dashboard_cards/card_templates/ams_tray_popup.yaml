@@ -338,52 +338,26 @@ ams_tray_popup:
                     }]
                   : (shouldOfferSetUUID
                     ? [{
-                        type: 'custom:button-card',
-                        name: 'Set UUID',
-                        label: trayUUIDRaw,
-                        show_label: true,
-                        icon: 'mdi:identifier-plus',
-                        show_icon: true,
-                        tap_action: {
-                          action: 'call-service',
-                          service: 'spoolman.patch_spool',
-                          service_data: {
-                            id: spoolIdInt,
-                            extra: { spool_uuid: trayUUIDRaw }
+                        type: 'custom:mushroom-chips-card',
+                        alignment: 'center',
+                        chips: [
+                          {
+                            type: 'template',
+                            icon: 'mdi:identifier-plus',
+                            icon_color: 'white',
+                            content: 'Set UUID: ' + trayUUIDRaw,
+                            tap_action: {
+                              action: 'call-service',
+                              service: 'spoolman.patch_spool',
+                              service_data: {
+                                id: spoolIdInt,
+                                extra: { spool_uuid: trayUUIDRaw }
+                              }
+                            }
                           }
-                        },
-                        styles: {
-                          grid: [
-                            { 'grid-template-areas': '"i n" "i l"' },
-                            { 'grid-template-columns': 'min-content 1fr' },
-                            { 'grid-template-rows': 'min-content min-content' },
-                            { 'align-items': 'center' },
-                            { gap: '0 8px' }
-                          ],
-                          card: [
-                            { background: 'var(--primary-color)' },
-                            { 'box-shadow': 'none' },
-                            { 'border-radius': '8px' },
-                            { padding: '8px 10px' }
-                          ],
-                          icon: [
-                            { color: 'white' },
-                            { width: '20px' },
-                            { height: '20px' }
-                          ],
-                          name: [
-                            { color: 'white' },
-                            { 'font-weight': '700' },
-                            { 'font-size': '12px' },
-                            { 'text-align': 'left' }
-                          ],
-                          label: [
-                            { color: 'white' },
-                            { opacity: '0.9' },
-                            { 'font-size': '11px' },
-                            { 'text-align': 'left' },
-                            { 'word-break': 'break-all' }
-                          ]
+                        ],
+                        card_mod: {
+                          style: 'mushroom-template-chip { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-icon-color: white; --chip-text-color: white; font-weight: 700; }'
                         }
                       }]
                     : [])),
