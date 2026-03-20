@@ -39,8 +39,8 @@
           ├─► For each AMS tray used:
           │   Extract tray data (UUID, color, type)
           │
-          ├─► Call Find Spool Script
-          │   (find_matching_spool_in_spoolman)
+          ├─► Call shared resolver script
+          │   (resolve_matching_spool_from_tray_map)
           │
           ▼
    ┌──────────────────────────────────┐

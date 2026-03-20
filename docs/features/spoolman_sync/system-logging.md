@@ -48,6 +48,10 @@ This allows you to filter logs specifically for Bambu Lab Spoolman sync operatio
 
 ## Log Messages by Automation
 
+> Current architecture note: runtime matching in automations uses the shared
+> resolver script `resolve_matching_spool_from_tray_map` (fed by
+> `sensor.spoolman_tray_map`).
+
 ### Active Tray Changed (`active_tray_changed_update_spoolman.yaml`)
 
 **Success Messages (INFO):**
@@ -65,7 +69,10 @@ This allows you to filter logs specifically for Bambu Lab Spoolman sync operatio
 **Error Messages (ERROR):**
 - "Print Complete ERROR: Cannot find spool in Spoolman for {tray}. Task: {task_name}. UUID: {uuid}, Type: {type}, Color: {color}. Used {weight} grams. Error: {message}"
 
-### Find Matching Spool Script (`find_matching_spool_in_spoolman-script.yaml`)
+### Legacy Comparator Script (`find_matching_spool_in_spoolman-script.yaml`)
+
+This script is retained for validation/diagnostic comparison, not as the primary
+runtime matching path for print-complete or active-tray automations.
 
 **Warning Messages (WARNING):**
 - "Find Matching Spool: No spools found. Target Type: {type}, Color: {color}, Name: {name}"

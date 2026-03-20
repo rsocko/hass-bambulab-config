@@ -110,17 +110,10 @@
               message: >-
                 Skipped spool sync due to incomplete tray data.
           - stop: Skip incomplete tray data state
-  - action: script.find_matching_spool_in_spoolman
+  - action: script.resolve_matching_spool_from_tray_map
     metadata: {}
     data:
-      parameters:
-        target_color_hex: "{{ active_tray.color }}"
-        target_type: "{{ active_tray.type }}"
-        target_uuid: "{{ active_tray.uuid }}"
-        remaining_enabled: false
-        remaining_percent: "{{ active_tray.remain }}"
-        tray_weight: 1000
-        target_name: "{{ active_tray.name }}"
+      tray_entity_id: "{{ active_tray_source }}"
     response_variable: find_spool_response
   - alias: Take action if Spool was found (or error if not)
     choose:
@@ -286,17 +279,4 @@
                 active_tray.uuid | length > 0 and not active_tray.uuid |
                 regex_match('^0+$') else active_tray.color ~ '_' ~
                 active_tray.type }}
-  - variables:
-      needUUIDUpdate: >-
-        {{ active_tray.uuid is not none and active_tray.uuid | length > 0 and
-        active_tray.uuid | regex_match('^0+$') == false and
-        find_spool_response.spool.tray_uuid | length == 0 and
-        find_spool_response.spool.filament.vendor.name == 'Bambu Lab'  }}
-      activeTrayNotNone: "{{ active_tray.uuid is not none }}"
-      activeTrayUuidLengthBiggerThanZero: "{{ active_tray.uuid | length > 0 }}"
-      uuidNotZeros: "{{ active_tray.uuid | regex_match('^0+$') == false }}"
-      spoolHasNoUUID: "{{ find_spool_response.spool.tray_uuid | length == 0 }}"
-      spoolHasNoUUIDv2: "{{ find_spool_response.spool.extra.spool_uuid | length == 0 }}"
-      isBambuLab: "{{ find_spool_response.spool.filament.vendor.name == 'Bambu Lab'  }}"
-    enabled: false
   mode: single

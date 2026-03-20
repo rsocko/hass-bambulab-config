@@ -9,6 +9,15 @@
 
 Two independent implementations perform the same conceptual task — match a physical spool in an AMS tray (or external spool holder) to a spool record in Spoolman. They differ in data source, matching criteria, disambiguation depth, and feature scope. Several of these differences introduce functional gaps and potential false matches in the template sensor (dashboard) path.
 
+### Implementation Status (2026-03-19)
+
+Option A was implemented in this repository:
+- Matching authority moved to `sensor.spoolman_tray_map` for active-tray and print-complete update paths
+- Template matcher updated with UUID miss fallthrough, color+material matching, vendor-aware Bambu fallback, and AMS disambiguation
+- Sealed spool exclusion remains intentional in template matching
+- Legacy script matcher retained for diagnostics and parity testing
+- New self-test added to validate template-vs-legacy matching parity
+
 | Aspect | Template Sensor (`spoolman_tray_map`) | Script (`find_matching_spool_in_spoolman`) |
 |--------|---------------------------------------|-------------------------------------------|
 | Location | `core/template_sensors/spoolman_tray_map.yaml` | `spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml` |
@@ -198,6 +207,8 @@ Align the template sensor's matching criteria with the script's, but accept they
 | Add External Spool 2 to template tray dict | Low | Trivial |
 | Have print-complete automation read tray_map instead of calling script | Medium | Medium |
 
+Status: Completed (core matching consumers now read `sensor.spoolman_tray_map`).
+
 ### 5.3 Keeping Logic in Sync (If Option C is Chosen)
 
 If both implementations are kept:
@@ -338,6 +349,8 @@ Some differences between the two paths are intentional and should remain:
 3. Add Bambu-aware vendor filter (context-sensitive based on whether UUID was tried)
 4. Verify template matches the script's behavior for the top 5 scenarios
 
+Status: Completed.
+
 ### Phase 2 — Add Disambiguation to Template (Short-term)
 
 5. Add AMS location preference when multiple color+type matches
@@ -345,15 +358,23 @@ Some differences between the two paths are intentional and should remain:
 7. Add External Spool 2 to tray dict
 8. Add profile_name matching if Spoolman HA integration exposes it via entity attributes
 
+Status: Completed for AMS disambiguation and profile-aware matching when profile attributes are exposed.
+
 ### Phase 3 — Evaluate Automation Consumption of Tray Map (Medium-term)
 
 9. For `active_tray_changed` automation: evaluate reading `sensor.spoolman_tray_map` attribute to get the pre-matched spool ID, then only calling Spoolman API for write operations (update UUID, update last_used)
 10. For `print_complete` automation: keep the script path since it needs backup/restore logic and per-tray weight data that operates differently
 
+Status: Implemented with `tray_map` as matcher while preserving existing backup/restore and write-path behavior.
+
 ### Phase 4 — Cross-Validation (Ongoing)
 
 11. Add a diagnostic script or template sensor that compares tray_map results against script results and flags mismatches
 12. Document the unified matching algorithm as a specification in `docs/features/spoolman_sync/matching-algorithm-spec.md`
+
+Status:
+- Item 11 completed via `script.spool_matching_logic_self_test`
+- Item 12 remains optional future documentation work
 
 ---
 

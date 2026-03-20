@@ -14,11 +14,15 @@
         'ams_2_tray_3': 'sensor.p1s_01p00c460102350_ams_2_tray_3',
         'ams_2_tray_4': 'sensor.p1s_01p00c460102350_ams_2_tray_4',
 
-        'external_spool' : 'sensor.ntk_ryansoffice_3dprinter_external_spool'
+        'external_spool' : 'sensor.ntk_ryansoffice_3dprinter_external_spool',
+        'external_spool_2' : 'sensor.ntk_ryansoffice_3dprinter_external_spool2'
       } %}
 
-      {% set spool_entities = states.sensor
-        | selectattr('entity_id', 'match', 'sensor\\.spoolman_spool_\\d+$')
+      {% set spool_entity_ids = integration_entities('spoolman')
+        | select('match', '^sensor\\.spoolman_spool_\\d+$')
+        | list
+      %}
+      {% set spool_entities = expand(spool_entity_ids)
         | rejectattr('attributes.extra_sealed', 'equalto', true)
         | list
       %}
@@ -26,13 +30,15 @@
       {% set EMPTY_UUID = '00000000000000000000000000000000' %}
       {% set EMPTY_COLOR = 'none' %}
       {% set empty_tray_result = {
+        'spool_entity_id': none,
         'spool_id': none,
         'name': 'Empty',
         'desiccant': none,
         'filled': none,
         'status': 'empty',
         'color': none,
-        'reason': none
+        'reason': none,
+        'match_strategy': none
       } %}
 
       {% set ns = namespace(result={}) %}
@@ -40,8 +46,11 @@
 
       {% for tray_name, tray_entity in trays.items() %}
         {% set tray_type = state_attr(tray_entity, 'type') %}
-        {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') %}
-        {% set tray_color = state_attr(tray_entity, 'color') | lower %}
+        {% set tray_uuid = state_attr(tray_entity, 'tray_uuid') | default('', true) | string %}
+        {% set tray_uuid_normalized = tray_uuid | trim('"') | lower %}
+        {% set tray_color = state_attr(tray_entity, 'color') | default('', true) | string | lower %}
+        {% set tray_profile_name = state_attr(tray_entity, 'name') | default('', true) | string %}
+        {% set tray_material = tray_type | default('', true) | string %}
 
         {# --- EMPTY TRAY HANDLING --- #}
         {% if tray_type == 'Empty' %}
@@ -52,11 +61,11 @@
         {# --- EMPTY EXTERNAL SPOOL HANDLING --- #}
         {# External spool does not have 'type' attribute like AMS trays do #}
         {# Detection signals: name='Empty', UUID=all zeros, color alpha=00 #}
-        {% if tray_name == 'external_spool' %}
+        {% if tray_name.startswith('external_spool') %}
           {% set ext_name = state_attr(tray_entity, 'name') %}
           {% set has_zero_alpha = (tray_color | length >= 8 and tray_color[-2:] == '00')
                 or (tray_color | replace('#','') | length == 8 and tray_color[-2:] == '00') %}
-          {% set is_uuid_empty = (not tray_uuid or tray_uuid == '' or tray_uuid == EMPTY_UUID) %}
+          {% set is_uuid_empty = (not tray_uuid_normalized or tray_uuid_normalized == '' or tray_uuid_normalized == EMPTY_UUID) %}
           {% set is_color_empty = (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR or has_zero_alpha) %}
           {% if ext_name == 'Empty' or (is_uuid_empty and is_color_empty) %}
             {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
@@ -75,34 +84,79 @@
           {% endif %}
         {% endif %}
 
-        {% set match = none %}
+        {% set match = [] %}
         {% set spool_entity = none %}
         {% set match_reason = none %}
+        {% set match_strategy = none %}
+        {% set tried_uuid = false %}
+        {% set is_bambu_path = false %}
 
-        {% if tray_uuid and tray_uuid != '' and tray_uuid != EMPTY_UUID %}
+        {% if tray_uuid_normalized and tray_uuid_normalized != '' and tray_uuid_normalized != EMPTY_UUID and not tray_uuid_normalized | regex_match('^0+$') %}
+          {% set tried_uuid = true %}
+          {% set is_bambu_path = true %}
           {# Match by tray_uuid #}
-          {% set match = spool_entities | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid) | list %}
+          {% set ns_uuid = namespace(spools=[]) %}
+          {% for s in spool_entities %}
+            {% set spool_uuid = s.attributes.extra_spool_uuid | default('', true) | string | trim('"') | lower %}
+            {% if spool_uuid == tray_uuid_normalized %}
+              {% set ns_uuid.spools = ns_uuid.spools + [s] %}
+            {% endif %}
+          {% endfor %}
+          {% set match = ns_uuid.spools %}
           {% if match | length > 1 %}
-            {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid ~ ' - ensure UUIDs are unique' %}
+            {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid_normalized ~ ' - ensure UUIDs are unique' %}
             {% set match = [] %}
-          {% elif match | length == 0 %}
-            {% set match_reason = 'No unsealed spool with UUID ' ~ tray_uuid %}
+          {% elif match | length == 1 %}
+            {% set match_strategy = 'uuid' %}
           {% endif %}
-        {% else %}
-          {# Fallback: Match by color (case-insensitive), exclude Bambu Lab filament #}
+        {% endif %}
+
+        {% if match | length == 0 and match_reason is none %}
+          {# Fallback: Match by color + material with vendor-aware behavior #}
           {% set ns_color = namespace(spools=[]) %}
           {% for s in spool_entities %}
-            {% if s.attributes.filament_color_hex | default('') | lower == tray_color
-                and s.attributes.filament_vendor_name | default('') != 'Bambu Lab' %}
+            {% set spool_color = s.attributes.filament_color_hex | default('', true) | string | lower %}
+            {% set spool_material = s.attributes.filament_material | default('', true) | string %}
+            {% set spool_vendor = s.attributes.filament_vendor_name | default('', true) | string %}
+            {% set spool_profile = s.attributes.filament_extra_profile_name | default(s.attributes.extra_profile_name | default('', true), true) | string %}
+            {% if spool_color.startswith('#') %}
+              {% set spool_color = spool_color[1:] %}
+            {% endif %}
+            {% if spool_color | length == 8 %}
+              {% set spool_color = spool_color[0:6] %}
+            {% endif %}
+            {% set vendor_ok = (spool_vendor == 'Bambu Lab') if is_bambu_path else (spool_vendor != 'Bambu Lab') %}
+            {% set profile_ok = (spool_profile == tray_profile_name) if (is_bambu_path and tray_profile_name | length > 0 and spool_profile | length > 0) else true %}
+            {% if spool_color == tray_color
+                and spool_material == tray_material
+                and vendor_ok
+                and profile_ok %}
               {% set ns_color.spools = ns_color.spools + [s] %}
             {% endif %}
           {% endfor %}
           {% set match = ns_color.spools %}
+
           {% if match | length > 1 %}
-            {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color %}
-            {% set match = [] %}
+            {# Prefer spools marked as in AMS location if exactly one candidate is in AMS #}
+            {% set ams_matches = match | selectattr('attributes.location', 'equalto', 'AMS') | list %}
+            {% if ams_matches | length == 1 %}
+              {% set match = ams_matches %}
+              {% set match_strategy = 'color_type_ams_preference' %}
+            {% elif ams_matches | length > 1 %}
+              {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color ~ ' and type ' ~ tray_material ~ ' found in AMS' %}
+              {% set match = [] %}
+            {% else %}
+              {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color ~ ' and type ' ~ tray_material ~ ', none in AMS' %}
+              {% set match = [] %}
+            {% endif %}
           {% elif match | length == 0 %}
-            {% set match_reason = 'No unsealed spool with color #' ~ tray_color %}
+            {% if tried_uuid %}
+              {% set match_reason = 'No unsealed Bambu spool matched UUID ' ~ tray_uuid_normalized ~ ' or color #' ~ tray_color ~ ' and type ' ~ tray_material %}
+            {% else %}
+              {% set match_reason = 'No unsealed spool with color #' ~ tray_color ~ ' and type ' ~ tray_material %}
+            {% endif %}
+          {% else %}
+            {% set match_strategy = 'color_type' %}
           {% endif %}
         {% endif %}
 
@@ -145,25 +199,29 @@
 
           {% set ns.result = ns.result | combine({
             tray_name: {
+              'spool_entity_id': spool_entity.entity_id,
               'spool_id': spool_id,
               'name': spool_name,
               'desiccant': desiccant,
               'filled': filled,
               'status': status,
               'color': tray_color,
-              'reason': none
+              'reason': none,
+              'match_strategy': match_strategy
             }
           }) %}
         {% else %}
           {% set ns.result = ns.result | combine({
             tray_name: {
+              'spool_entity_id': none,
               'spool_id': none,
               'name': 'Unknown Filament',
               'desiccant': none,
               'filled': none,
               'status': 'undefined',
               'color': tray_color,
-              'reason': match_reason
+              'reason': match_reason,
+              'match_strategy': none
             }
           }) %}
         {% endif %}

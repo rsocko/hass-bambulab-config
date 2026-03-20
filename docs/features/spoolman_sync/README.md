@@ -15,12 +15,18 @@ This is a collection of Home Assistant automations & scripts I have configured t
 
 ## Scenarios / Use Cases:
 ### 1. Update filament usage in Spoolman
-Upon completing a print, the filament used will be updated in Spoolman. 
+Upon completing a print, the filament used will be updated in Spoolman.
+Spool selection now comes from `sensor.spoolman_tray_map` (authoritative shared
+matcher).
+The automation resolves the final response via `script.resolve_matching_spool_from_tray_map`.
 
 [Automation Details](print-complete-update-filament-usage.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
 
 ### 2. Update first & last used datetime in Spoolman
 Any time a spool is active in Bambu Lab integration (while printing), it will update the last used datetime in Spoolman for the associated spool. If the spool has never been used it will also update the first used datetime.
+
+This automation also uses `sensor.spoolman_tray_map` as the shared spool matcher.
+The automation resolves matches via `script.resolve_matching_spool_from_tray_map`.
 
 [Automation Details](active-tray-changed-update-spoolman.md) | [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
 
@@ -74,6 +80,34 @@ attributes have time to populate before persistence data is stored.
 
 [Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_weight_persistence_auto_self_test.yaml)
 
+### 7. Spool matching logic consistency self-test
+Run a manual diagnostic script that compares the authoritative template matcher
+(`sensor.spoolman_tray_map`) against the legacy REST matcher script across AMS
+and external trays.
+
+Production automations/scripts use `script.resolve_matching_spool_from_tray_map`
+for centralized match resolution.
+
+**What it checks:**
+- For each configured tray with matchable metadata, compares `success` and matched spool ID
+- Skips trays with incomplete metadata and reports why
+- Produces a pass/fail summary with mismatch details in a persistent notification
+
+[Source .YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml)
+
+### 8. Deterministic spool matching fixture tests (Python)
+For scenario-based regression protection independent of live Home Assistant
+state, this repository also includes deterministic fixture unit tests.
+
+**Coverage examples:**
+- UUID exact/duplicate behavior
+- UUID miss fallback behavior
+- Material-aware color matching
+- AMS tiebreak behavior
+- Sealed spool exclusion behavior
+
+[Test Suite](../../../tests/spool_matching/test_option_a_matching.py) | [Test Docs](../../../tests/spool_matching/README.md)
+
 ## Dependencies & Requirements
 
 > **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it has no dashboard cards of its own (UI is provided via Core template sensors and other features that consume its data).
@@ -90,17 +124,17 @@ attributes have time to populate before persistence data is stored.
 ### Spoolman Configuration Required
 
 - Custom Fields added to Spoolman — see [detailed instructions](spoolman-custom-fields.md)
-- One location in Spoolman called `AMS` (the "find spool" logic checks for spools in that location as an indicator they are active)
-- REST endpoint sensor configured for Spoolman API — see [detailed instructions](sensor-rest-spoolman-api-get-spools.md)
+- One location in Spoolman called `AMS` (used as a tiebreaker when multiple candidates match)
+- REST endpoint sensor configured for Spoolman API — required for legacy matcher and self-test comparison script
 
 ### Prequisites:
 - [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
 - [Spoolman](https://github.com/Donkie/Spoolman) installed and accessible from Home Assistant
 - Custom Fields added to Spoolman as follows: ([detailed instructions](spoolman-custom-fields.md))
-- One location in Spoolman called 'AMS' (since the 'find spool' logic checks for Spools in that location as an indicator that they are the active spool).
+- One location in Spoolman called 'AMS' (used as a tiebreaker when multiple matches exist).
 - [Spoolman integration](https://github.com/Disane87/spoolman-homeassistant) installed (for updating spoolman)
 - [REST integration](https://www.home-assistant.io/integrations/rest/) in Home Assistant installed
-- REST endpoint sensor for Spoolman configured (for retrieving all spools from Spoolman API) ([detailed instructions](sensor-rest-spoolman-api-get-spools.md))
+- REST endpoint sensor for Spoolman configured (for legacy comparison script and diagnostics) ([detailed instructions](sensor-rest-spoolman-api-get-spools.md))
 - Input helpers configured for error logging ([configuration file](../../../homeassistant/packages/3d_printing/spoolman_sync/spoolman_sync_loader.yaml)) - Add this to your Home Assistant configuration
 
 ## Helper YAML Files & Configuration

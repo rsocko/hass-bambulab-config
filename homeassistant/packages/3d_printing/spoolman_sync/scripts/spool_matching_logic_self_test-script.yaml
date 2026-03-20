@@ -1,0 +1,119 @@
+# Docs: docs/features/spoolman_sync/spool-matching-validation-self-test.md
+spool_matching_logic_self_test:
+  alias: Spool Matching Logic Self-Test
+  description: >-
+    Compares the authoritative tray_map matcher against the legacy
+    find_matching_spool_in_spoolman script across AMS and external trays.
+    Reports mismatches so matching regressions can be validated quickly.
+  icon: mdi:test-tube
+  sequence:
+  - variables:
+      trays:
+        ams_1_tray_1: sensor.p1s_01p00c460102350_ams_1_tray_1
+        ams_1_tray_2: sensor.p1s_01p00c460102350_ams_1_tray_2
+        ams_1_tray_3: sensor.p1s_01p00c460102350_ams_1_tray_3
+        ams_1_tray_4: sensor.p1s_01p00c460102350_ams_1_tray_4
+        ams_2_tray_1: sensor.p1s_01p00c460102350_ams_2_tray_1
+        ams_2_tray_2: sensor.p1s_01p00c460102350_ams_2_tray_2
+        ams_2_tray_3: sensor.p1s_01p00c460102350_ams_2_tray_3
+        ams_2_tray_4: sensor.p1s_01p00c460102350_ams_2_tray_4
+        external_spool: sensor.ntk_ryansoffice_3dprinter_external_spool
+        external_spool_2: sensor.ntk_ryansoffice_3dprinter_external_spool2
+      tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
+      checked_count: 0
+      skipped_count: 0
+      mismatch_count: 0
+      report_lines: ""
+
+  - repeat:
+      for_each: "{{ trays | dict2items }}"
+      sequence:
+        - variables:
+            tray_key: "{{ repeat.item.key }}"
+            tray_entity_id: "{{ repeat.item.value }}"
+            tray_uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') | default('', true) | string }}"
+            tray_color: "{{ state_attr(tray_entity_id, 'color') | default('', true) | string | replace('#', '') }}"
+            tray_type: "{{ state_attr(tray_entity_id, 'type') | default('', true) | string }}"
+            tray_name: "{{ state_attr(tray_entity_id, 'name') | default('', true) | string }}"
+            tray_uuid_normalized: "{{ tray_uuid | lower }}"
+            tray_has_valid_uuid: >-
+              {{ tray_uuid | length > 0 and not tray_uuid_normalized | regex_match('^0+$') }}
+            tray_has_matchable_attributes: >-
+              {{ tray_color | length > 0 and tray_type | length > 0 and tray_name | length > 0 }}
+            has_matchable_data: "{{ tray_has_valid_uuid or tray_has_matchable_attributes }}"
+            tray_match: "{{ tray_map.get(tray_key, {}) }}"
+
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ not has_matchable_data }}"
+              sequence:
+                - variables:
+                    skipped_count: "{{ skipped_count + 1 }}"
+                    report_lines: >-
+                      {{ report_lines ~ '\nSKIP ' ~ tray_key ~ ': incomplete tray data (uuid=' ~ tray_uuid ~ ', type=' ~ tray_type ~ ', color=' ~ tray_color ~ ', name=' ~ tray_name ~ ')' }}
+          default:
+            - action: script.find_matching_spool_in_spoolman
+              metadata: {}
+              data:
+                parameters:
+                  target_color_hex: "{{ tray_color }}"
+                  target_type: "{{ tray_type }}"
+                  target_uuid: "{{ tray_uuid }}"
+                  target_name: "{{ tray_name }}"
+              response_variable: legacy_response
+
+            - variables:
+                template_success: "{{ tray_match.spool_id is not none and tray_match.spool_id | string | length > 0 }}"
+                template_spool_id: "{{ tray_match.spool_id if template_success else none }}"
+                template_reason: "{{ tray_match.reason | default('none', true) }}"
+                legacy_success: "{{ legacy_response.success | default(false) }}"
+                legacy_spool_id: "{{ legacy_response.spool.id if legacy_success else none }}"
+                legacy_message: "{{ legacy_response.message | default('none', true) }}"
+                checked_count: "{{ checked_count + 1 }}"
+                is_match: >-
+                  {{ (template_success == legacy_success)
+                     and ((template_spool_id | string) == (legacy_spool_id | string)) }}
+                mismatch_count: "{{ mismatch_count + (0 if is_match else 1) }}"
+                report_lines: >-
+                  {{ report_lines ~ '\n' ~ ( 'PASS ' if is_match else 'FAIL ' ) ~ tray_key
+                     ~ ': template_success=' ~ template_success ~ ', template_spool=' ~ (template_spool_id | string)
+                     ~ ', legacy_success=' ~ legacy_success ~ ', legacy_spool=' ~ (legacy_spool_id | string)
+                     ~ ', template_reason=' ~ template_reason ~ ', legacy_message=' ~ legacy_message }}
+
+  - variables:
+      overall_status: "{{ 'PASS' if mismatch_count | int == 0 else 'FAIL' }}"
+      status_icon: "{{ 'OK' if mismatch_count | int == 0 else 'WARN' }}"
+
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
+        Spool Matching Self-Test {{ overall_status }}: checked={{ checked_count }}, skipped={{ skipped_count }}, mismatches={{ mismatch_count }}.
+      level: "{{ 'info' if mismatch_count | int == 0 else 'warning' }}"
+      logger: homeassistant.components.bambulab.spoolman_sync
+
+  - action: persistent_notification.create
+    data:
+      notification_id: spool_matching_logic_self_test
+      title: "Spool Matching Logic Self-Test: {{ overall_status }}"
+      message: >-
+        Status: {{ status_icon }} {{ overall_status }}
+
+        Checked trays: {{ checked_count }}
+        Skipped trays: {{ skipped_count }}
+        Mismatches: {{ mismatch_count }}
+
+        Details:{{ report_lines }}
+
+  - variables:
+      response_object:
+        success: "{{ mismatch_count | int == 0 }}"
+        status: "{{ overall_status }}"
+        checked_count: "{{ checked_count }}"
+        skipped_count: "{{ skipped_count }}"
+        mismatch_count: "{{ mismatch_count }}"
+        report: "{{ report_lines }}"
+
+  - stop: Spool matching self-test complete
+    response_variable: response_object

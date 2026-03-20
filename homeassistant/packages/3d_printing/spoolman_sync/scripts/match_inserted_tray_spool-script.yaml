@@ -25,7 +25,29 @@ match_inserted_tray_spool_in_spoolman:
   sequence:
   - variables:
       label: "{{ tray_label | default(tray_entity_id) }}"
-      key: "{{ tray_key | default(tray_entity_id | slugify) }}"
+      tray_entities:
+        ams_1_tray_1: sensor.p1s_01p00c460102350_ams_1_tray_1
+        ams_1_tray_2: sensor.p1s_01p00c460102350_ams_1_tray_2
+        ams_1_tray_3: sensor.p1s_01p00c460102350_ams_1_tray_3
+        ams_1_tray_4: sensor.p1s_01p00c460102350_ams_1_tray_4
+        ams_2_tray_1: sensor.p1s_01p00c460102350_ams_2_tray_1
+        ams_2_tray_2: sensor.p1s_01p00c460102350_ams_2_tray_2
+        ams_2_tray_3: sensor.p1s_01p00c460102350_ams_2_tray_3
+        ams_2_tray_4: sensor.p1s_01p00c460102350_ams_2_tray_4
+        external_spool: sensor.ntk_ryansoffice_3dprinter_external_spool
+        external_spool_2: sensor.ntk_ryansoffice_3dprinter_external_spool2
+      key: >-
+        {% if tray_key is defined and tray_key is not none and tray_key | length > 0 %}
+          {{ tray_key }}
+        {% else %}
+          {% set ns = namespace(value='') %}
+          {% for candidate_key, candidate_entity in tray_entities.items() %}
+            {% if candidate_entity == tray_entity_id %}
+              {% set ns.value = candidate_key %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.value }}
+        {% endif %}
       active_tray:
         uuid: "{{ state_attr(tray_entity_id, 'tray_uuid') | default('') }}"
         type: "{{ state_attr(tray_entity_id, 'type') | default('') }}"
@@ -78,17 +100,11 @@ match_inserted_tray_spool_in_spoolman:
             spool: null
       - stop: Skip incomplete tray data
         response_variable: response_object
-  - action: script.find_matching_spool_in_spoolman
+  - action: script.resolve_matching_spool_from_tray_map
     metadata: {}
     data:
-      parameters:
-        target_color_hex: "{{ active_tray.color }}"
-        target_type: "{{ active_tray.type }}"
-        target_uuid: "{{ active_tray.uuid }}"
-        target_name: "{{ active_tray.name }}"
-        remaining_enabled: false
-        remaining_percent: "{{ active_tray.remain }}"
-        tray_weight: 1000
+      tray_entity_id: "{{ tray_entity_id }}"
+      tray_key: "{{ key }}"
     response_variable: find_spool_response
   - choose:
       - conditions:

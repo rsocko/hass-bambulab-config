@@ -9,7 +9,16 @@ This will also trigger when the current stage changes to 'Printing'. It has addi
 This represents an active print and an active AMS tray. 
 
 ## Logic
-The automation triggers on filament being actively used. It first uses the Find Spool script to identify the correct spool from your Spoolman inventory. If it finds a match it will update the first and last used datetime in Spoolman. Additionally, if the spool is a Bambu Lab spool, and has a valid UUID (RFID tag) that is being reported by Bambu Lab integration, it will update Spoolman to set the UUID for the matching spool if it is not already on the Spoolman record.
+The automation triggers on filament being actively used. It now uses
+`sensor.spoolman_tray_map` as the authoritative match source (Option A from the
+design analysis). If it finds a match it updates first/last used datetime in
+Spoolman. Additionally, if the spool is Bambu Lab and has a valid UUID reported
+by the Bambu integration, it will update Spoolman to set the UUID when the
+matched spool record does not already have one.
+
+The automation does not implement match-response shaping inline; it calls
+`script.resolve_matching_spool_from_tray_map` so matching response behavior is
+centralized in one script.
 
 ### External Spool Handling
 When printing from the **External Spool** on a printer with an AMS, the `active_tray` sensor state becomes `"none"` (the AMS tray index 254/255 is not part of the AMS data structure). The automation now treats this as external spool usage **only when the external spool entity is actively marked as in use**. This prevents false matches during brief AMS transition windows.
@@ -29,7 +38,6 @@ The automation also suppresses persistent error notifications for indeterminate 
 [Active Tray Changed - Update Spoolman - YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml)
 
 ## Prequisites:
-- [Find Matching Spool Home Assistant script](find-matching-spools.md) setup and working
 - [Update Spool Last and First Used in Spoolman - Home Assistant script](update-spool-last-used.md) setup and working
 - All other prerequisites as specified in [README](README.md)
  
@@ -37,6 +45,8 @@ The automation also suppresses persistent error notifications for indeterminate 
 - There are several known bugs that I will be cataloging and tracking in GitHub issues in this Repo.
 - I have only tested this on my own setup - which is a Bambu Lab P1S with a single AMS attached. I have not, for example used these automations with an AMS Lite, and AMS 2 nor with multiple AMSs.
 - External Spool support has been added based on analysis of the ha-bambulab integration source code. The automation correctly detects external spool usage and reads from the appropriate sensor entity.
+- Matching intentionally excludes sealed spools because `sensor.spoolman_tray_map`
+	filters them out by design.
 
 
 ## Flow of the Logic

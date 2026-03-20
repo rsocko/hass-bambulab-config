@@ -1,0 +1,96 @@
+# Docs: docs/features/spoolman_sync/find-matching-spools.md
+resolve_matching_spool_from_tray_map:
+  alias: Resolve Matching Spool From Tray Map
+  description: >-
+    Shared resolver for tray_map-based spool matching. Returns a
+    find_spool_response-style object so automations/scripts can consume
+    one canonical result shape without duplicating matching response logic.
+  icon: mdi:transit-connection-variant
+  fields:
+    tray_entity_id:
+      name: Tray Entity ID
+      description: Sensor entity ID for an AMS tray or external spool.
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    tray_key:
+      name: Tray Key
+      description: Optional tray_map key (for example ams_1_tray_1, external_spool).
+      required: false
+      selector:
+        text: {}
+  sequence:
+  - variables:
+      tray_entities:
+        ams_1_tray_1: sensor.p1s_01p00c460102350_ams_1_tray_1
+        ams_1_tray_2: sensor.p1s_01p00c460102350_ams_1_tray_2
+        ams_1_tray_3: sensor.p1s_01p00c460102350_ams_1_tray_3
+        ams_1_tray_4: sensor.p1s_01p00c460102350_ams_1_tray_4
+        ams_2_tray_1: sensor.p1s_01p00c460102350_ams_2_tray_1
+        ams_2_tray_2: sensor.p1s_01p00c460102350_ams_2_tray_2
+        ams_2_tray_3: sensor.p1s_01p00c460102350_ams_2_tray_3
+        ams_2_tray_4: sensor.p1s_01p00c460102350_ams_2_tray_4
+        external_spool: sensor.ntk_ryansoffice_3dprinter_external_spool
+        external_spool_2: sensor.ntk_ryansoffice_3dprinter_external_spool2
+      resolved_tray_key: >-
+        {% if tray_key is defined and tray_key is not none and tray_key | string | length > 0 %}
+          {{ tray_key | string }}
+        {% elif tray_entity_id is defined and tray_entity_id is not none and tray_entity_id | string | length > 0 %}
+          {% set ns = namespace(key='') %}
+          {% for key, entity in tray_entities.items() %}
+            {% if entity == tray_entity_id %}
+              {% set ns.key = key %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.key }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
+      tray_match: "{{ tray_map.get(resolved_tray_key, {}) if resolved_tray_key | length > 0 else {} }}"
+      matched_spool_id: "{{ tray_match.spool_id if tray_match is mapping else none }}"
+      matched_spool_name: "{{ tray_match.name if tray_match is mapping else none }}"
+      matched_spool_entity_id: "{{ tray_match.spool_entity_id if tray_match is mapping else none }}"
+      matched_spool_uuid: >-
+        {% if matched_spool_entity_id %}
+          {{ state_attr(matched_spool_entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      matched_spool_vendor: >-
+        {% if matched_spool_entity_id %}
+          {{ state_attr(matched_spool_entity_id, 'filament_vendor_name') | default('', true) | string }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      matched_spool_first_used: >-
+        {% if matched_spool_entity_id %}
+          {{ state_attr(matched_spool_entity_id, 'first_used') | default(none) }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      response_object:
+        success: "{{ matched_spool_id is not none and matched_spool_id | string | length > 0 }}"
+        message: >-
+          {% if resolved_tray_key | length == 0 %}
+            Unable to map tray entity/key to tray_map entry.
+          {% elif matched_spool_id is not none and matched_spool_id | string | length > 0 %}
+            Exact match found by tray_map.
+          {% else %}
+            {{ tray_match.reason | default('No matching spool found in tray_map.', true) }}
+          {% endif %}
+        all_matches: null
+        tray_key: "{{ resolved_tray_key }}"
+        spool:
+          id: "{{ matched_spool_id }}"
+          first_used: "{{ matched_spool_first_used }}"
+          filament:
+            name: "{{ matched_spool_name | default('Unknown Filament', true) }}"
+            vendor:
+              name: "{{ matched_spool_vendor }}"
+          extra:
+            spool_uuid: "{{ matched_spool_uuid }}"
+
+  - stop: Tray map spool resolution complete
+    response_variable: response_object

@@ -354,15 +354,23 @@
                     tray_uuid_normalized in ['none', 'unknown', 'unavailable', '']) }}
           alias: Continue only when tray UUID is available (or tray is external)
   
-        # Find matching spool in Spoolman
-        - action: script.find_matching_spool_in_spoolman
+        # Resolve matching spool from tray_map via shared resolver script
+        - variables:
+            tray_key: >-
+              {% if tray_number == 'external' %}
+                {% if 'External Spool 2' in tray_name %}
+                  external_spool_2
+                {% else %}
+                  external_spool
+                {% endif %}
+              {% else %}
+                ams_{{ tray_ams_number }}_tray_{{ tray_number }}
+              {% endif %}
+        - action: script.resolve_matching_spool_from_tray_map
           metadata: {}
           data:
-            parameters:
-              target_color_hex: "{{ selected_tray.color }}"
-              target_type: "{{ selected_tray.type }}"
-              target_uuid: "{{ selected_tray.uuid }}"
-              target_name: "{{ selected_tray.name }}"
+            tray_entity_id: "{{ tray_entity_id }}"
+            tray_key: "{{ tray_key }}"
           response_variable: find_spool_response
   
         # Update Spoolman if spool was found, otherwise log error
