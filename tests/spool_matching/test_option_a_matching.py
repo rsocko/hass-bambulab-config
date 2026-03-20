@@ -74,7 +74,7 @@ def match_tray_to_spool(tray, spools):
         spool_color = _norm_color(spool.get("filament_color_hex"))
         spool_material = spool.get("filament_material", "")
         spool_vendor = spool.get("filament_vendor_name", "")
-        spool_profile = spool.get("filament_extra_profile_name", "") or spool.get("extra_profile_name", "")
+        spool_profile = (spool.get("filament_extra_profile_name", "") or spool.get("extra_profile_name", "")).strip('"')
 
         vendor_ok = (spool_vendor == "Bambu Lab") if is_bambu_path else (spool_vendor != "Bambu Lab")
         profile_ok = True
@@ -369,6 +369,39 @@ class OptionAMatchingTests(unittest.TestCase):
         result = match_tray_to_spool(tray, self.base_spools)
         self.assertTrue(result["success"])
         self.assertEqual(result["spool_id"], 103)
+
+    def test_bambu_profile_name_matches_when_spool_profile_is_quoted(self):
+        spools = [
+            {
+                "id": 501,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "#000000",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": '"Bambu PLA Matte"',
+                "location": "AMS 2",
+                "extra_sealed": False,
+            },
+            {
+                "id": 502,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "#000000",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": '"Bambu PLA Matte"',
+                "location": "Shelf",
+                "extra_sealed": True,
+            },
+        ]
+        tray = {
+            "tray_uuid": "CFF35EB1828546EDBB1A2C3BD194952D",
+            "color": "#000000FF",
+            "type": "PLA",
+            "name": "Bambu PLA Matte",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 501)
 
     def test_multiple_non_bambu_none_in_ams_is_error(self):
         spools = [

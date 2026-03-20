@@ -117,7 +117,10 @@
             {% set spool_color = s.attributes.filament_color_hex | default('', true) | string | lower %}
             {% set spool_material = s.attributes.filament_material | default('', true) | string %}
             {% set spool_vendor = s.attributes.filament_vendor_name | default('', true) | string %}
-            {% set spool_profile = s.attributes.filament_extra_profile_name | default(s.attributes.extra_profile_name | default('', true), true) | string %}
+            {% set spool_profile = s.attributes.filament_extra_profile_name
+              | default(s.attributes.extra_profile_name | default('', true), true)
+              | string
+              | trim('"') %}
             {% if spool_color.startswith('#') %}
               {% set spool_color = spool_color[1:] %}
             {% endif %}
