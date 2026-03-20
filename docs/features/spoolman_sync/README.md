@@ -108,6 +108,16 @@ state, this repository also includes deterministic fixture unit tests.
 
 [Test Suite](../../../tests/spool_matching/test_option_a_matching.py) | [Test Docs](../../../tests/spool_matching/README.md)
 
+### 9. Spool matching feature design split (independent delivery)
+Spool matching design documentation is intentionally split so each feature can
+be built and deployed independently:
+
+- [Multi-Color Spool Matching Design](multicolor-spool-matching-design.md) - automatic multi-color matching rules and fallback tiers only
+- [Manual Spool Matching Design](manual-spool-matching-design.md) - tray pin/unpin helpers, precedence, UX, and auto-clear behavior only
+
+This separation supports independent implementation sequencing and release
+planning for automatic multi-color matching vs manual override workflows.
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 

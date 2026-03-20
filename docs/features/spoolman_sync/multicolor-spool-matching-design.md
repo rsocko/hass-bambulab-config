@@ -1,520 +1,171 @@
-# Multi-Color Spool Matching — Design Document
+# Multi-Color Spool Matching - Design Document
 
-> **Status**: Design  
-> **Created**: 2026-03-19  
-> **Phases**: 3 (Foundation → Override Mechanism → Dashboard UX)
+> Status: Design (split from manual matching)
+> Updated: 2026-03-20
+> Scope: Automatic matching behavior for multi-color spools only
 
-## Table of Contents
+## Purpose
 
-- [Multi-Color Spool Matching — Design Document](#multi-color-spool-matching--design-document)
-  - [Table of Contents](#table-of-contents)
-  - [Problem Statement](#problem-statement)
-  - [How Multi-Color Data is Stored](#how-multi-color-data-is-stored)
-    - [Live Examples from HA Instance](#live-examples-from-ha-instance)
-    - [Where Multi-Color is Already Used (Display Only)](#where-multi-color-is-already-used-display-only)
-  - [Bambu Studio Tray Color — Single RGB Only](#bambu-studio-tray-color--single-rgb-only)
-    - [Recommended Color Convention for Multi-Color Spools](#recommended-color-convention-for-multi-color-spools)
-  - [Current Matching Logic \& Gaps](#current-matching-logic--gaps)
-    - [spoolman\_tray\_map Template Sensor](#spoolman_tray_map-template-sensor)
-    - [find\_matching\_spool\_in\_spoolman Script](#find_matching_spool_in_spoolman-script)
-  - [Proposed Priority Cascade](#proposed-priority-cascade)
-  - [Manual Override Mechanism](#manual-override-mechanism)
-    - [Override Helpers](#override-helpers)
-    - [Auto-Clear Behavior](#auto-clear-behavior)
-    - [Dashboard Integration](#dashboard-integration)
-    - [Conflict Handling (Multiple Matches)](#conflict-handling-multiple-matches)
-      - [Tray Detail Card Behavior (Ambiguous)](#tray-detail-card-behavior-ambiguous)
-      - [Tray Popup Behavior (Ambiguous)](#tray-popup-behavior-ambiguous)
-    - [Color Divergence Indicator (Bambu vs Spoolman)](#color-divergence-indicator-bambu-vs-spoolman)
-  - [Edge Cases \& Scenarios](#edge-cases--scenarios)
-  - [Risk Assessment — Color-Based Multi-Color Matching](#risk-assessment--color-based-multi-color-matching)
-  - [Implementation Phases](#implementation-phases)
-    - [Phase 1 — Fix Silent Matching Failure (Foundation)](#phase-1--fix-silent-matching-failure-foundation)
-      - [1.1 Update `spoolman_tray_map` Template Sensor](#11-update-spoolman_tray_map-template-sensor)
-      - [1.2 Update `find_matching_spool_in_spoolman` Script](#12-update-find_matching_spool_in_spoolman-script)
-      - [1.3 Document the First-Color Convention](#13-document-the-first-color-convention)
-    - [Phase 2 — Manual Override Mechanism](#phase-2--manual-override-mechanism)
-      - [2.1 Create Override Helper Entities (9 `input_text`)](#21-create-override-helper-entities-9-input_text)
-      - [2.2 Wire Override into `spoolman_tray_map`](#22-wire-override-into-spoolman_tray_map)
-      - [2.3 Wire Override into `find_matching_spool_in_spoolman` Script](#23-wire-override-into-find_matching_spool_in_spoolman-script)
-      - [2.4 Wire Override into `active_tray_changed_update_spoolman` Automation](#24-wire-override-into-active_tray_changed_update_spoolman-automation)
-      - [2.5 Wire Override into `print_complete-update_filament_usage` Automation](#25-wire-override-into-print_complete-update_filament_usage-automation)
-      - [2.6 Create Auto-Clear Automation](#26-create-auto-clear-automation)
-    - [Phase 3 — Dashboard UX](#phase-3--dashboard-ux)
-      - [3.1 Add "Pin Spool" to AMS Tray Popup](#31-add-pin-spool-to-ams-tray-popup)
-      - [3.2 Show Override Indicator on AMS Tray Detail Cards](#32-show-override-indicator-on-ams-tray-detail-cards)
-      - [3.3 Ensure Gradient Rendering for Overridden Multi-Color Spools](#33-ensure-gradient-rendering-for-overridden-multi-color-spools)
-      - [3.4 Add Color Divergence Severity UI](#34-add-color-divergence-severity-ui)
-      - [3.5 Improve Multi-Color Labeling in Popups (Hex + RGB Pairing)](#35-improve-multi-color-labeling-in-popups-hex--rgb-pairing)
-      - [3.6 Add Ambiguity Resolution UI](#36-add-ambiguity-resolution-ui)
-  - [Affected Files](#affected-files)
+This document defines the automatic matching design for multi-color filament spools.
 
----
+Manual pin/unpin behavior, per-tray override helpers, and override UX are documented separately in:
+- [manual-spool-matching-design.md](manual-spool-matching-design.md)
+
+The split is intentional so automatic multi-color matching can be implemented and deployed independently.
 
 ## Problem Statement
 
-Spoolman supports multi-color filament spools (gradients, rainbow, etc.) by storing multiple hex color codes as a comma-delimited string rather than a single `color_hex` value. Both the `spoolman_tray_map` template sensor and the `find_matching_spool_in_spoolman` script currently match spools exclusively via the single-value `filament_color_hex` attribute — which is **absent** on multi-color spools. This means:
+Spoolman supports multi-color filament spools (gradient/rainbow) using comma-separated hex values in `filament_multi_color_hexes` instead of single-value `filament_color_hex`.
 
-1. Multi-color spools without a Bambu UUID (e.g. Sunlu Rainbow) are **completely unmatchable** by automation today.
-2. Multi-color Bambu spools (e.g. Dusk Glare) work only because UUID matching succeeds first — if that ever fails, color fallback will also fail.
-3. There is no mechanism for a user to manually specify which spool is in a given tray when automatic matching fails.
+Current color fallback paths in matching logic primarily assume single-color metadata. Result:
 
----
+1. Multi-color spools can become unmatchable when UUID matching is unavailable.
+2. Multi-color Bambu spools usually work only when UUID matching succeeds first.
+3. Automatic fallback behavior is less deterministic for multi-color entries than single-color entries.
 
-## How Multi-Color Data is Stored
+## How Multi-Color Data Is Stored
 
-The Spoolman HA integration exposes color information using a **mutually exclusive** data model:
+Spoolman integration exposes mutually exclusive color fields:
 
-| Spool Type | `filament_color_hex` | `filament_multi_color_hexes` | `filament_multi_color_direction` |
+| Spool type | `filament_color_hex` | `filament_multi_color_hexes` | `filament_multi_color_direction` |
 |---|---|---|---|
-| **Single-color** (e.g. Blue PLA, spool 25) | `"0A2989"` | *(absent)* | *(absent)* |
-| **Multi-color** (Dusk Glare, spool 67) | *(absent)* | `"ffa11f,ff5900"` | `"longitudinal"` |
-| **Multi-color** (Rainbow 04, spool 133) | *(absent)* | `"e292fe,fff994,6ef785,93e3fd"` | `"longitudinal"` |
+| Single-color | Present | Absent | Absent |
+| Multi-color | Absent | Present | Present |
 
-### Live Examples from HA Instance
+Observed examples:
+- Dusk Glare: `ffa11f,ff5900`
+- Rainbow 04: `e292fe,fff994,6ef785,93e3fd`
+- Rainbow 02: `982abc,e63b7a,00a1d8`
 
-**Bambu Lab Dusk Glare PLA** — `sensor.spoolman_spool_67`:
-- `filament_multi_color_hexes`: `ffa11f,ff5900` (2-color orange gradient)
-- `filament_multi_color_direction`: `longitudinal`
-- `extra_spool_uuid`: `A8B997CDC7244EDB976129ED5B7DCDFE` (UUID present — matching works today)
-- `filament_color_hex`: *(not present)*
+## Existing Display Behavior (Already Working)
 
-**Sunlu Rainbow 04 PLA** — `sensor.spoolman_spool_133`:
-- `filament_multi_color_hexes`: `e292fe,fff994,6ef785,93e3fd` (4-color)
-- `filament_multi_color_direction`: `longitudinal`
-- `extra_spool_uuid`: `""` (empty — no UUID)
-- `filament_color_hex`: *(not present)*
-- **This spool is currently unmatchable by automation.**
+Multi-color attributes are already consumed by dashboard rendering paths (gradients/chips/popups). The design gap is matching and sync logic, not visual rendering.
 
-**Sunlu Rainbow 02 PLA** — `sensor.spoolman_filament_96`:
-- `multi_color_hexes`: `982abc,e63b7a,00a1d8` (3-color)
+Reference card templates:
+- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml`
+- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml`
+- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_card.yaml`
+- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml`
 
-**Sunlu Rainbow 01 PLA** — `sensor.spoolman_filament_98`:
-- `multi_color_hexes`: `ff3a2f,ff8800,ffcc01,33c759,00a1d8,982abc` (6-color)
+## Bambu Studio Constraint
 
-### Where Multi-Color is Already Used (Display Only)
+Bambu tray entities expose one color value (RGB + alpha), not a multi-color set.
 
-The `filament_multi_color_hexes` and `filament_multi_color_direction` attributes are already read and rendered in the dashboard layer:
+Recommended convention for multi-color spools in Bambu Studio:
+- Set tray color to the first hex in `filament_multi_color_hexes`.
 
-- **AMS tray detail card** ([ams_tray_detail.yaml](../../../homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml)) — background gradient fill
-- **AMS tray popup** ([ams_tray_popup.yaml](../../../homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml)) — header gradient, text contrast
-- **Filament catalog spool card** ([catalog_spool_card.yaml](../../../homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_card.yaml))
-- **Filament catalog popup** ([catalog_spool_popup_content.yaml](../../../homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml))
+Examples:
 
-These display paths are working correctly. The gap is in the **matching/sync logic** that feeds them.
-
----
-
-## Bambu Studio Tray Color — Single RGB Only
-
-**Confirmed**: The Bambu Lab integration AMS tray entity exposes a single `color` attribute as an 8-char hex with alpha channel (e.g. `#0A2989FF`).
-
-- For **Bambu spools with RFID**, the color is read from the NFC/RFID tag automatically.
-- For **non-Bambu spools** (or any spool without readable UUID data), the user must manually select a single RGB color via Bambu Studio's Device tab. **There is no multi-color picker.**
-
-The `spoolman_tray_map` template sensor normalizes the 8-char hex to 6 chars by stripping `#` and removing the trailing alpha bytes.
-
-### Recommended Color Convention for Multi-Color Spools
-
-When manually setting up a multi-color spool in Bambu Studio, **use the first hex value from the spool's `multi_color_hexes` list**:
-
-| Spool | `multi_color_hexes` | Set in Bambu Studio |
+| Spool | `filament_multi_color_hexes` | Recommended tray color |
 |---|---|---|
 | Dusk Glare | `ffa11f,ff5900` | `#FFA11F` |
 | Rainbow 04 | `e292fe,fff994,6ef785,93e3fd` | `#E292FE` |
 | Rainbow 02 | `982abc,e63b7a,00a1d8` | `#982ABC` |
-| Rainbow 01 | `ff3a2f,ff8800,ffcc01,33c759,00a1d8,982abc` | `#FF3A2F` |
 
-**Rationale**: This is deterministic, codifiable in matching logic, and doesn't require the user to remember or look up a designated color. The matching logic can specifically check the first element of `multi_color_hexes` as a secondary match strategy.
+Rationale:
+- Deterministic convention for users and logic.
+- Minimal user friction (single color picker in Bambu Studio).
+- Enables stable first-hex fallback tier.
 
----
+## Current Matching Logic Gaps
 
-## Current Matching Logic & Gaps
+### `spoolman_tray_map` template sensor
 
-### spoolman_tray_map Template Sensor
+File:
+- `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml`
 
-**File**: [spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml)
+Current structure is UUID-first, then single-color fallback. Multi-color entries without `filament_color_hex` can be skipped by fallback unless explicit multi-color handling is added.
 
-Current 2-tier matching:
-1. **UUID match**: `spool_entities | selectattr('attributes.extra_spool_uuid', 'equalto', tray_uuid)`
-2. **Color fallback**: `s.attributes.filament_color_hex | default('') | lower == tray_color` (excluding Bambu Lab vendor)
+### `find_matching_spool_in_spoolman` script
 
-**Gap**: Multi-color spools have no `filament_color_hex` attribute. They are invisible to Tier 2.
+File:
+- `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml`
 
-### find_matching_spool_in_spoolman Script
+Current normalized spool payload focuses on `color_hex_lower`. For multi-color filaments, that value can be empty, so exact color lookup may never match.
 
-**File**: [find_matching_spool_in_spoolman-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml)
+## Proposed Matching Cascade (Automatic Scope)
 
-The script builds a `spools_lower` list from the Spoolman REST API where each entry has:
-```jinja
-"color_hex_lower": "{{ (spool.filament.color_hex | default('', true) | ...)[:6] }}"
-```
+1. UUID exact match
+2. Single-color exact match (`filament_color_hex`)
+3. Multi-color first-hex match (`filament_multi_color_hexes[0]`)
+4. Multi-color any-hex contains tray color (optional fallback)
+5. Unmatched
 
-For multi-color filaments, `spool.filament.color_hex` is null/empty from the API. The `color_hex_lower` field becomes `""`, which never matches a real tray color.
+Design notes:
+- Keep existing disambiguators (material, profile name, location preference, sealed status).
+- Preserve current ambiguity handling semantics where practical.
+- Manual override remains out of scope here and is defined in [manual-spool-matching-design.md](manual-spool-matching-design.md).
 
----
+## Required Logic Changes
 
-## Proposed Priority Cascade
+### 1. Template matcher: `spoolman_tray_map`
 
-Updated matching order (both `spoolman_tray_map` and `find_matching_spool_in_spoolman`):
+Add multi-color-aware color fallback tiers after UUID miss:
+- Continue into color matching when UUID is absent/unresolved.
+- Compare tray color to `filament_color_hex` first.
+- Then compare to first hex from `filament_multi_color_hexes`.
+- Optionally attempt any-hex containment if first-hex yields no candidates.
 
-```
-1. UUID Match (tray RFID tag → extra_spool_uuid)              ← highest confidence
-2. Manual Override (input_text.{tray_name}_spool_override)     ← user-specified pin
-3. Color Match — exact (filament_color_hex)                    ← single-color spools
-4. Color Match — first multi-color hex                         ← multi-color convention
-5. Color Match — any multi-color hex contains tray color       ← broadest fallback
-6. Unmatched (with diagnostic reason)                          ← lowest
-```
+### 2. Legacy script matcher: `find_matching_spool_in_spoolman`
 
-**Precedence guarantee**: If a tray has a non-empty UUID and exactly one spool has a matching `extra_spool_uuid`, that UUID match **always wins** and manual override is ignored for matching. Override applies only when UUID matching is absent or unresolved.
+Enrich normalized spool model with:
+- `multi_color_hexes`
+- `first_multi_color_hex`
 
-> **Note**: Tiers 3–5 all continue to apply existing disambiguators: material type, profile name, sealed status, and AMS location.
+Then apply fallback sequence:
+- Exact single-color match first.
+- First-hex multi-color match second.
+- Any-hex containment fallback optionally third.
 
----
+### 3. Documentation update
 
-## Manual Override Mechanism
+Update custom field documentation to codify first-color convention for operator setup.
 
-### Override Helpers
+## Edge Cases and Scenarios
 
-Create one `input_text` per tray slot (9 total). Each stores a Spoolman spool ID or empty string:
+| Scenario | Current tendency | Expected after multi-color design |
+|---|---|---|
+| Bambu multi-color spool with UUID | Usually matches by UUID | UUID still wins |
+| Non-Bambu multi-color spool without UUID | Often unmatchable | First-hex (or any-hex fallback) can match |
+| Two multi-color spools share first hex | Higher ambiguity risk | Existing disambiguators + ambiguity response |
+| Single-color spool shares same hex as multi first hex | Possible collision | Single-color exact remains higher priority |
+| User chooses non-first tray color for multi-color spool | First-hex may miss | Any-hex fallback can recover (if enabled) |
+| External spool uses multi-color filament | Same gap as AMS | Same multi-color fallback behavior applies |
 
-```yaml
-# Example: homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/
-ams_1_tray_1_spool_override:
-  name: "AMS 1 Tray 1 Spool Override"
-  max: 10
-  icon: mdi:link-variant-plus
-
-ams_1_tray_2_spool_override:
-  name: "AMS 1 Tray 2 Spool Override"
-  max: 10
-  icon: mdi:link-variant-plus
-
-# ... ams_1_tray_3, ams_1_tray_4
-# ... ams_2_tray_1 through ams_2_tray_4
-# ... external_spool_spool_override
-```
-
-Do **not** set `initial` on these `input_text` helpers. Leaving `initial` unset allows Home Assistant to restore user-selected override values from recorder across restarts.
-
-### Auto-Clear Behavior
-
-A lightweight automation should watch for tray content changes and clear stale overrides:
-
-| Tray Event | Action |
-|---|---|
-| `tray_uuid` changed to a new non-empty/non-zero value | Clear override (new Bambu spool inserted, UUID match takes over) |
-| `type` changed to `Empty` | Clear override (spool removed) |
-| Only `color`, `remain`, or other attribute changed | Do NOT clear (informational update during printing) |
-
-### Dashboard Integration
-
-Add controls to the AMS tray popup:
-
-- **"Pin Spool" button**: Opens a dropdown/selector of all unsealed spools from Spoolman. On selection, sets the `input_text` override for that tray.
-- **Override indicator**: When an override is active, show a chip/badge on the tray detail card and in the popup header.
-- **"Unpin" button**: Clears the override, falling back to automatic matching.
-- For **unmatched trays** showing "Unknown Filament": the Pin Spool action becomes the primary call-to-action.
-
-### Conflict Handling (Multiple Matches)
-
-When any matching tier returns more than one candidate after filters/tiebreakers, treat the tray as **ambiguous** (not matched) and expose structured conflict metadata for UI.
-
-Recommended `tray_map` payload additions when ambiguous:
-
-```json
-{
-  "spool_id": null,
-  "name": "Unknown Filament",
-  "reason": "Multiple candidate spools for first multi-color hex #e292fe",
-  "match_state": "ambiguous",
-  "match_tier": "color_first_multi",
-  "candidate_count": 2,
-  "candidate_spool_ids": [133, 207]
-}
-```
-
-Notes:
-- `match_state`: one of `matched`, `ambiguous`, `unmatched`, `empty`
-- `match_tier`: `uuid`, `override`, `color_exact`, `color_first_multi`, `color_any_multi`, `none`
-- Keep existing `reason` string for backward compatibility.
-
-#### Tray Detail Card Behavior (Ambiguous)
-
-For `match_state = ambiguous` in `ams_tray_detail.yaml`:
-
-- Keep tray title as `Unknown Filament`.
-- Label text: concise conflict message, e.g. `Ambiguous match (2 candidates)`.
-- Show warning icon/chip (amber) instead of normal neutral label styling.
-- Keep no `spool_id`-dependent KPIs (remaining weight, print-weight warning) hidden.
-- Tapping the card opens popup focused on conflict resolution.
-
-#### Tray Popup Behavior (Ambiguous)
-
-In `ams_tray_popup.yaml` no-spool branch:
-
-- Header card becomes warning style: `Match conflict` + `reason`.
-- Add `Candidate Spools` section (if `candidate_spool_ids` available), each row showing:
-  - Spool ID and name
-  - Material + vendor
-  - Location
-  - Remaining weight
-  - Primary color / first multi-color hex
-- Each candidate row includes `Pin this spool` action that sets the tray override helper directly.
-- Keep generic `Match Inserted Spool` action for re-run if candidate list is missing/stale.
-
-This ensures the user sees exactly *why* mapping failed and can resolve in one tap.
-
-### Color Divergence Indicator (Bambu vs Spoolman)
-
-Add a user-facing indicator when the AMS tray color (from Bambu Studio) differs from the matched Spoolman spool color.
-
-- **Reference color used for comparison**:
-  - Single-color spool: `filament_color_hex`
-  - Multi-color spool: first item of `filament_multi_color_hexes` (same first-color convention)
-- **Comparison source**:
-  - AMS tray `color` normalized to 6-char hex (strip `#` and alpha)
-  - Matched spool reference hex normalized to 6-char hex
-
-Use RGB distance to classify mismatch severity:
-
-```
-distance = sqrt((R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2)
-```
-
-- **0**: Exact match (no warning)
-- **1–45**: Close match (subtle info chip)
-- **46–120**: Noticeable mismatch (warning chip)
-- **121+**: Wild mismatch (high-visibility alert chip/badge)
-
-This makes severe mismatches visually prominent while avoiding noisy alerts for near-matches.
-
-Suggested label text:
-- `Color close (Bambu vs Spoolman)`
-- `Color mismatch (Bambu vs Spoolman)`
-- `Color conflict (Bambu vs Spoolman)`
-
-For multi-color spools, append helper text:
-- `Compared against first multi-color hex`
-
----
-
-## Edge Cases & Scenarios
-
-| # | Scenario | Current Behavior | After Phase 1 | After Phase 2 |
-|---|---|---|---|---|
-| 1 | Bambu multi-color spool with UUID (e.g. Dusk Glare) | ✅ UUID match | ✅ No change | ✅ No change |
-| 2 | Non-Bambu multi-color spool, no UUID (e.g. Rainbow 04) | ❌ Unmatchable | ✅ First-color match | ✅ Override available |
-| 3 | Non-Bambu spool with user-written NFC UUID | ✅ If `extra_spool_uuid` populated | ✅ No change | ✅ No change |
-| 4 | Two multi-color spools sharing same first color | ❌ Silent fail | ⚠️ Ambiguous — existing tiebreakers apply | ✅ Override resolves |
-| 5 | Spool in AMS but not yet added to Spoolman | ❌ No match | ❌ Still no match | ❌ Override can't help — add to Spoolman first |
-| 6 | `filament_color_hex` on spool A matches a multi-color spool B's first hex | N/A | ⚠️ Single-color exact match takes priority (Tier 3 before Tier 4) | ✅ Override if wrong |
-| 7 | External spool (non-AMS) with multi-color | Same gap as AMS | ✅ Same fix applies | ✅ Override for `external_spool` too |
-| 8 | Spool UUID changes (re-wound, sticker swapped) | UUID mismatch | UUID mismatch → color fallback | ✅ Override covers; user updates UUID in Spoolman later |
-| 9 | Print completion weight deduction for overridden spool | Script uses `find_matching_spool` which won't find it | Same | ✅ Override ID passed through to usage deduction |
-| 10 | `spoolman_tray_map` color for dashboard rendering (overridden multi-color spool) | Uses tray_color from AMS entity | Uses tray_color | ✅ Reads `filament_multi_color_hexes` from pinned spool for gradient |
-| 11 | Two single-color spools with identical color + material | ❌ Multiple match error | ❌ Same (outside multi-color scope) | ✅ Override resolves |
-| 12 | User sets arbitrary (non-first) color in Bambu Studio for multi-color spool | N/A | ⚠️ First-color match fails; any-color match (Tier 5) may catch it | ✅ Override as fallback |
-| 13 | Bambu color differs slightly from matched spool color | N/A | N/A | ℹ️ Close/Warning indicator shown based on color distance |
-| 14 | Bambu color is wildly different from matched spool color | N/A | N/A | 🚨 High-severity conflict indicator shown |
-
----
-
-## Risk Assessment — Color-Based Multi-Color Matching
+## Risk Assessment
 
 | Scenario | Risk | Mitigation |
 |---|---|---|
-| User follows first-color convention → matches correctly | Low | Document convention; add to custom field docs |
-| User picks arbitrary color → first-color match fails | Medium | Tier 5 any-color fallback; manual override |
-| Tray color matches BOTH a multi-color spool AND a single-color spool | Medium | Existing tiebreakers (material, profile_name, location, sealed); single-color exact match prioritized |
-| Two multi-color spools share same first color | Low (current inventory) but possible | Manual override mechanism |
+| User sets arbitrary tray color not equal to first multi-color hex | Medium | Any-hex fallback and setup guidance |
+| Shared first hex across many spools | Medium | Existing disambiguators and ambiguity output |
+| Single-color and multi-color overlap on same hex | Low | Keep single-color exact prioritized |
+| Any-hex fallback creates overmatching | Medium | Keep optional; only run after stricter tiers |
 
----
+## Test Matrix
 
-## Implementation Phases
+| Scenario | Expected result |
+|---|---|
+| UUID match exists | UUID wins |
+| UUID missing, single-color exact exists | Single-color match |
+| UUID missing, no single-color, first multi-color exists | First-hex match |
+| UUID missing, first-hex miss, any-hex hit | Any-hex match (if enabled) |
+| Multiple candidates remain after filters | Ambiguous/unmatched response |
+| No candidates | Unmatched response |
 
-### Phase 1 — Fix Silent Matching Failure (Foundation)
+## Deployment Independence
 
-**Goal**: Multi-color spools can be automatically matched when using the first-color convention.
+This multi-color design can ship independently if:
+- No new `input_text.*_spool_override` helpers are introduced in this workstream.
+- No pin/unpin UI controls are introduced in this workstream.
+- Existing automation consumers continue to accept current ambiguity behavior.
 
-#### 1.1 Update `spoolman_tray_map` Template Sensor
-
-**File**: `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml`
-
-In the color fallback block (after UUID matching fails), add multi-color checks:
-
-```jinja
-{# Existing: Exact match on filament_color_hex #}
-{% if s.attributes.filament_color_hex | default('') | lower == tray_color
-    and s.attributes.filament_vendor_name | default('') != 'Bambu Lab' %}
-  {% set ns_color.spools = ns_color.spools + [s] %}
-
-{# NEW: First-color match on multi_color_hexes #}
-{% elif s.attributes.filament_multi_color_hexes | default('') != ''
-    and (s.attributes.filament_multi_color_hexes.split(',')[0] | trim | replace('#','') | lower) == tray_color
-    and s.attributes.filament_vendor_name | default('') != 'Bambu Lab' %}
-  {% set ns_color.spools = ns_color.spools + [s] %}
-{% endif %}
-```
-
-Optionally add a Tier 5 any-color check after the above yields no results.
-
-#### 1.2 Update `find_matching_spool_in_spoolman` Script
-
-**File**: `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml`
-
-Extend the `spools_lower` construction to include multi-color data:
-
-```jinja
-"color_hex_lower": "{{ ... }}",
-"multi_color_hexes": "{{ spool.filament.multi_color_hexes | default('', true) }}",
-"first_multi_color_hex": "{{ (spool.filament.multi_color_hexes | default('', true)).split(',')[0] | trim | replace('#','') | lower }}"
-```
-
-Add fallback matching when `color_hex_lower` match yields zero results:
-
-```jinja
-{# If no exact color match, try first multi-color hex #}
-{% set matched_spools_multi = spools_lower
-    | selectattr('first_multi_color_hex', 'equalto', query_hex_lower)
-    | selectattr('material', 'equalto', parameters.target_type)
-    | list %}
-```
-
-#### 1.3 Document the First-Color Convention
-
-Update [spoolman-custom-fields.md](spoolman-custom-fields.md) and this document to describe the convention for setting a multi-color spool's color in Bambu Studio.
-
----
-
-### Phase 2 — Manual Override Mechanism
-
-**Goal**: Users can pin a specific Spoolman spool to any tray, covering all edge cases.
-
-#### 2.1 Create Override Helper Entities (9 `input_text`)
-
-**Location**: `homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/`
-
-Create one file per tray (or a single combined file):
-- `ams_1_tray_1_spool_override` through `ams_2_tray_4_spool_override`
-- `external_spool_spool_override`
-
-#### 2.2 Wire Override into `spoolman_tray_map`
-
-Insert override check between UUID match and color fallback:
-
-```jinja
-{# --- MANUAL OVERRIDE CHECK --- #}
-{% set override_entity = 'input_text.' ~ tray_name ~ '_spool_override' %}
-{% set override_id = states(override_entity) | default('') | trim %}
-{% if not match and override_id != '' and override_id | int(0) > 0 %}
-  {% set match = spool_entities
-    | selectattr('entity_id', 'equalto', 'sensor.spoolman_spool_' ~ override_id)
-    | list %}
-  {% if match | length == 1 %}
-    {% set match_reason = 'Manual override (spool ' ~ override_id ~ ')' %}
-  {% endif %}
-{% endif %}
-```
-
-#### 2.3 Wire Override into `find_matching_spool_in_spoolman` Script
-
-Accept optional `override_spool_id` parameter. If provided and non-empty, look up that spool ID directly in the Spoolman API response and return it (skipping UUID and color tiers).
-
-#### 2.4 Wire Override into `active_tray_changed_update_spoolman` Automation
-
-Read the tray's override helper before calling `find_matching_spool_in_spoolman`. Pass the override ID through.
-
-#### 2.5 Wire Override into `print_complete-update_filament_usage` Automation
-
-Ensure the weight deduction path also respects overrides — read the override for each tray that had print weight, pass the ID into the spool lookup.
-
-#### 2.6 Create Auto-Clear Automation
-
-New automation: watches tray UUID and type attributes. Clears the corresponding override `input_text` when:
-- `tray_uuid` changes to a new non-empty value
-- `type` becomes `Empty`
-
----
-
-### Phase 3 — Dashboard UX
-
-**Goal**: Users can manage overrides visually from the AMS tray popup.
-
-#### 3.1 Add "Pin Spool" to AMS Tray Popup
-
-In `ams_tray_popup.yaml`, add a conditional section:
-- Shows a spool selector (e.g. dropdown built from `states.sensor | selectattr('entity_id', 'match', 'sensor.spoolman_spool_\\d+$')`)
-- On selection, calls `input_text.set_value` for the tray's override helper
-- Includes an "Unpin" button to clear the override
-
-#### 3.2 Show Override Indicator on AMS Tray Detail Cards
-
-In `ams_tray_detail.yaml`, add a custom field (e.g. a small pin icon) that appears when the tray's override helper is non-empty.
-
-#### 3.3 Ensure Gradient Rendering for Overridden Multi-Color Spools
-
-When an override is active, `spoolman_tray_map` should propagate the matched spool's `filament_multi_color_hexes` so the dashboard can render gradients even though the AMS tray entity only reports one color.
-
-Confirm that `ams_tray_detail.yaml` and `ams_tray_popup.yaml` read multi-color data from the **spool entity** (they already do) rather than from `tray_map.color` — this should work without changes as long as `spool_id` is populated by the override.
-
-#### 3.4 Add Color Divergence Severity UI
-
-In both `ams_tray_detail.yaml` and `ams_tray_popup.yaml`:
-
-- Compute normalized AMS color and normalized matched spool reference color.
-- Compute RGB distance and map to the severity bands defined above.
-- Show a chip/badge only when distance > 0.
-- Increase prominence with severity (neutral info → warning → high-severity alert).
-
-#### 3.5 Improve Multi-Color Labeling in Popups (Hex + RGB Pairing)
-
-Update color text for multi-color spools in:
-
-- `catalog_spool_popup_content.yaml`
-- `ams_tray_popup.yaml`
-
-Display format should make the first-color RGB mapping obvious:
-
-```text
-HEX1 • RGB1 • HEX2 • HEX3 ...
-```
-
-Example:
-
-```text
-#E292FE • RGB(226,146,254) • #FFF994 • #6EF785 • #93E3FD
-```
-
-Notes:
-- RGB is shown for the **first** hex only (the Bambu Studio reference color).
-- Keep separator as `•` for readability; fallback to `|` if rendering/font issues occur.
-
-#### 3.6 Add Ambiguity Resolution UI
-
-Implement the conflict UX above:
-
-- `ams_tray_detail.yaml` reads `match_state`/`candidate_count` and shows warning label/chip.
-- `ams_tray_popup.yaml` renders `Candidate Spools` list from `candidate_spool_ids`.
-- Candidate rows include one-tap `Pin this spool` actions.
-- If no candidate metadata exists, fallback to existing generic no-match popup behavior.
-
----
+Manual override/pinning work can follow separately using:
+- [manual-spool-matching-design.md](manual-spool-matching-design.md)
 
 ## Affected Files
 
-| File | Phase | Change |
-|---|---|---|
-| `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml` | 1, 2 | Add multi-color color match; add override check |
-| `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml` | 1, 2 | Add multi-color fields to `spools_lower`; add override parameter |
-| `homeassistant/packages/3d_printing/spoolman_sync/scripts/match_inserted_tray_spool-script.yaml` | 2 | Pass override ID through |
-| `homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml` | 2 | Read and pass override ID |
-| `homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml` | 2 | Read and pass override ID for weight deduction |
-| `homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/` | 2 | New override helper files (9 total) |
-| `homeassistant/packages/3d_printing/spoolman_sync/automations/` | 2 | New auto-clear automation |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml` | 3 | Pin/Unpin controls; divergence indicator; multi-color HEX/RGB label format |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml` | 3 | Override indicator icon; divergence severity chip |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml` | 3 | Multi-color HEX/RGB label format (`HEX1 • RGB1 • HEX2...`) |
-| `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml` | 3 | Add ambiguity metadata (`match_state`, `match_tier`, `candidate_count`, `candidate_spool_ids`) |
-| `docs/features/spoolman_sync/spoolman-custom-fields.md` | 1 | Document first-color convention |
+| File | Change |
+|---|---|
+| `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml` | Add multi-color fallback tiers |
+| `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml` | Add normalized multi-color fields and fallback matching |
+| `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document first-color setup convention |
