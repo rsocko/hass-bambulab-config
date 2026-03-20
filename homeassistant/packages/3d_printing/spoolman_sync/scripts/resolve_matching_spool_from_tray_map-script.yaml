@@ -6,20 +6,7 @@ resolve_matching_spool_from_tray_map:
     find_spool_response-style object so automations/scripts can consume
     one canonical result shape without duplicating matching response logic.
   icon: mdi:transit-connection-variant
-  fields:
-    tray_entity_id:
-      name: Tray Entity ID
-      description: Sensor entity ID for an AMS tray or external spool.
-      required: false
-      selector:
-        entity:
-          domain: sensor
-    tray_key:
-      name: Tray Key
-      description: Optional tray_map key (for example ams_1_tray_1, external_spool).
-      required: false
-      selector:
-        text: {}
+  mode: single
   sequence:
   - variables:
       tray_entities:

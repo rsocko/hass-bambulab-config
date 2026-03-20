@@ -6,6 +6,7 @@ spool_matching_logic_self_test:
     find_matching_spool_in_spoolman script across AMS and external trays.
     Reports mismatches so matching regressions can be validated quickly.
   icon: mdi:test-tube
+  mode: single
   sequence:
   - variables:
       trays:
