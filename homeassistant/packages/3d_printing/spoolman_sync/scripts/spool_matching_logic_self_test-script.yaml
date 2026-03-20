@@ -160,6 +160,14 @@ spool_matching_logic_self_test:
     metadata: {}
     data:
       message: >-
+        Spool Matching Parity Debug: tray1_key={{ parity_tray_1_key }}, tray1_has_data={{ parity_tray_1_has_matchable_data }}, tray1_match={{ parity_tray_1_match }}, tray1_template_success={{ parity_tray_1_template_success }}, tray1_template_spool={{ parity_tray_1_template_spool_id | string }}, tray1_legacy_success={{ parity_tray_1_legacy_success }}, tray1_legacy_spool={{ parity_tray_1_legacy_spool_id | string }}; tray2_key={{ parity_tray_2_key }}, tray2_has_data={{ parity_tray_2_has_matchable_data }}, tray2_match={{ parity_tray_2_match }}, tray2_template_success={{ parity_tray_2_template_success }}, tray2_template_spool={{ parity_tray_2_template_spool_id | string }}, tray2_legacy_success={{ parity_tray_2_legacy_success }}, tray2_legacy_spool={{ parity_tray_2_legacy_spool_id | string }}
+      level: info
+      logger: homeassistant.components.bambulab.spoolman_sync
+
+  - action: system_log.write
+    metadata: {}
+    data:
+      message: >-
         Spool Matching Self-Test {{ overall_status }}: available_keys={{ available_count }}/{{ expected_tray_keys | count }}. {{ details }}
       level: "{{ 'info' if overall_status == 'PASS' else 'warning' }}"
       logger: homeassistant.components.bambulab.spoolman_sync
