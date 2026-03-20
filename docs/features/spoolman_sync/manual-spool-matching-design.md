@@ -1,145 +1,164 @@
 # Manual Spool Matching - Design Document
 
-> Status: Design split for independent delivery
+> Status: Design
 > Updated: 2026-03-20
 > Scope: User-controlled pin/unpin matching for trays
 
 ## Purpose
 
-This document defines manual spool matching behavior (pinning a specific spool to a tray), independent from automatic multi-color matching.
+This document defines the manual pinning feature: a user can explicitly pick which spool should be used for a tray, and that pinned match stays active until logical tray-content changes clear it.
 
-Automatic multi-color matching design lives in:
+Automatic matching and multi-color matching design are documented in:
 - [multicolor-spool-matching-design.md](multicolor-spool-matching-design.md)
 
-## Problem Statement
+## Core Concept
 
-Automatic matching can still be ambiguous or fail in real setups:
-- Similar colors across multiple spools
-- Incomplete metadata
-- Temporary state drift
+Manual pinning introduces a persistent per-tray override that can be set by the operator when automatic matching is ambiguous or wrong.
 
-Users need an explicit, reliable way to select the spool in a tray.
+Expected behavior:
+- user selects a spool for a tray (Pin)
+- pinned spool is used for matching-sensitive consumers
+- pin is automatically cleared when tray content logically changes
+
+This is intentionally different from one-shot manual re-match actions.
 
 ## Functional Requirements
 
-### 1. Per-tray override helpers
+### 1. Per-tray pin helpers
 
 Create one helper per tray slot (9 total):
-- `input_text.ams_1_tray_1_spool_override` ... `input_text.ams_2_tray_4_spool_override`
-- `input_text.external_spool_spool_override`
+- input_text.ams_1_tray_1_spool_override ... input_text.ams_2_tray_4_spool_override
+- input_text.external_spool_spool_override
 
 Rules:
-- Value is Spoolman spool ID or empty string
-- Do not set `initial` (preserve recorder restore behavior)
+- value is Spoolman spool ID or empty string
+- no initial value (preserve recorder restore behavior)
+- empty string means no pin
 
 ### 2. Matching precedence
 
-Manual override applies after UUID matching and before color-based matching:
+Pinning applies after UUID matching and before automatic color/material fallback:
 
 1. UUID exact match
-2. Manual override
-3. Automatic color-based matching (single and multi-color tiers)
+2. Manual pin override (if valid)
+3. Automatic matching fallback tiers
 4. Unmatched
 
 Rationale:
-- UUID remains highest confidence source.
-- Manual override is the operator-selected fallback.
+- UUID remains highest confidence source
+- pinning is user-authoritative when UUID does not resolve
 
-### 3. Auto-clear behavior
+UX constraint tied to precedence:
+- when match tier is UUID exact match, Pin/Unpin controls should be hidden or disabled because manual pin is not applied in that state
 
-Clear override when tray content meaningfully changes:
-- `tray_uuid` changes to a new non-empty value
-- `type` becomes `Empty`
+### 3. Auto-clear behavior (critical)
 
-Do not clear for informational changes:
-- Remaining percentage
-- Color updates
-- Other telemetry noise
+Pinned override must clear when tray content meaningfully changes:
+- tray UUID changes to a different non-empty UUID
+- tray type becomes Empty
+- tray transitions from populated to empty-equivalent external spool state
+
+Pinned override should not clear for non-content telemetry updates:
+- remain percentage changes
+- non-identity status fields
+- temporary noise that does not indicate spool replacement
 
 ### 4. Dashboard UX
 
-In tray popup and tray detail views:
-- Add `Pin Spool` action
-- Show active override indicator
-- Add `Unpin` action
-- Promote pinning as primary CTA when tray is unmatched
+In tray popup/detail experiences:
+- add Pin Spool action
+- show pinned state indicator
+- add Unpin action
+- present pinning as a primary action for ambiguous/unmatched trays
 
-### 5. Ambiguity resolution UX
+When tray is currently resolved by UUID exact match:
+- hide Pin/Unpin controls, or render them disabled with explanatory text
+- explanatory copy should make clear that UUID is authoritative and must not be overridden by standard pin mode
 
-When automatic matching returns multiple candidates:
-- Mark tray as `ambiguous`
-- Provide candidate list in popup
-- Allow one-tap pin from candidate row
+### 5. Ambiguity UX
 
-Suggested payload fields:
-- `match_state`
-- `match_tier`
-- `candidate_count`
-- `candidate_spool_ids`
+When automatic matching yields multiple candidates:
+- mark tray as ambiguous
+- provide candidate list
+- allow one-tap pin from candidate row
 
-## Implementation Plan
+Suggested tray-map metadata:
+- match_state
+- match_tier
+- candidate_count
+- candidate_spool_ids
+- pin_active
+- pin_spool_id
 
-### Phase A - Helpers and core logic
+## Architecture Alignment
 
-1. Add override helpers in spoolman sync helpers.
-2. Wire helper lookup into `spoolman_tray_map`.
-3. Support optional `override_spool_id` in legacy script path where still used.
+Pinning should be implemented as an extension of the authoritative tray-map matcher, not a separate matching engine.
 
-### Phase B - Automation integration
+Design constraints:
+- keep sensor.spoolman_tray_map as the single source of truth
+- expose pin-aware result in tray_map payload
+- keep script.resolve_matching_spool_from_tray_map as the canonical consumer contract
+- ensure automations and manual workflows all consume the same resolved spool
 
-1. Read per-tray override in `active_tray_changed_update_spoolman`.
-2. Read per-tray override in `print_complete-update_filament_usage`.
-3. Ensure deduction/update operations use overridden spool ID.
+## Integration Plan
 
-### Phase C - UX and auto-clear
+### Phase A - Core pin storage and resolution
 
-1. Add pin/unpin controls in popup.
-2. Add override badge/chip in tray detail.
-3. Add auto-clear automation for tray content transitions.
-4. Add ambiguity candidate rendering and pin action.
+1. Add per-tray input_text override helpers.
+2. Read helper values in spoolman_tray_map and apply override precedence.
+3. Validate pinned spool exists and is eligible before use.
+4. Emit pin state metadata in tray_map result.
 
-## Out of Scope
+### Phase B - Consumer alignment
 
-This document does not define multi-color detection logic, first-hex rules, or color fallback tiers.
+1. Ensure active_tray_changed_update_spoolman consumes pin-aware resolution via resolver script.
+2. Ensure print_complete-update_filament_usage consumes pin-aware resolution via resolver script.
+3. Ensure manual matching actions can set and clear pin state intentionally.
 
-Those are defined in:
-- [multicolor-spool-matching-design.md](multicolor-spool-matching-design.md)
+### Phase C - Auto-clear and UX
+
+1. Add automation(s) to clear pin on logical tray-content transitions.
+2. Add pin/unpin controls to tray popup/detail templates.
+3. Add ambiguity candidate rendering with pin action.
 
 ## Risks
 
 | Scenario | Risk | Mitigation |
 |---|---|---|
-| Override left active after spool swap | High | Auto-clear automation on UUID/type transitions |
-| Override points to deleted spool ID | Medium | Validate override ID and ignore invalid target |
-| UI can pin sealed/ineligible spool | Medium | Filter pin candidates to valid unsealed set |
-| UUID and override disagree | Low | Keep UUID precedence over override |
+| Pin remains set after spool swap | High | auto-clear on UUID and Empty transitions |
+| Pin references deleted/invalid spool | Medium | validate and ignore/clear invalid pin |
+| Pin references sealed spool | Medium | eligibility check before applying pin |
+| UUID and pin disagree | Low | keep UUID precedence |
+| Consumer drift across scripts/automations | High | tray_map-authoritative resolution for all consumers |
+
+## Future Consideration
+
+Current policy is intentionally UUID-first:
+- UUID > Pin > Auto fallback
+
+Future optional mode (option 3) may be considered:
+- Hybrid/Force Pin: allow an explicit user opt-in to override UUID only when deliberately enabled
+- this must be explicit, reversible, and clearly indicated in UX to avoid accidental UUID bypass
 
 ## Test Matrix
 
 | Scenario | Expected result |
 |---|---|
-| Override set, UUID missing | Override spool chosen |
-| Override set, UUID valid and unique | UUID wins |
-| Override set, spool removed | Override ignored and reported invalid |
-| Tray emptied | Override cleared |
-| New spool inserted with new UUID | Override cleared |
-| Ambiguous automatic match | Candidate list shown and pin action available |
-
-## Deployment Independence
-
-This manual design can be built and deployed separately from multi-color logic if:
-- Existing automatic matching remains unchanged
-- New helper entities and UI controls are introduced behind this feature only
-- Automations consuming match results accept override-aware resolution
+| Pin set, UUID missing | pinned spool chosen |
+| Pin set, UUID valid and unique | UUID wins |
+| Pin set, spool removed | pin rejected or cleared; fallback/unknown behavior logged |
+| Tray emptied | pin cleared |
+| New spool inserted with new UUID | pin cleared |
+| Ambiguous auto match | candidates shown; pin action resolves |
 
 ## Affected Files
 
 | File | Change |
 |---|---|
-| `homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/` | Add per-tray override helpers |
-| `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml` | Add override tier and optional ambiguity metadata |
-| `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml` | Optional override parameter support |
-| `homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml` | Pass override into resolution path |
-| `homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml` | Pass override into resolution path |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Pin/unpin controls and ambiguity candidate actions |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml` | Override indicator rendering |
+| homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/ | add per-tray pin helpers |
+| homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml | add pin override tier and pin metadata |
+| homeassistant/packages/3d_printing/spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml | expose pin-aware response fields |
+| homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml | consume pin-aware resolution |
+| homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml | consume pin-aware resolution |
+| homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml | pin/unpin controls and ambiguity actions |
+| homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml | pin indicator rendering |

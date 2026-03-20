@@ -1,171 +1,133 @@
 # Multi-Color Spool Matching - Design Document
 
-> Status: Design (split from manual matching)
+> Status: Active design aligned to current Option A matcher architecture
 > Updated: 2026-03-20
-> Scope: Automatic matching behavior for multi-color spools only
+> Scope: Automatic multi-color matching behavior for Spoolman sync
 
 ## Purpose
 
-This document defines the automatic matching design for multi-color filament spools.
+This document defines how multi-color filament matching should extend the currently deployed spool matching logic.
 
-Manual pin/unpin behavior, per-tray override helpers, and override UX are documented separately in:
+Current deployed architecture and matching authority:
+- `sensor.spoolman_tray_map` is the authoritative matcher.
+- Automation and manual actions consume tray-map results via `script.resolve_matching_spool_from_tray_map`.
+- `script.find_matching_spool_in_spoolman` is retained as a legacy comparator and parity check path.
+
+Related manual interaction design is documented in:
 - [manual-spool-matching-design.md](manual-spool-matching-design.md)
 
-The split is intentional so automatic multi-color matching can be implemented and deployed independently.
+## Current Baseline (Implemented)
 
-## Problem Statement
+The deployed matcher in `spoolman_tray_map` currently does the following:
 
-Spoolman supports multi-color filament spools (gradient/rainbow) using comma-separated hex values in `filament_multi_color_hexes` instead of single-value `filament_color_hex`.
+1. Detects empty trays (AMS + external spool heuristics).
+2. Attempts UUID match first.
+3. Falls through to color + material fallback when UUID is unavailable or unresolved.
+4. Uses vendor-aware fallback behavior:
+	 - UUID-attempt path searches Bambu vendor candidates.
+	 - non-UUID path searches non-Bambu candidates.
+5. Uses profile-name matching on Bambu path when profile attributes are available.
+6. Applies AMS location disambiguation when multiple candidates remain.
+7. Excludes sealed spools from candidate pool.
 
-Current color fallback paths in matching logic primarily assume single-color metadata. Result:
+This baseline came from the spool-matching analysis and Option A implementation.
 
-1. Multi-color spools can become unmatchable when UUID matching is unavailable.
-2. Multi-color Bambu spools usually work only when UUID matching succeeds first.
-3. Automatic fallback behavior is less deterministic for multi-color entries than single-color entries.
+## Multi-Color Problem
 
-## How Multi-Color Data Is Stored
+Spoolman multi-color spools use `filament_multi_color_hexes` and may not have a single-value `filament_color_hex` suitable for current fallback matching.
 
-Spoolman integration exposes mutually exclusive color fields:
+Result with current baseline:
+- UUID path still works.
+- color/material fallback can miss multi-color spools when only multi-color hex metadata is present.
 
-| Spool type | `filament_color_hex` | `filament_multi_color_hexes` | `filament_multi_color_direction` |
+## Data Model Notes
+
+Spoolman integration fields relevant to color matching:
+
+| Spool type | filament_color_hex | filament_multi_color_hexes | filament_multi_color_direction |
 |---|---|---|---|
 | Single-color | Present | Absent | Absent |
-| Multi-color | Absent | Present | Present |
+| Multi-color | Often empty/absent | Present | Present |
 
-Observed examples:
-- Dusk Glare: `ffa11f,ff5900`
-- Rainbow 04: `e292fe,fff994,6ef785,93e3fd`
-- Rainbow 02: `982abc,e63b7a,00a1d8`
+Observed multi-color examples:
+- Dusk Glare: ffa11f,ff5900
+- Rainbow 04: e292fe,fff994,6ef785,93e3fd
+- Rainbow 02: 982abc,e63b7a,00a1d8
 
-## Existing Display Behavior (Already Working)
+## Matching Cascade For Multi-Color Extension
 
-Multi-color attributes are already consumed by dashboard rendering paths (gradients/chips/popups). The design gap is matching and sync logic, not visual rendering.
-
-Reference card templates:
-- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml`
-- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml`
-- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_card.yaml`
-- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml`
-
-## Bambu Studio Constraint
-
-Bambu tray entities expose one color value (RGB + alpha), not a multi-color set.
-
-Recommended convention for multi-color spools in Bambu Studio:
-- Set tray color to the first hex in `filament_multi_color_hexes`.
-
-Examples:
-
-| Spool | `filament_multi_color_hexes` | Recommended tray color |
-|---|---|---|
-| Dusk Glare | `ffa11f,ff5900` | `#FFA11F` |
-| Rainbow 04 | `e292fe,fff994,6ef785,93e3fd` | `#E292FE` |
-| Rainbow 02 | `982abc,e63b7a,00a1d8` | `#982ABC` |
-
-Rationale:
-- Deterministic convention for users and logic.
-- Minimal user friction (single color picker in Bambu Studio).
-- Enables stable first-hex fallback tier.
-
-## Current Matching Logic Gaps
-
-### `spoolman_tray_map` template sensor
-
-File:
-- `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml`
-
-Current structure is UUID-first, then single-color fallback. Multi-color entries without `filament_color_hex` can be skipped by fallback unless explicit multi-color handling is added.
-
-### `find_matching_spool_in_spoolman` script
-
-File:
-- `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml`
-
-Current normalized spool payload focuses on `color_hex_lower`. For multi-color filaments, that value can be empty, so exact color lookup may never match.
-
-## Proposed Matching Cascade (Automatic Scope)
+Multi-color support should be added without changing existing precedence semantics:
 
 1. UUID exact match
 2. Single-color exact match (`filament_color_hex`)
-3. Multi-color first-hex match (`filament_multi_color_hexes[0]`)
-4. Multi-color any-hex contains tray color (optional fallback)
+3. Multi-color first-hex match (first item in `filament_multi_color_hexes`)
+4. Optional multi-color any-hex containment fallback
 5. Unmatched
 
-Design notes:
-- Keep existing disambiguators (material, profile name, location preference, sealed status).
-- Preserve current ambiguity handling semantics where practical.
-- Manual override remains out of scope here and is defined in [manual-spool-matching-design.md](manual-spool-matching-design.md).
+All existing disambiguators must remain in effect for tiers 2-4:
+- material/type check
+- vendor-aware pathing (Bambu-aware on UUID path)
+- profile-name matching when available
+- AMS location tie-break
+- sealed spool exclusion
 
-## Required Logic Changes
+## Bambu Studio Operator Convention
 
-### 1. Template matcher: `spoolman_tray_map`
+Bambu tray entities expose one color value, not a list.
 
-Add multi-color-aware color fallback tiers after UUID miss:
-- Continue into color matching when UUID is absent/unresolved.
-- Compare tray color to `filament_color_hex` first.
-- Then compare to first hex from `filament_multi_color_hexes`.
-- Optionally attempt any-hex containment if first-hex yields no candidates.
+Operator convention for multi-color spools:
+- set tray color to the first color in `filament_multi_color_hexes`
 
-### 2. Legacy script matcher: `find_matching_spool_in_spoolman`
+Examples:
 
-Enrich normalized spool model with:
-- `multi_color_hexes`
-- `first_multi_color_hex`
-
-Then apply fallback sequence:
-- Exact single-color match first.
-- First-hex multi-color match second.
-- Any-hex containment fallback optionally third.
-
-### 3. Documentation update
-
-Update custom field documentation to codify first-color convention for operator setup.
-
-## Edge Cases and Scenarios
-
-| Scenario | Current tendency | Expected after multi-color design |
+| Spool | filament_multi_color_hexes | Recommended tray color |
 |---|---|---|
-| Bambu multi-color spool with UUID | Usually matches by UUID | UUID still wins |
-| Non-Bambu multi-color spool without UUID | Often unmatchable | First-hex (or any-hex fallback) can match |
-| Two multi-color spools share first hex | Higher ambiguity risk | Existing disambiguators + ambiguity response |
-| Single-color spool shares same hex as multi first hex | Possible collision | Single-color exact remains higher priority |
-| User chooses non-first tray color for multi-color spool | First-hex may miss | Any-hex fallback can recover (if enabled) |
-| External spool uses multi-color filament | Same gap as AMS | Same multi-color fallback behavior applies |
+| Dusk Glare | ffa11f,ff5900 | #FFA11F |
+| Rainbow 04 | e292fe,fff994,6ef785,93e3fd | #E292FE |
+| Rainbow 02 | 982abc,e63b7a,00a1d8 | #982ABC |
 
-## Risk Assessment
+This keeps matching deterministic and minimizes user setup friction.
+
+## Implementation Touchpoints
+
+Primary matcher changes:
+- `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml`
+	- add multi-color color tiers after UUID attempt using the same disambiguation pipeline
+
+Legacy comparator parity updates (recommended):
+- `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml`
+	- normalize multi-color fields and mirror fallback tiers for parity validation
+
+Validation and docs:
+- `homeassistant/packages/3d_printing/spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml`
+	- extend parity checks with at least one multi-color fixture path
+- `tests/spool_matching/test_option_a_matching.py`
+	- add deterministic scenarios for first-hex and any-hex behavior
+- `docs/features/spoolman_sync/spoolman-custom-fields.md`
+	- codify first-color setup guidance
+
+## Scenarios
+
+| Scenario | Expected behavior |
+|---|---|
+| Bambu multi-color spool with known UUID | UUID path wins |
+| UUID missing, single-color hex exists | single-color tier may match |
+| UUID missing, no single-color, first multi-color hex matches tray color | first-hex tier matches |
+| first-hex misses, any-hex enabled and contains tray color | any-hex tier matches |
+| Multiple candidates after filtering | ambiguity handled by current disambiguation semantics |
+| No candidates | unmatched with reason |
+
+## Risks
 
 | Scenario | Risk | Mitigation |
 |---|---|---|
-| User sets arbitrary tray color not equal to first multi-color hex | Medium | Any-hex fallback and setup guidance |
-| Shared first hex across many spools | Medium | Existing disambiguators and ambiguity output |
-| Single-color and multi-color overlap on same hex | Low | Keep single-color exact prioritized |
-| Any-hex fallback creates overmatching | Medium | Keep optional; only run after stricter tiers |
+| User selects non-first tray color | Medium | optional any-hex fallback + setup guidance |
+| Shared first hex across many spools | Medium | existing material/profile/vendor/AMS disambiguation |
+| Any-hex overmatching | Medium | keep any-hex optional and last-tier only |
+| Single-color and multi-color overlap | Low | keep single-color tier ahead of multi-color tiers |
 
-## Test Matrix
+## Status Summary
 
-| Scenario | Expected result |
-|---|---|
-| UUID match exists | UUID wins |
-| UUID missing, single-color exact exists | Single-color match |
-| UUID missing, no single-color, first multi-color exists | First-hex match |
-| UUID missing, first-hex miss, any-hex hit | Any-hex match (if enabled) |
-| Multiple candidates remain after filters | Ambiguous/unmatched response |
-| No candidates | Unmatched response |
-
-## Deployment Independence
-
-This multi-color design can ship independently if:
-- No new `input_text.*_spool_override` helpers are introduced in this workstream.
-- No pin/unpin UI controls are introduced in this workstream.
-- Existing automation consumers continue to accept current ambiguity behavior.
-
-Manual override/pinning work can follow separately using:
-- [manual-spool-matching-design.md](manual-spool-matching-design.md)
-
-## Affected Files
-
-| File | Change |
-|---|---|
-| `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml` | Add multi-color fallback tiers |
-| `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml` | Add normalized multi-color fields and fallback matching |
-| `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document first-color setup convention |
+- Option A matcher alignment is implemented.
+- Multi-color display rendering already works in dashboard cards.
+- Multi-color matching tiers described here are the remaining extension for matching logic.
