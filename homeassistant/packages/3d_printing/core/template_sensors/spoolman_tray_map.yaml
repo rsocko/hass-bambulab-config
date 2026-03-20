@@ -14,8 +14,7 @@
         'ams_2_tray_3': 'sensor.p1s_01p00c460102350_ams_2_tray_3',
         'ams_2_tray_4': 'sensor.p1s_01p00c460102350_ams_2_tray_4',
 
-        'external_spool' : 'sensor.ntk_ryansoffice_3dprinter_external_spool',
-        'external_spool_2' : 'sensor.ntk_ryansoffice_3dprinter_external_spool2'
+        'external_spool' : 'sensor.ntk_ryansoffice_3dprinter_external_spool'
       } %}
 
       {% set spool_entity_ids = integration_entities('spoolman')

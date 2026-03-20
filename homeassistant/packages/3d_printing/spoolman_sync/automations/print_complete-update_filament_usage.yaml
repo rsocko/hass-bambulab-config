@@ -288,11 +288,7 @@
               {% endif %}
             tray_entity_id: >
               {% if tray_number == 'external' %}
-                {% if 'External Spool 2' in tray_name %}
-                  sensor.ntk_ryansoffice_3dprinter_external_spool2
-                {% else %}
-                  sensor.ntk_ryansoffice_3dprinter_external_spool
-                {% endif %}
+                sensor.ntk_ryansoffice_3dprinter_external_spool
               {% else %}
                 sensor.p1s_01p00c460102350_ams_{{ tray_ams_number }}_tray_{{ tray_number }}
               {% endif %}
@@ -358,11 +354,7 @@
         - variables:
             tray_key: >-
               {% if tray_number == 'external' %}
-                {% if 'External Spool 2' in tray_name %}
-                  external_spool_2
-                {% else %}
-                  external_spool
-                {% endif %}
+                external_spool
               {% else %}
                 ams_{{ tray_ams_number }}_tray_{{ tray_number }}
               {% endif %}

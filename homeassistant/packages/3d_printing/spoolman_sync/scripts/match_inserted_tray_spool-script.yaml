@@ -35,7 +35,6 @@ match_inserted_tray_spool_in_spoolman:
         ams_2_tray_3: sensor.p1s_01p00c460102350_ams_2_tray_3
         ams_2_tray_4: sensor.p1s_01p00c460102350_ams_2_tray_4
         external_spool: sensor.ntk_ryansoffice_3dprinter_external_spool
-        external_spool_2: sensor.ntk_ryansoffice_3dprinter_external_spool2
       key: >-
         {% if tray_key is defined and tray_key is not none and tray_key | length > 0 %}
           {{ tray_key }}

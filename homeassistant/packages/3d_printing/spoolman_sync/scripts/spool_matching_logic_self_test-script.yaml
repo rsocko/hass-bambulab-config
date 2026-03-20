@@ -18,7 +18,6 @@ spool_matching_logic_self_test:
         ams_2_tray_3: sensor.p1s_01p00c460102350_ams_2_tray_3
         ams_2_tray_4: sensor.p1s_01p00c460102350_ams_2_tray_4
         external_spool: sensor.ntk_ryansoffice_3dprinter_external_spool
-        external_spool_2: sensor.ntk_ryansoffice_3dprinter_external_spool2
       tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
       checked_count: 0
       skipped_count: 0

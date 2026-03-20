@@ -108,6 +108,21 @@ state, this repository also includes deterministic fixture unit tests.
 
 [Test Suite](../../../tests/spool_matching/test_option_a_matching.py) | [Test Docs](../../../tests/spool_matching/README.md)
 
+### External Spool Assumption
+Current default logic assumes a single external spool entity:
+
+- `sensor.ntk_ryansoffice_3dprinter_external_spool`
+- tray key `external_spool`
+
+If Bambu/ha-bambulab adds a second external spool path in your setup later,
+re-enable it by adding `external_spool_2` in these files:
+
+- [core/template_sensors/spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml)
+- [spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml)
+- [spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml)
+- [spoolman_sync/scripts/match_inserted_tray_spool-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/match_inserted_tray_spool-script.yaml)
+- [spoolman_sync/automations/print_complete-update_filament_usage.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
+
 ## Dependencies & Requirements
 
 > **Foundation:** This feature requires the [Core](../core/README.md) package and the [ha-bambulab](https://github.com/greghesp/ha-bambulab) integration — see [Foundation Packages](../../README.md#foundation-packages). This feature does **not** depend on [Common](../common/README.md) — it has no dashboard cards of its own (UI is provided via Core template sensors and other features that consume its data).
