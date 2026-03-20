@@ -61,6 +61,11 @@ ams_tray_popup:
       const spoolName = trayData.name || 'Unknown Filament';
       const desiccantFilled = trayData.filled;
       const status = trayData.status || 'empty';
+      const trayUUIDRaw = String(trayEntity?.attributes?.tray_uuid || '').replace(/^"|"$/g, '').trim();
+      const trayUUIDNormalized = trayUUIDRaw.toLowerCase();
+      const hasValidTrayUUID = !!trayUUIDRaw
+        && !['none', 'unknown', 'unavailable'].includes(trayUUIDNormalized)
+        && !/^0+$/.test(trayUUIDNormalized);
       const remainingWeight = spoolEntity?.attributes?.remaining_weight;
       const firstUsed = spoolEntity?.attributes?.first_used;
       const material = spoolEntity?.attributes?.filament_material || 'Unknown';
@@ -95,6 +100,7 @@ ams_tray_popup:
       const typeDetailsRaw = spoolEntity?.attributes?.filament_extra_type_details || '';
       const lastDried = spoolEntity?.attributes?.extra_last_dried || '';
       const spoolUUID = spoolEntity?.attributes?.extra_spool_uuid || '';
+      const shouldOfferSetUUID = !spoolUUID && hasValidTrayUUID;
       const filamentId = spoolEntity?.attributes?.filament_id;
       // Multi-color spool support
       const multiColorHexesRaw = spoolEntity?.attributes?.filament_multi_color_hexes || '';
@@ -321,12 +327,29 @@ ams_tray_popup:
                     ]
                   }
                 },
-                ...(spoolUUID ? [{
+                ...(spoolUUID || shouldOfferSetUUID ? [{
                   type: 'custom:mushroom-chips-card',
                   alignment: 'center',
-                  chips: [
-                    { type: 'template', icon: 'mdi:identifier', icon_color: 'grey', content: spoolUUID }
-                  ],
+                  chips: spoolUUID
+                    ? [
+                        { type: 'template', icon: 'mdi:identifier', icon_color: 'grey', content: spoolUUID }
+                      ]
+                    : [
+                        {
+                          type: 'template',
+                          icon: 'mdi:identifier-plus',
+                          icon_color: 'amber',
+                          content: 'Set UUID: ' + trayUUIDRaw,
+                          tap_action: {
+                            action: 'call-service',
+                            service: 'spoolman.patch_spool',
+                            service_data: {
+                              id: spoolIdInt,
+                              extra: { spool_uuid: trayUUIDRaw }
+                            }
+                          }
+                        }
+                      ],
                   card_mod: { style: 'ha-card { user-select: text; }' }
                 }] : []),
                 {
