@@ -343,7 +343,7 @@ ams_tray_popup:
                         chips: [
                           {
                             type: 'template',
-                            icon: 'mdi:identifier-plus',
+                            icon: 'mdi:identifier',
                             icon_color: 'white',
                             content: 'Set UUID: ' + trayUUIDRaw,
                             tap_action: {
