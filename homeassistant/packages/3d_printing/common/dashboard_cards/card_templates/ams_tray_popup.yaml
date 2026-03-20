@@ -366,7 +366,9 @@ ams_tray_popup:
                             { 'border-radius': '999px' },
                             { padding: '8px 14px' },
                             { width: 'fit-content' },
-                            { margin: '0 auto' }
+                            { margin: '0 auto' },
+                            { 'justify-self': 'center' },
+                            { display: 'table' }
                           ],
                           icon: [
                             { color: 'white' },
