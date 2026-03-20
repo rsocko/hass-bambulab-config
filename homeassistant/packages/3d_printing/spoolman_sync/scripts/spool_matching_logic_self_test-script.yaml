@@ -37,13 +37,72 @@ spool_matching_logic_self_test:
         {% else %}
           Missing tray_map keys: {{ missing_keys | join(', ') }}
         {% endif %}
+      parity_tray_key: ams_1_tray_1
+      parity_tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_1
+      parity_tray_map_entry: "{{ tray_map.get(parity_tray_key, {}) }}"
+      parity_tray_uuid: "{{ state_attr(parity_tray_entity_id, 'tray_uuid') | default('', true) | string }}"
+      parity_tray_color: "{{ state_attr(parity_tray_entity_id, 'color') | default('', true) | string | replace('#', '') }}"
+      parity_tray_type: "{{ state_attr(parity_tray_entity_id, 'type') | default('', true) | string }}"
+      parity_tray_name: "{{ state_attr(parity_tray_entity_id, 'name') | default('', true) | string }}"
+      parity_has_matchable_data: >-
+        {% set uuid_norm = parity_tray_uuid | lower %}
+        {{ (parity_tray_uuid | length > 0 and not uuid_norm | regex_match('^0+$'))
+           or (parity_tray_color | length > 0 and parity_tray_type | length > 0 and parity_tray_name | length > 0) }}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ parity_has_matchable_data }}"
+        sequence:
+          - action: script.find_matching_spool_in_spoolman
+            metadata: {}
+            data:
+              parameters:
+                target_color_hex: "{{ parity_tray_color }}"
+                target_type: "{{ parity_tray_type }}"
+                target_uuid: "{{ parity_tray_uuid }}"
+                target_name: "{{ parity_tray_name }}"
+            response_variable: legacy_response
+    default:
+      - variables:
+          legacy_response:
+            success: false
+            message: "Phase 2 parity check skipped for ams_1_tray_1 (insufficient tray metadata)."
+            spool:
+              id: null
+
+  - variables:
+      template_success: "{{ parity_tray_map_entry.spool_id is not none and parity_tray_map_entry.spool_id | string | length > 0 }}"
+      template_spool_id: "{{ parity_tray_map_entry.spool_id if template_success else none }}"
+      legacy_success: "{{ legacy_response.success | default(false) }}"
+      legacy_spool_id: "{{ legacy_response.spool.id if legacy_success else none }}"
+      parity_match: >-
+        {{ (template_success == legacy_success)
+           and ((template_spool_id | string) == (legacy_spool_id | string)) }}
+      parity_summary: >-
+        {% if not parity_has_matchable_data %}
+          SKIP ams_1_tray_1 parity (insufficient tray metadata).
+        {% elif parity_match %}
+          PASS ams_1_tray_1 parity: template_success={{ template_success }}, template_spool={{ template_spool_id | string }}, legacy_success={{ legacy_success }}, legacy_spool={{ legacy_spool_id | string }}.
+        {% else %}
+          FAIL ams_1_tray_1 parity: template_success={{ template_success }}, template_spool={{ template_spool_id | string }}, legacy_success={{ legacy_success }}, legacy_spool={{ legacy_spool_id | string }}.
+        {% endif %}
+      overall_status: >-
+        {% if parity_has_matchable_data and not parity_match %}
+          FAIL
+        {% elif (missing_keys | count) == 0 %}
+          PASS
+        {% else %}
+          WARN
+        {% endif %}
+      details: "{{ details ~ ' ' ~ parity_summary }}"
 
   - action: system_log.write
     metadata: {}
     data:
       message: >-
         Spool Matching Self-Test {{ overall_status }}: available_keys={{ available_count }}/{{ expected_tray_keys | count }}. {{ details }}
-      level: "{{ 'info' if (missing_keys | count) == 0 else 'warning' }}"
+      level: "{{ 'info' if overall_status == 'PASS' else 'warning' }}"
       logger: homeassistant.components.bambulab.spoolman_sync
 
   - action: persistent_notification.create
@@ -60,11 +119,17 @@ spool_matching_logic_self_test:
 
   - variables:
       response_object:
-        success: "{{ (missing_keys | count) == 0 }}"
+        success: "{{ overall_status == 'PASS' }}"
         status: "{{ overall_status }}"
         available_count: "{{ available_count }}"
         expected_count: "{{ expected_tray_keys | count }}"
         missing_keys: "{{ missing_keys }}"
+        parity_tray_key: "{{ parity_tray_key }}"
+        parity_match: "{{ parity_match }}"
+        parity_template_success: "{{ template_success }}"
+        parity_template_spool_id: "{{ template_spool_id }}"
+        parity_legacy_success: "{{ legacy_success }}"
+        parity_legacy_spool_id: "{{ legacy_spool_id }}"
         report: "{{ details }}"
 
   - stop: Spool matching self-test complete
