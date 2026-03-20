@@ -338,51 +338,58 @@ ams_tray_popup:
                     }]
                   : (shouldOfferSetUUID
                     ? [{
-                        type: 'custom:button-card',
-                        name: 'Set UUID: ' + trayUUIDRaw,
-                        icon: 'mdi:tag-plus',
-                        show_icon: true,
-                        show_name: true,
-                        tap_action: {
-                          action: 'call-service',
-                          service: 'spoolman.patch_spool',
-                          service_data: {
-                            id: spoolIdInt,
-                            extra: { spool_uuid: trayUUIDRaw }
-                          }
+                        type: 'custom:layout-card',
+                        layout_type: 'custom:grid-layout',
+                        layout: {
+                          'grid-template-columns': '1fr',
+                          'justify-items': 'center'
                         },
-                        styles: {
-                          grid: [
-                            { 'grid-template-areas': '"i n"' },
-                            { 'grid-template-columns': 'min-content min-content' },
-                            { 'align-items': 'center' },
-                            { 'justify-content': 'center' },
-                            { 'column-gap': '8px' }
-                          ],
-                          card: [
-                            { background: 'var(--primary-color)' },
-                            { 'box-shadow': 'none' },
-                            { border: 'none' },
-                            { 'border-radius': '999px' },
-                            { padding: '8px 14px' },
-                            { width: 'fit-content' },
-                            { margin: '0 auto' },
-                            { 'justify-self': 'center' },
-                            { display: 'table' }
-                          ],
-                          icon: [
-                            { color: 'white' },
-                            { width: '18px' },
-                            { height: '18px' }
-                          ],
-                          name: [
-                            { color: 'white' },
-                            { 'font-size': '12px' },
-                            { 'font-weight': '700' },
-                            { 'text-align': 'left' },
-                            { 'word-break': 'break-all' }
-                          ]
-                        }
+                        cards: [
+                          {
+                            type: 'custom:button-card',
+                            name: 'Set UUID: ' + trayUUIDRaw,
+                            icon: 'mdi:tag-plus',
+                            show_icon: true,
+                            show_name: true,
+                            tap_action: {
+                              action: 'call-service',
+                              service: 'spoolman.patch_spool',
+                              service_data: {
+                                id: spoolIdInt,
+                                extra: { spool_uuid: trayUUIDRaw }
+                              }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i n"' },
+                                { 'grid-template-columns': 'min-content min-content' },
+                                { 'align-items': 'center' },
+                                { 'justify-content': 'center' },
+                                { 'column-gap': '8px' }
+                              ],
+                              card: [
+                                { background: 'var(--primary-color)' },
+                                { 'box-shadow': 'none' },
+                                { border: 'none' },
+                                { 'border-radius': '999px' },
+                                { padding: '8px 14px' },
+                                { width: 'fit-content' }
+                              ],
+                              icon: [
+                                { color: 'white' },
+                                { width: '18px' },
+                                { height: '18px' }
+                              ],
+                              name: [
+                                { color: 'white' },
+                                { 'font-size': '12px' },
+                                { 'font-weight': '700' },
+                                { 'text-align': 'left' },
+                                { 'word-break': 'break-all' }
+                              ]
+                            }
+                          }
+                        ]
                       }]
                     : [])),
                 {
