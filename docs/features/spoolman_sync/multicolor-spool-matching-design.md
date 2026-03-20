@@ -6,25 +6,48 @@
 
 ## Table of Contents
 
-- [Problem Statement](#problem-statement)
-- [How Multi-Color Data is Stored](#how-multi-color-data-is-stored)
-- [Bambu Studio Tray Color — Single RGB Only](#bambu-studio-tray-color--single-rgb-only)
-  - [Recommended Color Convention for Multi-Color Spools](#recommended-color-convention-for-multi-color-spools)
-- [Current Matching Logic & Gaps](#current-matching-logic--gaps)
-  - [spoolman\_tray\_map Template Sensor](#spoolman_tray_map-template-sensor)
-  - [find\_matching\_spool\_in\_spoolman Script](#find_matching_spool_in_spoolman-script)
-- [Proposed Priority Cascade](#proposed-priority-cascade)
-- [Manual Override Mechanism](#manual-override-mechanism)
-  - [Override Helpers](#override-helpers)
-  - [Auto-Clear Behavior](#auto-clear-behavior)
-  - [Dashboard Integration](#dashboard-integration)
-- [Edge Cases & Scenarios](#edge-cases--scenarios)
-- [Risk Assessment — Color-Based Multi-Color Matching](#risk-assessment--color-based-multi-color-matching)
-- [Implementation Phases](#implementation-phases)
-  - [Phase 1 — Fix Silent Matching Failure (Foundation)](#phase-1--fix-silent-matching-failure-foundation)
-  - [Phase 2 — Manual Override Mechanism](#phase-2--manual-override-mechanism)
-  - [Phase 3 — Dashboard UX](#phase-3--dashboard-ux)
-- [Affected Files](#affected-files)
+- [Multi-Color Spool Matching — Design Document](#multi-color-spool-matching--design-document)
+  - [Table of Contents](#table-of-contents)
+  - [Problem Statement](#problem-statement)
+  - [How Multi-Color Data is Stored](#how-multi-color-data-is-stored)
+    - [Live Examples from HA Instance](#live-examples-from-ha-instance)
+    - [Where Multi-Color is Already Used (Display Only)](#where-multi-color-is-already-used-display-only)
+  - [Bambu Studio Tray Color — Single RGB Only](#bambu-studio-tray-color--single-rgb-only)
+    - [Recommended Color Convention for Multi-Color Spools](#recommended-color-convention-for-multi-color-spools)
+  - [Current Matching Logic \& Gaps](#current-matching-logic--gaps)
+    - [spoolman\_tray\_map Template Sensor](#spoolman_tray_map-template-sensor)
+    - [find\_matching\_spool\_in\_spoolman Script](#find_matching_spool_in_spoolman-script)
+  - [Proposed Priority Cascade](#proposed-priority-cascade)
+  - [Manual Override Mechanism](#manual-override-mechanism)
+    - [Override Helpers](#override-helpers)
+    - [Auto-Clear Behavior](#auto-clear-behavior)
+    - [Dashboard Integration](#dashboard-integration)
+    - [Conflict Handling (Multiple Matches)](#conflict-handling-multiple-matches)
+      - [Tray Detail Card Behavior (Ambiguous)](#tray-detail-card-behavior-ambiguous)
+      - [Tray Popup Behavior (Ambiguous)](#tray-popup-behavior-ambiguous)
+    - [Color Divergence Indicator (Bambu vs Spoolman)](#color-divergence-indicator-bambu-vs-spoolman)
+  - [Edge Cases \& Scenarios](#edge-cases--scenarios)
+  - [Risk Assessment — Color-Based Multi-Color Matching](#risk-assessment--color-based-multi-color-matching)
+  - [Implementation Phases](#implementation-phases)
+    - [Phase 1 — Fix Silent Matching Failure (Foundation)](#phase-1--fix-silent-matching-failure-foundation)
+      - [1.1 Update `spoolman_tray_map` Template Sensor](#11-update-spoolman_tray_map-template-sensor)
+      - [1.2 Update `find_matching_spool_in_spoolman` Script](#12-update-find_matching_spool_in_spoolman-script)
+      - [1.3 Document the First-Color Convention](#13-document-the-first-color-convention)
+    - [Phase 2 — Manual Override Mechanism](#phase-2--manual-override-mechanism)
+      - [2.1 Create Override Helper Entities (9 `input_text`)](#21-create-override-helper-entities-9-input_text)
+      - [2.2 Wire Override into `spoolman_tray_map`](#22-wire-override-into-spoolman_tray_map)
+      - [2.3 Wire Override into `find_matching_spool_in_spoolman` Script](#23-wire-override-into-find_matching_spool_in_spoolman-script)
+      - [2.4 Wire Override into `active_tray_changed_update_spoolman` Automation](#24-wire-override-into-active_tray_changed_update_spoolman-automation)
+      - [2.5 Wire Override into `print_complete-update_filament_usage` Automation](#25-wire-override-into-print_complete-update_filament_usage-automation)
+      - [2.6 Create Auto-Clear Automation](#26-create-auto-clear-automation)
+    - [Phase 3 — Dashboard UX](#phase-3--dashboard-ux)
+      - [3.1 Add "Pin Spool" to AMS Tray Popup](#31-add-pin-spool-to-ams-tray-popup)
+      - [3.2 Show Override Indicator on AMS Tray Detail Cards](#32-show-override-indicator-on-ams-tray-detail-cards)
+      - [3.3 Ensure Gradient Rendering for Overridden Multi-Color Spools](#33-ensure-gradient-rendering-for-overridden-multi-color-spools)
+      - [3.4 Add Color Divergence Severity UI](#34-add-color-divergence-severity-ui)
+      - [3.5 Improve Multi-Color Labeling in Popups (Hex + RGB Pairing)](#35-improve-multi-color-labeling-in-popups-hex--rgb-pairing)
+      - [3.6 Add Ambiguity Resolution UI](#36-add-ambiguity-resolution-ui)
+  - [Affected Files](#affected-files)
 
 ---
 
@@ -144,6 +167,8 @@ Updated matching order (both `spoolman_tray_map` and `find_matching_spool_in_spo
 6. Unmatched (with diagnostic reason)                          ← lowest
 ```
 
+**Precedence guarantee**: If a tray has a non-empty UUID and exactly one spool has a matching `extra_spool_uuid`, that UUID match **always wins** and manual override is ignored for matching. Override applies only when UUID matching is absent or unresolved.
+
 > **Note**: Tiers 3–5 all continue to apply existing disambiguators: material type, profile name, sealed status, and AMS location.
 
 ---
@@ -159,19 +184,19 @@ Create one `input_text` per tray slot (9 total). Each stores a Spoolman spool ID
 ams_1_tray_1_spool_override:
   name: "AMS 1 Tray 1 Spool Override"
   max: 10
-  initial: ""
   icon: mdi:link-variant-plus
 
 ams_1_tray_2_spool_override:
   name: "AMS 1 Tray 2 Spool Override"
   max: 10
-  initial: ""
   icon: mdi:link-variant-plus
 
 # ... ams_1_tray_3, ams_1_tray_4
 # ... ams_2_tray_1 through ams_2_tray_4
 # ... external_spool_spool_override
 ```
+
+Do **not** set `initial` on these `input_text` helpers. Leaving `initial` unset allows Home Assistant to restore user-selected override values from recorder across restarts.
 
 ### Auto-Clear Behavior
 
@@ -192,6 +217,87 @@ Add controls to the AMS tray popup:
 - **"Unpin" button**: Clears the override, falling back to automatic matching.
 - For **unmatched trays** showing "Unknown Filament": the Pin Spool action becomes the primary call-to-action.
 
+### Conflict Handling (Multiple Matches)
+
+When any matching tier returns more than one candidate after filters/tiebreakers, treat the tray as **ambiguous** (not matched) and expose structured conflict metadata for UI.
+
+Recommended `tray_map` payload additions when ambiguous:
+
+```json
+{
+  "spool_id": null,
+  "name": "Unknown Filament",
+  "reason": "Multiple candidate spools for first multi-color hex #e292fe",
+  "match_state": "ambiguous",
+  "match_tier": "color_first_multi",
+  "candidate_count": 2,
+  "candidate_spool_ids": [133, 207]
+}
+```
+
+Notes:
+- `match_state`: one of `matched`, `ambiguous`, `unmatched`, `empty`
+- `match_tier`: `uuid`, `override`, `color_exact`, `color_first_multi`, `color_any_multi`, `none`
+- Keep existing `reason` string for backward compatibility.
+
+#### Tray Detail Card Behavior (Ambiguous)
+
+For `match_state = ambiguous` in `ams_tray_detail.yaml`:
+
+- Keep tray title as `Unknown Filament`.
+- Label text: concise conflict message, e.g. `Ambiguous match (2 candidates)`.
+- Show warning icon/chip (amber) instead of normal neutral label styling.
+- Keep no `spool_id`-dependent KPIs (remaining weight, print-weight warning) hidden.
+- Tapping the card opens popup focused on conflict resolution.
+
+#### Tray Popup Behavior (Ambiguous)
+
+In `ams_tray_popup.yaml` no-spool branch:
+
+- Header card becomes warning style: `Match conflict` + `reason`.
+- Add `Candidate Spools` section (if `candidate_spool_ids` available), each row showing:
+  - Spool ID and name
+  - Material + vendor
+  - Location
+  - Remaining weight
+  - Primary color / first multi-color hex
+- Each candidate row includes `Pin this spool` action that sets the tray override helper directly.
+- Keep generic `Match Inserted Spool` action for re-run if candidate list is missing/stale.
+
+This ensures the user sees exactly *why* mapping failed and can resolve in one tap.
+
+### Color Divergence Indicator (Bambu vs Spoolman)
+
+Add a user-facing indicator when the AMS tray color (from Bambu Studio) differs from the matched Spoolman spool color.
+
+- **Reference color used for comparison**:
+  - Single-color spool: `filament_color_hex`
+  - Multi-color spool: first item of `filament_multi_color_hexes` (same first-color convention)
+- **Comparison source**:
+  - AMS tray `color` normalized to 6-char hex (strip `#` and alpha)
+  - Matched spool reference hex normalized to 6-char hex
+
+Use RGB distance to classify mismatch severity:
+
+```
+distance = sqrt((R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2)
+```
+
+- **0**: Exact match (no warning)
+- **1–45**: Close match (subtle info chip)
+- **46–120**: Noticeable mismatch (warning chip)
+- **121+**: Wild mismatch (high-visibility alert chip/badge)
+
+This makes severe mismatches visually prominent while avoiding noisy alerts for near-matches.
+
+Suggested label text:
+- `Color close (Bambu vs Spoolman)`
+- `Color mismatch (Bambu vs Spoolman)`
+- `Color conflict (Bambu vs Spoolman)`
+
+For multi-color spools, append helper text:
+- `Compared against first multi-color hex`
+
 ---
 
 ## Edge Cases & Scenarios
@@ -210,6 +316,8 @@ Add controls to the AMS tray popup:
 | 10 | `spoolman_tray_map` color for dashboard rendering (overridden multi-color spool) | Uses tray_color from AMS entity | Uses tray_color | ✅ Reads `filament_multi_color_hexes` from pinned spool for gradient |
 | 11 | Two single-color spools with identical color + material | ❌ Multiple match error | ❌ Same (outside multi-color scope) | ✅ Override resolves |
 | 12 | User sets arbitrary (non-first) color in Bambu Studio for multi-color spool | N/A | ⚠️ First-color match fails; any-color match (Tier 5) may catch it | ✅ Override as fallback |
+| 13 | Bambu color differs slightly from matched spool color | N/A | N/A | ℹ️ Close/Warning indicator shown based on color distance |
+| 14 | Bambu color is wildly different from matched spool color | N/A | N/A | 🚨 High-severity conflict indicator shown |
 
 ---
 
@@ -351,6 +459,47 @@ When an override is active, `spoolman_tray_map` should propagate the matched spo
 
 Confirm that `ams_tray_detail.yaml` and `ams_tray_popup.yaml` read multi-color data from the **spool entity** (they already do) rather than from `tray_map.color` — this should work without changes as long as `spool_id` is populated by the override.
 
+#### 3.4 Add Color Divergence Severity UI
+
+In both `ams_tray_detail.yaml` and `ams_tray_popup.yaml`:
+
+- Compute normalized AMS color and normalized matched spool reference color.
+- Compute RGB distance and map to the severity bands defined above.
+- Show a chip/badge only when distance > 0.
+- Increase prominence with severity (neutral info → warning → high-severity alert).
+
+#### 3.5 Improve Multi-Color Labeling in Popups (Hex + RGB Pairing)
+
+Update color text for multi-color spools in:
+
+- `catalog_spool_popup_content.yaml`
+- `ams_tray_popup.yaml`
+
+Display format should make the first-color RGB mapping obvious:
+
+```text
+HEX1 • RGB1 • HEX2 • HEX3 ...
+```
+
+Example:
+
+```text
+#E292FE • RGB(226,146,254) • #FFF994 • #6EF785 • #93E3FD
+```
+
+Notes:
+- RGB is shown for the **first** hex only (the Bambu Studio reference color).
+- Keep separator as `•` for readability; fallback to `|` if rendering/font issues occur.
+
+#### 3.6 Add Ambiguity Resolution UI
+
+Implement the conflict UX above:
+
+- `ams_tray_detail.yaml` reads `match_state`/`candidate_count` and shows warning label/chip.
+- `ams_tray_popup.yaml` renders `Candidate Spools` list from `candidate_spool_ids`.
+- Candidate rows include one-tap `Pin this spool` actions.
+- If no candidate metadata exists, fallback to existing generic no-match popup behavior.
+
 ---
 
 ## Affected Files
@@ -364,6 +513,8 @@ Confirm that `ams_tray_detail.yaml` and `ams_tray_popup.yaml` read multi-color d
 | `homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml` | 2 | Read and pass override ID for weight deduction |
 | `homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/` | 2 | New override helper files (9 total) |
 | `homeassistant/packages/3d_printing/spoolman_sync/automations/` | 2 | New auto-clear automation |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml` | 3 | Pin/Unpin spool controls |
-| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml` | 3 | Override indicator icon |
+| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml` | 3 | Pin/Unpin controls; divergence indicator; multi-color HEX/RGB label format |
+| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml` | 3 | Override indicator icon; divergence severity chip |
+| `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml` | 3 | Multi-color HEX/RGB label format (`HEX1 • RGB1 • HEX2...`) |
+| `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml` | 3 | Add ambiguity metadata (`match_state`, `match_tier`, `candidate_count`, `candidate_spool_ids`) |
 | `docs/features/spoolman_sync/spoolman-custom-fields.md` | 1 | Document first-color convention |
