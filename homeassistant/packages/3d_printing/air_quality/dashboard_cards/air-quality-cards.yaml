@@ -119,9 +119,14 @@ cards:
         icon: mdi:thermometer
         icon_color: |-
           {% set temp = states('sensor.i_9psl_temperature') | float(0) %}
-          {% if temp < 18 %}blue
-          {% elif temp < 24 %}green
-          {% elif temp < 28 %}amber
+          {% set unit = state_attr('sensor.i_9psl_temperature', 'unit_of_measurement') or 'C' %}
+          {% set temp_f = temp if 'F' in unit else ((temp * 9 / 5) + 32) %}
+          {% if temp_f < 59 %}red
+          {% elif temp_f < 63 %}orange
+          {% elif temp_f < 67 %}yellow
+          {% elif temp_f <= 75 %}green
+          {% elif temp_f <= 80 %}yellow
+          {% elif temp_f <= 85 %}orange
           {% else %}red{% endif %}
         tap_action:
           action: more-info
@@ -135,11 +140,10 @@ cards:
         icon: mdi:water-percent
         icon_color: |-
           {% set humidity = states('sensor.i_9psl_humidity') | float(0) %}
-          {% if humidity < 30 %}red
-          {% elif humidity < 40 %}amber
-          {% elif humidity < 60 %}green
-          {% elif humidity < 70 %}amber
-          {% else %}blue{% endif %}
+          {% if humidity < 30 %}green
+          {% elif humidity < 40 %}yellow
+          {% elif humidity < 50 %}orange
+          {% else %}red{% endif %}
         tap_action:
           action: more-info
           entity: sensor.i_9psl_humidity

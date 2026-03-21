@@ -4,19 +4,15 @@
 # Renders icon, title, separator line, and humidity/temperature pills
 # entirely via button-card custom HTML — no nested bubble-card needed.
 #
-# Humidity color thresholds (Bambu Lab 1-5 rating mapped to percentages):
-#   Level 1 - Optimal  (<20%):  Green        mdi:water-outline
-#   Level 2 - Good     (20-40%): Light Green  mdi:water-minus
-#   Level 3 - Monitor  (40-60%): Amber        mdi:water
-#   Level 4 - Concern  (60-70%): Orange       mdi:water-plus
-#   Level 5 - Critical (>70%):  Red           mdi:water-alert
+# Humidity color thresholds (higher is riskier):
+#   <30%:    Green
+#   30-39%:  Yellow
+#   40-49%:  Orange
+#   >=50%:   Red
 #
-# Temperature color thresholds:
-#   <20°C:   Blue   (Cool)
-#   20-25°C: Green  (Ideal)
-#   25-30°C: Amber  (Warm)
-#   30-35°C: Orange (Hot)
-#   >35°C:   Red    (Too hot)
+# Temperature color thresholds are unit-aware.
+#   Fahrenheit comfort band: 67-75°F (Green)
+#   Celsius comfort band:    19.4-23.9°C (Green)
 #
 # Variables:
 #   amsName           - Display name (e.g., "AMS 1", "AMS 2 Pro")
@@ -110,16 +106,14 @@ ams_header:
               const state = Math.round(val);
               const unit = hEntity ? (states[hEntity]?.attributes?.unit_of_measurement || '%') : (entity?.attributes?.unit_of_measurement || '%');
               let icon;
-              if (val >= 70) icon = 'mdi:water-alert';
-              else if (val >= 60) icon = 'mdi:water-plus';
-              else if (val >= 40) icon = 'mdi:water';
-              else if (val >= 20) icon = 'mdi:water-minus';
+              if (val >= 50) icon = 'mdi:water-alert';
+              else if (val >= 40) icon = 'mdi:water-plus';
+              else if (val >= 30) icon = 'mdi:water';
               else icon = 'mdi:water-outline';
               let color, bg;
-              if (val < 20) { color = '#4CAF50'; bg = 'rgba(76,175,80,0.2)'; }
-              else if (val < 40) { color = '#8BC34A'; bg = 'rgba(139,195,74,0.2)'; }
-              else if (val < 60) { color = '#FFC107'; bg = 'rgba(255,193,7,0.25)'; }
-              else if (val < 70) { color = '#FF9800'; bg = 'rgba(255,152,0,0.25)'; }
+              if (val < 30) { color = '#4CAF50'; bg = 'rgba(76,175,80,0.2)'; }
+              else if (val < 40) { color = '#FBC02D'; bg = 'rgba(251,192,45,0.24)'; }
+              else if (val < 50) { color = '#F57C00'; bg = 'rgba(245,124,0,0.24)'; }
               else { color = '#F44336'; bg = 'rgba(244,67,54,0.25)'; }
               return `
                 <div style="display:inline-flex; align-items:center; gap:4px; background:${bg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1; cursor:pointer;">
@@ -157,11 +151,16 @@ ams_header:
               const val = tEntity ? (parseFloat(states[tEntity]?.state) || 0) : (parseFloat(entity?.state) || 0);
               const state = Math.round(val);
               const unit = tEntity ? (states[tEntity]?.attributes?.unit_of_measurement || '°C') : (entity?.attributes?.unit_of_measurement || '°C');
+              const isF = String(unit).includes('F');
+              const toF = (c) => (c * 9 / 5) + 32;
+              const valueF = isF ? val : toF(val);
               let color, bg;
-              if (val < 20) { color = '#42A5F5'; bg = 'rgba(66,165,245,0.2)'; }
-              else if (val < 25) { color = '#4CAF50'; bg = 'rgba(76,175,80,0.2)'; }
-              else if (val < 30) { color = '#FFC107'; bg = 'rgba(255,193,7,0.25)'; }
-              else if (val < 35) { color = '#FF9800'; bg = 'rgba(255,152,0,0.25)'; }
+              if (valueF < 59) { color = '#F44336'; bg = 'rgba(244,67,54,0.25)'; }
+              else if (valueF < 63) { color = '#F57C00'; bg = 'rgba(245,124,0,0.24)'; }
+              else if (valueF < 67) { color = '#FBC02D'; bg = 'rgba(251,192,45,0.24)'; }
+              else if (valueF <= 75) { color = '#4CAF50'; bg = 'rgba(76,175,80,0.2)'; }
+              else if (valueF <= 80) { color = '#FBC02D'; bg = 'rgba(251,192,45,0.24)'; }
+              else if (valueF <= 85) { color = '#F57C00'; bg = 'rgba(245,124,0,0.24)'; }
               else { color = '#F44336'; bg = 'rgba(244,67,54,0.25)'; }
               return `
                 <div style="display:inline-flex; align-items:center; gap:4px; background:${bg}; border-radius:20px; padding:5px 10px 5px 6px; line-height:1; cursor:pointer;">

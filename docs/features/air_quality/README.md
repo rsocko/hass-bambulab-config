@@ -274,6 +274,26 @@ The automations use the following thresholds (adjust in YAML if needed):
 - **Poor:** 200-300 ppb
 - **Very Poor:** 300+ ppb
 
+### Dashboard Card Color Bands (Temp/Humidity)
+
+The Lovelace sensor cards in `dashboard_cards/air-quality-cards.yaml` use the following color bands and are aligned with the AMS header card logic.
+
+#### Temperature Card (unit-aware)
+
+Temperature is normalized to Fahrenheit before evaluating card color:
+
+- **Red:** <59°F or >85°F
+- **Orange:** 59-62°F and 81-85°F
+- **Yellow:** 63-66°F and 76-80°F
+- **Green:** 67-75°F
+
+#### Humidity Card
+
+- **Green:** <30%
+- **Yellow:** 30-39%
+- **Orange:** 40-49%
+- **Red:** >=50%
+
 ### Purifier Speed Mapping
 
 The automations use these speed settings:

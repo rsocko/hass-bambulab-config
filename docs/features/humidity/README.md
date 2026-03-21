@@ -128,11 +128,10 @@ If you have a room humidity sensor:
 
 | Range | Humidity | Color | Status | Notes |
 |-------|----------|-------|--------|-------|
-| **Optimal** | < 20% | Green | Excellent | Ideal for hygroscopic materials like Nylon, TPU |
-| **Good** | 20-40% | Light Green | Good | Acceptable for most filaments including PLA, PETG |
-| **Monitor** | 40-60% | Amber | Watch | PLA/PETG still okay, monitor Nylon/TPU closely |
-| **Concern** | 60-70% | Orange | Concern | Filament quality may degrade, consider desiccant |
-| **Critical** | > 70% | Red | Action Needed | High risk of moisture absorption, replace desiccant |
+| **Good** | < 30% | Green | Good | Dry storage target for filament |
+| **Watch** | 30-39% | Yellow | Watch | Rising moisture, monitor conditions |
+| **Elevated** | 40-49% | Orange | Concern | Moisture risk increasing, replace/regenerate desiccant soon |
+| **High** | >= 50% | Red | Action Needed | High moisture risk, service desiccant now |
 
 ### For General Room Comfort
 
@@ -167,16 +166,14 @@ icon_color: |-
   {% set humidity = states('sensor.YOUR_SENSOR') | float(-1) %}
   {% if humidity < 0 %}
     grey           # Sensor unavailable
-  {% elif humidity < 20 %}
-    green          # Change this threshold
+  {% elif humidity < 30 %}
+    green          # Good
   {% elif humidity < 40 %}
-    light-green    # Change this threshold
-  {% elif humidity < 60 %}
-    amber          # Change this threshold
-  {% elif humidity < 70 %}
-    orange         # Change this threshold
+    yellow         # Watch
+  {% elif humidity < 50 %}
+    orange         # Elevated
   {% else %}
-    red            # Above threshold
+    red            # High risk
   {% endif %}
 ```
 

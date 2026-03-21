@@ -108,29 +108,32 @@ installation. Each dashboard that uses them must include the `button_card_templa
 | `humidityEntity` | Yes | Entity ID of the AMS humidity sensor (percentage-based) |
 | `temperatureEntity` | Yes | Entity ID of the AMS temperature sensor (°C) |
 
-#### Humidity Thresholds (Bambu Lab 1–5 Rating)
+#### Humidity Thresholds
 
 The humidity sub-button icon and background color change dynamically:
 
-| Level | Range | Color | Icon | Background |
-|-------|-------|-------|------|------------|
-| 1 — Optimal | < 20% | Green | `mdi:water-outline` | Green tint |
-| 2 — Good | 20–40% | Light Green | `mdi:water-minus` | Light green tint |
-| 3 — Monitor | 40–60% | Amber | `mdi:water` | Amber tint |
-| 4 — Concern | 60–70% | Orange | `mdi:water-plus` | Orange tint |
-| 5 — Critical | > 70% | Red | `mdi:water-alert` | Red tint |
+| Band | Range | Color | Icon | Background |
+|------|-------|-------|------|------------|
+| Good | < 30% | Green | `mdi:water-outline` | Green tint |
+| Watch | 30–39% | Yellow | `mdi:water` | Yellow tint |
+| Elevated | 40–49% | Orange | `mdi:water-plus` | Orange tint |
+| High | >= 50% | Red | `mdi:water-alert` | Red tint |
 
-#### Temperature Thresholds
+#### Temperature Thresholds (unit-aware)
 
 The temperature sub-button background color changes dynamically:
 
-| Range | Color | Status |
-|-------|-------|--------|
-| < 20°C | Blue | Cool |
-| 20–25°C | Green | Ideal |
-| 25–30°C | Amber | Warm |
-| 30–35°C | Orange | Hot |
-| > 35°C | Red | Too hot |
+Threshold logic is evaluated in Fahrenheit internally. If the source sensor is in Celsius, the value is converted before color selection.
+
+| Range (°F) | Color | Status |
+|------------|-------|--------|
+| < 59 | Red | Too cold |
+| 59–62 | Orange | Cool |
+| 63–66 | Yellow | Slightly cool |
+| 67–75 | Green | Ideal |
+| 76–80 | Yellow | Slightly warm |
+| 81–85 | Orange | Warm |
+| > 85 | Red | Too hot |
 
 ### `ams_tray_label`
 
