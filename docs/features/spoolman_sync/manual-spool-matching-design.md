@@ -1,12 +1,28 @@
 # Manual Spool Matching - Design Document
 
-> Status: Design
-> Updated: 2026-03-20
+> Status: Implemented
+> Updated: 2026-03-21
 > Scope: User-controlled pin/unpin matching for trays
 
 ## Purpose
 
 This document defines the manual pinning feature: a user can explicitly pick which spool should be used for a tray, and that pinned match stays active until logical tray-content changes clear it.
+
+## Implementation Status
+
+Implemented in this repository:
+- Per-tray override helpers are now loaded under `spoolman_sync/helpers/input_text/`.
+- `sensor.spoolman_tray_map` now evaluates manual pin overrides after UUID and before automatic fallback tiers.
+- Tray-map payload includes pin/ambiguity metadata:
+	- `match_state`
+	- `match_tier`
+	- `candidate_count`
+	- `candidate_spool_ids`
+	- `pin_active`
+	- `pin_spool_id`
+	- `pin_applied`
+- Auto-clear automation clears tray pin overrides on logical spool-change transitions.
+- Popup/detail UI surfaces pin state, pin/unpin actions, and ambiguity candidate pin actions.
 
 Automatic matching and multi-color matching design are documented in:
 - [multicolor-spool-matching-design.md](multicolor-spool-matching-design.md)
@@ -44,6 +60,9 @@ Pinning applies after UUID matching and before automatic color/material fallback
 3. Automatic matching fallback tiers
 4. Unmatched
 
+Implemented tier name in tray-map output:
+- `manual_pin`
+
 Rationale:
 - UUID remains highest confidence source
 - pinning is user-authoritative when UUID does not resolve
@@ -75,6 +94,11 @@ When tray is currently resolved by UUID exact match:
 - hide Pin/Unpin controls, or render them disabled with explanatory text
 - explanatory copy should make clear that UUID is authoritative and must not be overridden by standard pin mode
 
+Implemented behavior:
+- Tray popup displays a pin-state card when a pin exists.
+- Pin/Unpin action buttons are shown when UUID is not the active match tier.
+- When UUID match is active, popup shows an informational card explaining that pin controls are unavailable for that state.
+
 ### 5. Ambiguity UX
 
 When automatic matching yields multiple candidates:
@@ -89,6 +113,9 @@ Suggested tray-map metadata:
 - candidate_spool_ids
 - pin_active
 - pin_spool_id
+
+Implemented ambiguity behavior:
+- When automatic matching yields unresolved multiple candidates, tray-map marks `match_state: ambiguous` and exposes candidate spool IDs for one-tap pin actions in popup UI.
 
 ## Architecture Alignment
 
@@ -160,5 +187,6 @@ Future optional mode (option 3) may be considered:
 | homeassistant/packages/3d_printing/spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml | expose pin-aware response fields |
 | homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml | consume pin-aware resolution |
 | homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml | consume pin-aware resolution |
+| homeassistant/packages/3d_printing/spoolman_sync/automations/clear_manual_spool_override_on_tray_change.yaml | clear pin on logical tray-content change |
 | homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml | pin/unpin controls and ambiguity actions |
 | homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml | pin indicator rendering |

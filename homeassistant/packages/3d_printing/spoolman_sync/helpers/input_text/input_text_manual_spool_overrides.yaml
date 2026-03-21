@@ -1,0 +1,44 @@
+ams_1_tray_1_spool_override:
+  name: AMS 1 Tray 1 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_1_tray_2_spool_override:
+  name: AMS 1 Tray 2 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_1_tray_3_spool_override:
+  name: AMS 1 Tray 3 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_1_tray_4_spool_override:
+  name: AMS 1 Tray 4 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_2_tray_1_spool_override:
+  name: AMS 2 Tray 1 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_2_tray_2_spool_override:
+  name: AMS 2 Tray 2 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_2_tray_3_spool_override:
+  name: AMS 2 Tray 3 Spool Override
+  max: 32
+  icon: mdi:pin
+
+ams_2_tray_4_spool_override:
+  name: AMS 2 Tray 4 Spool Override
+  max: 32
+  icon: mdi:pin
+
+external_spool_spool_override:
+  name: External Spool Override
+  max: 32
+  icon: mdi:pin

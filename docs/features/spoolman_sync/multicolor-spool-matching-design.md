@@ -12,6 +12,7 @@ Current deployed architecture and matching authority:
 - `sensor.spoolman_tray_map` is the authoritative matcher.
 - Automation and manual actions consume tray-map results via `script.resolve_matching_spool_from_tray_map`.
 - `script.find_matching_spool_in_spoolman` is retained as a legacy comparator and parity check path (non-authoritative).
+- Manual pin precedence is implemented in tray-map as `UUID -> manual_pin -> auto tiers`.
 
 Related manual interaction design is documented in:
 - [manual-spool-matching-design.md](manual-spool-matching-design.md)
@@ -22,13 +23,14 @@ The deployed matcher in `spoolman_tray_map` currently does the following:
 
 1. Detects empty trays (AMS + external spool heuristics).
 2. Attempts UUID match first.
-3. Falls through to color + material fallback when UUID is unavailable or unresolved.
-4. Uses vendor-aware fallback behavior:
+3. Applies manual pin override tier when UUID does not resolve and pin is valid.
+4. Falls through to color + material fallback when UUID/pin are unavailable or unresolved.
+5. Uses vendor-aware fallback behavior:
 	 - UUID-attempt path searches Bambu vendor candidates.
 	 - non-UUID path searches non-Bambu candidates.
-5. Uses profile-name matching on Bambu path when profile attributes are available.
-6. Applies AMS location disambiguation when multiple candidates remain.
-7. Excludes sealed spools from candidate pool.
+6. Uses profile-name matching on Bambu path when profile attributes are available.
+7. Applies AMS location disambiguation when multiple candidates remain.
+8. Excludes sealed spools from candidate pool.
 
 This baseline came from the spool-matching analysis and Option A implementation.
 

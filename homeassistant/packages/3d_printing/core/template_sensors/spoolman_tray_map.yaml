@@ -16,6 +16,17 @@
 
         'external_spool' : 'sensor.ntk_ryansoffice_3dprinter_external_spool'
       } %}
+      {% set tray_override_helpers = {
+        'ams_1_tray_1': 'input_text.ams_1_tray_1_spool_override',
+        'ams_1_tray_2': 'input_text.ams_1_tray_2_spool_override',
+        'ams_1_tray_3': 'input_text.ams_1_tray_3_spool_override',
+        'ams_1_tray_4': 'input_text.ams_1_tray_4_spool_override',
+        'ams_2_tray_1': 'input_text.ams_2_tray_1_spool_override',
+        'ams_2_tray_2': 'input_text.ams_2_tray_2_spool_override',
+        'ams_2_tray_3': 'input_text.ams_2_tray_3_spool_override',
+        'ams_2_tray_4': 'input_text.ams_2_tray_4_spool_override',
+        'external_spool': 'input_text.external_spool_spool_override'
+      } %}
 
       {% set spool_entity_ids = integration_entities('spoolman')
         | select('match', '^sensor\\.spoolman_spool_\\d+$')
@@ -29,17 +40,6 @@
       {% set EMPTY_UUID = '00000000000000000000000000000000' %}
       {% set EMPTY_COLOR = 'none' %}
       {% set ENABLE_MULTI_ANY_HEX_FALLBACK = true %}
-      {% set empty_tray_result = {
-        'spool_entity_id': none,
-        'spool_id': none,
-        'name': 'Empty',
-        'desiccant': none,
-        'filled': none,
-        'status': 'empty',
-        'color': none,
-        'reason': none,
-        'match_strategy': none
-      } %}
 
       {% set ns = namespace(result={}) %}
       {% set now_ts = now().timestamp() %}
@@ -51,10 +51,51 @@
         {% set tray_color = state_attr(tray_entity, 'color') | default('', true) | string | lower %}
         {% set tray_profile_name = state_attr(tray_entity, 'name') | default('', true) | string %}
         {% set tray_material = tray_type | default('', true) | string %}
+        {% set override_entity = tray_override_helpers.get(tray_name, '') %}
+        {% set raw_pin_value = states(override_entity) | default('', true) | string | trim %}
+        {% if raw_pin_value.startswith('sensor.spoolman_spool_') %}
+          {% set pin_spool_candidate = raw_pin_value | replace('sensor.spoolman_spool_', '') %}
+        {% else %}
+          {% set pin_spool_candidate = raw_pin_value %}
+        {% endif %}
+        {% set ns_pin = namespace(matches=[]) %}
+        {% if pin_spool_candidate | length > 0 and pin_spool_candidate | lower not in ['unknown', 'unavailable', 'none', 'null'] %}
+          {% set target_entity_id = 'sensor.spoolman_spool_' ~ pin_spool_candidate %}
+          {% for s in spool_entities %}
+            {% if s.entity_id == target_entity_id %}
+              {% set ns_pin.matches = ns_pin.matches + [s] %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {% set pin_active = (ns_pin.matches | length == 1) %}
+        {% set pin_spool_id = pin_spool_candidate if pin_active else none %}
+        {% set pin_applied = false %}
+        {% set candidate_spool_ids = [] %}
+        {% set candidate_count = 0 %}
+        {% set match_state = 'unmatched' %}
 
         {# --- EMPTY TRAY HANDLING --- #}
         {% if tray_type == 'Empty' %}
-          {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
+          {% set ns.result = ns.result | combine({
+            tray_name: {
+              'spool_entity_id': none,
+              'spool_id': none,
+              'name': 'Empty',
+              'desiccant': none,
+              'filled': none,
+              'status': 'empty',
+              'color': none,
+              'reason': none,
+              'match_strategy': none,
+              'match_tier': none,
+              'match_state': 'empty',
+              'candidate_count': 0,
+              'candidate_spool_ids': [],
+              'pin_active': pin_active,
+              'pin_spool_id': pin_spool_id,
+              'pin_applied': false
+            }
+          }) %}
           {% continue %}
         {% endif %}
 
@@ -68,7 +109,26 @@
           {% set is_uuid_empty = (not tray_uuid_normalized or tray_uuid_normalized == '' or tray_uuid_normalized == EMPTY_UUID) %}
           {% set is_color_empty = (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR or has_zero_alpha) %}
           {% if ext_name == 'Empty' or (is_uuid_empty and is_color_empty) %}
-            {% set ns.result = ns.result | combine({tray_name: empty_tray_result}) %}
+            {% set ns.result = ns.result | combine({
+              tray_name: {
+                'spool_entity_id': none,
+                'spool_id': none,
+                'name': 'Empty',
+                'desiccant': none,
+                'filled': none,
+                'status': 'empty',
+                'color': none,
+                'reason': none,
+                'match_strategy': none,
+                'match_tier': none,
+                'match_state': 'empty',
+                'candidate_count': 0,
+                'candidate_spool_ids': [],
+                'pin_active': pin_active,
+                'pin_spool_id': pin_spool_id,
+                'pin_applied': false
+              }
+            }) %}
             {% continue %}
           {% endif %}
         {% endif %}
@@ -88,6 +148,7 @@
         {% set spool_entity = none %}
         {% set match_reason = none %}
         {% set match_strategy = none %}
+        {% set match_tier = none %}
         {% set tried_uuid = false %}
         {% set is_bambu_path = false %}
 
@@ -105,9 +166,28 @@
           {% set match = ns_uuid.spools %}
           {% if match | length > 1 %}
             {% set match_reason = 'Multiple spools with UUID ' ~ tray_uuid_normalized ~ ' - ensure UUIDs are unique' %}
+            {% set ns_candidate = namespace(vals=[]) %}
+            {% for cand in match %}
+              {% set ns_candidate.vals = ns_candidate.vals + [cand.entity_id.split('_')[-1]] %}
+            {% endfor %}
+            {% set candidate_spool_ids = ns_candidate.vals %}
+            {% set candidate_count = candidate_spool_ids | length %}
+            {% set match_state = 'ambiguous' %}
             {% set match = [] %}
           {% elif match | length == 1 %}
+            {% set match_state = 'matched' %}
+            {% set match_tier = 'uuid' %}
             {% set match_strategy = 'uuid' %}
+          {% endif %}
+        {% endif %}
+
+        {% if match | length == 0 and match_reason is none %}
+          {% if pin_active %}
+            {% set match = ns_pin.matches %}
+            {% set pin_applied = true %}
+            {% set match_state = 'matched' %}
+            {% set match_tier = 'manual_pin' %}
+            {% set match_strategy = 'manual_pin' %}
           {% endif %}
         {% endif %}
 
@@ -183,21 +263,40 @@
             {% set ams_matches = match | selectattr('attributes.location', 'equalto', 'AMS') | list %}
             {% if ams_matches | length == 1 %}
               {% set match = ams_matches %}
+              {% set match_state = 'matched' %}
+              {% set match_tier = tier_strategy ~ '_ams_preference' %}
               {% set match_strategy = tier_strategy ~ '_ams_preference' %}
             {% elif ams_matches | length > 1 %}
+              {% set ns_candidate = namespace(vals=[]) %}
+              {% for cand in ams_matches %}
+                {% set ns_candidate.vals = ns_candidate.vals + [cand.entity_id.split('_')[-1]] %}
+              {% endfor %}
+              {% set candidate_spool_ids = ns_candidate.vals %}
+              {% set candidate_count = candidate_spool_ids | length %}
+              {% set match_state = 'ambiguous' %}
               {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color ~ ' and type ' ~ tray_material ~ ' found in AMS' %}
               {% set match = [] %}
             {% else %}
+              {% set ns_candidate = namespace(vals=[]) %}
+              {% for cand in match %}
+                {% set ns_candidate.vals = ns_candidate.vals + [cand.entity_id.split('_')[-1]] %}
+              {% endfor %}
+              {% set candidate_spool_ids = ns_candidate.vals %}
+              {% set candidate_count = candidate_spool_ids | length %}
+              {% set match_state = 'ambiguous' %}
               {% set match_reason = 'Multiple unsealed spools with color #' ~ tray_color ~ ' and type ' ~ tray_material ~ ', none in AMS' %}
               {% set match = [] %}
             {% endif %}
           {% elif match | length == 0 %}
+            {% set match_state = 'unmatched' %}
             {% if tried_uuid %}
               {% set match_reason = 'No unsealed Bambu spool matched UUID ' ~ tray_uuid_normalized ~ ' or color #' ~ tray_color ~ ' and type ' ~ tray_material %}
             {% else %}
               {% set match_reason = 'No unsealed spool with color #' ~ tray_color ~ ' and type ' ~ tray_material %}
             {% endif %}
           {% else %}
+            {% set match_state = 'matched' %}
+            {% set match_tier = tier_strategy %}
             {% set match_strategy = tier_strategy %}
           {% endif %}
         {% endif %}
@@ -249,7 +348,14 @@
               'status': status,
               'color': tray_color,
               'reason': none,
-              'match_strategy': match_strategy
+              'match_strategy': match_strategy,
+              'match_tier': match_tier,
+              'match_state': match_state,
+              'candidate_count': candidate_count,
+              'candidate_spool_ids': candidate_spool_ids,
+              'pin_active': pin_active,
+              'pin_spool_id': pin_spool_id,
+              'pin_applied': pin_applied
             }
           }) %}
         {% else %}
@@ -263,7 +369,14 @@
               'status': 'undefined',
               'color': tray_color,
               'reason': match_reason,
-              'match_strategy': none
+              'match_strategy': none,
+              'match_tier': none,
+              'match_state': match_state,
+              'candidate_count': candidate_count,
+              'candidate_spool_ids': candidate_spool_ids,
+              'pin_active': pin_active,
+              'pin_spool_id': pin_spool_id,
+              'pin_applied': false
             }
           }) %}
         {% endif %}

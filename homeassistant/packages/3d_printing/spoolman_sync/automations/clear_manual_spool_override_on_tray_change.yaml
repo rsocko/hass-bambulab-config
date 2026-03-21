@@ -1,0 +1,122 @@
+- alias: "3D Printer - Clear Manual Spool Override On Tray Content Change"
+  id: clear_manual_spool_override_on_tray_content_change
+  description: >-
+    Clears tray-level manual spool override pins only when tray content appears to
+    change (UUID replacement, tray emptied, or external spool transitions to
+    empty-equivalent state).
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.p1s_01p00c460102350_ams_1_tray_1
+        - sensor.p1s_01p00c460102350_ams_1_tray_2
+        - sensor.p1s_01p00c460102350_ams_1_tray_3
+        - sensor.p1s_01p00c460102350_ams_1_tray_4
+        - sensor.p1s_01p00c460102350_ams_2_tray_1
+        - sensor.p1s_01p00c460102350_ams_2_tray_2
+        - sensor.p1s_01p00c460102350_ams_2_tray_3
+        - sensor.p1s_01p00c460102350_ams_2_tray_4
+        - sensor.ntk_ryansoffice_3dprinter_external_spool
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.from_state is not none and trigger.to_state is not none }}"
+  actions:
+    - variables:
+        tray_key: >-
+          {% set tray_by_entity = {
+            'sensor.p1s_01p00c460102350_ams_1_tray_1': 'ams_1_tray_1',
+            'sensor.p1s_01p00c460102350_ams_1_tray_2': 'ams_1_tray_2',
+            'sensor.p1s_01p00c460102350_ams_1_tray_3': 'ams_1_tray_3',
+            'sensor.p1s_01p00c460102350_ams_1_tray_4': 'ams_1_tray_4',
+            'sensor.p1s_01p00c460102350_ams_2_tray_1': 'ams_2_tray_1',
+            'sensor.p1s_01p00c460102350_ams_2_tray_2': 'ams_2_tray_2',
+            'sensor.p1s_01p00c460102350_ams_2_tray_3': 'ams_2_tray_3',
+            'sensor.p1s_01p00c460102350_ams_2_tray_4': 'ams_2_tray_4',
+            'sensor.ntk_ryansoffice_3dprinter_external_spool': 'external_spool'
+          } %}
+          {{ tray_by_entity.get(trigger.entity_id, '') }}
+        override_helper: "{{ 'input_text.' ~ tray_key ~ '_spool_override' if tray_key | length > 0 else '' }}"
+        current_pin_value: "{{ states(override_helper) | default('', true) | string | trim }}"
+        pin_is_set: >-
+          {{ current_pin_value | length > 0 and current_pin_value | lower not in ['unknown', 'unavailable', 'none', 'null'] }}
+        empty_uuid: "00000000000000000000000000000000"
+        from_uuid: >-
+          {{ trigger.from_state.attributes.get('tray_uuid') | default('', true) | string | replace('"', '') | lower }}
+        to_uuid: >-
+          {{ trigger.to_state.attributes.get('tray_uuid') | default('', true) | string | replace('"', '') | lower }}
+        from_type: "{{ trigger.from_state.attributes.get('type') | default('', true) | string }}"
+        to_type: "{{ trigger.to_state.attributes.get('type') | default('', true) | string }}"
+        is_external: "{{ tray_key == 'external_spool' }}"
+        from_name: "{{ trigger.from_state.attributes.get('name') | default('', true) | string }}"
+        to_name: "{{ trigger.to_state.attributes.get('name') | default('', true) | string }}"
+        from_color: "{{ trigger.from_state.attributes.get('color') | default('', true) | string | lower }}"
+        to_color: "{{ trigger.to_state.attributes.get('color') | default('', true) | string | lower }}"
+        from_zero_alpha: >-
+          {{
+            (from_color | length >= 8 and from_color[-2:] == '00') or
+            (from_color | replace('#','') | length == 8 and (from_color | replace('#',''))[-2:] == '00')
+          }}
+        to_zero_alpha: >-
+          {{
+            (to_color | length >= 8 and to_color[-2:] == '00') or
+            (to_color | replace('#','') | length == 8 and (to_color | replace('#',''))[-2:] == '00')
+          }}
+        from_uuid_empty: >-
+          {{ from_uuid in ['', empty_uuid] or from_uuid | regex_match('^0+$') }}
+        to_uuid_empty: >-
+          {{ to_uuid in ['', empty_uuid] or to_uuid | regex_match('^0+$') }}
+        from_color_empty: >-
+          {{ from_color in ['', 'none'] or from_zero_alpha }}
+        to_color_empty: >-
+          {{ to_color in ['', 'none'] or to_zero_alpha }}
+        from_external_empty: >-
+          {{ from_name == 'Empty' or (from_uuid_empty and from_color_empty) }}
+        to_external_empty: >-
+          {{ to_name == 'Empty' or (to_uuid_empty and to_color_empty) }}
+        from_external_populated: "{{ not from_external_empty }}"
+        uuid_changed_non_empty: >-
+          {{
+            (from_uuid | length > 0) and
+            (to_uuid | length > 0) and
+            (from_uuid != empty_uuid) and
+            (to_uuid != empty_uuid) and
+            (not from_uuid | regex_match('^0+$')) and
+            (not to_uuid | regex_match('^0+$')) and
+            (from_uuid != to_uuid)
+          }}
+        tray_emptied: "{{ to_type == 'Empty' }}"
+        external_emptied: "{{ is_external and from_external_populated and to_external_empty }}"
+        should_clear: "{{ pin_is_set and (uuid_changed_non_empty or tray_emptied or external_emptied) }}"
+        clear_reason: >-
+          {% if uuid_changed_non_empty %}
+            tray_uuid_changed
+          {% elif tray_emptied %}
+            tray_reported_empty
+          {% elif external_emptied %}
+            external_spool_empty_transition
+          {% else %}
+            none
+          {% endif %}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ should_clear }}"
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: "{{ override_helper }}"
+              data:
+                value: ""
+            - action: system_log.write
+              data:
+                message: >-
+                  Cleared manual spool override for {{ tray_key }} ({{ override_helper }})
+                  because {{ clear_reason }}. Previous pin was {{ current_pin_value }}.
+                level: info
+                logger: homeassistant.components.bambulab.spoolman_sync
+            - action: logbook.log
+              data:
+                name: Manual Spool Pin Cleared
+                message: >-
+                  Cleared manual pin for {{ tray_key }} (reason: {{ clear_reason }}).
+  mode: queued
+  max: 10

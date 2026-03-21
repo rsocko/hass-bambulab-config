@@ -113,10 +113,13 @@ Spool matching design documentation is intentionally split so each feature can
 be built and deployed independently:
 
 - [Multi-Color Spool Matching Design](multicolor-spool-matching-design.md) - automatic multi-color matching rules and fallback tiers only
-- [Manual Spool Matching Design](manual-spool-matching-design.md) - tray pin/unpin helpers, precedence, UX, and auto-clear behavior only
+- [Manual Spool Matching Design](manual-spool-matching-design.md) - implemented tray pin/unpin helpers, precedence, UI behavior, and auto-clear policy
 
 This separation supports independent implementation sequencing and release
 planning for automatic multi-color matching vs manual override workflows.
+
+Manual pin auto-clear is implemented by:
+- [clear_manual_spool_override_on_tray_change.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/clear_manual_spool_override_on_tray_change.yaml)
 
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:

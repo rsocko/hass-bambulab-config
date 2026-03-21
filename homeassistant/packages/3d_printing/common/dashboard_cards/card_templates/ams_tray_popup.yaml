@@ -46,7 +46,27 @@ ams_tray_popup:
       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
       const trayData = map?.[tray] || {};
       const spoolId = trayData.spool_id;
+      const matchState = trayData.match_state || '';
       const matchStrategy = trayData.match_strategy || '';
+      const pinActive = !!trayData.pin_active;
+      const pinSpoolId = trayData.pin_spool_id ? String(trayData.pin_spool_id) : '';
+      const pinApplied = !!trayData.pin_applied;
+      const candidateSpoolIds = Array.isArray(trayData.candidate_spool_ids)
+        ? trayData.candidate_spool_ids.map(function(v) { return String(v); })
+        : [];
+      const candidateCount = Number(trayData.candidate_count || candidateSpoolIds.length || 0);
+      const pinHelperByTray = {
+        ams_1_tray_1: 'input_text.ams_1_tray_1_spool_override',
+        ams_1_tray_2: 'input_text.ams_1_tray_2_spool_override',
+        ams_1_tray_3: 'input_text.ams_1_tray_3_spool_override',
+        ams_1_tray_4: 'input_text.ams_1_tray_4_spool_override',
+        ams_2_tray_1: 'input_text.ams_2_tray_1_spool_override',
+        ams_2_tray_2: 'input_text.ams_2_tray_2_spool_override',
+        ams_2_tray_3: 'input_text.ams_2_tray_3_spool_override',
+        ams_2_tray_4: 'input_text.ams_2_tray_4_spool_override',
+        external_spool: 'input_text.external_spool_spool_override'
+      };
+      const pinHelperEntity = pinHelperByTray[tray] || '';
       const rawColor = (trayData.color || '888888').replace('#', '');
       const r = parseInt(rawColor.substring(0, 2), 16) || 128;
       const g = parseInt(rawColor.substring(2, 4), 16) || 128;
@@ -120,6 +140,7 @@ ams_tray_popup:
         : colorHex;
       const matchTierLabel = {
         uuid: 'UUID',
+        manual_pin: 'Manual pin override',
         color_type: 'Single-color exact',
         color_type_ams_preference: 'Single-color exact (AMS preference)',
         multicolor_first_hex: 'Multi-color first hex',
@@ -127,6 +148,206 @@ ams_tray_popup:
         multicolor_any_hex: 'Multi-color any hex',
         multicolor_any_hex_ams_preference: 'Multi-color any hex (AMS preference)'
       }[matchStrategy] || '';
+      const makeSetPinAction = function(targetSpoolId) {
+        return {
+          action: 'fire-dom-event',
+          browser_mod: {
+            service: 'browser_mod.sequence',
+            data: {
+              sequence: [
+                {
+                  service: 'input_text.set_value',
+                  data: {
+                    entity_id: pinHelperEntity,
+                    value: String(targetSpoolId)
+                  }
+                },
+                {
+                  service: 'homeassistant.update_entity',
+                  data: { entity_id: 'sensor.spoolman_tray_map' }
+                },
+                { service: 'browser_mod.delay', data: { time: 900 } },
+                { service: 'browser_mod.close_popup' }
+              ]
+            }
+          }
+        };
+      };
+      const clearPinAction = {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.sequence',
+          data: {
+            sequence: [
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: pinHelperEntity,
+                  value: ''
+                }
+              },
+              {
+                service: 'homeassistant.update_entity',
+                data: { entity_id: 'sensor.spoolman_tray_map' }
+              },
+              { service: 'browser_mod.delay', data: { time: 900 } },
+              { service: 'browser_mod.close_popup' }
+            ]
+          }
+        }
+      };
+      const pinControlCardsForNoMatch = (function() {
+        if (matchStrategy === 'uuid') {
+          return [{
+            type: 'custom:mushroom-template-card',
+            primary: 'Pin disabled while UUID match is active',
+            secondary: 'This tray currently resolves by UUID, which is authoritative over manual pinning.',
+            icon: 'mdi:information-outline',
+            icon_color: 'blue',
+            layout: 'horizontal',
+            fill_container: true
+          }];
+        }
+        const cards = [];
+        if (pinActive) {
+          cards.push({
+            type: 'custom:button-card',
+            name: 'Unpin Spool #' + pinSpoolId,
+            icon: 'mdi:pin-off',
+            tap_action: clearPinAction,
+            styles: {
+              grid: [
+                { 'grid-template-areas': '"i" "n"' },
+                { 'grid-template-rows': 'min-content min-content' },
+                { 'justify-items': 'center' },
+                { 'align-items': 'center' }
+              ],
+              card: [
+                { background: '#7a2e2e' },
+                { 'box-shadow': 'none' },
+                { 'border-radius': '6px' },
+                { padding: '6px' }
+              ],
+              name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+              icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+            }
+          });
+        }
+        if (candidateCount > 0 && candidateSpoolIds.length > 0) {
+          cards.push({
+            type: 'custom:mushroom-template-card',
+            primary: 'Ambiguous auto match (' + candidateSpoolIds.length + ' candidates)',
+            secondary: 'Pin one candidate to resolve this tray deterministically.',
+            icon: 'mdi:help-circle-outline',
+            icon_color: 'orange',
+            layout: 'horizontal',
+            fill_container: true
+          });
+          candidateSpoolIds.forEach(function(candidateId) {
+            cards.push({
+              type: 'custom:button-card',
+              name: 'Pin Candidate #' + candidateId,
+              icon: 'mdi:pin',
+              tap_action: makeSetPinAction(candidateId),
+              styles: {
+                grid: [
+                  { 'grid-template-areas': '"i" "n"' },
+                  { 'grid-template-rows': 'min-content min-content' },
+                  { 'justify-items': 'center' },
+                  { 'align-items': 'center' }
+                ],
+                card: [
+                  { background: 'var(--primary-color)' },
+                  { 'box-shadow': 'none' },
+                  { 'border-radius': '6px' },
+                  { padding: '6px' }
+                ],
+                name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
+                icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+              }
+            });
+          });
+        }
+        return cards;
+      })();
+      const pinControlCardsForMatched = (function() {
+        const cards = [];
+        if (pinActive) {
+          cards.push({
+            type: 'custom:mushroom-template-card',
+            primary: pinApplied ? 'Pinned to Spool #' + pinSpoolId : 'Pin set: Spool #' + pinSpoolId,
+            secondary: pinApplied
+              ? 'Manual pin is currently active for this tray.'
+              : 'Pin is set but not applied because UUID match currently wins.',
+            icon: pinApplied ? 'mdi:pin' : 'mdi:pin-outline',
+            icon_color: pinApplied ? 'green' : 'grey',
+            layout: 'horizontal',
+            fill_container: true
+          });
+        }
+        if (matchStrategy === 'uuid') {
+          cards.push({
+            type: 'custom:mushroom-template-card',
+            primary: 'Pin controls unavailable on UUID match',
+            secondary: 'UUID is authoritative. Clear or change tray UUID to use manual pinning.',
+            icon: 'mdi:identifier',
+            icon_color: 'blue',
+            layout: 'horizontal',
+            fill_container: true
+          });
+          return cards;
+        }
+        if (pinHelperEntity && spoolId) {
+          if (pinActive && pinSpoolId === String(spoolId)) {
+            cards.push({
+              type: 'custom:button-card',
+              name: 'Unpin Spool #' + spoolId,
+              icon: 'mdi:pin-off',
+              tap_action: clearPinAction,
+              styles: {
+                grid: [
+                  { 'grid-template-areas': '"i" "n"' },
+                  { 'grid-template-rows': 'min-content min-content' },
+                  { 'justify-items': 'center' },
+                  { 'align-items': 'center' }
+                ],
+                card: [
+                  { background: '#7a2e2e' },
+                  { 'box-shadow': 'none' },
+                  { 'border-radius': '6px' },
+                  { padding: '6px' }
+                ],
+                name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+              }
+            });
+          } else {
+            cards.push({
+              type: 'custom:button-card',
+              name: 'Pin This Spool (#' + spoolId + ')',
+              icon: 'mdi:pin',
+              tap_action: makeSetPinAction(spoolId),
+              styles: {
+                grid: [
+                  { 'grid-template-areas': '"i" "n"' },
+                  { 'grid-template-rows': 'min-content min-content' },
+                  { 'justify-items': 'center' },
+                  { 'align-items': 'center' }
+                ],
+                card: [
+                  { background: 'var(--primary-color)' },
+                  { 'box-shadow': 'none' },
+                  { 'border-radius': '6px' },
+                  { padding: '6px' }
+                ],
+                name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
+                icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+              }
+            });
+          }
+        }
+        return cards;
+      })();
       const usedNonFirstMultiHex = isMultiColor
         && !!multiColorFirstHex
         && trayColorNormalized
@@ -290,6 +511,7 @@ ams_tray_popup:
                       icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
                     }
                   },
+                  ...pinControlCardsForNoMatch,
                   {
                     type: 'entities',
                     title: 'Tray Details',
@@ -393,6 +615,7 @@ ams_tray_popup:
                         }
                       }]
                     : [])),
+                ...pinControlCardsForMatched,
                 {
                   type: 'custom:mushroom-chips-card',
                   alignment: 'center',

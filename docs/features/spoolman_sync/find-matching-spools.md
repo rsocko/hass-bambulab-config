@@ -25,6 +25,9 @@ If either the UUID is not provided, or the UUID cannot be found, then the script
 - Legacy/reference matcher: this script
 - Write-path operations (UUID patch/update usage): still done by automations/scripts
 
+Authoritative tray-map precedence now includes manual pin overrides:
+- `uuid` -> `manual_pin` -> automatic fallback tiers
+
 ## Source Code
 [Find Matching Spool in Spoolman - Script - YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml)
 

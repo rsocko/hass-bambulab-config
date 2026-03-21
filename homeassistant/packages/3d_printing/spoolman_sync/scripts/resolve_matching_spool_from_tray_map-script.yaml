@@ -38,6 +38,13 @@ resolve_matching_spool_from_tray_map:
       matched_spool_id: "{{ tray_match.spool_id if tray_match is mapping else none }}"
       matched_spool_name: "{{ tray_match.name if tray_match is mapping else none }}"
       matched_spool_entity_id: "{{ tray_match.spool_entity_id if tray_match is mapping else none }}"
+      match_tier: "{{ tray_match.match_tier if tray_match is mapping else none }}"
+      match_state: "{{ tray_match.match_state if tray_match is mapping else none }}"
+      candidate_count: "{{ tray_match.candidate_count | default(0, true) if tray_match is mapping else 0 }}"
+      candidate_spool_ids: "{{ tray_match.candidate_spool_ids | default([], true) if tray_match is mapping else [] }}"
+      pin_active: "{{ tray_match.pin_active | default(false, true) if tray_match is mapping else false }}"
+      pin_spool_id: "{{ tray_match.pin_spool_id | default(none, true) if tray_match is mapping else none }}"
+      pin_applied: "{{ tray_match.pin_applied | default(false, true) if tray_match is mapping else false }}"
       matched_spool_uuid: >-
         {% if matched_spool_entity_id %}
           {{ state_attr(matched_spool_entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') }}
@@ -68,6 +75,13 @@ resolve_matching_spool_from_tray_map:
           {% endif %}
         all_matches: null
         tray_key: "{{ resolved_tray_key }}"
+        match_tier: "{{ match_tier }}"
+        match_state: "{{ match_state }}"
+        candidate_count: "{{ candidate_count }}"
+        candidate_spool_ids: "{{ candidate_spool_ids }}"
+        pin_active: "{{ pin_active }}"
+        pin_spool_id: "{{ pin_spool_id }}"
+        pin_applied: "{{ pin_applied }}"
         spool:
           id: "{{ matched_spool_id }}"
           first_used: "{{ matched_spool_first_used }}"
