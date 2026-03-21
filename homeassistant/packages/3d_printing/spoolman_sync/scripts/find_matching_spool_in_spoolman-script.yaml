@@ -4,6 +4,7 @@ find_matching_spool_in_spoolman:
   - variables:
       spool_found: false
       matching_spool: null
+      match_tier: null
   - action: rest_command.spoolman_getspools
     metadata: {}
     data: {}
@@ -43,10 +44,12 @@ find_matching_spool_in_spoolman:
             sequence:
               - variables:
                   spool_found: true
+                  match_tier: uuid
                   response_object:
                     spool: "{{ matched_spools[0] }}"
                     success: true
                     message: Exact match found by UUID
+                    match_strategy: uuid
                     all_matches: null
               - stop: Success
                 response_variable: response_object
@@ -71,24 +74,27 @@ find_matching_spool_in_spoolman:
                   logger: homeassistant.components.bambulab.spoolman_sync
               - variables:
                   spool_found: false
+                  match_tier: null
                   response_object:
                     spool: null
                     success: false
                     message: Mutiple spools have the same matching UUID
+                    match_strategy: null
                     all_matches: "{{ matched_spools }}"
               - stop: Mutiple UUID Matches
                 response_variable: response_object
   - variables:
       spools_lower: |-
         [ {% for spool in spools.content %}
-          {"id": "{{ spool.id }}", "color_hex_lower": "{{ (spool.filament.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6] }}", "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "location": "{{ spool.location }}"}
+          {"id": "{{ spool.id }}", "color_hex_lower": "{{ (spool.filament.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6] }}", "multi_first_hex_lower": "{{ (((spool.filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',')) | map('trim') | map('replace', '#', '') | list | first | default('', true))[:6] }}", "multi_hexes_lower": [{% set ns_multi = namespace(vals=[]) %}{% for hex in (spool.filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}{% set parsed = hex | trim | replace('#', '') %}{% if parsed | length >= 6 %}{% set ns_multi.vals = ns_multi.vals + [parsed[:6]] %}{% endif %}{% endfor %}{% for v in ns_multi.vals %}"{{ v }}"{% if not loop.last %}, {% endif %}{% endfor %}], "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "location": "{{ spool.location }}"}
           {% if not loop.last %},{% endif %}
         {% endfor %} ]
+      enable_multi_any_hex_fallback: true
       query_hex_lower: >-
         {{
           (parameters.target_color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6]
         }}
-      matched_spools: >-
+      matched_spools_single: >-
         {{ spools_lower | selectattr('color_hex_lower', 'equalto',
         query_hex_lower | string)
               | selectattr('material', 'equalto', parameters.target_type)
@@ -97,6 +103,49 @@ find_matching_spool_in_spoolman:
               spools_lower | selectattr('color_hex_lower', 'equalto', query_hex_lower | string)
               | selectattr('vendor', 'ne', 'Bambu Lab') 
               | selectattr('material', 'equalto', parameters.target_type) | list }}
+      matched_spools_multi_first: >-
+        {{ spools_lower | selectattr('multi_first_hex_lower', 'equalto',
+        query_hex_lower | string)
+              | selectattr('material', 'equalto', parameters.target_type)
+              | selectattr('profile_name', 'equalto', parameters.target_name)
+              | selectattr('vendor', 'equalto', 'Bambu Lab') | list if bambu_only else
+              spools_lower | selectattr('multi_first_hex_lower', 'equalto', query_hex_lower | string)
+              | selectattr('vendor', 'ne', 'Bambu Lab')
+              | selectattr('material', 'equalto', parameters.target_type) | list }}
+      matched_spools_multi_any: >-
+        {% if enable_multi_any_hex_fallback %}
+        {{ spools_lower
+              | selectattr('multi_hexes_lower', 'contains', query_hex_lower | string)
+              | selectattr('material', 'equalto', parameters.target_type)
+              | selectattr('profile_name', 'equalto', parameters.target_name)
+              | selectattr('vendor', 'equalto', 'Bambu Lab') | list if bambu_only else
+              spools_lower
+              | selectattr('multi_hexes_lower', 'contains', query_hex_lower | string)
+              | selectattr('vendor', 'ne', 'Bambu Lab')
+              | selectattr('material', 'equalto', parameters.target_type) | list }}
+        {% else %}
+        {{ [] }}
+        {% endif %}
+      match_tier: >-
+        {% if (matched_spools_single | length) > 0 %}
+          color_type
+        {% elif (matched_spools_multi_first | length) > 0 %}
+          multicolor_first_hex
+        {% elif (matched_spools_multi_any | length) > 0 %}
+          multicolor_any_hex
+        {% else %}
+          none
+        {% endif %}
+      matched_spools: >-
+        {% if match_tier == 'color_type' %}
+          {{ matched_spools_single }}
+        {% elif match_tier == 'multicolor_first_hex' %}
+          {{ matched_spools_multi_first }}
+        {% elif match_tier == 'multicolor_any_hex' %}
+          {{ matched_spools_multi_any }}
+        {% else %}
+          {{ [] }}
+        {% endif %}
       count: "{{ matched_spools | length }}"
       matched_spools_in_ams: "{{ matched_spools | selectattr('location', 'equalto', 'AMS') | list }}"
       count_in_ams: "{{ matched_spools_in_ams | length }}"
@@ -120,7 +169,8 @@ find_matching_spool_in_spoolman:
               response_object:
                 spool: "{{ matching_spool }}"
                 success: true
-                message: Exact match found by Color & Type
+                message: "Exact match found by {{ match_tier }}"
+                match_strategy: "{{ match_tier }}"
                 all_matches: null
           - stop: Success
             response_variable: response_object
@@ -149,7 +199,8 @@ find_matching_spool_in_spoolman:
               response_object:
                 spool: null
                 success: false
-                message: No spools found by Color & Type
+                message: No spools found by color/type or multi-color tiers
+                match_strategy: null
                 all_matches: null
           - stop: No spools found by Color & Type
             response_variable: response_object
@@ -165,13 +216,15 @@ find_matching_spool_in_spoolman:
                 list | first }}
             alias: Update matching_spool from matched spool in AMS
           - variables:
+              effective_match_tier: >-
+                {% if match_tier == 'none' %}color_type{% else %}{{ match_tier }}_ams_preference{% endif %}
               spool_found: true
               response_object:
                 spool: "{{ matching_spool }}"
                 success: true
                 message: >-
-                  Found multiple matching spools by Color & Type, but only 1 is
-                  in the AMS
+                  Found multiple matching spools by {{ match_tier }}, but only 1 is in the AMS
+                match_strategy: "{{ effective_match_tier }}"
                 all_matches: matched_spools
           - stop: Success
             response_variable: response_object
@@ -207,8 +260,9 @@ find_matching_spool_in_spoolman:
                 spool: null
                 success: false
                 message: >-
-                  Multiple spools found by Color & Type, but more than 1 is in
+                  Multiple spools found by {{ match_tier }}, but more than 1 is in
                   the AMS
+                match_strategy: null
                 all_matches: multiple_matches
           - stop: Multiple Matches with Multiple in AMS
             response_variable: response_object
@@ -232,13 +286,16 @@ find_matching_spool_in_spoolman:
                 list | first }}
             alias: Update matched spool from unsealed spool
           - variables:
+              effective_match_tier: >-
+                {% if match_tier == 'none' %}color_type{% else %}{{ match_tier }}_ams_preference{% endif %}
               spool_found: true
               response_object:
                 spool: "{{ matching_spool }}"
                 success: true
                 message: >-
-                  More than 1 spool found by Color & Type, none are in the AMS,
+                  More than 1 spool found by {{ match_tier }}, none are in the AMS,
                   but only 1 is unsealed/open
+                match_strategy: "{{ effective_match_tier }}"
                 all_matches: matched_spools
           - stop: Success
             response_variable: response_object
@@ -279,8 +336,9 @@ find_matching_spool_in_spoolman:
                 spool: null
                 success: false
                 message: >-
-                  Multiple spools found by Color & Type, none in AMS and more
+                  Multiple spools found by {{ match_tier }}, none in AMS and more
                   than 1 open OR none open
+                match_strategy: null
                 all_matches: matched_spools
           - stop: Multiple Matches but cannot determine single match
             response_variable: response_object

@@ -22,7 +22,18 @@ ams_tray_detail:
     [[[
       const tray = variables.tray;
       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
-      return map?.[tray]?.reason ?? '';
+      const trayData = map?.[tray] || {};
+      if (trayData.reason) return trayData.reason;
+
+      const strategy = trayData.match_strategy || '';
+      const strategyLabel = {
+        multicolor_first_hex: 'Matched by multi-color first hex',
+        multicolor_first_hex_ams_preference: 'Matched by multi-color first hex (AMS preference)',
+        multicolor_any_hex: 'Matched by multi-color any hex',
+        multicolor_any_hex_ams_preference: 'Matched by multi-color any hex (AMS preference)'
+      };
+
+      return strategyLabel[strategy] || '';
     ]]]
   show_state: false
   show_icon: false

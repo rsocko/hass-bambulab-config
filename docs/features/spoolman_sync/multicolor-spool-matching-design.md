@@ -1,7 +1,7 @@
 # Multi-Color Spool Matching - Design Document
 
 > Status: Active design aligned to current Option A matcher architecture
-> Updated: 2026-03-20
+> Updated: 2026-03-21
 > Scope: Automatic multi-color matching behavior for Spoolman sync
 
 ## Purpose
@@ -11,7 +11,7 @@ This document defines how multi-color filament matching should extend the curren
 Current deployed architecture and matching authority:
 - `sensor.spoolman_tray_map` is the authoritative matcher.
 - Automation and manual actions consume tray-map results via `script.resolve_matching_spool_from_tray_map`.
-- `script.find_matching_spool_in_spoolman` is retained as a legacy comparator and parity check path.
+- `script.find_matching_spool_in_spoolman` is retained as a legacy comparator and parity check path (non-authoritative).
 
 Related manual interaction design is documented in:
 - [manual-spool-matching-design.md](manual-spool-matching-design.md)
@@ -94,9 +94,9 @@ Primary matcher changes:
 - `homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml`
 	- add multi-color color tiers after UUID attempt using the same disambiguation pipeline
 
-Legacy comparator parity updates (recommended):
+Legacy comparator parity updates (implemented for diagnostics/testing consistency):
 - `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml`
-	- normalize multi-color fields and mirror fallback tiers for parity validation
+	- mirrors tiered fallback (`color_type` -> `multicolor_first_hex` -> `multicolor_any_hex`) for parity validation
 
 Validation and docs:
 - `homeassistant/packages/3d_printing/spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml`
@@ -130,4 +130,5 @@ Validation and docs:
 
 - Option A matcher alignment is implemented.
 - Multi-color display rendering already works in dashboard cards.
-- Multi-color matching tiers described here are the remaining extension for matching logic.
+- Multi-color matching tiers are implemented in `sensor.spoolman_tray_map` (authoritative path).
+- Legacy script matcher is non-authoritative but now mirrors tiered matching for parity/self-test coverage.

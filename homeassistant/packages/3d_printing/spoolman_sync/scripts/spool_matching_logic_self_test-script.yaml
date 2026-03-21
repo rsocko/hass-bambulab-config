@@ -78,18 +78,24 @@ spool_matching_logic_self_test:
   - variables:
       parity_tray_1_template_success: "{{ parity_tray_1_map_entry.spool_id is not none and parity_tray_1_map_entry.spool_id | string | length > 0 }}"
       parity_tray_1_template_spool_id: "{{ parity_tray_1_map_entry.spool_id if parity_tray_1_template_success else none }}"
+      parity_tray_1_template_strategy: "{{ parity_tray_1_map_entry.match_strategy if parity_tray_1_template_success else none }}"
       parity_tray_1_legacy_success: "{{ legacy_response_1.success | default(false) }}"
       parity_tray_1_legacy_spool_id: "{{ legacy_response_1.spool.id if parity_tray_1_legacy_success else none }}"
+      parity_tray_1_legacy_strategy: "{{ legacy_response_1.match_strategy if parity_tray_1_legacy_success else none }}"
+      parity_tray_1_strategy_match: >-
+        {{ (not parity_tray_1_template_success and not parity_tray_1_legacy_success)
+           or ((parity_tray_1_template_strategy | string) == (parity_tray_1_legacy_strategy | string)) }}
       parity_tray_1_match: >-
         {{ (parity_tray_1_template_success == parity_tray_1_legacy_success)
-           and ((parity_tray_1_template_spool_id | string) == (parity_tray_1_legacy_spool_id | string)) }}
+           and ((parity_tray_1_template_spool_id | string) == (parity_tray_1_legacy_spool_id | string))
+           and parity_tray_1_strategy_match }}
       parity_tray_1_summary: >-
         {% if not parity_tray_1_has_matchable_data %}
           SKIP ams_1_tray_1 parity (insufficient tray metadata).
         {% elif parity_tray_1_match %}
-          PASS ams_1_tray_1 parity: template_success={{ parity_tray_1_template_success }}, template_spool={{ parity_tray_1_template_spool_id | string }}, legacy_success={{ parity_tray_1_legacy_success }}, legacy_spool={{ parity_tray_1_legacy_spool_id | string }}.
+          PASS ams_1_tray_1 parity: template_success={{ parity_tray_1_template_success }}, template_spool={{ parity_tray_1_template_spool_id | string }}, template_strategy={{ parity_tray_1_template_strategy | string }}, legacy_success={{ parity_tray_1_legacy_success }}, legacy_spool={{ parity_tray_1_legacy_spool_id | string }}, legacy_strategy={{ parity_tray_1_legacy_strategy | string }}.
         {% else %}
-          FAIL ams_1_tray_1 parity: template_success={{ parity_tray_1_template_success }}, template_spool={{ parity_tray_1_template_spool_id | string }}, legacy_success={{ parity_tray_1_legacy_success }}, legacy_spool={{ parity_tray_1_legacy_spool_id | string }}.
+          FAIL ams_1_tray_1 parity: template_success={{ parity_tray_1_template_success }}, template_spool={{ parity_tray_1_template_spool_id | string }}, template_strategy={{ parity_tray_1_template_strategy | string }}, legacy_success={{ parity_tray_1_legacy_success }}, legacy_spool={{ parity_tray_1_legacy_spool_id | string }}, legacy_strategy={{ parity_tray_1_legacy_strategy | string }}.
         {% endif %}
 
   - variables:
@@ -128,18 +134,24 @@ spool_matching_logic_self_test:
   - variables:
       parity_tray_2_template_success: "{{ parity_tray_2_map_entry.spool_id is not none and parity_tray_2_map_entry.spool_id | string | length > 0 }}"
       parity_tray_2_template_spool_id: "{{ parity_tray_2_map_entry.spool_id if parity_tray_2_template_success else none }}"
+      parity_tray_2_template_strategy: "{{ parity_tray_2_map_entry.match_strategy if parity_tray_2_template_success else none }}"
       parity_tray_2_legacy_success: "{{ legacy_response_2.success | default(false) }}"
       parity_tray_2_legacy_spool_id: "{{ legacy_response_2.spool.id if parity_tray_2_legacy_success else none }}"
+      parity_tray_2_legacy_strategy: "{{ legacy_response_2.match_strategy if parity_tray_2_legacy_success else none }}"
+      parity_tray_2_strategy_match: >-
+        {{ (not parity_tray_2_template_success and not parity_tray_2_legacy_success)
+           or ((parity_tray_2_template_strategy | string) == (parity_tray_2_legacy_strategy | string)) }}
       parity_tray_2_match: >-
         {{ (parity_tray_2_template_success == parity_tray_2_legacy_success)
-           and ((parity_tray_2_template_spool_id | string) == (parity_tray_2_legacy_spool_id | string)) }}
+           and ((parity_tray_2_template_spool_id | string) == (parity_tray_2_legacy_spool_id | string))
+           and parity_tray_2_strategy_match }}
       parity_tray_2_summary: >-
         {% if not parity_tray_2_has_matchable_data %}
           SKIP external_spool parity (insufficient tray metadata).
         {% elif parity_tray_2_match %}
-          PASS external_spool parity: template_success={{ parity_tray_2_template_success }}, template_spool={{ parity_tray_2_template_spool_id | string }}, legacy_success={{ parity_tray_2_legacy_success }}, legacy_spool={{ parity_tray_2_legacy_spool_id | string }}.
+          PASS external_spool parity: template_success={{ parity_tray_2_template_success }}, template_spool={{ parity_tray_2_template_spool_id | string }}, template_strategy={{ parity_tray_2_template_strategy | string }}, legacy_success={{ parity_tray_2_legacy_success }}, legacy_spool={{ parity_tray_2_legacy_spool_id | string }}, legacy_strategy={{ parity_tray_2_legacy_strategy | string }}.
         {% else %}
-          FAIL external_spool parity: template_success={{ parity_tray_2_template_success }}, template_spool={{ parity_tray_2_template_spool_id | string }}, legacy_success={{ parity_tray_2_legacy_success }}, legacy_spool={{ parity_tray_2_legacy_spool_id | string }}.
+          FAIL external_spool parity: template_success={{ parity_tray_2_template_success }}, template_spool={{ parity_tray_2_template_spool_id | string }}, template_strategy={{ parity_tray_2_template_strategy | string }}, legacy_success={{ parity_tray_2_legacy_success }}, legacy_spool={{ parity_tray_2_legacy_spool_id | string }}, legacy_strategy={{ parity_tray_2_legacy_strategy | string }}.
         {% endif %}
 
   - variables:
@@ -160,7 +172,7 @@ spool_matching_logic_self_test:
     metadata: {}
     data:
       message: >-
-        Spool Matching Parity Debug: tray1_key={{ parity_tray_1_key }}, tray1_has_data={{ parity_tray_1_has_matchable_data }}, tray1_match={{ parity_tray_1_match }}, tray1_template_success={{ parity_tray_1_template_success }}, tray1_template_spool={{ parity_tray_1_template_spool_id | string }}, tray1_legacy_success={{ parity_tray_1_legacy_success }}, tray1_legacy_spool={{ parity_tray_1_legacy_spool_id | string }}; tray2_key={{ parity_tray_2_key }}, tray2_has_data={{ parity_tray_2_has_matchable_data }}, tray2_match={{ parity_tray_2_match }}, tray2_template_success={{ parity_tray_2_template_success }}, tray2_template_spool={{ parity_tray_2_template_spool_id | string }}, tray2_legacy_success={{ parity_tray_2_legacy_success }}, tray2_legacy_spool={{ parity_tray_2_legacy_spool_id | string }}
+        Spool Matching Parity Debug: tray1_key={{ parity_tray_1_key }}, tray1_has_data={{ parity_tray_1_has_matchable_data }}, tray1_match={{ parity_tray_1_match }}, tray1_template_success={{ parity_tray_1_template_success }}, tray1_template_spool={{ parity_tray_1_template_spool_id | string }}, tray1_template_strategy={{ parity_tray_1_template_strategy | string }}, tray1_legacy_success={{ parity_tray_1_legacy_success }}, tray1_legacy_spool={{ parity_tray_1_legacy_spool_id | string }}, tray1_legacy_strategy={{ parity_tray_1_legacy_strategy | string }}; tray2_key={{ parity_tray_2_key }}, tray2_has_data={{ parity_tray_2_has_matchable_data }}, tray2_match={{ parity_tray_2_match }}, tray2_template_success={{ parity_tray_2_template_success }}, tray2_template_spool={{ parity_tray_2_template_spool_id | string }}, tray2_template_strategy={{ parity_tray_2_template_strategy | string }}, tray2_legacy_success={{ parity_tray_2_legacy_success }}, tray2_legacy_spool={{ parity_tray_2_legacy_spool_id | string }}, tray2_legacy_strategy={{ parity_tray_2_legacy_strategy | string }}
       level: info
       logger: homeassistant.components.bambulab.spoolman_sync
 
@@ -195,14 +207,18 @@ spool_matching_logic_self_test:
         parity_tray_1_match: "{{ parity_tray_1_match }}"
         parity_tray_1_template_success: "{{ parity_tray_1_template_success }}"
         parity_tray_1_template_spool_id: "{{ parity_tray_1_template_spool_id }}"
+        parity_tray_1_template_strategy: "{{ parity_tray_1_template_strategy }}"
         parity_tray_1_legacy_success: "{{ parity_tray_1_legacy_success }}"
         parity_tray_1_legacy_spool_id: "{{ parity_tray_1_legacy_spool_id }}"
+        parity_tray_1_legacy_strategy: "{{ parity_tray_1_legacy_strategy }}"
         parity_tray_2_key: "{{ parity_tray_2_key }}"
         parity_tray_2_match: "{{ parity_tray_2_match }}"
         parity_tray_2_template_success: "{{ parity_tray_2_template_success }}"
         parity_tray_2_template_spool_id: "{{ parity_tray_2_template_spool_id }}"
+        parity_tray_2_template_strategy: "{{ parity_tray_2_template_strategy }}"
         parity_tray_2_legacy_success: "{{ parity_tray_2_legacy_success }}"
         parity_tray_2_legacy_spool_id: "{{ parity_tray_2_legacy_spool_id }}"
+        parity_tray_2_legacy_strategy: "{{ parity_tray_2_legacy_strategy }}"
         report: "{{ details }}"
 
   - stop: Spool matching self-test complete

@@ -46,11 +46,13 @@ ams_tray_popup:
       const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
       const trayData = map?.[tray] || {};
       const spoolId = trayData.spool_id;
+      const matchStrategy = trayData.match_strategy || '';
       const rawColor = (trayData.color || '888888').replace('#', '');
       const r = parseInt(rawColor.substring(0, 2), 16) || 128;
       const g = parseInt(rawColor.substring(2, 4), 16) || 128;
       const b = parseInt(rawColor.substring(4, 6), 16) || 128;
       const colorHex = '#' + rawColor;
+      const trayColorNormalized = rawColor.toLowerCase().slice(0, 6);
       const luminance = (r * 299 + g * 587 + b * 114) / 1000;
       const textColor = luminance > 128 ? '#000000' : '#ffffff';
       const borderColor = luminance > 128 ? '#333333' : '#ffffff';
@@ -109,10 +111,27 @@ ams_tray_popup:
       const multiColorList = isMultiColor
         ? multiColorHexesRaw.split(',').map(function(h) { return '#' + h.trim().replace(/^#/, ''); })
         : [];
+      const multiColorFirstHex = multiColorList.length > 0
+        ? multiColorList[0].replace('#', '').toLowerCase().slice(0, 6)
+        : '';
       const gradientCSSDir = multiColorDirection === 'coaxial' ? 'to bottom' : 'to right';
       const backgroundCSS = isMultiColor
         ? 'linear-gradient(' + gradientCSSDir + ', ' + multiColorList.join(', ') + ')'
         : colorHex;
+      const matchTierLabel = {
+        uuid: 'UUID',
+        color_type: 'Single-color exact',
+        color_type_ams_preference: 'Single-color exact (AMS preference)',
+        multicolor_first_hex: 'Multi-color first hex',
+        multicolor_first_hex_ams_preference: 'Multi-color first hex (AMS preference)',
+        multicolor_any_hex: 'Multi-color any hex',
+        multicolor_any_hex_ams_preference: 'Multi-color any hex (AMS preference)'
+      }[matchStrategy] || '';
+      const usedNonFirstMultiHex = isMultiColor
+        && !!multiColorFirstHex
+        && trayColorNormalized
+        && trayColorNormalized !== multiColorFirstHex
+        && (matchStrategy === 'multicolor_any_hex' || matchStrategy === 'multicolor_any_hex_ams_preference');
       let headerTextColor = textColor;
       let headerBorderColor = borderColor;
       let multiTextShadow = '';
@@ -345,11 +364,26 @@ ams_tray_popup:
                             type: 'template',
                             content: 'Set UUID: ' + trayUUIDRaw,
                             tap_action: {
-                              action: 'call-service',
-                              service: 'spoolman.patch_spool',
-                              service_data: {
-                                id: spoolIdInt,
-                                extra: { spool_uuid: trayUUIDRaw }
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.sequence',
+                                data: {
+                                  sequence: [
+                                    {
+                                      service: 'spoolman.patch_spool',
+                                      data: {
+                                        id: spoolIdInt,
+                                        extra: { spool_uuid: trayUUIDRaw }
+                                      }
+                                    },
+                                    {
+                                      service: 'homeassistant.update_entity',
+                                      data: { entity_id: spoolEntityId }
+                                    },
+                                    { service: 'browser_mod.delay', data: { time: 1500 } },
+                                    { service: 'browser_mod.close_popup' }
+                                  ]
+                                }
                               }
                             }
                           }
@@ -375,7 +409,8 @@ ams_tray_popup:
                     { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') },
                     { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') },
                     { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails },
-                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : [])
+                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : []),
+                    ...(matchTierLabel ? [{ type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }] : [])
                   ],
                   card_mod: {
                     style: {
@@ -383,6 +418,17 @@ ams_tray_popup:
                     }
                   }
                 },
+                ...(usedNonFirstMultiHex ? [
+                  {
+                    type: 'custom:mushroom-template-card',
+                    primary: 'Using non-first multi-color tray color',
+                    secondary: 'Current tray color #' + trayColorNormalized.toUpperCase() + ' matched by any-hex fallback. Recommended tray color is first hex #' + multiColorFirstHex.toUpperCase() + ' for deterministic matching.',
+                    icon: 'mdi:alert-circle-outline',
+                    icon_color: 'orange',
+                    layout: 'horizontal',
+                    fill_container: true
+                  }
+                ] : []),
                 {
                   type: 'custom:button-card',
                   entity: spoolEntityId,

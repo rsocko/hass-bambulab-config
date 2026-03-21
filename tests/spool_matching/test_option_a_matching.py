@@ -18,6 +18,18 @@ def _norm_uuid(value):
     return (value or "").strip().strip('"').lower()
 
 
+def _norm_multi_hexes(value):
+    raw = (value or "").strip().replace('"', '').lower()
+    if not raw:
+        return []
+    normalized = []
+    for token in raw.split(','):
+        color = _norm_color(token)
+        if len(color) == 6:
+            normalized.append(color)
+    return normalized
+
+
 def _is_valid_uuid(value):
     value = _norm_uuid(value)
     if not value:
@@ -40,6 +52,7 @@ def match_tray_to_spool(tray, spools):
     tray_color = _norm_color(tray.get("color"))
     tray_material = tray.get("type", "")
     tray_profile_name = tray.get("name", "")
+    enable_multi_any_hex_fallback = True
 
     unsealed = [s for s in spools if not bool(s.get("extra_sealed", False))]
 
@@ -69,9 +82,13 @@ def match_tray_to_spool(tray, spools):
             }
 
     # UUID was unavailable or did not resolve a unique match.
-    candidates = []
+    single_candidates = []
+    multi_first_candidates = []
+    multi_any_candidates = []
     for spool in unsealed:
         spool_color = _norm_color(spool.get("filament_color_hex"))
+        spool_multi_hexes = _norm_multi_hexes(spool.get("filament_multi_color_hexes"))
+        spool_multi_first = spool_multi_hexes[0] if spool_multi_hexes else ""
         spool_material = spool.get("filament_material", "")
         spool_vendor = spool.get("filament_vendor_name", "")
         spool_profile = (spool.get("filament_extra_profile_name", "") or spool.get("extra_profile_name", "")).strip('"')
@@ -81,20 +98,33 @@ def match_tray_to_spool(tray, spools):
         if is_bambu_path and tray_profile_name and spool_profile:
             profile_ok = spool_profile == tray_profile_name
 
-        if (
-            spool_color == tray_color
-            and spool_material == tray_material
-            and vendor_ok
-            and profile_ok
-        ):
-            candidates.append(spool)
+        if spool_material == tray_material and vendor_ok and profile_ok:
+            if spool_color == tray_color:
+                single_candidates.append(spool)
+            if spool_multi_first == tray_color:
+                multi_first_candidates.append(spool)
+            if enable_multi_any_hex_fallback and tray_color in spool_multi_hexes:
+                multi_any_candidates.append(spool)
+
+    if single_candidates:
+        candidates = single_candidates
+        tier_strategy = "color_type"
+    elif multi_first_candidates:
+        candidates = multi_first_candidates
+        tier_strategy = "multicolor_first_hex"
+    elif multi_any_candidates:
+        candidates = multi_any_candidates
+        tier_strategy = "multicolor_any_hex"
+    else:
+        candidates = []
+        tier_strategy = None
 
     if len(candidates) == 1:
         return {
             "success": True,
             "spool_id": candidates[0]["id"],
             "reason": None,
-            "match_strategy": "color_type",
+            "match_strategy": tier_strategy,
         }
 
     if len(candidates) > 1:
@@ -104,7 +134,7 @@ def match_tray_to_spool(tray, spools):
                 "success": True,
                 "spool_id": ams_matches[0]["id"],
                 "reason": None,
-                "match_strategy": "color_type_ams_preference",
+                "match_strategy": f"{tier_strategy}_ams_preference",
             }
         if len(ams_matches) > 1:
             return {
@@ -435,6 +465,128 @@ class OptionAMatchingTests(unittest.TestCase):
         result = match_tray_to_spool(tray, spools)
         self.assertFalse(result["success"])
         self.assertIn("none in AMS", result["reason"])
+
+    def test_multicolor_first_hex_matches_when_single_color_missing(self):
+        spools = [
+            {
+                "id": 601,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "ffa11f,ff5900",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Polymaker",
+                "filament_extra_profile_name": "",
+                "location": "Shelf",
+                "extra_sealed": False,
+            }
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#FFA11F",
+            "type": "PLA",
+            "name": "Any",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 601)
+        self.assertEqual(result["match_strategy"], "multicolor_first_hex")
+
+    def test_multicolor_any_hex_matches_when_first_hex_misses(self):
+        spools = [
+            {
+                "id": 602,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "982abc,e63b7a,00a1d8",
+                "filament_material": "PLA",
+                "filament_vendor_name": "eSUN",
+                "filament_extra_profile_name": "",
+                "location": "AMS",
+                "extra_sealed": False,
+            }
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#00A1D8",
+            "type": "PLA",
+            "name": "Any",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 602)
+        self.assertEqual(result["match_strategy"], "multicolor_any_hex")
+
+    def test_multicolor_first_hex_uses_ams_preference_when_multiple(self):
+        spools = [
+            {
+                "id": 603,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "e292fe,fff994,6ef785,93e3fd",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Polymaker",
+                "filament_extra_profile_name": "",
+                "location": "Shelf",
+                "extra_sealed": False,
+            },
+            {
+                "id": 604,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "e292fe,000000",
+                "filament_material": "PLA",
+                "filament_vendor_name": "eSUN",
+                "filament_extra_profile_name": "",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#E292FE",
+            "type": "PLA",
+            "name": "Any",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 604)
+        self.assertEqual(result["match_strategy"], "multicolor_first_hex_ams_preference")
+
+    def test_single_color_tier_precedes_multicolor_tiers(self):
+        spools = [
+            {
+                "id": 605,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "#445566",
+                "filament_multi_color_hexes": "",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Polymaker",
+                "filament_extra_profile_name": "",
+                "location": "Shelf",
+                "extra_sealed": False,
+            },
+            {
+                "id": 606,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "111111,445566,999999",
+                "filament_material": "PLA",
+                "filament_vendor_name": "eSUN",
+                "filament_extra_profile_name": "",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#445566",
+            "type": "PLA",
+            "name": "Any",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 605)
+        self.assertEqual(result["match_strategy"], "color_type")
 
 
 if __name__ == "__main__":

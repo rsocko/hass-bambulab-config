@@ -12,6 +12,11 @@ Live parity self-test compares:
 - Authoritative matcher: `sensor.spoolman_tray_map`
 - Legacy comparator: `script.find_matching_spool_in_spoolman`
 
+Legacy comparator now mirrors multicolor fallback tiers used by the authoritative matcher:
+- `color_type`
+- `multicolor_first_hex`
+- `multicolor_any_hex`
+
 ## Script
 [Spool Matching Logic Self-Test - YAML](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml)
 
@@ -26,6 +31,7 @@ spool data so results are deterministic and independent of live HA state.
 - Per tray (AMS + external), when enough tray metadata exists:
   - `success` parity between template matcher and legacy script
   - matched spool ID parity between both matchers
+  - `match_strategy` parity between both matchers when matches succeed
 - Trays with incomplete metadata are explicitly skipped and reported
 - A persistent notification summarizes pass/fail and full per-tray details
 
@@ -41,7 +47,8 @@ spool data so results are deterministic and independent of live HA state.
 ## Notes
 - The template matcher intentionally excludes sealed spools; this is expected and
   is considered correct behavior for the Option A design.
-- The legacy script is retained for regression comparison and diagnostics.
+- The legacy script is retained for regression comparison and diagnostics and is
+  intentionally kept behaviorally aligned for matching-tier parity checks.
 - If mismatches occur, review current tray metadata and spool attributes before
   changing matching code.
 
