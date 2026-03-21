@@ -511,11 +511,34 @@ ams_tray_popup:
                       icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
                     }
                   },
+                  ...(pinHelperEntity ? [{
+                    type: 'custom:button-card',
+                    entity: pinHelperEntity,
+                    name: 'Set Manual Pin (Spool ID)',
+                    icon: 'mdi:pin',
+                    tap_action: { action: 'more-info' },
+                    styles: {
+                      grid: [
+                        { 'grid-template-areas': '"i" "n"' },
+                        { 'grid-template-rows': 'min-content min-content' },
+                        { 'justify-items': 'center' },
+                        { 'align-items': 'center' }
+                      ],
+                      card: [
+                        { background: 'var(--primary-color)' },
+                        { 'box-shadow': 'none' },
+                        { 'border-radius': '6px' },
+                        { padding: '6px' }
+                      ],
+                      name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
+                      icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+                    }
+                  }] : []),
                   ...pinControlCardsForNoMatch,
                   {
                     type: 'entities',
                     title: 'Tray Details',
-                    entities: [trayEntityId]
+                    entities: pinHelperEntity ? [trayEntityId, pinHelperEntity] : [trayEntityId]
                   }
                 ]
               }
