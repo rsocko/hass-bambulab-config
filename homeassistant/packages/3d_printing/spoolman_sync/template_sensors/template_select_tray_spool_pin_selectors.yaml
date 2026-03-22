@@ -1,0 +1,387 @@
+- select:
+    - name: "AMS 1 Tray 1 Pin Selector"
+      unique_id: ams_1_tray_1_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_1_tray_1_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_1_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 1 Tray 2 Pin Selector"
+      unique_id: ams_1_tray_2_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_1_tray_2_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_2_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 1 Tray 3 Pin Selector"
+      unique_id: ams_1_tray_3_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_1_tray_3_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_3_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 1 Tray 4 Pin Selector"
+      unique_id: ams_1_tray_4_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_1_tray_4_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_4_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 2 Tray 1 Pin Selector"
+      unique_id: ams_2_tray_1_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_2_tray_1_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_1_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 2 Tray 2 Pin Selector"
+      unique_id: ams_2_tray_2_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_2_tray_2_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_2_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 2 Tray 3 Pin Selector"
+      unique_id: ams_2_tray_3_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_2_tray_3_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_3_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "AMS 2 Tray 4 Pin Selector"
+      unique_id: ams_2_tray_4_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.ams_2_tray_4_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_4_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}
+
+    - name: "External Spool Pin Selector"
+      unique_id: external_spool_pin_selector
+      icon: mdi:pin
+      state: >-
+        {% set raw = states('input_text.external_spool_spool_override') | default('', true) | string | trim %}
+        {% if raw | length == 0 or raw | lower in ['unknown', 'unavailable', 'none', 'null'] %}
+          None | Clear manual pin
+        {% else %}
+          {% set spool_id = raw | replace('sensor.spoolman_spool_', '') %}
+          {% set entity_id = 'sensor.spoolman_spool_' ~ spool_id %}
+          {% if states(entity_id) not in ['unknown', 'unavailable'] %}
+            {{ spool_id }} | {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) | string }}
+          {% else %}
+            {{ spool_id }} | Unknown spool (not currently available)
+          {% endif %}
+        {% endif %}
+      options: >-
+        {% set ids = integration_entities('spoolman')
+          | select('match', '^sensor\\.spoolman_spool_\\d+$')
+          | list %}
+        {% set spools = expand(ids)
+          | rejectattr('entity_id', 'equalto', none)
+          | sort(attribute='attributes.friendly_name')
+          | list %}
+        {% set ns = namespace(opts=['None | Clear manual pin']) %}
+        {% for spool in spools %}
+          {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
+          {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
+          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label] %}
+        {% endfor %}
+        {{ ns.opts }}
+      select_option:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.external_spool_spool_override
+          data:
+            value: >-
+              {% if option.startswith('None |') %}
+                {{ '' }}
+              {% else %}
+                {{ option.split(' | ')[0] | string | trim }}
+              {% endif %}

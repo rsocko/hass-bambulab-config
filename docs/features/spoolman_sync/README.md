@@ -121,6 +121,9 @@ planning for automatic multi-color matching vs manual override workflows.
 Manual pin auto-clear is implemented by:
 - [clear_manual_spool_override_on_tray_change.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/clear_manual_spool_override_on_tray_change.yaml)
 
+Searchable tray pin pickers (all 8 AMS trays + external spool) are implemented by:
+- [template_select_tray_spool_pin_selectors.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_select_tray_spool_pin_selectors.yaml)
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 

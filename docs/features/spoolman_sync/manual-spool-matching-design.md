@@ -1,7 +1,7 @@
 # Manual Spool Matching - Design Document
 
 > Status: Implemented
-> Updated: 2026-03-21
+> Updated: 2026-03-22
 > Scope: User-controlled pin/unpin matching for trays
 
 ## Purpose
@@ -23,6 +23,7 @@ Implemented in this repository:
 	- `pin_applied`
 - Auto-clear automation clears tray pin overrides on logical spool-change transitions.
 - Popup/detail UI surfaces pin state, pin/unpin actions, and ambiguity candidate pin actions.
+- Searchable selector-based tray pin pickers are available for all 9 tray targets (8 AMS + external), backed by canonical `sensor.spoolman_spool_<id>` entities.
 
 Automatic matching and multi-color matching design are documented in:
 - [multicolor-spool-matching-design.md](multicolor-spool-matching-design.md)
@@ -98,6 +99,7 @@ Implemented behavior:
 - Tray popup displays a pin-state card when a pin exists.
 - Pin/Unpin action buttons are shown when UUID is not the active match tier.
 - When UUID match is active, popup shows an informational card explaining that pin controls are unavailable for that state.
+- Tray popup provides searchable `mushroom-select-card` pin pickers for all tray targets, showing descriptive spool labels from spool `friendly_name`.
 
 ### 5. Ambiguity UX
 
@@ -183,6 +185,7 @@ Future optional mode (option 3) may be considered:
 | File | Change |
 |---|---|
 | homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/ | add per-tray pin helpers |
+| homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_select_tray_spool_pin_selectors.yaml | add 9 searchable tray pin select entities |
 | homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml | add pin override tier and pin metadata |
 | homeassistant/packages/3d_printing/spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml | expose pin-aware response fields |
 | homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml | consume pin-aware resolution |
