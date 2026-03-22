@@ -406,6 +406,68 @@ ams_tray_popup:
         }
         return cards;
       })();
+      const pinPickerCardsForNoMatch = (function() {
+        const cards = [];
+        if (pinSelectAvailable) {
+          cards.push({
+            type: 'custom:mushroom-select-card',
+            entity: pinSelectEntity,
+            name: 'Pick Spool To Pin',
+            icon: 'mdi:pin',
+            icon_color: 'blue',
+            fill_container: true
+          });
+          if (pinActive && matchStrategy !== 'uuid') {
+            cards.push({
+              type: 'custom:button-card',
+              name: 'Unpin Current Spool',
+              icon: 'mdi:pin-off',
+              tap_action: clearPinAction,
+              styles: {
+                grid: [
+                  { 'grid-template-areas': '"i" "n"' },
+                  { 'grid-template-rows': 'min-content min-content' },
+                  { 'justify-items': 'center' },
+                  { 'align-items': 'center' }
+                ],
+                card: [
+                  { background: '#7a2e2e' },
+                  { 'box-shadow': 'none' },
+                  { 'border-radius': '6px' },
+                  { padding: '6px' }
+                ],
+                name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+              }
+            });
+          }
+        } else if (pinHelperAvailable) {
+          cards.push({
+            type: 'custom:button-card',
+            entity: pinHelperEntity,
+            name: 'Set Manual Pin (Spool ID)',
+            icon: 'mdi:pin',
+            tap_action: { action: 'more-info' },
+            styles: {
+              grid: [
+                { 'grid-template-areas': '"i" "n"' },
+                { 'grid-template-rows': 'min-content min-content' },
+                { 'justify-items': 'center' },
+                { 'align-items': 'center' }
+              ],
+              card: [
+                { background: 'var(--primary-color)' },
+                { 'box-shadow': 'none' },
+                { 'border-radius': '6px' },
+                { padding: '6px' }
+              ],
+              name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
+              icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+            }
+          });
+        }
+        return cards;
+      })();
       const usedNonFirstMultiHex = isMultiColor
         && !!multiColorFirstHex
         && trayColorNormalized
@@ -569,58 +631,7 @@ ams_tray_popup:
                       icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
                     }
                   },
-                  ...(pinSelectAvailable ? [{
-                    type: 'custom:mushroom-select-card',
-                    entity: pinSelectEntity,
-                    name: 'Pick Spool To Pin',
-                    icon: 'mdi:pin',
-                    icon_color: 'blue',
-                    fill_container: true
-                  }, ...(pinActive && matchStrategy !== 'uuid' ? [{
-                    type: 'custom:button-card',
-                    name: 'Unpin Current Spool',
-                    icon: 'mdi:pin-off',
-                    tap_action: clearPinAction,
-                    styles: {
-                      grid: [
-                        { 'grid-template-areas': '"i" "n"' },
-                        { 'grid-template-rows': 'min-content min-content' },
-                        { 'justify-items': 'center' },
-                        { 'align-items': 'center' }
-                      ],
-                      card: [
-                        { background: '#7a2e2e' },
-                        { 'box-shadow': 'none' },
-                        { 'border-radius': '6px' },
-                        { padding: '6px' }
-                      ],
-                      name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
-                      icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
-                    }
-                  }] : [])
-                  }] : (pinHelperAvailable ? [{
-                    type: 'custom:button-card',
-                    entity: pinHelperEntity,
-                    name: 'Set Manual Pin (Spool ID)',
-                    icon: 'mdi:pin',
-                    tap_action: { action: 'more-info' },
-                    styles: {
-                      grid: [
-                        { 'grid-template-areas': '"i" "n"' },
-                        { 'grid-template-rows': 'min-content min-content' },
-                        { 'justify-items': 'center' },
-                        { 'align-items': 'center' }
-                      ],
-                      card: [
-                        { background: 'var(--primary-color)' },
-                        { 'box-shadow': 'none' },
-                        { 'border-radius': '6px' },
-                        { padding: '6px' }
-                      ],
-                      name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
-                      icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
-                    }
-                  }] : [])),
+                  ...pinPickerCardsForNoMatch,
                   ...pinControlCardsForNoMatch,
                   ...(!pinHelperAvailable && pinHelperEntity ? [{
                     type: 'custom:mushroom-template-card',
