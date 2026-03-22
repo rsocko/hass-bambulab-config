@@ -222,7 +222,7 @@ automation:
     trigger:
       - platform: numeric_state
         entity_id: sensor.bambu_lab_ams1_humidity
-        above: 60  # Adjust threshold as needed
+        above: 50  # Adjust threshold as needed
     condition: []
     action:
       - service: light.turn_on

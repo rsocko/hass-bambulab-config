@@ -52,7 +52,7 @@ The WLED system uses a **Home Assistant state machine** that:
 | `input_text.wled_3dprinter_last_event` | Text | Last E_* event (debug) |
 | `input_text.wled_3dprinter_last_transition_reason` | Text | Trigger detail (debug) |
 | `input_number.wled_3dprinter_idle_tray_risk_threshold_grams` | Number | Idle tray risk low-weight threshold |
-| `input_number.wled_3dprinter_idle_humidity_warning_threshold` | Number | Idle AMS humidity warning threshold |
+| `input_number.wled_3dprinter_idle_humidity_warning_threshold` | Number | Idle AMS humidity warning threshold (default 50%, aligned to dashboard red band) |
 | `select.dig_quad_v3_preset` | WLED | Active DigQuad preset |
 | `select.magwled_preset` | WLED | Active MagWLED preset |
 

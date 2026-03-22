@@ -311,7 +311,7 @@ Implementation notes:
 | File | Change |
 |------|--------|
 | `helpers/input_number/wled_3dprinter_idle_tray_risk_threshold_grams.yaml` | **New** — low-filament threshold helper for idle tray risk overlays |
-| `helpers/input_number/wled_3dprinter_idle_humidity_warning_threshold.yaml` | **New** — humidity threshold helper for idle AMS background warnings |
+| `helpers/input_number/wled_3dprinter_idle_humidity_warning_threshold.yaml` | **New** — humidity threshold helper for idle AMS background warnings (default 50% to match dashboard red threshold) |
 | `scripts/wled_3dprinter_apply_idle_telemetry_overlays-script.yaml` | **New** — idle overlay coordinator (preset reset + ordered overlay application) |
 | `scripts/wled_3dprinter_apply_idle_tray_risk_overlay-script.yaml` | **New** — tray risk overlay script with dashboard-matched thresholds |
 | `scripts/wled_3dprinter_apply_idle_humidity_overlay-script.yaml` | **New** — humidity warning overlay script for AMS background segments |

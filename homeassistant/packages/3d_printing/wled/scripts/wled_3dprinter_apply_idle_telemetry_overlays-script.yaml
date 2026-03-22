@@ -39,7 +39,7 @@ wled_3dprinter_apply_idle_telemetry_overlays:
     - variables:
         tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) }}"
         humidity_threshold: >-
-          {{ states('input_number.wled_3dprinter_idle_humidity_warning_threshold') | float(60) }}
+          {{ states('input_number.wled_3dprinter_idle_humidity_warning_threshold') | float(50) }}
         ams1_humidity: >-
           {{ states('sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity') | float(0) }}
         ams2_humidity: >-
