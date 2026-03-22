@@ -67,7 +67,7 @@ ams_tray_popup:
         external_spool: 'input_text.external_spool_spool_override'
       };
       const pinHelperEntity = pinHelperByTray[tray] || '';
-      const pinHelperState = pinHelperEntity ? (states[pinHelperEntity]?.state ?? '') : '';
+      const pinHelperState = pinHelperEntity ? ((states[pinHelperEntity] && states[pinHelperEntity].state !== undefined) ? states[pinHelperEntity].state : '') : '';
       const pinHelperAvailable = !!(
         pinHelperEntity &&
         states[pinHelperEntity] &&
@@ -85,7 +85,7 @@ ams_tray_popup:
         external_spool: 'select.external_spool_pin_selector'
       };
       const pinSelectEntity = pinSelectByTray[tray] || '';
-      const pinSelectState = pinSelectEntity ? (states[pinSelectEntity]?.state ?? '') : '';
+      const pinSelectState = pinSelectEntity ? ((states[pinSelectEntity] && states[pinSelectEntity].state !== undefined) ? states[pinSelectEntity].state : '') : '';
       const pinSelectAvailable = !!(
         pinSelectEntity &&
         states[pinSelectEntity] &&
