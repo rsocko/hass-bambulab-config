@@ -16,6 +16,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -27,7 +30,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -41,7 +54,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 1 Tray 2 Pin Selector"
       unique_id: ams_1_tray_2_pin_selector
       icon: mdi:pin
@@ -59,6 +71,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -70,7 +85,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -84,7 +109,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 1 Tray 3 Pin Selector"
       unique_id: ams_1_tray_3_pin_selector
       icon: mdi:pin
@@ -102,6 +126,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -113,7 +140,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -127,7 +164,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 1 Tray 4 Pin Selector"
       unique_id: ams_1_tray_4_pin_selector
       icon: mdi:pin
@@ -145,6 +181,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -156,7 +195,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -170,7 +219,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 2 Tray 1 Pin Selector"
       unique_id: ams_2_tray_1_pin_selector
       icon: mdi:pin
@@ -188,6 +236,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -199,7 +250,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -213,7 +274,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 2 Tray 2 Pin Selector"
       unique_id: ams_2_tray_2_pin_selector
       icon: mdi:pin
@@ -231,6 +291,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -242,7 +305,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -256,7 +329,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 2 Tray 3 Pin Selector"
       unique_id: ams_2_tray_3_pin_selector
       icon: mdi:pin
@@ -274,6 +346,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -285,7 +360,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -299,7 +384,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "AMS 2 Tray 4 Pin Selector"
       unique_id: ams_2_tray_4_pin_selector
       icon: mdi:pin
@@ -317,6 +401,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -328,7 +415,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -342,7 +439,6 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-
     - name: "External Spool Pin Selector"
       unique_id: external_spool_pin_selector
       icon: mdi:pin
@@ -360,6 +456,9 @@
           {% endif %}
         {% endif %}
       options: >-
+        {% set search_entity = this.entity_id | replace('select.', 'input_text.') | replace('_pin_selector', '_spool_search_query') %}
+        {% set query = states(search_entity) | default('', true) | lower | trim %}
+        {% set terms = query.split() if query | length > 0 else [] %}
         {% set ids = integration_entities('spoolman')
           | select('match', '^sensor\\.spoolman_spool_\\d+$')
           | list %}
@@ -371,7 +470,17 @@
         {% for spool in spools %}
           {% set spool_id = spool.entity_id | replace('sensor.spoolman_spool_', '') %}
           {% set label = spool.attributes.friendly_name | default(spool.entity_id, true) | string %}
-          {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ (spool.attributes.location | default('Unknown', true) | string) ~ ')'] %}
+          {% set location = spool.attributes.location | default('Unknown', true) | string %}
+          {% set haystack = (spool_id ~ ' ' ~ label ~ ' ' ~ location) | lower %}
+          {% set match = namespace(ok=true) %}
+          {% for term in terms %}
+            {% if term not in haystack %}
+              {% set match.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {% if match.ok %}
+            {% set ns.opts = ns.opts + [spool_id ~ ' | ' ~ label ~ ' (' ~ location ~ ')'] %}
+          {% endif %}
         {% endfor %}
         {{ ns.opts }}
       select_option:
@@ -385,4 +494,5 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
+
 
