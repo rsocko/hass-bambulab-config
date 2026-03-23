@@ -37,7 +37,7 @@ apply_spoolman_spool_usage_adjustment:
                 remaining_weight: "{{ [absolute_weight_grams, 0] | max }}"
         - conditions:
             - condition: template
-              value_template: "{{ mode == 'Adjust by Length (m)' }}"
+              value_template: "{{ mode == 'Adjust by Length (mm)' }}"
           sequence:
             - action: spoolman.use_spool_filament
               data:
