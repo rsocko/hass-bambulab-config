@@ -17,6 +17,8 @@
 # Variables:
 #   amsName           - Display name (e.g., "AMS 1", "AMS 2 Pro")
 #   amsIcon           - Header icon (default: "fapro:filament-2")
+#   amsTrays          - Optional tray keys to source color accents from
+#                       (e.g., ["ams_1_tray_1", "ams_1_tray_2", ...])
 #   humidityEntity    - Humidity sensor entity ID (percentage-based)
 #   temperatureEntity - Temperature sensor entity ID (°C)
 #
@@ -68,11 +70,40 @@ ams_header:
       [[[
         const amsName = variables.amsName || 'AMS';
         const amsIcon = variables.amsIcon || 'fapro:filament-2';
+        const normalizeHexColor = (value) => {
+          if (value === undefined || value === null) return '';
+          let normalized = String(value).trim().replace(/^#/, '');
+          if (normalized.length === 8) normalized = normalized.slice(0, 6);
+          if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return '';
+          return normalized.toLowerCase();
+        };
+        const trayMap = states['sensor.spoolman_tray_map']?.attributes?.tray_map || {};
+        const configuredTrays = Array.isArray(variables.amsTrays)
+          ? variables.amsTrays
+          : (typeof variables.amsTrays === 'string' ? variables.amsTrays.split(',') : []);
+        const trayKeys = configuredTrays
+          .map((v) => String(v || '').trim())
+          .filter((v) => !!v);
+        const trayColors = trayKeys
+          .map((trayKey) => {
+            const trayData = trayMap?.[trayKey] || {};
+            const spoolId = trayData?.spool_id;
+            const spoolEntity = spoolId ? states[`sensor.spoolman_spool_${spoolId}`] : null;
+            const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
+            const trayColor = normalizeHexColor(trayData?.color);
+            return spoolColor || trayColor;
+          })
+          .filter((color) => !!color);
+        const accentColors = trayColors.length > 0 ? trayColors.map((hex) => `#${hex}`) : ['#6b7280'];
+        const iconColor = accentColors[0];
+        const separatorBackground = accentColors.length > 1
+          ? `linear-gradient(90deg, ${accentColors.join(', ')})`
+          : accentColors[0];
         return `
           <div style="display:flex; align-items:center; width:100%;">
-            <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:var(--primary-text-color); flex-shrink:0;"></ha-icon>
+            <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:${iconColor}; flex-shrink:0;"></ha-icon>
             <span style="font-size:14px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; flex-shrink:0; margin-left:4px;">${amsName}</span>
-            <div style="flex:1; height:3px; background:rgba(255,255,255,0.12); margin-left:8px; border-radius:1.5px; min-width:10px;"></div>
+            <div style="flex:1; height:3px; background:${separatorBackground}; margin-left:8px; border-radius:1.5px; min-width:10px;"></div>
           </div>
         `;
       ]]]

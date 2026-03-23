@@ -219,6 +219,11 @@ sections:
       variables:
         amsName: AMS 1
         amsIcon: fapro:filament-2
+        amsTrays:
+          - ams_1_tray_1
+          - ams_1_tray_2
+          - ams_1_tray_3
+          - ams_1_tray_4
         humidityEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_humidity
         temperatureEntity: sensor.ntk_ryansoffice_3dprinterams1_humidity_temperature_temperature
     - type: custom:ha-bambulab-ams-card
@@ -306,6 +311,11 @@ sections:
       variables:
         amsName: AMS 2 Pro
         amsIcon: fapro:filament-2
+        amsTrays:
+          - ams_2_tray_1
+          - ams_2_tray_2
+          - ams_2_tray_3
+          - ams_2_tray_4
         humidityEntity: sensor.3d_printer_ams_2_humidity_and_temp_humidity
         temperatureEntity: sensor.3d_printer_ams_2_humidity_and_temp_temperature
     - type: custom:ha-bambulab-ams-card
