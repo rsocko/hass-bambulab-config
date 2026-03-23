@@ -59,6 +59,7 @@
             entity_id: input_text.ams_1_tray_1_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 1 Tray 2 Pin Selector
       unique_id: ams_1_tray_2_pin_selector
@@ -120,6 +121,7 @@
             entity_id: input_text.ams_1_tray_2_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 1 Tray 3 Pin Selector
       unique_id: ams_1_tray_3_pin_selector
@@ -181,6 +183,7 @@
             entity_id: input_text.ams_1_tray_3_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 1 Tray 4 Pin Selector
       unique_id: ams_1_tray_4_pin_selector
@@ -242,6 +245,7 @@
             entity_id: input_text.ams_1_tray_4_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 2 Tray 1 Pin Selector
       unique_id: ams_2_tray_1_pin_selector
@@ -303,6 +307,7 @@
             entity_id: input_text.ams_2_tray_1_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 2 Tray 2 Pin Selector
       unique_id: ams_2_tray_2_pin_selector
@@ -364,6 +369,7 @@
             entity_id: input_text.ams_2_tray_2_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 2 Tray 3 Pin Selector
       unique_id: ams_2_tray_3_pin_selector
@@ -425,6 +431,7 @@
             entity_id: input_text.ams_2_tray_3_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: AMS 2 Tray 4 Pin Selector
       unique_id: ams_2_tray_4_pin_selector
@@ -486,6 +493,7 @@
             entity_id: input_text.ams_2_tray_4_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
     - name: External Spool Pin Selector
       unique_id: external_spool_pin_selector
@@ -547,5 +555,6 @@
             entity_id: input_text.external_spool_spool_search_query
           data:
             value: ''
+        - action: browser_mod.close_popup
 
 
