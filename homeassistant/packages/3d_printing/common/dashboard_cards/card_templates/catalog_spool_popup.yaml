@@ -83,6 +83,7 @@ catalog_spool_popup:
       const locationEntityId = 'select.spoolman_spool_' + spoolId + '_location';
       const location = entity?.attributes?.location || 'N/A';
       const remainingWeight = entity?.attributes?.remaining_weight;
+      const remainingLength = entity?.attributes?.remaining_length;
       const initialWeight = entity?.attributes?.initial_weight || 1000;
       const price = entity?.attributes?.price || entity?.attributes?.filament_price || null;
       const weightText = (remainingWeight !== undefined && remainingWeight !== null)
@@ -162,9 +163,12 @@ catalog_spool_popup:
                       {
                         type: 'custom:mushroom-template-card',
                         primary: spoolName,
-                        secondary: Number.isFinite(currentRemainingWeight)
-                          ? 'Current remaining: ' + currentRemainingWeight.toFixed(1) + ' g'
-                          : 'Current remaining: N/A',
+                        secondary: (() => {
+                          const parts = [];
+                          if (Number.isFinite(currentRemainingWeight)) parts.push(currentRemainingWeight.toFixed(1) + ' g');
+                          if (remainingLength !== undefined && remainingLength !== null) parts.push(Number(remainingLength).toFixed(1) + ' m');
+                          return parts.length > 0 ? 'Current remaining: ' + parts.join(' | ') : 'Current remaining: N/A';
+                        })(),
                         icon: 'mdi:weight-gram',
                         icon_color: 'teal',
                         layout: 'horizontal',
@@ -249,7 +253,6 @@ catalog_spool_popup:
                         card: {
                           type: 'custom:mushroom-template-card',
                           primary: "${(() => { const mode = states['input_select.spoolman_weight_editor_mode']?.state || 'Adjust by Weight (g)'; const spoolEntity = states['" + eid + "']; const current = parseFloat(spoolEntity?.attributes?.remaining_weight); const dg = parseFloat(states['input_number.spoolman_weight_editor_delta_grams']?.state) || 0; const dm = parseFloat(states['input_number.spoolman_weight_editor_delta_meters']?.state) || 0; const aw = parseFloat(states['input_number.spoolman_weight_editor_absolute_grams']?.state) || 0; if (mode === 'Set New Weight (g)') return 'Preview: ' + aw.toFixed(1) + ' g'; if (mode === 'Adjust by Length (m)') return Number.isFinite(current) ? ('Current: ' + current.toFixed(1) + ' g (length delta ' + dm.toFixed(2) + ' m)') : ('Length delta: ' + dm.toFixed(2) + ' m'); if (Number.isFinite(current)) return 'Preview: ' + (current - dg).toFixed(1) + ' g'; return 'Weight delta: ' + dg.toFixed(1) + ' g'; })()}",
-                          secondary: "${(() => { const mode = states['input_select.spoolman_weight_editor_mode']?.state || 'Adjust by Weight (g)'; if (mode === 'Set New Weight (g)') return 'Will set absolute remaining weight in Spoolman.'; if (mode === 'Adjust by Length (m)') return 'Will call use_length in Spoolman.'; return 'Will call use_weight in Spoolman.'; })()}",
                           icon: 'mdi:calculator-variant',
                           icon_color: 'blue',
                           layout: 'horizontal',
