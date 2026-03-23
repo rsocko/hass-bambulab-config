@@ -130,6 +130,8 @@ Word-based search filtering for tray pin pickers is backed by per-tray search he
 Search behavior notes:
 - Picker filters match all typed words (AND logic) against spool ID, friendly name, and location.
 - After a spool is selected from the pin picker, the corresponding search query helper is cleared automatically.
+- No-match tray popups now use pin-first workflow only; the legacy "Match Inserted Spool" action has been removed because matching is centralized in `sensor.spoolman_tray_map`.
+- Main tray popup is compact: pin/unpin actions are triggered from the Match-row action chip and open a dedicated pin-management popup.
 
 If popup displays "Spool search helper is unavailable", that message is a custom UI guard (not a Home Assistant core error) and means search query helpers were not loaded yet. Reload/restart spoolman_sync helpers and template entities.
 
@@ -145,7 +147,6 @@ re-enable it by adding `external_spool_2` in these files:
 - [core/template_sensors/spoolman_tray_map.yaml](../../../homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml)
 - [spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml)
 - [spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/spool_matching_logic_self_test-script.yaml)
-- [spoolman_sync/scripts/match_inserted_tray_spool-script.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/scripts/match_inserted_tray_spool-script.yaml)
 - [spoolman_sync/automations/print_complete-update_filament_usage.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml)
 
 ## Dependencies & Requirements

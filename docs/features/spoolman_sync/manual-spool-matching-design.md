@@ -97,9 +97,12 @@ When tray is currently resolved by UUID exact match:
 - explanatory copy should make clear that UUID is authoritative and must not be overridden by standard pin mode
 
 Implemented behavior:
-- Tray popup displays a pin-state card when a pin exists.
-- Pin/Unpin action buttons are shown when UUID is not the active match tier.
-- When UUID match is active, popup shows an informational card explaining that pin controls are unavailable for that state.
+- Tray popup uses a compact Match-row action chip:
+	- `Pin Spool` (accent background) when not pinned and UUID is not active.
+	- `Unpin` (red background) when pinned.
+- Pin action opens a dedicated pin-management popup with search and filtered selector controls.
+- Selecting a spool in the pin-management popup closes the popup automatically.
+- No-match tray popup no longer includes the legacy `Match Inserted Spool` action; matching is authoritative in `sensor.spoolman_tray_map`.
 - Tray popup provides searchable `mushroom-select-card` pin pickers for all tray targets, showing descriptive spool labels from spool `friendly_name` and location.
 - Search query filtering matches all typed words against spool ID, friendly name, and location.
 - Search query helper is cleared automatically after a pin selection to avoid stale filters on subsequent opens.
@@ -195,5 +198,5 @@ Future optional mode (option 3) may be considered:
 | homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml | consume pin-aware resolution |
 | homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml | consume pin-aware resolution |
 | homeassistant/packages/3d_printing/spoolman_sync/automations/clear_manual_spool_override_on_tray_change.yaml | clear pin on logical tray-content change |
-| homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml | pin/unpin controls and ambiguity actions |
+| homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml | compact pin action chip, dedicated pin popup, and ambiguity actions |
 | homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml | pin indicator rendering |

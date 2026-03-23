@@ -610,36 +610,6 @@ ams_tray_popup:
                     icon: 'mdi:help-rhombus',
                     icon_color: 'grey'
                   },
-                  {
-                    type: 'custom:button-card',
-                    name: 'Match Inserted Spool',
-                    icon: 'mdi:link-variant-plus',
-                    tap_action: {
-                      action: 'call-service',
-                      service: 'script.match_inserted_tray_spool_in_spoolman',
-                      service_data: {
-                        tray_entity_id: trayEntityId,
-                        tray_label: trayLabel,
-                        tray_key: tray
-                      }
-                    },
-                    styles: {
-                      grid: [
-                        { 'grid-template-areas': '"i" "n"' },
-                        { 'grid-template-rows': 'min-content min-content' },
-                        { 'justify-items': 'center' },
-                        { 'align-items': 'center' }
-                      ],
-                      card: [
-                        { background: 'var(--primary-color)' },
-                        { 'box-shadow': 'none' },
-                        { 'border-radius': '6px' },
-                        { padding: '6px' }
-                      ],
-                      name: [{ color: 'white' }, { 'font-weight': '500' }, { 'font-size': '12px' }],
-                      icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
-                    }
-                  },
                   ...pinPickerCardsForNoMatch,
                   ...pinControlCardsForNoMatch,
                   ...(!pinHelperAvailable && pinHelperEntity ? [{

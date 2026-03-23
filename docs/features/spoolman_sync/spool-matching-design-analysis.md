@@ -87,7 +87,7 @@ Both handle empty detection, but at different layers. The template sensor handle
 | Actor | Template Sensor | Script / Automations |
 |-------|----------------|---------------------|
 | **Auto-update during print** | ❌ Not possible (read-only template) | ✅ `active_tray_changed` automation patches `extra.spool_uuid` if Bambu spool matched by color and UUID is empty |
-| **Manual UI update** | ❌ Not directly (but popup has "Match Inserted Spool" button that calls script) | ✅ `match_inserted_tray_spool` script patches UUID |
+| **Manual UI update** | ❌ Not directly (manual tray matching action removed from popup; pin workflow is tray_map-driven) | ✅ UUID patch/update remains in automation/script write paths where applicable |
 | **Conditions** | N/A | Tray UUID valid AND spool is Bambu Lab vendor AND spool has no existing UUID |
 
 ### 2.6 Additional Features (Exclusive to Each)
@@ -386,6 +386,5 @@ Status:
 | `homeassistant/packages/3d_printing/spoolman_sync/scripts/find_matching_spool_in_spoolman-script.yaml` | Script — automation matching engine |
 | `homeassistant/packages/3d_printing/spoolman_sync/automations/active_tray_changed_update_spoolman.yaml` | Automation — active tray sync + UUID auto-update |
 | `homeassistant/packages/3d_printing/spoolman_sync/automations/print_complete-update_filament_usage.yaml` | Automation — print completion filament usage |
-| `homeassistant/packages/3d_printing/spoolman_sync/scripts/match_inserted_tray_spool-script.yaml` | Script — manual UI-triggered matching + UUID update |
 | `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Dashboard — rich popup consuming tray_map |
 | `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/ams_tray_detail.yaml` | Dashboard — compact card consuming tray_map |
