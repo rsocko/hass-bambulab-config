@@ -40,9 +40,17 @@ ams_tray_label:
             const spoolId = map?.[tray]?.spool_id;
             if (!spoolId) return 'none';
             const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
-            const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
-            const trayColor = normalizeHexColor(map?.[tray]?.color);
-            const effectiveColor = spoolColor || trayColor;
+            const multiHexes = spoolEntity?.attributes?.filament_multi_color_hexes || '';
+            let effectiveColor = '';
+            if (multiHexes) {
+              const firstHex = multiHexes.split(',')[0].trim().replace(/^#/, '');
+              effectiveColor = normalizeHexColor(firstHex);
+            }
+            if (!effectiveColor) {
+              const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
+              const trayColor = normalizeHexColor(map?.[tray]?.color);
+              effectiveColor = spoolColor || trayColor;
+            }
             if (!effectiveColor) return 'none';
             const remaining = spoolEntity?.attributes?.remaining_weight;
             const initial = spoolEntity?.attributes?.initial_weight || 1000;
@@ -91,9 +99,17 @@ ams_tray_label:
             const spoolId = map?.[tray]?.spool_id;
             if (!spoolId) return 'var(--primary-text-color)';
             const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
-            const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
-            const trayColor = normalizeHexColor(map?.[tray]?.color);
-            const effectiveColor = spoolColor || trayColor;
+            const multiHexes = spoolEntity?.attributes?.filament_multi_color_hexes || '';
+            let effectiveColor = '';
+            if (multiHexes) {
+              const firstHex = multiHexes.split(',')[0].trim().replace(/^#/, '');
+              effectiveColor = normalizeHexColor(firstHex);
+            }
+            if (!effectiveColor) {
+              const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
+              const trayColor = normalizeHexColor(map?.[tray]?.color);
+              effectiveColor = spoolColor || trayColor;
+            }
             if (!effectiveColor) return 'var(--primary-text-color)';
             const r = parseInt(effectiveColor.substring(0,2), 16);
             const g = parseInt(effectiveColor.substring(2,4), 16);
