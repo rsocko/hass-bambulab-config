@@ -299,7 +299,7 @@ ams_tray_popup:
                           name: [{ color: 'var(--primary-text-color)' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
                           icon: [{ color: 'var(--primary-text-color)' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
                         }
-                      }] : [])
+                      }
                     ]
                   }
                 }
