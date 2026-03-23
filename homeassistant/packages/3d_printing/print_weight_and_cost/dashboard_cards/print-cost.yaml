@@ -29,9 +29,18 @@ entities:
           const entries = [];
           for (const [trayKey, data] of Object.entries(breakdown)) {
             const rawColor = (data.color || '888888').replace('#', '').substring(0, 6);
+            let trayLabel = '';
+            const trayMatch = trayKey.match(/AMS (\d+) Tray (\d+)/);
+            if (trayMatch) {
+              const amsLetter = String.fromCharCode(64 + parseInt(trayMatch[1]));
+              trayLabel = amsLetter + trayMatch[2];
+            } else if (trayKey === 'External' || trayKey === 'External Spool') {
+              trayLabel = 'Ext';
+            }
             entries.push({
               name: data.name || trayKey,
               tray: trayKey,
+              trayLabel: trayLabel,
               cost: parseFloat(data.cost) || 0,
               weight: parseFloat(data.weight) || 0,
               pricePerKg: parseFloat(data.price_per_kg) || 0,
@@ -81,7 +90,8 @@ entities:
             if (!isLast) {
               barHTML += 'border-right: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); ';
             }
-            barHTML += '">';
+            const segTooltip = ((item.name || item.tray) + ' [' + item.trayLabel + ']: $' + item.cost.toFixed(2) + ' (' + item.weight.toFixed(1) + 'g)').replace(/"/g, '&quot;');
+            barHTML += `" title="${segTooltip}">`;
 
             if (percent > 10) {
               const textColor = brightness > 128 ? '#000000' : '#ffffff';
@@ -99,9 +109,10 @@ entities:
           entries.forEach((item) => {
             const percent = (item.cost / totalCost) * 100;
             const sourceLabel = item.priceSource === 'default' ? ' *' : '';
-            barHTML += `<div style="display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">`;
+            const legendTooltip = item.tray.replace(/"/g, '&quot;');
+            barHTML += `<div style="display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 4px;" title="${legendTooltip}">`;
             barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px; flex-shrink: 0;"></span>`;
-            barHTML += `<span>${item.name}: <b>$${item.cost.toFixed(2)}</b></span>`;
+            barHTML += `<span>${item.name} <span style="opacity: 0.65;">[${item.trayLabel}]</span>: <b>$${item.cost.toFixed(2)}</b></span>`;
             barHTML += `<span style="white-space: nowrap; opacity: 0.65; margin-left: 4px;">(${item.weight.toFixed(1)}g @ $${item.pricePerKg.toFixed(2)}/kg${sourceLabel})</span>`;
             barHTML += `</div>`;
           });

@@ -22,6 +22,8 @@ entities:
 
           const activeWeights = weightEntity.attributes || {};
           const usingBackupData = weightEntity?.attributes?.data_source === 'backup';
+          const trayMapEntity = states['sensor.spoolman_tray_map'];
+          const trayMap = (trayMapEntity?.attributes?.tray_map && typeof trayMapEntity.attributes.tray_map === 'object') ? trayMapEntity.attributes.tray_map : {};
           
           const totalWeight = parseFloat(weightEntity?.state) || 0;
           
@@ -34,15 +36,23 @@ entities:
               let trayEntity = null;
 
               // Parse the tray name: "AMS 1 Tray 2" -> ams_1_tray_2
+              let trayMapKey = '';
+              let trayLabel = '';
               const match = key.match(/AMS (\d+) Tray (\d+)/);
               if (match) {
                 const amsNum = match[1];
                 const trayNum = match[2];
-                const trayKey = `ams_${amsNum}_tray_${trayNum}`;
-                trayEntity = `sensor.p1s_01p00c460102350_${trayKey}`;
+                trayMapKey = `ams_${amsNum}_tray_${trayNum}`;
+                trayEntity = `sensor.p1s_01p00c460102350_${trayMapKey}`;
+                const amsLetter = String.fromCharCode(64 + parseInt(amsNum));
+                trayLabel = amsLetter + trayNum;
               } else if (key === 'External' || key === 'External Spool') {
+                trayMapKey = 'external_spool';
                 trayEntity = 'sensor.ntk_ryansoffice_3dprinter_external_spool';
+                trayLabel = 'Ext';
               }
+              const trayData = trayMap[trayMapKey];
+              const displayName = (trayData?.name && trayData.name !== 'Empty') ? trayData.name : key;
 
               // Get color from tray entity
               const tray = trayEntity ? states[trayEntity] : null;
@@ -60,6 +70,8 @@ entities:
               const numericWeight = parseFloat(value);
               weights.push({
                 name: key,
+                displayName: displayName,
+                trayLabel: trayLabel,
                 weight: numericWeight,
                 color: color
               });
@@ -138,7 +150,8 @@ entities:
               barHTML += 'border-right: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); ';
             }
             
-            barHTML += '">';
+            const segTooltip = (item.displayName + ' [' + item.trayLabel + ']: ' + item.weight.toFixed(1) + 'g (' + percent.toFixed(1) + '%)').replace(/"/g, '&quot;');
+            barHTML += `" title="${segTooltip}">`;
             
             // Add weight text if segment is wide enough
             if (percent > 10) {
@@ -158,9 +171,10 @@ entities:
           barHTML += '<div style="font-size: 12px; color: var(--secondary-text-color, #888); margin-top: 6px; line-height: 1.4;">';
           weights.forEach((item, index) => {
             const percent = (item.weight / attributeTotal) * 100;
-            barHTML += `<div style="display: flex; align-items: center; margin-bottom: 2px;">`;
-            barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px;"></span>`;
-            barHTML += `<span>${item.name}: <b>${item.weight.toFixed(1)}g</b> (${percent.toFixed(1)}%)</span>`;
+            const legendTooltip = item.name.replace(/"/g, '&quot;');
+            barHTML += `<div style="display: flex; align-items: center; margin-bottom: 2px;" title="${legendTooltip}">`;
+            barHTML += `<span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.color}; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 2px; margin-right: 6px; flex-shrink: 0;"></span>`;
+            barHTML += `<span>${item.displayName} <span style="opacity: 0.65;">[${item.trayLabel}]</span>: <b>${item.weight.toFixed(1)}g</b> (${percent.toFixed(1)}%)</span>`;
             barHTML += '</div>';
           });
           if (usingBackupData) {
