@@ -174,7 +174,7 @@ cards:
         tap_action:
           action: more-info
         sub_button:
-          - name: Clear All
+          - name: Clear Filters
             icon: mdi:filter-remove
             show_name: true
             tap_action:
