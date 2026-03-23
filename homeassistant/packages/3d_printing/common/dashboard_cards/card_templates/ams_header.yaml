@@ -21,6 +21,7 @@
 #                       (e.g., ["ams_1_tray_1", "ams_1_tray_2", ...])
 #   humidityEntity    - Humidity sensor entity ID (percentage-based)
 #   temperatureEntity - Temperature sensor entity ID (°C)
+#   showPills         - Optional boolean, set false to hide humidity/temp pills
 #
 # Usage:
 #   - type: custom:button-card
@@ -33,7 +34,7 @@
 
 ams_header:
   type: custom:button-card
-  entity: '[[[ return variables.humidityEntity; ]]]'
+  entity: '[[[ return variables.humidityEntity || variables.temperatureEntity || "sensor.spoolman_tray_map"; ]]]'
   show_icon: false
   show_name: false
   show_state: false
@@ -47,8 +48,14 @@ ams_header:
       - padding: 6px 0
       - margin: 0
     grid:
-      - grid-template-areas: '"header hpill tpill"'
-      - grid-template-columns: 1fr auto auto
+      - grid-template-areas: |
+          [[[
+            return variables.showPills === false ? '"header"' : '"header hpill tpill"';
+          ]]]
+      - grid-template-columns: |
+          [[[
+            return variables.showPills === false ? '1fr' : '1fr auto auto';
+          ]]]
       - grid-template-rows: auto
       - width: 100%
       - align-items: center
@@ -60,9 +67,17 @@ ams_header:
         - padding: 0
         - margin: 0
       hpill:
+        - display: |
+            [[[
+              return variables.showPills === false ? 'none' : 'block';
+            ]]]
         - padding: 0
         - margin: 0
       tpill:
+        - display: |
+            [[[
+              return variables.showPills === false ? 'none' : 'block';
+            ]]]
         - padding: 0
         - margin: 0
   custom_fields:
@@ -110,7 +125,7 @@ ams_header:
     hpill:
       card:
         type: custom:button-card
-        entity: '[[[ return variables.humidityEntity; ]]]'
+        entity: '[[[ return variables.humidityEntity || "sensor.spoolman_tray_map"; ]]]'
         tap_action:
           action: more-info
         show_icon: false
@@ -156,7 +171,7 @@ ams_header:
     tpill:
       card:
         type: custom:button-card
-        entity: '[[[ return variables.temperatureEntity; ]]]'
+        entity: '[[[ return variables.temperatureEntity || "sensor.spoolman_tray_map"; ]]]'
         tap_action:
           action: more-info
         show_icon: false

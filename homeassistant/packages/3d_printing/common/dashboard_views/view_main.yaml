@@ -404,10 +404,18 @@ sections:
       cards:
         - type: vertical-stack
           cards:
+            - type: custom:button-card
+              template: ams_header
+              variables:
+                amsName: External Spool
+                amsIcon: fapro:filament-2
+                amsTrays:
+                  - external_spool
+                showPills: false
             - type: custom:ha-bambulab-spool-card
               header: Header Text
               subtitle: 'External '
-              show_header: true
+              show_header: false
               spool: 9b8ca6134d4424a7c8fd4467ad2adbc3
               show_info_bar: false
               show_type: false
