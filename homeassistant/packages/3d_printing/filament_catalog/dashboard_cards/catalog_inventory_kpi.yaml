@@ -3,101 +3,105 @@
 # Displayed at the top of the Filament Catalog view.
 # Also includes the Insights toggle on the same row (#695).
 
-type: custom:button-card
-entity: sensor.spoolman_filament_totals
-triggers_update:
-  - sensor.spoolman_filament_totals
-  - input_boolean.filament_catalog_show_insights
-show_icon: false
-show_name: false
-show_state: false
-tap_action:
-  action: none
-styles:
-  card:
-    - background: none
-    - border: none
-    - box-shadow: none
-    - padding: 8px 12px
-    - margin: 0
-  grid:
-    - grid-template-areas: '"kpi insights"'
-    - grid-template-columns: 1fr auto
-    - align-items: center
-  custom_fields:
-    kpi:
-      - padding: 0
-      - margin: 0
-    insights:
-      - padding: 0
-      - margin: 0
-custom_fields:
-  kpi: |
-    [[[
-      const allSpools = Object.values(states).filter(e =>
-        /^sensor\.spoolman_spool_\d+$/.test(e.entity_id) &&
-        !e.attributes.archived
-      );
-      const totalSpools = allSpools.length;
-      const filamentIds = new Set(allSpools.map(s => s.attributes.filament_id).filter(Boolean));
-      const totalFilaments = filamentIds.size;
-      const totalWeight = allSpools.reduce((sum, s) => sum + (s.attributes.remaining_weight || 0), 0);
-      let totalCost = 0, costSpoolCount = 0;
-      allSpools.forEach(s => {
-        const price = s.attributes.price || s.attributes.filament_price || 0;
-        const initial = s.attributes.initial_weight || 1000;
-        if (price > 0 && initial > 0) {
-          totalCost += price / initial * 1000;
-          costSpoolCount++;
-        }
-      });
-      const avgCostPerKg = costSpoolCount > 0 ? (totalCost / costSpoolCount) : 0;
-
-      const weightKg = (totalWeight / 1000).toFixed(1);
-      const avgCostStr = avgCostPerKg > 0 ? '$' + avgCostPerKg.toFixed(2) + '/kg' : 'N/A';
-
-      const pill = (icon, text, color) => `
-        <div style="display:inline-flex; align-items:center; gap:4px; background:rgba(128,128,128,0.1); border-radius:20px; padding:5px 10px 5px 6px; line-height:1;">
-          <ha-icon icon="${icon}" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
-          <span style="font-size:12px; font-weight:600; color:var(--primary-text-color); white-space:nowrap;">${text}</span>
-        </div>
-      `;
-
-      return `
-        <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">
-          ${pill('fapro:filament-2', totalSpools + ' spools', '#42A5F5')}
-          ${pill('mdi:layers-triple', totalFilaments + ' filaments', '#7E57C2')}
-          ${pill('mdi:weight-gram', weightKg + ' kg', '#26A69A')}
-          ${pill('mdi:currency-usd', 'Avg ' + avgCostStr, '#66BB6A')}
-        </div>
-      `;
-    ]]]
-  insights:
-    card:
-      type: custom:button-card
-      entity: input_boolean.filament_catalog_show_insights
-      icon: mdi:chart-box-outline
-      name: |
+type: horizontal-stack
+cards:
+  # ── KPI Pills ──
+  - type: custom:button-card
+    entity: sensor.spoolman_filament_totals
+    triggers_update: sensor.spoolman_filament_totals
+    show_icon: false
+    show_name: false
+    show_state: false
+    tap_action:
+      action: none
+    styles:
+      card:
+        - background: none
+        - border: none
+        - box-shadow: none
+        - padding: 8px 12px
+        - margin: 0
+      grid:
+        - grid-template-areas: '"kpi"'
+        - grid-template-columns: 1fr
+      custom_fields:
+        kpi:
+          - padding: 0
+          - margin: 0
+    custom_fields:
+      kpi: |
         [[[
-          return states['input_boolean.filament_catalog_show_insights'].state === 'on' ? 'Hide Insights' : 'Show Insights';
+          const allSpools = Object.values(states).filter(e =>
+            /^sensor\.spoolman_spool_\d+$/.test(e.entity_id) &&
+            !e.attributes.archived
+          );
+          const totalSpools = allSpools.length;
+          const filamentIds = new Set(allSpools.map(s => s.attributes.filament_id).filter(Boolean));
+          const totalFilaments = filamentIds.size;
+          const totalWeight = allSpools.reduce((sum, s) => sum + (s.attributes.remaining_weight || 0), 0);
+          let totalCost = 0, costSpoolCount = 0;
+          allSpools.forEach(s => {
+            const price = s.attributes.price || s.attributes.filament_price || 0;
+            const initial = s.attributes.initial_weight || 1000;
+            if (price > 0 && initial > 0) {
+              totalCost += price / initial * 1000;
+              costSpoolCount++;
+            }
+          });
+          const avgCostPerKg = costSpoolCount > 0 ? (totalCost / costSpoolCount) : 0;
+
+          const weightKg = (totalWeight / 1000).toFixed(1);
+          const avgCostStr = avgCostPerKg > 0 ? '$' + avgCostPerKg.toFixed(2) + '/kg' : 'N/A';
+
+          const pill = (icon, text, color) => `
+            <div style="display:inline-flex; align-items:center; gap:4px; background:rgba(128,128,128,0.1); border-radius:20px; padding:5px 10px 5px 6px; line-height:1;">
+              <ha-icon icon="${icon}" style="--mdc-icon-size:16px; color:${color}; display:flex;"></ha-icon>
+              <span style="font-size:12px; font-weight:600; color:var(--primary-text-color); white-space:nowrap;">${text}</span>
+            </div>
+          `;
+
+          return `
+            <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">
+              ${pill('fapro:filament-2', totalSpools + ' spools', '#42A5F5')}
+              ${pill('mdi:layers-triple', totalFilaments + ' filaments', '#7E57C2')}
+              ${pill('mdi:weight-gram', weightKg + ' kg', '#26A69A')}
+              ${pill('mdi:currency-usd', 'Avg ' + avgCostStr, '#66BB6A')}
+            </div>
+          `;
         ]]]
-      show_icon: true
-      show_name: true
-      show_state: false
-      tap_action:
-        action: toggle
-      styles:
-        card:
-          - background: rgba(128,128,128,0.1)
-          - border-radius: 20px
-          - box-shadow: none
-          - border: none
-          - padding: 5px 10px 5px 6px
-          - cursor: pointer
-        icon:
-          - width: 16px
-          - color: var(--primary-color)
-        name:
-          - font-size: 12px
-          - font-weight: 600
+
+  # ── Insights Toggle ──
+  - type: custom:button-card
+    entity: input_boolean.filament_catalog_show_insights
+    icon: mdi:chart-box-outline
+    name: |
+      [[[
+        return entity.state === 'on' ? 'Hide Insights' : 'Show Insights';
+      ]]]
+    show_icon: true
+    show_name: true
+    show_state: false
+    tap_action:
+      action: toggle
+    styles:
+      card:
+        - background: none
+        - border: none
+        - box-shadow: none
+        - padding: 8px 0
+        - margin: 0
+        - display: flex
+        - align-items: center
+        - justify-content: flex-end
+      grid:
+        - grid-template-areas: '"i n"'
+        - grid-template-columns: min-content min-content
+        - justify-content: end
+      icon:
+        - width: 16px
+        - color: var(--primary-color)
+      name:
+        - font-size: 12px
+        - font-weight: 600
+        - white-space: nowrap
           - white-space: nowrap
