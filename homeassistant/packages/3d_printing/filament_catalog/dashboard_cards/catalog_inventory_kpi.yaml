@@ -79,7 +79,7 @@ custom_fields:
       icon: mdi:chart-box-outline
       name: |
         [[[
-          return entity.state === 'on' ? 'Hide Insights' : 'Show Insights';
+          return states['input_boolean.filament_catalog_show_insights'].state === 'on' ? 'Hide Insights' : 'Show Insights';
         ]]]
       show_icon: true
       show_name: true
