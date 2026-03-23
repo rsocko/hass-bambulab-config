@@ -110,13 +110,12 @@ ams_header:
           })
           .filter((color) => !!color);
         const accentColors = trayColors.length > 0 ? trayColors.map((hex) => `#${hex}`) : ['#6b7280'];
-        const iconColor = accentColors[0];
         const separatorBackground = accentColors.length > 1
           ? `linear-gradient(90deg, ${accentColors.join(', ')})`
           : accentColors[0];
         return `
           <div style="display:flex; align-items:center; width:100%;">
-            <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:${iconColor}; flex-shrink:0;"></ha-icon>
+            <ha-icon icon="${amsIcon}" style="--mdc-icon-size:20px; color:var(--primary-text-color); flex-shrink:0;"></ha-icon>
             <span style="font-size:14px; font-weight:600; color:var(--primary-text-color); white-space:nowrap; flex-shrink:0; margin-left:4px;">${amsName}</span>
             <div style="flex:1; height:3px; background:${separatorBackground}; margin-left:8px; border-radius:1.5px; min-width:10px;"></div>
           </div>

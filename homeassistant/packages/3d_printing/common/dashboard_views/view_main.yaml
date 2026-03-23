@@ -412,6 +412,9 @@ sections:
                 amsTrays:
                   - external_spool
                 showPills: false
+              styles:
+                card:
+                  - min-width: 180px
             - type: custom:ha-bambulab-spool-card
               header: Header Text
               subtitle: 'External '

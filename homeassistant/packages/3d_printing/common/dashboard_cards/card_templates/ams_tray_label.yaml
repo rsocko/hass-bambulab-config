@@ -27,21 +27,30 @@ ams_tray_label:
     card:
       - background: |
           [[[
+            const normalizeHexColor = (value) => {
+              if (value === undefined || value === null) return '';
+              let normalized = String(value).trim().replace(/^#/, '');
+              if (normalized.length === 8) normalized = normalized.slice(0, 6);
+              if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return '';
+              return normalized.toLowerCase();
+            };
             const tray = variables.tray;
             if (!tray) return 'none';
             const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
             const spoolId = map?.[tray]?.spool_id;
             if (!spoolId) return 'none';
-            const colorHex = map?.[tray]?.color;
-            if (!colorHex) return 'none';
             const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+            const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
+            const trayColor = normalizeHexColor(map?.[tray]?.color);
+            const effectiveColor = spoolColor || trayColor;
+            if (!effectiveColor) return 'none';
             const remaining = spoolEntity?.attributes?.remaining_weight;
             const initial = spoolEntity?.attributes?.initial_weight || 1000;
             if (remaining === undefined || remaining === null) return 'none';
             const pct = Math.min(Math.max(remaining / initial * 100, 0), 100);
-            const r = parseInt(colorHex.substring(0,2), 16);
-            const g = parseInt(colorHex.substring(2,4), 16);
-            const b = parseInt(colorHex.substring(4,6), 16);
+            const r = parseInt(effectiveColor.substring(0,2), 16);
+            const g = parseInt(effectiveColor.substring(2,4), 16);
+            const b = parseInt(effectiveColor.substring(4,6), 16);
             return `linear-gradient(to right, rgb(${r},${g},${b}) ${pct}%, rgba(${r},${g},${b},0.25) ${pct}%)`;
           ]]]
       - padding: 4px
@@ -57,21 +66,38 @@ ams_tray_label:
       - grid-template-columns: 1fr
       - grid-template-rows: 1fr auto
     name:
-      - font-size: 14px
+      - font-size: |
+          [[[
+            const name = String(variables.trayName || '');
+            return name.length > 6 ? '12px' : '14px';
+          ]]]
       - font-weight: bold
       - justify-self: center
+      - white-space: nowrap
+      - text-overflow: clip
+      - overflow: visible
       - color: |
           [[[
+            const normalizeHexColor = (value) => {
+              if (value === undefined || value === null) return '';
+              let normalized = String(value).trim().replace(/^#/, '');
+              if (normalized.length === 8) normalized = normalized.slice(0, 6);
+              if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return '';
+              return normalized.toLowerCase();
+            };
             const tray = variables.tray;
             if (!tray) return 'var(--primary-text-color)';
             const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
             const spoolId = map?.[tray]?.spool_id;
             if (!spoolId) return 'var(--primary-text-color)';
-            const colorHex = map?.[tray]?.color;
-            if (!colorHex) return 'var(--primary-text-color)';
-            const r = parseInt(colorHex.substring(0,2), 16);
-            const g = parseInt(colorHex.substring(2,4), 16);
-            const b = parseInt(colorHex.substring(4,6), 16);
+            const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
+            const spoolColor = normalizeHexColor(spoolEntity?.attributes?.filament_color_hex);
+            const trayColor = normalizeHexColor(map?.[tray]?.color);
+            const effectiveColor = spoolColor || trayColor;
+            if (!effectiveColor) return 'var(--primary-text-color)';
+            const r = parseInt(effectiveColor.substring(0,2), 16);
+            const g = parseInt(effectiveColor.substring(2,4), 16);
+            const b = parseInt(effectiveColor.substring(4,6), 16);
             const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
             return luminance > 0.5 ? '#000000' : '#ffffff';
           ]]]
