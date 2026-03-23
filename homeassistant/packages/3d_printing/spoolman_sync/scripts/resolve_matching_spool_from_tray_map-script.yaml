@@ -29,6 +29,49 @@ resolve_matching_spool_from_tray_map:
               {% set ns.key = key %}
             {% endif %}
           {% endfor %}
+
+          {#
+            Active-tray automation passes the aggregate active_tray entity,
+            not a physical AMS slot entity. Resolve it to a tray key by UUID
+            (authoritative) with metadata fallback for transient UUID misses.
+          #}
+          {% if ns.key | length == 0 and tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_active_tray' %}
+            {% set active_uuid = state_attr(tray_entity_id, 'tray_uuid') | default('', true) | string | trim('"') | lower %}
+            {% set active_type = state_attr(tray_entity_id, 'type') | default('', true) | string %}
+            {% set active_name = state_attr(tray_entity_id, 'name') | default('', true) | string %}
+            {% set active_color = state_attr(tray_entity_id, 'color') | default('', true) | string | replace('#', '') | lower %}
+            {% if active_color | length == 8 %}
+              {% set active_color = active_color[0:6] %}
+            {% endif %}
+
+            {% if active_uuid | length > 0 and not active_uuid | regex_match('^0+$') %}
+              {% for key, entity in tray_entities.items() %}
+                {% if key != 'external_spool' %}
+                  {% set slot_uuid = state_attr(entity, 'tray_uuid') | default('', true) | string | trim('"') | lower %}
+                  {% if slot_uuid == active_uuid %}
+                    {% set ns.key = key %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+
+            {% if ns.key | length == 0 %}
+              {% for key, entity in tray_entities.items() %}
+                {% if key != 'external_spool' %}
+                  {% set slot_type = state_attr(entity, 'type') | default('', true) | string %}
+                  {% set slot_name = state_attr(entity, 'name') | default('', true) | string %}
+                  {% set slot_color = state_attr(entity, 'color') | default('', true) | string | replace('#', '') | lower %}
+                  {% if slot_color | length == 8 %}
+                    {% set slot_color = slot_color[0:6] %}
+                  {% endif %}
+                  {% if slot_type == active_type and slot_name == active_name and slot_color == active_color %}
+                    {% set ns.key = key %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endif %}
+
           {{ ns.key }}
         {% else %}
           {{ '' }}
