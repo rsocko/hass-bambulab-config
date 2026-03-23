@@ -181,6 +181,11 @@
           {% endif %}
         {% endif %}
 
+        {# Detect Bambu path from profile name when UUID is unavailable (e.g., external spool) #}
+        {% if not is_bambu_path and tray_profile_name.startswith('Bambu') %}
+          {% set is_bambu_path = true %}
+        {% endif %}
+
         {% if match | length == 0 and match_reason is none %}
           {% if pin_active %}
             {% set match = ns_pin.matches %}

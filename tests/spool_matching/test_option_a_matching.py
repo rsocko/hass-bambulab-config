@@ -82,6 +82,10 @@ def match_tray_to_spool(tray, spools):
             }
 
     # UUID was unavailable or did not resolve a unique match.
+    # Detect Bambu path from profile name when UUID is unavailable (e.g., external spool)
+    if not is_bambu_path and tray_profile_name.startswith("Bambu"):
+        is_bambu_path = True
+
     single_candidates = []
     multi_first_candidates = []
     multi_any_candidates = []
@@ -551,6 +555,42 @@ class OptionAMatchingTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["spool_id"], 604)
         self.assertEqual(result["match_strategy"], "multicolor_first_hex_ams_preference")
+
+    def test_external_spool_bambu_profile_no_uuid_matches_bambu_vendor(self):
+        """Issue #691: External spool with Bambu profile name but empty UUID
+        should still match Bambu Lab vendor spools via color+type+profile."""
+        spools = [
+            {
+                "id": 91,
+                "extra_spool_uuid": "2D1BFD3DDC524897BE5BEFA915FE6BA8",
+                "filament_color_hex": "#E8DBB7",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": '"Bambu PLA Matte"',
+                "location": "Closet Shelf 4",
+                "extra_sealed": False,
+            },
+            {
+                "id": 200,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "#E8DBB7",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Polymaker",
+                "filament_extra_profile_name": "",
+                "location": "Shelf",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "00000000000000000000000000000000",
+            "color": "#E8DBB7FF",
+            "type": "PLA",
+            "name": "Bambu PLA Matte",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 91)
+        self.assertEqual(result["match_strategy"], "color_type")
 
     def test_single_color_tier_precedes_multicolor_tiers(self):
         spools = [
