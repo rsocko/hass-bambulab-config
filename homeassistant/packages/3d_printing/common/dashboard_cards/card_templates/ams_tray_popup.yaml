@@ -240,12 +240,15 @@ ams_tray_popup:
                     type: 'vertical-stack',
                     cards: [
                       ...(pinSearchAvailable ? [{
-                        type: 'custom:mushroom-entity-card',
-                        entity: pinSearchEntity,
-                        name: 'Search Spools (any words)',
-                        icon: 'mdi:magnify',
-                        icon_color: 'blue',
-                        fill_container: true
+                        type: 'entities',
+                        show_header_toggle: false,
+                        entities: [
+                          {
+                            entity: pinSearchEntity,
+                            name: 'Search Spools (any words)',
+                            secondary_info: 'none'
+                          }
+                        ]
                       }] : []),
                       ...(pinSelectAvailable ? [{
                         type: 'custom:mushroom-select-card',
@@ -410,12 +413,15 @@ ams_tray_popup:
         if (pinSelectAvailable) {
           if (pinSearchAvailable) {
             cards.push({
-              type: 'custom:mushroom-entity-card',
-              entity: pinSearchEntity,
-              name: 'Search Spools (any words)',
-              icon: 'mdi:magnify',
-              icon_color: 'blue',
-              fill_container: true
+              type: 'entities',
+              show_header_toggle: false,
+              entities: [
+                {
+                  entity: pinSearchEntity,
+                  name: 'Search Spools (any words)',
+                  secondary_info: 'none'
+                }
+              ]
             });
           }
           cards.push({
