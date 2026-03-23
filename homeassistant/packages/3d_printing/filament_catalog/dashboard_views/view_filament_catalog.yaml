@@ -22,12 +22,12 @@ cards:
   - type: vertical-stack
     cards:
       # ============================================================
-      # Inventory KPI Summary
+      # Inventory KPI Summary + Insights Toggle (#695)
       # ============================================================
       - !include ../dashboard_cards/catalog_inventory_kpi.yaml
 
       # ============================================================
-      # Insights Panel (Phase 5A)
+      # Insights Charts (conditionally shown)
       # ============================================================
       - !include ../dashboard_cards/catalog_insights_panel.yaml
 
