@@ -1,5 +1,5 @@
 type: custom:apex-direct-bar-card
-title: Weight by Color Family
+title: Weight (kg) by Color Family
 height: 280
 value_name: kg
 value_decimals: 1

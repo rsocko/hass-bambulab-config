@@ -1,5 +1,5 @@
 type: custom:apex-direct-bar-card
-title: Weight by Vendor
+title: Weight (kg) by Vendor
 height: 280
 value_name: kg
 value_decimals: 1
