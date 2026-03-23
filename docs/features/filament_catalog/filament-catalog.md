@@ -296,7 +296,7 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 │   ├── Row 2: Material ▼  Vendor ▼  Color ▼  Family ▼
 │   ├── Row 3: Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]
 │   ├── Row 4: Sealed ▼  [Desiccant Old]  [Large Cards]
-│   └── Row 5: 🔍 [search]  [123 Matches]  [Clear All]
+│   └── Row 5: 🔍 [search]  [123 Matches]  [Clear Filters]
 │
 └── Single auto-entities grid (columns: 5)
     ├── Source: sensor.filament_catalog_filtered_spools (entity_ids_json)
@@ -541,11 +541,11 @@ The view's `auto-entities` references this sensor to decide which spools to disp
 │ Material ▼  Vendor ▼  Color ▼  Family ▼                        │
 │ Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]          │
 │ Sealed ▼  [Desiccant Old]  [Large Cards]                        │
-│ 🔍 [___search___]              [123 Matches]  [Clear All]      │
+│ 🔍 [___search___]              [123 Matches]  [Clear Filters]   │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns, slider for stock threshold, and toggle for boolean filters. "Clear All" calls `script.filament_catalog_clear_filters` which resets all helpers to defaults.
+Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns, slider for stock threshold, and toggle for boolean filters. "Clear Filters" calls `script.filament_catalog_clear_filters` which resets all helpers to defaults.
 
 ##### State-Based Filters (toggle chips in the filter bar)
 
@@ -865,7 +865,7 @@ filament_catalog/
 │   │   ├── chart_weight_by_material.yaml    ← custom apex-direct-bar-card (treemap)
 │   │   ├── chart_weight_by_vendor.yaml      ← custom apex-direct-bar-card (bar)
 │   │   ├── chart_weight_by_color_family.yaml ← custom apex-direct-bar-card (bar)
-│   │   ├── chart_weight_by_primary_color_stacked.yaml ← stacked color segments
+│   │   ├── chart_weight_by_primary_color.yaml  ← weight by primary color (bar)
 │   │   ├── chart_count_by_material.yaml     ← count distribution
 │   │   ├── chart_count_by_vendor.yaml       ← count distribution
 │   │   ├── chart_count_by_color_family.yaml ← count distribution
