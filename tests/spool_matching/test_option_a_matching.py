@@ -628,6 +628,208 @@ class OptionAMatchingTests(unittest.TestCase):
         self.assertEqual(result["spool_id"], 605)
         self.assertEqual(result["match_strategy"], "color_type")
 
+    # ── Numeric-only hex color tests ──────────────────────────────────
+
+    def test_numeric_hex_all_zeros_matches(self):
+        """Hex 000000 is purely numeric — must match as a string, not integer 0."""
+        spools = [
+            {
+                "id": 701,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "000000",
+                "filament_material": "ASA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": "Bambu ASA",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "000000FF",
+            "type": "ASA",
+            "name": "Bambu ASA",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 701)
+        self.assertEqual(result["match_strategy"], "color_type")
+
+    def test_numeric_hex_leading_zero_matches(self):
+        """Hex 018814 (Silk+ Candy Green) starts with 0 — must not be truncated."""
+        spools = [
+            {
+                "id": 702,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "018814",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": "Bambu PLA Silk",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#018814FF",
+            "type": "PLA",
+            "name": "Bambu PLA Silk",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 702)
+        self.assertEqual(result["match_strategy"], "color_type")
+
+    def test_numeric_hex_no_leading_zero_matches(self):
+        """Hex 545454 (Dark Gray) — all digits, no leading zero."""
+        spools = [
+            {
+                "id": 703,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "#545454",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": "Bambu PLA Basic",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "545454",
+            "type": "PLA",
+            "name": "Bambu PLA Basic",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 703)
+        self.assertEqual(result["match_strategy"], "color_type")
+
+    def test_numeric_hex_case_insensitive_with_alpha_suffix(self):
+        """Tray sends 950051FF (Matte Plum), spool stores 950051 — alpha must be stripped."""
+        spools = [
+            {
+                "id": 704,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "950051",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": "Bambu PLA Matte",
+                "location": "Shelf",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#950051FF",
+            "type": "PLA",
+            "name": "Bambu PLA Matte",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 704)
+
+    def test_numeric_hex_multicolor_first_hex_matches(self):
+        """Multi-color spool where first hex is purely numeric (424379)."""
+        spools = [
+            {
+                "id": 705,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "424379,918669",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": "Bambu PLA Galaxy",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#424379",
+            "type": "PLA",
+            "name": "Bambu PLA Galaxy",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 705)
+        self.assertEqual(result["match_strategy"], "multicolor_first_hex")
+
+    def test_numeric_hex_multicolor_any_hex_matches(self):
+        """Multi-color spool where a non-first hex is purely numeric (757575)."""
+        spools = [
+            {
+                "id": 706,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "",
+                "filament_multi_color_hexes": "aabbcc,757575",
+                "filament_material": "PLA",
+                "filament_vendor_name": "eSUN",
+                "filament_extra_profile_name": "",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "#757575",
+            "type": "PLA",
+            "name": "Any",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 706)
+        self.assertEqual(result["match_strategy"], "multicolor_any_hex")
+
+    def test_numeric_hex_external_spool_bambu_path_matches(self):
+        """External spool (no UUID) with Bambu profile and numeric hex 515151."""
+        spools = [
+            {
+                "id": 707,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "#515151",
+                "filament_material": "PETG",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": "Bambu PETG HF",
+                "location": "Shelf",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "00000000000000000000000000000000",
+            "color": "515151FF",
+            "type": "PETG",
+            "name": "Bambu PETG HF",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 707)
+        self.assertEqual(result["match_strategy"], "color_type")
+
+    def test_numeric_hex_does_not_cross_match_different_numeric_color(self):
+        """636767 tray must not match 757575 spool — both numeric but different."""
+        spools = [
+            {
+                "id": 708,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "757575",
+                "filament_material": "PLA",
+                "filament_vendor_name": "Polymaker",
+                "filament_extra_profile_name": "",
+                "location": "AMS",
+                "extra_sealed": False,
+            },
+        ]
+        tray = {
+            "tray_uuid": "",
+            "color": "636767",
+            "type": "PLA",
+            "name": "Any",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertFalse(result["success"])
+        self.assertIn("No unsealed spool", result["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
