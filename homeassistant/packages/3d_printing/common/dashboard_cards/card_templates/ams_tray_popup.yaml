@@ -272,6 +272,33 @@ ams_tray_popup:
                         icon_color: 'orange',
                         layout: 'horizontal',
                         fill_container: true
+                      }] : []),
+                      {
+                        type: 'custom:button-card',
+                        name: 'Cancel',
+                        icon: 'mdi:close',
+                        tap_action: {
+                          action: 'fire-dom-event',
+                          browser_mod: {
+                            service: 'browser_mod.close_popup'
+                          }
+                        },
+                        styles: {
+                          grid: [
+                            { 'grid-template-areas': '"i" "n"' },
+                            { 'grid-template-rows': 'min-content min-content' },
+                            { 'justify-items': 'center' },
+                            { 'align-items': 'center' }
+                          ],
+                          card: [
+                            { background: 'var(--secondary-background-color)' },
+                            { 'box-shadow': 'none' },
+                            { 'border-radius': '6px' },
+                            { padding: '6px' }
+                          ],
+                          name: [{ color: 'var(--primary-text-color)' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                          icon: [{ color: 'var(--primary-text-color)' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+                        }
                       }] : [])
                     ]
                   }
