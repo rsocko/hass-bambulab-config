@@ -438,20 +438,29 @@ class ApexDirectBarCard extends HTMLElement {
           width: 2,
         },
         fill: {
-          opacity: 0.2,
+          opacity: 0.35,
         },
         markers: {
-          size: 4,
+          size: 5,
+          strokeWidth: 1,
+          hover: {
+            size: 7,
+          },
         },
         xaxis: {
           labels: {
+            show: true,
+            offsetY: 8,
             style: {
               colors: labels.map(function () { return textColor; }),
             },
           },
         },
         yaxis: {
+          show: true,
+          tickAmount: 5,
           labels: {
+            show: true,
             style: {
               colors: [textColor],
             },
@@ -461,7 +470,7 @@ class ApexDirectBarCard extends HTMLElement {
           },
         },
         dataLabels: {
-          enabled: true,
+          enabled: false,
           formatter: function (value) {
             return self._formatValue(value);
           },
@@ -483,6 +492,18 @@ class ApexDirectBarCard extends HTMLElement {
           y: {
             formatter: function (value) {
               return self._formatValue(value);
+            },
+          },
+        },
+        plotOptions: {
+          radar: {
+            polygons: {
+              strokeColors: gridColor,
+              fill: {
+                colors: isDark
+                  ? ["rgba(148,163,184,0.10)", "rgba(148,163,184,0.18)"]
+                  : ["rgba(100,116,139,0.08)", "rgba(100,116,139,0.16)"],
+              },
             },
           },
         },
