@@ -167,13 +167,13 @@ ams_tray_popup:
         : colorHex;
       const matchTierLabel = {
         uuid: 'UUID',
-        manual_pin: 'Manual pin override',
+        manual_pin: 'Manual Pin',
         color_type: 'Single-color exact',
-        color_type_ams_preference: 'Single-color exact (AMS preference)',
+        color_type_ams_preference: 'Single-color exact',
         multicolor_first_hex: 'Multi-color first hex',
-        multicolor_first_hex_ams_preference: 'Multi-color first hex (AMS preference)',
+        multicolor_first_hex_ams_preference: 'Multi-color first hex',
         multicolor_any_hex: 'Multi-color any hex',
-        multicolor_any_hex_ams_preference: 'Multi-color any hex (AMS preference)'
+        multicolor_any_hex_ams_preference: 'Multi-color any hex'
       }[matchStrategy] || '';
       const makeSetPinAction = function(targetSpoolId) {
         return {
@@ -313,15 +313,6 @@ ams_tray_popup:
           });
         }
         if (matchStrategy === 'uuid') {
-          cards.push({
-            type: 'custom:mushroom-template-card',
-            primary: 'Pin controls unavailable on UUID match',
-            secondary: 'UUID is authoritative. Clear or change tray UUID to use manual pinning.',
-            icon: 'mdi:identifier',
-            icon_color: 'blue',
-            layout: 'horizontal',
-            fill_container: true
-          });
           return cards;
         }
         if (pinSelectAvailable) {
@@ -739,7 +730,8 @@ ams_tray_popup:
                       type: 'custom:mushroom-chips-card',
                       alignment: 'center',
                       chips: [
-                        { type: 'template', icon: 'mdi:identifier', icon_color: 'grey', content: spoolUUID }
+                        { type: 'template', icon: 'mdi:identifier', icon_color: 'grey', content: spoolUUID },
+                        ...(matchTierLabel ? [{ type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }] : [])
                       ],
                       card_mod: { style: 'ha-card { user-select: text; }' }
                     }]
@@ -774,13 +766,22 @@ ams_tray_popup:
                                 }
                               }
                             }
-                          }
+                          },
+                          ...(matchTierLabel ? [{ type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }] : [])
                         ],
                         card_mod: {
                           style: 'mushroom-template-chip { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-text-color: white; font-weight: 700; }'
                         }
                       }]
-                    : [])),
+                    : (matchTierLabel
+                      ? [{
+                          type: 'custom:mushroom-chips-card',
+                          alignment: 'center',
+                          chips: [
+                            { type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }
+                          ]
+                        }]
+                      : []))),
                 ...pinControlCardsForMatched,
                 {
                   type: 'custom:mushroom-chips-card',
@@ -798,8 +799,7 @@ ams_tray_popup:
                     { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') },
                     { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') },
                     { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails },
-                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : []),
-                    ...(matchTierLabel ? [{ type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }] : [])
+                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : [])
                   ],
                   card_mod: {
                     style: {
