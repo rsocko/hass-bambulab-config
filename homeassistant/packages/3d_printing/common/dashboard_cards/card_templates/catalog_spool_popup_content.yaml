@@ -131,7 +131,7 @@ catalog_spool_popup_content:
 
         // Color label
         const colorLabel = isMulti
-          ? multiList.join(' · ').toUpperCase() + '  •  ' + multiDir
+          ? (() => { const fh = multiList[0].replace('#','').toLowerCase(); const mr = parseInt(fh.substring(0,2),16)||0; const mg = parseInt(fh.substring(2,4),16)||0; const mb = parseInt(fh.substring(4,6),16)||0; return '#' + fh.toUpperCase() + ' = RGB(' + mr + ', ' + mg + ', ' + mb + ')' + (multiList.length > 1 ? ' · ' + multiList.slice(1).join(' · ').toUpperCase() : '') + '  •  ' + multiDir; })()
           : colorHex.toUpperCase() + '  •  RGB(' + r + ', ' + g + ', ' + b + ')';
 
         // ============================================================

@@ -1059,7 +1059,7 @@ ams_tray_popup:
                   show_label: true,
                   name: filamentName,
                   label: isMultiColor
-                    ? multiColorList.join(' \u00b7 ').toUpperCase() + '  \u2022  ' + multiColorDirection
+                    ? (() => { const fh = multiColorFirstHex; const mr = parseInt(fh.substring(0,2),16)||0; const mg = parseInt(fh.substring(2,4),16)||0; const mb = parseInt(fh.substring(4,6),16)||0; return '#' + fh.toUpperCase() + ' = RGB(' + mr + ', ' + mg + ', ' + mb + ')' + (multiColorList.length > 1 ? ' \u00b7 ' + multiColorList.slice(1).join(' \u00b7 ').toUpperCase() : '') + '  \u2022  ' + multiColorDirection; })()
                     : colorHex.toUpperCase() + '  \u2022  RGB(' + r + ', ' + g + ', ' + b + ')',
                   tap_action: { action: 'none' },
                   styles: {
