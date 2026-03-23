@@ -124,6 +124,15 @@ Manual pin auto-clear is implemented by:
 Searchable tray pin pickers (all 8 AMS trays + external spool) are implemented by:
 - [template_select_tray_spool_pin_selectors.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_select_tray_spool_pin_selectors.yaml)
 
+Word-based search filtering for tray pin pickers is backed by per-tray search helpers:
+- [input_text_manual_spool_search_queries.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/input_text_manual_spool_search_queries.yaml)
+
+Search behavior notes:
+- Picker filters match all typed words (AND logic) against spool ID, friendly name, and location.
+- After a spool is selected from the pin picker, the corresponding search query helper is cleared automatically.
+
+If popup displays "Spool search helper is unavailable", that message is a custom UI guard (not a Home Assistant core error) and means search query helpers were not loaded yet. Reload/restart spoolman_sync helpers and template entities.
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 

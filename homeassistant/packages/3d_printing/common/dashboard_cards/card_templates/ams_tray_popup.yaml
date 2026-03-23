@@ -67,12 +67,7 @@ ams_tray_popup:
         external_spool: 'input_text.external_spool_spool_override'
       };
       const pinHelperEntity = pinHelperByTray[tray] || '';
-      const pinHelperState = pinHelperEntity ? ((states[pinHelperEntity] && states[pinHelperEntity].state !== undefined) ? states[pinHelperEntity].state : '') : '';
-      const pinHelperAvailable = !!(
-        pinHelperEntity &&
-        states[pinHelperEntity] &&
-        !['unknown', 'unavailable'].includes(String(pinHelperState).toLowerCase())
-      );
+      const pinHelperAvailable = !!(pinHelperEntity && states[pinHelperEntity]);
       const pinSelectByTray = {
         ams_1_tray_1: 'select.ams_1_tray_1_pin_selector',
         ams_1_tray_2: 'select.ams_1_tray_2_pin_selector',
@@ -96,19 +91,9 @@ ams_tray_popup:
         external_spool: 'input_text.external_spool_spool_search_query'
       };
       const pinSelectEntity = pinSelectByTray[tray] || '';
-      const pinSelectState = pinSelectEntity ? ((states[pinSelectEntity] && states[pinSelectEntity].state !== undefined) ? states[pinSelectEntity].state : '') : '';
-      const pinSelectAvailable = !!(
-        pinSelectEntity &&
-        states[pinSelectEntity] &&
-        !['unknown', 'unavailable'].includes(String(pinSelectState).toLowerCase())
-      );
+      const pinSelectAvailable = !!(pinSelectEntity && states[pinSelectEntity]);
       const pinSearchEntity = pinSearchByTray[tray] || '';
-      const pinSearchState = pinSearchEntity ? ((states[pinSearchEntity] && states[pinSearchEntity].state !== undefined) ? states[pinSearchEntity].state : '') : '';
-      const pinSearchAvailable = !!(
-        pinSearchEntity &&
-        states[pinSearchEntity] &&
-        !['unknown', 'unavailable'].includes(String(pinSearchState).toLowerCase())
-      );
+      const pinSearchAvailable = !!(pinSearchEntity && states[pinSearchEntity]);
       const rawColor = (trayData.color || '888888').replace('#', '');
       const r = parseInt(rawColor.substring(0, 2), 16) || 128;
       const g = parseInt(rawColor.substring(2, 4), 16) || 128;

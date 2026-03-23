@@ -1,5 +1,5 @@
 - select:
-    - name: "AMS 1 Tray 1 Pin Selector"
+    - name: AMS 1 Tray 1 Pin Selector
       unique_id: ams_1_tray_1_pin_selector
       icon: mdi:pin
       state: >-
@@ -54,7 +54,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 1 Tray 2 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_1_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 1 Tray 2 Pin Selector
       unique_id: ams_1_tray_2_pin_selector
       icon: mdi:pin
       state: >-
@@ -109,7 +115,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 1 Tray 3 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_2_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 1 Tray 3 Pin Selector
       unique_id: ams_1_tray_3_pin_selector
       icon: mdi:pin
       state: >-
@@ -164,7 +176,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 1 Tray 4 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_3_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 1 Tray 4 Pin Selector
       unique_id: ams_1_tray_4_pin_selector
       icon: mdi:pin
       state: >-
@@ -219,7 +237,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 2 Tray 1 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_1_tray_4_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 2 Tray 1 Pin Selector
       unique_id: ams_2_tray_1_pin_selector
       icon: mdi:pin
       state: >-
@@ -274,7 +298,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 2 Tray 2 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_1_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 2 Tray 2 Pin Selector
       unique_id: ams_2_tray_2_pin_selector
       icon: mdi:pin
       state: >-
@@ -329,7 +359,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 2 Tray 3 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_2_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 2 Tray 3 Pin Selector
       unique_id: ams_2_tray_3_pin_selector
       icon: mdi:pin
       state: >-
@@ -384,7 +420,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "AMS 2 Tray 4 Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_3_spool_search_query
+          data:
+            value: ''
+
+    - name: AMS 2 Tray 4 Pin Selector
       unique_id: ams_2_tray_4_pin_selector
       icon: mdi:pin
       state: >-
@@ -439,7 +481,13 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
-    - name: "External Spool Pin Selector"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ams_2_tray_4_spool_search_query
+          data:
+            value: ''
+
+    - name: External Spool Pin Selector
       unique_id: external_spool_pin_selector
       icon: mdi:pin
       state: >-
@@ -494,5 +542,10 @@
               {% else %}
                 {{ option.split(' | ')[0] | string | trim }}
               {% endif %}
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.external_spool_spool_search_query
+          data:
+            value: ''
 
 

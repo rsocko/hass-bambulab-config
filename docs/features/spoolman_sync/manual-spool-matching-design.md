@@ -12,6 +12,7 @@ This document defines the manual pinning feature: a user can explicitly pick whi
 
 Implemented in this repository:
 - Per-tray override helpers are now loaded under `spoolman_sync/helpers/input_text/`.
+- Per-tray search-query helpers are now loaded under `spoolman_sync/helpers/input_text/` for word-filtered pin picking.
 - `sensor.spoolman_tray_map` now evaluates manual pin overrides after UUID and before automatic fallback tiers.
 - Tray-map payload includes pin/ambiguity metadata:
 	- `match_state`
@@ -99,7 +100,9 @@ Implemented behavior:
 - Tray popup displays a pin-state card when a pin exists.
 - Pin/Unpin action buttons are shown when UUID is not the active match tier.
 - When UUID match is active, popup shows an informational card explaining that pin controls are unavailable for that state.
-- Tray popup provides searchable `mushroom-select-card` pin pickers for all tray targets, showing descriptive spool labels from spool `friendly_name`.
+- Tray popup provides searchable `mushroom-select-card` pin pickers for all tray targets, showing descriptive spool labels from spool `friendly_name` and location.
+- Search query filtering matches all typed words against spool ID, friendly name, and location.
+- Search query helper is cleared automatically after a pin selection to avoid stale filters on subsequent opens.
 
 ### 5. Ambiguity UX
 
@@ -185,6 +188,7 @@ Future optional mode (option 3) may be considered:
 | File | Change |
 |---|---|
 | homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/ | add per-tray pin helpers |
+| homeassistant/packages/3d_printing/spoolman_sync/helpers/input_text/input_text_manual_spool_search_queries.yaml | add per-tray search query helpers for pin picker filtering |
 | homeassistant/packages/3d_printing/spoolman_sync/template_sensors/template_select_tray_spool_pin_selectors.yaml | add 9 searchable tray pin select entities |
 | homeassistant/packages/3d_printing/core/template_sensors/spoolman_tray_map.yaml | add pin override tier and pin metadata |
 | homeassistant/packages/3d_printing/spoolman_sync/scripts/resolve_matching_spool_from_tray_map-script.yaml | expose pin-aware response fields |
