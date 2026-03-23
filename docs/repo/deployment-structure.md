@@ -113,6 +113,22 @@ Workflow dispatch includes `post_deploy_action` and `reload_domains_strict`:
 - `reload_domains_strict=false` (default): report failures, continue workflow.
 - `reload_domains_strict=true`: fail workflow if any domain reload fails.
 
+## Post-Sync Config Validation Modes
+
+Workflow dispatch includes `config_validation_mode` for the post-sync `ha core check` step:
+
+- `config_validation_mode=smart` (default):
+  - Runs `ha core check` only when deploy-scope changes include config-affecting files.
+  - Skips `ha core check` for deploy-scope changes that are only frontend/dashboard content (`homeassistant/www/3d_printing/**`, and any `homeassistant/packages/3d_printing/<feature>/dashboard*/**` path such as `dashboards`, `dashboard_cards`, `dashboard_views`).
+- `config_validation_mode=strict`:
+  - Always runs `ha core check` in non-dry-run mode.
+- `config_validation_mode=off`:
+  - Never runs `ha core check`.
+
+Notes:
+- Smart mode is scoped to the selected deploy target (`package_scope` + `selected_packages`).
+- If smart mode cannot determine changed files safely, it falls back to running `ha core check`.
+
 ## Optional UI/Storage Naming Overlap Check
 
 Workflow dispatch includes an optional best-effort overlap check for selected package names against common Home Assistant `.storage` objects:
@@ -191,7 +207,7 @@ This deployment is intended to run manually via GitHub Actions (`workflow_dispat
 Important:
 - `dry_run=true` does **not** validate candidate YAML against Home Assistant (`ha core check` is skipped in dry-run).
 - `dry_run=true` validates selection/allowlist logic, SSH connectivity, and the rsync candidate file set only.
-- `ha core check` runs in non-dry-run mode after files are synced.
+- In non-dry-run mode, `ha core check` behavior depends on `config_validation_mode` (default is `smart`).
 
 ### 2) Common input sets
 

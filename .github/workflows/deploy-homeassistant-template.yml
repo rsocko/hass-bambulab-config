@@ -132,6 +132,15 @@ on:
         description: "Path to feature loader include map file on target (used by include_file modes)"
         required: true
         default: /config/packages/3d_printing/_feature_loaders.yaml
+      config_validation_mode:
+        description: "Post-sync config validation mode: strict=always run, smart=skip for www/dashboard-only changes, off=never run"
+        required: true
+        type: choice
+        default: smart
+        options:
+          - smart
+          - strict
+          - off
 
 jobs:
   deploy:
@@ -861,8 +870,135 @@ jobs:
         run: |
           bash .github/scripts/manage_feature_includes.sh
 
-      - name: Validate Home Assistant config (post-sync)
+      - name: Resolve post-sync config validation gate
         if: ${{ github.event.inputs.dry_run != 'true' }}
+        id: config_check_gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODE="${{ github.event.inputs.config_validation_mode }}"
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          PACKAGE_SCOPE="${{ github.event.inputs.package_scope }}"
+          SELECTED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+
+          should_run="true"
+          reason="strict mode"
+
+          if [ "$MODE" = "off" ]; then
+            should_run="false"
+            reason="config_validation_mode=off"
+          elif [ "$MODE" = "smart" ]; then
+            git fetch --no-tags origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+
+            CHANGED_FILES=""
+            deploy_scope_files=""
+            config_trigger_files=""
+            dashboard_only_files=""
+            if git rev-parse --verify "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
+              CHANGED_FILES="$(git diff --name-only "origin/$DEFAULT_BRANCH...HEAD" || true)"
+            fi
+            if [ -z "$CHANGED_FILES" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+              CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD || true)"
+            fi
+
+            if [ -z "$CHANGED_FILES" ]; then
+              should_run="true"
+              reason="smart mode fallback: unable to determine changed files"
+            else
+              package_is_selected() {
+                local pkg="$1"
+                [ "$PACKAGE_SCOPE" = "all" ] && return 0
+                [ "$SELECTED_PACKAGES" = "all" ] && return 0
+                echo ",$SELECTED_PACKAGES," | grep -q ",$pkg,"
+              }
+
+              relevant_changed_count=0
+              non_dashboard_count=0
+
+              while IFS= read -r f; do
+                [ -z "$f" ] && continue
+
+                in_scope=false
+                case "$f" in
+                  homeassistant/www/3d_printing/*)
+                    path_tail="${f#homeassistant/www/3d_printing/}"
+                    pkg="${path_tail%%/*}"
+                    if [ -n "$pkg" ] && package_is_selected "$pkg"; then
+                      in_scope=true
+                    fi
+                    ;;
+                  homeassistant/packages/3d_printing/*)
+                    path_tail="${f#homeassistant/packages/3d_printing/}"
+                    pkg="${path_tail%%/*}"
+                    if [ -n "$pkg" ] && package_is_selected "$pkg"; then
+                      in_scope=true
+                    fi
+                    ;;
+                  homeassistant/configuration.yaml)
+                    in_scope=true
+                    ;;
+                esac
+
+                [ "$in_scope" = "true" ] || continue
+                relevant_changed_count=$((relevant_changed_count + 1))
+                deploy_scope_files+="$f"$'\n'
+
+                case "$f" in
+                  homeassistant/www/3d_printing/*)
+                    dashboard_only_files+="$f"$'\n'
+                    ;;
+                  homeassistant/packages/3d_printing/*/dashboard*/*)
+                    dashboard_only_files+="$f"$'\n'
+                    ;;
+                  homeassistant/packages/3d_printing/*/dashboard*/**/*)
+                    dashboard_only_files+="$f"$'\n'
+                    ;;
+                  *)
+                    non_dashboard_count=$((non_dashboard_count + 1))
+                    config_trigger_files+="$f"$'\n'
+                    ;;
+                esac
+              done <<< "$CHANGED_FILES"
+
+              if [ "$relevant_changed_count" -eq 0 ]; then
+                should_run="true"
+                reason="smart mode fallback: no deploy-scope changes detected"
+              elif [ "$non_dashboard_count" -eq 0 ]; then
+                should_run="false"
+                reason="smart mode: deploy-scope changes are www/dashboard-only"
+              else
+                should_run="true"
+                reason="smart mode: config-affecting deploy-scope changes detected"
+              fi
+            fi
+          fi
+
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+
+          echo "Config validation gate: mode=$MODE, should_run=$should_run"
+          echo "Reason: $reason"
+          if [ "$MODE" = "smart" ]; then
+            if [ -n "$deploy_scope_files" ]; then
+              echo "Deploy-scope changed files considered by smart validation gate:"
+              printf '%s' "$deploy_scope_files" | sed 's/^/  - /'
+            else
+              echo "Deploy-scope changed files considered by smart validation gate: none"
+            fi
+
+            if [ -n "$config_trigger_files" ]; then
+              echo "Config-affecting files that triggered ha core check:"
+              printf '%s' "$config_trigger_files" | sed 's/^/  - /'
+            elif [ -n "$dashboard_only_files" ]; then
+              echo "Dashboard/www-only files (safe to skip in smart mode):"
+              printf '%s' "$dashboard_only_files" | sed 's/^/  - /'
+            fi
+          fi
+
+      - name: Validate Home Assistant config (post-sync)
+        if: ${{ github.event.inputs.dry_run != 'true' && steps.config_check_gate.outputs.should_run == 'true' }}
         run: |
           set -euo pipefail
 
@@ -939,6 +1075,13 @@ jobs:
 
           echo "ERROR: 'ha core check' failed for a reason other than auth context."
           exit $CHECK_EXIT
+
+      - name: Skip Home Assistant config validation (post-sync)
+        if: ${{ github.event.inputs.dry_run != 'true' && steps.config_check_gate.outputs.should_run != 'true' }}
+        run: |
+          echo "Skipping post-sync config validation."
+          echo "mode=${{ steps.config_check_gate.outputs.mode }}"
+          echo "reason=${{ steps.config_check_gate.outputs.reason }}"
 
       - name: Dry-run validation note
         if: ${{ github.event.inputs.dry_run == 'true' }}
