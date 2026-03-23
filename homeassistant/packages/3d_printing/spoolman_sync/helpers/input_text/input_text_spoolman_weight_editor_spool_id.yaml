@@ -1,0 +1,5 @@
+spoolman_weight_editor_spool_id:
+  name: Spoolman Weight Editor Spool ID
+  max: 32
+  initial: ""
+  icon: mdi:identifier

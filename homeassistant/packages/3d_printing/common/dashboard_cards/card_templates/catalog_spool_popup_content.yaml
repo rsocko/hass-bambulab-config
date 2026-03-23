@@ -175,25 +175,6 @@ catalog_spool_popup_content:
               </div>
             </div>
 
-            <!-- KPIs -->
-            <div style="display:flex;gap:8px;text-align:center;">
-              <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
-                <ha-icon icon="mdi:weight-gram" style="--mdc-icon-size:24px;color:#26A69A;"></ha-icon>
-                <div style="font-size:14px;font-weight:600;margin-top:4px;">${weightText}</div>
-                <div style="font-size:11px;color:var(--secondary-text-color);">Remaining</div>
-              </div>
-              <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
-                <ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:24px;color:#66BB6A;"></ha-icon>
-                <div style="font-size:14px;font-weight:600;margin-top:4px;">${costPerGText}</div>
-                <div style="font-size:11px;color:var(--secondary-text-color);">Cost per g</div>
-              </div>
-              <div style="flex:1;background:var(--card-background-color,#1c1c1c);border-radius:12px;padding:12px 8px;">
-                <ha-icon icon="mdi:layers-triple" style="--mdc-icon-size:24px;color:#00BCD4;"></ha-icon>
-                <div style="font-size:14px;font-weight:600;margin-top:4px;">${totalWt}</div>
-                <div style="font-size:11px;color:var(--secondary-text-color);">Total (all spools)</div>
-              </div>
-            </div>
-
             <!-- Purchase / Settings -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
               ${purchaseHTML}${settingsHTML}

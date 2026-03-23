@@ -1,0 +1,8 @@
+spoolman_weight_editor_mode:
+  name: Spoolman Weight Editor Mode
+  options:
+    - Adjust by Weight (g)
+    - Adjust by Length (m)
+    - Set New Weight (g)
+  initial: Adjust by Weight (g)
+  icon: mdi:tune-variant

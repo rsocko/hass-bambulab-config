@@ -1,0 +1,8 @@
+spoolman_weight_editor_delta_meters:
+  name: Spool Length Delta (meters)
+  min: -1000
+  max: 1000
+  step: 0.1
+  unit_of_measurement: m
+  icon: mdi:ruler
+  mode: box

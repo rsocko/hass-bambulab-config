@@ -604,6 +604,241 @@ ams_tray_popup:
         }
       }
       const nowISO = new Date().toISOString();
+      const spoolIdInt = parseInt(spoolId, 10);
+      const weightEditorModeEntity = 'input_select.spoolman_weight_editor_mode';
+      const weightEditorDeltaGramsEntity = 'input_number.spoolman_weight_editor_delta_grams';
+      const weightEditorDeltaMetersEntity = 'input_number.spoolman_weight_editor_delta_meters';
+      const weightEditorAbsoluteGramsEntity = 'input_number.spoolman_weight_editor_absolute_grams';
+      const weightEditorSpoolIdEntity = 'input_text.spoolman_weight_editor_spool_id';
+      const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
+        ? Number(remainingWeight)
+        : null;
+      const openWeightEditorAction = {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.sequence',
+          data: {
+            sequence: [
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: weightEditorSpoolIdEntity,
+                  value: String(spoolIdInt)
+                }
+              },
+              {
+                service: 'input_select.select_option',
+                data: {
+                  entity_id: weightEditorModeEntity,
+                  option: 'Adjust by Weight (g)'
+                }
+              },
+              {
+                service: 'input_number.set_value',
+                data: {
+                  entity_id: weightEditorDeltaGramsEntity,
+                  value: 0
+                }
+              },
+              {
+                service: 'input_number.set_value',
+                data: {
+                  entity_id: weightEditorDeltaMetersEntity,
+                  value: 0
+                }
+              },
+              {
+                service: 'input_number.set_value',
+                data: {
+                  entity_id: weightEditorAbsoluteGramsEntity,
+                  value: Number.isFinite(currentRemainingWeight) ? currentRemainingWeight : 0
+                }
+              },
+              {
+                service: 'browser_mod.popup',
+                data: {
+                  title: 'Edit Spool Usage - #' + spoolId,
+                  size: 'normal',
+                  content: {
+                    type: 'vertical-stack',
+                    cards: [
+                      {
+                        type: 'custom:mushroom-template-card',
+                        primary: spoolName,
+                        secondary: Number.isFinite(currentRemainingWeight)
+                          ? 'Current remaining: ' + currentRemainingWeight.toFixed(1) + ' g'
+                          : 'Current remaining: N/A',
+                        icon: 'mdi:weight-gram',
+                        icon_color: 'teal',
+                        layout: 'horizontal',
+                        fill_container: true
+                      },
+                      {
+                        type: 'entities',
+                        show_header_toggle: false,
+                        entities: [
+                          {
+                            entity: weightEditorModeEntity,
+                            name: 'Adjustment Mode'
+                          }
+                        ]
+                      },
+                      {
+                        type: 'conditional',
+                        conditions: [
+                          {
+                            entity: weightEditorModeEntity,
+                            state: 'Adjust by Weight (g)'
+                          }
+                        ],
+                        card: {
+                          type: 'entities',
+                          show_header_toggle: false,
+                          entities: [
+                            {
+                              entity: weightEditorDeltaGramsEntity,
+                              name: 'Weight Delta (+ reduce / - increase)'
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'conditional',
+                        conditions: [
+                          {
+                            entity: weightEditorModeEntity,
+                            state: 'Adjust by Length (m)'
+                          }
+                        ],
+                        card: {
+                          type: 'entities',
+                          show_header_toggle: false,
+                          entities: [
+                            {
+                              entity: weightEditorDeltaMetersEntity,
+                              name: 'Length Delta (+ consume / - add back)'
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'conditional',
+                        conditions: [
+                          {
+                            entity: weightEditorModeEntity,
+                            state: 'Set New Weight (g)'
+                          }
+                        ],
+                        card: {
+                          type: 'entities',
+                          show_header_toggle: false,
+                          entities: [
+                            {
+                              entity: weightEditorAbsoluteGramsEntity,
+                              name: 'New Remaining Weight (g)'
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'custom:config-template-card',
+                        entities: [
+                          weightEditorModeEntity,
+                          weightEditorDeltaGramsEntity,
+                          weightEditorDeltaMetersEntity,
+                          weightEditorAbsoluteGramsEntity,
+                          spoolEntityId
+                        ],
+                        card: {
+                          type: 'custom:mushroom-template-card',
+                          primary: "${(() => { const mode = states['input_select.spoolman_weight_editor_mode']?.state || 'Adjust by Weight (g)'; const spoolEntity = states['" + spoolEntityId + "']; const current = parseFloat(spoolEntity?.attributes?.remaining_weight); const dg = parseFloat(states['input_number.spoolman_weight_editor_delta_grams']?.state) || 0; const dm = parseFloat(states['input_number.spoolman_weight_editor_delta_meters']?.state) || 0; const aw = parseFloat(states['input_number.spoolman_weight_editor_absolute_grams']?.state) || 0; if (mode === 'Set New Weight (g)') return 'Preview: ' + aw.toFixed(1) + ' g'; if (mode === 'Adjust by Length (m)') return Number.isFinite(current) ? ('Current: ' + current.toFixed(1) + ' g (length delta ' + dm.toFixed(2) + ' m)') : ('Length delta: ' + dm.toFixed(2) + ' m'); if (Number.isFinite(current)) return 'Preview: ' + (current - dg).toFixed(1) + ' g'; return 'Weight delta: ' + dg.toFixed(1) + ' g'; })()}",
+                          secondary: "${(() => { const mode = states['input_select.spoolman_weight_editor_mode']?.state || 'Adjust by Weight (g)'; if (mode === 'Set New Weight (g)') return 'Will set absolute remaining weight in Spoolman.'; if (mode === 'Adjust by Length (m)') return 'Will call use_length in Spoolman.'; return 'Will call use_weight in Spoolman.'; })()}",
+                          icon: 'mdi:calculator-variant',
+                          icon_color: 'blue',
+                          layout: 'horizontal',
+                          fill_container: true
+                        }
+                      },
+                      {
+                        type: 'horizontal-stack',
+                        cards: [
+                          {
+                            type: 'custom:button-card',
+                            name: 'Save to Spoolman',
+                            icon: 'mdi:content-save-outline',
+                            tap_action: {
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.sequence',
+                                data: {
+                                  sequence: [
+                                    {
+                                      service: 'script.apply_spoolman_spool_usage_adjustment'
+                                    },
+                                    {
+                                      service: 'homeassistant.update_entity',
+                                      data: { entity_id: spoolEntityId }
+                                    },
+                                    { service: 'browser_mod.delay', data: { time: 900 } },
+                                    { service: 'browser_mod.close_popup' }
+                                  ]
+                                }
+                              }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i" "n"' },
+                                { 'grid-template-rows': 'min-content min-content' },
+                                { 'justify-items': 'center' },
+                                { 'align-items': 'center' }
+                              ],
+                              card: [
+                                { background: 'var(--primary-color)' },
+                                { 'box-shadow': 'none' },
+                                { 'border-radius': '6px' },
+                                { padding: '6px' }
+                              ],
+                              name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                              icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+                            }
+                          },
+                          {
+                            type: 'custom:button-card',
+                            name: 'Cancel',
+                            icon: 'mdi:close',
+                            tap_action: {
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.close_popup'
+                              }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i" "n"' },
+                                { 'grid-template-rows': 'min-content min-content' },
+                                { 'justify-items': 'center' },
+                                { 'align-items': 'center' }
+                              ],
+                              card: [
+                                { background: 'var(--secondary-background-color)' },
+                                { 'box-shadow': 'none' },
+                                { 'border-radius': '6px' },
+                                { padding: '6px' }
+                              ],
+                              name: [{ color: 'var(--primary-text-color)' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                              icon: [{ color: 'var(--primary-text-color)' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      };
       const headerLabel = trayLabel + '  •  Spool #' + spoolId;
       if (!spoolId) {
         const reason = trayData.reason || 'No matching spool found in Spoolman';
@@ -659,7 +894,6 @@ ams_tray_popup:
           }
         };
       }
-      const spoolIdInt = parseInt(spoolId, 10);
       return {
         action: 'fire-dom-event',
         browser_mod: {
@@ -867,6 +1101,7 @@ ams_tray_popup:
                       secondary: 'Remaining',
                       icon: 'mdi:weight-gram',
                       icon_color: 'teal',
+                      tap_action: openWeightEditorAction,
                       layout: 'vertical',
                       fill_container: true
                     },

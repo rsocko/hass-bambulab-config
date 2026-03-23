@@ -1,0 +1,8 @@
+spoolman_weight_editor_absolute_grams:
+  name: Spool New Remaining Weight (grams)
+  min: 0
+  max: 10000
+  step: 1
+  unit_of_measurement: g
+  icon: mdi:scale-balance
+  mode: box

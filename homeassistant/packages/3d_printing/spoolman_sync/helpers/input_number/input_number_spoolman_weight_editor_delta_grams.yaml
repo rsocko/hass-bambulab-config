@@ -1,0 +1,8 @@
+spoolman_weight_editor_delta_grams:
+  name: Spool Weight Delta (grams)
+  min: -5000
+  max: 5000
+  step: 1
+  unit_of_measurement: g
+  icon: mdi:weight-gram
+  mode: box

@@ -1,0 +1,62 @@
+# Docs: docs/features/spoolman_sync/README.md
+apply_spoolman_spool_usage_adjustment:
+  alias: Apply Spoolman Spool Usage Adjustment
+  description: >-
+    Applies a manual spool adjustment from dashboard popup controls.
+    Supports weight delta, length delta, and absolute remaining weight set.
+  sequence:
+    - variables:
+        spool_id_raw: "{{ states('input_text.spoolman_weight_editor_spool_id') }}"
+        spool_id: "{{ spool_id_raw | int(0) }}"
+        mode: "{{ states('input_select.spoolman_weight_editor_mode') | default('Adjust by Weight (g)', true) }}"
+        delta_grams: "{{ states('input_number.spoolman_weight_editor_delta_grams') | float(0) }}"
+        delta_meters: "{{ states('input_number.spoolman_weight_editor_delta_meters') | float(0) }}"
+        absolute_weight_grams: "{{ states('input_number.spoolman_weight_editor_absolute_grams') | float(0) }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ spool_id <= 0 }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            title: Spool Weight Editor
+            message: >-
+              No valid spool ID was provided for adjustment.
+              Open a spool popup and launch the weight editor again.
+            notification_id: spoolman_weight_editor_invalid_spool
+        - stop: Invalid spool ID for weight editor
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ mode == 'Set New Weight (g)' }}"
+          sequence:
+            - action: spoolman.patch_spool
+              data:
+                id: "{{ spool_id }}"
+                remaining_weight: "{{ [absolute_weight_grams, 0] | max }}"
+        - conditions:
+            - condition: template
+              value_template: "{{ mode == 'Adjust by Length (m)' }}"
+          sequence:
+            - action: spoolman.use_spool_filament
+              data:
+                id: "{{ spool_id }}"
+                use_length: "{{ delta_meters }}"
+      default:
+        - action: spoolman.use_spool_filament
+          data:
+            id: "{{ spool_id }}"
+            use_weight: "{{ delta_grams }}"
+
+    - action: homeassistant.update_entity
+      data:
+        entity_id: "{{ 'sensor.spoolman_spool_' ~ spool_id }}"
+
+    - action: logbook.log
+      data:
+        name: Spool Weight Editor
+        message: >-
+          Applied {{ mode }} for Spool #{{ spool_id }}
+          (delta_g={{ delta_grams }}, delta_m={{ delta_meters }}, new_g={{ absolute_weight_grams }}).
+  icon: mdi:scale
