@@ -1,6 +1,7 @@
 type: custom:apex-direct-bar-card
 title: Weight (kg) by Primary Color
 height: 300
+horizontal: false
 value_name: kg
 value_decimals: 1
 source_entity: sensor.filament_catalog_metrics
