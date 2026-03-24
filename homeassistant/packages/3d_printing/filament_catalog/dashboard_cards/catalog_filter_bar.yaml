@@ -108,6 +108,13 @@ cards:
               show_name: true
               show_state: true
               fill_width: true
+            - entity: input_select.filament_catalog_filter_data_quality
+              sub_button_type: select
+              name: Data Quality
+              icon: mdi:clipboard-alert-outline
+              show_name: true
+              show_state: true
+              fill_width: true
             - entity: input_boolean.filament_catalog_large_cards
               name: Large Cards
               icon: mdi:view-grid-plus

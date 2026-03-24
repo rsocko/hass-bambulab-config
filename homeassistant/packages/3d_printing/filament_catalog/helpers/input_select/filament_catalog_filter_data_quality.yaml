@@ -1,0 +1,9 @@
+# Docs: docs/features/filament_catalog/filament-catalog.md
+filament_catalog_filter_data_quality:
+  name: Filament Catalog Data Quality
+  icon: mdi:clipboard-alert-outline
+  options:
+    - All
+    - Multiple Unsealed Duplicates
+    - Duplicate Hex Colors
+  initial: All

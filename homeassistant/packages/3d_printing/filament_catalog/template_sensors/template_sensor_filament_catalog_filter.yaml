@@ -27,6 +27,7 @@
           {%- set filter_type = states('input_select.filament_catalog_filter_type') -%}
           {%- set filter_location = states('input_select.filament_catalog_filter_location') -%}
           {%- set filter_sealed = states('input_select.filament_catalog_filter_sealed') -%}
+          {%- set filter_data_quality = states('input_select.filament_catalog_filter_data_quality') | default('All', true) -%}
           {%- set search_text = states('input_text.filament_catalog_search') | lower | trim -%}
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
           {%- set filter_desiccant = states('input_select.filament_catalog_filter_desiccant') | default('All', true) -%}
@@ -42,8 +43,31 @@
           {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
           {%- set sort_option = states('input_select.filament_catalog_sort') | default('Name (A-Z)', true) -%}
           {%- set totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+          {%- set quality_raw = state_attr('sensor.filament_catalog_metrics', 'data_quality_json') | default('{}', true) -%}
+          {%- if quality_raw is string -%}
+            {%- set quality_data = quality_raw | from_json -%}
+          {%- elif quality_raw is mapping -%}
+            {%- set quality_data = quality_raw -%}
+          {%- else -%}
+            {%- set quality_data = {} -%}
+          {%- endif -%}
+          {%- set dq_unsealed_ids = namespace(items=[]) -%}
+          {%- for issue in quality_data.get('multiple_unsealed_duplicates', []) if issue is mapping -%}
+            {%- for issue_eid in issue.get('entity_ids', []) -%}
+              {%- if issue_eid not in dq_unsealed_ids.items -%}
+                {%- set dq_unsealed_ids.items = dq_unsealed_ids.items + [issue_eid] -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {%- set dq_hexes = namespace(items=[]) -%}
+          {%- for issue in quality_data.get('duplicate_hex_colors', []) if issue is mapping -%}
+            {%- set issue_hex = issue.get('hex', '') | string | replace('#', '') | lower | trim -%}
+            {%- if issue_hex | length >= 6 and issue_hex[0:6] not in dq_hexes.items -%}
+              {%- set dq_hexes.items = dq_hexes.items + [issue_hex[0:6]] -%}
+            {%- endif -%}
+          {%- endfor -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
-          {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family'} -%}
+          {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family', 'By Hex Color': 'filament_color_hex'} -%}
           {%- set group_attr = group_attr_map.get(tab, '') -%}
           {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Cost (High to Low)'] -%}
           {%- set ns = namespace(matches=[]) -%}
@@ -58,6 +82,7 @@
               {%- set filament_name = attrs.get('filament_name', '') | string -%}
               {%- set location = attrs.get('location', '') | string -%}
               {%- set primary_color = attrs.get('filament_extra_primary_color', '') | string | replace('"', '') -%}
+              {%- set spool_hex = attrs.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
               {%- set color_family = attrs.get('filament_extra_color_family', '') | string | replace('"', '') -%}
               {%- set type_details = attrs.get('filament_extra_type_details', '') | string | replace('[', '') | replace(']', '') | replace('"', '') | lower -%}
               {%- set remaining_weight = attrs.get('remaining_weight', 0) | float(0) -%}
@@ -113,6 +138,13 @@
               {%- set matches_location = filter_location == 'All' or location | lower == filter_location | lower -%}
               {%- set matches_sealed = filter_sealed == 'All' or (filter_sealed == 'Sealed' and is_sealed) or (filter_sealed == 'Unsealed' and (not is_sealed)) -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
+              {%- if filter_data_quality == 'Multiple Unsealed Duplicates' -%}
+                {%- set matches_data_quality = spool.entity_id in dq_unsealed_ids.items -%}
+              {%- elif filter_data_quality == 'Duplicate Hex Colors' -%}
+                {%- set matches_data_quality = spool_hex | length >= 6 and spool_hex[0:6] in dq_hexes.items -%}
+              {%- else -%}
+                {%- set matches_data_quality = true -%}
+              {%- endif -%}
               {%- set matches_low_stock = filter_stock_level not in ['Low Stock', 'Low Stock (by Filament)'] or (filter_stock_level == 'Low Stock' and is_low_stock) or (filter_stock_level == 'Low Stock (by Filament)' and filament_agg_weight < stock_threshold) -%}
               {%- if filter_desiccant == 'All' -%}
                 {%- set matches_desiccant = true -%}
@@ -136,7 +168,7 @@
               {%- set matches_needs_drying = (not filter_needs_drying) or is_needs_drying -%}
               {%- set matches_stale = (not filter_stale) or is_stale -%}
               {%- set matches_missing_desiccant = (filter_desiccant != 'All' and filter_desiccant != 'Missing Desiccant') or (not filter_missing_desiccant) or is_missing_desiccant -%}
-              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_data_quality and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
                 {%- if group_attr == 'location' -%}
                   {%- set gv = location if location else 'Unknown' -%}
                 {%- elif group_attr == 'filament_material' -%}
@@ -145,6 +177,8 @@
                   {%- set gv = vendor if vendor else 'Unknown' -%}
                 {%- elif group_attr == 'filament_extra_color_family' -%}
                   {%- set gv = color_family if color_family else 'Unknown' -%}
+                {%- elif group_attr == 'filament_color_hex' -%}
+                  {%- set gv = ('#' ~ spool_hex[0:6]) if spool_hex | length >= 6 else 'Unknown' -%}
                 {%- else -%}
                   {%- set gv = '' -%}
                 {%- endif -%}
@@ -256,6 +290,7 @@
           {%- if states('input_select.filament_catalog_filter_type') != 'All' -%}{%- set active = active + ['Type'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_location') != 'All' -%}{%- set active = active + ['Location'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_sealed') != 'All' -%}{%- set active = active + ['Sealed State'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_data_quality') != 'All' -%}{%- set active = active + ['Data Quality'] -%}{%- endif -%}
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_desiccant') not in ['All', 'unknown', 'unavailable', ''] -%}{%- set active = active + ['Desiccant: ' ~ states('input_select.filament_catalog_filter_desiccant')] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_stock_level') not in ['Any Stock Level', 'unknown', 'unavailable', ''] -%}{%- set active = active + [states('input_select.filament_catalog_filter_stock_level')] -%}{%- endif -%}

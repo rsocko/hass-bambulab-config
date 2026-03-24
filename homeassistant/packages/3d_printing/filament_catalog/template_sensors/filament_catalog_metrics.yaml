@@ -273,7 +273,7 @@
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
-          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0) -%}
+          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0, multiple_unsealed_duplicates=0, duplicate_hex_colors=0) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
@@ -336,6 +336,38 @@
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
+          {%- set unsealed_by_filament = namespace(data={}) -%}
+          {%- set hex_to_filaments = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set fid = a.get('filament_id') | string -%}
+              {%- set sealed = a.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- if not sealed and fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+                {%- set existing = unsealed_by_filament.data.get(fid, []) -%}
+                {%- set unsealed_by_filament.data = unsealed_by_filament.data | combine({fid: existing + [spool.entity_id]}) -%}
+              {%- endif -%}
+              {%- set hx = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- if hx | length >= 6 and fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+                {%- set hex_existing = hex_to_filaments.data.get(hx[0:6], []) -%}
+                {%- if fid not in hex_existing -%}
+                  {%- set hex_to_filaments.data = hex_to_filaments.data | combine({hx[0:6]: hex_existing + [fid]}) -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- for entities in unsealed_by_filament.data.values() -%}
+            {%- if entities | count > 1 -%}
+              {%- set counts.multiple_unsealed_duplicates = counts.multiple_unsealed_duplicates + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- for filament_ids in hex_to_filaments.data.values() -%}
+            {%- if filament_ids | count > 1 -%}
+              {%- set counts.duplicate_hex_colors = counts.duplicate_hex_colors + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
           {{ {
             'low_stock': counts.low_stock,
             'nearly_empty': counts.nearly_empty,
@@ -346,7 +378,9 @@
             'desiccant_undefined': counts.desiccant_undefined,
             'missing_desiccant': counts.missing_desiccant,
             'needs_drying': counts.needs_drying,
-            'stale': counts.stale
+            'stale': counts.stale,
+            'multiple_unsealed_duplicates': counts.multiple_unsealed_duplicates,
+            'duplicate_hex_colors': counts.duplicate_hex_colors
           } | tojson }}
         alert_entity_ids_json: >-
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
@@ -369,7 +403,8 @@
           {%- set ids = namespace(
             low_stock=[], nearly_empty=[], needs_repurchase=[], desiccant_red=[],
             desiccant_orange=[], desiccant_yellow=[], desiccant_undefined=[],
-            missing_desiccant=[], needs_drying=[], stale=[]
+            missing_desiccant=[], needs_drying=[], stale=[],
+            multiple_unsealed_duplicates=[], duplicate_hex_colors=[]
           ) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set a = spool.attributes -%}
@@ -420,6 +455,54 @@
               {%- if used_days > 180 -%}{%- set ids.stale = ids.stale + [eid] -%}{%- endif -%}
             {%- endif -%}
           {%- endfor -%}
+          {%- set unsealed_by_filament = namespace(data={}) -%}
+          {%- set hex_to_filaments = namespace(data={}) -%}
+          {%- set hex_to_entities = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set fid = a.get('filament_id') | string -%}
+              {%- set sealed = a.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set hx = a.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- if not sealed and fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+                {%- set existing = unsealed_by_filament.data.get(fid, []) -%}
+                {%- set unsealed_by_filament.data = unsealed_by_filament.data | combine({fid: existing + [spool.entity_id]}) -%}
+              {%- endif -%}
+              {%- if hx | length >= 6 -%}
+                {%- set hex_key = hx[0:6] -%}
+                {%- set hex_entities = hex_to_entities.data.get(hex_key, []) -%}
+                {%- if spool.entity_id not in hex_entities -%}
+                  {%- set hex_to_entities.data = hex_to_entities.data | combine({hex_key: hex_entities + [spool.entity_id]}) -%}
+                {%- endif -%}
+                {%- if fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+                  {%- set hex_filaments = hex_to_filaments.data.get(hex_key, []) -%}
+                  {%- if fid not in hex_filaments -%}
+                    {%- set hex_to_filaments.data = hex_to_filaments.data | combine({hex_key: hex_filaments + [fid]}) -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- for entities in unsealed_by_filament.data.values() -%}
+            {%- if entities | count > 1 -%}
+              {%- for dup_eid in entities -%}
+                {%- if dup_eid not in ids.multiple_unsealed_duplicates -%}
+                  {%- set ids.multiple_unsealed_duplicates = ids.multiple_unsealed_duplicates + [dup_eid] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- for hx, filament_ids in hex_to_filaments.data.items() -%}
+            {%- if filament_ids | count > 1 -%}
+              {%- for dup_eid in hex_to_entities.data.get(hx, []) -%}
+                {%- if dup_eid not in ids.duplicate_hex_colors -%}
+                  {%- set ids.duplicate_hex_colors = ids.duplicate_hex_colors + [dup_eid] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endfor -%}
           {{ {
             'low_stock': ids.low_stock,
             'nearly_empty': ids.nearly_empty,
@@ -430,7 +513,9 @@
             'desiccant_undefined': ids.desiccant_undefined,
             'missing_desiccant': ids.missing_desiccant,
             'needs_drying': ids.needs_drying,
-            'stale': ids.stale
+            'stale': ids.stale,
+            'multiple_unsealed_duplicates': ids.multiple_unsealed_duplicates,
+            'duplicate_hex_colors': ids.duplicate_hex_colors
           } | tojson }}
         data_quality_json: >-
           {%- set unsealed_by_filament = namespace(data={}) -%}
@@ -475,24 +560,8 @@
               }] -%}
             {%- endif -%}
           {%- endfor -%}
-          {%- set totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
-          {%- set orphan_filaments = namespace(items=[]) -%}
-          {%- for fil in states.sensor if fil.entity_id is match('^sensor\.spoolman_filament_\d+$') -%}
-            {%- set fid = fil.attributes.get('id', fil.entity_id.split('_')[-1]) | string -%}
-            {%- set total_info = totals.get(fid) if totals is mapping else none -%}
-            {%- set total_info = totals.get(fid | int(0)) if total_info in [none, ''] and totals is mapping else total_info -%}
-            {%- set cnt = total_info.get('count', 0) | int(0) if total_info is mapping else 0 -%}
-            {%- if cnt == 0 -%}
-              {%- set orphan_filaments.items = orphan_filaments.items + [{
-                'entity_id': fil.entity_id,
-                'filament_id': fid,
-                'name': fil.attributes.get('friendly_name', fil.name)
-              }] -%}
-            {%- endif -%}
-          {%- endfor -%}
           {{ {
             'multiple_unsealed_duplicates': multiple_unsealed.items,
-            'orphan_filaments': orphan_filaments.items,
             'duplicate_hex_colors': duplicate_hex.items
           } | tojson }}
         total_inventory_value: >-

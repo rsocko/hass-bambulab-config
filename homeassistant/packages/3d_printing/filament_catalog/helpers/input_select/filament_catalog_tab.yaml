@@ -7,5 +7,6 @@ filament_catalog_tab:
     - "By Material"
     - "By Vendor"
     - "By Color Family"
+    - "By Hex Color"
     - "All"
   initial: "By Location"

@@ -1,11 +1,11 @@
 type: custom:apex-direct-bar-card
-title: Alert Analytics (Tap Bars to Filter)
+title: Analytics Alerts (Tap Bars to Filter)
 height: 320
 value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: alert_counts_json
 horizontal: true
-max_items: 12
+max_items: 14
 default_color: '#EF5350'
 label_map:
   low_stock: Low Stock
@@ -18,6 +18,8 @@ label_map:
   missing_desiccant: Missing Desiccant
   needs_drying: Needs Drying
   stale: Stale
+  multiple_unsealed_duplicates: Multiple Unsealed Duplicates
+  duplicate_hex_colors: Duplicate Hex Colors
 color_map:
   low_stock: '#EF5350'
   nearly_empty: '#F06292'
@@ -29,6 +31,8 @@ color_map:
   missing_desiccant: '#26C6DA'
   needs_drying: '#FFA726'
   stale: '#9E9E9E'
+  multiple_unsealed_duplicates: '#F57C00'
+  duplicate_hex_colors: '#8E24AA'
 tap_actions:
   low_stock:
     action: call-service
@@ -92,3 +96,15 @@ tap_actions:
     service: input_boolean.turn_on
     target:
       entity_id: input_boolean.filament_catalog_filter_stale
+  multiple_unsealed_duplicates:
+    action: call-service
+    service: script.filament_catalog_apply_quality_filter
+    data:
+      quality_filter: Multiple Unsealed Duplicates
+      group_by_hex: false
+  duplicate_hex_colors:
+    action: call-service
+    service: script.filament_catalog_apply_quality_filter
+    data:
+      quality_filter: Duplicate Hex Colors
+      group_by_hex: true
