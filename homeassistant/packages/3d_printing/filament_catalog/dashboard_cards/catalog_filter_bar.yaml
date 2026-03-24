@@ -26,53 +26,6 @@ cards:
       entity: sensor.filament_catalog_filtered_spools
       hide_main_background: false
       rows: 3.08
-      styles: |
-        .bubble-sub-button-container {
-          border: 1px solid transparent;
-          border-bottom-width: 2px;
-          border-radius: 10px;
-          transition: border-color 160ms ease, box-shadow 160ms ease;
-        }
-        .bubble-sub-button-container:nth-child(3) {
-          border-color: ${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(4) {
-          border-color: ${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(5) {
-          border-color: ${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(6) {
-          border-color: ${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(7) {
-          border-color: ${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(8) {
-          border-color: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(10) {
-          border-color: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(11) {
-          border-color: ${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(12) {
-          border-color: ${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
-        .bubble-sub-button-container:nth-child(13) {
-          border-color: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '') ? 'var(--accent-color)' : 'transparent'} !important;
-          box-shadow: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '') ? '0 0 0 1px color-mix(in srgb, var(--accent-color) 35%, transparent)' : 'none'};
-        }
       sub_button:
         main: []
         bottom_layout: rows
