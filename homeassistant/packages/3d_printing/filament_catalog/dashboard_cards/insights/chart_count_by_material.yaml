@@ -10,9 +10,9 @@ legend_position: right
 legend_show: true
 legend_font_size: 13px
 legend_max_width: 250
-legend_item_margin_vertical: 6
-legend_item_margin_horizontal: 12
-legend_offset_y: 8
+legend_item_margin_vertical: 2
+legend_item_margin_horizontal: 8
+legend_offset_y: 0
 default_color: '#1E88E5'
 color_map:
   PLA: '#42A5F5'
