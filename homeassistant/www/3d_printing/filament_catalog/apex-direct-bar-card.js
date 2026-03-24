@@ -70,6 +70,7 @@ class ApexDirectBarCard extends HTMLElement {
       sort_desc: config.sort_desc !== false,
       sort_by_label: config.sort_by_label === true,
       horizontal: config.horizontal !== false,
+      show_xaxis_labels: config.show_xaxis_labels !== false,
       auto_color_by_label: config.auto_color_by_label === true,
       label_map: config.label_map && typeof config.label_map === "object" ? config.label_map : {},
       color_map: config.color_map && typeof config.color_map === "object" ? config.color_map : {},
@@ -607,6 +608,7 @@ class ApexDirectBarCard extends HTMLElement {
           categories: [this._config.stack_category],
           title: { text: this._config.axis_title },
           labels: {
+            show: this._config.show_xaxis_labels,
             style: {
               colors: textColor,
             },
@@ -708,6 +710,7 @@ class ApexDirectBarCard extends HTMLElement {
           categories: categories,
           title: { text: this._config.axis_title },
           labels: {
+            show: this._config.show_xaxis_labels,
             style: {
               colors: textColor,
             },
@@ -785,6 +788,7 @@ class ApexDirectBarCard extends HTMLElement {
         categories: labels,
         title: { text: this._config.axis_title },
         labels: {
+          show: this._config.show_xaxis_labels,
           style: {
             colors: textColor,
           },

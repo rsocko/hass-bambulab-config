@@ -5,6 +5,7 @@ value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: alert_counts_json
 horizontal: true
+show_xaxis_labels: false
 max_items: 14
 default_color: '#EF5350'
 label_map:
