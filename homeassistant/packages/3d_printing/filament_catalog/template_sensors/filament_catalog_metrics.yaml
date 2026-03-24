@@ -135,10 +135,23 @@
           {%- set segs = namespace(items=[]) -%}
           {%- for key, cnt in buckets.data.items() -%}
             {%- set parts = key.split('###') -%}
+            {%- set clip_name = parts[1] | lower -%}
+            {%- if clip_name in ['slot insert v2', 'slot insert'] -%}
+              {%- set clip_hex = '#42A5F5' -%}
+            {%- elif clip_name in ['built-in', 'builtin'] -%}
+              {%- set clip_hex = '#66BB6A' -%}
+            {%- elif clip_name in ['removable'] -%}
+              {%- set clip_hex = '#FFA726' -%}
+            {%- elif clip_name in ['unknown', 'none', ''] -%}
+              {%- set clip_hex = '#90A4AE' -%}
+            {%- else -%}
+              {%- set clip_hex = '#AB47BC' -%}
+            {%- endif -%}
             {%- set segs.items = segs.items + [{
               'spool_type': parts[0],
               'clip_type': parts[1],
-              'count': cnt | int(0)
+              'count': cnt | int(0),
+              'hex': clip_hex
             }] -%}
           {%- endfor -%}
           {{ segs.items | sort(attribute='count', reverse=true) | tojson }}

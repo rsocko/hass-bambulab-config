@@ -10,6 +10,7 @@ label_key: spool_type
 category_key: spool_type
 segment_key: clip_type
 value_key: count
+color_key: hex
 bar_mode: stacked_by_category
 max_items: 30
 legend_show: true
