@@ -1,0 +1,183 @@
+# catalog_spool_card_compact.yaml
+# Vertically-oriented compact spool card for the Filament Catalog grid.
+# Stacked column layout: Name, image, Material · Type, weight + desiccant, location.
+# Omits weight bar and last-used timestamp for a tighter footprint.
+#
+# Tap opens catalog_spool_popup via browser_mod.
+# Designed for use with auto-entities (card_param: cards).
+
+catalog_spool_card_compact:
+  template:
+    - catalog_spool_popup
+  type: custom:button-card
+  show_entity_picture: true
+  show_icon: false
+  show_name: true
+  show_state: false
+  show_label: true
+  name: |
+    [[[
+      return entity?.attributes?.filament_name || entity?.attributes?.friendly_name || 'Unknown';
+    ]]]
+  label: |
+    [[[
+      const material = entity?.attributes?.filament_material || '';
+      const typeRaw = entity?.attributes?.filament_extra_type_details || '';
+      let types = '';
+      if (typeRaw && typeRaw !== '[]' && typeRaw !== 'None' && typeRaw !== 'none') {
+        try { const p = JSON.parse(typeRaw); types = Array.isArray(p) ? p.join(' · ') : ''; }
+        catch(e) { types = String(typeRaw).replace(/[\[\]"]/g, '').split(',').map(t => t.trim()).filter(Boolean).join(' · '); }
+      }
+      return [material, types].filter(Boolean).join(' · ');
+    ]]]
+  custom_fields:
+    weight_status: |
+      [[[
+        const w = entity?.attributes?.remaining_weight;
+        let weightHtml = '';
+        if (w !== undefined && w !== null) {
+          const isLow = w < 100;
+          const color = isLow ? '#f44336' : 'var(--primary-text-color)';
+          weightHtml = `<span style="font-size:12px; font-weight:600; color:${color};">${w.toFixed(0)}g</span>`;
+        }
+        let statusHtml = '';
+        const isSealed = entity?.attributes?.extra_sealed;
+        const sealed = isSealed === true || isSealed === 'true' || isSealed === 'True' || isSealed === 1 || isSealed === '1';
+        if (sealed) {
+          statusHtml = `<ha-icon icon="mdi:package-variant-closed" style="--mdc-icon-size:14px; color:#42A5F5;"></ha-icon>`;
+        } else {
+          const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
+          const filled = entity?.attributes?.extra_desiccant_filled;
+          if (hasDesiccant && filled) {
+            const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
+            const desYellow = parseFloat(states['input_number.desiccant_threshold_yellow_days']?.state) || 45;
+            const desOrange = parseFloat(states['input_number.desiccant_threshold_orange_days']?.state) || 60;
+            const desRed = parseFloat(states['input_number.desiccant_threshold_red_days']?.state) || 75;
+            if (days >= desYellow) {
+              let color;
+              if (days < desOrange) color = '#ffcc00';
+              else if (days < desRed) color = '#ff9900';
+              else color = '#cc0000';
+              statusHtml = `<ha-icon icon="mdi:water" style="--mdc-icon-size:14px; color:${color};"></ha-icon>`;
+            }
+          }
+        }
+        return `<div style="display:flex;align-items:center;justify-content:center;gap:4px;">${weightHtml}${statusHtml}</div>`;
+      ]]]
+    location_label: |
+      [[[
+        const loc = entity?.attributes?.location || '';
+        if (!loc) return '';
+        return `<span style="font-size:10px; color:var(--primary-text-color); opacity:0.55; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${loc}</span>`;
+      ]]]
+  styles:
+    card:
+      - padding: 8px 6px
+      - border-radius: 8px
+      - overflow: hidden
+      - border-left: |
+          [[[
+            const isSealed = entity?.attributes?.extra_sealed;
+            const sealed = isSealed === true || isSealed === 'true' || isSealed === 'True' || isSealed === 1 || isSealed === '1';
+            if (sealed) return '3px solid transparent';
+            let severity = 0;
+            const hasDesiccant = entity?.attributes?.extra_desiccant_in_spool;
+            const filled = entity?.attributes?.extra_desiccant_filled;
+            let desiccantUndefined = false;
+            if (hasDesiccant && !filled) {
+              desiccantUndefined = true;
+            } else if (hasDesiccant && filled) {
+              const days = Math.floor((Date.now() - new Date(filled)) / 86400000);
+              const desYellow = parseFloat(states['input_number.desiccant_threshold_yellow_days']?.state) || 45;
+              const desOrange = parseFloat(states['input_number.desiccant_threshold_orange_days']?.state) || 60;
+              const desRed = parseFloat(states['input_number.desiccant_threshold_red_days']?.state) || 75;
+              if (days >= desRed) severity = 3;
+              else if (days >= desOrange) severity = Math.max(severity, 2);
+              else if (days >= desYellow) severity = Math.max(severity, 1);
+            }
+            const usedPct = entity?.attributes?.used_percentage;
+            if (usedPct !== undefined && usedPct !== null) {
+              const remainPct = Math.min(Math.max(100 - usedPct, 0), 100);
+              if (remainPct <= 10) severity = Math.max(severity, 3);
+              else if (remainPct <= 25) severity = Math.max(severity, 2);
+              else if (remainPct <= 50) severity = Math.max(severity, 1);
+            }
+            if (severity === 3) return '3px solid #f44336';
+            if (severity === 2) return '3px solid #FF9800';
+            if (severity === 1) return '3px solid #FFC107';
+            if (desiccantUndefined) return '3px solid #bdbdbd';
+            return '3px solid transparent';
+          ]]]
+      - box-shadow: |
+          [[[
+            const w = entity?.attributes?.remaining_weight;
+            if (w !== undefined && w !== null && w < 100) {
+              return 'inset 0 0 0 1px rgba(244,67,54,0.4)';
+            }
+            return 'none';
+          ]]]
+      - background: |
+          [[[
+            const hexes = entity?.attributes?.filament_multi_color_hexes || '';
+            const dir = entity?.attributes?.filament_multi_color_direction || '';
+            const singleHex = entity?.attributes?.filament_color_hex || '888888';
+            if (hexes) {
+              const colors = hexes.split(',').map(h => {
+                const c = h.trim().replace(/^#/, '');
+                const r = parseInt(c.substring(0,2), 16) || 128;
+                const g = parseInt(c.substring(2,4), 16) || 128;
+                const b = parseInt(c.substring(4,6), 16) || 128;
+                return `rgba(${r},${g},${b},0.25)`;
+              });
+              const cssDir = dir === 'coaxial' ? 'to bottom' : 'to right';
+              return `linear-gradient(${cssDir}, ${colors.join(', ')})`;
+            }
+            const r = parseInt(singleHex.substring(0,2), 16) || 128;
+            const g = parseInt(singleHex.substring(2,4), 16) || 128;
+            const b = parseInt(singleHex.substring(4,6), 16) || 128;
+            return `rgba(${r},${g},${b},0.25)`;
+          ]]]
+    grid:
+      - grid-template-areas: '"n" "i" "l" "weight_status" "location_label"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto auto auto auto auto
+      - justify-items: center
+      - gap: 4px 0
+    entity_picture:
+      - width: 48px
+      - height: 48px
+      - border-radius: 50%
+      - border: |
+          [[[
+            const hex = entity?.attributes?.filament_color_hex || '888888';
+            const r = parseInt(hex.substring(0,2), 16) || 128;
+            const g = parseInt(hex.substring(2,4), 16) || 128;
+            const b = parseInt(hex.substring(4,6), 16) || 128;
+            return `2px solid rgba(${r},${g},${b},0.6)`;
+          ]]]
+    name:
+      - font-size: 12px
+      - font-weight: 600
+      - white-space: nowrap
+      - overflow: hidden
+      - text-overflow: ellipsis
+      - max-width: 100%
+      - text-align: center
+      - color: var(--primary-text-color)
+    label:
+      - font-size: 10px
+      - color: var(--primary-text-color)
+      - opacity: 0.55
+      - white-space: nowrap
+      - overflow: hidden
+      - text-overflow: ellipsis
+      - max-width: 100%
+      - text-align: center
+    custom_fields:
+      weight_status:
+        - text-align: center
+      location_label:
+        - text-align: center
+        - max-width: 100%
+        - overflow: hidden
+        - text-overflow: ellipsis

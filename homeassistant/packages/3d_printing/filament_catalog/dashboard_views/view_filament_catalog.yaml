@@ -1,5 +1,5 @@
 # view_filament_catalog.yaml
-# Filament Catalog view - Phase 1-4: Compact/Large spool grid with
+# Filament Catalog view - Default/Compact spool grid with
 # tabbed grouping (By Location/Material/Vendor/Color Family/Alerts/All)
 # and configurable sort order.
 #
@@ -9,8 +9,9 @@
 #
 # Still only ONE auto-entities visible at a time (critical perf constraint).
 #
-# Uses conditional cards to switch between compact (5 col) and large (3 col)
-# grid based on input_boolean.filament_catalog_large_cards toggle.
+# Uses conditional cards to switch between default and compact card styles
+# based on input_boolean.filament_catalog_compact_cards toggle.
+# Both grids: 4 columns on desktop, 2 columns on mobile (via card_mod).
 #
 # Docs: docs/features/filament_catalog/filament-catalog.md
 
@@ -37,21 +38,28 @@ cards:
       - !include ../dashboard_cards/catalog_filter_bar.yaml
 
       # ============================================================
-      # All Spools — Compact grid (5 columns, default)
+      # All Spools — Default grid (4 columns desktop, 2 mobile)
       # Group headers use catalog_group_header template which
       # spans all columns via JS DOM traversal.
       # ============================================================
       - type: conditional
         conditions:
-          - entity: input_boolean.filament_catalog_large_cards
+          - entity: input_boolean.filament_catalog_compact_cards
             state_not: "on"
         card:
           type: custom:auto-entities
           show_empty: false
           card:
             type: grid
-            columns: 5
+            columns: 4
             square: false
+            card_mod:
+              style: |
+                @media (max-width: 768px) {
+                  #root {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                  }
+                }
           card_param: cards
           filter:
             template: >
@@ -105,20 +113,27 @@ cards:
               {{ cards.items | tojson }}
 
       # ============================================================
-      # All Spools — Large grid (3 columns)
-      # Same grouped logic, wider cards.
+      # All Spools — Compact grid (4 columns desktop, 2 mobile)
+      # Vertically-oriented cards with fewer details.
       # ============================================================
       - type: conditional
         conditions:
-          - entity: input_boolean.filament_catalog_large_cards
+          - entity: input_boolean.filament_catalog_compact_cards
             state: "on"
         card:
           type: custom:auto-entities
           show_empty: false
           card:
             type: grid
-            columns: 3
+            columns: 4
             square: false
+            card_mod:
+              style: |
+                @media (max-width: 768px) {
+                  #root {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                  }
+                }
           card_param: cards
           filter:
             template: >
@@ -133,7 +148,7 @@ cards:
                       {% set cards.items = cards.items + [{
                         'entity': spool.entity_id,
                         'type': 'custom:button-card',
-                        'template': 'catalog_spool_card'
+                        'template': 'catalog_spool_card_compact'
                       }] %}
                     {% endif %}
                   {% endif %}
@@ -164,7 +179,7 @@ cards:
                     {% set cards.items = cards.items + [{
                       'entity': entity_id,
                       'type': 'custom:button-card',
-                      'template': 'catalog_spool_card'
+                      'template': 'catalog_spool_card_compact'
                     }] %}
                   {% endfor %}
                 {% endfor %}

@@ -18,7 +18,7 @@ cards:
       - input_select.filament_catalog_filter_sealed
       - input_select.filament_catalog_filter_desiccant
       - input_select.filament_catalog_filter_data_quality
-      - input_boolean.filament_catalog_large_cards
+      - input_boolean.filament_catalog_compact_cards
       - sensor.filament_catalog_filtered_spools
     card:
       type: custom:bubble-card
@@ -162,9 +162,9 @@ cards:
                 state_background: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
-              - entity: input_boolean.filament_catalog_large_cards
-                name: Large Cards
-                icon: mdi:view-grid-plus
+              - entity: input_boolean.filament_catalog_compact_cards
+                name: Compact
+                icon: mdi:view-grid-compact
                 show_name: true
                 show_state: false
                 tap_action:

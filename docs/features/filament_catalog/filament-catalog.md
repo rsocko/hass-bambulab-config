@@ -595,23 +595,24 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 
 #### Density Toggle
 
-New `input_boolean.filament_catalog_large_cards` helper — a simple on/off toggle.
+New `input_boolean.filament_catalog_compact_cards` helper — a simple on/off toggle.
 
-| Mode | Columns (desktop) | Description |
-|---|---|---|
-| **Off** (default) | 5 | Compact grid — all Phase 3 enhancements visible |
-| **On** | 3 | Large grid — wider cards with more room for labels and details |
+| Mode | Columns (desktop) | Columns (mobile) | Description |
+|---|---|---|---|
+| **Off** (default) | 4 | 2 | Default grid — all Phase 3 enhancements visible |
+| **On** | 4 | 2 | Compact grid — vertical card layout, no weight bar or last-used |
 
-The view uses two `conditional` card wrappers around `auto-entities` instances: one for compact (5 columns, shown when toggle is off/unavailable) and one for large (3 columns, shown when toggle is on). Both use the same `catalog_spool_card` template and filter logic. The toggle button is in the filter bar's third row.
+The view uses two `conditional` card wrappers around `auto-entities` instances: one for default (shown when toggle is off/unavailable, uses `catalog_spool_card`) and one for compact (shown when toggle is on, uses `catalog_spool_card_compact`). Both use 4 columns on desktop and CSS `card_mod` media queries to switch to 2 columns on mobile (≤768px). The toggle button is in the filter bar's third row.
 
 #### Files Modified / Created
 
 | File | Action |
 |---|---|
 | `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Modified** — All Phase 3 card enhancements |
-| `filament_catalog/helpers/input_boolean/filament_catalog_large_cards.yaml` | **Created** — Large cards toggle |
-| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** — Conditional compact/large grid |
-| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** — Added Large Cards toggle button |
+| `common/dashboard_cards/card_templates/catalog_spool_card_compact.yaml` | **Created** — Compact vertical card template |
+| `filament_catalog/helpers/input_boolean/filament_catalog_compact_cards.yaml` | **Created** — Compact cards toggle |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** — Conditional default/compact grid with responsive columns |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** — Added Compact toggle button |
 
 #### Grid Layout (card template)
 
