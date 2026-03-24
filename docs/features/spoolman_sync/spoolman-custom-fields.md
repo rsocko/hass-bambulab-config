@@ -64,6 +64,15 @@ Key | Type | Default Value
 This field stores the date when the spool was last dried (e.g. in a filament dryer or food dehydrator). This is displayed in the AMS tray popup dialog under "Last Dried". Store as an ISO 8601 date string (e.g. `2024-12-12T10:00:00.000Z`).
 
 #### Field Configuration
-Key | Type
----------|----------
- last_dried | Text
+| Key        | Type     |
+| ---------- | -------- |
+| last_dried | Datetime |
+
+### Date Opened
+#### Description:
+This field stores the date when a sealed spool was first opened/unsealed. It is set automatically by the Spool Replace/Refill workflow when a sealed spool is put into service. Useful for inventory analytics such as time-to-use from purchase and shelf life tracking. Store as an ISO 8601 date string (e.g. `2024-12-12T10:00:00.000Z`).
+
+#### Field Configuration
+| Key         | Type     |
+| ----------- | -------- |
+| date_opened | Datetime |
