@@ -6,6 +6,9 @@ value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: count_by_material_json
 max_items: 12
+group_small_into_other: true
+other_label: Other
+other_color: '#90A4AE'
 legend_position: right
 legend_show: true
 legend_font_size: 13px

@@ -53,6 +53,9 @@ class ApexDirectBarCard extends HTMLElement {
       max_items: config.max_items === undefined || config.max_items === null
         ? 12
         : Number(config.max_items),
+      group_small_into_other: config.group_small_into_other === true,
+      other_label: config.other_label || "Other",
+      other_color: config.other_color || "#90A4AE",
       sort_desc: config.sort_desc !== false,
       sort_by_label: config.sort_by_label === true,
       horizontal: config.horizontal !== false,
@@ -257,7 +260,42 @@ class ApexDirectBarCard extends HTMLElement {
     }
 
     if (this._config.max_items > 0 && rows.length > this._config.max_items) {
-      rows = rows.slice(0, this._config.max_items);
+      if (this._config.group_small_into_other) {
+        var bySize = rows.slice().sort(function (a, b) {
+          return b.y - a.y;
+        });
+        var keepCount = Math.max(1, this._config.max_items - 1);
+        var kept = bySize.slice(0, keepCount);
+        var remainder = bySize.slice(keepCount);
+        var otherTotal = remainder.reduce(function (sum, row) {
+          return sum + Number(row.y || 0);
+        }, 0);
+
+        if (otherTotal > 0) {
+          kept.push({
+            x: this._config.other_label,
+            source_key: "__other__",
+            y: otherTotal,
+            fillColor: this._config.other_color,
+            tap_action: null,
+          });
+        }
+
+        rows = kept;
+        if (this._config.sort_by_label) {
+          rows.sort(function (a, b) {
+            return String(a.x || "").localeCompare(String(b.x || ""), undefined, { numeric: true, sensitivity: "base" });
+          });
+        } else {
+          rows.sort(
+            function (a, b) {
+              return this._config.sort_desc ? b.y - a.y : a.y - b.y;
+            }.bind(this)
+          );
+        }
+      } else {
+        rows = rows.slice(0, this._config.max_items);
+      }
     }
 
     return rows;
