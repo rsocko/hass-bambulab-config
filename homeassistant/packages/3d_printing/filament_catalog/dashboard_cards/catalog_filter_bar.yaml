@@ -54,7 +54,9 @@ cards:
                 icon: mdi:flask-outline
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_vendor
                 sub_button_type: select
@@ -62,7 +64,9 @@ cards:
                 icon: mdi:factory
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_color
                 sub_button_type: select
@@ -70,7 +74,9 @@ cards:
                 icon: mdi:palette-outline
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_color_family
                 sub_button_type: select
@@ -78,7 +84,9 @@ cards:
                 icon: mdi:format-color-fill
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -89,7 +97,9 @@ cards:
                 icon: mdi:shape-outline
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_location
                 sub_button_type: select
@@ -97,7 +107,9 @@ cards:
                 icon: mdi:map-marker
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_number.filament_catalog_stock_threshold
                 sub_button_type: slider
@@ -113,7 +125,9 @@ cards:
                 icon: mdi:archive-alert-outline
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -124,7 +138,9 @@ cards:
                 icon: mdi:package-variant-closed
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_desiccant
                 sub_button_type: select
@@ -132,7 +148,9 @@ cards:
                 icon: mdi:water-alert
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_data_quality
                 sub_button_type: select
@@ -140,7 +158,9 @@ cards:
                 icon: mdi:clipboard-alert-outline
                 show_name: true
                 show_state: true
-                state_color: "${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}"
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_boolean.filament_catalog_large_cards
                 name: Large Cards
@@ -223,7 +243,9 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              state_color: "${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}"
+              show_background: true
+              state_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}
+              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}
               tap_action:
                 action: call-service
                 service: script.filament_catalog_clear_filters
