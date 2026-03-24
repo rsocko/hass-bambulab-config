@@ -164,7 +164,7 @@ cards:
                 fill_width: true
               - entity: input_boolean.filament_catalog_compact_cards
                 name: Compact
-                icon: mdi:view-grid-compact
+                icon: mdi:arrow-collapse
                 show_name: true
                 show_state: false
                 tap_action:
