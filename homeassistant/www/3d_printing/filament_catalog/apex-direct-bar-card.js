@@ -54,11 +54,13 @@ class ApexDirectBarCard extends HTMLElement {
         ? 12
         : Number(config.max_items),
       sort_desc: config.sort_desc !== false,
+      sort_by_label: config.sort_by_label === true,
       horizontal: config.horizontal !== false,
       auto_color_by_label: config.auto_color_by_label === true,
       label_map: config.label_map && typeof config.label_map === "object" ? config.label_map : {},
       color_map: config.color_map && typeof config.color_map === "object" ? config.color_map : {},
       tap_actions: config.tap_actions && typeof config.tap_actions === "object" ? config.tap_actions : {},
+      marker_color: config.marker_color || "#FB8C00",
       default_color: config.default_color || "#42A5F5",
     };
 
@@ -242,11 +244,17 @@ class ApexDirectBarCard extends HTMLElement {
         });
     }
 
-    rows.sort(
-      function (a, b) {
-        return this._config.sort_desc ? b.y - a.y : a.y - b.y;
-      }.bind(this)
-    );
+    if (this._config.sort_by_label) {
+      rows.sort(function (a, b) {
+        return String(a.x || "").localeCompare(String(b.x || ""), undefined, { numeric: true, sensitivity: "base" });
+      });
+    } else {
+      rows.sort(
+        function (a, b) {
+          return this._config.sort_desc ? b.y - a.y : a.y - b.y;
+        }.bind(this)
+      );
+    }
 
     if (this._config.max_items > 0 && rows.length > this._config.max_items) {
       rows = rows.slice(0, this._config.max_items);
@@ -442,7 +450,9 @@ class ApexDirectBarCard extends HTMLElement {
         },
         markers: {
           size: 5,
-          strokeWidth: 1,
+          colors: [this._config.marker_color],
+          strokeColors: [isDark ? "#0F172A" : "#FFFFFF"],
+          strokeWidth: 2,
           hover: {
             size: 7,
           },
@@ -457,10 +467,10 @@ class ApexDirectBarCard extends HTMLElement {
           },
         },
         yaxis: {
-          show: true,
+          show: false,
           tickAmount: 5,
           labels: {
-            show: true,
+            show: false,
             style: {
               colors: [textColor],
             },
