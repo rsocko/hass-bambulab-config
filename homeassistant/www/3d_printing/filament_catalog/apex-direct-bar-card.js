@@ -606,7 +606,7 @@ class ApexDirectBarCard extends HTMLElement {
         }),
         xaxis: {
           categories: [this._config.stack_category],
-          title: { text: this._config.axis_title },
+          title: { text: this._config.axis_title || "" },
           labels: {
             show: this._config.show_xaxis_labels,
             style: {
@@ -708,7 +708,7 @@ class ApexDirectBarCard extends HTMLElement {
         series: stackedSeries,
         xaxis: {
           categories: categories,
-          title: { text: this._config.axis_title },
+          title: { text: this._config.axis_title || "" },
           labels: {
             show: this._config.show_xaxis_labels,
             style: {
@@ -786,7 +786,7 @@ class ApexDirectBarCard extends HTMLElement {
       },
       xaxis: {
         categories: labels,
-        title: { text: this._config.axis_title },
+        title: { text: this._config.axis_title || "" },
         labels: {
           show: this._config.show_xaxis_labels,
           style: {
