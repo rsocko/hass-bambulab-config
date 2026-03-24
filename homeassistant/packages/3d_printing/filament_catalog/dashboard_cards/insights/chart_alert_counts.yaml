@@ -24,15 +24,15 @@ label_map:
 color_map:
   low_stock: '#EF5350'
   nearly_empty: '#F06292'
-  needs_repurchase: '#FF7043'
-  desiccant_overdue: '#FB8C00'
+  needs_repurchase: '#43A047'
+  desiccant_overdue: '#1E88E5'
   desiccant_red: '#E53935'
   desiccant_orange: '#FB8C00'
   desiccant_yellow: '#FDD835'
   desiccant_undefined: '#78909C'
   missing_desiccant: '#26C6DA'
   needs_drying: '#FFA726'
-  stale: '#9E9E9E'
+  stale: '#A1887F'
   multiple_unsealed_duplicates: '#F57C00'
   duplicate_hex_colors: '#8E24AA'
 tap_actions:
