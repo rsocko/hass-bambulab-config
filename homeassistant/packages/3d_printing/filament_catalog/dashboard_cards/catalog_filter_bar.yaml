@@ -4,127 +4,164 @@ cards:
     card_type: separator
     name: Filter Spools
     icon: mdi:filter-variant
-  - type: custom:bubble-card
-    card_type: sub-buttons
-    entity: sensor.filament_catalog_filtered_spools
-    hide_main_background: false
-    rows: 3.08
-    sub_button:
-      main: []
-      bottom_layout: rows
-      bottom:
-        - group:
-            - entity: input_select.filament_catalog_tab
-              sub_button_type: select
-              name: View
-              icon: mdi:tab
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_sort
-              sub_button_type: select
-              name: Sort
-              icon: mdi:sort
-              show_name: true
-              show_state: true
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
-        - group:
-            - entity: input_select.filament_catalog_filter_material
-              sub_button_type: select
-              name: Material
-              icon: mdi:flask-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_vendor
-              sub_button_type: select
-              name: Vendor
-              icon: mdi:factory
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_color
-              sub_button_type: select
-              name: Color
-              icon: mdi:palette-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_color_family
-              sub_button_type: select
-              name: Family
-              icon: mdi:format-color-fill
-              show_name: true
-              show_state: true
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
-        - group:
-            - entity: input_select.filament_catalog_filter_type
-              sub_button_type: select
-              name: Type
-              icon: mdi:shape-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_location
-              sub_button_type: select
-              name: Location
-              icon: mdi:map-marker
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_number.filament_catalog_stock_threshold
-              sub_button_type: slider
-              name: Stock Threshold
-              icon: mdi:weight-gram
-              show_name: true
-              show_state: true
-              tap_to_slide: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_stock_level
-              sub_button_type: select
-              name: Stock Level
-              icon: mdi:archive-alert-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
-        - group:
-            - entity: input_select.filament_catalog_filter_sealed
-              sub_button_type: select
-              name: Sealed
-              icon: mdi:package-variant-closed
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_desiccant
-              sub_button_type: select
-              name: Desiccant
-              icon: mdi:water-alert
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_select.filament_catalog_filter_data_quality
-              sub_button_type: select
-              name: Data Quality
-              icon: mdi:clipboard-alert-outline
-              show_name: true
-              show_state: true
-              fill_width: true
-            - entity: input_boolean.filament_catalog_large_cards
-              name: Large Cards
-              icon: mdi:view-grid-plus
-              show_name: true
-              show_state: false
-              tap_action:
-                action: toggle
-              fill_width: true
-          buttons_layout: inline
-          justify_content: fill
+  - type: custom:config-template-card
+    entities:
+      - input_select.filament_catalog_tab
+      - input_select.filament_catalog_sort
+      - input_select.filament_catalog_filter_material
+      - input_select.filament_catalog_filter_vendor
+      - input_select.filament_catalog_filter_color
+      - input_select.filament_catalog_filter_color_family
+      - input_select.filament_catalog_filter_type
+      - input_select.filament_catalog_filter_location
+      - input_select.filament_catalog_filter_stock_level
+      - input_select.filament_catalog_filter_sealed
+      - input_select.filament_catalog_filter_desiccant
+      - input_select.filament_catalog_filter_data_quality
+      - input_boolean.filament_catalog_large_cards
+      - sensor.filament_catalog_filtered_spools
+    card:
+      type: custom:bubble-card
+      card_type: sub-buttons
+      entity: sensor.filament_catalog_filtered_spools
+      hide_main_background: false
+      rows: 3.08
+      sub_button:
+        main: []
+        bottom_layout: rows
+        bottom:
+          - group:
+              - entity: input_select.filament_catalog_tab
+                sub_button_type: select
+                name: View
+                icon: mdi:tab
+                show_name: true
+                show_state: true
+                fill_width: true
+              - entity: input_select.filament_catalog_sort
+                sub_button_type: select
+                name: Sort
+                icon: mdi:sort
+                show_name: true
+                show_state: true
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+          - group:
+              - entity: input_select.filament_catalog_filter_material
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '') ? 'Material *' : 'Material'}"
+                icon: mdi:flask-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_material']?.state !== (states['input_select.filament_catalog_filter_material']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_vendor
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '') ? 'Vendor *' : 'Vendor'}"
+                icon: mdi:factory
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_vendor']?.state !== (states['input_select.filament_catalog_filter_vendor']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_color
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '') ? 'Color *' : 'Color'}"
+                icon: mdi:palette-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_color']?.state !== (states['input_select.filament_catalog_filter_color']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_color_family
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '') ? 'Family *' : 'Family'}"
+                icon: mdi:format-color-fill
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_color_family']?.state !== (states['input_select.filament_catalog_filter_color_family']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+          - group:
+              - entity: input_select.filament_catalog_filter_type
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '') ? 'Type *' : 'Type'}"
+                icon: mdi:shape-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_type']?.state !== (states['input_select.filament_catalog_filter_type']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_location
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '') ? 'Location *' : 'Location'}"
+                icon: mdi:map-marker
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_number.filament_catalog_stock_threshold
+                sub_button_type: slider
+                name: Stock Threshold
+                icon: mdi:weight-gram
+                show_name: true
+                show_state: true
+                tap_to_slide: true
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_stock_level
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '') ? 'Stock Level *' : 'Stock Level'}"
+                icon: mdi:archive-alert-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+          - group:
+              - entity: input_select.filament_catalog_filter_sealed
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '') ? 'Sealed *' : 'Sealed'}"
+                icon: mdi:package-variant-closed
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_sealed']?.state !== (states['input_select.filament_catalog_filter_sealed']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_desiccant
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '') ? 'Desiccant *' : 'Desiccant'}"
+                icon: mdi:water-alert
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_desiccant']?.state !== (states['input_select.filament_catalog_filter_desiccant']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_data_quality
+                sub_button_type: select
+                name: "${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '') ? 'Data Quality *' : 'Data Quality'}"
+                icon: mdi:clipboard-alert-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: "${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}"
+                fill_width: true
+              - entity: input_boolean.filament_catalog_large_cards
+                name: Large Cards
+                icon: mdi:view-grid-plus
+                show_name: true
+                show_state: false
+                tap_action:
+                  action: toggle
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
   - type: horizontal-stack
     cards:
       - type: entities
@@ -168,22 +205,38 @@ cards:
           - entity: input_text.filament_catalog_search
             name: Search Filament
             secondary_info: none
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        entity: sensor.filament_catalog_filtered_spools
-        name: Matches
-        icon: mdi:counter
-        show_name: true
-        show_state: true
-        tap_action:
-          action: more-info
-        sub_button:
-          - name: Clear Filters
-            icon: mdi:filter-remove
-            show_name: true
-            tap_action:
-              action: call-service
-              service: script.filament_catalog_clear_filters
+      - type: custom:config-template-card
+        entities:
+          - input_select.filament_catalog_filter_material
+          - input_select.filament_catalog_filter_vendor
+          - input_select.filament_catalog_filter_color
+          - input_select.filament_catalog_filter_color_family
+          - input_select.filament_catalog_filter_type
+          - input_select.filament_catalog_filter_location
+          - input_select.filament_catalog_filter_stock_level
+          - input_select.filament_catalog_filter_sealed
+          - input_select.filament_catalog_filter_desiccant
+          - input_select.filament_catalog_filter_data_quality
+          - sensor.filament_catalog_filtered_spools
+        card:
+          type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.filament_catalog_filtered_spools
+          name: Matches
+          icon: mdi:counter
+          show_name: true
+          show_state: true
+          tap_action:
+            action: more-info
+          sub_button:
+            - name: "${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')) ? 'Clear Filters *' : 'Clear Filters')}"
+              icon: mdi:filter-remove
+              show_name: true
+              show_background: true
+              state_background: "${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}"
+              tap_action:
+                action: call-service
+                service: script.filament_catalog_clear_filters
 grid_options:
   columns: full
