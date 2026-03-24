@@ -29,7 +29,10 @@
           {%- set filter_sealed = states('input_select.filament_catalog_filter_sealed') -%}
           {%- set search_text = states('input_text.filament_catalog_search') | lower | trim -%}
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
-          {%- set filter_desiccant_old = is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}
+          {%- set filter_desiccant = states('input_select.filament_catalog_filter_desiccant') | default('All', true) -%}
+          {%- set des_yellow_thresh = states('input_number.desiccant_threshold_yellow_days') | float(45) -%}
+          {%- set des_orange_thresh = states('input_number.desiccant_threshold_orange_days') | float(60) -%}
+          {%- set des_red_thresh = states('input_number.desiccant_threshold_red_days') | float(75) -%}
           {%- set filter_stock_level = states('input_select.filament_catalog_filter_stock_level') -%}
           {%- set filter_nearly_empty = is_state('input_boolean.filament_catalog_filter_nearly_empty', 'on') -%}
           {%- set filter_needs_repurchase = is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}
@@ -96,8 +99,8 @@
               {%- else -%}
                 {%- set days_since_used = 99999 -%}
               {%- endif -%}
-              {%- set des_old_threshold = states('input_number.desiccant_threshold_yellow_days') | float(45) -%}
-              {%- set has_old_desiccant = desiccant_age_days > des_old_threshold -%}
+              {%- set has_old_desiccant = desiccant_age_days > des_yellow_thresh -%}
+              {%- set des_has_date = spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
               {%- set is_needs_drying = (not is_sealed) and (days_since_dried > 90) -%}
               {%- set is_stale = days_since_used > 180 -%}
               {%- set is_missing_desiccant = (not is_sealed) and (not has_desiccant) -%}
@@ -111,12 +114,28 @@
               {%- set matches_sealed = filter_sealed == 'All' or (filter_sealed == 'Sealed' and is_sealed) or (filter_sealed == 'Unsealed' and (not is_sealed)) -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
               {%- set matches_low_stock = filter_stock_level not in ['Low Stock', 'Low Stock (by Filament)'] or (filter_stock_level == 'Low Stock' and is_low_stock) or (filter_stock_level == 'Low Stock (by Filament)' and filament_agg_weight < stock_threshold) -%}
-              {%- set matches_desiccant = (not filter_desiccant_old) or has_old_desiccant -%}
+              {%- if filter_desiccant == 'All' -%}
+                {%- set matches_desiccant = true -%}
+              {%- elif filter_desiccant == 'Needs Desiccant (Any Age)' -%}
+                {%- set matches_desiccant = has_old_desiccant -%}
+              {%- elif filter_desiccant is search('^Red') -%}
+                {%- set matches_desiccant = desiccant_age_days > des_red_thresh -%}
+              {%- elif filter_desiccant is search('^Orange') -%}
+                {%- set matches_desiccant = desiccant_age_days > des_orange_thresh and desiccant_age_days <= des_red_thresh -%}
+              {%- elif filter_desiccant is search('^Yellow') -%}
+                {%- set matches_desiccant = desiccant_age_days > des_yellow_thresh and desiccant_age_days <= des_orange_thresh -%}
+              {%- elif filter_desiccant == 'Undefined' -%}
+                {%- set matches_desiccant = not des_has_date -%}
+              {%- elif filter_desiccant == 'Missing Desiccant' -%}
+                {%- set matches_desiccant = is_missing_desiccant -%}
+              {%- else -%}
+                {%- set matches_desiccant = true -%}
+              {%- endif -%}
               {%- set matches_nearly_empty = (not filter_nearly_empty) or is_nearly_empty -%}
               {%- set matches_needs_repurchase = (not filter_needs_repurchase) or is_needs_repurchase -%}
               {%- set matches_needs_drying = (not filter_needs_drying) or is_needs_drying -%}
               {%- set matches_stale = (not filter_stale) or is_stale -%}
-              {%- set matches_missing_desiccant = (not filter_missing_desiccant) or is_missing_desiccant -%}
+              {%- set matches_missing_desiccant = (filter_desiccant != 'All' and filter_desiccant != 'Missing Desiccant') or (not filter_missing_desiccant) or is_missing_desiccant -%}
               {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_sealed and matches_search and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
                 {%- if group_attr == 'location' -%}
                   {%- set gv = location if location else 'Unknown' -%}
@@ -238,7 +257,7 @@
           {%- if states('input_select.filament_catalog_filter_location') != 'All' -%}{%- set active = active + ['Location'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_sealed') != 'All' -%}{%- set active = active + ['Sealed State'] -%}{%- endif -%}
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
-          {%- if is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}{%- set active = active + ['Desiccant Old'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_desiccant') not in ['All', 'unknown', 'unavailable', ''] -%}{%- set active = active + ['Desiccant: ' ~ states('input_select.filament_catalog_filter_desiccant')] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_stock_level') not in ['Any Stock Level', 'unknown', 'unavailable', ''] -%}{%- set active = active + [states('input_select.filament_catalog_filter_stock_level')] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_nearly_empty', 'on') -%}{%- set active = active + ['Nearly Empty'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}{%- set active = active + ['Needs Repurchase'] -%}{%- endif -%}

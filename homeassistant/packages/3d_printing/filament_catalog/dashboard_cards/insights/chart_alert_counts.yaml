@@ -11,7 +11,10 @@ label_map:
   low_stock: Low Stock
   nearly_empty: Nearly Empty
   needs_repurchase: Needs Repurchase
-  desiccant_overdue: Desiccant Overdue
+  desiccant_red: "Desiccant Red (>75d)"
+  desiccant_orange: "Desiccant Orange (>60d)"
+  desiccant_yellow: "Desiccant Yellow (>45d)"
+  desiccant_undefined: Desiccant Undefined
   missing_desiccant: Missing Desiccant
   needs_drying: Needs Drying
   stale: Stale
@@ -19,7 +22,10 @@ color_map:
   low_stock: '#EF5350'
   nearly_empty: '#F06292'
   needs_repurchase: '#FF7043'
-  desiccant_overdue: '#29B6F6'
+  desiccant_red: '#E53935'
+  desiccant_orange: '#FB8C00'
+  desiccant_yellow: '#FDD835'
+  desiccant_undefined: '#78909C'
   missing_desiccant: '#26C6DA'
   needs_drying: '#FFA726'
   stale: '#9E9E9E'
@@ -41,16 +47,41 @@ tap_actions:
     service: input_boolean.turn_on
     target:
       entity_id: input_boolean.filament_catalog_filter_needs_repurchase
-  desiccant_overdue:
+  desiccant_red:
     action: call-service
-    service: input_boolean.turn_on
+    service: input_select.select_option
+    data:
+      option: "Red (>75 days)"
     target:
-      entity_id: input_boolean.filament_catalog_filter_desiccant_old
+      entity_id: input_select.filament_catalog_filter_desiccant
+  desiccant_orange:
+    action: call-service
+    service: input_select.select_option
+    data:
+      option: "Orange (>60 \u2013 \u226475 days)"
+    target:
+      entity_id: input_select.filament_catalog_filter_desiccant
+  desiccant_yellow:
+    action: call-service
+    service: input_select.select_option
+    data:
+      option: "Yellow (>45 \u2013 \u226460 days)"
+    target:
+      entity_id: input_select.filament_catalog_filter_desiccant
+  desiccant_undefined:
+    action: call-service
+    service: input_select.select_option
+    data:
+      option: Undefined
+    target:
+      entity_id: input_select.filament_catalog_filter_desiccant
   missing_desiccant:
     action: call-service
-    service: input_boolean.turn_on
+    service: input_select.select_option
+    data:
+      option: Missing Desiccant
     target:
-      entity_id: input_boolean.filament_catalog_filter_missing_desiccant
+      entity_id: input_select.filament_catalog_filter_desiccant
   needs_drying:
     action: call-service
     service: input_boolean.turn_on

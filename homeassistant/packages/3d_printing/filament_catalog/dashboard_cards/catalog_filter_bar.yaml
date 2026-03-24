@@ -101,13 +101,12 @@ cards:
               show_name: true
               show_state: true
               fill_width: true
-            - entity: input_boolean.filament_catalog_filter_desiccant_old
+            - entity: input_select.filament_catalog_filter_desiccant
+              sub_button_type: select
               name: Desiccant
               icon: mdi:water-alert
               show_name: true
-              show_state: false
-              tap_action:
-                action: toggle
+              show_state: true
               fill_width: true
             - entity: input_boolean.filament_catalog_large_cards
               name: Large Cards

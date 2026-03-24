@@ -1,0 +1,12 @@
+filament_catalog_filter_desiccant:
+  name: Desiccant Filter
+  icon: mdi:water-alert
+  options:
+    - All
+    - "Needs Desiccant (Any Age)"
+    - "Red (>75 days)"
+    - "Orange (>60 – ≤75 days)"
+    - "Yellow (>45 – ≤60 days)"
+    - Undefined
+    - Missing Desiccant
+  initial: All

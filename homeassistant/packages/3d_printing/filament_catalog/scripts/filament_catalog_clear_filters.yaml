@@ -21,6 +21,12 @@ filament_catalog_clear_filters:
           - input_select.filament_catalog_filter_stock_level
       data:
         option: Any Stock Level
+    - action: input_select.select_option
+      target:
+        entity_id:
+          - input_select.filament_catalog_filter_desiccant
+      data:
+        option: All
     - action: input_text.set_value
       target:
         entity_id: input_text.filament_catalog_search
