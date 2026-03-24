@@ -84,13 +84,12 @@ cards:
               show_state: true
               tap_to_slide: true
               fill_width: true
-            - entity: input_boolean.filament_catalog_filter_low_stock
-              name: Low Stock
+            - entity: input_select.filament_catalog_filter_stock_level
+              sub_button_type: select
+              name: Stock Level
               icon: mdi:archive-alert-outline
               show_name: true
-              show_state: false
-              tap_action:
-                action: toggle
+              show_state: true
               fill_width: true
           buttons_layout: inline
           justify_content: fill

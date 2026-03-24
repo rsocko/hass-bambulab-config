@@ -1,0 +1,8 @@
+filament_catalog_filter_stock_level:
+  name: Stock Level Filter
+  icon: mdi:archive-alert-outline
+  options:
+    - Any Stock Level
+    - Low Stock
+    - Low Stock (by Filament)
+  initial: Any Stock Level

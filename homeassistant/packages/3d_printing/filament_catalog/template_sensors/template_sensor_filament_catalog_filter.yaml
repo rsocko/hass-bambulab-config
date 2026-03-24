@@ -30,7 +30,7 @@
           {%- set search_text = states('input_text.filament_catalog_search') | lower | trim -%}
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
           {%- set filter_desiccant_old = is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}
-          {%- set filter_low_stock = is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}
+          {%- set filter_stock_level = states('input_select.filament_catalog_filter_stock_level') -%}
           {%- set filter_nearly_empty = is_state('input_boolean.filament_catalog_filter_nearly_empty', 'on') -%}
           {%- set filter_needs_repurchase = is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}
           {%- set filter_needs_drying = is_state('input_boolean.filament_catalog_filter_needs_drying', 'on') -%}
@@ -72,8 +72,10 @@
                   {%- set fil_total = totals.get(filament_id | string) -%}
                 {%- endif -%}
                 {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
+              {%- set filament_agg_weight = fil_total.get('weight', 0) | float(0) if fil_total is mapping else remaining_weight -%}
               {%- else -%}
                 {%- set filament_count = 0 -%}
+                {%- set filament_agg_weight = remaining_weight -%}
               {%- endif -%}
               {%- set is_needs_repurchase = filament_count == 1 and remaining_weight < stock_threshold -%}
               {%- if spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
@@ -108,7 +110,7 @@
               {%- set matches_location = filter_location == 'All' or location | lower == filter_location | lower -%}
               {%- set matches_sealed = filter_sealed == 'All' or (filter_sealed == 'Sealed' and is_sealed) or (filter_sealed == 'Unsealed' and (not is_sealed)) -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
-              {%- set matches_low_stock = (not filter_low_stock) or is_low_stock -%}
+              {%- set matches_low_stock = filter_stock_level not in ['Low Stock', 'Low Stock (by Filament)'] or (filter_stock_level == 'Low Stock' and is_low_stock) or (filter_stock_level == 'Low Stock (by Filament)' and filament_agg_weight < stock_threshold) -%}
               {%- set matches_desiccant = (not filter_desiccant_old) or has_old_desiccant -%}
               {%- set matches_nearly_empty = (not filter_nearly_empty) or is_nearly_empty -%}
               {%- set matches_needs_repurchase = (not filter_needs_repurchase) or is_needs_repurchase -%}
@@ -237,7 +239,7 @@
           {%- if states('input_select.filament_catalog_filter_sealed') != 'All' -%}{%- set active = active + ['Sealed State'] -%}{%- endif -%}
           {%- if states('input_text.filament_catalog_search') | trim != '' -%}{%- set active = active + ['Search'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_desiccant_old', 'on') -%}{%- set active = active + ['Desiccant Old'] -%}{%- endif -%}
-          {%- if is_state('input_boolean.filament_catalog_filter_low_stock', 'on') -%}{%- set active = active + ['Low Stock'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_stock_level') not in ['Any Stock Level', 'unknown', 'unavailable', ''] -%}{%- set active = active + [states('input_select.filament_catalog_filter_stock_level')] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_nearly_empty', 'on') -%}{%- set active = active + ['Nearly Empty'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_needs_repurchase', 'on') -%}{%- set active = active + ['Needs Repurchase'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_needs_drying', 'on') -%}{%- set active = active + ['Needs Drying'] -%}{%- endif -%}

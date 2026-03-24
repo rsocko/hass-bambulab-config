@@ -1,7 +1,7 @@
 filament_catalog_stock_threshold:
   name: Filament Catalog Stock Threshold
   min: 0
-  max: 500
+  max: 2000
   step: 10
   unit_of_measurement: g
   icon: mdi:scale-balance

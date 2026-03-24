@@ -26,9 +26,11 @@ color_map:
 tap_actions:
   low_stock:
     action: call-service
-    service: input_boolean.turn_on
+    service: input_select.select_option
+    data:
+      option: Low Stock
     target:
-      entity_id: input_boolean.filament_catalog_filter_low_stock
+      entity_id: input_select.filament_catalog_filter_stock_level
   nearly_empty:
     action: call-service
     service: input_boolean.turn_on
