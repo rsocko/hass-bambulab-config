@@ -26,10 +26,6 @@ cards:
       entity: sensor.filament_catalog_filtered_spools
       hide_main_background: false
       rows: 3.08
-      styles: |
-        .bubble-sub-button.material {
-          box-shadow: ${hass.states['input_select.filament_catalog_filter_material'] && hass.states['input_select.filament_catalog_filter_material'].attributes && hass.states['input_select.filament_catalog_filter_material'].attributes.options && hass.states['input_select.filament_catalog_filter_material'].state !== hass.states['input_select.filament_catalog_filter_material'].attributes.options[0] ? 'inset 0 -2px 0 var(--accent-color)' : 'none'} !important;
-        }
       sub_button:
         main: []
         bottom_layout: rows
@@ -244,6 +240,186 @@ cards:
           tap_action:
             action: more-info
           sub_button:
+            - entity: input_select.filament_catalog_filter_material
+              icon: mdi:flask-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_material
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_material
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_vendor
+              icon: mdi:factory
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_vendor
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_vendor
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_color
+              icon: mdi:palette-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_color
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_color
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_color_family
+              icon: mdi:format-color-fill
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_color_family
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_color_family
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_type
+              icon: mdi:shape-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_type
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_type
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_location
+              icon: mdi:map-marker
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_location
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_location
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_stock_level
+              icon: mdi:archive-alert-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_stock_level
+                  state_not: "Any Stock Level"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_stock_level
+                data:
+                  option: "Any Stock Level"
+            - entity: input_select.filament_catalog_filter_sealed
+              icon: mdi:package-variant-closed
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_sealed
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_sealed
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_desiccant
+              icon: mdi:water-alert
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_desiccant
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_desiccant
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_data_quality
+              icon: mdi:clipboard-alert-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_data_quality
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_data_quality
+                data:
+                  option: "All"
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
