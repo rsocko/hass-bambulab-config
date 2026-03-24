@@ -241,11 +241,13 @@ cards:
             action: more-info
           sub_button:
             - entity: input_select.filament_catalog_filter_material
+              sub_button_type: default
               icon: mdi:flask-outline
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -259,11 +261,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_vendor
+              sub_button_type: default
               icon: mdi:factory
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -277,11 +281,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_color
+              sub_button_type: default
               icon: mdi:palette-outline
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -295,11 +301,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_color_family
+              sub_button_type: default
               icon: mdi:format-color-fill
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -313,11 +321,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_type
+              sub_button_type: default
               icon: mdi:shape-outline
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -331,11 +341,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_location
+              sub_button_type: default
               icon: mdi:map-marker
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -349,11 +361,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_stock_level
+              sub_button_type: default
               icon: mdi:archive-alert-outline
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -367,11 +381,13 @@ cards:
                 data:
                   option: "Any Stock Level"
             - entity: input_select.filament_catalog_filter_sealed
+              sub_button_type: default
               icon: mdi:package-variant-closed
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -385,11 +401,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_desiccant
+              sub_button_type: default
               icon: mdi:water-alert
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -403,11 +421,13 @@ cards:
                 data:
                   option: "All"
             - entity: input_select.filament_catalog_filter_data_quality
+              sub_button_type: default
               icon: mdi:clipboard-alert-outline
               show_icon: true
               show_name: false
               show_state: false
               show_background: true
+              state_color: true
               fill_width: false
               visibility:
                 - condition: state
@@ -423,8 +443,7 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              show_background: true
-              state_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}
+              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}
               state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => states[id]?.state !== (states[id]?.attributes?.options?.[0] ?? '')))}
               tap_action:
                 action: call-service
