@@ -451,8 +451,10 @@ class ApexDirectBarCard extends HTMLElement {
         markers: {
           size: 5,
           colors: [this._config.marker_color],
-          strokeColors: [isDark ? "#0F172A" : "#FFFFFF"],
+          strokeColors: isDark ? "#0F172A" : "#FFFFFF",
           strokeWidth: 2,
+          fillOpacity: 1,
+          strokeOpacity: 1,
           hover: {
             size: 7,
           },
@@ -469,6 +471,12 @@ class ApexDirectBarCard extends HTMLElement {
         yaxis: {
           show: false,
           tickAmount: 5,
+          axisBorder: {
+            show: false,
+          },
+          axisTicks: {
+            show: false,
+          },
           labels: {
             show: false,
             style: {

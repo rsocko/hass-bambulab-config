@@ -1,6 +1,6 @@
 type: custom:apex-direct-bar-card
 title: Count by Type
-height: 340
+height: 280
 chart_type: radar
 value_name: spools
 source_entity: sensor.filament_catalog_metrics
