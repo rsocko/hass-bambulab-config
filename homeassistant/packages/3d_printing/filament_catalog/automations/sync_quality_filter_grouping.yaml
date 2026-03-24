@@ -1,0 +1,22 @@
+# Docs: docs/features/filament_catalog/filament-catalog.md
+alias: "Filament Catalog: Sync Quality Filter Grouping"
+id: filament_catalog_sync_quality_filter_grouping
+description: >-
+  When Duplicate Hex Colors is selected in Data Quality, automatically switch
+  Group By to By Hex Color for easier duplicate inspection.
+
+triggers:
+  - trigger: state
+    entity_id: input_select.filament_catalog_filter_data_quality
+
+conditions:
+  - condition: state
+    entity_id: input_select.filament_catalog_filter_data_quality
+    state: Duplicate Hex Colors
+
+actions:
+  - action: input_select.select_option
+    target:
+      entity_id: input_select.filament_catalog_tab
+    data:
+      option: By Hex Color

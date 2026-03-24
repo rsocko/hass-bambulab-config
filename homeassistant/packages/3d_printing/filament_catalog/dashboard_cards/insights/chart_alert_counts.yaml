@@ -11,6 +11,7 @@ label_map:
   low_stock: Low Stock
   nearly_empty: Nearly Empty
   needs_repurchase: Needs Repurchase
+  desiccant_overdue: Desiccant Overdue
   desiccant_red: "Desiccant Red (>75d)"
   desiccant_orange: "Desiccant Orange (>60d)"
   desiccant_yellow: "Desiccant Yellow (>45d)"
@@ -24,6 +25,7 @@ color_map:
   low_stock: '#EF5350'
   nearly_empty: '#F06292'
   needs_repurchase: '#FF7043'
+  desiccant_overdue: '#FB8C00'
   desiccant_red: '#E53935'
   desiccant_orange: '#FB8C00'
   desiccant_yellow: '#FDD835'
@@ -51,6 +53,13 @@ tap_actions:
     service: input_boolean.turn_on
     target:
       entity_id: input_boolean.filament_catalog_filter_needs_repurchase
+  desiccant_overdue:
+    action: call-service
+    service: input_select.select_option
+    data:
+      option: Needs Desiccant (Any Age)
+    target:
+      entity_id: input_select.filament_catalog_filter_desiccant
   desiccant_red:
     action: call-service
     service: input_select.select_option

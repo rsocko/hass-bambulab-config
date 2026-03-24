@@ -273,7 +273,7 @@
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
-          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0, multiple_unsealed_duplicates=0, duplicate_hex_colors=0) -%}
+          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_overdue=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0, multiple_unsealed_duplicates=0, duplicate_hex_colors=0) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
@@ -316,10 +316,13 @@
               {%- endif -%}
               {%- if not sealed -%}
                 {%- if des_has_date and des_days > des_red_thresh -%}
+                  {%- set counts.desiccant_overdue = counts.desiccant_overdue + 1 -%}
                   {%- set counts.desiccant_red = counts.desiccant_red + 1 -%}
                 {%- elif des_has_date and des_days > des_orange_thresh -%}
+                  {%- set counts.desiccant_overdue = counts.desiccant_overdue + 1 -%}
                   {%- set counts.desiccant_orange = counts.desiccant_orange + 1 -%}
                 {%- elif des_has_date and des_days > des_yellow_thresh -%}
+                  {%- set counts.desiccant_overdue = counts.desiccant_overdue + 1 -%}
                   {%- set counts.desiccant_yellow = counts.desiccant_yellow + 1 -%}
                 {%- elif not des_has_date -%}
                   {%- set counts.desiccant_undefined = counts.desiccant_undefined + 1 -%}
@@ -372,6 +375,7 @@
             'low_stock': counts.low_stock,
             'nearly_empty': counts.nearly_empty,
             'needs_repurchase': counts.needs_repurchase,
+            'desiccant_overdue': counts.desiccant_overdue,
             'desiccant_red': counts.desiccant_red,
             'desiccant_orange': counts.desiccant_orange,
             'desiccant_yellow': counts.desiccant_yellow,
@@ -401,7 +405,7 @@
             {%- endif -%}
           {%- endfor -%}
           {%- set ids = namespace(
-            low_stock=[], nearly_empty=[], needs_repurchase=[], desiccant_red=[],
+            low_stock=[], nearly_empty=[], needs_repurchase=[], desiccant_overdue=[], desiccant_red=[],
             desiccant_orange=[], desiccant_yellow=[], desiccant_undefined=[],
             missing_desiccant=[], needs_drying=[], stale=[],
             multiple_unsealed_duplicates=[], duplicate_hex_colors=[]
@@ -444,9 +448,9 @@
                 {%- set ids.needs_repurchase = ids.needs_repurchase + [eid] -%}
               {%- endif -%}
               {%- if not sealed -%}
-                {%- if des_has_date and des_days > des_red_thresh -%}{%- set ids.desiccant_red = ids.desiccant_red + [eid] -%}
-                {%- elif des_has_date and des_days > des_orange_thresh -%}{%- set ids.desiccant_orange = ids.desiccant_orange + [eid] -%}
-                {%- elif des_has_date and des_days > des_yellow_thresh -%}{%- set ids.desiccant_yellow = ids.desiccant_yellow + [eid] -%}
+                {%- if des_has_date and des_days > des_red_thresh -%}{%- set ids.desiccant_overdue = ids.desiccant_overdue + [eid] -%}{%- set ids.desiccant_red = ids.desiccant_red + [eid] -%}
+                {%- elif des_has_date and des_days > des_orange_thresh -%}{%- set ids.desiccant_overdue = ids.desiccant_overdue + [eid] -%}{%- set ids.desiccant_orange = ids.desiccant_orange + [eid] -%}
+                {%- elif des_has_date and des_days > des_yellow_thresh -%}{%- set ids.desiccant_overdue = ids.desiccant_overdue + [eid] -%}{%- set ids.desiccant_yellow = ids.desiccant_yellow + [eid] -%}
                 {%- elif not des_has_date -%}{%- set ids.desiccant_undefined = ids.desiccant_undefined + [eid] -%}
                 {%- endif -%}
               {%- endif -%}
@@ -507,6 +511,7 @@
             'low_stock': ids.low_stock,
             'nearly_empty': ids.nearly_empty,
             'needs_repurchase': ids.needs_repurchase,
+            'desiccant_overdue': ids.desiccant_overdue,
             'desiccant_red': ids.desiccant_red,
             'desiccant_orange': ids.desiccant_orange,
             'desiccant_yellow': ids.desiccant_yellow,
