@@ -3,6 +3,7 @@ title: Count by Spool Type and Clip Type
 height: 300
 horizontal: false
 value_name: spools
+axis_title: ''
 source_entity: sensor.filament_catalog_metrics
 source_attribute: count_by_spool_type_clip_type_stack_segments_json
 source_mode: array
