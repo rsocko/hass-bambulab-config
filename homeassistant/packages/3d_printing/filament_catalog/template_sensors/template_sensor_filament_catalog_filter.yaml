@@ -66,6 +66,27 @@
               {%- set dq_hexes.items = dq_hexes.items + [issue_hex[0:6]] -%}
             {%- endif -%}
           {%- endfor -%}
+          {%- set dq_missing_uuid_ids = namespace(items=[]) -%}
+          {%- for issue in quality_data.get('missing_uuid', []) if issue is mapping -%}
+            {%- set issue_eid = issue.get('entity_id', '') -%}
+            {%- if issue_eid and issue_eid not in dq_missing_uuid_ids.items -%}
+              {%- set dq_missing_uuid_ids.items = dq_missing_uuid_ids.items + [issue_eid] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set dq_tag_uuid_mismatch_ids = namespace(items=[]) -%}
+          {%- for issue in quality_data.get('tag_uuid_mismatch', []) if issue is mapping -%}
+            {%- set issue_eid = issue.get('entity_id', '') -%}
+            {%- if issue_eid and issue_eid not in dq_tag_uuid_mismatch_ids.items -%}
+              {%- set dq_tag_uuid_mismatch_ids.items = dq_tag_uuid_mismatch_ids.items + [issue_eid] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set dq_missing_profile_ids = namespace(items=[]) -%}
+          {%- for issue in quality_data.get('missing_profile', []) if issue is mapping -%}
+            {%- set issue_eid = issue.get('entity_id', '') -%}
+            {%- if issue_eid and issue_eid not in dq_missing_profile_ids.items -%}
+              {%- set dq_missing_profile_ids.items = dq_missing_profile_ids.items + [issue_eid] -%}
+            {%- endif -%}
+          {%- endfor -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family', 'By Hex Color': 'filament_color_hex'} -%}
           {%- set group_attr = group_attr_map.get(tab, '') -%}
@@ -142,6 +163,12 @@
                 {%- set matches_data_quality = spool.entity_id in dq_unsealed_ids.items -%}
               {%- elif filter_data_quality == 'Duplicate Hex Colors' -%}
                 {%- set matches_data_quality = spool_hex | length >= 6 and spool_hex[0:6] in dq_hexes.items -%}
+              {%- elif filter_data_quality == 'Missing UUID' -%}
+                {%- set matches_data_quality = spool.entity_id in dq_missing_uuid_ids.items -%}
+              {%- elif filter_data_quality == 'Tag != UUID' -%}
+                {%- set matches_data_quality = spool.entity_id in dq_tag_uuid_mismatch_ids.items -%}
+              {%- elif filter_data_quality == 'Missing Profile' -%}
+                {%- set matches_data_quality = spool.entity_id in dq_missing_profile_ids.items -%}
               {%- else -%}
                 {%- set matches_data_quality = true -%}
               {%- endif -%}

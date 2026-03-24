@@ -4,7 +4,7 @@ filament_catalog_apply_quality_filter:
   description: Apply a data quality filter and optionally switch grouping to hex color.
   fields:
     quality_filter:
-      description: All, Multiple Unsealed Duplicates, or Duplicate Hex Colors
+      description: All, Multiple Unsealed Duplicates, Duplicate Hex Colors, Missing UUID, Tag != UUID, or Missing Profile
       example: Duplicate Hex Colors
     group_by_hex:
       description: When true, switches the catalog tab to By Hex Color.
@@ -12,7 +12,7 @@ filament_catalog_apply_quality_filter:
   sequence:
     - variables:
         quality_option: >-
-          {% set valid = ['All', 'Multiple Unsealed Duplicates', 'Duplicate Hex Colors'] %}
+          {% set valid = ['All', 'Multiple Unsealed Duplicates', 'Duplicate Hex Colors', 'Missing UUID', 'Tag != UUID', 'Missing Profile'] %}
           {{ quality_filter if quality_filter in valid else 'All' }}
         should_group_by_hex: "{{ group_by_hex | default(false) in [true, 'true', 'True', 1, '1', 'on', 'On'] }}"
     - action: input_select.select_option

@@ -311,7 +311,7 @@
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
-          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_overdue=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0, multiple_unsealed_duplicates=0, duplicate_hex_colors=0) -%}
+          {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_overdue=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0, multiple_unsealed_duplicates=0, duplicate_hex_colors=0, missing_uuid=0, tag_uuid_mismatch=0, missing_profile=0) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
@@ -375,6 +375,23 @@
               {%- if used_days > 180 -%}
                 {%- set counts.stale = counts.stale + 1 -%}
               {%- endif -%}
+              {%- set vendor = a.get('filament_vendor_name', '') | string -%}
+              {%- set is_bambu = vendor == 'Bambu Lab' -%}
+              {%- set spool_uuid_raw = a.get('extra_spool_uuid', '') | string | trim | trim('"') -%}
+              {%- set has_uuid = spool_uuid_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] and not spool_uuid_raw is match('^0+$') -%}
+              {%- set tag_raw = a.get('extra_tag', '') | string | trim | trim('"') -%}
+              {%- set has_tag = tag_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+              {%- set profile_raw = a.get('filament_extra_profile_name', '') | string | trim | trim('"') -%}
+              {%- set has_profile = profile_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+              {%- if is_bambu and not sealed and not has_uuid -%}
+                {%- set counts.missing_uuid = counts.missing_uuid + 1 -%}
+              {%- endif -%}
+              {%- if (has_tag != has_uuid) or (has_tag and has_uuid and tag_raw != spool_uuid_raw) -%}
+                {%- set counts.tag_uuid_mismatch = counts.tag_uuid_mismatch + 1 -%}
+              {%- endif -%}
+              {%- if is_bambu and not has_profile -%}
+                {%- set counts.missing_profile = counts.missing_profile + 1 -%}
+              {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
           {%- set unsealed_by_filament = namespace(data={}) -%}
@@ -422,7 +439,10 @@
             'needs_drying': counts.needs_drying,
             'stale': counts.stale,
             'multiple_unsealed_duplicates': counts.multiple_unsealed_duplicates,
-            'duplicate_hex_colors': counts.duplicate_hex_colors
+            'duplicate_hex_colors': counts.duplicate_hex_colors,
+            'missing_uuid': counts.missing_uuid,
+            'tag_uuid_mismatch': counts.tag_uuid_mismatch,
+            'missing_profile': counts.missing_profile
           } | tojson }}
         alert_entity_ids_json: >-
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
@@ -446,7 +466,8 @@
             low_stock=[], nearly_empty=[], needs_repurchase=[], desiccant_overdue=[], desiccant_red=[],
             desiccant_orange=[], desiccant_yellow=[], desiccant_undefined=[],
             missing_desiccant=[], needs_drying=[], stale=[],
-            multiple_unsealed_duplicates=[], duplicate_hex_colors=[]
+            multiple_unsealed_duplicates=[], duplicate_hex_colors=[],
+            missing_uuid=[], tag_uuid_mismatch=[], missing_profile=[]
           ) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set a = spool.attributes -%}
@@ -495,6 +516,17 @@
               {%- if not sealed and not has_desiccant -%}{%- set ids.missing_desiccant = ids.missing_desiccant + [eid] -%}{%- endif -%}
               {%- if not sealed and dry_days > 90 -%}{%- set ids.needs_drying = ids.needs_drying + [eid] -%}{%- endif -%}
               {%- if used_days > 180 -%}{%- set ids.stale = ids.stale + [eid] -%}{%- endif -%}
+              {%- set vendor = a.get('filament_vendor_name', '') | string -%}
+              {%- set is_bambu = vendor == 'Bambu Lab' -%}
+              {%- set spool_uuid_raw = a.get('extra_spool_uuid', '') | string | trim | trim('"') -%}
+              {%- set has_uuid = spool_uuid_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] and not spool_uuid_raw is match('^0+$') -%}
+              {%- set tag_raw = a.get('extra_tag', '') | string | trim | trim('"') -%}
+              {%- set has_tag = tag_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+              {%- set profile_raw = a.get('filament_extra_profile_name', '') | string | trim | trim('"') -%}
+              {%- set has_profile = profile_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+              {%- if is_bambu and not sealed and not has_uuid -%}{%- set ids.missing_uuid = ids.missing_uuid + [eid] -%}{%- endif -%}
+              {%- if (has_tag != has_uuid) or (has_tag and has_uuid and tag_raw != spool_uuid_raw) -%}{%- set ids.tag_uuid_mismatch = ids.tag_uuid_mismatch + [eid] -%}{%- endif -%}
+              {%- if is_bambu and not has_profile -%}{%- set ids.missing_profile = ids.missing_profile + [eid] -%}{%- endif -%}
             {%- endif -%}
           {%- endfor -%}
           {%- set unsealed_by_filament = namespace(data={}) -%}
@@ -558,11 +590,17 @@
             'needs_drying': ids.needs_drying,
             'stale': ids.stale,
             'multiple_unsealed_duplicates': ids.multiple_unsealed_duplicates,
-            'duplicate_hex_colors': ids.duplicate_hex_colors
+            'duplicate_hex_colors': ids.duplicate_hex_colors,
+            'missing_uuid': ids.missing_uuid,
+            'tag_uuid_mismatch': ids.tag_uuid_mismatch,
+            'missing_profile': ids.missing_profile
           } | tojson }}
         data_quality_json: >-
           {%- set unsealed_by_filament = namespace(data={}) -%}
           {%- set hex_to_filaments = namespace(data={}) -%}
+          {%- set dq_missing_uuid = namespace(items=[]) -%}
+          {%- set dq_tag_uuid_mismatch = namespace(items=[]) -%}
+          {%- set dq_missing_profile = namespace(items=[]) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
@@ -570,6 +608,33 @@
             {%- if not archived -%}
               {%- set fid = a.get('filament_id') | string -%}
               {%- set sealed = a.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+              {%- set vendor = a.get('filament_vendor_name', '') | string -%}
+              {%- set is_bambu = vendor == 'Bambu Lab' -%}
+              {%- set spool_uuid_raw = a.get('extra_spool_uuid', '') | string | trim | trim('"') -%}
+              {%- set has_uuid = spool_uuid_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] and not spool_uuid_raw is match('^0+$') -%}
+              {%- set tag_raw = a.get('extra_tag', '') | string | trim | trim('"') -%}
+              {%- set has_tag = tag_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+              {%- set profile_raw = a.get('filament_extra_profile_name', '') | string | trim | trim('"') -%}
+              {%- set has_profile = profile_raw not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
+              {%- if is_bambu and not sealed and not has_uuid -%}
+                {%- set dq_missing_uuid.items = dq_missing_uuid.items + [{
+                  'entity_id': spool.entity_id,
+                  'vendor': vendor
+                }] -%}
+              {%- endif -%}
+              {%- if (has_tag != has_uuid) or (has_tag and has_uuid and tag_raw != spool_uuid_raw) -%}
+                {%- set dq_tag_uuid_mismatch.items = dq_tag_uuid_mismatch.items + [{
+                  'entity_id': spool.entity_id,
+                  'tag': tag_raw if has_tag else '',
+                  'uuid': spool_uuid_raw if has_uuid else ''
+                }] -%}
+              {%- endif -%}
+              {%- if is_bambu and not has_profile -%}
+                {%- set dq_missing_profile.items = dq_missing_profile.items + [{
+                  'entity_id': spool.entity_id,
+                  'filament_id': fid
+                }] -%}
+              {%- endif -%}
               {%- if not sealed and fid not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
                 {%- set existing = unsealed_by_filament.data.get(fid, []) -%}
                 {%- set unsealed_by_filament.data = unsealed_by_filament.data | combine({fid: existing + [spool.entity_id]}) -%}
@@ -605,7 +670,10 @@
           {%- endfor -%}
           {{ {
             'multiple_unsealed_duplicates': multiple_unsealed.items,
-            'duplicate_hex_colors': duplicate_hex.items
+            'duplicate_hex_colors': duplicate_hex.items,
+            'missing_uuid': dq_missing_uuid.items,
+            'tag_uuid_mismatch': dq_tag_uuid_mismatch.items,
+            'missing_profile': dq_missing_profile.items
           } | tojson }}
         total_inventory_value: >-
           {%- set ns = namespace(value=0) -%}

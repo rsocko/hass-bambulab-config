@@ -5,7 +5,7 @@ value_name: spools
 source_entity: sensor.filament_catalog_metrics
 source_attribute: alert_counts_json
 horizontal: true
-max_items: 14
+max_items: 17
 default_color: '#EF5350'
 label_map:
   low_stock: Low Stock
@@ -21,6 +21,9 @@ label_map:
   stale: Stale
   multiple_unsealed_duplicates: Multiple Unsealed Duplicates
   duplicate_hex_colors: Duplicate Hex Colors
+  missing_uuid: Missing UUID
+  tag_uuid_mismatch: "Tag != UUID"
+  missing_profile: Missing Profile
 color_map:
   low_stock: '#EF5350'
   nearly_empty: '#F06292'
@@ -35,6 +38,9 @@ color_map:
   stale: '#A1887F'
   multiple_unsealed_duplicates: '#F57C00'
   duplicate_hex_colors: '#8E24AA'
+  missing_uuid: '#5C6BC0'
+  tag_uuid_mismatch: '#EC407A'
+  missing_profile: '#66BB6A'
 tap_actions:
   low_stock:
     action: call-service
@@ -117,3 +123,21 @@ tap_actions:
     data:
       quality_filter: Duplicate Hex Colors
       group_by_hex: true
+  missing_uuid:
+    action: call-service
+    service: script.filament_catalog_apply_quality_filter
+    data:
+      quality_filter: Missing UUID
+      group_by_hex: false
+  tag_uuid_mismatch:
+    action: call-service
+    service: script.filament_catalog_apply_quality_filter
+    data:
+      quality_filter: "Tag != UUID"
+      group_by_hex: false
+  missing_profile:
+    action: call-service
+    service: script.filament_catalog_apply_quality_filter
+    data:
+      quality_filter: Missing Profile
+      group_by_hex: false

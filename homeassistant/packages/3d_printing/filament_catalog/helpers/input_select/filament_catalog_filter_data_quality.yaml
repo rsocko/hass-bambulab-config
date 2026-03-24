@@ -6,4 +6,7 @@ filament_catalog_filter_data_quality:
     - All
     - Multiple Unsealed Duplicates
     - Duplicate Hex Colors
+    - Missing UUID
+    - Tag != UUID
+    - Missing Profile
   initial: All
