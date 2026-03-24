@@ -23,13 +23,21 @@ class ApexDirectBarCard extends HTMLElement {
       throw new Error("apex-direct-bar-card requires either entities[] or source_entity + source_attribute");
     }
 
+    var axisTitle = config.axis_title;
+    if (axisTitle === undefined || axisTitle === null) {
+      axisTitle = config.value_name || "value";
+    } else {
+      axisTitle = String(axisTitle);
+      if (axisTitle.trim() === "") {
+        axisTitle = null;
+      }
+    }
+
     this._config = {
       title: config.title || "Bar Chart",
       height: config.height || 280,
       value_name: config.value_name || "value",
-      axis_title: config.axis_title !== undefined && config.axis_title !== null
-        ? String(config.axis_title)
-        : (config.value_name || "value"),
+      axis_title: axisTitle,
       value_decimals: config.value_decimals === undefined || config.value_decimals === null
         ? null
         : Number(config.value_decimals),
@@ -597,7 +605,7 @@ class ApexDirectBarCard extends HTMLElement {
         }),
         xaxis: {
           categories: [this._config.stack_category],
-          title: this._config.axis_title ? { text: this._config.axis_title } : undefined,
+          title: { text: this._config.axis_title },
           labels: {
             style: {
               colors: textColor,
@@ -698,7 +706,7 @@ class ApexDirectBarCard extends HTMLElement {
         series: stackedSeries,
         xaxis: {
           categories: categories,
-          title: this._config.axis_title ? { text: this._config.axis_title } : undefined,
+          title: { text: this._config.axis_title },
           labels: {
             style: {
               colors: textColor,
@@ -775,7 +783,7 @@ class ApexDirectBarCard extends HTMLElement {
       },
       xaxis: {
         categories: labels,
-        title: this._config.axis_title ? { text: this._config.axis_title } : undefined,
+        title: { text: this._config.axis_title },
         labels: {
           style: {
             colors: textColor,
