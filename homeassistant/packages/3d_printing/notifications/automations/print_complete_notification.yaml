@@ -73,6 +73,8 @@
         title: "Print Complete ✓"
         message: "{{ notification_message }}"
         data:
+          url: "/lovelace/3d-printing"
+          clickAction: "/lovelace/3d-printing"
           image: "/local/printer_snapshots/{{ snapshot_filename }}"
           push:
             interruption-level: "{{ 'critical' if is_state('input_boolean.3dprinter_critical_notifications', 'on') else 'active' }}"
@@ -86,6 +88,8 @@
         title: "Print Complete ✓"
         message: "{{ notification_message }}"
         data:
+          url: "/lovelace/3d-printing"
+          clickAction: "/lovelace/3d-printing"
           image: "/local/printer_snapshots/{{ snapshot_filename }}"
           push:
             interruption-level: "{{ 'critical' if is_state('input_boolean.3dprinter_critical_notifications', 'on') else 'active' }}"

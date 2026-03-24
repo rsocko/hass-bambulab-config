@@ -26,6 +26,8 @@
         title: "Print Started"
         message: "{{ printer_name }} started printing {{ task_name }}"
         data:
+          url: "/lovelace/3d-printing"
+          clickAction: "/lovelace/3d-printing"
           push:
             interruption-level: passive
           actions:
@@ -38,6 +40,8 @@
         title: "Print Started"
         message: "{{ printer_name }} started printing {{ task_name }}"
         data:
+          url: "/lovelace/3d-printing"
+          clickAction: "/lovelace/3d-printing"
           push:
             interruption-level: passive
           actions:
