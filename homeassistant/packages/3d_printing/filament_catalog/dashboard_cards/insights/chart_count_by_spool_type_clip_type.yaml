@@ -1,0 +1,18 @@
+type: custom:apex-direct-bar-card
+title: Count by Spool Type and Clip Type
+height: 300
+horizontal: false
+value_name: spools
+source_entity: sensor.filament_catalog_metrics
+source_attribute: count_by_spool_type_clip_type_stack_segments_json
+source_mode: array
+label_key: spool_type
+category_key: spool_type
+segment_key: clip_type
+value_key: count
+bar_mode: stacked_by_category
+max_items: 30
+legend_show: true
+legend_position: right
+legend_font_size: 12px
+default_color: '#5C6BC0'

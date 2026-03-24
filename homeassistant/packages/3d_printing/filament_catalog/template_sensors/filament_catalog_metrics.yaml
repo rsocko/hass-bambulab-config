@@ -117,6 +117,31 @@
             {%- endif -%}
           {%- endfor -%}
           {{ buckets.data | tojson }}
+        count_by_spool_type_clip_type_stack_segments_json: >-
+          {%- set buckets = namespace(data={}) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set a = spool.attributes -%}
+            {%- set archived_raw = a.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set spool_type = a.get('extra_spool_type', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set spool_type = spool_type if spool_type not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set clip_type = a.get('extra_clip_type', 'Unknown') | string | replace('"', '') | trim -%}
+              {%- set clip_type = clip_type if clip_type not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown' -%}
+              {%- set key = spool_type ~ '###' ~ clip_type -%}
+              {%- set buckets.data = buckets.data | combine({key: (buckets.data.get(key, 0) | int(0)) + 1}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set segs = namespace(items=[]) -%}
+          {%- for key, cnt in buckets.data.items() -%}
+            {%- set parts = key.split('###') -%}
+            {%- set segs.items = segs.items + [{
+              'spool_type': parts[0],
+              'clip_type': parts[1],
+              'count': cnt | int(0)
+            }] -%}
+          {%- endfor -%}
+          {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
         count_by_primary_color_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
