@@ -154,7 +154,7 @@ The automation will turn the light on, wait 1 second, capture the snapshot, wait
 | **Snapshot Light** | Turns on/off around capture if configured |
 | **TTS** | Announces if enabled and outside quiet hours |
 | **Custom Message** | Uses `3dprinter_success_message` template |
-| **Action Button** | "View Printer" → opens `/lovelace/3d-printing` |
+| **Action Button** | "View Printer" → opens `/3d-printing` |
 | **Mode** | `single` |
 
 ### Print Fault / Error
@@ -168,7 +168,7 @@ The automation will turn the light on, wait 1 second, capture the snapshot, wait
 | **System Log** | Error-level entry under `homeassistant.components.bambulab.notifications` |
 | **TTS** | Announces if enabled (ignores quiet hours for errors) |
 | **Custom Message** | Uses `3dprinter_fault_message` template |
-| **Action Button** | "View Printer" → opens `/lovelace/3d-printing` |
+| **Action Button** | "View Printer" → opens `/3d-printing` |
 | **Mode** | `queued` (max 5) |
 
 ## Configurable Options Reference

@@ -104,15 +104,15 @@
 
           {{ error_summary }}
         data:
-          url: "/lovelace/3d-printing"
-          clickAction: "/lovelace/3d-printing"
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
           image: "/local/printer_snapshots/{{ snapshot_filename }}"
           push:
             interruption-level: "{{ 'critical' if is_urgent else 'active' }}"
           actions:
             - action: "URI"
               title: "View Printer"
-              uri: "/lovelace/3d-printing"
+              uri: "/3d-printing"
 
     - action: notify.mobile_app_rypad10
       data:
@@ -127,15 +127,15 @@
 
           {{ error_summary }}
         data:
-          url: "/lovelace/3d-printing"
-          clickAction: "/lovelace/3d-printing"
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
           image: "/local/printer_snapshots/{{ snapshot_filename }}"
           push:
             interruption-level: "{{ 'critical' if is_urgent else 'active' }}"
           actions:
             - action: "URI"
               title: "View Printer"
-              uri: "/lovelace/3d-printing"
+              uri: "/3d-printing"
 
     # Create persistent notification for critical/serious
     - if:

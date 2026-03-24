@@ -73,30 +73,30 @@
         title: "Print Complete ✓"
         message: "{{ notification_message }}"
         data:
-          url: "/lovelace/3d-printing"
-          clickAction: "/lovelace/3d-printing"
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
           image: "/local/printer_snapshots/{{ snapshot_filename }}"
           push:
             interruption-level: "{{ 'critical' if is_state('input_boolean.3dprinter_critical_notifications', 'on') else 'active' }}"
           actions:
             - action: "URI"
               title: "View Printer"
-              uri: "/lovelace/3d-printing"
+              uri: "/3d-printing"
 
     - action: notify.mobile_app_rypad10
       data:
         title: "Print Complete ✓"
         message: "{{ notification_message }}"
         data:
-          url: "/lovelace/3d-printing"
-          clickAction: "/lovelace/3d-printing"
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
           image: "/local/printer_snapshots/{{ snapshot_filename }}"
           push:
             interruption-level: "{{ 'critical' if is_state('input_boolean.3dprinter_critical_notifications', 'on') else 'active' }}"
           actions:
             - action: "URI"
               title: "View Printer"
-              uri: "/lovelace/3d-printing"
+              uri: "/3d-printing"
 
     # Log completion
     - action: logbook.log
