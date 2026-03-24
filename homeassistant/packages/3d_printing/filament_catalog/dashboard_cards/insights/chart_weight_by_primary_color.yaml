@@ -3,8 +3,7 @@ title: Weight (kg) by Primary Color
 height: 300
 horizontal: false
 value_name: kg
-axis_title_x: ''
-axis_title_y: kg
+axis_title: ''
 value_decimals: 1
 source_entity: sensor.filament_catalog_metrics
 source_attribute: primary_color_weight_segments_json
