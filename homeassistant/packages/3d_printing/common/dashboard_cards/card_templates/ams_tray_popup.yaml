@@ -342,6 +342,7 @@ ams_tray_popup:
         return null;
       })();
       const pinActionChipBg = pinActive ? '#7a2e2e' : 'var(--primary-color)';
+      const spoolIdInt = parseInt(spoolId, 10);
       const canSetOnPrinter = !!(spoolId && material && material !== 'Unknown');
       const setOnPrinterAction = canSetOnPrinter ? {
         action: 'fire-dom-event',
@@ -648,7 +649,6 @@ ams_tray_popup:
         }
       }
       const nowISO = new Date().toISOString();
-      const spoolIdInt = parseInt(spoolId, 10);
       const buildQtyToOrderAction = function(nextQty) {
         const normalizedQty = Math.max(0, Number.parseInt(nextQty, 10) || 0);
         if (!Number.isFinite(filamentIdInt)) {
