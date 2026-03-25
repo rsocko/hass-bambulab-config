@@ -106,8 +106,6 @@ sections:
     - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
     - !include ../../print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml
     - !include ../../power_monitoring/dashboard_cards/power-usage-card.yaml
-    # Phase 3: Tray assignment status chip (shared include — popup on tap)
-    - !include ../../spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml
   columns: 2
   square: false
 - type: grid
@@ -216,6 +214,8 @@ sections:
     - !include ../../air_quality/dashboard_cards/bento-box-filter-cards.yaml
 - type: grid
   cards:
+    # Phase 3: Tray assignment status chip (shared include — popup on tap)
+    - !include ../../spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml
     - type: custom:button-card
       template: ams_header
       variables:

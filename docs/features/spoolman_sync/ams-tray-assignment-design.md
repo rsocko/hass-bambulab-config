@@ -575,9 +575,9 @@ attributes:
 ```
 
 A conditional card in the filament tag view shows the result:
-- Green chip: "✓ Set on AMS 1 Tray 3"
-- Orange chip: "⚠ Select tray →" (links to tray picker)
-- Red chip: "✗ Assignment failed" (links to notification)
+- Green chip: "Set on AMS 1 Tray 3" (icon-only indicator, no emoji)
+- Orange chip: "Tap to select tray" (links to tray picker)
+- Red chip: "Assignment failed" (links to notification)
 
 **B2: Combined action script (future enhancement)**
 
@@ -604,10 +604,13 @@ When the automated tray inference fails after a filament tag location change, th
 
 ```
 ┌──────────────────────────────────────┐
-│ ⚠ Spool moved to AMS —              │
+│ Spool moved to AMS —                │
 │   which tray did you load it into?   │
 │                                      │
-│ [ T1 ] [ T2 ] [ T3 ] [ T4 ]         │
+│        AMS 1                         │
+│ [ A1 ] [ A2 ] [ A3 ] [ A4 ]         │
+│        AMS 2                         │
+│ [ B1 ] [ B2 ] [ B3 ] [ B4 ]         │
 └──────────────────────────────────────┘
 ```
 
@@ -890,12 +893,20 @@ The single-spool design is intentional for Phases 1–4. The primary workflow �
 | Task | Deliverable | Location |
 |---|---|---|
 | "Set on Printer" chip in tray popup | Action chip in `ams_tray_popup.yaml` — calls `assign_spool_to_printer_tray` with `force_write: true` via `browser_mod.sequence`; auto-closes popup after 2 s | `common/dashboard_cards/card_templates/` |
-| Shared status chip + popup tray picker | `tray_assignment_status_and_picker.yaml` — reusable `!include` shared across Home, Filament Tags, and Filament Catalog views. Conditional chip (hidden when idle) shows color-coded status. On tap, opens a `browser_mod.popup` with AMS 1 / AMS 2 tray buttons. | `spoolman_sync/dashboard_cards/` |
+| Shared status chip + popup tray picker | `tray_assignment_status_and_picker.yaml` — reusable `!include` shared across Home, Filament Tags, and Filament Catalog views. Conditional chip (hidden when idle) shows color-coded status with `card_mod` animation (pulse for action-required states, error pulse for failures). On tap, opens a `browser_mod.popup` with spool friendly name in header, prominent AMS 1 / AMS 2 section titles with `fapro:filament-2` icon, and tray buttons labeled A1–A4 (AMS 1) / B1–B4 (AMS 2). | `spoolman_sync/dashboard_cards/` |
 | Dashboard wrapper script | `script.assign_pending_spool_to_tray` — reads `input_text.pending_tray_assignment_spool_id` server-side and delegates to `assign_spool_to_printer_tray`. Required because browser_mod popup `perform-action` data fields cannot evaluate Jinja2 templates or `config-template-card` JS. | `spoolman_sync/scripts/` |
 | View includes | `!include` of the shared status/picker card added to `view_main.yaml`, `view_filament_tags.yaml`, and `view_filament_catalog.yaml` | `common/dashboard_views/`, `filament_catalog/dashboard_views/` |
 | Confirmation feedback | Persistent notification on success | Within assignment script |
 
 > **Implementation Note (Phase 3)**: The original design proposed an inline tray picker rendered directly in the filament tag view. During implementation, rendering issues with `config-template-card` inside conditional cards and grid layouts led to a refactor: the tray picker is now presented as a **browser_mod popup** triggered by tapping the status chip. This approach is layout-agnostic, works identically on all three views, and avoids client-side template evaluation constraints. A dedicated wrapper script (`assign_pending_spool_to_tray`) bridges the gap between the popup's client-side tap actions and the server-side pending spool ID.
+
+> **Implementation Note (Phase 3.1 — UI Refinements, #719)**: Several UX adjustments were applied to the status chip and tray picker popup:
+> - **Chip content**: Removed redundant emoji prefixes (✓, ⚠, ✗, ℹ, ⏳) from chip text — the color-coded Mushroom icon is the sole status indicator.
+> - **Chip animation**: Added `card_mod` CSS animations — a scale/opacity pulse for action-required states (`needs_tray_selection`, `overwrite_required`), a gentler error pulse for `failed`, no animation for informational states.
+> - **Chip positioning (Main View)**: Moved the `!include` from the print-controls grid into the AMS grid section, immediately above the AMS 1 header, so the alert appears in the context where the user will act.
+> - **Popup header**: Changed icon from `mdi:printer-3d-nozzle-alert` to `fapro:filament-2` (matching AMS header spool icon). Title now shows the spool’s friendly name (e.g. "Bambu Lab White - Support PLA-S: Which tray was it loaded into?") instead of the numeric spool ID.
+> - **AMS section titles**: Replaced plain-text chips with `mushroom-template-card` headers styled via `card_mod` (18 px, weight 600, `fapro:filament-2` icon) for AMS 1 (blue) and AMS 2 (teal).
+> - **Tray labels**: AMS 1 trays relabeled A1–A4; AMS 2 trays relabeled B1–B4, matching the tray naming convention used elsewhere in the dashboard.
 
 ### Phase 4: Label-Based Entity Discovery
 
