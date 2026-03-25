@@ -61,7 +61,7 @@ Pick at least 3 spools:
 #### T1c — Chip hidden for color/type-matched spool
 
 1. Open the AMS tray popup for a tray matched via **color_type** or **color_type_ams_preference**.
-2. **Expected**: The "Update Tray Settings" chip does **not** appear. The tray's reported attributes already agree with the spool (that's how the match was established).
+2. **Expected**: The "Update Tray Settings" chip does **not** appear. The tray's reported attributes already agree with the spool.
 
 #### T1d — Chip hidden for multicolor-matched spool
 
@@ -95,7 +95,7 @@ Pick at least 3 spools:
    - Check `state_attr(tray_entity, 'type')` matches Spool A's material.
    - Check `state_attr(tray_entity, 'color')` matches expected RGBA hex.
 
-#### T5 — Chip hidden for Bambu spool with UUID match (no force_write bypass)
+#### T5 — Chip hidden for Bambu spool with UUID match
 
 1. Open the tray popup for a tray matched to **Spool B** (Bambu Lab spool with UUID, `matchStrategy === 'uuid'`).
 2. **Expected**:

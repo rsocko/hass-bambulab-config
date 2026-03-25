@@ -72,38 +72,38 @@ assign_spool_to_printer_tray:
       is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
       is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\..*_ams_\\d+_tray_\\d+$') }}"
       spool_vendor: >-
-        {% if spool_entity_ok %}
+        {% if spool_entity_ok | bool %}
           {{ state_attr(resolved_spool_entity_id, 'filament_vendor_name') | default('', true) | string | trim }}
         {% else %}
           {{ '' }}
         {% endif %}
       spool_uuid: >-
-        {% if spool_entity_ok %}
+        {% if spool_entity_ok | bool %}
           {{ state_attr(resolved_spool_entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | trim }}
         {% else %}
           {{ '' }}
         {% endif %}
       has_rfid_uuid: "{{ spool_uuid | lower not in ['', 'none', 'unknown', 'unavailable'] and not (spool_uuid | lower | regex_match('^0+$')) }}"
-      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and has_rfid_uuid and (not is_external_tray) and (not force_write) }}"
+      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and (has_rfid_uuid | bool) and (not (is_external_tray | bool)) and (not (force_write | bool)) }}"
       print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower }}"
       smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
       printer_busy: >-
         {{ print_status in ['running', 'pause', 'paused', 'prepare', 'preparing']
            or smart_status in ['printing', 'preparing', 'heating', 'leveling'] }}
       spool_display_name: >-
-        {% if spool_entity_ok %}
+        {% if spool_entity_ok | bool %}
           {{ state_attr(resolved_spool_entity_id, 'name') | default(state_attr(resolved_spool_entity_id, 'filament_name') | default(resolved_spool_entity_id, true), true) }}
         {% else %}
           {{ resolved_spool_entity_id if resolved_spool_entity_id | length > 0 else 'Unknown Spool' }}
         {% endif %}
       base_validation_errors: >-
         {% set ns = namespace(errors=[]) %}
-        {% if not spool_entity_ok %}
+        {% if not (spool_entity_ok | bool) %}
           {% set ns.errors = ns.errors + ['Unable to resolve a valid spool entity.'] %}
         {% endif %}
         {% if tray_entity_id | length == 0 %}
           {% set ns.errors = ns.errors + ['Tray selection required: tray_entity_id was not provided.'] %}
-        {% elif not tray_entity_ok %}
+        {% elif not (tray_entity_ok | bool) %}
           {% set ns.errors = ns.errors + ['Selected tray entity is unavailable.'] %}
         {% endif %}
         {{ ns.errors }}
@@ -171,7 +171,7 @@ assign_spool_to_printer_tray:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ printer_busy and not allow_while_printing }}"
+            value_template: "{{ (printer_busy | bool) and not (allow_while_printing | bool) }}"
         sequence:
           - action: persistent_notification.create
             data:
@@ -258,12 +258,12 @@ assign_spool_to_printer_tray:
            and tray_current_color_hex == target_color_hex
            and tray_current_name_raw == target_profile_name }}
       tray_needs_overwrite_confirmation: >-
-        {{ is_ams_tray and (not tray_is_empty) and (not tray_exact_match) and (not force_write) }}
+        {{ (is_ams_tray | bool) and (not (tray_is_empty | bool)) and (not (tray_exact_match | bool)) and (not (force_write | bool)) }}
 
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ is_ams_tray and tray_exact_match and (not force_write) }}"
+            value_template: "{{ (is_ams_tray | bool) and (tray_exact_match | bool) and (not (force_write | bool)) }}"
         sequence:
           - event: spoolman_tray_assignment_result
             event_data:
@@ -285,7 +285,7 @@ assign_spool_to_printer_tray:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ tray_needs_overwrite_confirmation }}"
+            value_template: "{{ tray_needs_overwrite_confirmation | bool }}"
         sequence:
           - action: persistent_notification.create
             data:
