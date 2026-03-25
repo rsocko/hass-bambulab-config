@@ -1,0 +1,129 @@
+- alias: "3D Printer - Spoolman Location Changed: Assign Tray Metadata"
+  id: spoolman_location_change_assign_tray
+  description: >-
+    Phase 2 automation that listens for Spoolman location changes to AMS / AMS 2 /
+    External Spool Holder, infers tray target when possible, and runs
+    script.assign_spool_to_printer_tray.
+  trigger:
+    - platform: event
+      event_type: state_changed
+  condition:
+    - condition: template
+      value_template: >-
+        {% set entity_id = trigger.event.data.entity_id | default('', true) | string %}
+        {{ entity_id | regex_match('^select\\.spoolman_spool_\\d+_location$') }}
+    - condition: template
+      value_template: >-
+        {% set old_state = trigger.event.data.old_state.state if trigger.event.data.old_state is not none else '' %}
+        {% set new_state = trigger.event.data.new_state.state if trigger.event.data.new_state is not none else '' %}
+        {{ new_state | length > 0 and new_state not in ['unknown', 'unavailable'] and new_state != old_state }}
+  action:
+    - variables:
+        location_entity_id: "{{ trigger.event.data.entity_id | default('', true) | string }}"
+        to_location: "{{ trigger.event.data.new_state.state if trigger.event.data.new_state is not none else '' }}"
+        spool_id: "{{ location_entity_id | regex_replace('^select\\.spoolman_spool_(\\d+)_location$', '\\1') }}"
+        spool_entity_id: "{{ 'sensor.spoolman_spool_' ~ spool_id if spool_id | regex_match('^\\d+$') else '' }}"
+        target_is_ams_1: "{{ to_location == 'AMS' }}"
+        target_is_ams_2: "{{ to_location == 'AMS 2' }}"
+        target_is_external: "{{ to_location == 'External Spool Holder' }}"
+        is_supported_target: "{{ target_is_ams_1 or target_is_ams_2 or target_is_external }}"
+        ams_1_trays:
+          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_1
+          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_2
+          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_3
+          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_4
+        ams_2_trays:
+          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_1
+          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_2
+          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_3
+          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_4
+        candidate_trays: >-
+          {% if target_is_ams_2 %}
+            {{ ams_2_trays }}
+          {% elif target_is_ams_1 %}
+            {{ ams_1_trays }}
+          {% else %}
+            {{ [] }}
+          {% endif %}
+        empty_candidate_trays: >-
+          {% set ns = namespace(trays=[]) %}
+          {% for entity_id in candidate_trays %}
+            {% set tray_type = state_attr(entity_id, 'type') | default('', true) | string | trim %}
+            {% if tray_type | lower == 'empty' %}
+              {% set ns.trays = ns.trays + [entity_id] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.trays }}
+        inferred_tray_entity_id: >-
+          {% if (empty_candidate_trays | count) == 1 %}
+            {{ empty_candidate_trays | first }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        target_tray_entity_id: >-
+          {% if target_is_external %}
+            sensor.ntk_ryansoffice_3dprinter_external_spool
+          {% else %}
+            {{ inferred_tray_entity_id }}
+          {% endif %}
+        needs_tray_selection: "{{ (target_is_ams_1 or target_is_ams_2) and inferred_tray_entity_id | length == 0 }}"
+        can_assign_now: "{{ is_supported_target and spool_id | regex_match('^\\d+$') and target_tray_entity_id | length > 0 }}"
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ can_assign_now }}"
+          sequence:
+            - action: script.assign_spool_to_printer_tray
+              data:
+                spool_id: "{{ spool_id }}"
+                tray_entity_id: "{{ target_tray_entity_id }}"
+              response_variable: assignment_response
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ not (assignment_response.success | default(false)) }}"
+                  sequence:
+                    - action: persistent_notification.create
+                      data:
+                        title: Tray Assignment Did Not Complete
+                        message: >-
+                          Spool {{ spool_id }} -> {{ to_location }} failed.
+                          {{ assignment_response.message | default('Unknown tray assignment error.') }}
+                        notification_id: tray_assignment_auto_failed_{{ spool_id }}
+
+        - conditions:
+            - condition: template
+              value_template: "{{ is_supported_target and needs_tray_selection and spool_id | regex_match('^\\d+$') }}"
+          sequence:
+            - action: input_text.set_value
+              data:
+                entity_id: input_text.pending_tray_assignment_spool_id
+                value: "{{ spool_id }}"
+            - event: spoolman_tray_assignment_result
+              event_data:
+                status: needs_tray_selection
+                message: >-
+                  Unable to infer tray for spool {{ spool_id }} in {{ to_location }}.
+                  Empty tray count was {{ empty_candidate_trays | count }}.
+                spool_entity_id: "{{ spool_entity_id }}"
+                tray_entity_id: ""
+                tray_info_idx: ""
+                tray_type: ""
+                tray_color: ""
+            - action: persistent_notification.create
+              data:
+                title: Tray Selection Needed
+                message: >-
+                  Spool {{ spool_id }} moved to {{ to_location }}, but tray inference
+                  could not pick one tray automatically.
+
+                  Empty trays seen: {{ empty_candidate_trays | join(', ') if (empty_candidate_trays | count) > 0 else 'none' }}
+
+                  Use script.assign_spool_to_printer_tray with a tray_entity_id,
+                  or use your tray picker UI, then re-run assignment.
+                notification_id: tray_assignment_needs_selection_{{ spool_id }}
+
+      default: []
+  mode: queued
+  max: 20

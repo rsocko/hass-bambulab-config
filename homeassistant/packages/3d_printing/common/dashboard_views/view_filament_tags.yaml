@@ -75,6 +75,7 @@ cards:
   variables:
     selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : 'sensor.selected_spool'"
     spool_id: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : ''"
+    spool_location: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? (states[states['sensor.selected_spool'].state].attributes.location || '') : ''"
   card:
     type: custom:bubble-card
     card_type: sub-buttons
@@ -106,6 +107,31 @@ cards:
           name: AMS 2
           show_name: true
           icon: fas:arrow-right-to-bracket
+          show_state: false
+          state_background: false
+        - tap_action:
+            action: "${ spool_id ? 'perform-action' : 'none' }"
+            perform_action: script.update_spool_location
+            target: {}
+            data:
+              spool_id: ${ spool_id }
+              location: External Spool Holder
+          name: Ext. Spool
+          show_name: true
+          icon: mdi:printer-3d-nozzle
+          show_state: false
+          state_background: false
+        - tap_action:
+            action: "${ spool_id && ['AMS', 'AMS 2'].includes(String(spool_location || '').trim()) ? 'perform-action' : 'none' }"
+            perform_action: script.update_spool_location
+            target: {}
+            data:
+              spool_id: ${ spool_id }
+              location: ''
+          name: Remove
+          show_name: "${ ['AMS', 'AMS 2'].includes(String(spool_location || '').trim()) }"
+          show_icon: "${ ['AMS', 'AMS 2'].includes(String(spool_location || '').trim()) }"
+          icon: mdi:close-circle-outline
           show_state: false
           state_background: false
 - type: custom:bubble-card

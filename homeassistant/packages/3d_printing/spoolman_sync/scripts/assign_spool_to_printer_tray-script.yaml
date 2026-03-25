@@ -2,8 +2,9 @@
 assign_spool_to_printer_tray:
   alias: Assign Spool To Printer Tray
   description: >-
-    Phase 1 orchestrator for tray assignment. Validates spool and tray input,
-    resolves bambu filament parameters, and calls bambu_lab.set_filament.
+    Phase 2 orchestrator for tray assignment. Validates spool and tray input,
+    resolves bambu filament parameters, enforces AMS non-interference guards,
+    and calls bambu_lab.set_filament when safe.
   icon: mdi:printer-3d-nozzle-alert
   mode: queued
   fields:
@@ -69,6 +70,7 @@ assign_spool_to_printer_tray:
       tray_entity_ok: >-
         {{ tray_entity_id | length > 0 and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
       is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
+      is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\.ntk_ryansoffice_3dprinter_ams_\\d+_tray_\\d+$') }}"
       spool_vendor: >-
         {% if spool_entity_ok %}
           {{ state_attr(resolved_spool_entity_id, 'filament_vendor_name') | default('', true) | string | trim }}
@@ -122,6 +124,11 @@ assign_spool_to_printer_tray:
                       entity_id: input_text.pending_tray_assignment_spool_id
                       value: "{{ spool_id_clean }}"
             default: []
+          - action: persistent_notification.create
+            data:
+              title: Tray Assignment Blocked
+              message: "{{ base_validation_errors | join(' ') }}"
+              notification_id: tray_assignment_blocked_{{ spool_id_clean | default('unknown', true) }}
           - event: spoolman_tray_assignment_result
             event_data:
               status: "{{ status_for_missing_tray }}"
@@ -166,6 +173,11 @@ assign_spool_to_printer_tray:
           - condition: template
             value_template: "{{ printer_busy and not allow_while_printing }}"
         sequence:
+          - action: persistent_notification.create
+            data:
+              title: Tray Assignment Deferred
+              message: Printer is actively printing; assignment deferred.
+              notification_id: tray_assignment_deferred_{{ spool_id_clean | default('unknown', true) }}
           - event: spoolman_tray_assignment_result
             event_data:
               status: deferred
@@ -194,6 +206,11 @@ assign_spool_to_printer_tray:
           - condition: template
             value_template: "{{ not (mapping_result.success | default(false)) }}"
         sequence:
+          - action: persistent_notification.create
+            data:
+              title: Tray Assignment Failed
+              message: "{{ mapping_result.message | default('Failed to resolve filament mapping.') }}"
+              notification_id: tray_assignment_mapping_failed_{{ spool_id_clean | default('unknown', true) }}
           - event: spoolman_tray_assignment_result
             event_data:
               status: failed
@@ -209,6 +226,98 @@ assign_spool_to_printer_tray:
                 status: failed
                 message: "{{ mapping_result.message | default('Failed to resolve filament mapping.') }}"
           - stop: Assignment blocked by mapping validation
+            response_variable: response_object
+
+  - variables:
+      tray_current_type_raw: "{{ state_attr(tray_entity_id, 'type') | default('', true) | string | trim }}"
+      tray_current_name_raw: >-
+        {{ state_attr(tray_entity_id, 'name') | default('', true) | string | replace('"', '') | trim }}
+      tray_current_color_raw: "{{ state_attr(tray_entity_id, 'color') | default('', true) | string | trim }}"
+      tray_current_color_hex: >-
+        {% set raw = tray_current_color_raw | replace('#', '') | upper %}
+        {% if raw | regex_match('^[0-9A-F]{8}$') %}
+          {{ raw[:6] }}
+        {% elif raw | regex_match('^[0-9A-F]{6}$') %}
+          {{ raw }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      target_color_hex: >-
+        {% set raw = mapping_result.params.tray_color | default('', true) | string | trim | replace('#', '') | upper %}
+        {% if raw | regex_match('^[0-9A-F]{8}$') %}
+          {{ raw[:6] }}
+        {% elif raw | regex_match('^[0-9A-F]{6}$') %}
+          {{ raw }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      target_profile_name: "{{ mapping_result.params.profile_name | default('', true) | string | trim }}"
+      tray_is_empty: "{{ tray_current_type_raw | lower == 'empty' }}"
+      tray_exact_match: >-
+        {{ tray_current_type_raw | upper == (mapping_result.params.tray_type | default('', true) | string | upper)
+           and tray_current_color_hex == target_color_hex
+           and tray_current_name_raw == target_profile_name }}
+      tray_needs_overwrite_confirmation: >-
+        {{ is_ams_tray and (not tray_is_empty) and (not tray_exact_match) and (not force_write) }}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ is_ams_tray and tray_exact_match and (not force_write) }}"
+        sequence:
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: skipped
+              message: Tray is already configured with matching type, color, and profile.
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
+              tray_type: "{{ mapping_result.params.tray_type }}"
+              tray_color: "{{ mapping_result.params.tray_color }}"
+          - variables:
+              response_object:
+                success: true
+                status: skipped
+                message: Tray is already configured with matching type, color, and profile.
+          - stop: Assignment skipped because tray already matches target
+            response_variable: response_object
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ tray_needs_overwrite_confirmation }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: Tray Assignment Needs Confirmation
+              message: >-
+                AMS tray {{ tray_entity_id }} already contains filament metadata
+                that differs from the Spoolman-derived target for
+                {{ spool_display_name }}.
+
+                Existing: type={{ tray_current_type_raw }}, color={{ tray_current_color_hex }},
+                profile={{ tray_current_name_raw }}.
+                Target: type={{ mapping_result.params.tray_type }}, color={{ target_color_hex }},
+                profile={{ target_profile_name }}.
+
+                Re-run script.assign_spool_to_printer_tray with force_write=true
+                to explicitly overwrite.
+              notification_id: tray_assignment_overwrite_required_{{ spool_id_clean | default('unknown', true) }}
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: overwrite_required
+              message: Existing AMS tray metadata differs; explicit force_write is required.
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
+              tray_type: "{{ mapping_result.params.tray_type }}"
+              tray_color: "{{ mapping_result.params.tray_color }}"
+          - variables:
+              response_object:
+                success: false
+                status: overwrite_required
+                message: Existing AMS tray metadata differs; explicit force_write is required.
+          - stop: Assignment blocked by AMS non-interference guard
             response_variable: response_object
 
   - action: bambu_lab.set_filament
