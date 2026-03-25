@@ -100,8 +100,11 @@ cards:
                         {% if pending not in ['', 'unknown', 'unavailable'] %}
                         Which tray was it loaded into?
                         {% endif %}
-                      icon: ""
-                      use_entity_picture: true
+                      picture: >-
+                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                        {% if pending not in ['', 'unknown', 'unavailable'] %}
+                        {{ state_attr('sensor.spoolman_spool_' ~ pending, 'entity_picture') | default('', true) }}
+                        {% endif %}
                       layout: horizontal
                       fill_container: true
                     - type: custom:mushroom-template-card
