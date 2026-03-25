@@ -959,7 +959,7 @@ ams_tray_popup:
                         ...(pinActionChip ? [pinActionChip] : [])
                       ],
                       card_mod: {
-                        style: 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
+                        style: 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
                       }
                     }]
                   : (shouldOfferSetUUID
@@ -998,7 +998,7 @@ ams_tray_popup:
                           ...(pinActionChip ? [pinActionChip] : [])
                         ],
                         card_mod: {
-                          style: 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-text-color: white; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
+                          style: 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-text-color: white; --chip-icon-color: white; color: white !important; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
                         }
                       }]
                     : (matchTierLabel
@@ -1010,7 +1010,7 @@ ams_tray_popup:
                             ...(pinActionChip ? [pinActionChip] : [])
                           ],
                           card_mod: {
-                            style: pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : ''
+                            style: pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : ''
                           }
                         }]
                       : (pinActionChip
@@ -1019,7 +1019,7 @@ ams_tray_popup:
                             alignment: 'center',
                             chips: [pinActionChip],
                             card_mod: {
-                              style: 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }'
+                              style: 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }'
                             }
                           }]
                         : [])))),
