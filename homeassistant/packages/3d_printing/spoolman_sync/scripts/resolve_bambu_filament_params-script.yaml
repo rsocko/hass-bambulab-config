@@ -18,13 +18,12 @@ resolve_bambu_filament_params:
       name: Printer Device ID
       description: Optional device_id override for bambu_lab.get_filament_data
       required: false
-      default: 210dfdfa64085e8cf073e50eae757d90
       selector:
         text: {}
   sequence:
   - variables:
       spool_entity_id: "{{ spool_entity_id | default('', true) | string | trim }}"
-      printer_device_id: "{{ printer_device_id | default('210dfdfa64085e8cf073e50eae757d90', true) | string | trim }}"
+      printer_device_id: "{{ printer_device_id | default('', true) | string | trim }}"
       spool_available: "{{ states(spool_entity_id) not in ['unknown', 'unavailable'] and spool_entity_id | length > 0 }}"
       material_raw: "{{ state_attr(spool_entity_id, 'filament_material') | default('', true) | string | trim }}"
       material_upper: "{{ material_raw | upper }}"
