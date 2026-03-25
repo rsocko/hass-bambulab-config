@@ -424,7 +424,7 @@ catalog_spool_popup:
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: #FF5722 !important; }'
+                      styles: '.bubble-icon-container { color: #FF5722 !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -444,7 +444,7 @@ catalog_spool_popup:
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[desStatus] || '#9e9e9e') + ' !important; }'
+                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[desStatus] || '#9e9e9e') + ' !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     }
                   ]
                 },
@@ -505,7 +505,8 @@ catalog_spool_popup:
                       entity: locationEntityId,
                       name: 'Location',
                       icon: 'mdi:map-marker-radius',
-                      tap_action: { action: 'more-info' }
+                      tap_action: { action: 'more-info' },
+                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -513,7 +514,8 @@ catalog_spool_popup:
                       button_type: 'name',
                       name: 'Spoolman',
                       icon: 'fapro:filament-2',
-                      tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }
+                      tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId },
+                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -522,7 +524,8 @@ catalog_spool_popup:
                       entity: eid,
                       name: 'Reload',
                       icon: 'mdi:refresh',
-                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } }
+                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } },
+                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -530,7 +533,8 @@ catalog_spool_popup:
                       button_type: 'name',
                       name: 'Close',
                       icon: 'mdi:close-circle-outline',
-                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }
+                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } },
+                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
                     }
                   ]
                 }
