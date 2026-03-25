@@ -962,6 +962,9 @@ ams_tray_popup:
                         style: Object.assign(
                           { '.': 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
                           pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
+                        )
+                      }
+                    }]
                   : (shouldOfferSetUUID
                     ? [{
                         type: 'custom:mushroom-chips-card',
