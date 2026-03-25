@@ -13,13 +13,13 @@ resolve_bambu_filament_params:
       description: Canonical Spoolman spool sensor entity (sensor.spoolman_spool_<id>)
       required: true
       selector:
-        text: {}
+        text:
     printer_device_id:
       name: Printer Device ID
       description: Optional device_id override for bambu_lab.get_filament_data
       required: false
       selector:
-        text: {}
+        text:
   sequence:
   - variables:
       spool_entity_id: "{{ spool_entity_id | default('', true) | string | trim }}"

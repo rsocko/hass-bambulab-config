@@ -21,33 +21,33 @@ assign_spool_to_printer_tray:
       description: Optional direct spool entity override
       required: false
       selector:
-        text: {}
+        text:
     tray_entity_id:
       name: Tray Entity ID
       description: Target tray sensor entity for bambu_lab.set_filament
       required: false
       selector:
-        text: {}
+        text:
     printer_device_id:
       name: Printer Device ID
       description: Optional device_id override for profile lookup
       required: false
       selector:
-        text: {}
+        text:
     force_write:
       name: Force Write
       description: Bypass RFID-skip guard when true
       required: false
       default: false
       selector:
-        boolean: {}
+        boolean:
     allow_while_printing:
       name: Allow While Printing
       description: Permit set_filament while printer is actively printing
       required: false
       default: false
       selector:
-        boolean: {}
+        boolean:
   sequence:
   - variables:
       spool_id_clean: "{{ spool_id | default('', true) | string | trim }}"
