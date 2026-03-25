@@ -118,7 +118,7 @@ cards:
               location: External Spool Holder
           name: Ext. Spool
           show_name: true
-          icon: mdi:printer-3d-nozzle
+          icon: fas:arrow-right-to-bracket
           show_state: false
           state_background: false
         - tap_action:
