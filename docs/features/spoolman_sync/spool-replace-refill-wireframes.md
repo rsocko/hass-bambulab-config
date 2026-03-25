@@ -6,7 +6,7 @@
 
 ## Popup Wireframes
 
-### Spool Popup — "More Actions" Button Placement
+### Spool Popup — "Replace / Refill" Button Placement
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -35,18 +35,12 @@
 │                                                 │
 │  ┌─────────────────────────────────────────────┐│
 │  │ bubble-card sub-buttons:                    ││ ← MODIFIED
-│  │ [📍 Location] [🧵 Spoolman] [🔄 Reload] [✕] ││   all bubble
+│  │ [♻ Replace] [🧵 Spoolman] [🔄 Reload] [✕]   ││   all bubble
 │  └─────────────────────────────────────────────┘│   card style
-│                                                 │
-│  ▼ MORE ACTIONS (expanded on tap)               │ ← NEW
-│  ┌─────────────────────────────────────────────┐│
-│  │ ♻  Replace / Refill Spool                   ││
-│  │    Swap this spool for a sealed replacement  ││
-│  └─────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────┘
 ```
 
-**For sealed spools**, the "More" button is replaced by a direct **"Unseal & Use"** sub-button in the bottom bubble card row.
+**For sealed spools**, the Replace button is replaced by a direct **"Unseal & Use"** sub-button in the bottom bubble card row.
 
 ### AMS Tray Popup — "Replace Spool" Button Placement
 
@@ -72,13 +66,13 @@
 │                                                 │
 │  ┌─────────────────────────────────────────────┐│
 │  │ bubble-card sub-buttons:                    ││ ← MODIFIED
-│  │ [📌 Pin/Unpin] [ℹ Details] [🧵 Spoolman]   ││   all bubble
-│  │ [🔄 Reload] [✕ Close]  [♻ Replace Spool]   ││   card style
+│  │ [♻ Replace Spool] [🧵 Spoolman] [🔄 Reload] ││   all bubble
+│  │ [✕ Close]                                   ││   card style
 │  └─────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────┘
 ```
 
-> **Pin/Unpin Assessment:** The Pin Spool / Unpin Spool button was previously a styled mushroom chip in the UUID/match tier area. It has been moved to the bottom action row as a bubble card sub-button for visual consistency with the other action buttons. The match tier and pin status are still displayed as informational chips at the top, but the actionable pin/unpin control now lives alongside the other actions.
+> **Action Row Simplification:** The AMS popup action row intentionally excludes **More Details** and **Pin/Unpin**. Replace Spool is left-most to match the Spool popup order and keep the primary action consistent.
 
 ---
 
@@ -260,7 +254,8 @@
   - [ ] Add logbook + system_log entries
 
 - [ ] **Dashboard — Spool Popup**
-  - [ ] Add "More Actions" button to action row in `catalog_spool_popup.yaml`
+  - [ ] Add "Replace / Refill Spool" button as the left-most action in `catalog_spool_popup.yaml`
+  - [ ] Remove bottom-row "Location" button in `catalog_spool_popup.yaml` (location control remains in the Change Location row)
   - [ ] Implement Step 1 popup (validate empty spool)
   - [ ] Implement Step 2 popup (select replacement)
   - [ ] Implement Step 3 popup (configure transfer options)
@@ -296,6 +291,9 @@
 
 - [ ] **AMS Tray Popup**
   - [ ] Add "Replace Spool" button to `ams_tray_popup.yaml`
+  - [ ] Place "Replace Spool" as the left-most action in the bottom action row
+  - [ ] Remove "More Details" button from bottom action row in `ams_tray_popup.yaml`
+  - [ ] Remove "Pin/Unpin" action from bottom action row design (pin status remains informational at top)
   - [ ] Wire button to same wizard (set `source_spool_id` from tray context)
   - [ ] Conditional visibility: only when `match_state === 'matched'` (no button on empty trays)
 - [ ] **NFC Filament Tag View (Mobile)**

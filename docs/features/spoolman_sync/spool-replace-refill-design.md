@@ -29,9 +29,9 @@ Today this is a fully manual process involving the Spoolman UI and multiple dash
 │  ┌──────────────┐  ┌──────────────┐  ┌───────┐  ┌────────┐ ┌──────┐ │
 │  │ AMS Tray     │  │ Spool Popup  │  │Sealed │  │Runout  │ │NFC   │ │
 │  │ Popup        │  │ (Catalog)    │  │Spool  │  │Notifi- │ │Tag   │ │
-│  │ "Replace     │  │ "More        │  │Popup  │  │cation  │ │View  │ │
-│  │  Spool"      │  │  Actions"    │  │"Unseal│  │"Replace│ │"Re-  │ │
-│  │  button      │  │  > Replace   │  │& Use" │  │ Spool" │ │place"│ │
+│  │ "Replace     │  │ "Replace /   │  │Popup  │  │cation  │ │View  │ │
+│  │  Spool"      │  │  Refill      │  │"Unseal│  │"Replace│ │"Re-  │ │
+│  │  button      │  │  Spool"      │  │& Use" │  │ Spool" │ │place"│ │
 │  └──────┬───────┘  └──────┬───────┘  └───┬───┘  └───┬────┘ └──┬───┘ │
 │         │                 │              │           │         │      │
 │  (only if tray has       │              │    (auto-created    │      │
@@ -82,17 +82,20 @@ Today this is a fully manual process involving the Spoolman UI and multiple dash
 **Context:** The spool is loaded in an AMS tray or visible in the filament catalog. The user knows it's empty (or nearly empty) and wants to replace it.
 
 **Trigger Location 1 — AMS Tray Popup:**
-- A new **"Replace Spool"** button appears in the AMS tray popup action area (alongside existing pin/unpin actions).
+- A new **"Replace Spool"** button appears in the AMS tray popup bottom action row.
 - **Visibility condition:** Only shown when the tray has a matched spool (`match_state === 'matched'` and `spool_id` exists). This avoids showing the button for empty or unmatched trays.
 - The spool context (entity, spool ID, tray, filament_id) is passed into the wizard.
 
 > **⚠ Mid-Print Empty Tray Limitation:** When a spool runs out mid-print, the Bambu Lab integration clears the tray data (UUID, color, type all become empty/null). The `spoolman_tray_map` sensor reports `match_state: 'empty'` for that tray, so there is no spool context to pass into the wizard. The AMS tray popup **will not show the "Replace Spool" button** for an emptied-out tray. This is by design — the user should instead use the **Filament Catalog** or the **Filament Runout Notification** (see Section 3C) to initiate the replace flow.
 
 **Trigger Location 2 — Spool Popup (Catalog):**
-- A **"More Actions"** dropdown / expandable section is added to the spool popup's action button row (the row with "Change Location", "Open in Spoolman", "Reload", "Close").
-- The "More Actions" area includes:
-  - **"Replace / Refill Spool"** — launches the replace wizard for this spool
-  - (Future: "Archive Spool", "Mark as Dried", etc.)
+- A direct **"Replace / Refill Spool"** button is added to the spool popup bottom action row.
+- The bottom action row order is:
+  - **Replace / Refill Spool** (left-most)
+  - **Open in Spoolman**
+  - **Reload**
+  - **Close**
+- The dedicated **Location** action button is removed from this row because location editing is already handled by the **Change Location** control directly above it.
 - **Always visible** on every spool popup (not conditionally hidden), since the user might want to replace any spool. The wizard's Step 1 handles validation.
 
 ### 3B. From a Sealed Spool (Reverse Flow)
@@ -446,31 +449,31 @@ input_select:
     icon: mdi:swap-horizontal
 ```
 
-### 5.3 "More Actions" Button in Spool Popup
+### 5.3 "Replace / Refill Spool" Button in Spool Popup
 
 Added to the existing action button row in `catalog_spool_popup.yaml`:
 
 ```
-[ Change Location ] [ Open in Spoolman ] [ Reload ] [ More ▼ ] [ Close ]
+[ Replace / Refill Spool ♻ ] [ Open in Spoolman ] [ Reload ] [ Close ]
 ```
 
-The **"More ▼"** button opens a sub-popup with:
-- **Replace / Refill Spool** — launches the wizard (Step 1)
-- (Future: additional actions)
+The **Replace / Refill Spool** button launches the wizard directly (Step 1).
 
-For sealed spools, a prominent **"Unseal & Use"** button is shown in the action row directly (not buried under "More"), replacing "Replace / Refill Spool" since the action semantics differ.
+For sealed spools, a prominent **"Unseal & Use"** button is shown in the action row directly, replacing "Replace / Refill Spool" since the action semantics differ.
 
 ### 5.4 "Replace Spool" Button in AMS Tray Popup
 
-Added to the AMS tray popup in `ams_tray_popup.yaml`, in the action chips area near the existing pin/unpin controls:
+Added to the AMS tray popup in `ams_tray_popup.yaml`, in the bottom action row:
 
 ```
 [ Weight: 123.4g ] [ This Print: 45.2g ] [ ... ]
 [ Desiccant: 12 days ] [ Mark Dried ] [ Mark Refilled ]
-[ Pin/Unpin ] [ Replace Spool ♻ ]          ← NEW
+[ Replace Spool ♻ ] [ Open in Spoolman ] [ Reload ] [ Close ]
 ```
 
 **Visibility:** Only shown when `match_state === 'matched'` and `spoolId` is set.
+
+To keep the popup focused, **More Details** and **Pin/Unpin** are not included in the bottom action row design.
 
 ### 5.5 "Replace / Refill Spool" Button in NFC Filament Tag View
 
@@ -645,7 +648,7 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 1. Helper entities (input_text, input_boolean, input_select)
 2. `script.spool_replace_populate_candidates`
 3. `script.spool_replace_execute` (with read-merge-write pattern for extra fields)
-4. "More Actions" > "Replace / Refill Spool" button in `catalog_spool_popup.yaml`
+4. "Replace / Refill Spool" button in `catalog_spool_popup.yaml` (left-most in bottom action row)
 5. Step 1–4 popup chain (browser_mod popups)
 
 **Validation:**
