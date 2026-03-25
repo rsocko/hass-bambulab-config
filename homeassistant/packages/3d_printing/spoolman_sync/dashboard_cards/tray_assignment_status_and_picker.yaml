@@ -23,9 +23,11 @@ cards:
       type: custom:config-template-card
       entities:
         - sensor.last_tray_assignment_result
+        - input_text.pending_tray_assignment_spool_id
       variables:
         result_state: "states['sensor.last_tray_assignment_result']?.state || 'idle'"
         result_msg: "(states['sensor.last_tray_assignment_result']?.attributes?.message || '').substring(0, 100)"
+        has_pending_spool: "!['', 'unknown', 'unavailable'].includes(states['input_text.pending_tray_assignment_spool_id']?.state || '')"
       card:
         type: custom:mushroom-chips-card
         alignment: center
@@ -44,9 +46,12 @@ cards:
                  result_state === 'failed' || result_state === 'overwrite_required' ? 'red' :
                  result_state === 'skipped' ? 'blue' :
                  result_state === 'deferred' ? 'amber' : 'grey' }
+            tap_action:
+              action: none
             content: >-
               ${ result_state === 'success' ? '✓ ' + result_msg :
-                 result_state === 'needs_tray_selection' ? '⚠ Select tray below' :
+                 result_state === 'needs_tray_selection' && has_pending_spool ? '⚠ Select tray below' :
+                 result_state === 'needs_tray_selection' ? '⚠ Tray selection was needed — re-scan spool to retry' :
                  result_state === 'failed' ? '✗ ' + result_msg :
                  result_state === 'overwrite_required' ? '⚠ Overwrite needed — use Set on Printer' :
                  result_state === 'skipped' ? 'ℹ ' + result_msg :
