@@ -956,10 +956,10 @@ ams_tray_popup:
                       chips: [
                         { type: 'template', icon: 'mdi:identifier', icon_color: 'grey', content: spoolUUID },
                         ...(matchTierLabel ? [{ type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }] : []),
-                        ...(pinActive ? [{ type: 'template', icon: 'mdi:pin', icon_color: 'red', content: 'Pinned' }] : [])
+                        ...(pinActionChip ? [pinActionChip] : [])
                       ],
                       card_mod: {
-                        style: 'ha-card { user-select: text; }'
+                        style: 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
                       }
                     }]
                   : (shouldOfferSetUUID
@@ -995,10 +995,10 @@ ams_tray_popup:
                             }
                           },
                           ...(matchTierLabel ? [{ type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel }] : []),
-                          ...(pinActive ? [{ type: 'template', icon: 'mdi:pin', icon_color: 'red', content: 'Pinned' }] : [])
+                          ...(pinActionChip ? [pinActionChip] : [])
                         ],
                         card_mod: {
-                          style: 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-text-color: white; font-weight: 700; }'
+                          style: 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-text-color: white; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
                         }
                       }]
                     : (matchTierLabel
@@ -1007,31 +1007,23 @@ ams_tray_popup:
                           alignment: 'center',
                           chips: [
                             { type: 'template', icon: 'mdi:link-variant', icon_color: 'cyan', content: 'Match: ' + matchTierLabel },
-                            ...(pinActive ? [{ type: 'template', icon: 'mdi:pin', icon_color: 'red', content: 'Pinned' }] : [])
-                          ]
+                            ...(pinActionChip ? [pinActionChip] : [])
+                          ],
+                          card_mod: {
+                            style: pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : ''
+                          }
                         }]
-                      : []))),
+                      : (pinActionChip
+                        ? [{
+                            type: 'custom:mushroom-chips-card',
+                            alignment: 'center',
+                            chips: [pinActionChip],
+                            card_mod: {
+                              style: 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-border-width: 0; font-weight: 700; cursor: pointer; }'
+                            }
+                          }]
+                        : [])))),
                 ...pinControlCardsForMatched,
-                ...(matchStrategy !== 'uuid' ? [{
-                  type: 'custom:bubble-card',
-                  card_type: 'sub-buttons',
-                  hide_main_background: true,
-                  sub_button: [
-                    ...(pinActive ? [{
-                      name: 'Unpin Spool #' + pinSpoolId,
-                      icon: 'mdi:pin-off',
-                      show_name: true,
-                      show_background: true,
-                      tap_action: clearPinAction
-                    }] : [{
-                      name: 'Pin Spool',
-                      icon: 'mdi:pin',
-                      show_name: true,
-                      show_background: true,
-                      tap_action: openPinPopupAction
-                    }])
-                  ]
-                }] : []),
                 {
                   type: 'custom:mushroom-chips-card',
                   alignment: 'center',
@@ -1266,31 +1258,32 @@ ams_tray_popup:
                   }
                 },
                 {
-                  type: 'custom:bubble-card',
-                  card_type: 'sub-buttons',
-                  hide_main_background: true,
-                  sub_button: [
+                  type: 'horizontal-stack',
+                  cards: [
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       entity: spoolEntityId,
                       name: 'Details',
                       icon: 'mdi:information-outline',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'more-info' }
                     },
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       name: 'Spoolman',
                       icon: 'fapro:filament-2',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }
                     },
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       entity: spoolEntityId,
                       name: 'Reload',
                       icon: 'mdi:refresh',
-                      show_name: true,
-                      show_background: true,
                       tap_action: {
                         action: 'fire-dom-event',
                         browser_mod: {
@@ -1306,10 +1299,11 @@ ams_tray_popup:
                       }
                     },
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       name: 'Close',
                       icon: 'mdi:close-circle-outline',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }
                     }
                   ]

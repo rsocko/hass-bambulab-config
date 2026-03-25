@@ -494,40 +494,42 @@ catalog_spool_popup:
                     ]
                   }
                 },
-                // --- Action buttons (bubble card sub-buttons) ---
+                // --- Action buttons (bubble card buttons) ---
                 {
-                  type: 'custom:bubble-card',
-                  card_type: 'sub-buttons',
-                  hide_main_background: true,
-                  sub_button: [
+                  type: 'horizontal-stack',
+                  cards: [
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       entity: locationEntityId,
                       name: 'Location',
                       icon: 'mdi:map-marker-radius',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'more-info' }
                     },
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       name: 'Spoolman',
                       icon: 'fapro:filament-2',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }
                     },
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       entity: eid,
                       name: 'Reload',
                       icon: 'mdi:refresh',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } }
                     },
                     {
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
                       name: 'Close',
                       icon: 'mdi:close-circle-outline',
-                      show_name: true,
-                      show_background: true,
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }
                     }
                   ]
