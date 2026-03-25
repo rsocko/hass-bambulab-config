@@ -28,15 +28,15 @@
         target_is_external: "{{ to_location == 'External Spool Holder' }}"
         is_supported_target: "{{ target_is_ams_1 or target_is_ams_2 or target_is_external }}"
         ams_1_trays:
-          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_1
-          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_2
-          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_3
-          - sensor.ntk_ryansoffice_3dprinter_ams_1_tray_4
+          - sensor.p1s_01p00c460102350_ams_1_tray_1
+          - sensor.p1s_01p00c460102350_ams_1_tray_2
+          - sensor.p1s_01p00c460102350_ams_1_tray_3
+          - sensor.p1s_01p00c460102350_ams_1_tray_4
         ams_2_trays:
-          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_1
-          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_2
-          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_3
-          - sensor.ntk_ryansoffice_3dprinter_ams_2_tray_4
+          - sensor.p1s_01p00c460102350_ams_2_tray_1
+          - sensor.p1s_01p00c460102350_ams_2_tray_2
+          - sensor.p1s_01p00c460102350_ams_2_tray_3
+          - sensor.p1s_01p00c460102350_ams_2_tray_4
         candidate_trays: >-
           {% if target_is_ams_2 %}
             {{ ams_2_trays }}

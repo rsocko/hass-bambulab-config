@@ -70,7 +70,7 @@ assign_spool_to_printer_tray:
       tray_entity_ok: >-
         {{ tray_entity_id | length > 0 and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
       is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
-      is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\.ntk_ryansoffice_3dprinter_ams_\\d+_tray_\\d+$') }}"
+      is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\..*_ams_\\d+_tray_\\d+$') }}"
       spool_vendor: >-
         {% if spool_entity_ok %}
           {{ state_attr(resolved_spool_entity_id, 'filament_vendor_name') | default('', true) | string | trim }}
