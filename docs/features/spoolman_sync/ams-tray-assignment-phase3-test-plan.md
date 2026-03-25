@@ -1,12 +1,14 @@
 # AMS Tray Assignment Phase 3 — UI Integration Test Plan
 
+> **Last tested**: 2026-03-25 | **HA**: core-2026.3.4, HAOS 17.1, aarch64/RPi5
+
 ## Scope
 
 Validate Phase 3 UI integration behavior for:
 
 - **"Set on Printer" chip** in the AMS tray popup (`ams_tray_popup.yaml`)
-- **Assignment status chip** in the filament tag view (`view_filament_tags.yaml`)
-- **Inline tray picker** in the filament tag view for pending assignments
+- **Assignment status chip** — shared include (`tray_assignment_status_and_picker.yaml`) on Home, Filament Tags, and Filament Catalog views
+- **Popup tray picker** — browser_mod popup opened by tapping the status chip; uses `script.assign_pending_spool_to_tray` wrapper
 - **Success notification** from the assignment script
 
 ## Pre-Flight
@@ -247,6 +249,53 @@ Pick at least 3 spools:
 
 ---
 
+---
+
+## Test Results — 2026-03-25
+
+### Backend Tests (via `script.test_fire_tray_assignment_event`)
+
+| Test | Description | Result |
+|------|-------------|--------|
+| T-B1 | idle state — chip hidden | **PASS** |
+| T-B2 | success state — green chip | **PASS** |
+| T-B3 | needs_tray_selection — orange chip | **PASS** |
+| T-B4 | failed — red chip | **PASS** |
+| T-B5 | overwrite_required — red chip | **PASS** |
+| T-B6 | skipped — blue chip | **PASS** |
+
+### UI Tests
+
+| Test | Description | Result |
+|------|-------------|--------|
+| T-U1 | Chip hidden when idle (all 3 views) | **PASS** |
+| T-U2 | Chip visible on Home, Filament Tags, Filament Catalog | **PASS** |
+| T-U3 | Popup opens on chip tap (all 3 views) | **PASS** |
+| T-U4 | Chip colors: green/success, red/failed, blue/skipped, orange/needs_tray_selection | **PASS** |
+
+### Interactive Tests
+
+| Test | Description | Result | Notes |
+|------|-------------|--------|-------|
+| T-I1 | Tray button in popup fires assignment | **PASS** | Spool 85 (Bambu PLA) → AMS 2 T4 → correctly `skipped` (RFID guard) |
+| T-I2 | "Set on Printer" chip in AMS tray popup | **PASS** | `force_write: true` bypassed RFID guard → correctly `deferred` (printer busy) |
+
+### Deferred Tests (require printer idle or specific spool conditions)
+
+| Test | Description | Reason Deferred |
+|------|-------------|----------------|
+| T4 | Tap "Set on Printer" for non-Bambu spool → full `set_filament` call succeeds | Printer was actively printing; `set_filament` blocked by deferred guard. Retest when printer is idle. |
+| T5 | Tap "Set on Printer" for Bambu spool with `force_write` → full success (not just deferred) | Same — printer busy. Need idle printer to verify `set_filament` actually writes to tray. |
+| T6 | Overwrite tray with different filament data via "Set on Printer" | Requires idle printer + tray with pre-existing different filament info. |
+| T-I1b | Tray button in popup for non-Bambu spool → full `set_filament` success | Tested with Bambu spool (correctly skipped). Need non-Bambu spool + idle printer to verify end-to-end write. |
+| T16 | Tap tray button in popup to complete pending assignment → success flow | Equivalent to T-I1b. Verify `input_text` clears, picker hides, status chip updates to success. |
+| T17 | End-to-end: Location change → inference failure → tray picker → success | Requires Spoolman location change trigger + multiple empty trays + idle printer. |
+| T18 | End-to-end: NFC scan → filament tag → AMS button → auto-assign | Requires NFC tag scan + exactly 1 empty tray + idle printer. |
+| T19 | Success notification content validation | Need a successful `set_filament` (idle printer) to verify notification title/message/id. |
+| T20 | Repeated assignment replaces previous notification | Need two successful assignments for same spool. |
+
+---
+
 ## Pass Criteria
 
 Phase 3 is validated when:
@@ -257,11 +306,14 @@ Phase 3 is validated when:
 - The Phase 2 automated flow (T17, T18) still works end-to-end with the new UI enhancements
 - The `conditional` card correctly shows/hides the status chip and tray picker based on entity states
 
+> **Current status**: All backend + UI rendering + interactive tests pass. Deferred tests require an idle printer to validate the full `set_filament` write path.
+
 ## Troubleshooting Checks
 
 - **Chips don't render**: Confirm `card-mod` and `mushroom-chips-card` HACS integrations are installed and updated.
-- **config-template-card errors**: Check browser console for JS errors in `${}` template evaluation. Verify `entities` list includes all entities referenced in `variables`.
+- **config-template-card in popups**: `config-template-card` silently fails inside `browser_mod.popup` content. Use plain `vertical-stack` with a wrapper script instead.
+- **Jinja2 in popup perform-action data**: Jinja2 templates (`{{ }}`) are NOT evaluated in `perform-action` `data` fields inside browser_mod popups. Use a server-side wrapper script that reads the value from an `input_text` helper.
 - **conditional card not hiding/showing**: Verify the entity state value is exactly as expected (e.g., empty string `""` not `null`). Use Developer Tools → States to inspect `input_text.pending_tray_assignment_spool_id` and `sensor.last_tray_assignment_result`.
 - **"Set on Printer" chip missing in popup**: Verify `spoolId` is truthy and `material` is not `'Unknown'`. Add `console.log(canSetOnPrinter, spoolId, material)` temporarily in the popup JS to debug.
-- **Tray picker buttons not calling script**: Verify `perform-action` syntax is correct for the Bubble Card version. Check that `script.assign_spool_to_printer_tray` accepts the `spool_id` as a string from the template expression.
+- **Popup tray buttons not calling script**: Verify buttons call `script.assign_pending_spool_to_tray` (wrapper) with only `tray_entity_id`. The wrapper reads `input_text.pending_tray_assignment_spool_id` server-side.
 - **Status chip not updating**: Verify `sensor.last_tray_assignment_result` updates when `spoolman_tray_assignment_result` event fires. Check Developer Tools → Events → listen for the event.
