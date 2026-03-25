@@ -72,13 +72,44 @@
     - choose:
         - conditions:
             - condition: template
+              value_template: "{{ not is_supported_target }}"
+          sequence:
+            - action: logbook.log
+              data:
+                name: Tray Assignment
+                message: >-
+                  Spool {{ spool_id }} location changed to '{{ to_location }}'
+                  — not a supported assignment target. No action taken.
+                entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                domain: automation
+            - stop: Non-assignment target location
+
+    - choose:
+        - conditions:
+            - condition: template
               value_template: "{{ can_assign_now }}"
           sequence:
+            - action: logbook.log
+              data:
+                name: Tray Assignment
+                message: >-
+                  Assigning spool {{ spool_id }} ({{ spool_entity_id }})
+                  → {{ target_tray_entity_id }} for location '{{ to_location }}'.
+                entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                domain: automation
             - action: script.assign_spool_to_printer_tray
               data:
                 spool_id: "{{ spool_id }}"
                 tray_entity_id: "{{ target_tray_entity_id }}"
               response_variable: assignment_response
+            - action: logbook.log
+              data:
+                name: Tray Assignment
+                message: >-
+                  Spool {{ spool_id }} → {{ to_location }}: {{ assignment_response.status | default('unknown') }}.
+                  {{ assignment_response.message | default('') }}
+                entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                domain: automation
             - choose:
                 - conditions:
                     - condition: template
@@ -96,6 +127,14 @@
             - condition: template
               value_template: "{{ is_supported_target and needs_tray_selection and spool_id | regex_match('^\\d+$') }}"
           sequence:
+            - action: logbook.log
+              data:
+                name: Tray Assignment
+                message: >-
+                  Spool {{ spool_id }} moved to '{{ to_location }}' but tray inference
+                  failed ({{ empty_candidate_trays | count }} empty trays). Awaiting manual selection.
+                entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                domain: automation
             - action: input_text.set_value
               data:
                 entity_id: input_text.pending_tray_assignment_spool_id
@@ -125,5 +164,6 @@
                 notification_id: tray_assignment_needs_selection_{{ spool_id }}
 
       default: []
-  mode: queued
-  max: 20
+  mode: parallel
+  max: 150
+  stored_traces: 20
