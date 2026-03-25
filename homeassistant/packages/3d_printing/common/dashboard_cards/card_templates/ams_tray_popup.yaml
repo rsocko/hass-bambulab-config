@@ -961,10 +961,7 @@ ams_tray_popup:
                       card_mod: {
                         style: Object.assign(
                           { '.': 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
-                          pinActionChip ? { 'mushroom-template-chip:last-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' } : {}
-                        )
-                      }
-                    }]
+                          pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
                   : (shouldOfferSetUUID
                     ? [{
                         type: 'custom:mushroom-chips-card',
@@ -1003,8 +1000,8 @@ ams_tray_popup:
                         card_mod: {
                           style: Object.assign(
                             { '.': 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
-                            { 'mushroom-template-chip:nth-child(1) $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' },
-                            pinActionChip ? { 'mushroom-template-chip:last-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' } : {}
+                            { 'mushroom-template-chip:nth-child(1) $': 'ha-state-icon { color: white !important; } span { color: white !important; }' },
+                            pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
                           )
                         }
                       }]
@@ -1019,7 +1016,7 @@ ams_tray_popup:
                           card_mod: {
                             style: Object.assign(
                               { '.': pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '' },
-                              pinActionChip ? { 'mushroom-template-chip:last-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' } : {}
+                              pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
                             )
                           }
                         }]
@@ -1031,7 +1028,7 @@ ams_tray_popup:
                             card_mod: {
                               style: {
                                 '.': 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }',
-                                'mushroom-template-chip:first-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }'
+                                'mushroom-template-chip:first-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }'
                               }
                             }
                           }]
