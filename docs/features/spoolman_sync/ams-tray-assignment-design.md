@@ -78,7 +78,8 @@ From `sensor.spoolman_spool_*` entity attributes:
 | Spoolman Attribute | Maps To | Notes |
 |---|---|---|
 | `filament_material` | `tray_type` | Direct map for common types (PLA, PETG, ABS, etc.) |
-| `filament_color_hex` | `tray_color` | 6-char hex; must append `FF` alpha for RGBA |
+| `filament_color_hex` | `tray_color` | Single-color fallback; 6-char hex normalized and converted to RGBA |
+| `filament_multi_color_hexes` | `tray_color` | For multi-color spools, use the first hex in the comma-separated list as primary tray color |
 | `filament_extra_profile_name` | `tray_info_idx` lookup key | JSON-quoted; strip outer quotes. Maps to Bambu profile name. |
 | `filament_settings_extruder_temp` | `nozzle_temp_min` / `nozzle_temp_max` | May be a single value; need min/max derivation strategy |
 | `filament_vendor_name` | (Bambu vs non-Bambu determination) | "Bambu Lab" = Bambu path |
@@ -92,7 +93,7 @@ From `sensor.spoolman_spool_*` entity attributes:
 |---|---|---|
 | **When to trigger?** | Spoolman location change to AMS/External + manual on-demand | Both automated and manual flows cover the key scenarios |
 | **Where does tray_info_idx come from?** | Profile-name-to-idx lookup via `bambu_lab.get_filament_data` (called inline at assignment time) + hardcoded generic fallback table | `get_filament_data` returns `filaments_detail.json` merged with slicer custom profiles; no caching needed |
-| **How to detect Spoolman location changes?** | Monitor `sensor.spoolman_spool_*` location attribute changes via state trigger | Spoolman integration updates entities when spool data changes |
+| **How to detect Spoolman location changes?** | Monitor `select.spoolman_spool_*_location` state changes via state trigger | Location is the primary state of the dedicated Spoolman location entity |
 | **What if tray can't be inferred?** | Persistent notification + inline tray picker in filament tag view + tray picker in ams_tray_popup | User picks the tray from the UI they're currently in |
 | **Overwrite Bambu RFID spools?** | Never in AMS trays; always for External Spool | AMS has RFID reader; External Spool never does |
 | **Filament data storage strategy** | No caching — call `get_filament_data` inline at assignment time | Local service call is fast; hardcoded generic fallback for offline resilience |
@@ -111,9 +112,9 @@ From `sensor.spoolman_spool_*` entity attributes:
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  (A) Spoolman location change         (B) Manual action from HA UI   │
-│      sensor.spoolman_spool_*              "Set on Printer" in         │
-│      location → "AMS" / "AMS 2"           ams_tray_popup.yaml        │
-│                / "External Spool Holder"                             │
+│      select.spoolman_spool_*_location     "Set on Printer" in         │
+│      state → "AMS" / "AMS 2"              ams_tray_popup.yaml        │
+│             / "External Spool Holder"      (direct assign action)     │
 │                                                                      │
 │      Primary real-world source:        (C) Filament Tag view         │
 │      NFC scan → filament tag view          (future: combined         │
@@ -172,7 +173,7 @@ From `sensor.spoolman_spool_*` entity attributes:
 
 #### Trigger Mechanism
 
-An automation monitors all `sensor.spoolman_spool_*` entities for `location` attribute changes. When a spool's location changes **to** a value indicating AMS or External Spool placement, the assignment flow begins.
+An automation monitors all `select.spoolman_spool_*_location` entities for state changes. When a spool's location state changes **to** a value indicating AMS or External Spool placement, the assignment flow begins.
 
 **Location values that trigger assignment:**
 - `"AMS"` — spool placed into AMS unit 1
@@ -185,7 +186,7 @@ An automation monitors all `sensor.spoolman_spool_*` entities for `location` att
 
 The Spoolman `location` field is freeform text. The Spoolman API only returns location values that are currently assigned to at least one spool. This means:
 
-- **Trigger automation**: No issue — the automation watches the `location` attribute on `sensor.spoolman_spool_*` entities for specific string values regardless of any dropdown.
+- **Trigger automation**: No issue — the automation watches the state of `select.spoolman_spool_*_location` entities for specific string values regardless of any dropdown.
 - **User setting the location**: If no spool currently has `"External Spool Holder"` as its location, the value will not appear as an auto-suggest option in the Spoolman UI. The user must type it manually the first time. Once at least one spool has the value, it will appear in location dropdowns and filter options.
 - **First-use bootstrapping**: Consider documenting the exact location strings (`"AMS"`, `"AMS 2"`, `"External Spool Holder"`) in user-facing setup docs or as a tooltip/helper text so users know the expected values. Alternatively, a one-time setup script could assign and then unassign these location values to a dummy spool to seed the Spoolman auto-suggest list.
 
@@ -199,8 +200,12 @@ Before proceeding with assignment:
    
 2. **Spool data is sufficient**
    - `filament_material` is present
-   - `filament_color_hex` is present
-   - At least one of: `filament_extra_profile_name` or `filament_settings_extruder_temp` is present
+  - At least one color source is present:
+    - `filament_multi_color_hexes` with a valid first hex entry, or
+    - `filament_color_hex`
+  - If neither color source is usable, block assignment and notify: "Incomplete spool data: missing usable color"
+  - `filament_extra_profile_name` and `filament_settings_extruder_temp` are optional when material defaults exist
+  - If both are missing and no material default exists, block assignment and notify: "Incomplete spool data: missing profile/temp and unsupported material"
 
 3. **Printer is reachable and not printing**
    - Check `sensor.smart_status` is not in an active printing state
@@ -318,15 +323,20 @@ This is the most complex mapping challenge. Bambu's `set_filament` requires a `t
 
 #### Color Mapping
 
-Straightforward:
+Use this precedence:
+
+1. If `filament_multi_color_hexes` is non-empty, parse the first comma-separated hex value and use it.
+2. Otherwise, use `filament_color_hex`.
+3. If neither is usable, block assignment with an actionable notification.
 
 ```
-tray_color = filament_color_hex (6-char) + "FF" (opaque alpha)
+tray_color = selected_hex (6-char RGB) + "FF" (opaque alpha)
 ```
 
-Example: Spoolman `filament_color_hex = "da291c"` → `tray_color = "DA291CFF"`
+Examples:
 
-For multi-color spools, use the first/primary color hex.
+- Single-color: `filament_color_hex = "da291c"` → `tray_color = "DA291CFF"`
+- Multi-color: `filament_multi_color_hexes = "ff0000,00ff00,0000ff"` → first hex `FF0000` → `tray_color = "FF0000FF"`
 
 #### Temperature Mapping
 
@@ -335,6 +345,7 @@ For multi-color spools, use the first/primary color hex.
 | Bambu profile match found | Use `nozzle_temp_min` and `nozzle_temp_max` from the matched Bambu profile |
 | Only `filament_settings_extruder_temp` available | Use `temp - 10` as min, `temp + 10` as max |
 | No temperature data | Use material-type defaults from the hardcoded table |
+| No temperature data and material not in defaults | Block assignment and create actionable notification |
 
 **Material-type default temperatures** (fallback):
 
@@ -412,6 +423,18 @@ In the existing `ams_tray_popup.yaml`, add a new action alongside the existing "
 
 This allows the user to re-push filament info at any time — useful after firmware updates, AMS resets, or when Bambu Studio info drifts.
 
+> **Future Idea (Out of Scope for Initial Implementation)**
+>
+> Add an optional combined manual action mode in the tray popup:
+>
+> - **Current behavior (default)**: "Set on Printer" only calls `script.assign_spool_to_printer_tray`
+> - **Future optional mode**: "Set on Printer + Update Location" also updates the spool's Spoolman location based on the selected tray context
+>
+> This is intentionally deferred so the initial implementation keeps a clear separation between:
+>
+> - location-driven automation (A-path)
+> - explicit manual printer write (B-path)
+
 ### 6. Non-Interference Rules
 
 #### Bambu RFID Spools in AMS
@@ -429,12 +452,14 @@ Exception: If the user explicitly triggers "Set on Printer" from the popup, allo
 
 If a user has already set filament info via Bambu Studio:
 - The automated Spoolman-location-change flow checks printer state before writing
-- If the tray already has non-empty type/color/profile that differs from what we'd set → option to skip or warn
+- Preserve existing tray data only when it matches the computed Spoolman target **exactly** (`type`, `color`, and `name`)
+- If any of those fields differ, do not silently keep existing values: create a warning/informational notification and require explicit user override
 - The manual "Set on Printer" action always writes (user explicitly chose to do it)
+- Users can still adjust individual attributes manually in the Bambu AMS Card UI when partial edits are preferred
 
 > **Open Question 5**: Should the automation check if the tray already has correct/recent data before overwriting?
 >
-> **Recommendation**: Yes. Before calling `set_filament`, check if the tray's current `type`, `color`, and `name` already match the Spoolman spool data (within tolerance for color hex). If they match, skip the call and log "Tray already configured correctly." This prevents unnecessary writes and preserves Bambu Studio edits.
+> **Recommendation**: Yes. Before calling `set_filament`, compare the tray's current `type`, `color`, and `name` against the computed Spoolman target using exact equality. If all three match, skip the call and log "Tray already configured correctly." If any field differs, issue a warning/informational notification and require explicit user action (for example, "Set on Printer") to apply Spoolman values.
 
 ### 7. Spoolman Location Values
 
@@ -495,7 +520,7 @@ script.update_spool_location
 spoolman.patch_spool(id, location: "AMS")
     │
     ▼
-sensor.spoolman_spool_* location attribute updates
+select.spoolman_spool_*_location state updates
     │
     ▼ (THIS is the event that triggers the §1 automation)
 spool_location_change_assign_tray automation fires
@@ -639,7 +664,7 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 
 | Task | Deliverable | Location |
 |---|---|---|
-| Location change detection automation | Monitors `sensor.spoolman_spool_*` location changes | `spoolman_sync/automations/` |
+| Location change detection automation | Monitors `select.spoolman_spool_*_location` state changes | `spoolman_sync/automations/` |
 | Tray inference logic | Within the automation or as a sub-script | `spoolman_sync/scripts/` |
 | Non-interference checks | Pre-call validation (UUID skip, already-correct skip) | Within assignment script |
 | Error handling | Persistent notifications for failures, auth issues | Within assignment script |
@@ -700,7 +725,7 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | `get_filament_data` response format changes | Medium | Low | Version-check; fallback to hardcoded table |
 | Spool loaded during active print | Medium | High | Check printer status before calling `set_filament`; defer if printing |
 | Race condition: location change + tray state change timing | Medium | Medium | Simple empty-tray-count approach avoids timing dependency |
-| Overwriting user's Bambu Studio edits | Medium | Medium | Pre-check tray state; skip if already correct |
+| Overwriting user's Bambu Studio edits | Medium | Medium | Exact-match pre-check (`type`/`color`/`name`); auto-skip only on exact match, otherwise notify and require explicit override |
 | Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip in filament tag view (Phase 3) |
 | Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 4 |
 
@@ -717,12 +742,17 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | Bambu spool (with UUID) location → "External Spool" | set_filament called (external has no RFID reader) |
 | Any spool location → "External Spool" | set_filament called on external_spool entity |
 | Spool missing `filament_material` | Assignment blocked; notification: "Incomplete spool data" |
+| Multi-color spool with `filament_multi_color_hexes` and empty `filament_color_hex` | Use first multi-color hex for `tray_color` and continue |
+| Spool missing both `filament_color_hex` and usable `filament_multi_color_hexes` | Assignment blocked; notification: "Incomplete spool data: missing usable color" |
 | `set_filament` fails (auth error) | Persistent notification with firmware guidance |
 | Printer is actively printing when spool loaded | Assignment deferred; notification: "Will assign after print completes" |
 | Manual "Set on Printer" from tray popup | set_filament called for matched spool + current tray |
 | Tray already has correct filament info | Skip set_filament; log "Already configured" |
+| Tray has non-empty filament info that differs from computed Spoolman target | Do not auto-overwrite; create warning/informational notification and require explicit override |
 | Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range |
 | Profile name has no Bambu match | Use generic profile for the material type |
+| Missing profile name and missing extruder temp, material has defaults | Proceed using generic profile + material default temp range |
+| Missing profile name and missing extruder temp, material unsupported | Assignment blocked; notification: "Unsupported material for default temp fallback" |
 | Location change to non-AMS/non-External | No action taken |
 | **Filament Tag View scenarios** | |
 | NFC scan → tap "AMS" button in filament tag view | Spoolman location updated → automation fires → tray assignment attempted |
@@ -743,7 +773,7 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count; timing-based correlation deferred to Phase 4 | Pending decision |
 | 3 | ~~How to map "AMS" vs "AMS 2" locations?~~ | `"AMS"` → AMS 1, `"AMS 2"` → AMS 2 | **Resolved** |
 | 4 | ~~How to validate `tray_info_idx` codes?~~ | Validated against `filaments_detail.json` bundled with ha-bambulab. `get_filament_data` returns this merged with slicer custom profiles. Generic fallback codes confirmed: GFL99=PLA, GFG99=PETG, GFB99=ABS, GFB98=ASA, GFU99=TPU, GFN99=PA, GFC99=PC, GFS99=PVA | **Resolved** |
-| 5 | Check if tray already has correct data before writing? | Yes — skip if already correct | Pending decision |
+| 5 | ~~Check if tray already has correct data before writing?~~ | Resolved: use exact match on `type`/`color`/`name`; auto-skip only on exact match, otherwise notify and require explicit override | **Resolved** |
 | 6 | ~~How to store filament lookup cache?~~ | No caching. Call `get_filament_data` inline at assignment time (local call, fast). Hardcoded generic fallback table for offline resilience. | **Resolved** |
 | 7 | Should "Set on Printer" work for Bambu spools too? | Yes — as explicit override when user initiates manually | Pending decision |
 | 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
@@ -757,7 +787,7 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | Dependency | Version / Notes |
 |---|---|
 | `ha-bambulab` integration | v2.2.x+ — requires `bambu_lab.set_filament` and `bambu_lab.get_filament_data` services |
-| Spoolman integration | Must expose `location` attribute on `sensor.spoolman_spool_*` entities |
+| Spoolman integration | Must expose `select.spoolman_spool_*_location` entities |
 | Printer firmware | Must support write operations (LAN Mode or pre-auth-lockdown firmware) |
 | `sensor.spoolman_tray_map` | Existing — unchanged; used for read-side matching and spool data access |
 | `sensor.smart_status` | Existing — used to check if printer is actively printing |

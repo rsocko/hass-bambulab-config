@@ -48,8 +48,9 @@ Output: tray_color = "DA291CFF"
 **Rules:**
 - Normalize to uppercase
 - Strip any leading `#` if present
-- For multi-color spools (`filament_multi_color_hexes` is non-empty), use the **first** color in the list as the primary
-- If `filament_color_hex` is empty, block the assignment
+- If `filament_multi_color_hexes` is non-empty, use the **first** color in the list as the primary
+- Otherwise use `filament_color_hex`
+- If both are missing/invalid, block the assignment
 
 **Multi-color handling:**
 
