@@ -135,6 +135,14 @@ Search behavior notes:
 
 If popup displays "Spool search helper is unavailable", that message is a custom UI guard (not a Home Assistant core error) and means search query helpers were not loaded yet. Reload/restart spoolman_sync helpers and template entities.
 
+### 10. Popup reactivity refactor (AMS + Catalog)
+
+Design and phased implementation plan for improving in-popup live updates while
+preserving catalog/main dashboard performance and supporting side-by-side
+legacy/reactive rollout:
+
+- [Popup Reactivity Refactor Design](popup-reactivity-refactor-design.md)
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 
