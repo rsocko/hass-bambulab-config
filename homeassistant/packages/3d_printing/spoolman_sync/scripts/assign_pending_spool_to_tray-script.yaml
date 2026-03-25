@@ -1,0 +1,22 @@
+assign_pending_spool_to_tray:
+  alias: Assign Pending Spool to Tray
+  description: >-
+    Dashboard wrapper: reads the pending spool ID from
+    input_text.pending_tray_assignment_spool_id and delegates
+    to script.assign_spool_to_printer_tray.  Exists because
+    browser_mod popup tap-actions cannot evaluate Jinja2 or
+    config-template-card JS in perform-action data fields.
+  icon: mdi:tray-arrow-down
+  mode: queued
+  fields:
+    tray_entity_id:
+      name: Tray Entity ID
+      description: Target tray sensor entity for assignment
+      required: true
+      selector:
+        text:
+  sequence:
+    - action: script.assign_spool_to_printer_tray
+      data:
+        spool_id: "{{ states('input_text.pending_tray_assignment_spool_id') }}"
+        tray_entity_id: "{{ tray_entity_id }}"
