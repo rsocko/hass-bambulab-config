@@ -532,11 +532,9 @@ spool_location_change_assign_tray automation fires
 
 2. **The view currently lacks an "External Spool Holder" quick button.** Only "AMS" and "AMS 2" have dedicated buttons. Users must use the full location dropdown to set "External Spool Holder." A third quick-action button should be added for parity.
 
-3. **No "Remove from AMS" quick action exists.** The user mentioned a core use case: marking a spool as *no longer* in the AMS. Currently the user must open the location dropdown and pick a shelf location. A "Remove from AMS" button (sets location to empty/shelf) would save taps.
+3. **After tapping AMS, the user has no feedback about tray assignment.** The current flow completes the Spoolman location update silently. The user has no way to know whether the automation successfully assigned the tray, whether inference failed, or whether a notification was sent — they just see the location change.
 
-4. **After tapping AMS, the user has no feedback about tray assignment.** The current flow completes the Spoolman location update silently. The user has no way to know whether the automation successfully assigned the tray, whether inference failed, or whether a notification was sent — they just see the location change.
-
-5. **The filament tag view knows the spool identity** — all the data needed for `set_filament` is available in the view context (spool entity, material, color, profile). This opens the door for a combined action.
+4. **The filament tag view knows the spool identity** — all the data needed for `set_filament` is available in the view context (spool entity, material, color, profile). This opens the door for a combined action.
 
 #### Proposed Enhancements
 
@@ -615,27 +613,6 @@ When the automated tray inference fails after a filament tag location change, th
 The pending-assignment state from the automation (stored in `input_text.pending_tray_assignment_spool_id`) makes this conditional card visible. Tapping a tray button calls `script.assign_spool_to_printer_tray` with the explicit tray and clears the pending state.
 
 > **Recommendation**: Include this in Phase 3 alongside the tray popup UI changes. The same pending-assignment helper drives both the notification and the inline tray picker.
-
-##### Enhancement D: "Remove from AMS" Quick Action
-
-Add a conditional button that appears when the spool's current location is "AMS", "AMS 2", or "External Spool Holder":
-
-```yaml
-# Only visible when spool is currently in an AMS location
-- tap_action:
-    action: "${ spool_id && isInAms ? 'perform-action' : 'none' }"
-    perform_action: script.update_spool_location
-    target: {}
-    data:
-      spool_id: ${ spool_id }
-      location: ""    # clears location in Spoolman
-  name: Remove
-  icon: fas:arrow-right-from-bracket
-```
-
-This addresses the use case of "spool is no longer in the AMS." When the location changes away from an AMS value, no tray assignment automation fires (the automation only triggers on changes **to** AMS locations).
-
-> **Open question**: Should removing a spool from AMS also clear the printer tray info? The printer doesn't have a "clear tray" action per se — the AMS detects physical removal. This is likely a no-op on the printer side, but could be useful for the External Spool holder.
 
 #### Impact on Two-Phase vs. Combined Architecture
 
@@ -875,7 +852,6 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Non-interference checks | Pre-call validation (UUID skip, already-correct skip) | Within assignment script |
 | Error handling | Persistent notifications for failures, auth issues | Within assignment script |
 | Filament tag view: "Ext. Spool" button | Third quick-action button for External Spool Holder | `common/dashboard_views/view_filament_tags.yaml` |
-| Filament tag view: "Remove" button | Conditional button to clear AMS location (visible when spool is in AMS) | `common/dashboard_views/view_filament_tags.yaml` |
 
 ### Phase 2.5: Label-Based Entity Discovery
 
@@ -929,7 +905,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | File | Change |
 |---|---|
 | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Set on Printer" action chip |
-| `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" + "Remove" quick buttons; add assignment status chip; add inline tray picker for pending assignments |
+| `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" quick button; add assignment status chip; add inline tray picker for pending assignments |
 | `filament_tag/scripts/update_spool_location-script.yaml` | No change needed — existing script patches Spoolman; the location change triggers the new automation |
 | `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 2.5: migrate condition from regex to `label_entities('spoolman_spool_location')` |
 | `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool Holder" as a trigger location |
@@ -979,7 +955,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | NFC scan → tap "AMS" button in filament tag view | Spoolman location updated → automation fires → tray assignment attempted |
 | NFC scan → tap "AMS 2" button | Same as above, targeting AMS 2 trays |
 | NFC scan → tap "Ext. Spool" button (new) | Spoolman location updated → automation fires → external spool assignment (no tray inference needed) |
-| NFC scan → tap "Remove" button (new, spool currently in AMS) | Spoolman location cleared → no tray assignment automation fires |
+
 | Tray inference fails after filament tag AMS tap | Inline tray picker shown in filament tag view + notification sent |
 | Assignment succeeds after filament tag AMS tap | Status chip shows "✓ Set on AMS 1 Tray 3" in filament tag view |
 | Filament tag view with no spool selected | All quick-action buttons disabled/hidden |

@@ -103,9 +103,9 @@ Validate Phase 2 behavior for:
 ### T9 - Filament-tag quick action buttons
 
 1. Open filament tag view.
-2. Confirm `Ext. Spool` button appears and updates location correctly.
-3. Confirm `Remove` button appears only when spool location is `AMS` or `AMS 2`.
-4. Tap `Remove` and verify location is cleared.
+2. Confirm `AMS`, `AMS 2`, and `Ext. Spool` buttons appear when a spool is selected.
+3. Tap `Ext. Spool` and verify location updates to "External Spool Holder".
+4. Tap `AMS` and verify location updates to "AMS" and tray assignment automation fires.
 
 ## Pass Criteria
 
