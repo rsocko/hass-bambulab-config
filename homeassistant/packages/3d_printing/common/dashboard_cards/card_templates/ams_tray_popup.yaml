@@ -1011,7 +1011,7 @@ ams_tray_popup:
                       ],
                       card_mod: {
                         style: Object.assign(
-                          { '.': 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
+                          { '.': 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:last-child:hover { filter: brightness(1.2); } mushroom-template-chip:last-child:active { filter: brightness(0.9); }' : '') },
                           pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
                         )
                       }
@@ -1053,7 +1053,7 @@ ams_tray_popup:
                         ],
                         card_mod: {
                           style: Object.assign(
-                            { '.': 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
+                            { '.': 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:last-child:hover { filter: brightness(1.2); } mushroom-template-chip:last-child:active { filter: brightness(0.9); }' : '') },
                             { 'mushroom-template-chip:nth-child(1) $': 'ha-state-icon { color: white !important; } span { color: white !important; }' },
                             pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
                           )
@@ -1069,7 +1069,7 @@ ams_tray_popup:
                           ],
                           card_mod: {
                             style: Object.assign(
-                              { '.': pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '' },
+                              { '.': pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:last-child:hover { filter: brightness(1.2); } mushroom-template-chip:last-child:active { filter: brightness(0.9); }' : '' },
                               pinActionChip ? { 'mushroom-template-chip:last-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }' } : {}
                             )
                           }
@@ -1081,7 +1081,7 @@ ams_tray_popup:
                             chips: [pinActionChip],
                             card_mod: {
                               style: {
-                                '.': 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }',
+                                '.': 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:first-child:hover { filter: brightness(1.2); } mushroom-template-chip:first-child:active { filter: brightness(0.9); }',
                                 'mushroom-template-chip:first-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }'
                               }
                             }
@@ -1232,16 +1232,27 @@ ams_tray_popup:
                               show_icon: true,
                               icon: 'mdi:minus',
                               tap_action: decreaseQtyToOrderAction,
+                              card_mod: {
+                                style: 'ha-card { transition: filter 0.2s ease; ' + (qtyToOrder > 0 ? 'cursor: pointer;' : 'cursor: default;') + ' }' + (qtyToOrder > 0 ? ' ha-card:hover { filter: brightness(1.3); } ha-card:active { filter: brightness(0.8); }' : '')
+                              },
                               styles: {
                                 card: [
                                   'height: 38px',
                                   'width: 38px',
+                                  'min-width: 38px',
+                                  'min-height: 38px',
                                   'border-radius: 50%',
                                   'padding: 0',
-                                  'background-color: ' + (qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)'),
+                                  'background-color: ' + (qtyToOrder > 0 ? 'var(--accent-color)' : 'var(--secondary-background-color)'),
+                                  'box-shadow: none',
+                                  'display: flex',
+                                  'align-items: center',
+                                  'justify-content: center',
                                   'opacity: ' + (qtyToOrder > 0 ? '1' : '0.55')
                                 ],
                                 icon: [
+                                  'width: 20px',
+                                  'height: 20px',
                                   'color: ' + (qtyToOrder > 0 ? 'white' : 'var(--secondary-text-color)')
                                 ]
                               }
@@ -1252,15 +1263,26 @@ ams_tray_popup:
                               show_icon: true,
                               icon: 'mdi:plus',
                               tap_action: increaseQtyToOrderAction,
+                              card_mod: {
+                                style: 'ha-card { transition: filter 0.2s ease; cursor: pointer; } ha-card:hover { filter: brightness(1.3); } ha-card:active { filter: brightness(0.8); }'
+                              },
                               styles: {
                                 card: [
                                   'height: 38px',
                                   'width: 38px',
+                                  'min-width: 38px',
+                                  'min-height: 38px',
                                   'border-radius: 50%',
                                   'padding: 0',
-                                  'background-color: var(--primary-color)'
+                                  'background-color: var(--accent-color)',
+                                  'box-shadow: none',
+                                  'display: flex',
+                                  'align-items: center',
+                                  'justify-content: center'
                                 ],
                                 icon: [
+                                  'width: 20px',
+                                  'height: 20px',
                                   'color: white'
                                 ]
                               }

@@ -476,16 +476,27 @@ catalog_spool_popup:
                               show_icon: true,
                               icon: 'mdi:minus',
                               tap_action: decreaseQtyToOrderAction,
+                              card_mod: {
+                                style: 'ha-card { transition: filter 0.2s ease; ' + (qtyToOrder > 0 ? 'cursor: pointer;' : 'cursor: default;') + ' }' + (qtyToOrder > 0 ? ' ha-card:hover { filter: brightness(1.3); } ha-card:active { filter: brightness(0.8); }' : '')
+                              },
                               styles: {
                                 card: [
                                   'height: 38px',
                                   'width: 38px',
+                                  'min-width: 38px',
+                                  'min-height: 38px',
                                   'border-radius: 50%',
                                   'padding: 0',
-                                  'background-color: ' + (qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)'),
+                                  'background-color: ' + (qtyToOrder > 0 ? 'var(--accent-color)' : 'var(--secondary-background-color)'),
+                                  'box-shadow: none',
+                                  'display: flex',
+                                  'align-items: center',
+                                  'justify-content: center',
                                   'opacity: ' + (qtyToOrder > 0 ? '1' : '0.55')
                                 ],
                                 icon: [
+                                  'width: 20px',
+                                  'height: 20px',
                                   'color: ' + (qtyToOrder > 0 ? 'white' : 'var(--secondary-text-color)')
                                 ]
                               }
@@ -496,15 +507,26 @@ catalog_spool_popup:
                               show_icon: true,
                               icon: 'mdi:plus',
                               tap_action: increaseQtyToOrderAction,
+                              card_mod: {
+                                style: 'ha-card { transition: filter 0.2s ease; cursor: pointer; } ha-card:hover { filter: brightness(1.3); } ha-card:active { filter: brightness(0.8); }'
+                              },
                               styles: {
                                 card: [
                                   'height: 38px',
                                   'width: 38px',
+                                  'min-width: 38px',
+                                  'min-height: 38px',
                                   'border-radius: 50%',
                                   'padding: 0',
-                                  'background-color: var(--primary-color)'
+                                  'background-color: var(--accent-color)',
+                                  'box-shadow: none',
+                                  'display: flex',
+                                  'align-items: center',
+                                  'justify-content: center'
                                 ],
                                 icon: [
+                                  'width: 20px',
+                                  'height: 20px',
                                   'color: white'
                                 ]
                               }
