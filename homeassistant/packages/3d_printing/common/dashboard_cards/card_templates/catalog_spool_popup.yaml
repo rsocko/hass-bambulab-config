@@ -466,6 +466,9 @@ catalog_spool_popup:
                         },
                         {
                           type: 'horizontal-stack',
+                          card_mod: {
+                            style: '#root { justify-content: center !important; gap: 6px !important; } #root > * { flex: 0 0 auto !important; }'
+                          },
                           cards: [
                             {
                               type: 'custom:button-card',
@@ -489,7 +492,6 @@ catalog_spool_popup:
                                   { width: '44px' },
                                   { height: '30px' },
                                   { padding: '0' },
-                                  { margin: '0 auto' },
                                   { opacity: qtyToOrder > 0 ? '1' : '0.6' },
                                   { cursor: qtyToOrder > 0 ? 'pointer' : 'default' },
                                   { transition: 'filter 0.2s ease' }
@@ -523,7 +525,6 @@ catalog_spool_popup:
                                   { width: '44px' },
                                   { height: '30px' },
                                   { padding: '0' },
-                                  { margin: '0 auto' },
                                   { cursor: 'pointer' },
                                   { transition: 'filter 0.2s ease' }
                                 ],
