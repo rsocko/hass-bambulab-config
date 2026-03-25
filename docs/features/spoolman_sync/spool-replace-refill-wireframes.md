@@ -17,10 +17,11 @@
 │                                                 │
 │  Material: PLA  ·  Vendor: Bambu Lab  ·  AMS   │ ← existing chips
 │                                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
-│  │ 123.4 g  │ │ $0.098/g │ │ 856.2g (4 pools) ││ ← existing KPIs
-│  │Remaining │ │Cost per g│ │ Total            ││
-│  └──────────┘ └──────────┘ └──────────────────┘│
+│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ ┌───────────────┐│
+│  │ 123.4 g  │ │ $0.098/g │ │ 856.2g (4 pools) │ │ Qty to Order  ││ ← existing + NEW KPI
+│  │Remaining │ │Cost per g│ │ Total            │ │      2        ││
+│  └──────────┘ └──────────┘ └──────────────────┘ │   [+]   [-]   ││
+│                                                  └───────────────┘│
 │                                                 │
 │  ┌───────────────────────┐┌────────────────────┐│
 │  │ 🌡️ Dried: Mar 1, 2026 │[🔥]│ 💧 Desiccant: 23d│[💦]│ ← bubble cards
@@ -53,7 +54,10 @@
 │ │  Bambu Lab PLA Basic White  ·  Matched       │ │
 │ └─────────────────────────────────────────────┘ │
 │                                                 │
-│  [Weight: 123.4g] [This Print: 45.2g]          │
+│  [Weight: 123.4g] [This Print: 45.2g] [Total all spools] [Qty]   │
+│                                                [Qty to Order]      │
+│                                                [current value]      │
+│                                                [+] [-]              │
 │                                                 │
 │  ┌───────────────────────┐┌────────────────────┐│
 │  │ 🌡️ Dried: Mar 1, 2026 │[🔥]│ 💧 Desiccant: 12d│[💦]│ ← bubble cards
@@ -255,12 +259,20 @@
 
 - [ ] **Dashboard — Spool Popup**
   - [ ] Add "Replace / Refill Spool" button as the left-most action in `catalog_spool_popup.yaml`
+  - [x] Add "Qty to Order" stacked KPI card to `catalog_spool_popup.yaml` (to the right of `Total (all spools)`)
+  - [x] Add `+` / `-` qty adjust buttons in the stacked card, with `-` disabled at `0`
   - [ ] Remove bottom-row "Location" button in `catalog_spool_popup.yaml` (location control remains in the Change Location row)
   - [ ] Implement Step 1 popup (validate empty spool)
   - [ ] Implement Step 2 popup (select replacement)
   - [ ] Implement Step 3 popup (configure transfer options)
   - [ ] Implement Step 4 popup (review & execute)
   - [ ] Wire popup chain (close → delay → open next)
+
+- [ ] **Dashboard — AMS Tray Popup**
+  - [x] Add "Qty to Order" stacked KPI card to `ams_tray_popup.yaml` (to the right of `Total (all spools)`)
+  - [x] Add `+` / `-` qty adjust buttons in the stacked card, with `-` disabled at `0`
+
+**Qty field fallback note:** If a spool does not yet have `extra_purchase_qty`, both popups render qty as `0` and allow `+` to initialize the field on first update.
 
 - [ ] **Testing**
   - [ ] Test: spool at 0g → full flow → verify Spoolman state

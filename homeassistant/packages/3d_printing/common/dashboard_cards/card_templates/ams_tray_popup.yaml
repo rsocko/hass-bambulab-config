@@ -530,6 +530,9 @@ ams_tray_popup:
       const totalWeightText = filamentTotal
         ? filamentTotal.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g (' + filamentTotal.count + (filamentTotal.count === 1 ? ' spool' : ' spools') + ')'
         : 'N/A';
+      const rawQtyToOrder = spoolEntity?.attributes?.extra_purchase_qty;
+      const parsedQtyToOrder = Number.parseInt(rawQtyToOrder, 10);
+      const qtyToOrder = Number.isFinite(parsedQtyToOrder) && parsedQtyToOrder > 0 ? parsedQtyToOrder : 0;
       // Other spools of same filament — read from pre-computed sensor.spoolman_filament_totals
       const otherSpools = (filamentId !== undefined && filamentId !== null && filamentTotal && filamentTotal.spools)
         ? filamentTotal.spools
@@ -608,6 +611,34 @@ ams_tray_popup:
       }
       const nowISO = new Date().toISOString();
       const spoolIdInt = parseInt(spoolId, 10);
+      const buildQtyToOrderAction = function(nextQty) {
+        const normalizedQty = Math.max(0, Number.parseInt(nextQty, 10) || 0);
+        return {
+          action: 'fire-dom-event',
+          browser_mod: {
+            service: 'browser_mod.sequence',
+            data: {
+              sequence: [
+                {
+                  service: 'spoolman.patch_spool',
+                  data: {
+                    id: spoolIdInt,
+                    extra: {
+                      purchase_qty: String(normalizedQty)
+                    }
+                  }
+                },
+                {
+                  service: 'homeassistant.update_entity',
+                  data: { entity_id: spoolEntityId }
+                }
+              ]
+            }
+          }
+        };
+      };
+      const increaseQtyToOrderAction = buildQtyToOrderAction(qtyToOrder + 1);
+      const decreaseQtyToOrderAction = qtyToOrder > 0 ? buildQtyToOrderAction(qtyToOrder - 1) : { action: 'none' };
       const weightEditorModeEntity = 'input_select.spoolman_weight_editor_mode';
       const weightEditorDeltaGramsEntity = 'input_number.spoolman_weight_editor_delta_grams';
       const weightEditorDeltaMetersEntity = 'input_number.spoolman_weight_editor_delta_meters';
@@ -1155,6 +1186,72 @@ ams_tray_popup:
                       icon_color: 'cyan',
                       layout: 'vertical',
                       fill_container: true
+                    },
+                    {
+                      type: 'vertical-stack',
+                      cards: [
+                        {
+                          type: 'custom:mushroom-template-card',
+                          primary: 'Qty to Order',
+                          secondary: String(qtyToOrder),
+                          icon: 'mdi:cart-plus',
+                          icon_color: 'accent',
+                          layout: 'vertical',
+                          fill_container: true
+                        },
+                        {
+                          type: 'horizontal-stack',
+                          cards: [
+                            {
+                              type: 'custom:button-card',
+                              name: '+',
+                              icon: 'mdi:plus',
+                              tap_action: increaseQtyToOrderAction,
+                              styles: {
+                                grid: [
+                                  { 'grid-template-areas': '"i n"' },
+                                  { 'grid-template-columns': 'min-content min-content' },
+                                  { 'justify-content': 'center' },
+                                  { 'align-items': 'center' },
+                                  { gap: '6px' }
+                                ],
+                                card: [
+                                  { background: 'var(--primary-color)' },
+                                  { 'box-shadow': 'none' },
+                                  { 'border-radius': '6px' },
+                                  { padding: '6px' }
+                                ],
+                                name: [{ color: 'white' }, { 'font-weight': '700' }, { 'font-size': '14px' }],
+                                icon: [{ color: 'white' }, { width: '16px' }, { height: '16px' }]
+                              }
+                            },
+                            {
+                              type: 'custom:button-card',
+                              name: '-',
+                              icon: 'mdi:minus',
+                              tap_action: decreaseQtyToOrderAction,
+                              styles: {
+                                grid: [
+                                  { 'grid-template-areas': '"i n"' },
+                                  { 'grid-template-columns': 'min-content min-content' },
+                                  { 'justify-content': 'center' },
+                                  { 'align-items': 'center' },
+                                  { gap: '6px' }
+                                ],
+                                card: [
+                                  { background: qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)' },
+                                  { 'box-shadow': 'none' },
+                                  { 'border-radius': '6px' },
+                                  { padding: '6px' },
+                                  { opacity: qtyToOrder > 0 ? '1' : '0.6' }
+                                ],
+                                name: [{ color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' }, { 'font-weight': '700' }, { 'font-size': '14px' }],
+                                icon: [{ color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' }, { width: '16px' }, { height: '16px' }]
+                              }
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 },

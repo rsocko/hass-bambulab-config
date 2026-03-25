@@ -459,6 +459,24 @@ Added to the existing action button row in `catalog_spool_popup.yaml`:
 
 The **Replace / Refill Spool** button launches the wizard directly (Step 1).
 
+In the same popup KPI row, a new **Qty to Order** control is added to the right of **Total (all spools)**:
+
+```
+[ Remaining ] [ Cost per g ] [ Total (all spools) ] [ Qty to Order ]
+```
+
+The Qty card is vertically stacked:
+- Label on top: `Qty to Order`
+- Current value in the middle
+- `+` and `-` buttons on the bottom row
+
+Behavior rules:
+- `+` increments `extra_purchase_qty` by 1
+- `-` decrements by 1, but never below 0
+- When value is `0`, `-` is disabled (non-clickable) and visually dimmed
+- `+` / `-` use the same accent action styling as other popup buttons (`var(--primary-color)`, white icon/text)
+- If `extra_purchase_qty` is missing on the spool, the UI treats it as `0` and still allows incrementing; the first `+` write creates/populates the field
+
 For sealed spools, a prominent **"Unseal & Use"** button is shown in the action row directly, replacing "Replace / Refill Spool" since the action semantics differ.
 
 ### 5.4 "Replace Spool" Button in AMS Tray Popup
@@ -470,6 +488,12 @@ Added to the AMS tray popup in `ams_tray_popup.yaml`, in the bottom action row:
 [ Desiccant: 12 days ] [ Mark Dried ] [ Mark Refilled ]
 [ Replace Spool ♻ ] [ Open in Spoolman ] [ Reload ] [ Close ]
 ```
+
+The same **Qty to Order** stacked KPI card is also added in the AMS popup KPI row to the right of **Total (all spools)**, with identical behavior:
+- `+` increments `extra_purchase_qty`
+- `-` decrements, clamped at `0`
+- `-` is disabled when current qty is `0`
+- Buttons use the popup accent action style for consistency
 
 **Visibility:** Only shown when `match_state === 'matched'` and `spoolId` is set.
 
@@ -649,7 +673,8 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 2. `script.spool_replace_populate_candidates`
 3. `script.spool_replace_execute` (with read-merge-write pattern for extra fields)
 4. "Replace / Refill Spool" button in `catalog_spool_popup.yaml` (left-most in bottom action row)
-5. Step 1–4 popup chain (browser_mod popups)
+5. "Qty to Order" stacked KPI card with `+` / `-` controls in both `catalog_spool_popup.yaml` and `ams_tray_popup.yaml`
+6. Step 1–4 popup chain (browser_mod popups)
 
 **Validation:**
 - Test with a spool at 0g remaining → select sealed replacement → execute
