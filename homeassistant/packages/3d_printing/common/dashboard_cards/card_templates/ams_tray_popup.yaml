@@ -528,8 +528,11 @@ ams_tray_popup:
         ? filamentTotals[String(filamentId)]
         : null;
       const totalWeightText = filamentTotal
-        ? filamentTotal.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g (' + filamentTotal.count + (filamentTotal.count === 1 ? ' spool' : ' spools') + ')'
+        ? filamentTotal.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g'
         : 'N/A';
+      const totalSpoolsSecondary = filamentTotal
+        ? 'Total (' + filamentTotal.count + ' ' + (filamentTotal.count === 1 ? 'spool' : 'spools') + ')'
+        : 'Total';
       const rawQtyToOrder = spoolEntity?.attributes?.extra_purchase_qty;
       const parsedQtyToOrder = Number.parseInt(rawQtyToOrder, 10);
       const qtyToOrder = Number.isFinite(parsedQtyToOrder) && parsedQtyToOrder > 0 ? parsedQtyToOrder : 0;
@@ -1181,7 +1184,7 @@ ams_tray_popup:
                     {
                       type: 'custom:mushroom-template-card',
                       primary: totalWeightText,
-                      secondary: 'Total (all spools)',
+                      secondary: totalSpoolsSecondary,
                       icon: 'mdi:layers-triple',
                       icon_color: 'cyan',
                       layout: 'vertical',
@@ -1204,49 +1207,39 @@ ams_tray_popup:
                           cards: [
                             {
                               type: 'custom:button-card',
-                              name: '+',
-                              icon: 'mdi:plus',
-                              tap_action: increaseQtyToOrderAction,
+                              icon: 'mdi:minus',
+                              show_name: false,
+                              tap_action: decreaseQtyToOrderAction,
                               styles: {
-                                grid: [
-                                  { 'grid-template-areas': '"i n"' },
-                                  { 'grid-template-columns': 'min-content min-content' },
-                                  { 'justify-content': 'center' },
-                                  { 'align-items': 'center' },
-                                  { gap: '6px' }
-                                ],
+                                grid: [{ 'grid-template-areas': '"i"' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
                                 card: [
-                                  { background: 'var(--primary-color)' },
+                                  { background: qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)' },
                                   { 'box-shadow': 'none' },
-                                  { 'border-radius': '6px' },
-                                  { padding: '6px' }
+                                  { 'border-radius': '50%' },
+                                  { width: '42px' },
+                                  { height: '42px' },
+                                  { padding: '0' },
+                                  { opacity: qtyToOrder > 0 ? '1' : '0.6' }
                                 ],
-                                name: [{ color: 'white' }, { 'font-weight': '700' }, { 'font-size': '14px' }],
-                                icon: [{ color: 'white' }, { width: '16px' }, { height: '16px' }]
+                                icon: [{ color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' }, { width: '18px' }, { height: '18px' }]
                               }
                             },
                             {
                               type: 'custom:button-card',
-                              name: '-',
-                              icon: 'mdi:minus',
-                              tap_action: decreaseQtyToOrderAction,
+                              icon: 'mdi:plus',
+                              show_name: false,
+                              tap_action: increaseQtyToOrderAction,
                               styles: {
-                                grid: [
-                                  { 'grid-template-areas': '"i n"' },
-                                  { 'grid-template-columns': 'min-content min-content' },
-                                  { 'justify-content': 'center' },
-                                  { 'align-items': 'center' },
-                                  { gap: '6px' }
-                                ],
+                                grid: [{ 'grid-template-areas': '"i"' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
                                 card: [
-                                  { background: qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)' },
+                                  { background: 'var(--primary-color)' },
                                   { 'box-shadow': 'none' },
-                                  { 'border-radius': '6px' },
-                                  { padding: '6px' },
-                                  { opacity: qtyToOrder > 0 ? '1' : '0.6' }
+                                  { 'border-radius': '50%' },
+                                  { width: '42px' },
+                                  { height: '42px' },
+                                  { padding: '0' }
                                 ],
-                                name: [{ color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' }, { 'font-weight': '700' }, { 'font-size': '14px' }],
-                                icon: [{ color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' }, { width: '16px' }, { height: '16px' }]
+                                icon: [{ color: 'white' }, { width: '18px' }, { height: '18px' }]
                               }
                             }
                           ]
