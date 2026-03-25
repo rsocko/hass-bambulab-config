@@ -467,7 +467,7 @@ catalog_spool_popup:
                         {
                           type: 'horizontal-stack',
                           card_mod: {
-                            style: '#root { justify-content: center !important; gap: 10px !important; } #root > * { flex: 0 0 auto !important; width: 42px !important; }'
+                            style: '#root { justify-content: center !important; gap: 8px !important; } #root > * { flex: 0 0 auto !important; width: 56px !important; }'
                           },
                           cards: [
                             {
@@ -487,16 +487,16 @@ catalog_spool_popup:
                                 card: [
                                   { background: qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)' },
                                   { 'box-shadow': 'none' },
-                                  { 'border-radius': '50%' },
-                                  { width: '42px' },
-                                  { height: '42px' },
+                                  { 'border-radius': '999px' },
+                                  { width: '56px' },
+                                  { height: '30px' },
                                   { padding: '0' },
                                   { opacity: qtyToOrder > 0 ? '1' : '0.6' }
                                 ],
                                 icon: [
                                   { color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' },
-                                  { width: '18px' },
-                                  { height: '18px' }
+                                  { width: '17px' },
+                                  { height: '17px' }
                                 ]
                               }
                             },
@@ -517,15 +517,15 @@ catalog_spool_popup:
                                 card: [
                                   { background: 'var(--primary-color)' },
                                   { 'box-shadow': 'none' },
-                                  { 'border-radius': '50%' },
-                                  { width: '42px' },
-                                  { height: '42px' },
+                                  { 'border-radius': '999px' },
+                                  { width: '56px' },
+                                  { height: '30px' },
                                   { padding: '0' }
                                 ],
                                 icon: [
                                   { color: 'white' },
-                                  { width: '18px' },
-                                  { height: '18px' }
+                                  { width: '17px' },
+                                  { height: '17px' }
                                 ]
                               }
                             }
