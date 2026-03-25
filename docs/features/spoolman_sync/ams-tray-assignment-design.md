@@ -647,6 +647,212 @@ The filament tag view creates a natural opportunity for a **combined** flow (upd
 
 The combined approach (Enhancement B2) should be a **future optimization**, not the initial architecture. The automation-driven flow is the correct foundation.
 
+### 10. Label-Based Entity Discovery and Trigger Enhancement
+
+#### Problem
+
+The Phase 2 trigger automation (`spool_location_change_assign_tray`) uses `platform: event, event_type: state_changed`, which fires for **every entity state change** in the entire HA instance. While the `mode: parallel` fix (applied in Phase 2 bugfix) prevents queue saturation, the automation still evaluates a condition check for every state change — even from completely unrelated integrations. Additionally, the regex pattern used to filter spool entities (`select\.spoolman_spool_\d+_location`) must be manually maintained and is brittle if the Spoolman integration ever changes its entity naming convention.
+
+A second issue arises as the user purchases new spools: Spoolman creates new `select.spoolman_spool_*_location` entities that the automation should immediately monitor. The regex pattern handles this automatically today, but a more maintainable label-based approach offers benefits for both the trigger condition and broader service targeting.
+
+#### Solution: HA Labels for Spool Entity Targeting
+
+Use Home Assistant [labels](https://www.home-assistant.io/docs/organizing/labels/) (available since HA 2024.4) to tag all Spoolman spool location entities. The automation condition then checks label membership instead of regex matching.
+
+**Label definition:**
+
+| Property | Value |
+|---|---|
+| Name | `Spoolman Spool Location` |
+| Label ID | `spoolman_spool_location` |
+| Icon | `mdi:label-variant` |
+| Color | (optional, user preference) |
+
+**Applies to:** All `select.spoolman_spool_*_location` entities created by the Spoolman integration.
+
+#### Trigger Automation Condition Update
+
+Replace the regex-based condition in `spool_location_change_assign_tray.yaml` with a label-based check:
+
+**Current (regex-based):**
+```yaml
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.entity_id is match('select\\.spoolman_spool_\\d+_location') }}
+```
+
+**Proposed (label-based):**
+```yaml
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.entity_id in label_entities('spoolman_spool_location') }}
+```
+
+**Benefits:**
+- `label_entities()` is evaluated at **runtime** for each trigger — no automation reload needed when new entities are labeled
+- Semantically clear: the label declares intent ("this entity is a spool location selector")
+- Decoupled from entity naming convention — works even if entity ID format changes
+- Can be reused across other automations, scripts, and service targets (e.g., batch operations on all spool location entities)
+
+**Performance note:** `label_entities()` is a fast registry lookup (in-memory), comparable to the regex evaluation it replaces. The `platform: event` trigger still fires for all state changes, but the condition exits almost immediately for non-labeled entities.
+
+#### Auto-Labeling New Spool Entities
+
+When new spools are purchased and added to Spoolman, the integration creates new `select.spoolman_spool_*_location` entities. These need the `spoolman_spool_location` label applied.
+
+**Strategy A: REST-Based Auto-Labeling Automation (Recommended)**
+
+An automation that runs periodically discovers unlabeled Spoolman spool location entities and applies the label via the HA entity registry REST API.
+
+```yaml
+automation:
+  alias: "Auto-Label Spoolman Spool Location Entities"
+  id: auto_label_spoolman_spool_location_entities
+  description: >-
+    Discovers select.spoolman_spool_*_location entities that are missing the
+    spoolman_spool_location label and applies it via the entity registry API.
+    Runs on HA start and periodically to catch newly added spools.
+  triggers:
+    - trigger: homeassistant
+      event: start
+    - trigger: time_pattern
+      hours: "/6"
+  mode: single
+  action:
+    - variables:
+        labeled: "{{ label_entities('spoolman_spool_location') }}"
+        all_spoolman: >-
+          {{ states.select
+             | selectattr('entity_id', 'match', 'select\\.spoolman_spool_\\d+_location')
+             | map(attribute='entity_id')
+             | list }}
+        unlabeled: "{{ all_spoolman | reject('in', labeled) | list }}"
+    - condition: template
+      value_template: "{{ unlabeled | length > 0 }}"
+    - repeat:
+        for_each: "{{ unlabeled }}"
+        sequence:
+          - action: rest_command.label_spoolman_entity
+            data:
+              entity_id_to_label: "{{ repeat.item }}"
+              current_labels: "{{ labels(repeat.item) | list }}"
+    - action: logbook.log
+      data:
+        name: "Spoolman Label Sync"
+        message: "Applied spoolman_spool_location label to {{ unlabeled | length }} new entities: {{ unlabeled | join(', ') }}"
+        entity_id: automation.auto_label_spoolman_spool_location_entities
+```
+
+**Supporting REST command:**
+
+```yaml
+rest_command:
+  label_spoolman_entity:
+    url: "http://localhost:8123/api/config/entity_registry"
+    method: POST
+    headers:
+      Authorization: !secret ha_long_lived_token_bearer
+      Content-Type: application/json
+    payload: >-
+      {
+        "entity_id": "{{ entity_id_to_label }}",
+        "labels": {{ (current_labels + ['spoolman_spool_location']) | unique | list | to_json }}
+      }
+```
+
+> **Note**: This requires a [long-lived access token](https://www.home-assistant.io/docs/authentication/#your-account-profile) stored in `secrets.yaml` as `ha_long_lived_token_bearer: "Bearer <token>"`. The token is only used for local entity registry updates and never leaves the HA instance.
+
+**Strategy B: Notification-Based Manual Labeling (Simpler Alternative)**
+
+For users who prefer not to store a long-lived token, a simpler approach notifies the user when new unlabeled entities are detected:
+
+```yaml
+automation:
+  alias: "Notify: Unlabeled Spoolman Spool Entities"
+  triggers:
+    - trigger: homeassistant
+      event: start
+    - trigger: time_pattern
+      hours: "/6"
+  mode: single
+  action:
+    - variables:
+        labeled: "{{ label_entities('spoolman_spool_location') }}"
+        all_spoolman: >-
+          {{ states.select
+             | selectattr('entity_id', 'match', 'select\\.spoolman_spool_\\d+_location')
+             | map(attribute='entity_id')
+             | list }}
+        unlabeled: "{{ all_spoolman | reject('in', labeled) | list }}"
+    - condition: template
+      value_template: "{{ unlabeled | length > 0 }}"
+    - action: persistent_notification.create
+      data:
+        title: "New Spoolman Spools Need Labeling"
+        notification_id: spoolman_unlabeled_entities
+        message: >-
+          {{ unlabeled | length }} new spool location entities need the
+          `spoolman_spool_location` label applied:
+          {% for e in unlabeled %}
+          - {{ e }}
+          {% endfor %}
+          Go to Settings → Devices & Services → Entities tab, filter by
+          "spoolman", select the unlabeled entities, and apply the
+          "Spoolman Spool Location" label.
+```
+
+**Strategy comparison:**
+
+| Aspect | Strategy A (REST auto-label) | Strategy B (Notify) |
+|---|---|---|
+| User intervention | None after initial token setup | Manual label application each time |
+| Complexity | Medium — requires REST command + token | Low — standard automation |
+| New spool delay | Up to 6 hours (or next HA restart) | Same, but user must act on notification |
+| Security consideration | Long-lived token in `secrets.yaml` | None |
+| Recommended for | Users with many spools or frequent purchases | Users with stable spool inventory |
+
+> **Recommendation**: Start with **Strategy B** for simplicity. Migrate to **Strategy A** if manual labeling becomes tedious (more than ~2 new spools/month).
+
+#### Future: State Trigger Migration
+
+The HA `platform: state` trigger currently accepts only a **static list** of entity IDs. It does not support `label_entities()` in the `entity_id` parameter (which would require [limited template](https://www.home-assistant.io/docs/configuration/templating/#limited-templates) support for `label_entities()`, which is not available as of HA 2026.3).
+
+If/when HA adds native label-based entity targeting for state triggers, the automation trigger could migrate from:
+
+```yaml
+# Current: event-based (fires for ALL entity changes)
+triggers:
+  - trigger: event
+    event_type: state_changed
+```
+
+To:
+
+```yaml
+# Future: state-based with label targeting (fires only for labeled entities)
+triggers:
+  - trigger: state
+    entity_id: "{{ label_entities('spoolman_spool_location') }}"
+    to:
+      - "AMS"
+      - "AMS 2"
+      - "External Spool Holder"
+```
+
+This would eliminate the need for any condition-based filtering — the trigger itself would only fire for relevant entities transitioning to relevant states. Until this is supported, the `platform: event` + label condition approach is the recommended pattern.
+
+> **Tracking**: Watch the [HA architecture discussions](https://github.com/home-assistant/architecture/discussions) and [core release notes](https://www.home-assistant.io/blog/) for label-based trigger support. This would likely appear as an enhancement to the state trigger platform.
+
+#### Migration Path Summary
+
+| Phase | Trigger | Condition | Label Usage |
+|---|---|---|---|
+| Phase 2 (current) | `platform: event, event_type: state_changed` | Regex: `select\.spoolman_spool_\d+_location` | None |
+| Phase 2.5 (label adoption) | `platform: event, event_type: state_changed` | `label_entities('spoolman_spool_location')` | Condition check + auto-labeling automation |
+| Future (HA label triggers) | `platform: state` with label entity targeting | Built into trigger | Trigger targeting + auto-labeling automation |
+
 ---
 
 ## Implementation Plan
@@ -671,6 +877,16 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | Filament tag view: "Ext. Spool" button | Third quick-action button for External Spool Holder | `common/dashboard_views/view_filament_tags.yaml` |
 | Filament tag view: "Remove" button | Conditional button to clear AMS location (visible when spool is in AMS) | `common/dashboard_views/view_filament_tags.yaml` |
 
+### Phase 2.5: Label-Based Entity Discovery
+
+| Task | Deliverable | Location |
+|---|---|---|
+| Create `spoolman_spool_location` label | One-time label creation via HA UI (Settings → Areas, Labels & Zones → Labels) | HA entity registry |
+| Apply label to existing spool location entities | Bulk-select all `select.spoolman_spool_*_location` entities and apply label | HA UI (Settings → Devices & Services → Entities) |
+| Unlabeled entity notification automation | `automation.notify_unlabeled_spoolman_spool_entities` — runs on HA start + every 6h; notifies when new spool entities are missing the label (Strategy B from §10) | `spoolman_sync/automations/` |
+| Trigger condition migration | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')` | `spoolman_sync/automations/` |
+| (Optional) REST auto-labeling | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
+
 ### Phase 3: UI Integration
 
 | Task | Deliverable | Location |
@@ -688,6 +904,7 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | Tray state change correlation | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation) | `spoolman_sync/automations/` |
 | Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
 | Batch assignment | Handle multiple spool location changes at once | Enhancement to Phase 2 automation |
+| State trigger migration | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration) | `spoolman_sync/automations/` |
 
 ---
 
@@ -703,6 +920,9 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | `spoolman_sync/helpers/input_text/input_text_pending_tray_assignment.yaml` | Pending assignment spool ID |
 | `spoolman_sync/template_sensors/template_sensor_last_tray_assignment_result.yaml` | Assignment result status for UI feedback |
 | `docs/features/spoolman_sync/ams-tray-assignment-data-mapping.md` | Supplemental doc: data mapping details |
+| `spoolman_sync/automations/notify_unlabeled_spoolman_spool_entities.yaml` | Phase 2.5: notifies when new spool entities need labeling |
+| `spoolman_sync/automations/auto_label_spoolman_spool_location_entities.yaml` | Phase 2.5 (optional): auto-applies label via REST API |
+| `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 2.5 (optional): REST command for entity registry label update |
 
 ### Modified Files
 
@@ -711,6 +931,7 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Set on Printer" action chip |
 | `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" + "Remove" quick buttons; add assignment status chip; add inline tray picker for pending assignments |
 | `filament_tag/scripts/update_spool_location-script.yaml` | No change needed — existing script patches Spoolman; the location change triggers the new automation |
+| `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 2.5: migrate condition from regex to `label_entities('spoolman_spool_location')` |
 | `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool Holder" as a trigger location |
 
 ---
@@ -779,6 +1000,8 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 | 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
 | 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 4 (see §9: Enhancement B2) | Pending decision |
 | 10 | Should removing a spool from AMS also clear the printer tray info? | Likely no-op — the AMS detects physical removal. May be relevant for External Spool. | Pending decision |
+| 11 | Auto-labeling strategy: REST API (Strategy A) vs manual notification (Strategy B)? | Start with Strategy B (notification). Migrate to Strategy A if manual labeling becomes tedious (>2 new spools/month). See §10. | Pending decision |
+| 12 | When will HA support label-based entity targeting in `platform: state` triggers? | Unknown. Monitor HA architecture discussions and release notes. Until then, use `platform: event` + `label_entities()` condition. See §10: Future Migration. | Tracking |
 
 ---
 
@@ -788,6 +1011,8 @@ The combined approach (Enhancement B2) should be a **future optimization**, not 
 |---|---|
 | `ha-bambulab` integration | v2.2.x+ — requires `bambu_lab.set_filament` and `bambu_lab.get_filament_data` services |
 | Spoolman integration | Must expose `select.spoolman_spool_*_location` entities |
+| HA Labels feature | HA 2024.4+ — required for `label_entities()` template function and entity label management (Phase 2.5) |
+| HA long-lived access token | Only required for Strategy A auto-labeling (Phase 2.5 optional); stored in `secrets.yaml` |
 | Printer firmware | Must support write operations (LAN Mode or pre-auth-lockdown firmware) |
 | `sensor.spoolman_tray_map` | Existing — unchanged; used for read-side matching and spool data access |
 | `sensor.smart_status` | Existing — used to check if printer is actively printing |

@@ -166,4 +166,3 @@
       default: []
   mode: parallel
   max: 150
-  stored_traces: 20
