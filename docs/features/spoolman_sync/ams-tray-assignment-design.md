@@ -1,8 +1,7 @@
 # AMS Tray Assignment from Spoolman — Design Document
 
-> **Status**: Phases 1–3 Implemented; Phases 4–5 Design
+> **Status**: Design
 > **Created**: 2026-03-24
-> **Updated**: 2026-03-25
 > **Scope**: Push filament metadata from Spoolman to Bambu printer trays via `bambu_lab.set_filament`
 
 ## Problem Statement
@@ -100,7 +99,7 @@ From `sensor.spoolman_spool_*` entity attributes:
 | **Filament data storage strategy** | No caching — call `get_filament_data` inline at assignment time | Local service call is fast; hardcoded generic fallback for offline resilience |
 | **Nozzle temp when only single value?** | Use ±10°C range from `filament_settings_extruder_temp`, or use Bambu profile defaults from lookup table | Safe default; overridden by profile match if found |
 | **Feature placement** | New files in `spoolman_sync/` (automations, scripts) + view modifications in `filament_tag/` and `common/` | Core logic in spoolman_sync domain; UI touchpoints in filament tag view and AMS tray popup |
-| **Filament tag view role** | Primary real-world trigger source; enhanced with feedback + inline tray picker (shared across all views) | NFC scan → tap AMS → location change → automation fires. Status chip + tray picker available on Home, Spool, and Filament Catalog views via shared include. |
+| **Filament tag view role** | Primary real-world trigger source; enhanced with feedback + inline tray picker | NFC scan → tap AMS → location change → automation fires. View gets status feedback in Phase 3. |
 | **Two-phase vs. combined action** | Start with two-phase (location change → automation); combined script deferred to Phase 5 | Two-phase is more robust: handles all trigger sources, is idempotent, maintains separation of concerns |
 
 ---
@@ -829,7 +828,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 |---|---|---|---|
 | Phase 2 (current) | `platform: event, event_type: state_changed` | Regex: `select\.spoolman_spool_\d+_location` | None |
 | Phase 4 (label adoption) | `platform: event, event_type: state_changed` | `label_entities('spoolman_spool_location')` | Condition check + auto-labeling automation |
-| Phase 4 future (HA label triggers) | `platform: state` with label entity targeting | Built into trigger | Trigger targeting + auto-labeling automation |
+| Future (HA label triggers) | `platform: state` with label entity targeting | Built into trigger | Trigger targeting + auto-labeling automation |
 
 ---
 
@@ -854,17 +853,15 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Error handling | Persistent notifications for failures, auth issues | Within assignment script |
 | Filament tag view: "Ext. Spool" button | Third quick-action button for External Spool Holder | `common/dashboard_views/view_filament_tags.yaml` |
 
-### Phase 3: UI Integration ✅
+### Phase 3: UI Integration
 
-| Task | Deliverable | Location | Notes |
-|---|---|---|---|
-| "Set on Printer" button in tray popup | New action chip in `ams_tray_popup.yaml` | `common/dashboard_cards/card_templates/` | Green `#2e7d32` chip with `mdi:printer-3d-nozzle` icon. Calls `script.assign_spool_to_printer_tray` with `force_write: true` to bypass RFID-skip and overwrite guards. Visible when the popup has a matched spool with valid material data. Uses `browser_mod.sequence` to call the script, wait 2s, then close the popup. |
-| Shared status chip + tray picker include | Reusable include file: `tray_assignment_status_and_picker.yaml` | `spoolman_sync/dashboard_cards/` | Extracted from the filament tag view into a standalone `vertical-stack` include. Contains two fully-conditional cards (status chip + tray picker). Both are zero-footprint when inactive. Included in **all three dashboard views** so the pending-assignment prompt is universally available regardless of which tab the user is on. |
-| Status chip + tray picker on Home tab | `!include` in `view_main.yaml` | `common/dashboard_views/view_main.yaml` | Placed after the power monitoring card in the main grid section. |
-| Status chip + tray picker on Spool (tags) tab | `!include` in `view_filament_tags.yaml` | `common/dashboard_views/view_filament_tags.yaml` | Replaces the previous inline Phase 3 YAML between the Ext. Spool button and Desiccant Container separator. |
-| Status chip + tray picker on Filament Catalog tab | `!include` in `view_filament_catalog.yaml` | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | Placed between the Insights panel and the Filter bar. |
-| Confirmation feedback | Persistent notification on success | Within assignment script | Added `persistent_notification.create` in `assign_spool_to_printer_tray` after `set_filament` succeeds. Shows material type, tray entity, profile name, and spool display name. Uses `notification_id: tray_assignment_success_<spool_id>` so repeated assignments for the same spool replace the previous notification. |
-| Improved pending-assignment notification | Updated text directs user to any dashboard tab | `spool_location_change_assign_tray.yaml` | Notification now says "Open any 3D Printing dashboard tab (Home, Spool, or Filament Catalog) to see the tray picker" instead of referencing internal script names. |
+| Task | Deliverable | Location |
+|---|---|---|
+| "Set on Printer" button in tray popup | New action chip in `ams_tray_popup.yaml` | `common/dashboard_cards/card_templates/` |
+| Pending assignment tray picker (notification) | Notification-linked card for tray selection when inference fails | `common/dashboard_cards/` or `spoolman_sync/dashboard_cards/` |
+| Filament tag view: inline tray picker | Conditional card in filament tag view showing tray buttons when pending assignment exists | `common/dashboard_views/view_filament_tags.yaml` |
+| Filament tag view: assignment status | Conditional chip showing last assignment result (success/pending/failed) | `common/dashboard_views/view_filament_tags.yaml` |
+| Confirmation feedback | Toast or brief notification on success | Within assignment script |
 
 ### Phase 4: Label-Based Entity Discovery
 
@@ -876,15 +873,14 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Trigger condition migration | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')` | `spoolman_sync/automations/` |
 | (Optional) REST auto-labeling | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
 
-**Future (blocked on HA core feature):** When HA adds native label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to a native label trigger (see §10: Future State Trigger Migration). This is the logical completion of the label adoption story but is blocked on an upstream HA feature — not a task to schedule.
-
-### Phase 5: Advanced Features & UX Refinements
+### Phase 5: Refinement
 
 | Task | Deliverable | Location |
 |---|---|---|
-| Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2). Deployable once Phase 3 UI is validated. | `spoolman_sync/scripts/` |
-| Batch assignment | Handle multiple spool location changes at once. Deployable anytime after Phase 2. | Enhancement to Phase 2 automation |
-| Tray state change correlation | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation). Most complex item; lowest priority. | `spoolman_sync/automations/` |
+| Tray state change correlation | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation) | `spoolman_sync/automations/` |
+| Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
+| Batch assignment | Handle multiple spool location changes at once | Enhancement to Phase 2 automation |
+| State trigger migration | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration) | `spoolman_sync/automations/` |
 
 ---
 
@@ -900,7 +896,6 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | `spoolman_sync/helpers/input_text/input_text_pending_tray_assignment.yaml` | Pending assignment spool ID |
 | `spoolman_sync/template_sensors/template_sensor_last_tray_assignment_result.yaml` | Assignment result status for UI feedback |
 | `docs/features/spoolman_sync/ams-tray-assignment-data-mapping.md` | Supplemental doc: data mapping details |
-| `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml` | Phase 3: Shared include — conditional status chip + inline tray picker (`vertical-stack`). Included in `view_main`, `view_filament_tags`, and `view_filament_catalog`. |
 | `spoolman_sync/automations/notify_unlabeled_spoolman_spool_entities.yaml` | Phase 4: notifies when new spool entities need labeling |
 | `spoolman_sync/automations/auto_label_spoolman_spool_location_entities.yaml` | Phase 4 (optional): auto-applies label via REST API |
 | `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 4 (optional): REST command for entity registry label update |
@@ -909,12 +904,8 @@ This would eliminate the need for any condition-based filtering — the trigger 
 
 | File | Change |
 |---|---|
-| `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Phase 3: Add "Set on Printer" action chip (green `#2e7d32` mushroom chip with `mdi:printer-3d-nozzle`; calls `assign_spool_to_printer_tray` with `force_write: true` via `browser_mod.sequence`) |
-| `common/dashboard_views/view_filament_tags.yaml` | Phase 2: Add "Ext. Spool" quick button. Phase 3: Replace inline status chip + tray picker with `!include` of shared `tray_assignment_status_and_picker.yaml` |
-| `common/dashboard_views/view_main.yaml` | Phase 3: Add `!include` of `tray_assignment_status_and_picker.yaml` after power monitoring card |
-| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | Phase 3: Add `!include` of `tray_assignment_status_and_picker.yaml` between insights panel and filter bar |
-| `spoolman_sync/scripts/assign_spool_to_printer_tray-script.yaml` | Phase 3: Add `persistent_notification.create` on successful `set_filament` call with `notification_id: tray_assignment_success_<spool_id>` |
-| `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 3: Updated pending-assignment notification text to direct users to any dashboard tab. Phase 4: migrate condition from regex to `label_entities('spoolman_spool_location')` |
+| `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Set on Printer" action chip |
+| `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" quick button; add assignment status chip; add inline tray picker for pending assignments |
 | `filament_tag/scripts/update_spool_location-script.yaml` | No change needed — existing script patches Spoolman; the location change triggers the new automation |
 | `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 4: migrate condition from regex to `label_entities('spoolman_spool_location')` |
 | `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool Holder" as a trigger location |
@@ -932,7 +923,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Spool loaded during active print | Medium | High | Check printer status before calling `set_filament`; defer if printing |
 | Race condition: location change + tray state change timing | Medium | Medium | Simple empty-tray-count approach avoids timing dependency |
 | Overwriting user's Bambu Studio edits | Medium | Medium | Exact-match pre-check (`type`/`color`/`name`); auto-skip only on exact match, otherwise notify and require explicit override |
-| Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip on all dashboard views via shared include (Phase 3) |
+| Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip in filament tag view (Phase 3) |
 | Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 5 |
 
 ---
@@ -964,31 +955,10 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | NFC scan → tap "AMS" button in filament tag view | Spoolman location updated → automation fires → tray assignment attempted |
 | NFC scan → tap "AMS 2" button | Same as above, targeting AMS 2 trays |
 | NFC scan → tap "Ext. Spool" button (new) | Spoolman location updated → automation fires → external spool assignment (no tray inference needed) |
+
 | Tray inference fails after filament tag AMS tap | Inline tray picker shown in filament tag view + notification sent |
 | Assignment succeeds after filament tag AMS tap | Status chip shows "✓ Set on AMS 1 Tray 3" in filament tag view |
 | Filament tag view with no spool selected | All quick-action buttons disabled/hidden |
-| **Phase 3 — Tray Popup UI** | |
-| "Set on Printer" chip visible when spool matched with material data | Green chip with printer nozzle icon shown |
-| "Set on Printer" chip hidden when no spool matched | Chip not rendered (canSetOnPrinter is false) |
-| "Set on Printer" chip hidden when material is 'Unknown' | Chip not rendered |
-| Tap "Set on Printer" for non-Bambu spool on AMS tray | `assign_spool_to_printer_tray` called with `force_write: true`; popup closes after 2s |
-| Tap "Set on Printer" for Bambu spool with UUID | `assign_spool_to_printer_tray` called with `force_write: true` (bypasses RFID-skip guard) |
-| Tap "Set on Printer" when tray has different filament data | Overwrites existing data (force_write bypasses overwrite guard) |
-| **Phase 3 — Status Chip (all views via shared include)** | |
-| `sensor.last_tray_assignment_result` state is `idle` | Status chip hidden |
-| `sensor.last_tray_assignment_result` state is `success` | Green check chip with success message |
-| `sensor.last_tray_assignment_result` state is `needs_tray_selection` | Orange alert chip: "⚠ Select tray below" |
-| `sensor.last_tray_assignment_result` state is `failed` | Red close chip with failure message |
-| `sensor.last_tray_assignment_result` state is `overwrite_required` | Red close chip: "⚠ Overwrite needed — use Set on Printer" |
-| `sensor.last_tray_assignment_result` state is `skipped` | Blue skip chip with skip message |
-| `sensor.last_tray_assignment_result` state is `deferred` | Amber clock chip with deferred message |
-| **Phase 3 — Inline Tray Picker (all views via shared include)** | |
-| `pending_tray_assignment_spool_id` is empty | Tray picker card hidden |
-| `pending_tray_assignment_spool_id` has a spool ID | Tray picker visible on Home, Spool, and Filament Catalog views |
-| Tap a tray button in picker on any view | `assign_spool_to_printer_tray` called; on success, pending state clears and picker hides across all views |
-| **Phase 3 — Success Notification** | |
-| Successful `set_filament` call | Persistent notification created with material, tray, profile, and spool name |
-| Second assignment for same spool | Previous success notification replaced (same `notification_id`) |
 
 ---
 
@@ -1002,9 +972,9 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | 4 | ~~How to validate `tray_info_idx` codes?~~ | Validated against `filaments_detail.json` bundled with ha-bambulab. `get_filament_data` returns this merged with slicer custom profiles. Generic fallback codes confirmed: GFL99=PLA, GFG99=PETG, GFB99=ABS, GFB98=ASA, GFU99=TPU, GFN99=PA, GFC99=PC, GFS99=PVA | **Resolved** |
 | 5 | ~~Check if tray already has correct data before writing?~~ | Resolved: use exact match on `type`/`color`/`name`; auto-skip only on exact match, otherwise notify and require explicit override | **Resolved** |
 | 6 | ~~How to store filament lookup cache?~~ | No caching. Call `get_filament_data` inline at assignment time (local call, fast). Hardcoded generic fallback table for offline resilience. | **Resolved** |
-| 7 | ~~Should "Set on Printer" work for Bambu spools too?~~ | Yes — `force_write: true` in the tray popup action bypasses RFID-skip guard. User explicitly chose the action. | **Resolved (Phase 3)** |
-| 8 | ~~Should assignment be deferred if printer is printing?~~ | Yes — implemented in Phase 2 orchestrator script. Checks `print_status` and `smart_status`; fires `deferred` event and persistent notification. | **Resolved (Phase 2)** |
-| 9 | ~~Should the filament tag view use a combined script or rely on the automation?~~ | Automation-driven flow (two-phase). Phase 3 adds inline tray picker and status chip to the filament tag view for feedback. Combined script deferred to Phase 5. | **Resolved (Phase 3)** |
+| 7 | Should "Set on Printer" work for Bambu spools too? | Yes — as explicit override when user initiates manually | Pending decision |
+| 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
+| 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 5 (see §9: Enhancement B2) | Pending decision |
 | 10 | Should removing a spool from AMS also clear the printer tray info? | Likely no-op — the AMS detects physical removal. May be relevant for External Spool. | Pending decision |
 | 11 | Auto-labeling strategy: REST API (Strategy A) vs manual notification (Strategy B)? | Start with Strategy B (notification). Migrate to Strategy A if manual labeling becomes tedious (>2 new spools/month). See §10. | Pending decision |
 | 12 | When will HA support label-based entity targeting in `platform: state` triggers? | Unknown. Monitor HA architecture discussions and release notes. Until then, use `platform: event` + `label_entities()` condition. See §10: Future Migration. | Tracking |
