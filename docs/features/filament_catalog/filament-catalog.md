@@ -439,6 +439,8 @@ Key design choices:
 - **Print settings pill** — `filament_extra_profile_name` + extruder/bed temps
 - **Desiccant action buttons** — `spoolman.patch_spool` with `extra.last_dried` or `extra.desiccant_filled` set to `now`
 - **Reload** — Calls `homeassistant.update_entity`, waits 1.5s, then closes popup
+- **Qty to Order interaction model (Option 1, current)** — `+`/`-` writes through immediately to Spoolman filament `extra.purchase_qty` on each tap (string payload), with backend state as source of truth.
+- **Qty to Order interaction model (Option 2, future)** — optimistic in-popup local value update with background write + rollback/reconcile logic on failure.
 - **Open in Spoolman** — Direct link to `http://spoolman.socko.us/spool/show/{id}`
 - **Adaptive chart theme** — Background and text color flip based on filament color luminance
 - **History range behavior** — Chart span is controlled by `input_select.filament_catalog_history_range` (`Last 30 Days` / `Full History`). The popup no longer renders a range dropdown; default helper value is `Full History`, and it can be changed manually via HA entity tools.

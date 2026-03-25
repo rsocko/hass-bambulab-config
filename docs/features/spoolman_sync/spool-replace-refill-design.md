@@ -477,6 +477,20 @@ Behavior rules:
 - `+` / `-` use the same accent action styling as other popup buttons (`var(--primary-color)`, white icon/text)
 - If `extra_purchase_qty` is missing on the spool, the UI treats it as `0` and still allows incrementing; the first `+` write creates/populates the field
 
+#### Qty to Order Interaction Model (Option 1 vs Option 2)
+
+**Option 1 (current, implemented): Write-through to Spoolman on each tap**
+- Every `+` / `-` click sends a REST write to Spoolman filament `extra.purchase_qty` (string payload) immediately.
+- UI correctness is anchored to backend state; if a write fails, no local-only value is shown.
+- In browser_mod popup flows, the displayed value may not visually increment/decrement in-place until entity refresh (or popup reopen), even though the write succeeds.
+
+**Option 2 (future, not implemented): Optimistic local popup state + background write**
+- Clicking `+` / `-` updates a local shadow value instantly for better perceived responsiveness.
+- The same backend write still occurs in the background.
+- Requires explicit rollback/error handling if write fails, plus reconciliation to avoid drift between popup shadow state and real entity state.
+
+**Design decision:** Keep Option 1 as default for reliability and simpler failure semantics. Consider Option 2 later only if faster in-popup visual feedback becomes a priority over implementation simplicity.
+
 For sealed spools, a prominent **"Unseal & Use"** button is shown in the action row directly, replacing "Replace / Refill Spool" since the action semantics differ.
 
 ### 5.4 "Replace Spool" Button in AMS Tray Popup
