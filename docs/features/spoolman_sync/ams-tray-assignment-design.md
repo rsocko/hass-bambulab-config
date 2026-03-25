@@ -453,9 +453,14 @@ When a Bambu Lab spool with a valid UUID is loaded into an AMS tray:
 - The printer sets the correct filament profile from Bambu's database
 - **This system must not overwrite** that information
 
-Check: `extra_spool_uuid` is non-empty AND target is AMS tray → skip assignment.
+Check: `extra_spool_uuid` is non-empty AND target is AMS tray → **unconditionally skip assignment**.
 
-Exception: If the user explicitly triggers "Update Tray Settings" from the popup, allow it — but only for manually pinned spools. For UUID-matched Bambu spools, the button is hidden since the RFID reader provides authoritative data. If RFID data is genuinely stale (rare), the user can unpin/re-pin or use the automated location-change flow to force an update.
+This guard is absolute — neither `force_write: true` nor any UI button can override it. The RFID reader is the authoritative source for Bambu UUID spools in AMS trays.
+
+Belt-and-suspenders safety:
+- The "Update Tray Settings" button is already hidden for UUID matches (popup restricts to `manual_pin` only), so the user cannot trigger a write from the UI.
+- Even if a future caller passes `force_write: true`, the RFID guard fires first and returns `skipped` before the overwrite guard is ever evaluated.
+- For External Spool (no RFID reader), the guard does not apply — the spool always proceeds to the write path regardless of UUID.
 
 #### Bambu Studio Concurrent Edits
 

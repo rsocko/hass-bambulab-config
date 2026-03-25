@@ -84,7 +84,7 @@ assign_spool_to_printer_tray:
           {{ '' }}
         {% endif %}
       has_rfid_uuid: "{{ spool_uuid | lower not in ['', 'none', 'unknown', 'unavailable'] and not (spool_uuid | lower | regex_match('^0+$')) }}"
-      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and (has_rfid_uuid | bool) and (not (is_external_tray | bool)) and (not (force_write | bool)) }}"
+      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and (has_rfid_uuid | bool) and (not (is_external_tray | bool)) }}"
       print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower }}"
       smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
       printer_busy: >-
@@ -227,6 +227,21 @@ assign_spool_to_printer_tray:
                 message: "{{ mapping_result.message | default('Failed to resolve filament mapping.') }}"
           - stop: Assignment blocked by mapping validation
             response_variable: response_object
+
+  - action: persistent_notification.create
+    data:
+      title: "[DEBUG] mapping_result dump"
+      message: >-
+        success={{ mapping_result.success | default('MISSING') }},
+        params_type={{ mapping_result.params | default('NO_PARAMS') }},
+        tray_type={{ mapping_result.params.tray_type | default('MISSING') }},
+        tray_color={{ mapping_result.params.tray_color | default('MISSING') }},
+        nozzle_min={{ mapping_result.params.nozzle_temp_min | default('MISSING') }},
+        nozzle_max={{ mapping_result.params.nozzle_temp_max | default('MISSING') }},
+        profile={{ mapping_result.params.profile_name | default('MISSING') }},
+        tray_info_idx={{ mapping_result.params.tray_info_idx | default('MISSING') }},
+        errors={{ mapping_result.errors | default('MISSING') }}
+      notification_id: debug_mapping_result
 
   - variables:
       tray_current_type_raw: "{{ state_attr(tray_entity_id, 'type') | default('', true) | string | trim }}"
