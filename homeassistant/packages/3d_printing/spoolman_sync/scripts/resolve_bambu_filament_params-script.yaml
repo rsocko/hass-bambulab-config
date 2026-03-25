@@ -203,14 +203,6 @@ resolve_bambu_filament_params:
         {% endif %}
       validation_errors: >-
         {% set ns = namespace(errors=[]) %}
-        {% set ns.errors = ns.errors + ['DEBUG_TYPES: tray_type=' ~ (tray_type | string) ~ ' is_str=' ~ (tray_type is string) ~ ' is_int=' ~ (tray_type is integer)] %}
-        {% set ns.errors = ns.errors + ['tray_color=' ~ (tray_color | string) ~ ' is_str=' ~ (tray_color is string) ~ ' is_int=' ~ (tray_color is integer)] %}
-        {% set ns.errors = ns.errors + ['tray_info_idx=' ~ (tray_info_idx | string) ~ ' is_str=' ~ (tray_info_idx is string) ~ ' is_int=' ~ (tray_info_idx is integer)] %}
-        {% set ns.errors = ns.errors + ['nozzle_temp_min=' ~ (nozzle_temp_min | string) ~ ' is_str=' ~ (nozzle_temp_min is string) ~ ' is_int=' ~ (nozzle_temp_min is integer)] %}
-        {% set ns.errors = ns.errors + ['nozzle_temp_max=' ~ (nozzle_temp_max | string) ~ ' is_str=' ~ (nozzle_temp_max is string) ~ ' is_int=' ~ (nozzle_temp_max is integer)] %}
-        {% set ns.errors = ns.errors + ['fallback_for_material_is_mapping=' ~ (fallback_for_material is mapping) ~ ' is_str=' ~ (fallback_for_material is string)] %}
-        {% set ns.errors = ns.errors + ['matched_profile_is_mapping=' ~ (matched_profile is mapping) ~ ' is_str=' ~ (matched_profile is string)] %}
-        {% set ns.errors = ns.errors + ['filament_catalog_is_mapping=' ~ (filament_catalog is mapping) ~ ' is_str=' ~ (filament_catalog is string)] %}
         {% if not spool_available %}
           {% set ns.errors = ns.errors + ['Spool entity is unavailable or invalid.'] %}
         {% endif %}

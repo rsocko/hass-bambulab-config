@@ -228,21 +228,6 @@ assign_spool_to_printer_tray:
           - stop: Assignment blocked by mapping validation
             response_variable: response_object
 
-  - action: persistent_notification.create
-    data:
-      title: "[DEBUG] mapping_result dump"
-      message: >-
-        success={{ mapping_result.success | default('MISSING') }},
-        params_type={{ mapping_result.params | default('NO_PARAMS') }},
-        tray_type={{ mapping_result.params.tray_type | default('MISSING') }},
-        tray_color={{ mapping_result.params.tray_color | default('MISSING') }},
-        nozzle_min={{ mapping_result.params.nozzle_temp_min | default('MISSING') }},
-        nozzle_max={{ mapping_result.params.nozzle_temp_max | default('MISSING') }},
-        profile={{ mapping_result.params.profile_name | default('MISSING') }},
-        tray_info_idx={{ mapping_result.params.tray_info_idx | default('MISSING') }},
-        errors={{ mapping_result.errors | default('MISSING') }}
-      notification_id: debug_mapping_result
-
   - variables:
       tray_current_type_raw: "{{ state_attr(tray_entity_id, 'type') | default('', true) | string | trim }}"
       tray_current_name_raw: >-
