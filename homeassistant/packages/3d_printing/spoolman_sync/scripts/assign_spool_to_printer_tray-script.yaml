@@ -1,0 +1,253 @@
+# Docs: docs/features/spoolman_sync/ams-tray-assignment-design.md
+assign_spool_to_printer_tray:
+  alias: Assign Spool To Printer Tray
+  description: >-
+    Phase 1 orchestrator for tray assignment. Validates spool and tray input,
+    resolves bambu filament parameters, and calls bambu_lab.set_filament.
+  icon: mdi:printer-3d-nozzle-alert
+  mode: queued
+  fields:
+    spool_id:
+      name: Spool ID
+      description: Numeric Spoolman spool ID (used to derive sensor.spoolman_spool_<id>)
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 100000
+          mode: box
+    spool_entity_id:
+      name: Spool Entity ID
+      description: Optional direct spool entity override
+      required: false
+      selector:
+        text: {}
+    tray_entity_id:
+      name: Tray Entity ID
+      description: Target tray sensor entity for bambu_lab.set_filament
+      required: false
+      selector:
+        text: {}
+    printer_device_id:
+      name: Printer Device ID
+      description: Optional device_id override for profile lookup
+      required: false
+      default: 210dfdfa64085e8cf073e50eae757d90
+      selector:
+        text: {}
+    force_write:
+      name: Force Write
+      description: Bypass RFID-skip guard when true
+      required: false
+      default: false
+      selector:
+        boolean: {}
+    allow_while_printing:
+      name: Allow While Printing
+      description: Permit set_filament while printer is actively printing
+      required: false
+      default: false
+      selector:
+        boolean: {}
+  sequence:
+  - variables:
+      spool_id_clean: "{{ spool_id | default('', true) | string | trim }}"
+      explicit_spool_entity_id: "{{ spool_entity_id | default('', true) | string | trim }}"
+      resolved_spool_entity_id: >-
+        {% if explicit_spool_entity_id | length > 0 %}
+          {{ explicit_spool_entity_id }}
+        {% elif spool_id_clean | regex_match('^\d+$') %}
+          {{ 'sensor.spoolman_spool_' ~ spool_id_clean }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      tray_entity_id: "{{ tray_entity_id | default('', true) | string | trim }}"
+      printer_device_id: "{{ printer_device_id | default('210dfdfa64085e8cf073e50eae757d90', true) | string | trim }}"
+      force_write: "{{ force_write | default(false) }}"
+      allow_while_printing: "{{ allow_while_printing | default(false) }}"
+      spool_entity_ok: >-
+        {{ resolved_spool_entity_id | length > 0 and states(resolved_spool_entity_id) not in ['unknown', 'unavailable'] }}
+      tray_entity_ok: >-
+        {{ tray_entity_id | length > 0 and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
+      is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
+      spool_vendor: >-
+        {% if spool_entity_ok %}
+          {{ state_attr(resolved_spool_entity_id, 'filament_vendor_name') | default('', true) | string | trim }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      spool_uuid: >-
+        {% if spool_entity_ok %}
+          {{ state_attr(resolved_spool_entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | trim }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      has_rfid_uuid: "{{ spool_uuid | lower not in ['', 'none', 'unknown', 'unavailable'] and not (spool_uuid | lower | regex_match('^0+$')) }}"
+      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and has_rfid_uuid and (not is_external_tray) and (not force_write) }}"
+      print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower }}"
+      smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
+      printer_busy: >-
+        {{ print_status in ['running', 'pause', 'paused', 'prepare', 'preparing']
+           or smart_status in ['printing', 'preparing', 'heating', 'leveling'] }}
+      spool_display_name: >-
+        {% if spool_entity_ok %}
+          {{ state_attr(resolved_spool_entity_id, 'name') | default(state_attr(resolved_spool_entity_id, 'filament_name') | default(resolved_spool_entity_id, true), true) }}
+        {% else %}
+          {{ resolved_spool_entity_id if resolved_spool_entity_id | length > 0 else 'Unknown Spool' }}
+        {% endif %}
+      base_validation_errors: >-
+        {% set ns = namespace(errors=[]) %}
+        {% if not spool_entity_ok %}
+          {% set ns.errors = ns.errors + ['Unable to resolve a valid spool entity.'] %}
+        {% endif %}
+        {% if tray_entity_id | length == 0 %}
+          {% set ns.errors = ns.errors + ['Tray selection required: tray_entity_id was not provided.'] %}
+        {% elif not tray_entity_ok %}
+          {% set ns.errors = ns.errors + ['Selected tray entity is unavailable.'] %}
+        {% endif %}
+        {{ ns.errors }}
+      status_for_missing_tray: "{{ 'needs_tray_selection' if tray_entity_id | length == 0 else 'failed' }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ (base_validation_errors | count) > 0 }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ tray_entity_id | length == 0 and spool_id_clean | length > 0 }}"
+                sequence:
+                  - action: input_text.set_value
+                    data:
+                      entity_id: input_text.pending_tray_assignment_spool_id
+                      value: "{{ spool_id_clean }}"
+            default: []
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: "{{ status_for_missing_tray }}"
+              message: "{{ base_validation_errors | join(' ') }}"
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: ""
+              tray_type: ""
+              tray_color: ""
+          - variables:
+              response_object:
+                success: false
+                status: "{{ status_for_missing_tray }}"
+                message: "{{ base_validation_errors | join(' ') }}"
+          - stop: Tray assignment blocked by input validation
+            response_variable: response_object
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ should_skip_rfid }}"
+        sequence:
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: skipped
+              message: Bambu RFID spool in AMS detected; skipping automatic set_filament.
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: ""
+              tray_type: ""
+              tray_color: ""
+          - variables:
+              response_object:
+                success: true
+                status: skipped
+                message: Bambu RFID spool in AMS detected; skipping automatic set_filament.
+          - stop: Assignment skipped for RFID-managed Bambu spool
+            response_variable: response_object
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ printer_busy and not allow_while_printing }}"
+        sequence:
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: deferred
+              message: Printer is actively printing; assignment deferred.
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: ""
+              tray_type: ""
+              tray_color: ""
+          - variables:
+              response_object:
+                success: false
+                status: deferred
+                message: Printer is actively printing; assignment deferred.
+          - stop: Assignment deferred while printer is busy
+            response_variable: response_object
+
+  - action: script.resolve_bambu_filament_params
+    data:
+      spool_entity_id: "{{ resolved_spool_entity_id }}"
+      printer_device_id: "{{ printer_device_id }}"
+    response_variable: mapping_result
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not (mapping_result.success | default(false)) }}"
+        sequence:
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: failed
+              message: "{{ mapping_result.message | default('Failed to resolve filament mapping.') }}"
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: ""
+              tray_type: ""
+              tray_color: ""
+          - variables:
+              response_object:
+                success: false
+                status: failed
+                message: "{{ mapping_result.message | default('Failed to resolve filament mapping.') }}"
+          - stop: Assignment blocked by mapping validation
+            response_variable: response_object
+
+  - action: bambu_lab.set_filament
+    data:
+      entity_id: "{{ tray_entity_id }}"
+      tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
+      tray_color: "{{ mapping_result.params.tray_color }}"
+      tray_type: "{{ mapping_result.params.tray_type }}"
+      nozzle_temp_min: "{{ mapping_result.params.nozzle_temp_min | int(0) }}"
+      nozzle_temp_max: "{{ mapping_result.params.nozzle_temp_max | int(0) }}"
+
+  - action: input_text.set_value
+    data:
+      entity_id: input_text.pending_tray_assignment_spool_id
+      value: ""
+
+  - event: spoolman_tray_assignment_result
+    event_data:
+      status: success
+      message: >-
+        Set {{ mapping_result.params.tray_type }} on {{ tray_entity_id }}
+        using {{ mapping_result.params.profile_name | default(mapping_result.params.tray_info_idx, true) }}.
+      spool_entity_id: "{{ resolved_spool_entity_id }}"
+      tray_entity_id: "{{ tray_entity_id }}"
+      tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
+      tray_type: "{{ mapping_result.params.tray_type }}"
+      tray_color: "{{ mapping_result.params.tray_color }}"
+
+  - variables:
+      response_object:
+        success: true
+        status: success
+        message: >-
+          Set {{ mapping_result.params.tray_type }} on {{ tray_entity_id }}
+          using {{ mapping_result.params.profile_name | default(mapping_result.params.tray_info_idx, true) }}.
+        spool_entity_id: "{{ resolved_spool_entity_id }}"
+        tray_entity_id: "{{ tray_entity_id }}"
+        tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
+
+  - stop: Tray assignment complete
+    response_variable: response_object

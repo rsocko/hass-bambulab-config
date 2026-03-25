@@ -1,0 +1,51 @@
+- trigger:
+    - trigger: event
+      event_type: spoolman_tray_assignment_result
+  sensor:
+    - name: Last Tray Assignment Result
+      unique_id: last_tray_assignment_result
+      icon: mdi:information-outline
+      state: >-
+        {% if trigger is defined and trigger.event is defined %}
+          {{ trigger.event.data.status | default(this.state | default('idle', true), true) }}
+        {% else %}
+          {{ this.state | default('idle', true) }}
+        {% endif %}
+      attributes:
+        message: >-
+          {% if trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.message | default('', true) }}
+          {% else %}
+            {{ this.attributes.message | default('', true) }}
+          {% endif %}
+        spool_entity_id: >-
+          {% if trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.spool_entity_id | default('', true) }}
+          {% else %}
+            {{ this.attributes.spool_entity_id | default('', true) }}
+          {% endif %}
+        tray_entity_id: >-
+          {% if trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.tray_entity_id | default('', true) }}
+          {% else %}
+            {{ this.attributes.tray_entity_id | default('', true) }}
+          {% endif %}
+        tray_info_idx: >-
+          {% if trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.tray_info_idx | default('', true) }}
+          {% else %}
+            {{ this.attributes.tray_info_idx | default('', true) }}
+          {% endif %}
+        tray_type: >-
+          {% if trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.tray_type | default('', true) }}
+          {% else %}
+            {{ this.attributes.tray_type | default('', true) }}
+          {% endif %}
+        tray_color: >-
+          {% if trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.tray_color | default('', true) }}
+          {% else %}
+            {{ this.attributes.tray_color | default('', true) }}
+          {% endif %}
+        updated_at: "{{ now().isoformat() }}"

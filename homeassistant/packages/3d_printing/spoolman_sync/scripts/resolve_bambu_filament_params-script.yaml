@@ -1,0 +1,247 @@
+# Docs: docs/features/spoolman_sync/ams-tray-assignment-data-mapping.md
+resolve_bambu_filament_params:
+  alias: Resolve Bambu Filament Params
+  description: >-
+    Maps a Spoolman spool entity to bambu_lab.set_filament parameters.
+    Attempts runtime profile lookup via bambu_lab.get_filament_data and
+    falls back to validated generic material defaults.
+  icon: mdi:tune-variant
+  mode: parallel
+  fields:
+    spool_entity_id:
+      name: Spool Entity ID
+      description: Canonical Spoolman spool sensor entity (sensor.spoolman_spool_<id>)
+      required: true
+      selector:
+        text: {}
+    printer_device_id:
+      name: Printer Device ID
+      description: Optional device_id override for bambu_lab.get_filament_data
+      required: false
+      default: 210dfdfa64085e8cf073e50eae757d90
+      selector:
+        text: {}
+  sequence:
+  - variables:
+      spool_entity_id: "{{ spool_entity_id | default('', true) | string | trim }}"
+      printer_device_id: "{{ printer_device_id | default('210dfdfa64085e8cf073e50eae757d90', true) | string | trim }}"
+      spool_available: "{{ states(spool_entity_id) not in ['unknown', 'unavailable'] and spool_entity_id | length > 0 }}"
+      material_raw: "{{ state_attr(spool_entity_id, 'filament_material') | default('', true) | string | trim }}"
+      material_upper: "{{ material_raw | upper }}"
+      tray_type: >-
+        {% if material_upper == 'NYLON' %}
+          PA
+        {% else %}
+          {{ material_upper }}
+        {% endif %}
+      profile_raw: "{{ state_attr(spool_entity_id, 'filament_extra_profile_name') | default('', true) | string | trim }}"
+      profile_name: >-
+        {% set p = profile_raw | trim('"') | trim %}
+        {{ p }}
+      extruder_temp_raw: "{{ state_attr(spool_entity_id, 'filament_settings_extruder_temp') | default('', true) | string | trim }}"
+      color_multi_raw: "{{ state_attr(spool_entity_id, 'filament_multi_color_hexes') | default('', true) | string }}"
+      color_single_raw: "{{ state_attr(spool_entity_id, 'filament_color_hex') | default('', true) | string }}"
+      first_multi_hex: >-
+        {% if color_multi_raw | trim | length > 0 %}
+          {% set first = (color_multi_raw.split(',') | first | default('', true)) | string %}
+          {{ first | replace('#', '') | trim | upper }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      single_hex: "{{ color_single_raw | replace('#', '') | trim | upper }}"
+      color_hex_6: >-
+        {% if first_multi_hex is match('^[0-9A-F]{6}$') %}
+          {{ first_multi_hex }}
+        {% elif single_hex is match('^[0-9A-F]{6}$') %}
+          {{ single_hex }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      tray_color: "{{ color_hex_6 ~ 'FF' if color_hex_6 | length == 6 else '' }}"
+      material_fallback_map:
+        PLA:
+          tray_info_idx: GFL99
+          nozzle_temp_min: 190
+          nozzle_temp_max: 240
+          profile_name: Generic PLA
+        PETG:
+          tray_info_idx: GFG99
+          nozzle_temp_min: 220
+          nozzle_temp_max: 270
+          profile_name: Generic PETG
+        ABS:
+          tray_info_idx: GFB99
+          nozzle_temp_min: 240
+          nozzle_temp_max: 280
+          profile_name: Generic ABS
+        ASA:
+          tray_info_idx: GFB98
+          nozzle_temp_min: 240
+          nozzle_temp_max: 280
+          profile_name: Generic ASA
+        TPU:
+          tray_info_idx: GFU99
+          nozzle_temp_min: 200
+          nozzle_temp_max: 250
+          profile_name: Generic TPU
+        PA:
+          tray_info_idx: GFN99
+          nozzle_temp_min: 240
+          nozzle_temp_max: 280
+          profile_name: Generic PA
+        PC:
+          tray_info_idx: GFC99
+          nozzle_temp_min: 260
+          nozzle_temp_max: 290
+          profile_name: Generic PC
+        PVA:
+          tray_info_idx: GFS99
+          nozzle_temp_min: 190
+          nozzle_temp_max: 240
+          profile_name: Generic PVA
+        PLA-CF:
+          tray_info_idx: GFL98
+          nozzle_temp_min: 220
+          nozzle_temp_max: 260
+          profile_name: Generic PLA-CF
+        PETG-CF:
+          tray_info_idx: GFG98
+          nozzle_temp_min: 240
+          nozzle_temp_max: 270
+          profile_name: Generic PETG-CF
+        PA-CF:
+          tray_info_idx: GFN98
+          nozzle_temp_min: 260
+          nozzle_temp_max: 290
+          profile_name: Generic PA-CF
+      fallback_for_material: "{{ material_fallback_map.get(tray_type, {}) if tray_type | length > 0 else {} }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ spool_available and printer_device_id | length > 0 }}"
+        sequence:
+          - action: bambu_lab.get_filament_data
+            data:
+              device_id: "{{ printer_device_id }}"
+            response_variable: filament_data_response
+    default:
+      - variables:
+          filament_data_response: {}
+
+  - variables:
+      filament_catalog: >-
+        {% set payload = filament_data_response | default({}, true) %}
+        {% if payload is mapping and payload.get('filament_data') is mapping %}
+          {{ payload.filament_data }}
+        {% elif payload is mapping and payload.get('filaments') is mapping %}
+          {{ payload.filaments }}
+        {% elif payload is mapping and payload.get('result') is mapping %}
+          {{ payload.result }}
+        {% elif payload is mapping and payload.get('data') is mapping %}
+          {{ payload.data }}
+        {% elif payload is mapping %}
+          {{ payload }}
+        {% else %}
+          {{ {} }}
+        {% endif %}
+      matched_profile: >-
+        {% set ns = namespace(found={}) %}
+        {% if profile_name | length > 0 and filament_catalog is mapping %}
+          {% set target = profile_name | lower %}
+          {% for tray_idx, details in filament_catalog.items() %}
+            {% if details is mapping and (details.get('name', '') | string | lower) == target %}
+              {% set ns.found = {
+                'tray_info_idx': tray_idx,
+                'profile_name': details.get('name', ''),
+                'nozzle_temp_min': details.get('nozzle_temperature_range_low', 0) | int(0),
+                'nozzle_temp_max': details.get('nozzle_temperature_range_high', 0) | int(0)
+              } %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.found }}
+      tray_info_idx: >-
+        {% if matched_profile.get('tray_info_idx') is string and matched_profile.get('tray_info_idx') | length > 0 %}
+          {{ matched_profile.get('tray_info_idx') }}
+        {% elif fallback_for_material.get('tray_info_idx') is string and fallback_for_material.get('tray_info_idx') | length > 0 %}
+          {{ fallback_for_material.get('tray_info_idx') }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      resolved_profile_name: >-
+        {% if matched_profile.get('profile_name') is string and matched_profile.get('profile_name') | length > 0 %}
+          {{ matched_profile.get('profile_name') }}
+        {% elif fallback_for_material.get('profile_name') is string and fallback_for_material.get('profile_name') | length > 0 %}
+          {{ fallback_for_material.get('profile_name') }}
+        {% else %}
+          {{ profile_name }}
+        {% endif %}
+      nozzle_temp_min: >-
+        {% set from_profile = matched_profile.get('nozzle_temp_min', 0) | int(0) %}
+        {% if from_profile > 0 %}
+          {{ from_profile }}
+        {% elif extruder_temp_raw | regex_match('^-?\d+(\.\d+)?$') %}
+          {{ (extruder_temp_raw | float(0) - 10) | round(0) | int }}
+        {% elif fallback_for_material.get('nozzle_temp_min', 0) | int(0) > 0 %}
+          {{ fallback_for_material.get('nozzle_temp_min', 0) | int(0) }}
+        {% else %}
+          0
+        {% endif %}
+      nozzle_temp_max: >-
+        {% set from_profile = matched_profile.get('nozzle_temp_max', 0) | int(0) %}
+        {% if from_profile > 0 %}
+          {{ from_profile }}
+        {% elif extruder_temp_raw | regex_match('^-?\d+(\.\d+)?$') %}
+          {{ (extruder_temp_raw | float(0) + 10) | round(0) | int }}
+        {% elif fallback_for_material.get('nozzle_temp_max', 0) | int(0) > 0 %}
+          {{ fallback_for_material.get('nozzle_temp_max', 0) | int(0) }}
+        {% else %}
+          0
+        {% endif %}
+      validation_errors: >-
+        {% set ns = namespace(errors=[]) %}
+        {% if not spool_available %}
+          {% set ns.errors = ns.errors + ['Spool entity is unavailable or invalid.'] %}
+        {% endif %}
+        {% if tray_type | length == 0 %}
+          {% set ns.errors = ns.errors + ['Incomplete spool data: missing filament material.'] %}
+        {% endif %}
+        {% if tray_color | length != 8 %}
+          {% set ns.errors = ns.errors + ['Incomplete spool data: missing usable color.'] %}
+        {% endif %}
+        {% if tray_info_idx | length == 0 %}
+          {% set ns.errors = ns.errors + ['Incomplete spool data: unsupported material/profile for tray_info_idx fallback.'] %}
+        {% endif %}
+        {% if nozzle_temp_min | int(0) <= 0 or nozzle_temp_max | int(0) <= 0 or nozzle_temp_max | int(0) <= nozzle_temp_min | int(0) %}
+          {% set ns.errors = ns.errors + ['Incomplete spool data: missing valid nozzle temperature range.'] %}
+        {% endif %}
+        {{ ns.errors }}
+      response_object:
+        success: "{{ (validation_errors | count) == 0 }}"
+        message: >-
+          {% if (validation_errors | count) == 0 %}
+            Filament parameters resolved successfully.
+          {% else %}
+            {{ validation_errors | join(' ') }}
+          {% endif %}
+        spool_entity_id: "{{ spool_entity_id }}"
+        profile_source: >-
+          {% if matched_profile.get('tray_info_idx') is string and matched_profile.get('tray_info_idx') | length > 0 %}
+            profile_lookup
+          {% elif fallback_for_material.get('tray_info_idx') is string and fallback_for_material.get('tray_info_idx') | length > 0 %}
+            material_fallback
+          {% else %}
+            unresolved
+          {% endif %}
+        params:
+          tray_info_idx: "{{ tray_info_idx }}"
+          tray_color: "{{ tray_color }}"
+          tray_type: "{{ tray_type }}"
+          nozzle_temp_min: "{{ nozzle_temp_min | int(0) }}"
+          nozzle_temp_max: "{{ nozzle_temp_max | int(0) }}"
+          profile_name: "{{ resolved_profile_name }}"
+        errors: "{{ validation_errors }}"
+
+  - stop: Filament parameter resolution complete
+    response_variable: response_object
