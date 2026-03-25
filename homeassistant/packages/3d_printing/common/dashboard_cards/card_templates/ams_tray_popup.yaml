@@ -629,7 +629,7 @@ ams_tray_popup:
         }
         const nextFilamentExtra = {
           ...mergedFilamentExtra,
-          purchase_qty: normalizedQty
+          purchase_qty: String(normalizedQty)
         };
         return {
           action: 'fire-dom-event',
