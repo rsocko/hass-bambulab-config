@@ -250,13 +250,13 @@
   - [ ] Create `input_select.spool_replace_desiccant_mode` (3 options)
   - [ ] Create `input_select.spool_replace_target_picker`
 
-- [ ] **REST Commands**
-  - [ ] Create `rest_command.spoolman_archive_spool` (fallback if needed)
-  - [ ] Test `spoolman.patch_spool` with `archived: true`
+- [x] **Archive Support**
+  - [x] ~~Create `rest_command.spoolman_archive_spool`~~ — Not needed; `spoolman.patch_spool` with `archived: true` confirmed working
+  - [x] ~~Test `spoolman.patch_spool` with `archived: true`~~ — Confirmed via source review (Spoolman API + HA integration `services.yaml` + `__init__.py`)
 
 - [ ] **Scripts**
   - [ ] Create `script.spool_replace_populate_candidates`
-  - [ ] Create `script.spool_replace_execute`
+  - [ ] Create `script.spool_replace_execute` (read-merge-write pattern for extra fields — see design doc §7.4)
   - [ ] Add logbook + system_log entries
 
 - [ ] **Dashboard — Spool Popup**
@@ -292,11 +292,18 @@
   - [ ] Test: verify notification link navigates to dashboard
   - [ ] Test: active tray sensor still available at runout vs. already cleared
 
-### Phase 3: AMS Tray Popup Integration
+### Phase 3: AMS Tray Popup + NFC Tag View Integration
 
-- [ ] Add "Replace Spool" button to `ams_tray_popup.yaml`
-- [ ] Wire button to same wizard (set `source_spool_id` from tray context)
-- [ ] Conditional visibility: only when `match_state === 'matched'` (no button on empty trays)
+- [ ] **AMS Tray Popup**
+  - [ ] Add "Replace Spool" button to `ams_tray_popup.yaml`
+  - [ ] Wire button to same wizard (set `source_spool_id` from tray context)
+  - [ ] Conditional visibility: only when `match_state === 'matched'` (no button on empty trays)
+- [ ] **NFC Filament Tag View (Mobile)**
+  - [ ] Add "Replace / Refill Spool" button to "Other Actions" section in `view_filament_tags.yaml`
+  - [ ] Wire button: write spool ID → call `script.spool_replace_populate_candidates` → open Step 1 popup
+  - [ ] Conditional enable: only when `sensor.selected_spool` resolves to a valid spool entity
+  - [ ] Test: full wizard flow on iPhone (HA Companion App) via NFC tag scan
+  - [ ] Test: popup chain (close → delay → open next) works correctly on mobile Safari
 
 ### Phase 4: Reverse Flow (Unseal & Use)
 

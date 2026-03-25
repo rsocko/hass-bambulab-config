@@ -113,60 +113,59 @@ The template expression to clean this:
 
 #### `get_filament_data` Response Structure
 
-The exact response format from `bambu_lab.get_filament_data` needs to be captured during implementation. Expected structure (based on Bambu's data model):
+The ha-bambulab integration ships a static `filaments_detail.json` file containing ~100+ Bambu filament profiles. The `get_filament_data` service returns this data merged with any custom slicer profiles. The actual structure (keyed by `tray_info_idx` code):
 
 ```json
 {
-  "filaments": [
-    {
-      "id": "GFL99",
-      "name": "Generic PLA",
-      "type": "PLA",
-      "nozzle_temp_min": 190,
-      "nozzle_temp_max": 230,
-      "vendor": ""
-    },
-    {
-      "id": "GFL00",
-      "name": "Bambu PLA Basic",
-      "type": "PLA",
-      "nozzle_temp_min": 190,
-      "nozzle_temp_max": 230,
-      "vendor": "Bambu Lab"
-    },
-    {
-      "id": "GFL96",
-      "name": "Generic PLA Silk",
-      "type": "PLA",
-      "nozzle_temp_min": 200,
-      "nozzle_temp_max": 240,
-      "vendor": ""
-    }
-  ]
+  "GFL99": {
+    "name": "Generic PLA",
+    "filament_vendor": "Generic",
+    "filament_type": "PLA",
+    "nozzle_temperature_range_low": 190,
+    "nozzle_temperature_range_high": 240
+  },
+  "GFL00": {
+    "name": "PolyLite PLA",
+    "filament_vendor": "Polymaker",
+    "filament_type": "PLA",
+    "nozzle_temperature_range_low": 190,
+    "nozzle_temperature_range_high": 230
+  },
+  "GFG99": {
+    "name": "Generic PETG",
+    "filament_vendor": "Generic",
+    "filament_type": "PETG",
+    "nozzle_temperature_range_low": 220,
+    "nozzle_temperature_range_high": 270
+  }
 }
 ```
 
-> **Implementation Note**: The actual response structure must be captured by calling the service in Developer Tools → Actions and inspecting the response. The structure above is illustrative.
+**Important field name difference**: The JSON uses `nozzle_temperature_range_low` / `nozzle_temperature_range_high`, while the `set_filament` service expects `nozzle_temp_min` / `nozzle_temp_max`. The mapping script must translate between these.
+
+**Profile name matching**: Iterate over all entries and match the `name` field (case-insensitive) against the spool's `filament_extra_profile_name`. The dictionary key IS the `tray_info_idx` code.
 
 #### Generic Profile Fallback Table
 
-When no profile name match is found, use the generic profile for the material type:
+When no profile name match is found, use the generic profile for the material type.
+
+Validated against `filaments_detail.json` bundled with ha-bambulab:
 
 | Material | Fallback `tray_info_idx` | Fallback Profile Name | Temp Min | Temp Max |
 |---|---|---|---|---|
-| PLA | `GFL99` | Generic PLA | 190 | 230 |
-| PETG | `GFG99` | Generic PETG | 220 | 260 |
-| ABS | `GFA99` | Generic ABS | 230 | 270 |
-| ASA | `GFS99` | Generic ASA | 230 | 270 |
-| TPU | `GFU99` | Generic TPU | 200 | 240 |
-| PA | `GFN99` | Generic PA | 260 | 300 |
-| PC | `GFC99` | Generic PC | 250 | 300 |
-| PVA | `GFV99` | Generic PVA | 190 | 210 |
-| PLA-CF | `GFL52` | Generic PLA-CF | 210 | 240 |
-| PETG-CF | `GFG60` | Generic PETG-CF | 240 | 270 |
-| PA-CF | `GFN98` | Generic PA-CF | 270 | 300 |
+| PLA | `GFL99` | Generic PLA | 190 | 240 |
+| PETG | `GFG99` | Generic PETG | 220 | 270 |
+| ABS | `GFB99` | Generic ABS | 240 | 280 |
+| ASA | `GFB98` | Generic ASA | 240 | 280 |
+| TPU | `GFU99` | Generic TPU | 200 | 250 |
+| PA | `GFN99` | Generic PA | 240 | 280 |
+| PC | `GFC99` | Generic PC | 260 | 290 |
+| PVA | `GFS99` | Generic PVA | 190 | 240 |
+| PLA-CF | `GFL98` | Generic PLA-CF | 220 | 260 |
+| PETG-CF | `GFG98` | Generic PETG-CF | 240 | 270 |
+| PA-CF | `GFN98` | Generic PA-CF | 260 | 290 |
 
-> **These codes are placeholders** — must be validated against actual `get_filament_data` output during implementation.
+> **Note**: Temperatures are from `filaments_detail.json` fields `nozzle_temperature_range_low` / `nozzle_temperature_range_high`. Key code corrections from initial placeholders: ABS is `GFB99` (not GFA99), ASA is `GFB98` (not GFS99), PVA is `GFS99` (not GFV99).
 
 ### `nozzle_temp_min` / `nozzle_temp_max`
 

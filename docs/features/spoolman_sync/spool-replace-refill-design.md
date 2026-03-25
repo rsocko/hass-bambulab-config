@@ -23,53 +23,54 @@ Today this is a fully manual process involving the Spoolman UI and multiple dash
 ## 2. User Journey Overview
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      ENTRY POINTS                            │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────┐  ┌────────┐  │
-│  │ AMS Tray     │  │ Spool Popup  │  │Sealed │  │Runout  │  │
-│  │ Popup        │  │ (Catalog)    │  │Spool  │  │Notifi- │  │
-│  │ "Replace     │  │ "More        │  │Popup  │  │cation  │  │
-│  │  Spool"      │  │  Actions"    │  │"Unseal│  │"Replace│  │
-│  │  button      │  │  > Replace   │  │& Use" │  │ Spool" │  │
-│  └──────┬───────┘  └──────┬───────┘  └───┬───┘  └───┬────┘  │
-│         │                 │              │           │        │
-│  (only if tray has       │              │    (auto-created   │
-│   matched spool —        │              │    on filament     │
-│   NOT available when     │              │    runout; links   │
-│   tray goes empty        │              │    to catalog      │
-│   mid-print)             │              │    with pre-set    │
-│         │                │              │    source spool)   │
-│         └────────┬───────┘              │           │        │
-│                  │                      │           │        │
-│                  ▼                      ▼           │        │
-│         ┌───────────────────┐  ┌──────────────────┐ │        │
-│         │ STEP 1: Validate  │  │ STEP 1b: Pick    │ │        │
-│         │ Empty Spool       │  │ Empty Spool to   │ │        │
-│         │ (warn if > 0g     │  │ Replace (opt.)   │ │        │
-│         │  remaining)       │  │                  │ │        │
-│         └────────┬──────────┘  └────────┬─────────┘ │        │
-│                  │                      │           │        │
-│                  ├──────────────────────┘           │        │
-│                  │◄─────────────────────────────────┘        │
-│                  ▼                                            │
-│   ┌─────────────────────────────┐                            │
-│   │ STEP 2: Select Replacement  │                            │
-│   │ (sealed spools, same        │                            │
-│   │  filament_id, show location)│                            │
-│   └──────────────┬──────────────┘                            │
-│                  ▼                                            │
-│   ┌─────────────────────────────┐                            │
-│   │ STEP 3: Configure Transfer  │                            │
-│   │ (checkboxes for copy/reset) │                            │
-│   └──────────────┬──────────────┘                            │
-│                  ▼                                            │
-│   ┌─────────────────────────────┐                            │
-│   │ STEP 4: Review & Execute    │                            │
-│   │ (summary → confirm →        │                            │
-│   │  patch + archive + reload)  │                            │
-│   └─────────────────────────────┘                            │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          ENTRY POINTS                                │
+│                                                                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────┐  ┌────────┐ ┌──────┐ │
+│  │ AMS Tray     │  │ Spool Popup  │  │Sealed │  │Runout  │ │NFC   │ │
+│  │ Popup        │  │ (Catalog)    │  │Spool  │  │Notifi- │ │Tag   │ │
+│  │ "Replace     │  │ "More        │  │Popup  │  │cation  │ │View  │ │
+│  │  Spool"      │  │  Actions"    │  │"Unseal│  │"Replace│ │"Re-  │ │
+│  │  button      │  │  > Replace   │  │& Use" │  │ Spool" │ │place"│ │
+│  └──────┬───────┘  └──────┬───────┘  └───┬───┘  └───┬────┘ └──┬───┘ │
+│         │                 │              │           │         │      │
+│  (only if tray has       │              │    (auto-created    │      │
+│   matched spool —        │              │    on filament      │      │
+│   NOT available when     │              │    runout; links  (mobile  │
+│   tray goes empty        │              │    to catalog     NFC scan │
+│   mid-print)             │              │    with pre-set   on AMS   │
+│         │                │              │    source spool)  tag)     │
+│         └────────┬───────┘              │           │         │      │
+│                  │                      │           │         │      │
+│                  ▼                      ▼           │         │      │
+│         ┌───────────────────┐  ┌──────────────────┐ │         │      │
+│         │ STEP 1: Validate  │  │ STEP 1b: Pick    │ │         │      │
+│         │ Empty Spool       │  │ Empty Spool to   │ │         │      │
+│         │ (warn if > 0g     │  │ Replace (opt.)   │ │         │      │
+│         │  remaining)       │  │                  │ │         │      │
+│         └────────┬──────────┘  └────────┬─────────┘ │         │      │
+│                  │                      │           │         │      │
+│                  ├──────────────────────┘           │         │      │
+│                  │◄─────────────────────────────────┘         │      │
+│                  │◄───────────────────────────────────────────┘      │
+│                  ▼                                                    │
+│   ┌─────────────────────────────┐                                    │
+│   │ STEP 2: Select Replacement  │                                    │
+│   │ (sealed spools, same        │                                    │
+│   │  filament_id, show location)│                                    │
+│   └──────────────┬──────────────┘                                    │
+│                  ▼                                                    │
+│   ┌─────────────────────────────┐                                    │
+│   │ STEP 3: Configure Transfer  │                                    │
+│   │ (checkboxes for copy/reset) │                                    │
+│   └──────────────┬──────────────┘                                    │
+│                  ▼                                                    │
+│   ┌─────────────────────────────┐                                    │
+│   │ STEP 4: Review & Execute    │                                    │
+│   │ (summary → confirm →        │                                    │
+│   │  patch + archive + reload)  │                                    │
+│   └─────────────────────────────┘                                    │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -110,6 +111,8 @@ Today this is a fully manual process involving the Spoolman UI and multiple dash
 ### 3C. From Filament Runout Notification (Automation-Driven)
 
 **Context:** A spool runs out mid-print. The printer pauses with stage `paused_filament_runout`. The AMS tray is now empty — its UUID, color, and type are cleared by the Bambu Lab integration, so `spoolman_tray_map` reports `match_state: 'empty'` and there is no spool context on the tray.
+
+> **Source Code Confirmation (greghesp/ha-bambulab `models.py`):** When a tray empties, the printer sends a payload containing only `{'id', 'state'}` fields. The `AMSTray.print_update()` method detects this via `METADATA_ONLY_FIELDS = {'id', 'state'}` / `is_empty_notification` and resets ALL 19 tray fields: `empty=True`, `tray_uuid=""`, `tag_uid=""`, `color="00000000"`, `name="Empty"`, `nozzle_temp_min=0`, `nozzle_temp_max=0`, `type=""`, `sub_brands=""`, `k_value=0`, `setting_id=""`, etc. However, the active tray INDEX is still set — `tray_now` from MQTT is decoded as `ams_index = tray_now >> 2` and `tray_index = tray_now & 0x3`. So we know WHICH tray ran out, but cannot identify WHICH spool was in it from the tray data alone.
 
 **Problem:** The user cannot launch the replace wizard from the AMS tray popup because there is no matched spool to act on. They need to find the now-empty spool in the Filament Catalog — but they may not remember which spool it was, especially in a multi-AMS multi-filament setup.
 
@@ -161,6 +164,19 @@ Open the Filament Catalog to find and replace this spool.
 ```
 
 **Catalog Pre-Selection:** When the user opens the Filament Catalog, the replace wizard can check `input_text.spool_replace_source_spool_id`. If populated, the catalog could show a banner: *"Spool #42 ran out. Tap to start the replace wizard."* — or the notification link could include a query parameter / input_text flag that auto-opens the replace wizard for that spool.
+
+### 3D. From the NFC Filament Tag View (Mobile)
+
+**Context:** The user scans a filament NFC tag on their iPhone (e.g., the tag on the AMS tray itself) and the Filament Tag dashboard view loads. The `sensor.selected_spool` template sensor resolves the scanned `filament_id` to the matching **unsealed** spool entity. The user sees the spool info and realizes it's empty — they want to start a replacement.
+
+**Trigger Location — "Replace / Refill Spool" button in `view_filament_tags.yaml`:**
+- A new button is added to the **"Other Actions"** section of the filament tags view.
+- **Visibility:** Only shown when `sensor.selected_spool` has resolved to a valid spool entity.
+- The button writes the spool ID to `input_text.spool_replace_source_spool_id` and opens the Step 1 wizard popup via `browser_mod.popup`.
+
+**Why this entry point matters:** The NFC scan flow is the most natural mobile interaction for a user standing in front of their 3D printer. They physically scan the tag → see the spool info → realize it's empty → tap "Replace" — all without navigating through the Filament Catalog or AMS popups. Unlike the AMS tray popup entry point (3A), this works even when the tray is already empty (the tag identifies the filament, not the tray), making it ideal for the post-runout scenario.
+
+**Implementation:** The button calls `script.spool_replace_populate_candidates` (same as all other entry points) and then opens the wizard popup chain. Since the filament tag view is a full dashboard view (not a popup), the browser_mod popup opens on top of it — identical behavior to popups in the catalog view.
 
 ---
 
@@ -285,60 +301,45 @@ sequence:
       id: "{{ source_spool_id }}"
       remaining_weight: 0
 
-  # 2. Unseal the target spool and record the open date
+  # 2. Build merged extra object for target spool (read-merge-write pattern)
+  #    CRITICAL: Spoolman replaces ALL extra fields on each call, so we must
+  #    read existing fields, merge our changes, and write the full object back.
+  - variables:
+      target_current_extra: >-
+        {{ state_attr('sensor.spoolman_spool_' ~ target_spool_id, 'extra') or {} }}
+      target_extra_updates: >-
+        {% set updates = namespace(d={}) %}
+        {# Always unseal and set date_opened #}
+        {% set updates.d = {'sealed': 'false', 'date_opened': now().isoformat()} %}
+        {# Spool Type (if checked) #}
+        {% if copy_spool_type %}
+          {% set updates.d = dict(updates.d, spool_type=source_spool_type) %}
+        {% endif %}
+        {# Clip Type (if checked) #}
+        {% if copy_clip_type %}
+          {% set updates.d = dict(updates.d, clip_type=source_clip_type) %}
+        {% endif %}
+        {# Desiccant mode #}
+        {% if desiccant_mode == 'Copy from old spool' %}
+          {% set updates.d = dict(updates.d, desiccant_filled=source_desiccant_filled) %}
+        {% elif desiccant_mode == 'Reset to today' %}
+          {% set updates.d = dict(updates.d, desiccant_filled=now().isoformat()) %}
+        {% endif %}
+        {# Desiccant present (if checked) #}
+        {% if copy_desiccant_present %}
+          {% set updates.d = dict(updates.d, desiccant_in_spool=source_desiccant_in_spool) %}
+        {% endif %}
+        {{ updates.d }}
+      target_merged_extra: "{{ dict(target_current_extra, **target_extra_updates) }}"
+
+  # 3. Apply all extra field changes in a single call (avoids field loss)
   - action: spoolman.patch_spool
     data:
       id: "{{ target_spool_id }}"
-      extra:
-        sealed: false
-        date_opened: "{{ now().isoformat() }}"
+      extra: "{{ target_merged_extra }}"
 
-  # 3. Copy/set fields on target spool (conditional per checkboxes)
-  # 3a. Spool Type (if checked)
-  - if: "{{ copy_spool_type }}"
-    then:
-      - action: spoolman.patch_spool
-        data:
-          id: "{{ target_spool_id }}"
-          extra:
-            spool_type: "{{ source_spool_type }}"
-
-  # 3b. Clip Type (if checked)
-  - if: "{{ copy_clip_type }}"
-    then:
-      - action: spoolman.patch_spool
-        data:
-          id: "{{ target_spool_id }}"
-          extra:
-            clip_type: "{{ source_clip_type }}"
-
-  # 3c. Desiccant mode
-  - choose:
-      - conditions: "{{ desiccant_mode == 'Copy from old spool' }}"
-        sequence:
-          - action: spoolman.patch_spool
-            data:
-              id: "{{ target_spool_id }}"
-              extra:
-                desiccant_filled: "{{ source_desiccant_filled }}"
-      - conditions: "{{ desiccant_mode == 'Reset to today' }}"
-        sequence:
-          - action: spoolman.patch_spool
-            data:
-              id: "{{ target_spool_id }}"
-              extra:
-                desiccant_filled: "{{ now().isoformat() }}"
-
-  # 3d. Desiccant in spool (if checked)
-  - if: "{{ copy_desiccant_present }}"
-    then:
-      - action: spoolman.patch_spool
-        data:
-          id: "{{ target_spool_id }}"
-          extra:
-            desiccant_in_spool: "{{ source_desiccant_in_spool }}"
-
-  # 3e. Location (if checked)
+  # 4. Set non-extra fields on target (location, used dates)
+  # 4a. Location (if checked)
   - if: "{{ copy_location }}"
     then:
       - action: spoolman.patch_spool
@@ -346,7 +347,7 @@ sequence:
           id: "{{ target_spool_id }}"
           location: "{{ source_location }}"
 
-  # 3f. Mark as used in current print (if checked)
+  # 4b. Mark as used in current print (if checked)
   - if: "{{ mark_used }}"
     then:
       - action: spoolman.patch_spool
@@ -355,7 +356,7 @@ sequence:
           first_used: "{{ now().isoformat() }}"
           last_used: "{{ now().isoformat() }}"
 
-  # 4. Archive the source spool (LAST — entity disappears from HA after this)
+  # 5. Archive the source spool (LAST — entity disappears from HA after this)
   - if: "{{ archive_source }}"
     then:
       - action: spoolman.patch_spool
@@ -363,12 +364,12 @@ sequence:
           id: "{{ source_spool_id }}"
           archived: true
 
-  # 5. Reload Spoolman integration to pick up changes
+  # 6. Reload Spoolman integration to pick up changes
   - action: homeassistant.reload_config_entry
     target:
       entity_id: "sensor.spoolman_spool_{{ target_spool_id }}"
 
-  # 6. Log the operation
+  # 7. Log the operation
   - action: system_log.write
     data:
       message: >-
@@ -471,6 +472,45 @@ Added to the AMS tray popup in `ams_tray_popup.yaml`, in the action chips area n
 
 **Visibility:** Only shown when `match_state === 'matched'` and `spoolId` is set.
 
+### 5.5 "Replace / Refill Spool" Button in NFC Filament Tag View
+
+Added to the "Other Actions" section in `view_filament_tags.yaml`:
+
+```
+── Other Actions ──────────────────────
+[ Load from Query String ]  [ Replace / Refill Spool ♻ ]  ← NEW
+```
+
+**Visibility:** Only enabled when `sensor.selected_spool` has resolved to a valid spool entity (spool_id is set). Disabled/greyed out otherwise (same pattern as the existing "Mark as Refilled" and "Mark as Dried" buttons).
+
+**Behavior:** Writes the spool ID to `input_text.spool_replace_source_spool_id`, calls `script.spool_replace_populate_candidates`, and opens the Step 1 wizard popup via `browser_mod.popup`.
+
+### 5.6 Mobile (iPhone) UI Assessment
+
+The wizard is fully compatible with mobile Safari / HA Companion App on iPhone. No redesign is needed — the existing modal-based approach is mobile-friendly by default.
+
+**Step-by-step assessment:**
+
+| Step | UI Pattern | Mobile Compatibility | Notes |
+|---|---|---|---|
+| **Step 1: Validate** | Warning banner + 2 buttons | ✅ Excellent | Simple text + large tap targets. No scroll needed. |
+| **Step 2: Select Replacement** | Scrollable list of spool cards | ✅ Good | Cards with "Select" buttons — natural mobile pattern. Lists scroll vertically. May need to limit visible info per card on narrow screens. |
+| **Step 3: Configure Transfer** | Checkboxes (input_boolean toggles) + dropdown (input_select) | ✅ Good | Native HA toggle components render well on mobile. Single column — no side-by-side layout needed. |
+| **Step 4: Review & Execute** | Summary text + Execute button | ✅ Excellent | Read-only summary, single primary button. Compact. |
+
+**browser_mod popup behavior on mobile:**
+- browser_mod renders popups as centered modals. On narrow screens (< 500px), the HA dialog overlay already fills most of the viewport width.
+- The `size: normal` popup setting works fine on iPhone. No need for `size: fullscreen` or custom media queries.
+- The chained popup pattern (close current → delay → open next) works identically on mobile.
+
+**Layout recommendation for Step 3:**
+The design calls for a source → target summary with an arrow. On mobile, use **vertical stack only** (source on top, arrow below, target below that). The `custom:layout-card` 2-column option mentioned in the design should be avoided — use a simple vertical stack that works on all screen widths. This is already the "(left/top)" fallback noted in the original design.
+
+**Touch target sizing:**
+All buttons in the wizard steps should maintain minimum 44×44 pt hit areas (Apple HIG). The existing button-card styles in this codebase already meet this threshold. The `input_boolean` toggle and `input_select` dropdown rendered via HA's native components also meet this.
+
+**No adjustments needed** to the wizard steps themselves. The only implementation consideration is ensuring the Step 3 popup uses a vertical stack (not a 2-column grid) for the source/target summary, which is already the recommended layout for consistency across desktop and mobile.
+
 ---
 
 ## 6. Scripts
@@ -510,18 +550,16 @@ Added to the AMS tray popup in `ams_tray_popup.yaml`, in the action chips area n
 
 ### 7.1 Archiving via `spoolman.patch_spool`
 
-The Spoolman REST API supports `PATCH /api/v1/spool/{id}` with `{ "archived": true }`. The HA Spoolman integration's `spoolman.patch_spool` service wraps this API. Need to verify it passes through the `archived` field — if it doesn't, a direct REST call via `rest_command` will serve as fallback:
+**Confirmed:** The Spoolman REST API supports `PATCH /api/v1/spool/{id}` with `{ "archived": true }`. The HA Spoolman integration's `spoolman.patch_spool` service passes this field through directly — no REST command fallback is needed. Once archived, the spool entity is automatically removed from HA on the next Spoolman data refresh (the integration fetches with `allow_archived: False` by default).
 
 ```yaml
-rest_command:
-  spoolman_archive_spool:
-    url: "http://spoolman.socko.us/api/v1/spool/{{ spool_id }}"
-    method: PATCH
-    headers:
-      Content-Type: application/json
-    payload: '{"archived": true}'
-    content_type: "application/json"
+- action: spoolman.patch_spool
+  data:
+    id: "{{ source_spool_id }}"
+    archived: true
 ```
+
+> **Note:** There is no "inactive" state in Spoolman. Spools are either `archived: false` (active, default) or `archived: true` (archived, hidden from default views and HA entities). Archive is the only supported mechanism for removing spent spools from active inventory.
 
 ### 7.2 Unsealing
 
@@ -548,9 +586,38 @@ After archiving a spool, HA needs to reload the Spoolman integration so the arch
     entity_id: "sensor.spoolman_spool_{{ target_spool_id }}"
 ```
 
----
+### 7.4 Extra Field Merge Requirement (CRITICAL)
 
-## 8. Edge Cases & Error Handling
+The Spoolman REST API uses **full replacement semantics** for the `extra` field: *"If extra is set, all existing extra fields will be removed and replaced with the new ones."* This means any `spoolman.patch_spool` call that includes `extra` must contain the **complete** extra object — not just the fields being changed — or existing fields will be deleted.
+
+**Required pattern — read-merge-write:**
+
+```yaml
+# ❌ WRONG — overwrites all extra fields with just sealed + date_opened
+- action: spoolman.patch_spool
+  data:
+    id: "{{ target_spool_id }}"
+    extra:
+      sealed: false
+      date_opened: "{{ now().isoformat() }}"
+
+# ✅ CORRECT — reads existing extra, merges changes, writes full object
+# In the execution script, build a merged extra dict in a template:
+- variables:
+    target_extra: >-
+      {% set current = state_attr('sensor.spoolman_spool_' ~ target_spool_id, 'extra') or {} %}
+      {% set updates = {
+        'sealed': 'false',
+        'date_opened': now().isoformat()
+      } %}
+      {{ dict(current, **updates) }}
+- action: spoolman.patch_spool
+  data:
+    id: "{{ target_spool_id }}"
+    extra: "{{ target_extra }}"
+```
+
+**Impact on execution script:** All extra field updates in `script.spool_replace_execute` must be consolidated into a single `spoolman.patch_spool` call per spool with the full merged extra object. See the updated execution sequence in Section 4, Step 4.
 
 | Scenario | Handling |
 |---|---|
@@ -558,7 +625,8 @@ After archiving a spool, HA needs to reload the Spoolman integration so the arch
 | **Source spool still has weight** | Step 1 warning. If user continues, weight reset to 0 at execution. |
 | **Source spool has negative weight** | Info banner. Weight reset to 0 at execution. |
 | **User cancels mid-wizard** | All state in `input_text`/`input_boolean` helpers is ephemeral — no cleanup needed. No Spoolman changes until Step 4's "Execute" is pressed. |
-| **`spoolman.patch_spool` doesn't support `archived`** | Fallback to `rest_command.spoolman_archive_spool` (direct API). |
+| **`spoolman.patch_spool` `archived` field** | ✅ Confirmed working. No fallback needed. Archived spools automatically disappear from HA entities. |
+| **Extra field overwrites on partial update** | Spoolman uses full-replacement semantics for `extra`. The execution script uses read-merge-write pattern (see Section 7.4) to prevent field loss. |
 | **Spoolman integration reload fails** | Log warning. User can manually reload via Developer Tools or the nightly reload automation will catch it. |
 | **Multiple users trigger simultaneously** | Helpers are global singleton state. For a single-user home setup this is acceptable. If needed, prefix helpers with a session ID, but this adds significant complexity. |
 | **Target spool was already unsealed by another process** | Wizard should re-check `extra_sealed` at execution time and warn if no longer sealed. Still allow proceed (idempotent unseal). |
@@ -576,10 +644,9 @@ After archiving a spool, HA needs to reload the Spoolman integration so the arch
 **Deliverables:**
 1. Helper entities (input_text, input_boolean, input_select)
 2. `script.spool_replace_populate_candidates`
-3. `script.spool_replace_execute`
+3. `script.spool_replace_execute` (with read-merge-write pattern for extra fields)
 4. "More Actions" > "Replace / Refill Spool" button in `catalog_spool_popup.yaml`
 5. Step 1–4 popup chain (browser_mod popups)
-6. REST command fallback for archiving (if `spoolman.patch_spool` doesn't support `archived`)
 
 **Validation:**
 - Test with a spool at 0g remaining → select sealed replacement → execute
@@ -598,16 +665,22 @@ After archiving a spool, HA needs to reload the Spoolman integration so the arch
 
 **Notes:** This phase addresses the critical gap where the AMS tray loses spool context at runout. The persistent notification is the primary user-facing signal. The spool can still be found and acted on in the Filament Catalog even without the notification.
 
-### Phase 3: AMS Tray Popup Integration
+### Phase 3: AMS Tray Popup + NFC Filament Tag View Integration
 
-**Scope:** Add "Replace Spool" button to the AMS tray popup.
+**Scope:** Add "Replace Spool" button to the AMS tray popup and "Replace / Refill Spool" button to the NFC filament tag view.
 
 **Deliverables:**
 1. "Replace Spool" button in `ams_tray_popup.yaml` action area
 2. Context passing: tray → spool entity → wizard entry
 3. Conditional visibility: only when `match_state === 'matched'` (no button on empty trays)
+4. "Replace / Refill Spool" button in `view_filament_tags.yaml` "Other Actions" section
+5. Button wiring: write spool ID → populate candidates → open Step 1 popup
+6. Conditional enable: only when `sensor.selected_spool` resolves to valid spool entity
+7. Mobile testing on iPhone (HA Companion App and mobile Safari)
 
 **Notes:** The AMS popup already has the spool context (`spoolEntityId`, `spoolId`, `filamentId`) so wiring it into the same wizard is straightforward. For empty trays (mid-print runout), the user is directed to the Filament Catalog via the Phase 2 notification — the AMS popup deliberately does not try to reconstruct stale spool context.
+
+The NFC filament tag view entry point is the most natural mobile path for a user standing at their printer. The `sensor.selected_spool` template sensor resolves the scanned `filament_id` to the matching unsealed spool — this provides the source spool context even when the AMS tray is empty (the NFC tag identifies the filament, not the tray state). The wizard popups open on top of the filament tag dashboard view via `browser_mod.popup`, reusing the same Step 1–4 popup chain.
 
 ### Phase 4: Reverse Flow (Sealed → Unseal & Use)
 
@@ -697,6 +770,9 @@ homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/
 ├── catalog_spool_popup.yaml                             # Modified: Phase 1
 ├── ams_tray_popup.yaml                                  # Modified: Phase 3
 
+homeassistant/packages/3d_printing/common/dashboard_views/
+├── view_filament_tags.yaml                              # Modified: Phase 3
+
 docs/features/spoolman_sync/
 ├── spool-replace-refill-design.md                       # This document
 ```
@@ -727,14 +803,29 @@ This field is set to `now()` whenever a spool is unsealed (both the replace flow
 | `print_complete-update_filament_usage` | **No change.** Uses tray_map to resolve active spool; the new spool will be resolved correctly. |
 | `filament_catalog_filter` | **No change.** Already filters by `sealed` and `archived` status. The new spool will appear as unsealed; the old spool will be excluded as archived. |
 | `filament_catalog_metrics` | **No change.** Already skips archived spools in all metrics. |
+| `sensor.selected_spool` (filament tag) | **No change.** Template sensor resolves `filament_id` to the matching unsealed spool. After replace, the new unsealed spool will be resolved correctly. The archived old spool (no longer an entity) will be naturally excluded. |
+| `view_filament_tags.yaml` | **Modified (Phase 3).** New "Replace / Refill Spool" button added to "Other Actions" section. Uses the same wizard popup chain as all other entry points. |
 
 ---
 
-## 14. Open Questions
+## 14. Resolved Questions
 
-1. **Does `spoolman.patch_spool` support `archived: true`?** Need to test. If not, the REST command fallback is ready.
-2. **Batch `spoolman.patch_spool` calls:** Can multiple `extra` fields be set in a single call, or does each call overwrite the entire `extra` object? Current codebase examples (e.g., `refill_desiccant_update_date`) set multiple extra fields in one call (`desiccant_filled` + `desiccant_in_spool`), suggesting additive merge behavior. Confirm before implementing.
-3. **Spool Type / Clip Type picker values:** Should these be hardcoded (`input_select` with known values) or dynamically derived from existing spools? Phase 1 copies from source; Phase 5 could add a picker.
-4. **"Mark as Used in Current Print" behavior:** The `active_tray_changed` automation might fire shortly after the physical spool swap, potentially double-setting `last_used`. This is harmless (idempotent timestamp update) but should be documented.
-5. **Filament runout tray identification:** When `paused_filament_runout` fires, is `sensor.ntk_ryansoffice_3dprinter_active_tray` still reporting the last active tray, or has it already cleared? If cleared, the `print_weight_backup` JSON approach is needed. If still available, the active tray sensor alone is sufficient to look up the spool. Needs testing.
-6. **Multi-spool runout:** If a print uses filament from multiple trays and more than one runs out (e.g., in quick succession or on AMS auto-retry), the automation should handle capturing each runout event. The `spool_replace_source_spool_id` helper only holds one value — consider whether a queue (JSON list in `input_text`) is needed for multi-runout scenarios, or whether handling one at a time is acceptable.
+> All questions from the design phase have been researched and resolved. Findings are based on source code review of Spoolman REST API v1, the HA Spoolman integration (`Disane87/spoolman-homeassistant`), and the Bambu Lab HA integration (`greghesp/ha-bambulab`).
+
+1. **Does `spoolman.patch_spool` support `archived: true`?**
+   **YES — Confirmed.** The Spoolman REST API accepts `archived: boolean (Default: false)` on `PATCH /api/v1/spool/{id}`. The HA Spoolman integration's `services.yaml` lists `archived` as a supported field, and the handler in `__init__.py` passes all fields (except `id`) through to the API verbatim: `data = {key: call.data[key] for key in call.data if key != 'id'}`. No REST command fallback is needed. Additionally, `async_get_data()` uses `{"allow_archived": False}` — once archived, the spool entity automatically disappears from HA.
+
+2. **Batch `spoolman.patch_spool` calls — extra field replacement behavior:**
+   **CRITICAL — Full replacement semantics.** The Spoolman API docs state: *"If extra is set, all existing extra fields will be removed and replaced with the new ones."* This means each `spoolman.patch_spool` call that includes `extra` must send the **complete** extra object — not just the fields being changed. The execution script must read all existing extra fields, merge the desired changes, then write the full object back in a single call. See Section 7.4 for the required read-merge-write pattern. This supersedes the earlier assumption of additive merge behavior.
+
+3. **Spool Type / Clip Type picker values:**
+   **Copy-only for Phase 1.** Values are copied from the source spool's `extra_spool_type` and `extra_clip_type`. A standalone picker with dynamically derived options is deferred to Phase 5.
+
+4. **"Mark as Used in Current Print" behavior:**
+   **Harmless duplication — documented.** The `active_tray_changed` automation may fire shortly after the physical spool swap, double-setting `last_used`. This is idempotent (timestamp update) and causes no data issues.
+
+5. **Filament runout tray identification:**
+   **Active tray INDEX is available but tray DATA is wiped.** Source code review of `AMSTray.print_update()` in the Bambu Lab integration confirms: when the printer sends a payload with only `{'id', 'state'}` fields (the `is_empty_notification` check), ALL tray data is reset — `empty=True`, `tray_uuid=""`, `tag_uid=""`, `color="00000000"`, `name="Empty"`, etc. (19 fields cleared). However, the active AMS/tray index derived from `tray_now` (`ams_index = tray_now >> 2`, `tray_index = tray_now & 0x3`) is still set — so we know WHICH tray ran out, but cannot identify WHICH spool was in it from the tray data alone. **The `print_weight_backup` JSON approach (already captured at print start) is the correct and necessary strategy** for resolving the last-known spool at runout time. See Section 3C.
+
+6. **Multi-spool runout:**
+   **Exceptionally rare — handled by existing workflow.** In the unlikely event multiple spools run out in the same print, each runout triggers the printer to pause at `paused_filament_runout`. The user resolves one at a time, resuming the print between each. The single-value `spool_replace_source_spool_id` helper is sufficient. No queue mechanism needed.

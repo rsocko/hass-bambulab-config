@@ -91,30 +91,39 @@ From `sensor.spoolman_spool_*` entity attributes:
 | Question | Decision | Rationale |
 |---|---|---|
 | **When to trigger?** | Spoolman location change to AMS/External + manual on-demand | Both automated and manual flows cover the key scenarios |
-| **Where does tray_info_idx come from?** | Profile-name-to-idx lookup table (see [Data Mapping](#data-mapping-tray_info_idx-resolution)) | `bambu_lab.get_filament_data` provides the mapping; cache it for efficient lookup |
+| **Where does tray_info_idx come from?** | Profile-name-to-idx lookup via `bambu_lab.get_filament_data` (called inline at assignment time) + hardcoded generic fallback table | `get_filament_data` returns `filaments_detail.json` merged with slicer custom profiles; no caching needed |
 | **How to detect Spoolman location changes?** | Monitor `sensor.spoolman_spool_*` location attribute changes via state trigger | Spoolman integration updates entities when spool data changes |
-| **What if tray can't be inferred?** | Persistent notification + actionable HA dashboard prompt | User picks the tray from a UI selector; notification links to it |
+| **What if tray can't be inferred?** | Persistent notification + inline tray picker in filament tag view + tray picker in ams_tray_popup | User picks the tray from the UI they're currently in |
 | **Overwrite Bambu RFID spools?** | Never in AMS trays; always for External Spool | AMS has RFID reader; External Spool never does |
-| **Where to store filament ID lookup?** | `input_text` helper with cached JSON from `get_filament_data` | Call once at startup/manual refresh; store for template access |
+| **Filament data storage strategy** | No caching — call `get_filament_data` inline at assignment time | Local service call is fast; hardcoded generic fallback for offline resilience |
 | **Nozzle temp when only single value?** | Use ±10°C range from `filament_settings_extruder_temp`, or use Bambu profile defaults from lookup table | Safe default; overridden by profile match if found |
-| **Feature placement** | New files in `spoolman_sync/` (automations, scripts) + new helpers | This is an extension of the tray-map / spool-sync domain |
+| **Feature placement** | New files in `spoolman_sync/` (automations, scripts) + view modifications in `filament_tag/` and `common/` | Core logic in spoolman_sync domain; UI touchpoints in filament tag view and AMS tray popup |
+| **Filament tag view role** | Primary real-world trigger source; enhanced with feedback + inline tray picker | NFC scan → tap AMS → location change → automation fires. View gets status feedback in Phase 3. |
+| **Two-phase vs. combined action** | Start with two-phase (location change → automation); combined script deferred to Phase 4 | Two-phase is more robust: handles all trigger sources, is idempotent, maintains separation of concerns |
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    TRIGGER SOURCES                        │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  (A) Spoolman location change        (B) Manual action    │
-│      sensor.spoolman_spool_*             from HA UI       │
-│      location → "AMS" / "External"       (button/popup)   │
-│                                                           │
-└────────────┬──────────────────────────────┬──────────────┘
-             │                              │
-             ▼                              ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         TRIGGER SOURCES                               │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  (A) Spoolman location change         (B) Manual action from HA UI   │
+│      sensor.spoolman_spool_*              "Set on Printer" in         │
+│      location → "AMS" / "AMS 2"           ams_tray_popup.yaml        │
+│                / "External Spool Holder"                             │
+│                                                                      │
+│      Primary real-world source:        (C) Filament Tag view         │
+│      NFC scan → filament tag view          (future: combined         │
+│      → tap AMS / AMS 2 button              location + tray assign)   │
+│      → script.update_spool_location                                  │
+│      → spoolman.patch_spool                                          │
+│                                                                      │
+└───────────┬──────────────────┬─────────────────────┬────────────────┘
+            │                  │                     │
+            ▼                  ▼                     ▼
 ┌─────────────────────────────────────────────────────────┐
 │              ASSIGNMENT ORCHESTRATOR                      │
 │         script.assign_spool_to_printer_tray               │
@@ -166,16 +175,19 @@ From `sensor.spoolman_spool_*` entity attributes:
 An automation monitors all `sensor.spoolman_spool_*` entities for `location` attribute changes. When a spool's location changes **to** a value indicating AMS or External Spool placement, the assignment flow begins.
 
 **Location values that trigger assignment:**
-- `"AMS"` — spool placed into one of the AMS units
+- `"AMS"` — spool placed into AMS unit 1
 - `"AMS 2"` — spool placed into AMS unit 2 (if present)
-- `"External Spool"` — spool placed on the external spool holder
+- `"External Spool Holder"` — spool placed on the external spool holder
 
-> **Open Question 1**: The current Spoolman location vocabulary has `"AMS"` and `"AMS 2"` but no `"External Spool"` value. Options:
-> - **(a)** Add `"External Spool"` to the Spoolman location vocabulary (requires updating `sync_filter_options` and location preference list)
-> - **(b)** Use a different trigger for External Spool (e.g., dedicated button, or detect when the `external_spool` sensor changes from empty to populated)
-> - **(c)** Both — location change is the primary path, but also react to printer-side external spool loading events
->
-> **Recommendation**: Option (a) — add `"External Spool"` as a recognized location. This keeps the trigger uniform and the Spoolman data truthful about where the spool physically is.
+> **Resolved (Q1)**: `"External Spool Holder"` already exists as a Spoolman location value. No vocabulary changes needed. The `sync_filter_options` automation dynamically discovers locations from spool entities, so it will appear in filters automatically.
+
+**Important note on Spoolman location field behavior:**
+
+The Spoolman `location` field is freeform text. The Spoolman API only returns location values that are currently assigned to at least one spool. This means:
+
+- **Trigger automation**: No issue — the automation watches the `location` attribute on `sensor.spoolman_spool_*` entities for specific string values regardless of any dropdown.
+- **User setting the location**: If no spool currently has `"External Spool Holder"` as its location, the value will not appear as an auto-suggest option in the Spoolman UI. The user must type it manually the first time. Once at least one spool has the value, it will appear in location dropdowns and filter options.
+- **First-use bootstrapping**: Consider documenting the exact location strings (`"AMS"`, `"AMS 2"`, `"External Spool Holder"`) in user-facing setup docs or as a tooltip/helper text so users know the expected values. Alternatively, a one-time setup script could assign and then unassign these location values to a dummy spool to seed the Spoolman auto-suggest list.
 
 #### Conditions
 
@@ -199,7 +211,7 @@ Before proceeding with assignment:
 ```
 Location changes to AMS/AMS 2/External Spool
     │
-    ├─ Target is "External Spool"?
+    ├─ Target is "External Spool Holder"?
     │   └─ YES → tray_entity = external_spool sensor
     │            → proceed to data mapping + set_filament
     │
@@ -249,9 +261,7 @@ A tray is **empty** when:
 >
 > **Recommendation**: Start with the simpler empty-tray-count approach. Add timing correlation as a future enhancement if empty-count inference proves too unreliable.
 
-> **Open Question 3**: When location is `"AMS"` (not `"AMS 2"`), should we only check AMS 1 trays, or all AMS units?
->
-> **Recommendation**: Map `"AMS"` → AMS 1 trays, `"AMS 2"` → AMS 2 trays. This requires the user to set the correct location value. If ambiguity is common, a future enhancement could add per-tray location values (e.g., `"AMS 1 Tray 3"`), but that's overly granular for most users.
+> **Resolved (Q3)**: `"AMS"` maps to AMS 1 trays (`ams_1_tray_1` through `ams_1_tray_4`). `"AMS 2"` maps to AMS 2 trays (`ams_2_tray_1` through `ams_2_tray_4`). The user sets the correct location value in Spoolman.
 
 #### Alternative: Tray State Change Correlation
 
@@ -284,25 +294,27 @@ This is the most complex mapping challenge. Bambu's `set_filament` requires a `t
 | 2 | No exact match; `filament_material` matches a generic Bambu profile | Use the generic profile ID (e.g., `GFL99` for Generic PLA) |
 | 3 | No match at all | Use a hardcoded fallback map by material type (see below) |
 
-**Hardcoded generic fallback table** (for when `get_filament_data` is unavailable or profile name doesn't match):
+**Hardcoded generic fallback table** (validated against `filaments_detail.json` bundled with ha-bambulab):
 
 | Material | Generic `tray_info_idx` | Profile Name |
 |---|---|---|
 | PLA | `GFL99` | Generic PLA |
 | PETG | `GFG99` | Generic PETG |
-| ABS | `GFA99` | Generic ABS |
-| ASA | `GFS99` | Generic ASA |
+| ABS | `GFB99` | Generic ABS |
+| ASA | `GFB98` | Generic ASA |
 | TPU | `GFU99` | Generic TPU |
 | PA (Nylon) | `GFN99` | Generic PA |
 | PC | `GFC99` | Generic PC |
-| PVA | `GFV99` | Generic PVA |
+| PVA | `GFS99` | Generic PVA |
 | PLA-CF | `GFL98` | Generic PLA-CF |
 | PETG-CF | `GFG98` | Generic PETG-CF |
 | PA-CF | `GFN98` | Generic PA-CF |
 
-> **Open Question 4**: The exact `tray_info_idx` codes for generic profiles need to be validated against `bambu_lab.get_filament_data` output. The codes above are illustrative. Implementation should call `get_filament_data` at startup and build the real mapping dynamically.
+> **Note**: These codes were validated against the static `filaments_detail.json` in ha-bambulab. The `get_filament_data` service returns these merged with any custom slicer profiles. Key corrections from initial placeholders: ABS is `GFB99` (not GFA99), ASA is `GFB98` (not GFS99), PVA is `GFS99` (not GFV99).
+
+> **Open Question 4**: ~~The exact `tray_info_idx` codes for generic profiles need to be validated against `bambu_lab.get_filament_data` output.~~
 >
-> **Recommendation**: Store the `get_filament_data` response in a helper at startup. Use that as the primary source. Maintain a small hardcoded fallback only for cases where the service call fails.
+> **Resolved**: Codes validated against `filaments_detail.json`. Implementation should still call `get_filament_data` at runtime for profile-name matching (covers third-party profiles like `GFL00` = PolyLite PLA, `GFL03` = eSUN PLA+, etc.) and use this hardcoded table only as offline fallback.
 
 #### Color Mapping
 
@@ -424,15 +436,17 @@ If a user has already set filament info via Bambu Studio:
 >
 > **Recommendation**: Yes. Before calling `set_filament`, check if the tray's current `type`, `color`, and `name` already match the Spoolman spool data (within tolerance for color hex). If they match, skip the call and log "Tray already configured correctly." This prevents unnecessary writes and preserves Bambu Studio edits.
 
-### 7. Spoolman Location Update for External Spool
+### 7. Spoolman Location Values
 
-Currently, the location vocabulary does not include "External Spool". This needs to be added:
+The required location values already exist in Spoolman:
 
-#### Changes Required
+| Location Value | Maps To |
+|---|---|
+| `"AMS"` | AMS 1 (trays 1–4) |
+| `"AMS 2"` | AMS 2 (trays 1–4) |
+| `"External Spool Holder"` | External spool sensor |
 
-1. **Add "External Spool" to the preferred location order** in `sync_filter_options.yaml` and wherever location preference lists are defined
-2. **Update `filament_catalog_filter_location` options** to include "External Spool" (happens automatically via sync automation)
-3. **Document in `spoolman-custom-fields.md`** the new expected location value
+The `sync_filter_options` automation dynamically discovers locations from spool entities. No changes required to the location vocabulary or filter infrastructure.
 
 ### 8. Authorization and Firmware Considerations
 
@@ -450,6 +464,164 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 - Create a persistent notification explaining the issue
 - Suggest firmware/connection mode changes if the error indicates authorization failure
 
+### 9. Filament Tag View Integration
+
+The **filament tag view** (`view_filament_tags.yaml`) is designed for mobile phone use: the user scans an NFC tag on a filament swatch, the view resolves the matching Spoolman spool, and presents quick-action buttons to update the spool's location. This view is the **primary real-world entry point** for the Spoolman location changes that trigger AMS tray assignment.
+
+#### Current Filament Tag Flow
+
+```
+Phone NFC scan → input_text.filament_id populated
+    │
+    ▼
+sensor.selected_spool resolves matching Spoolman spool
+(prefers unsealed spools; falls back to first match)
+    │
+    ▼
+view_filament_tags.yaml shows:
+  ┌──────────────────────────────────────┐
+  │ Spool name + color + location        │
+  │                                      │
+  │  [  AMS  ]    [  AMS 2  ]           │  ← quick-action buttons
+  │                                      │
+  │  Desiccant / Drying tracking         │
+  │  Full location dropdown              │
+  └──────────────────────────────────────┘
+    │
+    ▼ (user taps AMS or AMS 2)
+script.update_spool_location
+    │
+    ▼
+spoolman.patch_spool(id, location: "AMS")
+    │
+    ▼
+sensor.spoolman_spool_* location attribute updates
+    │
+    ▼ (THIS is the event that triggers the §1 automation)
+spool_location_change_assign_tray automation fires
+```
+
+#### Key Observations
+
+1. **The filament tag view IS the primary trigger source.** The "AMS" and "AMS 2" buttons call `script.update_spool_location`, which patches the spool's Spoolman location. That location change fires the `spool_location_change_assign_tray` automation from §1. No special integration is needed for the basic automated flow — it works as designed.
+
+2. **The view currently lacks an "External Spool Holder" quick button.** Only "AMS" and "AMS 2" have dedicated buttons. Users must use the full location dropdown to set "External Spool Holder." A third quick-action button should be added for parity.
+
+3. **No "Remove from AMS" quick action exists.** The user mentioned a core use case: marking a spool as *no longer* in the AMS. Currently the user must open the location dropdown and pick a shelf location. A "Remove from AMS" button (sets location to empty/shelf) would save taps.
+
+4. **After tapping AMS, the user has no feedback about tray assignment.** The current flow completes the Spoolman location update silently. The user has no way to know whether the automation successfully assigned the tray, whether inference failed, or whether a notification was sent — they just see the location change.
+
+5. **The filament tag view knows the spool identity** — all the data needed for `set_filament` is available in the view context (spool entity, material, color, profile). This opens the door for a combined action.
+
+#### Proposed Enhancements
+
+##### Enhancement A: Add "External Spool" Quick Button
+
+Add a third quick-action button alongside "AMS" and "AMS 2":
+
+```yaml
+- tap_action:
+    action: "${ spool_id ? 'perform-action' : 'none' }"
+    perform_action: script.update_spool_location
+    target: {}
+    data:
+      spool_id: ${ spool_id }
+      location: External Spool Holder
+  name: Ext. Spool
+  icon: fas:arrow-right-to-bracket
+```
+
+This ensures all three AMS-adjacent locations have quick buttons.
+
+##### Enhancement B: Tray Assignment Feedback
+
+After the user taps "AMS" / "AMS 2" / "Ext. Spool", show inline feedback about the tray assignment result. Two approaches:
+
+**B1: Passive feedback via status sensor**
+
+Create a template sensor (`sensor.last_tray_assignment_result`) that the assignment automation updates after each attempt:
+
+```
+state: "success" | "needs_tray_selection" | "failed" | "skipped"
+attributes:
+  spool_name: "Sunlu PLA Matte (Black)"
+  tray_entity: "sensor.p1s_..._ams_1_tray_3"
+  message: "Set PLA on AMS 1 Tray 3"
+  timestamp: "2026-03-24T12:00:00"
+```
+
+A conditional card in the filament tag view shows the result:
+- Green chip: "✓ Set on AMS 1 Tray 3"
+- Orange chip: "⚠ Select tray →" (links to tray picker)
+- Red chip: "✗ Assignment failed" (links to notification)
+
+**B2: Combined action script (future enhancement)**
+
+Replace the two-phase flow (update location → automation fires) with a single script that does both:
+
+```yaml
+script.assign_spool_to_ams:
+  fields:
+    spool_id: ...
+    location: ...    # "AMS", "AMS 2", "External Spool Holder"
+    tray_entity: ... # optional — if omitted, infer
+  sequence:
+    - action: spoolman.patch_spool  # update Spoolman location
+    - action: script.assign_spool_to_printer_tray  # push to printer
+```
+
+The filament tag view buttons would call this combined script instead of `script.update_spool_location`. The automation from §1 would still exist as a safety net for location changes made outside the filament tag view (e.g., from the Spoolman UI directly).
+
+> **Recommendation**: Start with **Enhancement A** (External Spool button) in Phase 2 and **Enhancement B1** (passive feedback sensor) in Phase 3. Defer **B2** (combined action) to Phase 4 — it's cleaner but requires validating the automation-driven flow first.
+
+##### Enhancement C: Inline Tray Picker on Inference Failure
+
+When the automated tray inference fails after a filament tag location change, the current design sends a persistent notification. But the user is likely **still on the filament tag view** on their phone. Instead of (or in addition to) the notification, the view could display an inline tray picker:
+
+```
+┌──────────────────────────────────────┐
+│ ⚠ Spool moved to AMS —              │
+│   which tray did you load it into?   │
+│                                      │
+│ [ T1 ] [ T2 ] [ T3 ] [ T4 ]         │
+└──────────────────────────────────────┘
+```
+
+The pending-assignment state from the automation (stored in `input_text.pending_tray_assignment_spool_id`) makes this conditional card visible. Tapping a tray button calls `script.assign_spool_to_printer_tray` with the explicit tray and clears the pending state.
+
+> **Recommendation**: Include this in Phase 3 alongside the tray popup UI changes. The same pending-assignment helper drives both the notification and the inline tray picker.
+
+##### Enhancement D: "Remove from AMS" Quick Action
+
+Add a conditional button that appears when the spool's current location is "AMS", "AMS 2", or "External Spool Holder":
+
+```yaml
+# Only visible when spool is currently in an AMS location
+- tap_action:
+    action: "${ spool_id && isInAms ? 'perform-action' : 'none' }"
+    perform_action: script.update_spool_location
+    target: {}
+    data:
+      spool_id: ${ spool_id }
+      location: ""    # clears location in Spoolman
+  name: Remove
+  icon: fas:arrow-right-from-bracket
+```
+
+This addresses the use case of "spool is no longer in the AMS." When the location changes away from an AMS value, no tray assignment automation fires (the automation only triggers on changes **to** AMS locations).
+
+> **Open question**: Should removing a spool from AMS also clear the printer tray info? The printer doesn't have a "clear tray" action per se — the AMS detects physical removal. This is likely a no-op on the printer side, but could be useful for the External Spool holder.
+
+#### Impact on Two-Phase vs. Combined Architecture
+
+The filament tag view creates a natural opportunity for a **combined** flow (update location + assign tray in one action). However, the two-phase approach (location change → automation → assignment) is more robust because:
+
+1. **It handles all trigger sources** — location changes from the Spoolman web UI, other HA automations, or the filament catalog view all fire the same automation.
+2. **It's idempotent** — the automation can re-evaluate if triggered again.
+3. **The filament tag view doesn't need to know about printer details** — separation of concerns.
+
+The combined approach (Enhancement B2) should be a **future optimization**, not the initial architecture. The automation-driven flow is the correct foundation.
+
 ---
 
 ## Implementation Plan
@@ -458,12 +630,10 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 
 | Task | Deliverable | Location |
 |---|---|---|
-| Filament ID lookup cache | Script to call `get_filament_data` and store in helper | `spoolman_sync/scripts/` |
-| Filament ID lookup helper | `input_text.bambu_filament_lookup_cache` | `spoolman_sync/helpers/` |
-| Startup automation | Call lookup script at HA start | `spoolman_sync/automations/` |
-| Data mapping script | `script.resolve_bambu_filament_params` — spool → set_filament params | `spoolman_sync/scripts/` |
-| Assignment orchestrator script | `script.assign_spool_to_printer_tray` — validates + calls set_filament | `spoolman_sync/scripts/` |
+| Data mapping script | `script.resolve_bambu_filament_params` — spool → set_filament params; calls `get_filament_data` inline for profile lookup; hardcoded generic fallback table for offline resilience | `spoolman_sync/scripts/` |
+| Assignment orchestrator script | `script.assign_spool_to_printer_tray` — validates, resolves params, calls set_filament | `spoolman_sync/scripts/` |
 | Pending assignment helper | `input_text.pending_tray_assignment_spool_id` | `spoolman_sync/helpers/` |
+| Assignment result sensor | `sensor.last_tray_assignment_result` — tracks success/failure/pending for UI feedback | `spoolman_sync/template_sensors/` |
 
 ### Phase 2: Automated Flow
 
@@ -471,25 +641,28 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 |---|---|---|
 | Location change detection automation | Monitors `sensor.spoolman_spool_*` location changes | `spoolman_sync/automations/` |
 | Tray inference logic | Within the automation or as a sub-script | `spoolman_sync/scripts/` |
-| External Spool location value | Add "External Spool" to Spoolman location vocabulary | `filament_catalog/automations/sync_filter_options.yaml` |
 | Non-interference checks | Pre-call validation (UUID skip, already-correct skip) | Within assignment script |
 | Error handling | Persistent notifications for failures, auth issues | Within assignment script |
+| Filament tag view: "Ext. Spool" button | Third quick-action button for External Spool Holder | `common/dashboard_views/view_filament_tags.yaml` |
+| Filament tag view: "Remove" button | Conditional button to clear AMS location (visible when spool is in AMS) | `common/dashboard_views/view_filament_tags.yaml` |
 
 ### Phase 3: UI Integration
 
 | Task | Deliverable | Location |
 |---|---|---|
 | "Set on Printer" button in tray popup | New action chip in `ams_tray_popup.yaml` | `common/dashboard_cards/card_templates/` |
-| Pending assignment tray picker | Notification-linked card for tray selection | `common/dashboard_cards/` or `spoolman_sync/dashboard_cards/` |
+| Pending assignment tray picker (notification) | Notification-linked card for tray selection when inference fails | `common/dashboard_cards/` or `spoolman_sync/dashboard_cards/` |
+| Filament tag view: inline tray picker | Conditional card in filament tag view showing tray buttons when pending assignment exists | `common/dashboard_views/view_filament_tags.yaml` |
+| Filament tag view: assignment status | Conditional chip showing last assignment result (success/pending/failed) | `common/dashboard_views/view_filament_tags.yaml` |
 | Confirmation feedback | Toast or brief notification on success | Within assignment script |
 
 ### Phase 4: Refinement
 
 | Task | Deliverable | Location |
 |---|---|---|
-| Tray state change correlation | Monitor tray transitions to confirm inference | `spoolman_sync/automations/` |
+| Tray state change correlation | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation) | `spoolman_sync/automations/` |
+| Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
 | Batch assignment | Handle multiple spool location changes at once | Enhancement to Phase 2 automation |
-| Lookup cache refresh | Periodic or on-demand refresh of `get_filament_data` cache | Enhancement to Phase 1 |
 
 ---
 
@@ -500,12 +673,10 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 | File | Purpose |
 |---|---|
 | `spoolman_sync/scripts/assign_spool_to_printer_tray-script.yaml` | Orchestrator: validate, map, call `set_filament` |
-| `spoolman_sync/scripts/resolve_bambu_filament_params-script.yaml` | Data mapping: spool attrs → `set_filament` params |
-| `spoolman_sync/scripts/refresh_bambu_filament_lookup-script.yaml` | Call `get_filament_data` and cache result |
+| `spoolman_sync/scripts/resolve_bambu_filament_params-script.yaml` | Data mapping: spool attrs → `set_filament` params (calls `get_filament_data` inline) |
 | `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Trigger on location change → assignment flow |
-| `spoolman_sync/automations/refresh_bambu_filament_lookup_startup.yaml` | Refresh lookup cache at HA start |
-| `spoolman_sync/helpers/input_text/input_text_bambu_filament_lookup_cache.yaml` | Cached `get_filament_data` JSON |
 | `spoolman_sync/helpers/input_text/input_text_pending_tray_assignment.yaml` | Pending assignment spool ID |
+| `spoolman_sync/template_sensors/template_sensor_last_tray_assignment_result.yaml` | Assignment result status for UI feedback |
 | `docs/features/spoolman_sync/ams-tray-assignment-data-mapping.md` | Supplemental doc: data mapping details |
 
 ### Modified Files
@@ -513,9 +684,9 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 | File | Change |
 |---|---|
 | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Set on Printer" action chip |
-| `filament_catalog/automations/sync_filter_options.yaml` | Add "External Spool" to location vocabulary |
-| `spoolman_sync/helpers/` (loader) | Register new helpers |
-| `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool" location value |
+| `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" + "Remove" quick buttons; add assignment status chip; add inline tray picker for pending assignments |
+| `filament_tag/scripts/update_spool_location-script.yaml` | No change needed — existing script patches Spoolman; the location change triggers the new automation |
+| `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool Holder" as a trigger location |
 
 ---
 
@@ -530,15 +701,8 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 | Spool loaded during active print | Medium | High | Check printer status before calling `set_filament`; defer if printing |
 | Race condition: location change + tray state change timing | Medium | Medium | Simple empty-tray-count approach avoids timing dependency |
 | Overwriting user's Bambu Studio edits | Medium | Medium | Pre-check tray state; skip if already correct |
-| `input_text` max length exceeded for filament cache | Low | Medium | `input_text` max is 255 chars; JSON blob may exceed this. Consider alternative storage (e.g., file, or multiple helpers partitioned by material) |
-
-> **Open Question 6**: `input_text` has a 255-character `max` limit by default (configurable up to 255 in HA). The full `get_filament_data` response could easily exceed this. Alternatives:
-> - **(a)** Store only the generic-profile subset (much smaller)
-> - **(b)** Use a `local_file` or `command_line` sensor to store the full mapping
-> - **(c)** Don't cache — call `get_filament_data` at assignment time and extract what's needed
-> - **(d)** Use multiple `input_text` helpers partitioned by material type
->
-> **Recommendation**: Option (c) for simplicity — call `get_filament_data` inline during the assignment script. The service call is local and fast. Maintain the hardcoded generic fallback table for offline resilience. If performance is an issue, revisit with option (a).
+| Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip in filament tag view (Phase 3) |
+| Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 4 |
 
 ---
 
@@ -560,6 +724,14 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 | Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range |
 | Profile name has no Bambu match | Use generic profile for the material type |
 | Location change to non-AMS/non-External | No action taken |
+| **Filament Tag View scenarios** | |
+| NFC scan → tap "AMS" button in filament tag view | Spoolman location updated → automation fires → tray assignment attempted |
+| NFC scan → tap "AMS 2" button | Same as above, targeting AMS 2 trays |
+| NFC scan → tap "Ext. Spool" button (new) | Spoolman location updated → automation fires → external spool assignment (no tray inference needed) |
+| NFC scan → tap "Remove" button (new, spool currently in AMS) | Spoolman location cleared → no tray assignment automation fires |
+| Tray inference fails after filament tag AMS tap | Inline tray picker shown in filament tag view + notification sent |
+| Assignment succeeds after filament tag AMS tap | Status chip shows "✓ Set on AMS 1 Tray 3" in filament tag view |
+| Filament tag view with no spool selected | All quick-action buttons disabled/hidden |
 
 ---
 
@@ -567,14 +739,16 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 
 | # | Question | Recommendation | Status |
 |---|---|---|---|
-| 1 | Add "External Spool" to Spoolman location vocabulary? | Yes — add it | Pending decision |
-| 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count | Pending decision |
-| 3 | How to map "AMS" vs "AMS 2" locations? | "AMS" → AMS 1, "AMS 2" → AMS 2 | Pending decision |
-| 4 | How to validate `tray_info_idx` codes? | Call `get_filament_data` at runtime; hardcoded fallback | Pending decision |
+| 1 | ~~Add "External Spool" to Spoolman location vocabulary?~~ | N/A — `"External Spool Holder"` already exists | **Resolved** |
+| 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count; timing-based correlation deferred to Phase 4 | Pending decision |
+| 3 | ~~How to map "AMS" vs "AMS 2" locations?~~ | `"AMS"` → AMS 1, `"AMS 2"` → AMS 2 | **Resolved** |
+| 4 | ~~How to validate `tray_info_idx` codes?~~ | Validated against `filaments_detail.json` bundled with ha-bambulab. `get_filament_data` returns this merged with slicer custom profiles. Generic fallback codes confirmed: GFL99=PLA, GFG99=PETG, GFB99=ABS, GFB98=ASA, GFU99=TPU, GFN99=PA, GFC99=PC, GFS99=PVA | **Resolved** |
 | 5 | Check if tray already has correct data before writing? | Yes — skip if already correct | Pending decision |
-| 6 | How to store filament lookup cache? | Don't cache; call `get_filament_data` inline | Pending decision |
+| 6 | ~~How to store filament lookup cache?~~ | No caching. Call `get_filament_data` inline at assignment time (local call, fast). Hardcoded generic fallback table for offline resilience. | **Resolved** |
 | 7 | Should "Set on Printer" work for Bambu spools too? | Yes — as explicit override when user initiates manually | Pending decision |
 | 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
+| 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 4 (see §9: Enhancement B2) | Pending decision |
+| 10 | Should removing a spool from AMS also clear the printer tray info? | Likely no-op — the AMS detects physical removal. May be relevant for External Spool. | Pending decision |
 
 ---
 
@@ -587,6 +761,7 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 | Printer firmware | Must support write operations (LAN Mode or pre-auth-lockdown firmware) |
 | `sensor.spoolman_tray_map` | Existing — unchanged; used for read-side matching and spool data access |
 | `sensor.smart_status` | Existing — used to check if printer is actively printing |
+| Filament Tag package | Existing — `view_filament_tags.yaml`, `script.update_spool_location`, `sensor.selected_spool` are modified/referenced |
 
 ---
 
@@ -597,3 +772,4 @@ The `bambu_lab.set_filament` service requires **write access** to the printer, w
 - [Spoolman Custom Fields](spoolman-custom-fields.md) — Required Spoolman schema setup
 - [Multicolor Spool Matching](multicolor-spool-matching-design.md) — Multi-color matching rules
 - [AMS Tray Assignment Data Mapping](ams-tray-assignment-data-mapping.md) — Supplemental: detailed mapping tables
+- [Filament Tag README](../filament_tag/README.md) — NFC tag scanning + spool location management (primary trigger source)
