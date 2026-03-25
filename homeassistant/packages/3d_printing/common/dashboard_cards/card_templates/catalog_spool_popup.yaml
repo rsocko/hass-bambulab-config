@@ -467,7 +467,7 @@ catalog_spool_popup:
                         {
                           type: 'horizontal-stack',
                           card_mod: {
-                            style: '#root { justify-content: center !important; gap: 8px !important; } #root > * { flex: 0 0 auto !important; width: 56px !important; }'
+                            style: '#root { display: flex !important; justify-content: center !important; align-items: center !important; gap: 8px !important; } #root > * { display: flex !important; justify-content: center !important; flex: 0 0 auto !important; width: 56px !important; }'
                           },
                           cards: [
                             {
@@ -482,6 +482,10 @@ catalog_spool_popup:
                                 grid: [
                                   { 'grid-template-areas': '"i"' },
                                   { 'justify-items': 'center' },
+                                  { 'align-items': 'center' }
+                                ],
+                                img_cell: [
+                                  { 'justify-content': 'center' },
                                   { 'align-items': 'center' }
                                 ],
                                 card: [
@@ -512,6 +516,10 @@ catalog_spool_popup:
                                 grid: [
                                   { 'grid-template-areas': '"i"' },
                                   { 'justify-items': 'center' },
+                                  { 'align-items': 'center' }
+                                ],
+                                img_cell: [
+                                  { 'justify-content': 'center' },
                                   { 'align-items': 'center' }
                                 ],
                                 card: [
