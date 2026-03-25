@@ -204,7 +204,7 @@ assign_spool_to_printer_tray:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ not (mapping_result.success | default(false)) }}"
+            value_template: "{{ not (mapping_result.success | default(false) | bool) }}"
         sequence:
           - action: persistent_notification.create
             data:

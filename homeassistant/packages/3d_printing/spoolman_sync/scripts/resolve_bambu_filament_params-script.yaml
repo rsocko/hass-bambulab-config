@@ -28,10 +28,13 @@ resolve_bambu_filament_params:
       material_raw: "{{ state_attr(spool_entity_id, 'filament_material') | default('', true) | string | trim }}"
       material_upper: "{{ material_raw | upper }}"
       tray_type: >-
-        {% if material_upper == 'NYLON' %}
+        {% set m = material_upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[\s]+\d.*$', '') | trim %}
+        {% if m == 'NYLON' %}
           PA
+        {% elif m in ['PLA-S', 'PLA-S (PLA FOR SUPPORT)'] %}
+          PLA
         {% else %}
-          {{ material_upper }}
+          {{ m }}
         {% endif %}
       profile_raw: "{{ state_attr(spool_entity_id, 'filament_extra_profile_name') | default('', true) | string | trim }}"
       profile_name: >-
