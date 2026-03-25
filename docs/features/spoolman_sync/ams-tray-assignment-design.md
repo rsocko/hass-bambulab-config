@@ -100,7 +100,7 @@ From `sensor.spoolman_spool_*` entity attributes:
 | **Nozzle temp when only single value?** | Use ±10°C range from `filament_settings_extruder_temp`, or use Bambu profile defaults from lookup table | Safe default; overridden by profile match if found |
 | **Feature placement** | New files in `spoolman_sync/` (automations, scripts) + view modifications in `filament_tag/` and `common/` | Core logic in spoolman_sync domain; UI touchpoints in filament tag view and AMS tray popup |
 | **Filament tag view role** | Primary real-world trigger source; enhanced with feedback + inline tray picker | NFC scan → tap AMS → location change → automation fires. View gets status feedback in Phase 3. |
-| **Two-phase vs. combined action** | Start with two-phase (location change → automation); combined script deferred to Phase 4 | Two-phase is more robust: handles all trigger sources, is idempotent, maintains separation of concerns |
+| **Two-phase vs. combined action** | Start with two-phase (location change → automation); combined script deferred to Phase 5 | Two-phase is more robust: handles all trigger sources, is idempotent, maintains separation of concerns |
 
 ---
 
@@ -595,7 +595,7 @@ script.assign_spool_to_ams:
 
 The filament tag view buttons would call this combined script instead of `script.update_spool_location`. The automation from §1 would still exist as a safety net for location changes made outside the filament tag view (e.g., from the Spoolman UI directly).
 
-> **Recommendation**: Start with **Enhancement A** (External Spool button) in Phase 2 and **Enhancement B1** (passive feedback sensor) in Phase 3. Defer **B2** (combined action) to Phase 4 — it's cleaner but requires validating the automation-driven flow first.
+> **Recommendation**: Start with **Enhancement A** (External Spool button) in Phase 2 and **Enhancement B1** (passive feedback sensor) in Phase 3. Defer **B2** (combined action) to Phase 5 — it's cleaner but requires validating the automation-driven flow first.
 
 ##### Enhancement C: Inline Tray Picker on Inference Failure
 
@@ -827,7 +827,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Phase | Trigger | Condition | Label Usage |
 |---|---|---|---|
 | Phase 2 (current) | `platform: event, event_type: state_changed` | Regex: `select\.spoolman_spool_\d+_location` | None |
-| Phase 2.5 (label adoption) | `platform: event, event_type: state_changed` | `label_entities('spoolman_spool_location')` | Condition check + auto-labeling automation |
+| Phase 4 (label adoption) | `platform: event, event_type: state_changed` | `label_entities('spoolman_spool_location')` | Condition check + auto-labeling automation |
 | Future (HA label triggers) | `platform: state` with label entity targeting | Built into trigger | Trigger targeting + auto-labeling automation |
 
 ---
@@ -853,16 +853,6 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Error handling | Persistent notifications for failures, auth issues | Within assignment script |
 | Filament tag view: "Ext. Spool" button | Third quick-action button for External Spool Holder | `common/dashboard_views/view_filament_tags.yaml` |
 
-### Phase 2.5: Label-Based Entity Discovery
-
-| Task | Deliverable | Location |
-|---|---|---|
-| Create `spoolman_spool_location` label | One-time label creation via HA UI (Settings → Areas, Labels & Zones → Labels) | HA entity registry |
-| Apply label to existing spool location entities | Bulk-select all `select.spoolman_spool_*_location` entities and apply label | HA UI (Settings → Devices & Services → Entities) |
-| Unlabeled entity notification automation | `automation.notify_unlabeled_spoolman_spool_entities` — runs on HA start + every 6h; notifies when new spool entities are missing the label (Strategy B from §10) | `spoolman_sync/automations/` |
-| Trigger condition migration | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')` | `spoolman_sync/automations/` |
-| (Optional) REST auto-labeling | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
-
 ### Phase 3: UI Integration
 
 | Task | Deliverable | Location |
@@ -873,7 +863,17 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Filament tag view: assignment status | Conditional chip showing last assignment result (success/pending/failed) | `common/dashboard_views/view_filament_tags.yaml` |
 | Confirmation feedback | Toast or brief notification on success | Within assignment script |
 
-### Phase 4: Refinement
+### Phase 4: Label-Based Entity Discovery
+
+| Task | Deliverable | Location |
+|---|---|---|
+| Create `spoolman_spool_location` label | One-time label creation via HA UI (Settings → Areas, Labels & Zones → Labels) | HA entity registry |
+| Apply label to existing spool location entities | Bulk-select all `select.spoolman_spool_*_location` entities and apply label | HA UI (Settings → Devices & Services → Entities) |
+| Unlabeled entity notification automation | `automation.notify_unlabeled_spoolman_spool_entities` — runs on HA start + every 6h; notifies when new spool entities are missing the label (Strategy B from §10) | `spoolman_sync/automations/` |
+| Trigger condition migration | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')` | `spoolman_sync/automations/` |
+| (Optional) REST auto-labeling | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
+
+### Phase 5: Refinement
 
 | Task | Deliverable | Location |
 |---|---|---|
@@ -896,9 +896,9 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | `spoolman_sync/helpers/input_text/input_text_pending_tray_assignment.yaml` | Pending assignment spool ID |
 | `spoolman_sync/template_sensors/template_sensor_last_tray_assignment_result.yaml` | Assignment result status for UI feedback |
 | `docs/features/spoolman_sync/ams-tray-assignment-data-mapping.md` | Supplemental doc: data mapping details |
-| `spoolman_sync/automations/notify_unlabeled_spoolman_spool_entities.yaml` | Phase 2.5: notifies when new spool entities need labeling |
-| `spoolman_sync/automations/auto_label_spoolman_spool_location_entities.yaml` | Phase 2.5 (optional): auto-applies label via REST API |
-| `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 2.5 (optional): REST command for entity registry label update |
+| `spoolman_sync/automations/notify_unlabeled_spoolman_spool_entities.yaml` | Phase 4: notifies when new spool entities need labeling |
+| `spoolman_sync/automations/auto_label_spoolman_spool_location_entities.yaml` | Phase 4 (optional): auto-applies label via REST API |
+| `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 4 (optional): REST command for entity registry label update |
 
 ### Modified Files
 
@@ -907,7 +907,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Set on Printer" action chip |
 | `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" quick button; add assignment status chip; add inline tray picker for pending assignments |
 | `filament_tag/scripts/update_spool_location-script.yaml` | No change needed — existing script patches Spoolman; the location change triggers the new automation |
-| `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 2.5: migrate condition from regex to `label_entities('spoolman_spool_location')` |
+| `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 4: migrate condition from regex to `label_entities('spoolman_spool_location')` |
 | `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool Holder" as a trigger location |
 
 ---
@@ -924,7 +924,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Race condition: location change + tray state change timing | Medium | Medium | Simple empty-tray-count approach avoids timing dependency |
 | Overwriting user's Bambu Studio edits | Medium | Medium | Exact-match pre-check (`type`/`color`/`name`); auto-skip only on exact match, otherwise notify and require explicit override |
 | Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip in filament tag view (Phase 3) |
-| Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 4 |
+| Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 5 |
 
 ---
 
@@ -967,14 +967,14 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | # | Question | Recommendation | Status |
 |---|---|---|---|
 | 1 | ~~Add "External Spool" to Spoolman location vocabulary?~~ | N/A — `"External Spool Holder"` already exists | **Resolved** |
-| 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count; timing-based correlation deferred to Phase 4 | Pending decision |
+| 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count; timing-based correlation deferred to Phase 5 | Pending decision |
 | 3 | ~~How to map "AMS" vs "AMS 2" locations?~~ | `"AMS"` → AMS 1, `"AMS 2"` → AMS 2 | **Resolved** |
 | 4 | ~~How to validate `tray_info_idx` codes?~~ | Validated against `filaments_detail.json` bundled with ha-bambulab. `get_filament_data` returns this merged with slicer custom profiles. Generic fallback codes confirmed: GFL99=PLA, GFG99=PETG, GFB99=ABS, GFB98=ASA, GFU99=TPU, GFN99=PA, GFC99=PC, GFS99=PVA | **Resolved** |
 | 5 | ~~Check if tray already has correct data before writing?~~ | Resolved: use exact match on `type`/`color`/`name`; auto-skip only on exact match, otherwise notify and require explicit override | **Resolved** |
 | 6 | ~~How to store filament lookup cache?~~ | No caching. Call `get_filament_data` inline at assignment time (local call, fast). Hardcoded generic fallback table for offline resilience. | **Resolved** |
 | 7 | Should "Set on Printer" work for Bambu spools too? | Yes — as explicit override when user initiates manually | Pending decision |
 | 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
-| 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 4 (see §9: Enhancement B2) | Pending decision |
+| 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 5 (see §9: Enhancement B2) | Pending decision |
 | 10 | Should removing a spool from AMS also clear the printer tray info? | Likely no-op — the AMS detects physical removal. May be relevant for External Spool. | Pending decision |
 | 11 | Auto-labeling strategy: REST API (Strategy A) vs manual notification (Strategy B)? | Start with Strategy B (notification). Migrate to Strategy A if manual labeling becomes tedious (>2 new spools/month). See §10. | Pending decision |
 | 12 | When will HA support label-based entity targeting in `platform: state` triggers? | Unknown. Monitor HA architecture discussions and release notes. Until then, use `platform: event` + `label_entities()` condition. See §10: Future Migration. | Tracking |
@@ -987,8 +987,8 @@ This would eliminate the need for any condition-based filtering — the trigger 
 |---|---|
 | `ha-bambulab` integration | v2.2.x+ — requires `bambu_lab.set_filament` and `bambu_lab.get_filament_data` services |
 | Spoolman integration | Must expose `select.spoolman_spool_*_location` entities |
-| HA Labels feature | HA 2024.4+ — required for `label_entities()` template function and entity label management (Phase 2.5) |
-| HA long-lived access token | Only required for Strategy A auto-labeling (Phase 2.5 optional); stored in `secrets.yaml` |
+| HA Labels feature | HA 2024.4+ — required for `label_entities()` template function and entity label management (Phase 4) |
+| HA long-lived access token | Only required for Strategy A auto-labeling (Phase 4 optional); stored in `secrets.yaml` |
 | Printer firmware | Must support write operations (LAN Mode or pre-auth-lockdown firmware) |
 | `sensor.spoolman_tray_map` | Existing — unchanged; used for read-side matching and spool data access |
 | `sensor.smart_status` | Existing — used to check if printer is actively printing |
