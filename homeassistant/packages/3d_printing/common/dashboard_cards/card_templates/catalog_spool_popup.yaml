@@ -402,72 +402,49 @@ catalog_spool_popup:
                     }
                   ]
                 },
-                // --- Desiccant / Dried info + action buttons (matches AMS popup layout) ---
+                // --- Desiccant / Dried info + action buttons (bubble card format) ---
                 {
-                  type: 'custom:layout-card',
-                  layout_type: 'custom:grid-layout',
-                  layout: {
-                    'grid-template-columns': '2fr 1fr',
-                    'grid-template-rows': 'auto auto',
-                    'grid-gap': '8px'
-                  },
+                  type: 'horizontal-stack',
                   cards: [
                     {
-                      type: 'custom:mushroom-template-card',
-                      primary: lastDriedText,
-                      secondary: 'Last Dried',
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
+                      name: 'Dried: ' + lastDriedText,
                       icon: 'mdi:thermometer-lines',
-                      icon_color: 'deep-orange',
-                      layout: 'horizontal',
-                      fill_container: true,
-                      card_mod: { style: 'mushroom-state-info { overflow: visible !important; } .primary { white-space: normal !important; overflow: visible !important; word-break: break-word; }' }
+                      sub_button: [
+                        {
+                          icon: 'mdi:heat-wave',
+                          show_name: false,
+                          show_background: true,
+                          tap_action: {
+                            action: 'call-service',
+                            service: 'spoolman.patch_spool',
+                            service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
+                          }
+                        }
+                      ],
+                      styles: '.bubble-icon-container { color: #FF5722 !important; }'
                     },
                     {
-                      type: 'custom:button-card',
-                      name: 'Mark as Dried',
-                      icon: 'mdi:heat-wave',
-                      show_icon: true,
-                      show_name: true,
-                      show_label: false,
-                      tap_action: {
-                        action: 'call-service',
-                        service: 'spoolman.patch_spool',
-                        service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
-                      },
-                      styles: {
-                        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
-                        card: [{ background: 'var(--primary-color)' }, { 'border-radius': '8px' }, { 'box-shadow': 'none' }, { padding: '8px' }],
-                        icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }],
-                        name: [{ color: 'white' }, { 'font-size': '11px' }, { 'font-weight': '600' }, { 'text-align': 'center' }, { 'white-space': 'nowrap' }]
-                      }
-                    },
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: desText,
-                      secondary: 'Desiccant',
+                      type: 'custom:bubble-card',
+                      card_type: 'button',
+                      button_type: 'name',
+                      name: 'Desiccant: ' + desText,
                       icon: desIcon,
-                      icon_color: desMushColor,
-                      layout: 'horizontal',
-                      fill_container: true
-                    },
-                    {
-                      type: 'custom:button-card',
-                      name: 'Mark as Refilled',
-                      icon: 'mdi:water-plus',
-                      show_icon: true,
-                      show_name: true,
-                      show_label: false,
-                      tap_action: {
-                        action: 'call-service',
-                        service: 'spoolman.patch_spool',
-                        service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
-                      },
-                      styles: {
-                        grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
-                        card: [{ background: 'var(--primary-color)' }, { 'border-radius': '8px' }, { 'box-shadow': 'none' }, { padding: '8px' }],
-                        icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }],
-                        name: [{ color: 'white' }, { 'font-size': '11px' }, { 'font-weight': '600' }, { 'text-align': 'center' }, { 'white-space': 'nowrap' }]
-                      }
+                      sub_button: [
+                        {
+                          icon: 'mdi:water-plus',
+                          show_name: false,
+                          show_background: true,
+                          tap_action: {
+                            action: 'call-service',
+                            service: 'spoolman.patch_spool',
+                            service_data: { id: spoolIdInt, extra: { desiccant_filled: nowISO } }
+                          }
+                        }
+                      ],
+                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[desStatus] || '#9e9e9e') + ' !important; }'
                     }
                   ]
                 },
@@ -517,16 +494,42 @@ catalog_spool_popup:
                     ]
                   }
                 },
-                // --- Action buttons ---
+                // --- Action buttons (bubble card sub-buttons) ---
                 {
-                  type: 'custom:layout-card',
-                  layout_type: 'custom:grid-layout',
-                  layout: { 'grid-template-columns': '1fr 1fr 1fr 1fr', 'grid-gap': '8px' },
-                  cards: [
-                    { type: 'custom:button-card', entity: locationEntityId, name: 'Change Location', icon: 'mdi:map-marker-radius', tap_action: { action: 'more-info' }, styles: btnS },
-                    { type: 'custom:button-card', name: 'Open in Spoolman', icon: 'fapro:filament-2', tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }, styles: btnS },
-                    { type: 'custom:button-card', entity: eid, name: 'Reload', icon: 'mdi:refresh', tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } }, styles: btnS },
-                    { type: 'custom:button-card', name: 'Close', icon: 'mdi:close-circle-outline', tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }, styles: btnS }
+                  type: 'custom:bubble-card',
+                  card_type: 'sub-buttons',
+                  hide_main_background: true,
+                  sub_button: [
+                    {
+                      entity: locationEntityId,
+                      name: 'Location',
+                      icon: 'mdi:map-marker-radius',
+                      show_name: true,
+                      show_background: true,
+                      tap_action: { action: 'more-info' }
+                    },
+                    {
+                      name: 'Spoolman',
+                      icon: 'fapro:filament-2',
+                      show_name: true,
+                      show_background: true,
+                      tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId }
+                    },
+                    {
+                      entity: eid,
+                      name: 'Reload',
+                      icon: 'mdi:refresh',
+                      show_name: true,
+                      show_background: true,
+                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } }
+                    },
+                    {
+                      name: 'Close',
+                      icon: 'mdi:close-circle-outline',
+                      show_name: true,
+                      show_background: true,
+                      tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } }
+                    }
                   ]
                 }
               ]

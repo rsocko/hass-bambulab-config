@@ -22,8 +22,10 @@
 │  │Remaining │ │Cost per g│ │ Total            ││
 │  └──────────┘ └──────────┘ └──────────────────┘│
 │                                                 │
-│  Last Dried: Mar 1, 2026    [ Mark as Dried ]   │ ← existing
-│  Desiccant: 23 days ago     [ Mark Refilled ]   │ ← existing
+│  ┌───────────────────────┐┌────────────────────┐│
+│  │ 🌡️ Dried: Mar 1, 2026 │[🔥]│ 💧 Desiccant: 23d│[💦]│ ← bubble cards
+│  │     (bubble card)      │    │   (bubble card)  │    │   50% each
+│  └───────────────────────┘└────────────────────┘│   sub-btns: Mark
 │                                                 │
 │  📦 3 other spools of same filament (expand)    │ ← existing
 │                                                 │
@@ -32,9 +34,9 @@
 │  📍 Change Location: [AMS          ▼]          │ ← existing
 │                                                 │
 │  ┌─────────────────────────────────────────────┐│
-│  │[Change   ][Open in   ][Reload][ More ][Close]│ ← MODIFIED row
-│  │[Location ][Spoolman  ]        [  ▼  ]       ││
-│  └─────────────────────────────────────────────┘│
+│  │ bubble-card sub-buttons:                    ││ ← MODIFIED
+│  │ [📍 Location] [🧵 Spoolman] [🔄 Reload] [✕] ││   all bubble
+│  └─────────────────────────────────────────────┘│   card style
 │                                                 │
 │  ▼ MORE ACTIONS (expanded on tap)               │ ← NEW
 │  ┌─────────────────────────────────────────────┐│
@@ -44,14 +46,7 @@
 └─────────────────────────────────────────────────┘
 ```
 
-**For sealed spools**, the "More" button is replaced by a direct **"Unseal & Use"** button:
-
-```
-│  ┌─────────────────────────────────────────────┐│
-│  │[Change   ][Open in   ][Unseal ][Reload][Close]│
-│  │[Location ][Spoolman  ][ & Use ]        [    ]│
-│  └─────────────────────────────────────────────┘│
-```
+**For sealed spools**, the "More" button is replaced by a direct **"Unseal & Use"** sub-button in the bottom bubble card row.
 
 ### AMS Tray Popup — "Replace Spool" Button Placement
 
@@ -66,19 +61,24 @@
 │                                                 │
 │  [Weight: 123.4g] [This Print: 45.2g]          │
 │                                                 │
-│  [Desiccant: 12d] [Mark Dried] [Mark Refilled]  │
+│  ┌───────────────────────┐┌────────────────────┐│
+│  │ 🌡️ Dried: Mar 1, 2026 │[🔥]│ 💧 Desiccant: 12d│[💦]│ ← bubble cards
+│  │     (bubble card)      │    │   (bubble card)  │    │   50% each
+│  └───────────────────────┘└────────────────────┘│   sub-btns: Mark
 │                                                 │
 │  📦 3 other spools ... (expand)                  │
 │                                                 │
 │  [chart: weight history]                        │
 │                                                 │
 │  ┌─────────────────────────────────────────────┐│
-│  │ [Pin/Unpin Spool] [♻ Replace Spool]         ││ ← NEW button
+│  │ bubble-card sub-buttons:                    ││ ← MODIFIED
+│  │ [📌 Pin/Unpin] [ℹ Details] [🧵 Spoolman]   ││   all bubble
+│  │ [🔄 Reload] [✕ Close]  [♻ Replace Spool]   ││   card style
 │  └─────────────────────────────────────────────┘│
-│                                                 │
-│  [Open in Spoolman]  [Adjust Weight]  [Close]   │
 └─────────────────────────────────────────────────┘
 ```
+
+> **Pin/Unpin Assessment:** The Pin Spool / Unpin Spool button was previously a styled mushroom chip in the UUID/match tier area. It has been moved to the bottom action row as a bubble card sub-button for visual consistency with the other action buttons. The match tier and pin status are still displayed as informational chips at the top, but the actionable pin/unpin control now lives alongside the other actions.
 
 ---
 
