@@ -21,8 +21,10 @@
     - variables:
         location_entity_id: "{{ trigger.event.data.entity_id | default('', true) | string }}"
         to_location: "{{ trigger.event.data.new_state.state if trigger.event.data.new_state is not none else '' }}"
-        spool_id: "{{ location_entity_id | regex_replace('^select\\.spoolman_spool_(\\d+)_location$', '\\1') }}"
-        spool_entity_id: "{{ 'sensor.spoolman_spool_' ~ spool_id if spool_id | regex_match('^\\d+$') else '' }}"
+        spool_id: >-
+          {{ (location_entity_id | regex_findall('spoolman_spool_(\d+)_location'))[0] | default('') }}
+        spool_entity_id: >-
+          {{ 'sensor.spoolman_spool_' ~ spool_id if spool_id | regex_match('^\d+$') else '' }}
         target_is_ams_1: "{{ to_location == 'AMS' }}"
         target_is_ams_2: "{{ to_location == 'AMS 2' }}"
         target_is_external: "{{ to_location == 'External Spool Holder' }}"
