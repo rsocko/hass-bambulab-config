@@ -6,7 +6,7 @@
 
 Validate Phase 3 UI integration behavior for:
 
-- **"Set on Printer" chip** in the AMS tray popup (`ams_tray_popup.yaml`)
+- **"Update Tray Settings" chip** in the AMS tray popup (`ams_tray_popup.yaml`) — visible only for `manual_pin` matches
 - **Assignment status chip** — shared include (`tray_assignment_status_and_picker.yaml`) on Home, Filament Tags, and Filament Catalog views
 - **Popup tray picker** — browser_mod popup opened by tapping the status chip; uses `script.assign_pending_spool_to_tray` wrapper
 - **Success notification** from the assignment script
@@ -45,29 +45,45 @@ Pick at least 3 spools:
 
 ## Test Cases
 
-### Section A: "Set on Printer" Chip in Tray Popup
+### Section A: "Update Tray Settings" Chip in Tray Popup
 
-#### T1 — Chip visible for matched spool with valid material
+#### T1 — Chip visible for manually pinned spool with valid material
 
-1. Open the AMS tray popup for a tray that has a matched spool (via UUID, pin, or auto-match).
+1. Open the AMS tray popup for a tray that has a **manually pinned** spool (`matchStrategy === 'manual_pin'`).
 2. Confirm the spool has valid `filament_material` (not `Unknown` or empty).
-3. **Expected**: A green chip labeled **"Set on Printer"** with a `mdi:printer-3d-nozzle` icon appears below the pin/UUID chip area, above the Material/Vendor/Location chips.
+3. **Expected**: A green chip labeled **"Update Tray Settings"** with a `mdi:printer-3d-nozzle` icon appears below the pin/UUID chip area, above the Material/Vendor/Location chips.
+
+#### T1b — Chip hidden for UUID-matched spool
+
+1. Open the AMS tray popup for a tray matched via **UUID** (`matchStrategy === 'uuid'`).
+2. **Expected**: The "Update Tray Settings" chip does **not** appear. The AMS RFID reader already loaded authoritative filament data.
+
+#### T1c — Chip hidden for color/type-matched spool
+
+1. Open the AMS tray popup for a tray matched via **color_type** or **color_type_ams_preference**.
+2. **Expected**: The "Update Tray Settings" chip does **not** appear. The tray's reported attributes already agree with the spool (that's how the match was established).
+
+#### T1d — Chip hidden for multicolor-matched spool
+
+1. Open the AMS tray popup for a tray matched via any **multicolor_*** strategy.
+2. **Expected**: The "Update Tray Settings" chip does **not** appear.
 
 #### T2 — Chip hidden when no spool matched
 
 1. Open the AMS tray popup for a tray with **no matched spool** (the "No Spool" popup variant).
-2. **Expected**: The "Set on Printer" chip does **not** appear. The popup shows the unmatched tray view with pin selection controls.
+2. **Expected**: The "Update Tray Settings" chip does **not** appear. The popup shows the unmatched tray view with pin selection controls.
 
 #### T3 — Chip hidden when material is Unknown
 
 1. Open the tray popup for a tray matched to **Spool C** (missing material data).
-2. **Expected**: The "Set on Printer" chip does **not** appear (canSetOnPrinter is false because material is 'Unknown').
+2. **Expected**: The "Update Tray Settings" chip does **not** appear (canUpdateTraySettings is false because material is 'Unknown').
 
-#### T4 — Tap "Set on Printer" for non-Bambu spool
+#### T4 — Tap "Update Tray Settings" for non-Bambu pinned spool
 
-1. Open the tray popup for a tray matched to **Spool A** (non-Bambu, complete data).
-2. Tap the **"Set on Printer"** chip.
-3. **Expected**:
+1. Pin **Spool A** (non-Bambu, complete data) to a tray using the pin controls.
+2. Open the tray popup — confirm `matchStrategy` is `manual_pin`.
+3. Tap the **"Update Tray Settings"** chip.
+4. **Expected**:
    - `script.assign_spool_to_printer_tray` is called with:
      - `spool_id` = Spool A's numeric ID
      - `tray_entity_id` = the tray's sensor entity
@@ -75,28 +91,25 @@ Pick at least 3 spools:
    - After ~2 seconds, the popup closes automatically.
    - `sensor.last_tray_assignment_result` state becomes `success`.
    - A persistent notification appears: "Tray Assignment Successful" with material, tray, and profile info.
-4. Verify tray attributes:
+5. Verify tray attributes:
    - Check `state_attr(tray_entity, 'type')` matches Spool A's material.
    - Check `state_attr(tray_entity, 'color')` matches expected RGBA hex.
 
-#### T5 — Tap "Set on Printer" for Bambu spool (force_write bypass)
+#### T5 — Chip hidden for Bambu spool with UUID match (no force_write bypass)
 
-1. Open the tray popup for a tray matched to **Spool B** (Bambu Lab spool with UUID).
-2. Tap the **"Set on Printer"** chip.
-3. **Expected**:
-   - `force_write: true` bypasses the RFID-skip guard.
-   - `assign_spool_to_printer_tray` runs the full assignment flow.
-   - Result is `success` (not `skipped`).
-   - This verifies the design decision: explicit manual action overrides RFID non-interference.
+1. Open the tray popup for a tray matched to **Spool B** (Bambu Lab spool with UUID, `matchStrategy === 'uuid'`).
+2. **Expected**:
+   - The "Update Tray Settings" chip does **not** appear.
+   - The RFID reader's data is authoritative; no manual override is offered.
 
-#### T6 — Tap "Set on Printer" when tray has different filament data
+#### T6 — Tap "Update Tray Settings" when pinned spool differs from tray data
 
-1. Manually set a tray to have different filament info (e.g., via Bambu Studio or a previous assignment).
-2. Open the popup for that tray (now showing a different matched spool).
-3. Tap "Set on Printer."
+1. Pin a spool to a tray that has different filament info (e.g., tray shows PETG but pinned spool is PLA).
+2. Open the popup — confirm `matchStrategy` is `manual_pin`.
+3. Tap "Update Tray Settings."
 4. **Expected**:
    - `force_write: true` bypasses the overwrite-confirmation guard.
-   - The tray data is overwritten with the new spool's parameters.
+   - The tray data is overwritten with the pinned spool's parameters.
    - Result is `success`.
 
 ---
@@ -146,7 +159,7 @@ Pick at least 3 spools:
 3. **Expected**:
    - A chip appears with:
      - Red `mdi:close-circle` icon
-     - Content: "⚠ Overwrite needed — use Set on Printer"
+     - Content: "⚠ Overwrite needed — use Update Tray Settings"
 
 #### T12 — Status chip shows skipped
 
@@ -278,15 +291,15 @@ Pick at least 3 spools:
 | Test | Description | Result | Notes |
 |------|-------------|--------|-------|
 | T-I1 | Tray button in popup fires assignment | **PASS** | Spool 85 (Bambu PLA) → AMS 2 T4 → correctly `skipped` (RFID guard) |
-| T-I2 | "Set on Printer" chip in AMS tray popup | **PASS** | `force_write: true` bypassed RFID guard → correctly `deferred` (printer busy) |
+| T-I2 | "Update Tray Settings" chip in AMS tray popup | **PASS** | `force_write: true` bypassed RFID guard → correctly `deferred` (printer busy) |
 
 ### Deferred Tests (require printer idle or specific spool conditions)
 
 | Test | Description | Reason Deferred |
 |------|-------------|----------------|
-| T4 | Tap "Set on Printer" for non-Bambu spool → full `set_filament` call succeeds | Printer was actively printing; `set_filament` blocked by deferred guard. Retest when printer is idle. |
-| T5 | Tap "Set on Printer" for Bambu spool with `force_write` → full success (not just deferred) | Same — printer busy. Need idle printer to verify `set_filament` actually writes to tray. |
-| T6 | Overwrite tray with different filament data via "Set on Printer" | Requires idle printer + tray with pre-existing different filament info. |
+| T4 | Tap "Update Tray Settings" for non-Bambu pinned spool → full `set_filament` call succeeds | Printer was actively printing; `set_filament` blocked by deferred guard. Retest when printer is idle. |
+| T5 | Chip hidden for Bambu UUID-matched spool (verify no button rendered) | Requires tray with UUID match — verify chip is absent. |
+| T6 | Overwrite tray with different filament data via "Update Tray Settings" (pinned spool) | Requires idle printer + tray with pre-existing different filament info + manual pin. |
 | T-I1b | Tray button in popup for non-Bambu spool → full `set_filament` success | Tested with Bambu spool (correctly skipped). Need non-Bambu spool + idle printer to verify end-to-end write. |
 | T16 | Tap tray button in popup to complete pending assignment → success flow | Equivalent to T-I1b. Verify `input_text` clears, picker hides, status chip updates to success. |
 | T17 | End-to-end: Location change → inference failure → tray picker → success | Requires Spoolman location change trigger + multiple empty trays + idle printer. |
@@ -314,6 +327,6 @@ Phase 3 is validated when:
 - **config-template-card in popups**: `config-template-card` silently fails inside `browser_mod.popup` content. Use plain `vertical-stack` with a wrapper script instead.
 - **Jinja2 in popup perform-action data**: Jinja2 templates (`{{ }}`) are NOT evaluated in `perform-action` `data` fields inside browser_mod popups. Use a server-side wrapper script that reads the value from an `input_text` helper.
 - **conditional card not hiding/showing**: Verify the entity state value is exactly as expected (e.g., empty string `""` not `null`). Use Developer Tools → States to inspect `input_text.pending_tray_assignment_spool_id` and `sensor.last_tray_assignment_result`.
-- **"Set on Printer" chip missing in popup**: Verify `spoolId` is truthy and `material` is not `'Unknown'`. Add `console.log(canSetOnPrinter, spoolId, material)` temporarily in the popup JS to debug.
+- **"Update Tray Settings" chip missing in popup**: Verify `spoolId` is truthy, `material` is not `'Unknown'`, and `matchStrategy` is `'manual_pin'`. Add `console.log(canUpdateTraySettings, spoolId, material, matchStrategy)` temporarily in the popup JS to debug.
 - **Popup tray buttons not calling script**: Verify buttons call `script.assign_pending_spool_to_tray` (wrapper) with only `tray_entity_id`. The wrapper reads `input_text.pending_tray_assignment_spool_id` server-side.
 - **Status chip not updating**: Verify `sensor.last_tray_assignment_result` updates when `spoolman_tray_assignment_result` event fires. Check Developer Tools → Events → listen for the event.

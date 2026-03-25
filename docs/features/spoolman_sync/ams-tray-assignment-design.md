@@ -100,8 +100,7 @@ From `sensor.spoolman_spool_*` entity attributes:
 | **Nozzle temp when only single value?** | Use ±10°C range from `filament_settings_extruder_temp`, or use Bambu profile defaults from lookup table | Safe default; overridden by profile match if found |
 | **Feature placement** | New files in `spoolman_sync/` (automations, scripts) + view modifications in `filament_tag/` and `common/` | Core logic in spoolman_sync domain; UI touchpoints in filament tag view and AMS tray popup |
 | **Filament tag view role** | Primary real-world trigger source; enhanced with feedback + inline tray picker | NFC scan → tap AMS → location change → automation fires. View gets status feedback in Phase 3. |
-| **Two-phase vs. combined action** | Start with two-phase (location change → automation); combined script deferred to Phase 6 | Two-phase is more robust: handles all trigger sources, is idempotent, maintains separation of concerns |
-| **Concurrent spool assignments** | Single-spool-at-a-time for Phases 1–4; multi-spool queuing added in Phase 5 | Primary workflow is single-spool (NFC scan → tap AMS); queuing is a reliability enhancement, not a day-one requirement |
+| **Two-phase vs. combined action** | Start with two-phase (location change → automation); combined script deferred to Phase 5 | Two-phase is more robust: handles all trigger sources, is idempotent, maintains separation of concerns |
 
 ---
 
@@ -113,9 +112,9 @@ From `sensor.spoolman_spool_*` entity attributes:
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  (A) Spoolman location change         (B) Manual action from HA UI   │
-│      select.spoolman_spool_*_location     "Set on Printer" in         │
+│      select.spoolman_spool_*_location     "Update Tray Settings" in   │
 │      state → "AMS" / "AMS 2"              ams_tray_popup.yaml        │
-│             / "External Spool Holder"      (direct assign action)     │
+│             / "External Spool Holder"      (manual_pin matches only)   │
 │                                                                      │
 │      Primary real-world source:        (C) Filament Tag view         │
 │      NFC scan → filament tag view          (future: combined         │
@@ -415,21 +414,30 @@ Independent of the Spoolman-location-change flow, users should be able to manual
 
 In the existing `ams_tray_popup.yaml`, add a new action alongside the existing "Pin Spool" and "Weight Editor" actions:
 
-**"Set on Printer" button**
+**"Update Tray Settings" button**
 
-- **Visible when**: Tray has a matched spool (via UUID, pin, or auto-match) AND the matched spool has sufficient data for `set_filament`
-- **Hidden when**: Tray is empty or no spool is matched
-- **Action**: Calls `script.assign_spool_to_printer_tray` with the matched spool ID and current tray entity
+- **Visible when**: Tray has a **manually pinned** spool (`matchStrategy === 'manual_pin'`) AND the matched spool has sufficient data for `set_filament` (valid `filament_material`)
+- **Hidden when**:
+  - Tray is empty or no spool is matched
+  - Match is via UUID — the AMS RFID reader already loaded authoritative filament data; no user action needed
+  - Match is via color/type or multicolor strategies — the tray's reported attributes already agree with the spool (that's how the match was established), so pushing data is redundant
+- **Action**: Calls `script.assign_spool_to_printer_tray` with the matched spool ID and current tray entity, using `force_write: true`
 - **Confirmation**: Brief toast/notification "Set PLA Matte (Black) on AMS 1 Tray 3"
 
-This allows the user to re-push filament info at any time — useful after firmware updates, AMS resets, or when Bambu Studio info drifts.
+The primary use case is when a user has pinned a spool to a tray but the tray's Bambu-reported attributes (color, material, profile) don't match the pinned spool's Spoolman data. This happens when a non-Bambu spool is loaded without an NFC-triggered location change, or after an AMS reset clears tray metadata.
+
+> **Rationale for hiding on UUID and color/type matches:**
+>
+> - **UUID match**: The AMS RFID reader detected the spool and loaded its Bambu profile. The printer already has correct data.
+> - **Color/type match**: The tray map matched the spool *because* the tray's reported color and material already agree with Spoolman. Pushing the same data is a no-op.
+> - **Manual pin with mismatched attributes**: This is the one scenario where the user knows "this spool is here" but the printer doesn't reflect it. The button bridges that gap.
 
 > **Future Idea (Out of Scope for Initial Implementation)**
 >
 > Add an optional combined manual action mode in the tray popup:
 >
-> - **Current behavior (default)**: "Set on Printer" only calls `script.assign_spool_to_printer_tray`
-> - **Future optional mode**: "Set on Printer + Update Location" also updates the spool's Spoolman location based on the selected tray context
+> - **Current behavior (default)**: "Update Tray Settings" only calls `script.assign_spool_to_printer_tray`
+> - **Future optional mode**: "Update Tray Settings + Update Location" also updates the spool's Spoolman location based on the selected tray context
 >
 > This is intentionally deferred so the initial implementation keeps a clear separation between:
 >
@@ -447,20 +455,20 @@ When a Bambu Lab spool with a valid UUID is loaded into an AMS tray:
 
 Check: `extra_spool_uuid` is non-empty AND target is AMS tray → skip assignment.
 
-Exception: If the user explicitly triggers "Set on Printer" from the popup, allow it even for Bambu spools. This handles edge cases where RFID reading failed or data is stale.
+Exception: If the user explicitly triggers "Update Tray Settings" from the popup, allow it — but only for manually pinned spools. For UUID-matched Bambu spools, the button is hidden since the RFID reader provides authoritative data. If RFID data is genuinely stale (rare), the user can unpin/re-pin or use the automated location-change flow to force an update.
 
 #### Bambu Studio Concurrent Edits
 
 If a user has already set filament info via Bambu Studio:
-- The automated Spoolman-location-change flow checks printer state before writing
-- Preserve existing tray data only when it matches the computed Spoolman target **exactly** (`type`, `color`, and `name`)
-- If any of those fields differ, do not silently keep existing values: create a warning/informational notification and require explicit user override
-- The manual "Set on Printer" action always writes (user explicitly chose to do it)
+- The automated Spoolman-location-change flow uses `force_write: true` because a location change is an explicit user action — the user moved a spool to this tray and expects the tray to be configured for it. This overwrites any prior Bambu Studio edits.
+- If the tray already has data that **exactly matches** the Spoolman-derived target (`type`, `color`, and `name`), the script skips the `set_filament` call and logs "Tray already configured correctly."
+- The manual "Update Tray Settings" button (visible only for `manual_pin` matches) also always writes with `force_write: true`
 - Users can still adjust individual attributes manually in the Bambu AMS Card UI when partial edits are preferred
 
-> **Open Question 5**: Should the automation check if the tray already has correct/recent data before overwriting?
->
-> **Recommendation**: Yes. Before calling `set_filament`, compare the tray's current `type`, `color`, and `name` against the computed Spoolman target using exact equality. If all three match, skip the call and log "Tray already configured correctly." If any field differs, issue a warning/informational notification and require explicit user action (for example, "Set on Printer") to apply Spoolman values.
+> **Resolved (Q5)**: The orchestrator script compares `type`, `color`, and `name` against the Spoolman target using exact equality. If all three match, it skips the call. If they differ, the behavior depends on the caller:
+> - **Automation (location change)**: Passes `force_write: true` — overwrites immediately. A Spoolman location change IS the user's explicit intent to configure the tray.
+> - **"Update Tray Settings" button**: Passes `force_write: true` — overwrites immediately. The user explicitly tapped the button.
+> - **Other callers without `force_write`**: The `overwrite_required` guard fires, creating a notification. This safety net exists for any future programmatic callers that aren't directly user-initiated.
 
 ### 7. Spoolman Location Values
 
@@ -575,9 +583,9 @@ attributes:
 ```
 
 A conditional card in the filament tag view shows the result:
-- Green chip: "Set on AMS 1 Tray 3" (icon-only indicator, no emoji)
-- Orange chip: "Tap to select tray" (links to tray picker)
-- Red chip: "Assignment failed" (links to notification)
+- Green chip: "✓ Set on AMS 1 Tray 3"
+- Orange chip: "⚠ Select tray →" (links to tray picker)
+- Red chip: "✗ Assignment failed" (links to notification)
 
 **B2: Combined action script (future enhancement)**
 
@@ -596,7 +604,7 @@ script.assign_spool_to_ams:
 
 The filament tag view buttons would call this combined script instead of `script.update_spool_location`. The automation from §1 would still exist as a safety net for location changes made outside the filament tag view (e.g., from the Spoolman UI directly).
 
-> **Recommendation**: Start with **Enhancement A** (External Spool button) in Phase 2 and **Enhancement B1** (passive feedback sensor) in Phase 3. Defer **B2** (combined action) to Phase 6 — it's cleaner but requires validating the automation-driven flow first.
+> **Recommendation**: Start with **Enhancement A** (External Spool button) in Phase 2 and **Enhancement B1** (passive feedback sensor) in Phase 3. Defer **B2** (combined action) to Phase 5 — it's cleaner but requires validating the automation-driven flow first.
 
 ##### Enhancement C: Inline Tray Picker on Inference Failure
 
@@ -604,13 +612,10 @@ When the automated tray inference fails after a filament tag location change, th
 
 ```
 ┌──────────────────────────────────────┐
-│ Spool moved to AMS —                │
+│ ⚠ Spool moved to AMS —              │
 │   which tray did you load it into?   │
 │                                      │
-│        AMS 1                         │
-│ [ A1 ] [ A2 ] [ A3 ] [ A4 ]         │
-│        AMS 2                         │
-│ [ B1 ] [ B2 ] [ B3 ] [ B4 ]         │
+│ [ T1 ] [ T2 ] [ T3 ] [ T4 ]         │
 └──────────────────────────────────────┘
 ```
 
@@ -834,37 +839,6 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Phase 4 (label adoption) | `platform: event, event_type: state_changed` | `label_entities('spoolman_spool_location')` | Condition check + auto-labeling automation |
 | Future (HA label triggers) | `platform: state` with label entity targeting | Built into trigger | Trigger targeting + auto-labeling automation |
 
-### 11. Known Limitation: Multi-Spool Concurrent Assignment
-
-#### Current State (Phases 1–4)
-
-The tray assignment system is designed around a **single-spool-at-a-time workflow**: scan an NFC tag, tap "AMS" in the filament tag view, and the automation assigns the spool to a tray. This covers the primary real-world use case. However, several components have single-value bottlenecks that cause data loss when multiple spool location changes overlap.
-
-#### Concurrency Weak Points
-
-| Component | Behavior | Data Loss Risk |
-|---|---|---|
-| **Automation mode** (`spool_location_change_assign_tray`) | No explicit `mode:` — defaults to `single`. If the automation is still executing when a second location change fires, the second trigger is **silently dropped**. In practice, back-to-back changes seconds apart both fire (the automation is fast), but near-simultaneous changes can lose one. | Possible — depends on timing |
-| **Pending spool ID** (`input_text.pending_tray_assignment_spool_id`) | Stores a **single spool ID** (scalar, max 32 chars). When the "needs_tray_selection" path fires for spool A, then spool B triggers the same path, the helper is **overwritten** with spool B. Spool A's pending assignment is silently lost. The tray picker popup only shows spool B. | **Yes** — last write wins |
-| **Deferred (printer busy)** | When the printer is actively printing, the assign script returns status `deferred` with a persistent notification and **stops**. There is no retry queue or "run when print finishes" mechanism. The assignment is fire-and-forget — whether it is one spool or five. | **Yes** — all deferred spools lost |
-
-#### What IS Queued Today
-
-The orchestrator script (`script.assign_spool_to_printer_tray`) is `mode: queued`. If multiple calls enter the script **and** the printer is idle **and** tray inference succeeds for each, they execute in FIFO order. This is the happy path — e.g., two spools moved to different AMS units where each has exactly one empty tray.
-
-#### Scenario Matrix
-
-| Scenario | Behavior | Data Loss? |
-|---|---|---|
-| Two spools, both trays auto-inferred, printer idle | Queued in script — both succeed | No |
-| Two spools, both need manual tray selection | Last write wins on `input_text` — first spool lost | **Yes** |
-| Two spools while printer is busy | Both get `deferred` + notification, neither retried | **Yes** (both) |
-| Two spools fired near-simultaneously | Automation `single` mode may drop one trigger | **Possible** |
-
-#### Design Rationale
-
-The single-spool design is intentional for Phases 1–4. The primary workflow — NFC scan a single spool, tap AMS, wait for assignment — is inherently sequential. Multi-spool queuing adds complexity (list-based helpers, queue drain automation, deferred retry logic) that is not justified until the core flow is validated. Phase 5 introduces queuing as a reliability enhancement.
-
 ---
 
 ## Implementation Plan
@@ -892,21 +866,13 @@ The single-spool design is intentional for Phases 1–4. The primary workflow �
 
 | Task | Deliverable | Location |
 |---|---|---|
-| "Set on Printer" chip in tray popup | Action chip in `ams_tray_popup.yaml` — calls `assign_spool_to_printer_tray` with `force_write: true` via `browser_mod.sequence`; auto-closes popup after 2 s | `common/dashboard_cards/card_templates/` |
-| Shared status chip + popup tray picker | `tray_assignment_status_and_picker.yaml` — reusable `!include` shared across Home, Filament Tags, and Filament Catalog views. Conditional chip (hidden when idle) shows color-coded status with `card_mod` animation (pulse for action-required states, error pulse for failures). On tap, opens a `browser_mod.popup` with spool friendly name in header, prominent AMS 1 / AMS 2 section titles with `fapro:filament-2` icon, and tray buttons labeled A1–A4 (AMS 1) / B1–B4 (AMS 2). | `spoolman_sync/dashboard_cards/` |
+| "Update Tray Settings" chip in tray popup | Action chip in `ams_tray_popup.yaml` — visible only for `manual_pin` matches; calls `assign_spool_to_printer_tray` with `force_write: true` via `browser_mod.sequence`; auto-closes popup after 2 s | `common/dashboard_cards/card_templates/` |
+| Shared status chip + popup tray picker | `tray_assignment_status_and_picker.yaml` — reusable `!include` shared across Home, Filament Tags, and Filament Catalog views. Conditional chip (hidden when idle) shows color-coded status. On tap, opens a `browser_mod.popup` with AMS 1 / AMS 2 tray buttons. | `spoolman_sync/dashboard_cards/` |
 | Dashboard wrapper script | `script.assign_pending_spool_to_tray` — reads `input_text.pending_tray_assignment_spool_id` server-side and delegates to `assign_spool_to_printer_tray`. Required because browser_mod popup `perform-action` data fields cannot evaluate Jinja2 templates or `config-template-card` JS. | `spoolman_sync/scripts/` |
 | View includes | `!include` of the shared status/picker card added to `view_main.yaml`, `view_filament_tags.yaml`, and `view_filament_catalog.yaml` | `common/dashboard_views/`, `filament_catalog/dashboard_views/` |
 | Confirmation feedback | Persistent notification on success | Within assignment script |
 
 > **Implementation Note (Phase 3)**: The original design proposed an inline tray picker rendered directly in the filament tag view. During implementation, rendering issues with `config-template-card` inside conditional cards and grid layouts led to a refactor: the tray picker is now presented as a **browser_mod popup** triggered by tapping the status chip. This approach is layout-agnostic, works identically on all three views, and avoids client-side template evaluation constraints. A dedicated wrapper script (`assign_pending_spool_to_tray`) bridges the gap between the popup's client-side tap actions and the server-side pending spool ID.
-
-> **Implementation Note (Phase 3.1 — UI Refinements, #719)**: Several UX adjustments were applied to the status chip and tray picker popup:
-> - **Chip content**: Removed redundant emoji prefixes (✓, ⚠, ✗, ℹ, ⏳) from chip text — the color-coded Mushroom icon is the sole status indicator.
-> - **Chip animation**: Added `card_mod` CSS animations — a scale/opacity pulse for action-required states (`needs_tray_selection`, `overwrite_required`), a gentler error pulse for `failed`, no animation for informational states.
-> - **Chip positioning (Main View)**: Moved the `!include` from the print-controls grid into the AMS grid section, immediately above the AMS 1 header, so the alert appears in the context where the user will act.
-> - **Popup header**: Changed icon from `mdi:printer-3d-nozzle-alert` to `fapro:filament-2` (matching AMS header spool icon). Title now shows the spool’s friendly name (e.g. "Bambu Lab White - Support PLA-S: Which tray was it loaded into?") instead of the numeric spool ID.
-> - **AMS section titles**: Replaced plain-text chips with `mushroom-template-card` headers styled via `card_mod` (18 px, weight 600, `fapro:filament-2` icon) for AMS 1 (blue) and AMS 2 (teal).
-> - **Tray labels**: AMS 1 trays relabeled A1–A4; AMS 2 trays relabeled B1–B4, matching the tray naming convention used elsewhere in the dashboard.
 
 ### Phase 4: Label-Based Entity Discovery
 
@@ -918,28 +884,14 @@ The single-spool design is intentional for Phases 1–4. The primary workflow �
 | Trigger condition migration | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')` | `spoolman_sync/automations/` |
 | (Optional) REST auto-labeling | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
 
-### Phase 5: Multi-Spool Queuing
-
-Addresses the concurrency limitations documented in §11. Converts the single-spool pending assignment model into a multi-spool queue with deferred retry.
-
-| Task | Deliverable | Location |
-|---|---|---|
-| Automation mode upgrade | Change `spool_location_change_assign_tray` from implicit `single` to `mode: queued` (or `mode: parallel` with `max: 4`). Ensures back-to-back location changes are not silently dropped. | `spoolman_sync/automations/` |
-| Pending assignment queue helper | Replace scalar `input_text.pending_tray_assignment_spool_id` with a list-capable store. **Option A**: JSON array in an `input_text` (e.g., `[{"spool_id": "42", "location": "AMS", "ts": "..."}]`). **Option B**: Trigger-based template sensor that appends to an attribute list on `spoolman_tray_assignment_queued` events and removes entries on `spoolman_tray_assignment_result` events. Option B is preferred — it avoids max-length limits and supports atomic add/remove without read-modify-write races. | `spoolman_sync/helpers/` or `spoolman_sync/template_sensors/` |
-| Queue-aware tray picker UI | Update `tray_assignment_status_and_picker.yaml` to show all queued spools (not just the latest). Chip content changes from "Tap to select tray" to "2 spools awaiting tray selection". Popup lists each pending spool with its own tray picker row. | `spoolman_sync/dashboard_cards/` |
-| Dashboard wrapper update | Update `script.assign_pending_spool_to_tray` to accept a `spool_id` field (or read from popup context) instead of always reading the scalar helper. Supports assigning a specific spool from the multi-spool popup. | `spoolman_sync/scripts/` |
-| Deferred assignment retry | New automation: triggers on `sensor.ntk_ryansoffice_3dprinter_print_status` transitioning **out of** active states (`running`, `pause`, `prepare` → `idle`, `finish`, `failed`). On trigger, drains all queued deferred assignments by re-calling `script.assign_spool_to_printer_tray` for each entry. Entries that were deferred due to printer-busy are replayed; entries needing tray selection remain in the queue. | `spoolman_sync/automations/` |
-| Queue cleanup | Entries older than a configurable threshold (e.g., 24 hours) are pruned automatically. Stale entries get a persistent notification before removal so the user is aware. | Within queue drain automation |
-| Backward compatibility | `input_text.pending_tray_assignment_spool_id` retained (but deprecated) during transition. Phase 3 UI and `assign_pending_spool_to_tray` script continue to work if queue sensor is unavailable. | `spoolman_sync/scripts/` |
-
-> **Implementation Note**: The queue-based template sensor pattern is similar to `sensor.print_job_ams_tray_storage` — a trigger-based sensor that stores structured data in attributes. The same append/clear pattern applies.
-
-### Phase 6: Refinement
+### Phase 5: Refinement
 
 | Task | Deliverable | Location |
 |---|---|---|
 | Tray state change correlation | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation) | `spoolman_sync/automations/` |
+| "Update Tray Settings" pin attribute comparison | Refine the `canUpdateTraySettings` visibility logic in `ams_tray_popup.yaml` to also compare the pinned spool's color and material against the tray's reported values (`trayData.color` vs spool color, tray `type` attribute vs `filament_material`). Hide the button even for `manual_pin` when both sides already agree — the pin is confirmed and the tray is already correctly configured. This requires reading tray-side attributes (type, color) that are available on the tray entity but not currently surfaced in the `trayData` from `sensor.spoolman_tray_map`. | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` |
 | Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
+| Batch assignment | Handle multiple spool location changes at once | Enhancement to Phase 2 automation |
 | State trigger migration | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration) | `spoolman_sync/automations/` |
 
 ---
@@ -961,24 +913,18 @@ Addresses the concurrency limitations documented in §11. Converts the single-sp
 | `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 4 (optional): REST command for entity registry label update |
 | `spoolman_sync/scripts/assign_pending_spool_to_tray-script.yaml` | Phase 3: Dashboard wrapper — reads pending spool ID server-side, delegates to `assign_spool_to_printer_tray` |
 | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml` | Phase 3: Shared include — conditional status chip + browser_mod popup tray picker |
-| `spoolman_sync/template_sensors/template_sensor_pending_tray_assignment_queue.yaml` | Phase 5: Trigger-based queue sensor — appends on `spoolman_tray_assignment_queued` events, removes on `spoolman_tray_assignment_result` events |
-| `spoolman_sync/automations/drain_deferred_assignments_on_print_complete.yaml` | Phase 5: Retry deferred assignments when printer transitions from active to idle/finish/failed |
 
 ### Modified Files
 
 | File | Change |
 |---|---|
-| `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Set on Printer" action chip |
+| `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Update Tray Settings" action chip (visible only for `manual_pin` matches) |
 | `common/dashboard_views/view_main.yaml` | Add `!include` of shared status chip + popup tray picker |
 | `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" quick button; add `!include` of shared status chip + popup tray picker |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | Add `!include` of shared status chip + popup tray picker |
 | `filament_tag/scripts/update_spool_location-script.yaml` | No change needed — existing script patches Spoolman; the location change triggers the new automation |
 | `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 4: migrate condition from regex to `label_entities('spoolman_spool_location')` |
 | `docs/features/spoolman_sync/spoolman-custom-fields.md` | Document "External Spool Holder" as a trigger location |
-| `spoolman_sync/automations/spool_location_change_assign_tray.yaml` | Phase 5: change `mode` from implicit `single` to `queued`; emit `spoolman_tray_assignment_queued` event on deferred/needs_tray_selection paths |
-| `spoolman_sync/scripts/assign_spool_to_printer_tray-script.yaml` | Phase 5: emit queue event instead of writing scalar `input_text`; support queue-aware deferred status |
-| `spoolman_sync/scripts/assign_pending_spool_to_tray-script.yaml` | Phase 5: accept explicit `spool_id` field; fall back to scalar helper for backward compatibility |
-| `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml` | Phase 5: show list of queued spools in popup instead of single pending spool |
 
 ---
 
@@ -992,11 +938,9 @@ Addresses the concurrency limitations documented in §11. Converts the single-sp
 | `get_filament_data` response format changes | Medium | Low | Version-check; fallback to hardcoded table |
 | Spool loaded during active print | Medium | High | Check printer status before calling `set_filament`; defer if printing |
 | Race condition: location change + tray state change timing | Medium | Medium | Simple empty-tray-count approach avoids timing dependency |
-| Overwriting user's Bambu Studio edits | Medium | Medium | Exact-match pre-check (`type`/`color`/`name`); auto-skip only on exact match, otherwise notify and require explicit override |
+| Overwriting user's Bambu Studio edits | Medium | Low | Location-change and manual flows both use `force_write: true`; exact-match pre-check skips redundant writes. Bambu Studio edits are superseded by the more recent Spoolman location change. |
 | Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip in filament tag view (Phase 3) |
-| Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 6 |
-| Multiple spools moved to AMS before Phase 5 queuing | Medium | Medium | Only latest spool retained in pending state; earlier spools silently lost. Documented limitation in §11; resolved by Phase 5 queuing |
-| Queue sensor grows unbounded if user never completes assignments | Low | Low | 24-hour TTL prune with notification before removal (Phase 5) |
+| Combined script bypasses automation safeguards | Low | Low | Automation remains as safety net; combined script is an optimization in Phase 5 |
 
 ---
 
@@ -1015,9 +959,9 @@ Addresses the concurrency limitations documented in §11. Converts the single-sp
 | Spool missing both `filament_color_hex` and usable `filament_multi_color_hexes` | Assignment blocked; notification: "Incomplete spool data: missing usable color" |
 | `set_filament` fails (auth error) | Persistent notification with firmware guidance |
 | Printer is actively printing when spool loaded | Assignment deferred; notification: "Will assign after print completes" |
-| Manual "Set on Printer" from tray popup | set_filament called for matched spool + current tray |
+| Manual "Update Tray Settings" from tray popup (pinned spool) | set_filament called for pinned spool + current tray |
 | Tray already has correct filament info | Skip set_filament; log "Already configured" |
-| Tray has non-empty filament info that differs from computed Spoolman target | Do not auto-overwrite; create warning/informational notification and require explicit override |
+| Tray has non-empty filament info that differs from computed Spoolman target (location-change flow) | Auto-overwrite with `force_write: true` — location change is explicit user intent |
 | Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range |
 | Profile name has no Bambu match | Use generic profile for the material type |
 | Missing profile name and missing extruder temp, material has defaults | Proceed using generic profile + material default temp range |
@@ -1031,14 +975,6 @@ Addresses the concurrency limitations documented in §11. Converts the single-sp
 | Tray inference fails after filament tag AMS tap | Inline tray picker shown in filament tag view + notification sent |
 | Assignment succeeds after filament tag AMS tap | Status chip shows "✓ Set on AMS 1 Tray 3" in filament tag view |
 | Filament tag view with no spool selected | All quick-action buttons disabled/hidden |
-| **Multi-spool concurrent assignment scenarios (Phase 5)** | |
-| Two spools moved to AMS within seconds, both auto-inferred | Both assignments succeed (script `mode: queued` handles FIFO) |
-| Two spools moved to AMS, both need manual tray selection | Both appear in queue; tray picker popup lists both spools with independent tray selectors |
-| Spool moved to AMS while printer is busy, print finishes | Deferred assignment auto-retried by queue drain automation; spool assigned after print completes |
-| Three spools moved while printing, print finishes | All three deferred entries replayed in FIFO order by queue drain automation |
-| Spool queued for tray selection, user never selects tray | Entry pruned after 24h; persistent notification sent before removal |
-| Spool A queued for tray selection, spool B queued for tray selection, user selects tray for B | Spool B assigned; spool A remains in queue awaiting selection |
-| Near-simultaneous location changes with `mode: queued` automation | Both triggers queued by HA automation engine; neither dropped |
 
 ---
 
@@ -1047,19 +983,17 @@ Addresses the concurrency limitations documented in §11. Converts the single-sp
 | # | Question | Recommendation | Status |
 |---|---|---|---|
 | 1 | ~~Add "External Spool" to Spoolman location vocabulary?~~ | N/A — `"External Spool Holder"` already exists | **Resolved** |
-| 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count; timing-based correlation deferred to Phase 6 | Pending decision |
+| 2 | Use timing heuristics for tray inference? | Defer — start with empty-tray-count; timing-based correlation deferred to Phase 5 | Pending decision |
 | 3 | ~~How to map "AMS" vs "AMS 2" locations?~~ | `"AMS"` → AMS 1, `"AMS 2"` → AMS 2 | **Resolved** |
 | 4 | ~~How to validate `tray_info_idx` codes?~~ | Validated against `filaments_detail.json` bundled with ha-bambulab. `get_filament_data` returns this merged with slicer custom profiles. Generic fallback codes confirmed: GFL99=PLA, GFG99=PETG, GFB99=ABS, GFB98=ASA, GFU99=TPU, GFN99=PA, GFC99=PC, GFS99=PVA | **Resolved** |
-| 5 | ~~Check if tray already has correct data before writing?~~ | Resolved: use exact match on `type`/`color`/`name`; auto-skip only on exact match, otherwise notify and require explicit override | **Resolved** |
+| 5 | ~~Check if tray already has correct data before writing?~~ | Resolved: exact-match check skips redundant writes. Location-change automation and manual "Update Tray Settings" both pass `force_write: true` (user-initiated actions). The `overwrite_required` guard remains as a safety net for non-user-initiated callers. | **Resolved** |
 | 6 | ~~How to store filament lookup cache?~~ | No caching. Call `get_filament_data` inline at assignment time (local call, fast). Hardcoded generic fallback table for offline resilience. | **Resolved** |
-| 7 | Should "Set on Printer" work for Bambu spools too? | Yes — as explicit override when user initiates manually | Pending decision |
+| 7 | Should "Update Tray Settings" work for Bambu spools too? | No — hidden for UUID matches (RFID is authoritative). Only shown for `manual_pin` matches where tray attributes may differ from the pinned spool. The location-change automation still respects the RFID skip guard (skips Bambu UUID spools in AMS trays unless `force_write` is true AND the spool lacks UUID). | **Resolved** |
 | 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
-| 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 6 (see §9: Enhancement B2) | Pending decision |
+| 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 5 (see §9: Enhancement B2) | Pending decision |
 | 10 | Should removing a spool from AMS also clear the printer tray info? | Likely no-op — the AMS detects physical removal. May be relevant for External Spool. | Pending decision |
 | 11 | Auto-labeling strategy: REST API (Strategy A) vs manual notification (Strategy B)? | Start with Strategy B (notification). Migrate to Strategy A if manual labeling becomes tedious (>2 new spools/month). See §10. | Pending decision |
 | 12 | When will HA support label-based entity targeting in `platform: state` triggers? | Unknown. Monitor HA architecture discussions and release notes. Until then, use `platform: event` + `label_entities()` condition. See §10: Future Migration. | Tracking |
-| 13 | Multi-spool queue storage: JSON `input_text` (Option A) vs trigger-based template sensor (Option B)? | Option B (template sensor) preferred — no max-length limits, atomic add/remove via events, pattern already proven with `sensor.print_job_ams_tray_storage`. See §11 and Phase 5. | Pending decision |
-| 14 | Should deferred assignments auto-retry or require manual re-trigger? | Auto-retry via queue drain automation when print finishes. Manual re-trigger available as fallback from tray picker UI. See Phase 5. | Pending decision |
 
 ---
 

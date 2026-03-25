@@ -103,6 +103,7 @@
               data:
                 spool_id: "{{ spool_id }}"
                 tray_entity_id: "{{ target_tray_entity_id }}"
+                force_write: true
               response_variable: assignment_response
             - action: logbook.log
               data:

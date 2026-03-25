@@ -66,7 +66,7 @@ cards:
             {% elif s == 'needs_tray_selection' and has_pending %}Tap to select tray
             {% elif s == 'needs_tray_selection' %}Tray selection needed — re-scan spool to retry
             {% elif s == 'failed' %}{{ msg[:100] }}
-            {% elif s == 'overwrite_required' %}Overwrite needed — use Set on Printer
+            {% elif s == 'overwrite_required' %}⚠ Overwrite needed — use Update Tray Settings
             {% elif s == 'skipped' %}{{ msg[:100] }}
             {% elif s == 'deferred' %}{{ msg[:100] }}
             {% else %}{{ msg[:100] }}{% endif %}
