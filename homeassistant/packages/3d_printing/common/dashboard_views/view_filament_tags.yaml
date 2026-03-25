@@ -120,6 +120,8 @@ cards:
           icon: fas:arrow-right-to-bracket
           show_state: false
           state_background: false
+# Phase 3: Tray assignment status + inline tray picker (shared include)
+- !include ../../spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml
 - type: custom:bubble-card
   card_type: separator
   sub_button:

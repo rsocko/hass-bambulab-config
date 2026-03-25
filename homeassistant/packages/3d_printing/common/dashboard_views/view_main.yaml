@@ -106,6 +106,8 @@ sections:
     - !include ../../printer_controls/dashboard_cards/printer-control-with-power.yaml
     - !include ../../print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml
     - !include ../../power_monitoring/dashboard_cards/power-usage-card.yaml
+    # Phase 3: Tray assignment status + inline tray picker (shared include)
+    - !include ../../spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml
   columns: 2
   square: false
 - type: grid

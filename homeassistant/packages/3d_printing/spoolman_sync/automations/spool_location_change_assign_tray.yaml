@@ -154,15 +154,14 @@
                 tray_color: ""
             - action: persistent_notification.create
               data:
-                title: Tray Selection Needed
+                title: "Tray Selection Needed — Spool #{{ spool_id }}"
                 message: >-
                   Spool {{ spool_id }} moved to {{ to_location }}, but tray inference
-                  could not pick one tray automatically.
+                  could not pick one tray automatically
+                  ({{ empty_candidate_trays | count }} empty tray{{ 's' if (empty_candidate_trays | count) != 1 else '' }} found).
 
-                  Empty trays seen: {{ empty_candidate_trays | join(', ') if (empty_candidate_trays | count) > 0 else 'none' }}
-
-                  Use script.assign_spool_to_printer_tray with a tray_entity_id,
-                  or use your tray picker UI, then re-run assignment.
+                  Open any 3D Printing dashboard tab (Home, Spool, or Filament Catalog)
+                  to see the tray picker and select the correct tray.
                 notification_id: tray_assignment_needs_selection_{{ spool_id }}
 
       default: []

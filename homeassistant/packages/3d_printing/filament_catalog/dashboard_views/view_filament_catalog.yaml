@@ -33,6 +33,11 @@ cards:
       - !include ../dashboard_cards/catalog_insights_panel.yaml
 
       # ============================================================
+      # Phase 3: Tray assignment status + inline tray picker
+      # ============================================================
+      - !include ../../spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml
+
+      # ============================================================
       # Filters, Tabs & Sort (Phase 2 + Phase 4)
       # ============================================================
       - !include ../dashboard_cards/catalog_filter_bar.yaml

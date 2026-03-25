@@ -334,6 +334,15 @@ assign_spool_to_printer_tray:
       entity_id: input_text.pending_tray_assignment_spool_id
       value: ""
 
+  - action: persistent_notification.create
+    data:
+      title: Tray Assignment Successful
+      message: >-
+        Set {{ mapping_result.params.tray_type }} on {{ tray_entity_id }}
+        using profile {{ mapping_result.params.profile_name | default(mapping_result.params.tray_info_idx, true) }}
+        for {{ spool_display_name }}.
+      notification_id: tray_assignment_success_{{ spool_id_clean | default('unknown', true) }}
+
   - event: spoolman_tray_assignment_result
     event_data:
       status: success

@@ -342,6 +342,33 @@ ams_tray_popup:
         return null;
       })();
       const pinActionChipBg = pinActive ? '#7a2e2e' : 'var(--primary-color)';
+      const canSetOnPrinter = !!(spoolId && material && material !== 'Unknown');
+      const setOnPrinterAction = canSetOnPrinter ? {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.sequence',
+          data: {
+            sequence: [
+              {
+                service: 'script.assign_spool_to_printer_tray',
+                data: {
+                  spool_id: String(spoolIdInt),
+                  tray_entity_id: trayEntityId,
+                  force_write: true
+                }
+              },
+              { service: 'browser_mod.delay', data: { time: 2000 } },
+              { service: 'browser_mod.close_popup' }
+            ]
+          }
+        }
+      } : null;
+      const setOnPrinterChip = canSetOnPrinter ? {
+        type: 'template',
+        icon: 'mdi:printer-3d-nozzle',
+        content: 'Set on Printer',
+        tap_action: setOnPrinterAction
+      } : null;
       const pinControlCardsForNoMatch = (function() {
         if (matchStrategy === 'uuid') {
           return [{
@@ -1088,6 +1115,17 @@ ams_tray_popup:
                           }]
                         : [])))),
                 ...pinControlCardsForMatched,
+                ...(setOnPrinterChip ? [{
+                  type: 'custom:mushroom-chips-card',
+                  alignment: 'center',
+                  chips: [setOnPrinterChip],
+                  card_mod: {
+                    style: {
+                      '.': 'mushroom-template-chip:first-child { --chip-background: #2e7d32; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:first-child:hover { filter: brightness(1.2); } mushroom-template-chip:first-child:active { filter: brightness(0.9); }',
+                      'mushroom-template-chip:first-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }'
+                    }
+                  }
+                }] : []),
                 {
                   type: 'custom:mushroom-chips-card',
                   alignment: 'center',
