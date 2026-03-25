@@ -1,16 +1,16 @@
 # tray_assignment_status_and_picker.yaml
-# Reusable include: tray assignment status chip + inline tray picker.
+# Reusable include: tray assignment status chip with popup tray picker.
 # Included in view_main, view_filament_tags, and view_filament_catalog
 # so the pending-assignment prompt is available on every dashboard tab.
 #
 # Driven by:
-#   - sensor.last_tray_assignment_result  (status chip visibility)
-#   - input_text.pending_tray_assignment_spool_id  (tray picker visibility)
+#   - sensor.last_tray_assignment_result  (chip visibility + status)
+#   - input_text.pending_tray_assignment_spool_id  (tray picker in popup)
 #
-# Both cards are fully conditional — zero visual footprint when inactive.
+# The chip is zero-footprint when inactive. When a tray selection is
+# pending, tapping the chip opens a browser_mod popup with the tray picker.
 type: vertical-stack
 cards:
-  # ── Assignment status chip ──
   - type: conditional
     conditions:
       - entity: sensor.last_tray_assignment_result
@@ -28,6 +28,7 @@ cards:
         result_state: "states['sensor.last_tray_assignment_result']?.state || 'idle'"
         result_msg: "(states['sensor.last_tray_assignment_result']?.attributes?.message || '').substring(0, 100)"
         has_pending_spool: "!['', 'unknown', 'unavailable'].includes(states['input_text.pending_tray_assignment_spool_id']?.state || '')"
+        pending_id: "states['input_text.pending_tray_assignment_spool_id']?.state || ''"
       card:
         type: custom:mushroom-chips-card
         alignment: center
@@ -46,142 +47,188 @@ cards:
                  result_state === 'failed' || result_state === 'overwrite_required' ? 'red' :
                  result_state === 'skipped' ? 'blue' :
                  result_state === 'deferred' ? 'amber' : 'grey' }
-            tap_action:
-              action: none
             content: >-
               ${ result_state === 'success' ? '✓ ' + result_msg :
-                 result_state === 'needs_tray_selection' && has_pending_spool ? '⚠ Select tray below' :
-                 result_state === 'needs_tray_selection' ? '⚠ Tray selection was needed — re-scan spool to retry' :
+                 result_state === 'needs_tray_selection' && has_pending_spool ? '⚠ Tap to select tray' :
+                 result_state === 'needs_tray_selection' ? '⚠ Tray selection needed — re-scan spool to retry' :
                  result_state === 'failed' ? '✗ ' + result_msg :
                  result_state === 'overwrite_required' ? '⚠ Overwrite needed — use Set on Printer' :
                  result_state === 'skipped' ? 'ℹ ' + result_msg :
                  result_state === 'deferred' ? '⏳ ' + result_msg : result_msg }
-  # ── Inline tray picker ──
-  - type: conditional
-    conditions:
-      - entity: input_text.pending_tray_assignment_spool_id
-        state_not: ""
-      - entity: input_text.pending_tray_assignment_spool_id
-        state_not: unknown
-      - entity: input_text.pending_tray_assignment_spool_id
-        state_not: unavailable
-    card:
-      type: custom:config-template-card
-      entities:
-        - input_text.pending_tray_assignment_spool_id
-      variables:
-        pending_id: "states['input_text.pending_tray_assignment_spool_id']?.state || ''"
-      card:
-        type: vertical-stack
-        cards:
-          - type: custom:mushroom-template-card
-            primary: "⚠ Tray selection needed"
-            secondary: "Spool #${ pending_id } — which tray was it loaded into?"
-            icon: mdi:printer-3d-nozzle-alert
-            icon_color: orange
-            layout: horizontal
-            fill_container: true
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: false
-            name: AMS 1
-            rows: 0.938
-            sub_button:
-              main: []
-              bottom:
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_1
-                  name: T1
-                  show_name: true
-                  icon: mdi:numeric-1-box
-                  state_background: false
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_2
-                  name: T2
-                  show_name: true
-                  icon: mdi:numeric-2-box
-                  state_background: false
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_3
-                  name: T3
-                  show_name: true
-                  icon: mdi:numeric-3-box
-                  state_background: false
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_4
-                  name: T4
-                  show_name: true
-                  icon: mdi:numeric-4-box
-                  state_background: false
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: false
-            name: AMS 2
-            rows: 0.938
-            sub_button:
-              main: []
-              bottom:
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_1
-                  name: T1
-                  show_name: true
-                  icon: mdi:numeric-1-box
-                  state_background: false
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_2
-                  name: T2
-                  show_name: true
-                  icon: mdi:numeric-2-box
-                  state_background: false
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_3
-                  name: T3
-                  show_name: true
-                  icon: mdi:numeric-3-box
-                  state_background: false
-                - tap_action:
-                    action: perform-action
-                    perform_action: script.assign_spool_to_printer_tray
-                    target: {}
-                    data:
-                      spool_id: "${ pending_id }"
-                      tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_4
-                  name: T4
-                  show_name: true
-                  icon: mdi:numeric-4-box
-                  state_background: false
+            tap_action:
+              action: >-
+                ${ result_state === 'needs_tray_selection' && has_pending_spool ? 'fire-dom-event' : 'none' }
+              browser_mod:
+                service: browser_mod.popup
+                data:
+                  title: Select Tray
+                  size: normal
+                  content:
+                    type: vertical-stack
+                    cards:
+                      - type: custom:mushroom-template-card
+                        primary: "Spool #${ pending_id } — which tray was it loaded into?"
+                        icon: mdi:printer-3d-nozzle-alert
+                        icon_color: orange
+                        layout: horizontal
+                        fill_container: true
+                      - type: custom:bubble-card
+                        card_type: sub-buttons
+                        hide_main_background: false
+                        name: AMS 1
+                        rows: 0.938
+                        sub_button:
+                          main: []
+                          bottom:
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_1
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T1
+                              show_name: true
+                              icon: mdi:numeric-1-box
+                              state_background: false
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_2
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T2
+                              show_name: true
+                              icon: mdi:numeric-2-box
+                              state_background: false
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_3
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T3
+                              show_name: true
+                              icon: mdi:numeric-3-box
+                              state_background: false
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_4
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T4
+                              show_name: true
+                              icon: mdi:numeric-4-box
+                              state_background: false
+                      - type: custom:bubble-card
+                        card_type: sub-buttons
+                        hide_main_background: false
+                        name: AMS 2
+                        rows: 0.938
+                        sub_button:
+                          main: []
+                          bottom:
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_1
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T1
+                              show_name: true
+                              icon: mdi:numeric-1-box
+                              state_background: false
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_2
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T2
+                              show_name: true
+                              icon: mdi:numeric-2-box
+                              state_background: false
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_3
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T3
+                              show_name: true
+                              icon: mdi:numeric-3-box
+                              state_background: false
+                            - tap_action:
+                                action: fire-dom-event
+                                browser_mod:
+                                  service: browser_mod.sequence
+                                  data:
+                                    sequence:
+                                      - service: script.assign_spool_to_printer_tray
+                                        data:
+                                          spool_id: "${ pending_id }"
+                                          tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_4
+                                      - service: browser_mod.delay
+                                        data:
+                                          time: 2000
+                                      - service: browser_mod.close_popup
+                              name: T4
+                              show_name: true
+                              icon: mdi:numeric-4-box
+                              state_background: false
