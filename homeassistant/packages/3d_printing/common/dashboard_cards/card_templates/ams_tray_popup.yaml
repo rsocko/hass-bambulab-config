@@ -1180,7 +1180,7 @@ ams_tray_popup:
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: #FF5722 !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
+                      styles: '.bubble-icon-container { color: #FF5722 !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -1200,7 +1200,7 @@ ams_tray_popup:
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[status] || '#9e9e9e') + ' !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
+                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[status] || '#9e9e9e') + ' !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     }
                   ]
                 },
@@ -1268,7 +1268,7 @@ ams_tray_popup:
                       name: 'Details',
                       icon: 'mdi:information-outline',
                       tap_action: { action: 'more-info' },
-                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
+                      styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -1277,7 +1277,7 @@ ams_tray_popup:
                       name: 'Spoolman',
                       icon: 'fapro:filament-2',
                       tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId },
-                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
+                      styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -1299,7 +1299,7 @@ ams_tray_popup:
                           }
                         }
                       },
-                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
+                      styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -1308,7 +1308,7 @@ ams_tray_popup:
                       name: 'Close',
                       icon: 'mdi:close-circle-outline',
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } },
-                      styles: 'ha-card { background: var(--primary-color) !important; cursor: pointer; } .bubble-icon-container { color: white !important; } .bubble-name { color: white !important; } .bubble-button-card-container { pointer-events: auto; }'
+                      styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     }
                   ]
                 }
