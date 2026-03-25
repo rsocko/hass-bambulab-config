@@ -453,18 +453,19 @@ When a Bambu Lab spool with a valid UUID is loaded into an AMS tray:
 - The printer sets the correct filament profile from Bambu's database
 - **This system must not overwrite** that information
 
-Check: `extra_spool_uuid` is non-empty AND target is AMS tray → **unconditionally skip assignment**.
+**Enforcement — two layers:**
 
-This guard is absolute — neither `force_write: true` nor any UI button can override it. The RFID reader is the authoritative source for Bambu UUID spools in AMS trays.
+1. **Automation early exit** (`spool_location_change_assign_tray`): When a Spoolman location change targets AMS, the automation checks `filament_vendor_name == 'Bambu Lab'` and `extra_spool_uuid` is non-empty. If both are true, it logs and stops immediately — no tray inference, no tray picker, no script call. There is nothing to assign; the AMS RFID reader is authoritative, and the read-side `spoolman_tray_map` matches the spool to its tray via UUID for dashboard display.
 
-Belt-and-suspenders safety:
-- The "Update Tray Settings" button is already hidden for UUID matches (popup restricts to `manual_pin` only), so the user cannot trigger a write from the UI.
-- Even if a future caller passes `force_write: true`, the RFID guard fires first and returns `skipped` before the overwrite guard is ever evaluated.
-- For External Spool (no RFID reader), the guard does not apply — the spool always proceeds to the write path regardless of UUID.
+2. **Script safety net** (`assign_spool_to_printer_tray`): The `should_skip_rfid` guard unconditionally skips Bambu UUID spools targeting AMS trays (`force_write` cannot override it). This protects against any future caller that bypasses the automation.
+
+Additional safeguards:
+- The "Update Tray Settings" button is hidden for UUID matches (popup restricts to `manual_pin` only), so the user cannot trigger a write from the UI.
+- For External Spool (no RFID reader), neither guard applies — the spool always proceeds to the write path regardless of UUID.
 
 #### Bambu Studio Concurrent Edits
 
-If a user has already set filament info via Bambu Studio:
+If a user has already set filament info via Bambu Studio (applies only to non-Bambu or UUID-less spools — Bambu RFID spools are fully handled by the AMS and never reach the assignment flow):
 - The automated Spoolman-location-change flow uses `force_write: true` because a location change is an explicit user action — the user moved a spool to this tray and expects the tray to be configured for it. This overwrites any prior Bambu Studio edits.
 - If the tray already has data that **exactly matches** the Spoolman-derived target (`type`, `color`, and `name`), the script skips the `set_filament` call and logs "Tray already configured correctly."
 - The manual "Update Tray Settings" button (visible only for `manual_pin` matches) also always writes with `force_write: true`
@@ -898,6 +899,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
 | Batch assignment | Handle multiple spool location changes at once | Enhancement to Phase 2 automation |
 | State trigger migration | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration) | `spoolman_sync/automations/` |
+| Transient "Waiting for AMS" status | When a Bambu RFID spool's location changes to AMS but the AMS tray entity hasn't reported the matching `tray_uuid` yet (lid still closing, RFID not read), show a transient chip/status indicating the system is aware and waiting for the AMS RFID reader to confirm. Auto-clear once `spoolman_tray_map` resolves the UUID match, or after a configurable timeout (e.g. 60 s). | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml`, possibly `core/template_sensors/spoolman_tray_map.yaml` |
 
 ---
 

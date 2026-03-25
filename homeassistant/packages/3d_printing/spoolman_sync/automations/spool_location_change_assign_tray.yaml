@@ -70,6 +70,14 @@
           {% endif %}
         needs_tray_selection: "{{ (target_is_ams_1 or target_is_ams_2) and inferred_tray_entity_id | length == 0 }}"
         can_assign_now: "{{ is_supported_target and spool_id | regex_match('^\\d+$') and target_tray_entity_id | length > 0 }}"
+        spool_vendor: >-
+          {{ state_attr(spool_entity_id, 'filament_vendor_name') | default('', true) | string | trim }}
+        spool_uuid: >-
+          {{ state_attr(spool_entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | trim }}
+        has_rfid_uuid: >-
+          {{ spool_uuid | lower not in ['', 'none', 'unknown', 'unavailable'] and not (spool_uuid | lower | regex_match('^0+$')) }}
+        is_bambu_rfid_in_ams: >-
+          {{ spool_vendor == 'Bambu Lab' and (has_rfid_uuid | bool) and not target_is_external and is_supported_target }}
 
     - choose:
         - conditions:
@@ -85,6 +93,22 @@
                 entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
                 domain: automation
             - stop: Non-assignment target location
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ is_bambu_rfid_in_ams }}"
+          sequence:
+            - action: logbook.log
+              data:
+                name: Tray Assignment
+                message: >-
+                  Spool {{ spool_id }} is a Bambu Lab spool with RFID UUID —
+                  AMS will configure the tray automatically via RFID reader.
+                  No tray assignment needed.
+                entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                domain: automation
+            - stop: Bambu RFID spool in AMS — RFID reader is authoritative
 
     - choose:
         - conditions:
