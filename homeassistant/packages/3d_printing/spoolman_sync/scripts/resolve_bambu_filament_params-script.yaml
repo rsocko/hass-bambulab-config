@@ -24,7 +24,7 @@ resolve_bambu_filament_params:
   - variables:
       spool_entity_id: "{{ spool_entity_id | default('', true) | string | trim }}"
       printer_device_id: "{{ printer_device_id | default('', true) | string | trim }}"
-      spool_available: "{{ states(spool_entity_id) not in ['unknown', 'unavailable'] and spool_entity_id | length > 0 }}"
+      spool_available: "{{ states(spool_entity_id) not in ['unknown', 'unavailable'] and (spool_entity_id | string) | length > 0 }}"
       material_raw: "{{ state_attr(spool_entity_id, 'filament_material') | default('', true) | string | trim }}"
       material_upper: "{{ material_raw | upper }}"
       tray_type: >-
@@ -44,7 +44,7 @@ resolve_bambu_filament_params:
       color_multi_raw: "{{ state_attr(spool_entity_id, 'filament_multi_color_hexes') | default('', true) | string }}"
       color_single_raw: "{{ state_attr(spool_entity_id, 'filament_color_hex') | default('', true) | string }}"
       first_multi_hex: >-
-        {% if color_multi_raw | trim | length > 0 %}
+        {% if (color_multi_raw | string) | trim | length > 0 %}
           {% set first = (color_multi_raw.split(',') | first | default('', true)) | string %}
           {{ first | replace('#', '') | trim | upper }}
         {% else %}
@@ -59,7 +59,7 @@ resolve_bambu_filament_params:
         {% else %}
           {{ '' }}
         {% endif %}
-      tray_color: "{{ color_hex_6 ~ 'FF' if color_hex_6 | length == 6 else '' }}"
+      tray_color: "{{ color_hex_6 ~ 'FF' if (color_hex_6 | string) | length == 6 else '' }}"
       material_fallback_map:
         PLA:
           tray_info_idx: GFL99
@@ -116,12 +116,12 @@ resolve_bambu_filament_params:
           nozzle_temp_min: 260
           nozzle_temp_max: 290
           profile_name: Generic PA-CF
-      fallback_for_material: "{{ material_fallback_map.get(tray_type, {}) if tray_type | length > 0 else {} }}"
+      fallback_for_material: "{{ material_fallback_map.get(tray_type, {}) if (tray_type | string) | length > 0 else {} }}"
 
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ spool_available and printer_device_id | length > 0 }}"
+            value_template: "{{ spool_available and (printer_device_id | string) | length > 0 }}"
         sequence:
           - action: bambu_lab.get_filament_data
             data:
@@ -149,7 +149,7 @@ resolve_bambu_filament_params:
         {% endif %}
       matched_profile: >-
         {% set ns = namespace(found={}) %}
-        {% if profile_name | length > 0 and filament_catalog is mapping %}
+        {% if (profile_name | string) | length > 0 and filament_catalog is mapping %}
           {% set target = profile_name | lower %}
           {% for tray_idx, details in filament_catalog.items() %}
             {% if details is mapping and (details.get('name', '') | string | lower) == target %}
@@ -164,17 +164,17 @@ resolve_bambu_filament_params:
         {% endif %}
         {{ ns.found }}
       tray_info_idx: >-
-        {% if matched_profile.get('tray_info_idx') is string and matched_profile.get('tray_info_idx') | length > 0 %}
+        {% if matched_profile.get('tray_info_idx') is string and (matched_profile.get('tray_info_idx') | string) | length > 0 %}
           {{ matched_profile.get('tray_info_idx') }}
-        {% elif fallback_for_material.get('tray_info_idx') is string and fallback_for_material.get('tray_info_idx') | length > 0 %}
+        {% elif fallback_for_material.get('tray_info_idx') is string and (fallback_for_material.get('tray_info_idx') | string) | length > 0 %}
           {{ fallback_for_material.get('tray_info_idx') }}
         {% else %}
           {{ '' }}
         {% endif %}
       resolved_profile_name: >-
-        {% if matched_profile.get('profile_name') is string and matched_profile.get('profile_name') | length > 0 %}
+        {% if matched_profile.get('profile_name') is string and (matched_profile.get('profile_name') | string) | length > 0 %}
           {{ matched_profile.get('profile_name') }}
-        {% elif fallback_for_material.get('profile_name') is string and fallback_for_material.get('profile_name') | length > 0 %}
+        {% elif fallback_for_material.get('profile_name') is string and (fallback_for_material.get('profile_name') | string) | length > 0 %}
           {{ fallback_for_material.get('profile_name') }}
         {% else %}
           {{ profile_name }}
@@ -237,9 +237,9 @@ resolve_bambu_filament_params:
           {% endif %}
         spool_entity_id: "{{ spool_entity_id }}"
         profile_source: >-
-          {% if matched_profile.get('tray_info_idx') is string and matched_profile.get('tray_info_idx') | length > 0 %}
+          {% if matched_profile.get('tray_info_idx') is string and (matched_profile.get('tray_info_idx') | string) | length > 0 %}
             profile_lookup
-          {% elif fallback_for_material.get('tray_info_idx') is string and fallback_for_material.get('tray_info_idx') | length > 0 %}
+          {% elif fallback_for_material.get('tray_info_idx') is string and (fallback_for_material.get('tray_info_idx') | string) | length > 0 %}
             material_fallback
           {% else %}
             unresolved

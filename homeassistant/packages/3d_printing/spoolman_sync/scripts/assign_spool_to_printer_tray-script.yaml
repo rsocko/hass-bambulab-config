@@ -54,7 +54,7 @@ assign_spool_to_printer_tray:
       spool_id_clean: "{{ spool_id | default('', true) | string | trim }}"
       explicit_spool_entity_id: "{{ spool_entity_id | default('', true) | string | trim }}"
       resolved_spool_entity_id: >-
-        {% if explicit_spool_entity_id | length > 0 %}
+        {% if (explicit_spool_entity_id | string) | length > 0 %}
           {{ explicit_spool_entity_id }}
         {% elif spool_id_clean | regex_match('^\d+$') %}
           {{ 'sensor.spoolman_spool_' ~ spool_id_clean }}
@@ -66,9 +66,9 @@ assign_spool_to_printer_tray:
       force_write: "{{ force_write | default(false) }}"
       allow_while_printing: "{{ allow_while_printing | default(false) }}"
       spool_entity_ok: >-
-        {{ resolved_spool_entity_id | length > 0 and states(resolved_spool_entity_id) not in ['unknown', 'unavailable'] }}
+        {{ (resolved_spool_entity_id | string) | length > 0 and states(resolved_spool_entity_id) not in ['unknown', 'unavailable'] }}
       tray_entity_ok: >-
-        {{ tray_entity_id | length > 0 and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
+        {{ (tray_entity_id | string) | length > 0 and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
       is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
       is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\..*_ams_\\d+_tray_\\d+$') }}"
       spool_vendor: >-
@@ -94,20 +94,20 @@ assign_spool_to_printer_tray:
         {% if spool_entity_ok | bool %}
           {{ state_attr(resolved_spool_entity_id, 'name') | default(state_attr(resolved_spool_entity_id, 'filament_name') | default(resolved_spool_entity_id, true), true) }}
         {% else %}
-          {{ resolved_spool_entity_id if resolved_spool_entity_id | length > 0 else 'Unknown Spool' }}
+          {{ resolved_spool_entity_id if (resolved_spool_entity_id | string) | length > 0 else 'Unknown Spool' }}
         {% endif %}
       base_validation_errors: >-
         {% set ns = namespace(errors=[]) %}
         {% if not (spool_entity_ok | bool) %}
           {% set ns.errors = ns.errors + ['Unable to resolve a valid spool entity.'] %}
         {% endif %}
-        {% if tray_entity_id | length == 0 %}
+        {% if (tray_entity_id | string) | length == 0 %}
           {% set ns.errors = ns.errors + ['Tray selection required: tray_entity_id was not provided.'] %}
         {% elif not (tray_entity_ok | bool) %}
           {% set ns.errors = ns.errors + ['Selected tray entity is unavailable.'] %}
         {% endif %}
         {{ ns.errors }}
-      status_for_missing_tray: "{{ 'needs_tray_selection' if tray_entity_id | length == 0 else 'failed' }}"
+      status_for_missing_tray: "{{ 'needs_tray_selection' if (tray_entity_id | string) | length == 0 else 'failed' }}"
 
   - choose:
       - conditions:
@@ -117,7 +117,7 @@ assign_spool_to_printer_tray:
           - choose:
               - conditions:
                   - condition: template
-                    value_template: "{{ tray_entity_id | length == 0 and spool_id_clean | length > 0 }}"
+                    value_template: "{{ (tray_entity_id | string) | length == 0 and (spool_id_clean | string) | length > 0 }}"
                 sequence:
                   - action: input_text.set_value
                     data:
