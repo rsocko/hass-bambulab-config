@@ -66,7 +66,7 @@ cards:
             {% elif s == 'needs_tray_selection' and has_pending %}Tap to select tray
             {% elif s == 'needs_tray_selection' %}Tray selection needed — re-scan spool to retry
             {% elif s == 'failed' %}{{ msg[:100] }}
-            {% elif s == 'overwrite_required' %}Overwrite needed — use Update Tray Settings
+            {% elif s == 'overwrite_required' %}Overwrite needed — use Set on Printer
             {% elif s == 'skipped' %}{{ msg[:100] }}
             {% elif s == 'deferred' %}{{ msg[:100] }}
             {% else %}{{ msg[:100] }}{% endif %}
@@ -81,17 +81,27 @@ cards:
                   type: vertical-stack
                   cards:
                     - type: custom:mushroom-template-card
+                      entity: >-
+                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                        {% if pending not in ['', 'unknown', 'unavailable'] %}
+                        sensor.spoolman_spool_{{ pending }}
+                        {% else %}sensor.last_tray_assignment_result{% endif %}
                       primary: >-
                         {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
                         {% if pending not in ['', 'unknown', 'unavailable'] %}
                         {% set spool_eid = 'sensor.spoolman_spool_' ~ pending %}
                         {% set fname = state_attr(spool_eid, 'friendly_name') | default('', true) %}
-                        {{ fname if fname | length > 0 else 'Spool #' ~ pending }}: Which tray was it loaded into?
+                        {{ fname if fname | length > 0 else 'Spool #' ~ pending }}
                         {% else %}
                         No pending tray assignment
                         {% endif %}
-                      icon: fapro:filament-2
-                      icon_color: orange
+                      secondary: >-
+                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                        {% if pending not in ['', 'unknown', 'unavailable'] %}
+                        Which tray was it loaded into?
+                        {% endif %}
+                      icon: ""
+                      use_entity_picture: true
                       layout: horizontal
                       fill_container: true
                     - type: custom:mushroom-template-card
