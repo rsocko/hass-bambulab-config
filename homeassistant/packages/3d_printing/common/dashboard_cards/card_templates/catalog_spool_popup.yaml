@@ -506,6 +506,7 @@ catalog_spool_popup:
                       name: 'Location',
                       icon: 'mdi:map-marker-radius',
                       tap_action: { action: 'more-info' },
+                      button_action: { tap_action: { action: 'more-info' } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
@@ -515,6 +516,7 @@ catalog_spool_popup:
                       name: 'Spoolman',
                       icon: 'fapro:filament-2',
                       tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId },
+                      button_action: { tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
@@ -525,6 +527,7 @@ catalog_spool_popup:
                       name: 'Reload',
                       icon: 'mdi:refresh',
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } },
+                      button_action: { tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: eid } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
@@ -534,6 +537,7 @@ catalog_spool_popup:
                       name: 'Close',
                       icon: 'mdi:close-circle-outline',
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } },
+                      button_action: { tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     }
                   ]

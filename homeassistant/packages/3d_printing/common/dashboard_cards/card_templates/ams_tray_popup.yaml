@@ -959,7 +959,10 @@ ams_tray_popup:
                         ...(pinActionChip ? [pinActionChip] : [])
                       ],
                       card_mod: {
-                        style: 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
+                        style: Object.assign(
+                          { '.': 'ha-card { user-select: text; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
+                          pinActionChip ? { 'mushroom-template-chip:last-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' } : {}
+                        )
                       }
                     }]
                   : (shouldOfferSetUUID
@@ -998,7 +1001,11 @@ ams_tray_popup:
                           ...(pinActionChip ? [pinActionChip] : [])
                         ],
                         card_mod: {
-                          style: 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; --chip-text-color: white; --chip-icon-color: white; color: white !important; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '')
+                          style: Object.assign(
+                            { '.': 'mushroom-template-chip:nth-child(1) { --chip-background: var(--primary-color); --chip-border-width: 0; font-weight: 700; }' + (pinActionChip ? ' mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '') },
+                            { 'mushroom-template-chip:nth-child(1) $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' },
+                            pinActionChip ? { 'mushroom-template-chip:last-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' } : {}
+                          )
                         }
                       }]
                     : (matchTierLabel
@@ -1010,7 +1017,10 @@ ams_tray_popup:
                             ...(pinActionChip ? [pinActionChip] : [])
                           ],
                           card_mod: {
-                            style: pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : ''
+                            style: Object.assign(
+                              { '.': pinActionChip ? 'mushroom-template-chip:last-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }' : '' },
+                              pinActionChip ? { 'mushroom-template-chip:last-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }' } : {}
+                            )
                           }
                         }]
                       : (pinActionChip
@@ -1019,7 +1029,10 @@ ams_tray_popup:
                             alignment: 'center',
                             chips: [pinActionChip],
                             card_mod: {
-                              style: 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-text-color: white; --chip-icon-color: white; color: white !important; --chip-border-width: 0; font-weight: 700; cursor: pointer; }'
+                              style: {
+                                '.': 'mushroom-template-chip:first-child { --chip-background: ' + pinActionChipBg + '; --chip-border-width: 0; font-weight: 700; cursor: pointer; }',
+                                'mushroom-template-chip:first-child $': 'mushroom-chip { --text-color: white !important; --icon-color: white !important; }'
+                              }
                             }
                           }]
                         : [])))),
@@ -1268,6 +1281,7 @@ ams_tray_popup:
                       name: 'Details',
                       icon: 'mdi:information-outline',
                       tap_action: { action: 'more-info' },
+                      button_action: { tap_action: { action: 'more-info' } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
@@ -1277,6 +1291,7 @@ ams_tray_popup:
                       name: 'Spoolman',
                       icon: 'fapro:filament-2',
                       tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId },
+                      button_action: { tap_action: { action: 'url', url_path: SPOOLMAN_BASE_URL + '/' + spoolId } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
@@ -1299,6 +1314,7 @@ ams_tray_popup:
                           }
                         }
                       },
+                      button_action: { tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.sequence', data: { sequence: [{ service: 'homeassistant.update_entity', data: { entity_id: spoolEntityId } }, { service: 'browser_mod.delay', data: { time: 1500 } }, { service: 'browser_mod.close_popup' }] } } } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     },
                     {
@@ -1308,6 +1324,7 @@ ams_tray_popup:
                       name: 'Close',
                       icon: 'mdi:close-circle-outline',
                       tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } },
+                      button_action: { tap_action: { action: 'fire-dom-event', browser_mod: { service: 'browser_mod.close_popup' } } },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
                     }
                   ]
