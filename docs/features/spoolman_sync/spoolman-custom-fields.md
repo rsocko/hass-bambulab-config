@@ -40,6 +40,15 @@ Key | Type
 ---------|----------
  type_details | Text
 
+### Purchase Quantity
+#### Description:
+Filament-level restock quantity used by the popup Qty to Order control. In Home Assistant spool entities, this appears as the flattened attribute filament_extra_purchase_qty.
+
+#### Field Configuration
+Key | Type | Default Value
+---------|----------|----------
+ purchase_qty | Integer | 0
+
 ## Extra Fields - Spools
 ### Spool UUID
 #### Description:
