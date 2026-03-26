@@ -92,7 +92,7 @@ assign_spool_to_printer_tray:
           {{ '' }}
         {% endif %}
       has_rfid_uuid: "{{ spool_uuid | lower not in ['', 'none', 'unknown', 'unavailable'] and not (spool_uuid | lower | regex_match('^0+$')) }}"
-      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and (has_rfid_uuid | bool) and (not (is_external_tray | bool)) }}"
+      should_skip_rfid: "{{ (spool_vendor == 'Bambu Lab') and (has_rfid_uuid | bool) and (not (is_external_tray | bool)) and (not (force_write | bool)) }}"
       print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower }}"
       smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
       printer_busy: >-
