@@ -60,16 +60,20 @@ spool_replace_populate_candidates:
     - action: system_log.write
       data:
         message: >-
-          Spool Replace: Populated {{ candidates | length }} sealed candidate(s)
-          for filament_id '{{ fid }}'.
-          {% set debug_ns = namespace(info=[]) %}
-          {% for s in states.sensor
-             if s.entity_id.startswith('sensor.spoolman_spool_')
-             and s.attributes.filament_id | default('') | string == fid %}
-            {% set sealed_val = s.attributes.get('extra_sealed', 'MISSING') if s.attributes.get is defined else s.attributes.extra_sealed | default('MISSING') %}
-            {% set archived_val = s.attributes.get('archived', 'MISSING') if s.attributes.get is defined else s.attributes.archived | default('MISSING') %}
-            {% set debug_ns.info = debug_ns.info + [s.entity_id ~ ' sealed=' ~ sealed_val ~ '(' ~ sealed_val.__class__.__name__ ~ ')' ~ ' archived=' ~ archived_val ~ '(' ~ archived_val.__class__.__name__ ~ ')'] %}
+          Spool Replace DEBUG: fid='{{ fid }}'.
+          Total spoolman_spool entities:
+          {% set dbg = namespace(count=0, samples=[]) %}
+          {% for s in states.sensor if s.entity_id.startswith('sensor.spoolman_spool_') %}
+            {% set dbg.count = dbg.count + 1 %}
+            {% if dbg.count <= 5 %}
+              {% set fid_raw = state_attr(s.entity_id, 'filament_id') %}
+              {% set dbg.samples = dbg.samples + [s.entity_id ~ ' fid=' ~ fid_raw ~ ' type=' ~ fid_raw.__class__.__name__] %}
+            {% endif %}
           {% endfor %}
-          Debug — same-filament spools: {{ debug_ns.info | join('; ') }}
+          count={{ dbg.count }}.
+          Samples: {{ dbg.samples | join(' | ') }}.
+          Direct check 212: fid={{ state_attr('sensor.spoolman_spool_212', 'filament_id') }} sealed={{ state_attr('sensor.spoolman_spool_212', 'extra_sealed') }}.
+          Direct check 231: fid={{ state_attr('sensor.spoolman_spool_231', 'filament_id') }}.
+          String compare: {{ state_attr('sensor.spoolman_spool_212', 'filament_id') | string == fid }}.
         level: warning
         logger: homeassistant.components.bambulab.spool_replace
