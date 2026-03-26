@@ -262,6 +262,55 @@ Pick at least 3 spools:
 
 ---
 
+### Section E: RFID Pending Warning (`success_awaiting_rfid`)
+
+#### T21 — Status chip shows RFID pending after Bambu spool forced write
+
+1. Assign a Bambu spool with UUID (e.g., spool 19) to an AMS tray using `force_write: true`.
+2. **Expected**:
+   - `sensor.last_tray_assignment_result` state = `success_awaiting_rfid`
+   - Status chip is amber with pulsing animation
+   - Chip icon: `mdi:contactless-payment-circle-outline`
+   - Chip text: `⚠ RFID pending · AMS N TN` (e.g., "⚠ RFID pending · AMS 1 T2")
+
+#### T22 — Popup shows RFID warning card with spool + tray details
+
+1. With status = `success_awaiting_rfid`, tap the status chip to open popup.
+2. **Expected**:
+   - A conditional amber card appears at the top of the popup
+   - Primary text wraps (no truncation) and shows: spool friendly name → AMS N Tray N
+   - Secondary text: "RFID not confirmed — tap to re-scan tray"
+   - Amber border and amber icon
+
+#### T23 — Tap RFID warning card triggers `bambu_lab.read_rfid`
+
+1. Tap the amber "RFID not confirmed" card in the popup.
+2. **Expected**:
+   - `script.rescan_assigned_tray_rfid` runs
+   - `bambu_lab.read_rfid` is called with the correct tray entity
+   - AMS physically re-reads the tray's RFID tag (tray moves/ejects slightly)
+   - Tray sensor data updates to reflect the actual physical spool
+
+#### T24 — RFID pending card hidden when status is not `success_awaiting_rfid`
+
+1. Fire a `spoolman_tray_assignment_result` event with `status: success`.
+2. Open the popup.
+3. **Expected**: No amber RFID warning card is visible.
+
+#### T25 — `force_write` bypasses RFID skip guard
+
+1. Call `assign_spool_to_printer_tray` with a Bambu UUID spool + AMS tray + `force_write: false` (default).
+2. **Expected**: Status = `skipped` (RFID guard active).
+3. Call again with same spool + tray + `force_write: true`.
+4. **Expected**: Status = `success_awaiting_rfid` (RFID guard bypassed, but UUID mismatch detected post-write).
+
+#### T26 — Non-Bambu spool does NOT trigger RFID pending
+
+1. Assign a non-Bambu spool (no UUID, e.g., spool 16 or 133) to an AMS tray.
+2. **Expected**: Status = `success` (not `success_awaiting_rfid`) — RFID pending only applies when spool has a UUID.
+
+---
+
 ---
 
 ## Test Results — 2026-03-25
@@ -293,6 +342,17 @@ Pick at least 3 spools:
 | T-I1 | Tray button in popup fires assignment | **PASS** | Spool 85 (Bambu PLA) → AMS 2 T4 → correctly `skipped` (RFID guard) |
 | T-I2 | "Update Tray Settings" chip in AMS tray popup | **PASS** | `force_write: true` bypassed RFID guard → correctly `deferred` (printer busy) |
 
+### RFID Pending Tests — 2026-03-26
+
+| Test | Description | Result | Notes |
+|------|-------------|--------|-------|
+| T21 | RFID pending chip after Bambu spool force write | **PASS** | Spool 19 → T2, `force_write: true` → status `success_awaiting_rfid`, amber chip with "RFID pending · AMS 1 T2" |
+| T22 | Popup shows spool + tray context | **PASS** | Primary: "Bambu Lab White - Support PLA-S (PLA for Support) → AMS 1 Tray 2", secondary: "RFID not confirmed — tap to re-scan tray", wraps correctly |
+| T23 | Tap triggers `bambu_lab.read_rfid` | **IN PROGRESS** | `bambu_lab.read_rfid` confirmed working via API (tray re-scanned, changed to Empty). Popup tap action switched to wrapper script `rescan_assigned_tray_rfid`. Pending re-test with deployed wrapper. |
+| T24 | RFID card hidden for non-RFID statuses | **PASS** | Conditional card only shows for `success_awaiting_rfid` |
+| T25 | `force_write` bypasses RFID skip | **PASS** | `force_write: false` → `skipped`; `force_write: true` → `success_awaiting_rfid` |
+| T26 | Non-Bambu spool → `success` not RFID pending | **PASS** | Spool 16 (Sunlu, no UUID) → T3 → status `success` |
+
 ### Deferred Tests (require printer idle or specific spool conditions)
 
 | Test | Description | Reason Deferred |
@@ -313,7 +373,7 @@ Pick at least 3 spools:
 
 Phase 3 is validated when:
 
-- **All T1–T20 pass** with expected UI behavior and state changes
+- **All T1–T26 pass** with expected UI behavior and state changes
 - No YAML parsing errors in HA logs for the modified dashboard files
 - No JavaScript console errors in the browser during popup/view rendering
 - The Phase 2 automated flow (T17, T18) still works end-to-end with the new UI enhancements

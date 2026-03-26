@@ -104,11 +104,8 @@ cards:
                         icon_color: amber
                         layout: horizontal
                         tap_action:
-                          action: call-service
-                          service: bambu_lab.read_rfid
-                          service_data:
-                            entity_id: >-
-                              {{ state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') }}
+                          action: perform-action
+                          perform_action: script.rescan_assigned_tray_rfid
                         card_mod:
                           style: |
                             ha-card {

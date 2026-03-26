@@ -1,0 +1,17 @@
+rescan_assigned_tray_rfid:
+  alias: Rescan Assigned Tray RFID
+  description: >-
+    Reads the tray entity from the last tray assignment result sensor and calls
+    bambu_lab.read_rfid to physically re-scan the RFID tag on that tray.
+  icon: mdi:contactless-payment-circle-outline
+  mode: single
+  sequence:
+    - variables:
+        tray_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('', true) }}"
+
+    - condition: template
+      value_template: "{{ tray_entity_id not in ['', 'None', 'unknown', 'unavailable'] }}"
+
+    - action: bambu_lab.read_rfid
+      data:
+        entity_id: "{{ tray_entity_id }}"

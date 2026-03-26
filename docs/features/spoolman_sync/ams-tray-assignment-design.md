@@ -71,6 +71,26 @@ data:
 
 This is critical for resolving the `tray_info_idx` value from Spoolman data.
 
+### `bambu_lab.read_rfid`
+
+Triggers the AMS to physically re-read the RFID tag on a specific tray. Unlike the force-refresh button (which does a software-only data pull via MQTT `PUSH_ALL`), this causes the AMS to eject and re-scan the spool's RFID tag — the same action as the "Refresh" button in the ha-bambulab AMS tray card popup.
+
+```yaml
+action: bambu_lab.read_rfid
+data:
+  entity_id: sensor.p1s_01p00c460102350_ams_1_tray_2
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `entity_id` | string | AMS tray sensor entity ID |
+
+The service derives `ams_index` and `tray_index` automatically from the entity's unique_id. On newer printers, sends the `ams_get_rfid` MQTT command; on older printers, falls back to G-code `M620 R{n}`.
+
+**Used by:** `script.rescan_assigned_tray_rfid` — called from the RFID pending warning card in the status chip popup to re-read the tray's RFID after `set_filament` overwrites metadata.
+
 ### Existing Spoolman Data Available Per-Spool
 
 From `sensor.spoolman_spool_*` entity attributes:
@@ -471,7 +491,7 @@ When a Bambu Lab spool with a valid UUID is loaded into an AMS tray:
 
 1. **Automation early exit** (`spool_location_change_assign_tray`): When a Spoolman location change targets AMS, the automation checks `filament_vendor_name == 'Bambu Lab'` and `extra_spool_uuid` is non-empty. If both are true, it logs and stops immediately — no tray inference, no tray picker, no script call. There is nothing to assign; the AMS RFID reader is authoritative, and the read-side `spoolman_tray_map` matches the spool to its tray via UUID for dashboard display.
 
-2. **Script safety net** (`assign_spool_to_printer_tray`): The `should_skip_rfid` guard unconditionally skips Bambu UUID spools targeting AMS trays (`force_write` cannot override it). This protects against any future caller that bypasses the automation.
+2. **Script safety net** (`assign_spool_to_printer_tray`): The `should_skip_rfid` guard skips Bambu UUID spools targeting AMS trays **unless `force_write` is true**. When `force_write` is passed, the RFID skip is bypassed and the script proceeds to call `set_filament`. This is needed for the RFID pending detection flow: after writing metadata for a Bambu spool, the script checks if the tray's `tray_uuid` matches the spool's UUID and sets a `success_awaiting_rfid` status if it doesn't (indicating the AMS hasn't read the physical RFID yet).
 
 Additional safeguards:
 - The "Update Tray Settings" button is hidden for UUID matches (popup restricts to `manual_pin` only), so the user cannot trigger a write from the UI.
@@ -913,7 +933,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
 | Batch assignment | Handle multiple spool location changes at once | Enhancement to Phase 2 automation |
 | State trigger migration | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration) | `spoolman_sync/automations/` |
-| Transient "Waiting for AMS" status | When a Bambu RFID spool's location changes to AMS but the AMS tray entity hasn't reported the matching `tray_uuid` yet (lid still closing, RFID not read), show a transient chip/status indicating the system is aware and waiting for the AMS RFID reader to confirm. Auto-clear once `spoolman_tray_map` resolves the UUID match, or after a configurable timeout (e.g. 60 s). | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml`, possibly `core/template_sensors/spoolman_tray_map.yaml` |
+| Transient "Waiting for AMS" status | When a Bambu RFID spool's location changes to AMS but the AMS tray entity hasn't reported the matching `tray_uuid` yet (lid still closing, RFID not read), show a transient chip/status indicating the system is aware and waiting for the AMS RFID reader to confirm. Auto-clear once `spoolman_tray_map` resolves the UUID match, or after a configurable timeout (e.g. 60 s). **Partially implemented**: The `success_awaiting_rfid` status is now emitted by the assign script when `set_filament` writes metadata but the tray's `tray_uuid` doesn't match the spool's UUID. The status chip shows an amber "RFID pending" indicator, and the popup includes a "Re-scan Tray" button calling `bambu_lab.read_rfid` via `script.rescan_assigned_tray_rfid`. Auto-clear on tray_map UUID match is not yet implemented. | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml`, `spoolman_sync/scripts/rescan_assigned_tray_rfid-script.yaml`, `spoolman_sync/scripts/assign_spool_to_printer_tray-script.yaml` |
 
 ---
 
@@ -933,6 +953,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | `spoolman_sync/automations/auto_label_spoolman_spool_location_entities.yaml` | Phase 4 (optional): auto-applies label via REST API |
 | `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 4 (optional): REST command for entity registry label update |
 | `spoolman_sync/scripts/assign_pending_spool_to_tray-script.yaml` | Phase 3: Dashboard wrapper — reads pending spool ID server-side, delegates to `assign_spool_to_printer_tray` |
+| `spoolman_sync/scripts/rescan_assigned_tray_rfid-script.yaml` | RFID re-scan wrapper — reads tray entity from `sensor.last_tray_assignment_result` and calls `bambu_lab.read_rfid` to physically re-read the tray's RFID tag |
 | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml` | Phase 3: Shared include — conditional status chip + browser_mod popup tray picker |
 
 ### Modified Files
@@ -973,6 +994,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Non-Bambu spool location → "AMS", 0 empty trays | Notification: "Please select tray"; pending assignment created |
 | Non-Bambu spool location → "AMS", 2+ empty trays | Notification: "Multiple empty trays — please select"; pending assignment created |
 | Bambu spool (with UUID) location → "AMS" | Skipped — RFID handles it; no set_filament call |
+| Bambu spool (with UUID) assigned with `force_write: true` → AMS tray | set_filament called; status `success_awaiting_rfid` if tray UUID doesn't match spool UUID after write; RFID re-scan available via popup |
 | Bambu spool (with UUID) location → "External Spool" | set_filament called (external has no RFID reader) |
 | Any spool location → "External Spool" | set_filament called on external_spool entity |
 | Spool missing `filament_material` | Assignment blocked; notification: "Incomplete spool data" |
