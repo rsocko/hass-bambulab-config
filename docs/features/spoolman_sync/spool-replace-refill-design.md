@@ -223,8 +223,10 @@ Open the Filament Catalog to find and replace this spool.
   - Initial weight
   - Purchase date (if available)
 - If **zero candidates** are found:
-  - Display a message: *"No sealed spools of this filament found in inventory."*
-  - Offer: **"Open Spoolman to add one"** (link to Spoolman) and **"Cancel"**
+  - Display a warning banner: *"No sealed spools of this filament found in inventory. Add a sealed spool in Spoolman, then re-open this wizard."*
+  - The **"Continue to Step 3"** button is disabled (grayed out, `pointer-events: none`, label changes to *"No Candidates"*, icon changes to `mdi:block-helper`).
+  - Only **"Cancel"** remains active.
+  - This prevents the user from advancing through Steps 3–4 with an invalid target spool.
 
 **Implementation approach — Candidate Discovery:**
 

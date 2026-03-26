@@ -22,6 +22,9 @@ spool_replace_wizard_step2:
     custom_fields:
       header:
         - padding: 0
+        - text-align: left
+        - justify-self: start
+        - width: 100%
       picker:
         - padding: 4px 0
       nav:
@@ -42,9 +45,9 @@ spool_replace_wizard_step2:
           ? '<img src="' + entityPicture + '" style="width:24px;height:24px;border-radius:50%;border:2px solid ' + colorHex + ';vertical-align:middle;margin-right:6px;object-fit:cover;">'
           : '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colorHex + ';vertical-align:middle;margin-right:6px;border:1px solid var(--divider-color);"></span>';
 
-        return '<div style="text-align:left;">'
-          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-          + '<ha-icon icon="mdi:swap-horizontal" style="color:var(--info-color);--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+        return '<div style="text-align:left;width:100%;">'
+          + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">'
+          + '<ha-icon icon="mdi:swap-horizontal" style="color:var(--info-color);--mdc-icon-size:20px;flex-shrink:0;"></ha-icon>'
           + '<div>'
           + '<div style="font-weight:600;">Select a replacement spool</div>'
           + '<div style="font-size:0.9em;color:var(--secondary-text-color);">Showing sealed spools of ' + subtitle + '</div>'
@@ -63,75 +66,124 @@ spool_replace_wizard_step2:
             name: Replacement Spool
     nav:
       card:
-        type: horizontal-stack
+        type: vertical-stack
         cards:
-          - type: custom:button-card
-            name: Continue to Step 3
-            icon: mdi:arrow-right
-            tap_action:
-              action: fire-dom-event
-              browser_mod:
-                service: browser_mod.sequence
-                data:
-                  sequence:
-                    - service: script.spool_replace_sync_target_from_picker
-                    - service: browser_mod.close_popup
-                    - service: browser_mod.delay
-                      data:
-                        time: 500
-                    - service: browser_mod.popup
-                      data:
-                        title: "♻ Replace Spool — Step 3 of 4"
-                        size: normal
-                        content:
-                          type: custom:button-card
-                          template: spool_replace_wizard_step3
-                          tap_action:
-                            action: none
-            styles:
-              grid:
-                - grid-template-areas: '"i" "n"'
-                - grid-template-rows: min-content min-content
-                - justify-items: center
-                - align-items: center
-              card:
-                - background: "var(--primary-color)"
-                - box-shadow: none
-                - border-radius: 6px
-                - padding: 6px
-              name:
-                - color: white
-                - font-weight: 500
-                - font-size: 12px
-              icon:
-                - color: white
-                - width: 20px
-                - height: 20px
-                - margin-bottom: 2px
-          - type: custom:button-card
-            name: Cancel
-            icon: mdi:close
-            tap_action:
-              action: fire-dom-event
-              browser_mod:
-                service: browser_mod.close_popup
-            styles:
-              grid:
-                - grid-template-areas: '"i" "n"'
-                - grid-template-rows: min-content min-content
-                - justify-items: center
-                - align-items: center
-              card:
-                - background: "var(--primary-color)"
-                - box-shadow: none
-                - border-radius: 6px
-                - padding: 6px
-              name:
-                - color: white
-                - font-weight: 500
-                - font-size: 12px
-              icon:
-                - color: white
-                - width: 20px
-                - height: 20px
-                - margin-bottom: 2px
+          # Informational banner when no sealed candidates exist
+          - type: conditional
+            conditions:
+              - entity: input_select.spool_replace_target_picker
+                state: "No sealed spools found"
+            card:
+              type: markdown
+              content: >-
+                ⚠️ **No sealed spools of this filament found in inventory.**
+
+                Add a sealed spool in Spoolman, then re-open this wizard.
+              card_mod:
+                style: |
+                  ha-card {
+                    background: var(--warning-color, #ff9800);
+                    color: var(--primary-text-color);
+                    border-radius: 8px;
+                    padding: 0;
+                    box-shadow: none;
+                    font-size: 0.9em;
+                  }
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                name: Cancel
+                icon: mdi:close
+                tap_action:
+                  action: fire-dom-event
+                  browser_mod:
+                    service: browser_mod.close_popup
+                styles:
+                  grid:
+                    - grid-template-areas: '"i" "n"'
+                    - grid-template-rows: min-content min-content
+                    - justify-items: center
+                    - align-items: center
+                  card:
+                    - background: "var(--primary-color)"
+                    - box-shadow: none
+                    - border-radius: 6px
+                    - padding: 6px
+                  name:
+                    - color: white
+                    - font-weight: 500
+                    - font-size: 12px
+                  icon:
+                    - color: white
+                    - width: 20px
+                    - height: 20px
+                    - margin-bottom: 2px
+              - type: custom:button-card
+                name: |
+                  [[[
+                    const picker = states['input_select.spool_replace_target_picker']?.state;
+                    return (picker === 'No sealed spools found') ? 'No Candidates' : 'Continue to Step 3';
+                  ]]]
+                icon: |
+                  [[[
+                    const picker = states['input_select.spool_replace_target_picker']?.state;
+                    return (picker === 'No sealed spools found') ? 'mdi:block-helper' : 'mdi:arrow-right';
+                  ]]]
+                tap_action:
+                  action: |
+                    [[[
+                      const picker = states['input_select.spool_replace_target_picker']?.state;
+                      return (picker === 'No sealed spools found') ? 'none' : 'fire-dom-event';
+                    ]]]
+                  browser_mod:
+                    service: browser_mod.sequence
+                    data:
+                      sequence:
+                        - service: script.spool_replace_sync_target_from_picker
+                        - service: browser_mod.close_popup
+                        - service: browser_mod.delay
+                          data:
+                            time: 500
+                        - service: browser_mod.popup
+                          data:
+                            title: "♻ Replace Spool — Step 3 of 4"
+                            size: normal
+                            content:
+                              type: custom:button-card
+                              template: spool_replace_wizard_step3
+                              tap_action:
+                                action: none
+                styles:
+                  grid:
+                    - grid-template-areas: '"i" "n"'
+                    - grid-template-rows: min-content min-content
+                    - justify-items: center
+                    - align-items: center
+                  card:
+                    - background: |
+                        [[[
+                          const picker = states['input_select.spool_replace_target_picker']?.state;
+                          return (picker === 'No sealed spools found') ? 'var(--disabled-color, #999)' : 'var(--primary-color)';
+                        ]]]
+                    - box-shadow: none
+                    - border-radius: 6px
+                    - padding: 6px
+                    - opacity: |
+                        [[[
+                          const picker = states['input_select.spool_replace_target_picker']?.state;
+                          return (picker === 'No sealed spools found') ? '0.5' : '1';
+                        ]]]
+                    - pointer-events: |
+                        [[[
+                          const picker = states['input_select.spool_replace_target_picker']?.state;
+                          return (picker === 'No sealed spools found') ? 'none' : 'auto';
+                        ]]]
+                  name:
+                    - color: white
+                    - font-weight: 500
+                    - font-size: 12px
+                  icon:
+                    - color: white
+                    - width: 20px
+                    - height: 20px
+                    - margin-bottom: 2px

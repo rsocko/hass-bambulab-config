@@ -212,9 +212,12 @@ If you don't have the test spools already, create them in Spoolman:
 | 1 | Pick a spool whose filament has NO sealed spools (or temporarily unseal all) | Ready |
 | 2 | Navigate to Step 2 | Step 2 opens |
 | 3 | Verify picker dropdown | Shows "No sealed spools found" as only option |
-| 4 | Click **"Continue to Step 3"** | Behavior should handle gracefully (target_spool_id = "0") |
+| 4 | Verify warning banner | Yellow/orange banner appears: "No sealed spools of this filament found in inventory. Add a sealed spool in Spoolman, then re-open this wizard." |
+| 5 | Verify Continue button | Button shows "No Candidates" with block icon, grayed out and non-clickable |
+| 6 | Click the disabled Continue button | Nothing happens — button does not fire any action |
+| 7 | Click **Cancel** | Popup closes normally |
 
-> **Note:** The wizard should ideally prevent proceeding when no valid candidate is selected. If it proceeds with ID "0", the execute script will catch this with its validation guard and show a persistent_notification error.
+> **Guard behavior:** The Continue button is disabled via `pointer-events: none` and visual dimming when the picker state is `"No sealed spools found"`. The user cannot advance to Step 3 without a valid candidate selected.
 
 **Result:** [X] Pass / [ ] Fail  
 **Notes:** ___

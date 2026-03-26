@@ -22,6 +22,9 @@ spool_replace_wizard_step3:
     custom_fields:
       header:
         - padding: 0
+        - text-align: left
+        - justify-self: start
+        - width: 100%
       options:
         - padding: 4px 0
       nav:
@@ -39,50 +42,118 @@ spool_replace_wizard_step3:
         const tgtColor = '#' + (tgtEntity?.attributes?.filament_color_hex || '888888').replace('#', '');
         const srcPic = srcEntity?.attributes?.entity_picture || '';
         const tgtPic = tgtEntity?.attributes?.entity_picture || '';
+        const srcLocation = srcEntity?.attributes?.location || 'Unknown';
+        const tgtLocation = tgtEntity?.attributes?.location || 'Unknown';
         const mkImg = function(pic, color) {
           return pic
             ? '<img src="' + pic + '" style="width:24px;height:24px;border-radius:50%;border:2px solid ' + color + ';flex-shrink:0;object-fit:cover;">'
             : '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + color + ';border:1px solid var(--divider-color);flex-shrink:0;"></span>';
         };
 
-        return '<div style="text-align:left;">'
-          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
-          + '<ha-icon icon="mdi:cog-transfer" style="color:var(--warning-color);--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+        return '<div style="text-align:left;width:100%;">'
+          + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:12px;">'
+          + '<ha-icon icon="mdi:cog-transfer" style="color:var(--warning-color);--mdc-icon-size:20px;flex-shrink:0;"></ha-icon>'
           + '<div>'
           + '<div style="font-weight:600;">Configure Transfer Options</div>'
           + '<div style="font-size:0.9em;color:var(--secondary-text-color);">Choose what to copy from the old spool to the new one.</div>'
           + '</div></div>'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;">'
           + mkImg(srcPic, srcColor)
-          + '<span>' + srcName + ' #' + srcId + '</span>'
+          + '<div><div>' + srcName + ' #' + srcId + '</div><div style="font-size:0.85em;color:var(--secondary-text-color);">📍 ' + srcLocation + '</div></div>'
           + '<ha-icon icon="mdi:arrow-right" style="--mdc-icon-size:18px;color:var(--secondary-text-color);flex-shrink:0;"></ha-icon>'
           + mkImg(tgtPic, tgtColor)
-          + '<span>' + tgtName + ' #' + tgtId + '</span>'
+          + '<div><div>' + tgtName + ' #' + tgtId + '</div><div style="font-size:0.85em;color:var(--secondary-text-color);">📍 ' + tgtLocation + '</div></div>'
           + '</div>'
           + '</div>';
       ]]]
     options:
       card:
-        type: entities
-        entities:
-          - entity: input_boolean.spool_replace_copy_spool_type
-            name: Copy Spool Type
-          - entity: input_boolean.spool_replace_copy_clip_type
-            name: Copy Clip Type
-          - entity: input_select.spool_replace_desiccant_mode
-            name: Desiccant Fill Date
-          - entity: input_boolean.spool_replace_copy_desiccant_present
-            name: Copy Desiccant Present
-          - entity: input_boolean.spool_replace_copy_location
-            name: Copy Location
-          - entity: input_boolean.spool_replace_mark_used
+        type: vertical-stack
+        cards:
+          - type: custom:button-card
+            template: checkbox_row
+            entity: input_boolean.spool_replace_copy_spool_type
+            name: |
+              [[[
+                const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                const e = states['sensor.spoolman_spool_' + srcId];
+                const val = e?.attributes?.extra_spool_type || '(not set)';
+                return 'Copy Spool Type: ' + val;
+              ]]]
+          - type: custom:button-card
+            template: checkbox_row
+            entity: input_boolean.spool_replace_copy_clip_type
+            name: |
+              [[[
+                const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                const e = states['sensor.spoolman_spool_' + srcId];
+                const val = e?.attributes?.extra_clip_type || '(not set)';
+                return 'Copy Clip Type: ' + val;
+              ]]]
+          - type: entities
+            entities:
+              - entity: input_select.spool_replace_desiccant_mode
+                name: Desiccant Fill Date
+          - type: custom:button-card
+            template: checkbox_row
+            entity: input_boolean.spool_replace_copy_desiccant_present
+            name: |
+              [[[
+                const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                const e = states['sensor.spoolman_spool_' + srcId];
+                const raw = e?.attributes?.extra_desiccant_in_spool;
+                const val = (raw === 'true' || raw === true || raw === 'yes') ? 'Yes' : 'No';
+                return 'Copy Desiccant Present: ' + val;
+              ]]]
+          - type: custom:button-card
+            template: checkbox_row
+            entity: input_boolean.spool_replace_copy_location
+            name: |
+              [[[
+                const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                const e = states['sensor.spoolman_spool_' + srcId];
+                const val = e?.attributes?.location || '(not set)';
+                return 'Copy Location: ' + val;
+              ]]]
+          - type: custom:button-card
+            template: checkbox_row
+            entity: input_boolean.spool_replace_mark_used
             name: Mark as Used Now
-          - entity: input_boolean.spool_replace_archive_source
+          - type: custom:button-card
+            template: checkbox_row
+            entity: input_boolean.spool_replace_archive_source
             name: Archive Empty Spool
     nav:
       card:
         type: horizontal-stack
         cards:
+          - type: custom:button-card
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
           - type: custom:button-card
             name: Review & Execute
             icon: mdi:arrow-right
@@ -105,33 +176,6 @@ spool_replace_wizard_step3:
                           template: spool_replace_wizard_step4
                           tap_action:
                             action: none
-            styles:
-              grid:
-                - grid-template-areas: '"i" "n"'
-                - grid-template-rows: min-content min-content
-                - justify-items: center
-                - align-items: center
-              card:
-                - background: "var(--primary-color)"
-                - box-shadow: none
-                - border-radius: 6px
-                - padding: 6px
-              name:
-                - color: white
-                - font-weight: 500
-                - font-size: 12px
-              icon:
-                - color: white
-                - width: 20px
-                - height: 20px
-                - margin-bottom: 2px
-          - type: custom:button-card
-            name: Cancel
-            icon: mdi:close
-            tap_action:
-              action: fire-dom-event
-              browser_mod:
-                service: browser_mod.close_popup
             styles:
               grid:
                 - grid-template-areas: '"i" "n"'
