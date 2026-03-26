@@ -47,6 +47,7 @@ cards:
             {% elif s == 'success_awaiting_rfid' %}mdi:contactless-payment-circle-outline
             {% elif s == 'needs_tray_selection' %}mdi:alert-circle
             {% elif s in ['failed', 'overwrite_required'] %}mdi:close-circle
+            {% elif s == 'skipped_bambu_rfid' %}mdi:contactless-payment-circle
             {% elif s == 'skipped' %}mdi:skip-next-circle
             {% elif s == 'deferred' %}mdi:clock-outline
             {% else %}mdi:information{% endif %}
@@ -56,6 +57,7 @@ cards:
             {% elif s == 'success_awaiting_rfid' %}amber
             {% elif s == 'needs_tray_selection' %}orange
             {% elif s in ['failed', 'overwrite_required'] %}red
+            {% elif s == 'skipped_bambu_rfid' %}blue
             {% elif s == 'skipped' %}blue
             {% elif s == 'deferred' %}amber
             {% else %}grey{% endif %}
@@ -73,6 +75,7 @@ cards:
             {% elif s == 'needs_tray_selection' %}Tray selection needed — re-scan spool to retry
             {% elif s == 'failed' %}{{ msg[:100] }}
             {% elif s == 'overwrite_required' %}⚠ Overwrite needed — use Update Tray Settings
+            {% elif s == 'skipped_bambu_rfid' %}✓ RFID spool — AMS auto-configures
             {% elif s == 'skipped' %}{{ msg[:100] }}
             {% elif s == 'deferred' %}{{ msg[:100] }}
             {% else %}{{ msg[:100] }}{% endif %}

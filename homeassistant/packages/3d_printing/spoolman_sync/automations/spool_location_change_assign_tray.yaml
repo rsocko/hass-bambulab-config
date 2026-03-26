@@ -108,6 +108,17 @@
                   No tray assignment needed.
                 entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
                 domain: automation
+            - event: spoolman_tray_assignment_result
+              event_data:
+                status: skipped_bambu_rfid
+                message: >-
+                  Bambu Lab spool {{ spool_id }} moved to {{ to_location }} —
+                  AMS will auto-configure via RFID reader.
+                spool_entity_id: "{{ spool_entity_id }}"
+                tray_entity_id: ""
+                tray_info_idx: ""
+                tray_type: ""
+                tray_color: ""
             - stop: Bambu RFID spool in AMS — RFID reader is authoritative
 
     - choose:

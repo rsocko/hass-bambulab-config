@@ -309,6 +309,18 @@ Pick at least 3 spools:
 1. Assign a non-Bambu spool (no UUID, e.g., spool 16 or 133) to an AMS tray.
 2. **Expected**: Status = `success` (not `success_awaiting_rfid`) — RFID pending only applies when spool has a UUID.
 
+#### T27 — Rescan clears RFID pending chip
+
+1. Prerequisite: Status chip shows `success_awaiting_rfid` (e.g., after T21).
+2. Tap the RFID warning card in the popup to trigger `script.rescan_assigned_tray_rfid`.
+3. Wait ~6 seconds for the physical RFID re-scan + delay.
+4. **Expected**: `sensor.last_tray_assignment_result` transitions to `success` with message containing "RFID confirmed after re-scan". Chip turns green then fades (normal success behavior).
+
+#### T28 — Bambu spool → AMS location shows `skipped_bambu_rfid` chip
+
+1. In Spoolman, change a Bambu Lab spool's location to "AMS" (or "AMS 2").
+2. **Expected**: Status chip appears with status `skipped_bambu_rfid`, blue icon (`mdi:contactless-payment-circle`), and content "✓ RFID spool — AMS auto-configures". No tray picker, no pending assignment.
+
 ---
 
 ---
@@ -348,7 +360,7 @@ Pick at least 3 spools:
 |------|-------------|--------|-------|
 | T21 | RFID pending chip after Bambu spool force write | **PASS** | Spool 19 → T2, `force_write: true` → status `success_awaiting_rfid`, amber chip with "RFID pending · AMS 1 T2" |
 | T22 | Popup shows spool + tray context | **PASS** | Primary: "Bambu Lab White - Support PLA-S (PLA for Support) → AMS 1 Tray 2", secondary: "RFID not confirmed — tap to re-scan tray", wraps correctly |
-| T23 | Tap triggers `bambu_lab.read_rfid` | **IN PROGRESS** | `bambu_lab.read_rfid` confirmed working via API (tray re-scanned, changed to Empty). Popup tap action switched to wrapper script `rescan_assigned_tray_rfid`. Pending re-test with deployed wrapper. |
+| T23 | Tap triggers `bambu_lab.read_rfid` | **PASS** | Wrapper script `rescan_assigned_tray_rfid` deployed; popup tap triggers physical AMS re-scan via `bambu_lab.read_rfid`. Confirmed tray data updates after tap. |
 | T24 | RFID card hidden for non-RFID statuses | **PASS** | Conditional card only shows for `success_awaiting_rfid` |
 | T25 | `force_write` bypasses RFID skip | **PASS** | `force_write: false` → `skipped`; `force_write: true` → `success_awaiting_rfid` |
 | T26 | Non-Bambu spool → `success` not RFID pending | **PASS** | Spool 16 (Sunlu, no UUID) → T3 → status `success` |
@@ -373,7 +385,7 @@ Pick at least 3 spools:
 
 Phase 3 is validated when:
 
-- **All T1–T26 pass** with expected UI behavior and state changes
+- **All T1–T28 pass** with expected UI behavior and state changes
 - No YAML parsing errors in HA logs for the modified dashboard files
 - No JavaScript console errors in the browser during popup/view rendering
 - The Phase 2 automated flow (T17, T18) still works end-to-end with the new UI enhancements
