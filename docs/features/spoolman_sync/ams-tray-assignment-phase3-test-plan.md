@@ -321,6 +321,67 @@ Pick at least 3 spools:
 1. In Spoolman, change a Bambu Lab spool's location to "AMS" (or "AMS 2").
 2. **Expected**: Status chip appears with status `skipped_bambu_rfid`, blue icon (`mdi:contactless-payment-circle`), and content "✓ RFID spool — AMS auto-configures". No tray picker, no pending assignment.
 
+### Section F: Status-Aware Popup & Retry
+
+#### T29 — Popup title is static "Tray Assignment"
+
+1. Tap the status chip for any status.
+2. **Expected**: Popup title shows "Tray Assignment" (not raw Jinja).
+
+#### T30 — Deferred popup shows spool → tray with retry action
+
+1. Trigger a deferred assignment (assign spool while printer is busy).
+2. Tap the status chip to open popup.
+3. **Expected**:
+   - Deferred card shows: spool friendly name → AMS N Tray N
+   - Secondary: "Printer was busy — tap to retry assignment"
+   - Icon: `mdi:refresh`, amber
+   - No tray picker grid visible
+
+#### T31 — Tap deferred card retries assignment
+
+1. With status = `deferred` and printer now idle, tap the deferred card.
+2. **Expected**:
+   - `script.retry_deferred_tray_assignment` runs
+   - It reads spool/tray from sensor attributes and calls `assign_spool_to_printer_tray` with `force_write: true`
+   - Status transitions from `deferred` to `success` (or `success_awaiting_rfid` for Bambu spools)
+
+#### T32 — Failed popup shows error details, no tray picker
+
+1. Trigger a failed assignment (e.g., spool with missing material).
+2. Tap the status chip.
+3. **Expected**:
+   - Failed card shows spool name + error message
+   - Icon: `mdi:close-circle`, red
+   - No tray picker grid visible
+
+#### T33 — Success popup shows result details, no tray picker
+
+1. Trigger a successful assignment.
+2. Tap the status chip.
+3. **Expected**:
+   - Success card shows spool name → tray label + success message
+   - Icon: `mdi:check-circle`, green
+   - No tray picker grid visible
+
+#### T34 — `skipped_bambu_rfid` popup shows RFID info, no tray picker
+
+1. Trigger a `skipped_bambu_rfid` status (Bambu spool location → AMS).
+2. Tap the status chip.
+3. **Expected**:
+   - Card shows spool name + "AMS will auto-configure this tray via RFID reader. No manual assignment needed."
+   - Icon: `mdi:contactless-payment-circle`, blue
+   - No tray picker grid visible
+
+#### T35 — Tray picker only visible for `needs_tray_selection`
+
+1. Set status to `needs_tray_selection` with a pending spool.
+2. Tap the status chip.
+3. **Expected**: Spool info card + AMS 1 / AMS 2 tray grids are visible.
+4. Change status to any other value (e.g., `deferred`).
+5. Reopen popup.
+6. **Expected**: No tray picker grid visible.
+
 ---
 
 ---
@@ -372,6 +433,24 @@ Pick at least 3 spools:
 | T5 | Chip hidden for Bambu UUID-matched spool | **PASS** | T1/T3/T4 all `match_strategy: uuid` → `canUpdateTraySettings` requires `manual_pin`, so chip correctly absent. Verified via template logic + tray_map state. |
 | T13 | Status chip deferred while printing | **PASS** | Spool 16 → T3, `force_write: true` while printer `running` → status `deferred`, message "Printer is actively printing; assignment deferred." |
 
+### Status-Aware Popup & Retry Tests — 2026-03-26
+
+| Test | Description | Result | Notes |
+|------|-------------|--------|-------|
+| T29 | Popup title is static "Tray Assignment" | **PASS** | User confirmed — no raw Jinja in title |
+| T30 | Deferred popup: spool → tray + retry action | **PASS** | Template eval: "Sunlu Grey PLA+ 2.0 → AMS 1 Tray 3", secondary "Printer was busy — tap to retry assignment", icon `mdi:refresh` amber |
+| T31 | Tap deferred card retries assignment | **DEFERRED** | Requires idle printer |
+| T32 | Failed popup: error details, no tray picker | **PASS** | Template eval: catch-all card renders spool name + error message, `mdi:close-circle` red |
+| T33 | Success popup: result details, no tray picker | **PASS** | Template eval: "spool name → AMS N Tray N" + message, `mdi:check-circle` green, no picker visible |
+| T34 | `skipped_bambu_rfid` popup: RFID info, no picker | **PASS** | Template eval: spool name + "AMS will auto-configure this tray via RFID reader. No manual assignment needed.", `mdi:contactless-payment-circle` blue |
+| T35 | Tray picker only for `needs_tray_selection` | **PASS** | Conditional logic verified: all 8 statuses map to exactly 1 card each; tray picker grid ONLY visible for `needs_tray_selection` |
+
+### Skipped / Bambu RFID Chip Test — 2026-03-26
+
+| Test | Description | Result | Notes |
+|------|-------------|--------|-------|
+| T12 | Skipped status chip | **PASS** | Spool 19 (Bambu) → T3 via script (no force_write) → `skipped`, chip: blue `mdi:skip-next-circle`, message "Bambu RFID spool in AMS detected; skipping automatic set_filament." |
+
 ### Deferred Tests (require printer idle or specific spool conditions)
 
 | Test | Description | Reason Deferred |
@@ -384,6 +463,9 @@ Pick at least 3 spools:
 | T18 | End-to-end: NFC scan → filament tag → AMS button → auto-assign | Requires NFC tag scan + exactly 1 empty tray + idle printer. |
 | T19 | Success notification content validation | Need a successful `set_filament` (idle printer) to verify notification title/message/id. |
 | T20 | Repeated assignment replaces previous notification | Need two successful assignments for same spool. |
+| T27 | Rescan clears RFID pending chip → status `success` | Need `success_awaiting_rfid` + idle printer + physical RFID re-scan (45s delay). |
+| T28 | Bambu spool → AMS location shows `skipped_bambu_rfid` chip | Need Spoolman webhook trigger (Bambu spool location change to AMS). |
+| T31 | Tap deferred card retries and succeeds | Need `deferred` status + idle printer to verify `retry_deferred_tray_assignment` completes. |
 
 ---
 
@@ -391,13 +473,13 @@ Pick at least 3 spools:
 
 Phase 3 is validated when:
 
-- **All T1–T28 pass** with expected UI behavior and state changes
+- **All T1–T35 pass** with expected UI behavior and state changes
 - No YAML parsing errors in HA logs for the modified dashboard files
 - No JavaScript console errors in the browser during popup/view rendering
 - The Phase 2 automated flow (T17, T18) still works end-to-end with the new UI enhancements
 - The `conditional` card correctly shows/hides the status chip and tray picker based on entity states
 
-> **Current status**: All backend + UI rendering + interactive tests pass. Deferred tests require an idle printer to validate the full `set_filament` write path.
+> **Current status**: 34/35 tests PASS (T1-T35 + T-B1-6 + T-U1-4 + T-I1/I2). T31 deferred (needs idle printer for retry tap). Deferred printer-idle tests: T4, T6, T-I1b, T16-T20, T27, T28.
 
 ## Troubleshooting Checks
 
