@@ -98,15 +98,17 @@ cards:
                           {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
                           {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
                           {{ spool_name }} → {{ tray_label }}
-                        secondary: RFID not confirmed yet — tap to refresh
+                        secondary: >-
+                          RFID not confirmed — tap to re-scan tray
                         icon: mdi:contactless-payment-circle-outline
                         icon_color: amber
                         layout: horizontal
                         tap_action:
                           action: call-service
-                          service: button.press
+                          service: bambu_lab.read_rfid
                           service_data:
-                            entity_id: button.ntk_ryansoffice_3dprinter_force_refresh_data
+                            entity_id: >-
+                              {{ state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') }}
                         card_mod:
                           style: |
                             ha-card {
