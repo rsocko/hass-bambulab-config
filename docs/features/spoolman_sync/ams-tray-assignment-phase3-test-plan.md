@@ -386,7 +386,7 @@ Pick at least 3 spools:
 
 ---
 
-## Test Results — 2026-03-25
+## Test Results — 2026-03-25 / 2026-03-26
 
 ### Backend Tests (via `script.test_fire_tray_assignment_event`)
 
@@ -425,6 +425,8 @@ Pick at least 3 spools:
 | T24 | RFID card hidden for non-RFID statuses | **PASS** | Conditional card only shows for `success_awaiting_rfid` |
 | T25 | `force_write` bypasses RFID skip | **PASS** | `force_write: false` → `skipped`; `force_write: true` → `success_awaiting_rfid` |
 | T26 | Non-Bambu spool → `success` not RFID pending | **PASS** | Spool 16 (Sunlu, no UUID) → T3 → status `success` |
+| T27 | Rescan clears RFID pending → `success` | **PASS** | Spool 19 → B3 with `force_write: true` → `success_awaiting_rfid` → rescan script → 45s delay → status `success`, message "RFID confirmed after re-scan" |
+| T28 | Bambu spool → AMS location → `skipped_bambu_rfid` | **PASS** | Changed `select.spoolman_spool_19_location` to "AMS" → automation fired → `skipped_bambu_rfid`, message "Bambu Lab spool 19 moved to AMS — AMS will auto-configure via RFID reader." |
 
 ### Deferred / Active-Print Tests — 2026-03-26
 
@@ -433,39 +435,36 @@ Pick at least 3 spools:
 | T5 | Chip hidden for Bambu UUID-matched spool | **PASS** | T1/T3/T4 all `match_strategy: uuid` → `canUpdateTraySettings` requires `manual_pin`, so chip correctly absent. Verified via template logic + tray_map state. |
 | T13 | Status chip deferred while printing | **PASS** | Spool 16 → T3, `force_write: true` while printer `running` → status `deferred`, message "Printer is actively printing; assignment deferred." |
 
+### Idle Printer Tests — 2026-03-26
+
+| Test | Description | Result | Notes |
+|------|-------------|--------|-------|
+| T4 | Non-Bambu spool → `set_filament` success | **PASS** | Spool 16 (Sunlu PLA+ Grey) → T3, `force_write: true`, printer `finish` → `success`. Tray updated: type=PLA, color=#636767FF, profile=GFL99. UUID zeroed (expected firmware behavior). |
+| T6 | Overwrite tray with different filament | **PASS** | T4 had Bambu PLA Yellow (#F4EE2AFF), overwritten with spool 16 grey (#636767FF) via `force_write: true` → tray data replaced, `success`. |
+| T12 | Skipped status chip | **PASS** | Spool 19 (Bambu) → T3 via script (no force_write) → `skipped`, chip: blue `mdi:skip-next-circle`. |
+| T16 | Tray picker → pending assignment → success | **PASS** | Set `input_text` to spool 133. `assign_pending_spool_to_tray` with T3 → delegated to main script → `overwrite_required` (tray had data, no force_write — correct guard behavior). Retried with `force_write: true` → `success` (PLA, E292FEFF). `input_text` cleared to `""`. |
+| T-I1b | Tray button for non-Bambu spool → success | **PASS** | Covered by T16 — spool 133 (Sunlu PLA Rainbow, non-Bambu) assigned via pending script → `set_filament` call succeeded. |
+| T19 | Success notification created | **PASS** | `sensor.persistent_notifications` count incremented from 15 → 16 at time of `set_filament` success. `notification_id: tray_assignment_success_16`. |
+| T20 | Repeated notification replaces previous | **PASS** | Second assignment for spool 16 (different tray) — notification count stayed at 16 (same `notification_id` replaced). |
+| T31 | Retry deferred → assignment succeeds | **PASS** | `retry_deferred_tray_assignment` read spool 19/B3 from sensor attributes → called `assign_spool_to_printer_tray` with `force_write: true` → `success_awaiting_rfid` (Bambu spool, idle printer). Script chain confirmed: retry → assign → resolve_params. |
+
 ### Status-Aware Popup & Retry Tests — 2026-03-26
 
 | Test | Description | Result | Notes |
 |------|-------------|--------|-------|
 | T29 | Popup title is static "Tray Assignment" | **PASS** | User confirmed — no raw Jinja in title |
 | T30 | Deferred popup: spool → tray + retry action | **PASS** | Template eval: "Sunlu Grey PLA+ 2.0 → AMS 1 Tray 3", secondary "Printer was busy — tap to retry assignment", icon `mdi:refresh` amber |
-| T31 | Tap deferred card retries assignment | **DEFERRED** | Requires idle printer |
 | T32 | Failed popup: error details, no tray picker | **PASS** | Template eval: catch-all card renders spool name + error message, `mdi:close-circle` red |
 | T33 | Success popup: result details, no tray picker | **PASS** | Template eval: "spool name → AMS N Tray N" + message, `mdi:check-circle` green, no picker visible |
 | T34 | `skipped_bambu_rfid` popup: RFID info, no picker | **PASS** | Template eval: spool name + "AMS will auto-configure this tray via RFID reader. No manual assignment needed.", `mdi:contactless-payment-circle` blue |
 | T35 | Tray picker only for `needs_tray_selection` | **PASS** | Conditional logic verified: all 8 statuses map to exactly 1 card each; tray picker grid ONLY visible for `needs_tray_selection` |
 
-### Skipped / Bambu RFID Chip Test — 2026-03-26
+### E2E Integration Tests — 2026-03-26
 
 | Test | Description | Result | Notes |
 |------|-------------|--------|-------|
-| T12 | Skipped status chip | **PASS** | Spool 19 (Bambu) → T3 via script (no force_write) → `skipped`, chip: blue `mdi:skip-next-circle`, message "Bambu RFID spool in AMS detected; skipping automatic set_filament." |
-
-### Deferred Tests (require printer idle or specific spool conditions)
-
-| Test | Description | Reason Deferred |
-|------|-------------|----------------|
-| T4 | Tap "Update Tray Settings" for non-Bambu pinned spool → full `set_filament` call succeeds | Printer was actively printing; `set_filament` blocked by deferred guard. Retest when printer is idle. |
-| T6 | Overwrite tray with different filament data via "Update Tray Settings" (pinned spool) | Requires idle printer + tray with pre-existing different filament info + manual pin. |
-| T-I1b | Tray button in popup for non-Bambu spool → full `set_filament` success | Tested with Bambu spool (correctly skipped). Need non-Bambu spool + idle printer to verify end-to-end write. |
-| T16 | Tap tray button in popup to complete pending assignment → success flow | Equivalent to T-I1b. Verify `input_text` clears, picker hides, status chip updates to success. |
-| T17 | End-to-end: Location change → inference failure → tray picker → success | Requires Spoolman location change trigger + multiple empty trays + idle printer. |
-| T18 | End-to-end: NFC scan → filament tag → AMS button → auto-assign | Requires NFC tag scan + exactly 1 empty tray + idle printer. |
-| T19 | Success notification content validation | Need a successful `set_filament` (idle printer) to verify notification title/message/id. |
-| T20 | Repeated assignment replaces previous notification | Need two successful assignments for same spool. |
-| T27 | Rescan clears RFID pending chip → status `success` | Need `success_awaiting_rfid` + idle printer + physical RFID re-scan (45s delay). |
-| T28 | Bambu spool → AMS location shows `skipped_bambu_rfid` chip | Need Spoolman webhook trigger (Bambu spool location change to AMS). |
-| T31 | Tap deferred card retries and succeeds | Need `deferred` status + idle printer to verify `retry_deferred_tray_assignment` completes. |
+| T17 | E2E: Location → inference failure → picker → success | **PASS** | Spool 16 location → "AMS 2" (0 empty trays) → `needs_tray_selection`, `input_text`=16, chip orange "Tap to select tray". Tapped T3 → `assign_pending_spool_to_tray` → `success` (PLA/636767FF/GFL99). `input_text` cleared. |
+| T18 | E2E: Location → single empty tray → auto-assign | **PASS** | Physical spool removed from T3 → 1 empty tray. Spool 16 location → "AMS" → automation inferred T3 → `set_filament` → `success`. |
 
 ---
 
@@ -479,7 +478,7 @@ Phase 3 is validated when:
 - The Phase 2 automated flow (T17, T18) still works end-to-end with the new UI enhancements
 - The `conditional` card correctly shows/hides the status chip and tray picker based on entity states
 
-> **Current status**: 34/35 tests PASS (T1-T35 + T-B1-6 + T-U1-4 + T-I1/I2). T31 deferred (needs idle printer for retry tap). Deferred printer-idle tests: T4, T6, T-I1b, T16-T20, T27, T28.
+> **Current status (2026-03-26)**: **47/47 tests PASS**. All T1–T35, T-B1–6, T-U1–4, T-I1, T-I1b, T-I2 pass. Phase 1–3 is fully validated.
 
 ## Troubleshooting Checks
 
