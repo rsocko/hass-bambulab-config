@@ -1,6 +1,6 @@
 # Spool Replace / Refill Workflow — Design Document
 
-> **Status:** Draft  
+> **Status:** Phase 1 Complete (2026-03-26) · Phases 2–5 Pending  
 > **Package:** `spoolman_sync`  
 > **Related Packages:** `filament_catalog`, `filament_tag`, `core`  
 > **Entry Points:** Spool Popup (catalog), AMS Tray Popup (view_main)
@@ -458,6 +458,8 @@ Added to the existing action button row in `catalog_spool_popup.yaml`:
 ```
 
 The **Replace / Refill Spool** button launches the wizard directly (Step 1).
+
+> **⚠ bubble-card `button_action` requirement:** When using `custom:bubble-card` with `button_type: 'name'`, the `tap_action` only fires when the **icon** is clicked. To make the **entire button** (icon + name label) clickable, the same action must also be set on `button_action.tap_action`. This applies to all bubble-card action buttons across all popups (catalog spool popup, AMS tray popup, filament tag view). See [bubble-card docs](https://github.com/Clooos/Bubble-Card) for details.
 
 In the same popup KPI row, a new **Qty to Order** control is added to the right of **Total (all spools)**:
 

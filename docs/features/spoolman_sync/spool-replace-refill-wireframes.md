@@ -234,47 +234,48 @@
 
 ## Implementation Checklist
 
-### Phase 1: Core Replace Flow
+### Phase 1: Core Replace Flow ✅ COMPLETE (2026-03-26)
 
-- [ ] **Helpers**
-  - [ ] Create `input_text.spool_replace_source_spool_id`
-  - [ ] Create `input_text.spool_replace_target_spool_id`
-  - [ ] Create `input_boolean.spool_replace_copy_spool_type` (default ON)
-  - [ ] Create `input_boolean.spool_replace_copy_clip_type` (default ON)
-  - [ ] Create `input_boolean.spool_replace_copy_desiccant_present` (default ON)
-  - [ ] Create `input_boolean.spool_replace_copy_location` (default ON)
-  - [ ] Create `input_boolean.spool_replace_mark_used` (default OFF)
-  - [ ] Create `input_boolean.spool_replace_archive_source` (default ON)
-  - [ ] Create `input_select.spool_replace_desiccant_mode` (3 options)
-  - [ ] Create `input_select.spool_replace_target_picker`
+- [x] **Helpers**
+  - [x] Create `input_text.spool_replace_source_spool_id`
+  - [x] Create `input_text.spool_replace_target_spool_id`
+  - [x] Create `input_boolean.spool_replace_copy_spool_type` (default ON)
+  - [x] Create `input_boolean.spool_replace_copy_clip_type` (default ON)
+  - [x] Create `input_boolean.spool_replace_copy_desiccant_present` (default ON)
+  - [x] Create `input_boolean.spool_replace_copy_location` (default ON)
+  - [x] Create `input_boolean.spool_replace_mark_used` (default OFF)
+  - [x] Create `input_boolean.spool_replace_archive_source` (default ON)
+  - [x] Create `input_select.spool_replace_desiccant_mode` (3 options)
+  - [x] Create `input_select.spool_replace_target_picker`
 
 - [x] **Archive Support**
   - [x] ~~Create `rest_command.spoolman_archive_spool`~~ — Not needed; `spoolman.patch_spool` with `archived: true` confirmed working
   - [x] ~~Test `spoolman.patch_spool` with `archived: true`~~ — Confirmed via source review (Spoolman API + HA integration `services.yaml` + `__init__.py`)
 
-- [ ] **Scripts**
-  - [ ] Create `script.spool_replace_populate_candidates`
-  - [ ] Create `script.spool_replace_execute` (read-merge-write pattern for extra fields — see design doc §7.4)
-  - [ ] Add logbook + system_log entries
+- [x] **Scripts**
+  - [x] Create `script.spool_replace_populate_candidates`
+  - [x] Create `script.spool_replace_execute` (read-merge-write pattern for extra fields — see design doc §7.4)
+  - [x] Create `script.spool_replace_sync_target_from_picker` (extracts spool ID from picker selection)
+  - [x] Add logbook + system_log entries
 
-- [ ] **Dashboard — Spool Popup**
-  - [ ] Add "Replace / Refill Spool" button as the left-most action in `catalog_spool_popup.yaml`
+- [x] **Dashboard — Spool Popup**
+  - [x] Add "Replace / Refill Spool" button as the left-most action in `catalog_spool_popup.yaml`
   - [x] Add "Qty to Order" stacked KPI card to `catalog_spool_popup.yaml` (to the right of `Total (all spools)`)
   - [x] Add `+` / `-` qty adjust buttons in the stacked card, with `-` disabled at `0`
-  - [ ] Remove bottom-row "Location" button in `catalog_spool_popup.yaml` (location control remains in the Change Location row)
-  - [ ] Implement Step 1 popup (validate empty spool)
-  - [ ] Implement Step 2 popup (select replacement)
-  - [ ] Implement Step 3 popup (configure transfer options)
-  - [ ] Implement Step 4 popup (review & execute)
-  - [ ] Wire popup chain (close → delay → open next)
+  - [x] Remove bottom-row "Location" button in `catalog_spool_popup.yaml` (location control remains in the Change Location row)
+  - [x] Implement Step 1 popup (validate empty spool)
+  - [x] Implement Step 2 popup (select replacement)
+  - [x] Implement Step 3 popup (configure transfer options)
+  - [x] Implement Step 4 popup (review & execute)
+  - [x] Wire popup chain (close → delay → open next)
 
-- [ ] **Dashboard — AMS Tray Popup**
+- [x] **Dashboard — AMS Tray Popup**
   - [x] Add "Qty to Order" stacked KPI card to `ams_tray_popup.yaml` (to the right of `Total (all spools)`)
   - [x] Add `+` / `-` qty adjust buttons in the stacked card, with `-` disabled at `0`
 
 **Qty field fallback note:** If a spool does not yet have `extra_purchase_qty`, both popups render qty as `0` and allow `+` to initialize the field on first update.
 
-- [ ] **Testing**
+- [ ] **Testing** — See [spool-replace-refill-testing.md](spool-replace-refill-testing.md)
   - [ ] Test: spool at 0g → full flow → verify Spoolman state
   - [ ] Test: spool at >0g → warning shown → continue → weight reset
   - [ ] Test: spool at <0g → info shown → weight reset

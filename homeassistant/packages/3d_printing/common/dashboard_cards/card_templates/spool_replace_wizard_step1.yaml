@@ -47,6 +47,7 @@ spool_replace_wizard_step1:
         const location = srcEntity.attributes.location || 'N/A';
         const rawColor = (srcEntity.attributes.filament_color_hex || '888888').replace('#', '');
         const colorHex = '#' + rawColor;
+        const entityPicture = srcEntity.attributes.entity_picture || '';
 
         // --- Warning / info / ok banner ---
         let bannerHtml = '';
@@ -74,12 +75,20 @@ spool_replace_wizard_step1:
             + '</div></div>';
         }
 
+        const lum = ((parseInt(rawColor.substring(0,2),16)||128)*299 + (parseInt(rawColor.substring(2,4),16)||128)*587 + (parseInt(rawColor.substring(4,6),16)||128)*114) / 1000;
+        const iconColor = lum > 128 ? '#000' : '#fff';
+        const spoolImageHtml = entityPicture
+          ? '<img src="' + entityPicture + '" style="width:64px;height:64px;border-radius:50%;border:3px solid ' + colorHex + ';flex-shrink:0;object-fit:cover;">'
+          : '<span style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:' + colorHex + ';flex-shrink:0;border:3px solid var(--divider-color);"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:28px;color:' + iconColor + ';"></ha-icon></span>';
+
         return '<div style="text-align:left;">'
           + '<div style="font-size:1.1em;font-weight:600;">Source Spool:</div>'
-          + '<div style="margin-top:6px;padding:12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);">'
-          + '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:' + colorHex + ';vertical-align:middle;margin-right:8px;border:1px solid var(--divider-color);"></span>'
-          + '<strong>' + name + '</strong> #' + srcId + '<br>'
-          + '<span style="color:var(--secondary-text-color);font-size:0.9em;">📍 ' + location + ' · ' + weightText + ' remaining</span>'
+          + '<div style="margin-top:6px;padding:12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);display:flex;align-items:center;gap:12px;">'
+          + spoolImageHtml
+          + '<div>'
+          + '<div><strong>' + name + '</strong> #' + srcId + '</div>'
+          + '<div style="color:var(--secondary-text-color);font-size:0.9em;margin-top:2px;">📍 ' + location + ' · ' + weightText + ' remaining</div>'
+          + '</div>'
           + '</div>'
           + bannerHtml
           + '</div>';

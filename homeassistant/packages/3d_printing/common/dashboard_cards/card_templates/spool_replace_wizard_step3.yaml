@@ -37,6 +37,13 @@ spool_replace_wizard_step3:
         const tgtName = tgtEntity?.attributes?.friendly_name || 'Unknown';
         const srcColor = '#' + (srcEntity?.attributes?.filament_color_hex || '888888').replace('#', '');
         const tgtColor = '#' + (tgtEntity?.attributes?.filament_color_hex || '888888').replace('#', '');
+        const srcPic = srcEntity?.attributes?.entity_picture || '';
+        const tgtPic = tgtEntity?.attributes?.entity_picture || '';
+        const mkImg = function(pic, color) {
+          return pic
+            ? '<img src="' + pic + '" style="width:24px;height:24px;border-radius:50%;border:2px solid ' + color + ';flex-shrink:0;object-fit:cover;">'
+            : '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + color + ';border:1px solid var(--divider-color);flex-shrink:0;"></span>';
+        };
 
         return '<div style="text-align:left;">'
           + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
@@ -46,10 +53,10 @@ spool_replace_wizard_step3:
           + '<div style="font-size:0.9em;color:var(--secondary-text-color);">Choose what to copy from the old spool to the new one.</div>'
           + '</div></div>'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;">'
-          + '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + srcColor + ';border:1px solid var(--divider-color);flex-shrink:0;"></span>'
+          + mkImg(srcPic, srcColor)
           + '<span>' + srcName + ' #' + srcId + '</span>'
           + '<ha-icon icon="mdi:arrow-right" style="--mdc-icon-size:18px;color:var(--secondary-text-color);flex-shrink:0;"></ha-icon>'
-          + '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + tgtColor + ';border:1px solid var(--divider-color);flex-shrink:0;"></span>'
+          + mkImg(tgtPic, tgtColor)
           + '<span>' + tgtName + ' #' + tgtId + '</span>'
           + '</div>'
           + '</div>';
