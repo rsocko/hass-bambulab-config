@@ -21,11 +21,13 @@ rescan_assigned_tray_rfid:
 
     # Wait for the physical RFID read and MQTT update to propagate
     - delay:
-        seconds: 20
+        seconds: 45
 
     - variables:
         tray_uuid_after: >-
           {{ state_attr(tray_entity_id, 'tray_uuid') | default('', true) | string | trim }}
+
+    - variables:
         tray_has_uuid: >-
           {{ tray_uuid_after | lower not in ['', 'none', 'unknown', 'unavailable']
              and not (tray_uuid_after | lower | regex_match('^0+$')) }}
