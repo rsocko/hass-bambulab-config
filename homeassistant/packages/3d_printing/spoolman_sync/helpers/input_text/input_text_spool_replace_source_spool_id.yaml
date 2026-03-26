@@ -1,0 +1,5 @@
+spool_replace_source_spool_id:
+  name: Spool Replace — Source Spool ID
+  max: 10
+  initial: ""
+  icon: mdi:identifier

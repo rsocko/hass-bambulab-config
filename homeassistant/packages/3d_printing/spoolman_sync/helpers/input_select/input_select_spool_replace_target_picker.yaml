@@ -1,0 +1,6 @@
+spool_replace_target_picker:
+  name: Replacement Spool Picker
+  options:
+    - "No sealed spools found"
+  initial: "No sealed spools found"
+  icon: mdi:swap-horizontal

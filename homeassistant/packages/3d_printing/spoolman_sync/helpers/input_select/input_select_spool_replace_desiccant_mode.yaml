@@ -1,0 +1,8 @@
+spool_replace_desiccant_mode:
+  name: Desiccant Fill Date Mode
+  options:
+    - "Copy from old spool"
+    - "Reset to today"
+    - "Skip"
+  initial: "Reset to today"
+  icon: mdi:water-sync

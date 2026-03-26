@@ -1,0 +1,133 @@
+# spool_replace_wizard_step2.yaml
+# Step 2: Select Replacement Spool
+# Shows source spool summary, sealed candidate picker dropdown.
+# Candidates are pre-populated by script.spool_replace_populate_candidates.
+# Nav: Continue (syncs target ID) → Step 3, Cancel.
+#
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_replace_wizard_step2:
+  show_icon: false
+  show_name: false
+  show_state: false
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+    grid:
+      - grid-template-areas: '"header" "picker" "nav"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto auto auto
+    custom_fields:
+      header:
+        - padding: 0
+      picker:
+        - padding: 4px 0
+      nav:
+        - padding: 8px 0 0 0
+  custom_fields:
+    header: |
+      [[[
+        const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+        const srcEntity = (srcId && srcId !== '') ? states['sensor.spoolman_spool_' + srcId] : null;
+        const name = srcEntity?.attributes?.friendly_name || 'Unknown';
+        const filamentName = srcEntity?.attributes?.filament_name || 'this filament';
+        const vendor = srcEntity?.attributes?.filament_vendor_name || '';
+        const rawColor = (srcEntity?.attributes?.filament_color_hex || '888888').replace('#', '');
+        const colorHex = '#' + rawColor;
+        const subtitle = vendor ? filamentName + ' (' + vendor + ')' : filamentName;
+
+        return '<div style="text-align:left;">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+          + '<ha-icon icon="mdi:swap-horizontal" style="color:var(--info-color);--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+          + '<div>'
+          + '<div style="font-weight:600;">Select a replacement spool</div>'
+          + '<div style="font-size:0.9em;color:var(--secondary-text-color);">Showing sealed spools of ' + subtitle + '</div>'
+          + '</div></div>'
+          + '<div style="padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;">'
+          + '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colorHex + ';vertical-align:middle;margin-right:6px;border:1px solid var(--divider-color);"></span>'
+          + 'Replacing: <strong>' + name + '</strong> #' + srcId
+          + '</div>'
+          + '</div>';
+      ]]]
+    picker:
+      card:
+        type: entities
+        entities:
+          - entity: input_select.spool_replace_target_picker
+            name: Replacement Spool
+    nav:
+      card:
+        type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Continue to Step 3
+            icon: mdi:arrow-right
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: script.spool_replace_sync_target_from_picker
+                    - service: browser_mod.close_popup
+                    - service: browser_mod.delay
+                      data:
+                        time: 500
+                    - service: browser_mod.popup
+                      data:
+                        title: "♻ Replace Spool — Step 3 of 4"
+                        size: normal
+                        content:
+                          type: custom:button-card
+                          template: spool_replace_wizard_step3
+                          tap_action:
+                            action: none
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
+          - type: custom:button-card
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px

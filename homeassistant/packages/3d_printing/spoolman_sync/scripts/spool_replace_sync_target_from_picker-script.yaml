@@ -1,0 +1,23 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+spool_replace_sync_target_from_picker:
+  alias: Spool Replace — Sync Target ID from Picker
+  description: >-
+    Reads the current selection in input_select.spool_replace_target_picker,
+    extracts the numeric spool ID from the "#ID — ..." format, and writes it
+    to input_text.spool_replace_target_spool_id.
+  icon: mdi:sync
+  sequence:
+    - variables:
+        selected: "{{ states('input_select.spool_replace_target_picker') }}"
+        extracted_id: >-
+          {% if selected.startswith('#') %}
+            {{ selected.split(' — ')[0] | replace('#', '') | trim }}
+          {% else %}
+            0
+          {% endif %}
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.spool_replace_target_spool_id
+      data:
+        value: "{{ extracted_id }}"

@@ -1,0 +1,4 @@
+spool_replace_copy_clip_type:
+  name: Copy Clip Type
+  initial: true
+  icon: mdi:paperclip

@@ -1,0 +1,4 @@
+spool_replace_archive_source:
+  name: Archive Empty Spool
+  initial: true
+  icon: mdi:archive

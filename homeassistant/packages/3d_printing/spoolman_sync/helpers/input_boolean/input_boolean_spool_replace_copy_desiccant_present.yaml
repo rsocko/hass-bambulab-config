@@ -1,0 +1,4 @@
+spool_replace_copy_desiccant_present:
+  name: Copy Desiccant Present
+  initial: true
+  icon: mdi:water
