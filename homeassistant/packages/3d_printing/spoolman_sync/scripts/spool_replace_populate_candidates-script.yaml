@@ -14,17 +14,19 @@ spool_replace_populate_candidates:
   sequence:
     - variables:
         fid: "{{ filament_id | string }}"
+
+    - variables:
         candidates: >-
           {% set ns = namespace(results=[]) %}
           {% for s in states.sensor
              if s.entity_id.startswith('sensor.spoolman_spool_')
-             and s.attributes.filament_id | default('') | string == fid
-             and s.attributes.get('extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On']
-             and s.attributes.get('archived', false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-            {% set sid = s.attributes.id | default('?') %}
-            {% set sname = s.attributes.friendly_name | default('Unknown') %}
-            {% set sloc = s.attributes.location | default('N/A') %}
-            {% set swt = s.attributes.initial_weight | default('?') %}
+             and state_attr(s.entity_id, 'filament_id') | default('') | string == fid
+             and state_attr(s.entity_id, 'extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On']
+             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set sid = state_attr(s.entity_id, 'id') | default('?') %}
+            {% set sname = s.name | default('Unknown') %}
+            {% set sloc = state_attr(s.entity_id, 'location') | default('N/A') %}
+            {% set swt = state_attr(s.entity_id, 'initial_weight') | default('?') %}
             {% set ns.results = ns.results + ['#' ~ sid ~ ' — ' ~ sname ~ ' — 📍 ' ~ sloc ~ ' — ' ~ swt ~ 'g'] %}
           {% endfor %}
           {{ ns.results }}
@@ -60,21 +62,8 @@ spool_replace_populate_candidates:
     - action: system_log.write
       data:
         message: >-
-          Spool Replace DEBUG: fid='{{ fid }}'.
-          Total spoolman_spool entities:
-          {% set dbg = namespace(count=0, samples=[]) %}
-          {% for s in states.sensor if s.entity_id.startswith('sensor.spoolman_spool_') %}
-            {% set dbg.count = dbg.count + 1 %}
-            {% if dbg.count <= 5 %}
-              {% set fid_raw = state_attr(s.entity_id, 'filament_id') %}
-              {% set dbg.samples = dbg.samples + [s.entity_id ~ ' fid=' ~ fid_raw ~ ' is_int=' ~ (fid_raw is number) ~ ' str=' ~ (fid_raw | string)] %}
-            {% endif %}
-          {% endfor %}
-          count={{ dbg.count }}.
-          Samples: {{ dbg.samples | join(' | ') }}.
-          Direct check 212: fid={{ state_attr('sensor.spoolman_spool_212', 'filament_id') }} sealed={{ state_attr('sensor.spoolman_spool_212', 'extra_sealed') }}.
-          Direct check 231: fid={{ state_attr('sensor.spoolman_spool_231', 'filament_id') }}.
-          String compare 212: {{ state_attr('sensor.spoolman_spool_212', 'filament_id') | string == fid }}.
-          Attr compare loop: {% set ldbg = namespace(info=[]) %}{% for s in states.sensor if s.entity_id.startswith('sensor.spoolman_spool_') and s.entity_id in ['sensor.spoolman_spool_212', 'sensor.spoolman_spool_231'] %}{% set ldbg.info = ldbg.info + [s.entity_id ~ ' .attributes.filament_id=' ~ (s.attributes.filament_id | default('UNDEF')) ~ ' str=' ~ (s.attributes.filament_id | default('') | string) ~ ' match=' ~ (s.attributes.filament_id | default('') | string == fid)] %}{% endfor %}{{ ldbg.info | join(' | ') }}.
+          Spool Replace: Populated {{ candidates | length }} sealed candidate(s)
+          for filament_id '{{ fid }}'.
+          {% if candidates | length > 0 %}Candidates: {{ candidates | join(', ') }}{% endif %}
         level: warning
         logger: homeassistant.components.bambulab.spool_replace
