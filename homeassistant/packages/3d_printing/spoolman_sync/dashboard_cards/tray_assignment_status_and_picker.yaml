@@ -22,22 +22,6 @@ cards:
     card:
       type: custom:mushroom-chips-card
       alignment: center
-      card_mod:
-        style: >
-          {% set s = states('sensor.last_tray_assignment_result') %}
-          {% if s in ['needs_tray_selection', 'overwrite_required', 'success_awaiting_rfid'] %}
-          @keyframes tray-pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.85; transform: scale(1.04); }
-          }
-          ha-card { animation: tray-pulse 2s ease-in-out infinite; }
-          {% elif s == 'failed' %}
-          @keyframes tray-error-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-          }
-          ha-card { animation: tray-error-pulse 2.5s ease-in-out infinite; }
-          {% endif %}
       chips:
         - type: template
           entity: sensor.last_tray_assignment_result

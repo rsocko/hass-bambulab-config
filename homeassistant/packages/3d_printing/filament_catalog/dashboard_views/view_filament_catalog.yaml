@@ -21,6 +21,11 @@ icon: mdi:format-list-bulleted
 panel: true
 cards:
   - type: vertical-stack
+    card_mod:
+      style: |
+        :host {
+          overflow-x: hidden !important;
+        }
     cards:
       # ============================================================
       # Inventory KPI Summary + Insights Toggle (#695)
