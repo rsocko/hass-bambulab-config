@@ -92,14 +92,13 @@ cards:
                           state: success_awaiting_rfid
                       card:
                         type: custom:mushroom-template-card
-                        primary: AMS RFID Not Yet Confirmed
-                        secondary: >-
+                        primary: >-
                           {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
                           {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
                           {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
                           {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
-                          {{ spool_name }} → {{ tray_label }}.
-                          Metadata written but RFID not read yet. Tap to refresh.
+                          {{ spool_name }} → {{ tray_label }}
+                        secondary: RFID not confirmed yet — tap to refresh
                         icon: mdi:contactless-payment-circle-outline
                         icon_color: amber
                         layout: horizontal
@@ -113,6 +112,9 @@ cards:
                             ha-card {
                               border: 1px solid var(--warning-color, #ffc107);
                               background: rgba(255, 193, 7, 0.08);
+                            }
+                            mushroom-state-info {
+                              .primary { white-space: normal !important; }
                             }
                     - type: custom:mushroom-template-card
                       entity: >-
