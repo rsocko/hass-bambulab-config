@@ -61,6 +61,15 @@ spool_replace_populate_candidates:
       data:
         message: >-
           Spool Replace: Populated {{ candidates | length }} sealed candidate(s)
-          for filament_id {{ fid }}.
-        level: info
+          for filament_id '{{ fid }}'.
+          {% set debug_ns = namespace(info=[]) %}
+          {% for s in states.sensor
+             if s.entity_id.startswith('sensor.spoolman_spool_')
+             and s.attributes.filament_id | default('') | string == fid %}
+            {% set sealed_val = s.attributes.get('extra_sealed', 'MISSING') if s.attributes.get is defined else s.attributes.extra_sealed | default('MISSING') %}
+            {% set archived_val = s.attributes.get('archived', 'MISSING') if s.attributes.get is defined else s.attributes.archived | default('MISSING') %}
+            {% set debug_ns.info = debug_ns.info + [s.entity_id ~ ' sealed=' ~ sealed_val ~ '(' ~ sealed_val.__class__.__name__ ~ ')' ~ ' archived=' ~ archived_val ~ '(' ~ archived_val.__class__.__name__ ~ ')'] %}
+          {% endfor %}
+          Debug — same-filament spools: {{ debug_ns.info | join('; ') }}
+        level: warning
         logger: homeassistant.components.bambulab.spool_replace
