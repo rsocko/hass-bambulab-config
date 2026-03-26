@@ -76,7 +76,7 @@ reset_tray_filament:
             - action: persistent_notification.create
               data:
                 title: Tray Reset Failed
-                message: "Invalid or unavailable tray entity: {{ tray_entity_id }}"
+                message: "The selected tray is invalid or unavailable. Please try again from the dashboard."
                 notification_id: tray_reset_failed
             - stop: Invalid tray entity
 
@@ -89,7 +89,7 @@ reset_tray_filament:
             - action: persistent_notification.create
               data:
                 title: Tray Reset Failed
-                message: "Entity {{ tray_entity_id }} is not a recognized AMS tray or external spool."
+                message: "The selected entity is not a recognized AMS tray or external spool."
                 notification_id: tray_reset_failed
             - stop: Not a tray entity
 

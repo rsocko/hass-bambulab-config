@@ -69,7 +69,9 @@ cards:
             {% if s == 'success' %}{{ msg[:100] }}
             {% elif s == 'success_awaiting_rfid' %}
               {%- set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') -%}
-              {%- set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 T\\2') -%}
+              {%- set ams_n = tray_eid | regex_findall('ams_(\d+)_tray_') -%}
+              {%- set tray_n = tray_eid | regex_findall('_tray_(\d+)') -%}
+              {%- set tray_label = 'AMS ' ~ ams_n[0] ~ ' T' ~ tray_n[0] if ams_n and tray_n else 'External Spool' -%}
               RFID pending · {{ tray_label }}
             {% elif s == 'needs_tray_selection' and has_pending %}Tap to select tray
             {% elif s == 'needs_tray_selection' %}Tray selection needed — re-scan spool to retry
@@ -100,7 +102,9 @@ cards:
                           {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
                           {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
                           {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
-                          {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
+                          {% set ams_n = tray_eid | regex_findall('ams_(\d+)_tray_') %}
+                          {% set tray_n = tray_eid | regex_findall('_tray_(\d+)') %}
+                          {% set tray_label = 'AMS ' ~ ams_n[0] ~ ' Tray ' ~ tray_n[0] if ams_n and tray_n else 'External Spool' %}
                           {{ spool_name }} → {{ tray_label }}
                         secondary: >-
                           RFID not confirmed — tap to re-scan tray
@@ -130,7 +134,9 @@ cards:
                           {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
                           {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
                           {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
-                          {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
+                          {% set ams_n = tray_eid | regex_findall('ams_(\d+)_tray_') %}
+                          {% set tray_n = tray_eid | regex_findall('_tray_(\d+)') %}
+                          {% set tray_label = 'AMS ' ~ ams_n[0] ~ ' Tray ' ~ tray_n[0] if ams_n and tray_n else 'External Spool' %}
                           {{ spool_name }} → {{ tray_label }}
                         secondary: >-
                           Printer was busy — tap to retry assignment
@@ -159,7 +165,9 @@ cards:
                           {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
                           {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
                           {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
-                          {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
+                          {% set ams_n = tray_eid | regex_findall('ams_(\d+)_tray_') %}
+                          {% set tray_n = tray_eid | regex_findall('_tray_(\d+)') %}
+                          {% set tray_label = 'AMS ' ~ ams_n[0] ~ ' Tray ' ~ tray_n[0] if ams_n and tray_n else 'External Spool' %}
                           {{ spool_name }} → {{ tray_label }}
                         secondary: >-
                           {{ state_attr('sensor.last_tray_assignment_result', 'message') | default('', true) }}

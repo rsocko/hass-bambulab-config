@@ -79,6 +79,16 @@ assign_spool_to_printer_tray:
         {{ (tray_entity_id | string) | length > 0 and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
       is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
       is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\..*_ams_\\d+_tray_\\d+$') }}"
+      tray_friendly_name: >-
+        {% set ams_num = tray_entity_id | regex_findall('ams_(\\d+)_tray_') %}
+        {% set tray_num = tray_entity_id | regex_findall('_tray_(\\d+)') %}
+        {% if ams_num and tray_num %}
+          AMS {{ ams_num[0] }} Tray {{ tray_num[0] }}
+        {% elif tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' %}
+          External Spool
+        {% else %}
+          {{ state_attr(tray_entity_id, 'friendly_name') | default(tray_entity_id, true) }}
+        {% endif %}
       spool_vendor: >-
         {% if spool_entity_ok | bool %}
           {{ state_attr(resolved_spool_entity_id, 'filament_vendor_name') | default('', true) | string | trim }}
@@ -299,17 +309,13 @@ assign_spool_to_printer_tray:
             data:
               title: Tray Assignment Needs Confirmation
               message: >-
-                AMS tray {{ tray_entity_id }} already contains filament metadata
-                that differs from the Spoolman-derived target for
-                {{ spool_display_name }}.
+                {{ tray_friendly_name }} already has different filament loaded
+                ({{ tray_current_type_raw }}{{ ' — ' ~ tray_current_name_raw if tray_current_name_raw | length > 0 else '' }}).
+                The target from Spoolman is {{ mapping_result.params.tray_type }}{{ ' — ' ~ target_profile_name if target_profile_name | length > 0 else '' }}
+                for {{ spool_display_name }}.
 
-                Existing: type={{ tray_current_type_raw }}, color={{ tray_current_color_hex }},
-                profile={{ tray_current_name_raw }}.
-                Target: type={{ mapping_result.params.tray_type }}, color={{ target_color_hex }},
-                profile={{ target_profile_name }}.
-
-                Re-run script.assign_spool_to_printer_tray with force_write=true
-                to explicitly overwrite.
+                To overwrite, re-scan the spool or trigger the assignment again
+                with force write enabled.
               notification_id: tray_assignment_overwrite_required_{{ spool_id_clean | default('unknown', true) }}
           - event: spoolman_tray_assignment_result
             event_data:
@@ -345,13 +351,6 @@ assign_spool_to_printer_tray:
            and (tray_uuid_after | upper) == (spool_uuid | upper) }}
       rfid_pending: "{{ (has_rfid_uuid | bool) and not (tray_uuid_matches | bool) and (is_ams_tray | bool) }}"
       final_status: "{{ 'success_awaiting_rfid' if (rfid_pending | bool) else 'success' }}"
-      tray_friendly_name: >-
-        {% set fn = state_attr(tray_entity_id, 'friendly_name') | default('', true) %}
-        {% if fn | length > 0 %}
-          {{ fn }}
-        {% else %}
-          {{ tray_entity_id | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') }}
-        {% endif %}
       base_success_msg: >-
         Set {{ mapping_result.params.tray_type }} on {{ tray_friendly_name }}
         using {{ mapping_result.params.profile_name | default(mapping_result.params.tray_info_idx, true) }}.
@@ -373,10 +372,6 @@ assign_spool_to_printer_tray:
         {% if rfid_pending | bool %}Tray Assigned — RFID Not Yet Confirmed{% else %}Tray Assignment Successful{% endif %}
       message: >-
         {{ final_message }}
-        {% if rfid_pending | bool %}
-        Spool UUID: {{ spool_uuid }}
-        Tray UUID reported: {{ tray_uuid_after | default('(empty)', true) }}
-        {% endif %}
       notification_id: tray_assignment_success_{{ spool_id_clean | default('unknown', true) }}
 
   - event: spoolman_tray_assignment_result

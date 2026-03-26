@@ -41,23 +41,23 @@ manual_spoolman_recovery:
           title: Manual Recovery - Spool ID Required
           message: >-
             **Error from:** {{ error_timestamp }}
-  
+
             **Tray:** {{ tray_name }}
-  
+
             **Weight to deduct:** {{ print_weight }}g
-  
+
             **Original error:** {{ error_message }}
-  
-  
+
+
             **Tray details:**
-  
-            - UUID: `{{ tray_uuid }}`
-  
-            - Color: `{{ tray_color }}`
-  
-            - Type: `{{ tray_type }}`
-  
-  
+
+            - UUID: {{ tray_uuid }}
+
+            - Color: {{ tray_color }}
+
+            - Type: {{ tray_type }}
+
+
             Please manually find the matching spool in Spoolman and provide its ID
             to this script using the "spool_id" parameter.
           notification_id: spoolman_manual_recovery_spool_id_required
@@ -91,13 +91,18 @@ manual_spoolman_recovery:
     data:
       entity_id: input_boolean.spoolman_sync_error_active
   
+# Resolve spool friendly name for notification
+  - variables:
+      spool_name: >-
+        {{ state_attr('sensor.spoolman_spool_' ~ spool_id, 'friendly_name') | default('Spool #' ~ spool_id, true) }}
+
   # Success notification
   - action: persistent_notification.create
     data:
       notification_id: spoolman_manual_recovery_success
-      title: Manual Recovery Successful
+      title: "Manual Recovery Successful — {{ spool_name }}"
       message: >-
-        Successfully updated spool {{ spool_id }} with {{ print_weight }}g usage
+        Successfully updated {{ spool_name }} with {{ print_weight }}g usage
         from {{ tray_name }}.
   
         Original error from {{ error_timestamp }} has been resolved.
