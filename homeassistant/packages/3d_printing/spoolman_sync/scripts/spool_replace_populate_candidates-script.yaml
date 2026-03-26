@@ -67,13 +67,14 @@ spool_replace_populate_candidates:
             {% set dbg.count = dbg.count + 1 %}
             {% if dbg.count <= 5 %}
               {% set fid_raw = state_attr(s.entity_id, 'filament_id') %}
-              {% set dbg.samples = dbg.samples + [s.entity_id ~ ' fid=' ~ fid_raw ~ ' type=' ~ fid_raw.__class__.__name__] %}
+              {% set dbg.samples = dbg.samples + [s.entity_id ~ ' fid=' ~ fid_raw ~ ' is_int=' ~ (fid_raw is number) ~ ' str=' ~ (fid_raw | string)] %}
             {% endif %}
           {% endfor %}
           count={{ dbg.count }}.
           Samples: {{ dbg.samples | join(' | ') }}.
           Direct check 212: fid={{ state_attr('sensor.spoolman_spool_212', 'filament_id') }} sealed={{ state_attr('sensor.spoolman_spool_212', 'extra_sealed') }}.
           Direct check 231: fid={{ state_attr('sensor.spoolman_spool_231', 'filament_id') }}.
-          String compare: {{ state_attr('sensor.spoolman_spool_212', 'filament_id') | string == fid }}.
+          String compare 212: {{ state_attr('sensor.spoolman_spool_212', 'filament_id') | string == fid }}.
+          Attr compare loop: {% set ldbg = namespace(info=[]) %}{% for s in states.sensor if s.entity_id.startswith('sensor.spoolman_spool_') and s.entity_id in ['sensor.spoolman_spool_212', 'sensor.spoolman_spool_231'] %}{% set ldbg.info = ldbg.info + [s.entity_id ~ ' .attributes.filament_id=' ~ (s.attributes.filament_id | default('UNDEF')) ~ ' str=' ~ (s.attributes.filament_id | default('') | string) ~ ' match=' ~ (s.attributes.filament_id | default('') | string == fid)] %}{% endfor %}{{ ldbg.info | join(' | ') }}.
         level: warning
         logger: homeassistant.components.bambulab.spool_replace
