@@ -103,9 +103,9 @@ cards:
                         icon_color: amber
                         layout: horizontal
                         tap_action:
-                          action: perform-action
-                          perform_action: button.press
-                          target:
+                          action: call-service
+                          service: button.press
+                          service_data:
                             entity_id: button.ntk_ryansoffice_3dprinter_force_refresh_data
                         card_mod:
                           style: |
