@@ -1203,6 +1203,12 @@ jobs:
               fi
             fi
 
+            # The reload_core_config service call is asynchronous — HA returns 200 immediately
+            # but re-processes configuration.yaml and packages in the background. Wait for HA
+            # to finish before firing domain-specific reloads, otherwise they see stale config.
+            echo "Waiting for core config reload to settle..."
+            sleep 5
+
             # These domains are commonly edited in package-based repos and support reload services.
             local reload_domains=(
               automation
@@ -1342,6 +1348,9 @@ jobs:
                   return 1
                 fi
               fi
+
+              echo "Waiting for core config reload to settle..."
+              sleep 5
 
               local reload_domains=(
                 automation
