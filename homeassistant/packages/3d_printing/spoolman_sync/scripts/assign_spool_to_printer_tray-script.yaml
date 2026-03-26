@@ -62,7 +62,15 @@ assign_spool_to_printer_tray:
           {{ '' }}
         {% endif %}
       tray_entity_id: "{{ tray_entity_id | default('', true) | string | trim }}"
-      printer_device_id: "{{ printer_device_id | default('', true) | string | trim }}"
+      printer_device_id: >-
+        {% set explicit = printer_device_id | default('', true) | string | trim %}
+        {% if explicit | length > 0 %}
+          {{ explicit }}
+        {% elif (tray_entity_id | default('', true) | string | trim) | length > 0 %}
+          {{ device_id(tray_entity_id | default('', true) | string | trim) | default('', true) }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
       force_write: "{{ force_write | default(false) }}"
       allow_while_printing: "{{ allow_while_printing | default(false) }}"
       spool_entity_ok: >-

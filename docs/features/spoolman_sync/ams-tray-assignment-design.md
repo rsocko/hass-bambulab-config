@@ -291,13 +291,27 @@ This is the most complex mapping challenge. Bambu's `set_filament` requires a `t
 2. **Parse and cache** the response into a lookup structure: `profile_name → tray_info_idx`
 3. **At assignment time**, look up the spool's `filament_extra_profile_name` in this table
 
-**Lookup precedence:**
+**Lookup precedence (tray_info_idx):**
 
 | Step | Condition | Result |
 |---|---|---|
 | 1 | `filament_extra_profile_name` matches a Bambu profile name exactly | Use that profile's `tray_info_idx` |
 | 2 | No exact match; `filament_material` matches a generic Bambu profile | Use the generic profile ID (e.g., `GFL99` for Generic PLA) |
 | 3 | No match at all | Use a hardcoded fallback map by material type (see below) |
+
+**Resolved profile name precedence:**
+
+| Step | Condition | Result |
+|---|---|---|
+| 1 | Catalog lookup matched a Bambu profile | Use the matched catalog profile name |
+| 2 | Spool has `filament_extra_profile_name` set | Use the spool's own profile name (spool is authoritative) |
+| 3 | No profile name on spool | Use generic profile name from material fallback table |
+
+> **Bug fix (Issue #722)**: The original implementation had steps 2 and 3 reversed — the generic material fallback ("Generic PLA") took precedence over the spool's own profile name ("Bambu PLA Basic"). When the spool has a profile name defined, that is authoritative.
+
+**`printer_device_id` auto-derivation:**
+
+> The `assign_spool_to_printer_tray` orchestrator script auto-derives `printer_device_id` from the `tray_entity_id` using HA's `device_id()` function when not explicitly provided. This ensures `bambu_lab.get_filament_data` is always called for profile catalog lookup, even when callers (automation, dashboard, wrapper script) don't pass the device ID explicitly.
 
 **Hardcoded generic fallback table** (validated against `filaments_detail.json` bundled with ha-bambulab):
 
@@ -969,8 +983,9 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Manual "Update Tray Settings" from tray popup (pinned spool) | set_filament called for pinned spool + current tray |
 | Tray already has correct filament info | Skip set_filament; log "Already configured" |
 | Tray has non-empty filament info that differs from computed Spoolman target (location-change flow) | Auto-overwrite with `force_write: true` — location change is explicit user intent |
-| Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range |
-| Profile name has no Bambu match | Use generic profile for the material type |
+| Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range; use matched profile name |
+| Profile name has no Bambu match but spool has profile_name set | Use generic `tray_info_idx` for the material type; use spool's profile_name as `resolved_profile_name` (spool is authoritative — Issue #722 fix) |
+| Profile name has no Bambu match and spool has no profile_name | Use generic profile for the material type |
 | Missing profile name and missing extruder temp, material has defaults | Proceed using generic profile + material default temp range |
 | Missing profile name and missing extruder temp, material unsupported | Assignment blocked; notification: "Unsupported material for default temp fallback" |
 | Location change to non-AMS/non-External | No action taken |
