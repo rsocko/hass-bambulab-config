@@ -26,7 +26,7 @@ spool_replace_populate_candidates:
             {% set sname = s.name | default('Unknown') %}
             {% set sloc = state_attr(s.entity_id, 'location') | default('N/A') %}
             {% set swt = state_attr(s.entity_id, 'initial_weight') | default('?') %}
-            {% set ns.results = ns.results + ['#' ~ sid ~ ' — ' ~ sname ~ ' — 📍 ' ~ sloc ~ ' — ' ~ swt ~ 'g'] %}
+            {% set ns.results = ns.results + [sname ~ ' (#' ~ sid ~ ') 📍 ' ~ sloc ~ ' — ' ~ swt ~ 'g'] %}
           {% endfor %}
           {{ ns.results }}
 
@@ -56,7 +56,7 @@ spool_replace_populate_candidates:
           target:
             entity_id: input_text.spool_replace_target_spool_id
           data:
-            value: "{{ candidates[0].split(' — ')[0] | replace('#', '') | trim }}"
+            value: "{{ candidates[0].split('(#')[1].split(')')[0] | trim }}"
 
     - action: system_log.write
       data:

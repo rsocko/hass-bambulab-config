@@ -188,19 +188,19 @@ If you don't have the test spools already, create them in Spoolman:
 
 ### M7: Wizard Step 2 — Select Replacement (Candidates Available)
 
-| Step | Action | Expected Result |
-|------|--------|----------------|
-| 1 | Ensure at least 1 sealed spool of the same filament exists | Ready |
-| 2 | Complete Step 1 to reach Step 2 | Step 2 popup opens |
-| 3 | Verify title | "♻ Replace Spool — Step 2 of 4" |
-| 4 | Verify subtitle | "Showing sealed spools of {filament} ({vendor})" |
-| 5 | Verify source spool card | Shows color swatch + "Replacing: {name} #{id}" |
-| 6 | Verify picker dropdown | Shows sealed candidate(s) in format "#ID — Name — 📍 Location — Wg" |
-| 7 | Select a different candidate (if multiple exist) | Dropdown changes selection |
-| 8 | Click **"Continue to Step 3"** | Step 3 opens, `input_text.spool_replace_target_spool_id` updated |
-| 9 | Verify in Developer Tools → States | `input_text.spool_replace_target_spool_id` = selected spool's numeric ID |
+| Step | Action                                                     | Expected Result                                                          |
+| ---- | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1    | Ensure at least 1 sealed spool of the same filament exists | Ready                                                                    |
+| 2    | Complete Step 1 to reach Step 2                            | Step 2 popup opens                                                       |
+| 3    | Verify title                                               | "♻ Replace Spool — Step 2 of 4"                                          |
+| 4    | Verify subtitle                                            | "Showing sealed spools of {filament} ({vendor})"                         |
+| 5    | Verify source spool card                                   | Shows color swatch + "Replacing: {name} #{id}"                           |
+| 6    | Verify picker dropdown                                     | Shows sealed candidate(s) in format "#ID — Name — 📍 Location — Wg"      |
+| 7    | Select a different candidate (if multiple exist)           | Dropdown changes selection                                               |
+| 8    | Click **"Continue to Step 3"**                             | Step 3 opens, `input_text.spool_replace_target_spool_id` updated         |
+| 9    | Verify in Developer Tools → States                         | `input_text.spool_replace_target_spool_id` = selected spool's numeric ID |
 
-**Result:** [ ] Pass / [ ] Fail  
+**Result:** [X] Pass / [ ] Fail  
 **Notes:** ___
 
 ---
@@ -216,7 +216,7 @@ If you don't have the test spools already, create them in Spoolman:
 
 > **Note:** The wizard should ideally prevent proceeding when no valid candidate is selected. If it proceeds with ID "0", the execute script will catch this with its validation guard and show a persistent_notification error.
 
-**Result:** [ ] Pass / [ ] Fail  
+**Result:** [X] Pass / [ ] Fail  
 **Notes:** ___
 
 ---
