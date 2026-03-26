@@ -84,11 +84,20 @@ cards:
             browser_mod:
               service: browser_mod.popup
               data:
-                title: Select Tray
+                title: >-
+                  {% set s = states('sensor.last_tray_assignment_result') %}
+                  {% if s == 'needs_tray_selection' %}Select Tray
+                  {% elif s == 'success_awaiting_rfid' %}RFID Pending
+                  {% elif s == 'deferred' %}Assignment Deferred
+                  {% elif s == 'success' %}Assignment Result
+                  {% elif s in ['failed', 'overwrite_required'] %}Assignment Failed
+                  {% elif s in ['skipped', 'skipped_bambu_rfid'] %}Assignment Skipped
+                  {% else %}Tray Assignment{% endif %}
                 size: normal
                 content:
                   type: vertical-stack
                   cards:
+                    # --- RFID pending card ---
                     - type: conditional
                       conditions:
                         - entity: sensor.last_tray_assignment_result
@@ -118,154 +127,283 @@ cards:
                             mushroom-state-info {
                               .primary { white-space: normal !important; }
                             }
-                    - type: custom:mushroom-template-card
-                      entity: >-
-                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
-                        {% if pending not in ['', 'unknown', 'unavailable'] %}
-                        sensor.spoolman_spool_{{ pending }}
-                        {% else %}sensor.last_tray_assignment_result{% endif %}
-                      primary: >-
-                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
-                        {% if pending not in ['', 'unknown', 'unavailable'] %}
-                        {% set spool_eid = 'sensor.spoolman_spool_' ~ pending %}
-                        {% set fname = state_attr(spool_eid, 'friendly_name') | default('', true) %}
-                        {{ fname if fname | length > 0 else 'Spool #' ~ pending }}
-                        {% else %}
-                        No pending tray assignment
-                        {% endif %}
-                      secondary: >-
-                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
-                        {% if pending not in ['', 'unknown', 'unavailable'] %}
-                        Which tray was it loaded into?
-                        {% endif %}
-                      picture: >-
-                        {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
-                        {% if pending not in ['', 'unknown', 'unavailable'] %}
-                        {{ state_attr('sensor.spoolman_spool_' ~ pending, 'entity_picture') | default('', true) }}
-                        {% endif %}
-                      layout: horizontal
-                      fill_container: true
-                    - type: custom:mushroom-template-card
-                      primary: AMS 1
-                      icon: fapro:filament-2
-                      icon_color: blue
-                      tap_action:
-                        action: none
-                      card_mod:
-                        style: |
-                          ha-card {
-                            background: none !important;
-                            box-shadow: none !important;
-                            --card-primary-font-size: 18px;
-                          }
-                          .container .primary {
-                            font-size: 18px !important;
-                            font-weight: 600 !important;
-                            letter-spacing: 0.5px;
-                          }
-                    - type: grid
-                      columns: 4
-                      square: false
-                      cards:
-                        - type: custom:mushroom-template-card
-                          primary: A1
-                          icon: mdi:numeric-1-box
-                          icon_color: blue
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_1
-                        - type: custom:mushroom-template-card
-                          primary: A2
-                          icon: mdi:numeric-2-box
-                          icon_color: blue
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_2
-                        - type: custom:mushroom-template-card
-                          primary: A3
-                          icon: mdi:numeric-3-box
-                          icon_color: blue
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_3
-                        - type: custom:mushroom-template-card
-                          primary: A4
-                          icon: mdi:numeric-4-box
-                          icon_color: blue
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_4
-                    - type: custom:mushroom-template-card
-                      primary: AMS 2
-                      icon: fapro:filament-2
-                      icon_color: teal
-                      tap_action:
-                        action: none
-                      card_mod:
-                        style: |
-                          ha-card {
-                            background: none !important;
-                            box-shadow: none !important;
-                            --card-primary-font-size: 18px;
-                          }
-                          .container .primary {
-                            font-size: 18px !important;
-                            font-weight: 600 !important;
-                            letter-spacing: 0.5px;
-                          }
-                    - type: grid
-                      columns: 4
-                      square: false
-                      cards:
-                        - type: custom:mushroom-template-card
-                          primary: B1
-                          icon: mdi:numeric-1-box
-                          icon_color: teal
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_1
-                        - type: custom:mushroom-template-card
-                          primary: B2
-                          icon: mdi:numeric-2-box
-                          icon_color: teal
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_2
-                        - type: custom:mushroom-template-card
-                          primary: B3
-                          icon: mdi:numeric-3-box
-                          icon_color: teal
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_3
-                        - type: custom:mushroom-template-card
-                          primary: B4
-                          icon: mdi:numeric-4-box
-                          icon_color: teal
-                          layout: vertical
-                          tap_action:
-                            action: perform-action
-                            perform_action: script.assign_pending_spool_to_tray
-                            data:
-                              tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_4
+                    # --- Deferred card ---
+                    - type: conditional
+                      conditions:
+                        - entity: sensor.last_tray_assignment_result
+                          state: deferred
+                      card:
+                        type: custom:mushroom-template-card
+                        primary: >-
+                          {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
+                          {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
+                          {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
+                          {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
+                          {{ spool_name }} → {{ tray_label }}
+                        secondary: >-
+                          Printer was busy — tap to retry assignment
+                        icon: mdi:refresh
+                        icon_color: amber
+                        tap_action:
+                          action: perform-action
+                          perform_action: script.retry_deferred_tray_assignment
+                        card_mod:
+                          style: |
+                            ha-card {
+                              border: 1px solid var(--warning-color, #ffc107);
+                              background: rgba(255, 193, 7, 0.08);
+                            }
+                            mushroom-state-info {
+                              .primary { white-space: normal !important; }
+                            }
+                    # --- Success card ---
+                    - type: conditional
+                      conditions:
+                        - entity: sensor.last_tray_assignment_result
+                          state: success
+                      card:
+                        type: custom:mushroom-template-card
+                        primary: >-
+                          {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
+                          {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
+                          {% set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') %}
+                          {% set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') %}
+                          {{ spool_name }} → {{ tray_label }}
+                        secondary: >-
+                          {{ state_attr('sensor.last_tray_assignment_result', 'message') | default('', true) }}
+                        icon: mdi:check-circle
+                        icon_color: green
+                        tap_action:
+                          action: none
+                        card_mod:
+                          style: |
+                            mushroom-state-info {
+                              .primary { white-space: normal !important; }
+                            }
+                    # --- Failed / overwrite_required card ---
+                    - type: conditional
+                      conditions:
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: idle
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: unknown
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: unavailable
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: success
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: success_awaiting_rfid
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: deferred
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: needs_tray_selection
+                        - entity: sensor.last_tray_assignment_result
+                          state_not: skipped_bambu_rfid
+                      card:
+                        type: custom:mushroom-template-card
+                        primary: >-
+                          {% set s = states('sensor.last_tray_assignment_result') %}
+                          {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
+                          {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Unknown spool') %}
+                          {{ spool_name }}
+                        secondary: >-
+                          {{ state_attr('sensor.last_tray_assignment_result', 'message') | default('', true) }}
+                        icon: >-
+                          {% set s = states('sensor.last_tray_assignment_result') %}
+                          {% if s in ['failed', 'overwrite_required'] %}mdi:close-circle
+                          {% elif s == 'skipped' %}mdi:skip-next-circle
+                          {% else %}mdi:information{% endif %}
+                        icon_color: >-
+                          {% set s = states('sensor.last_tray_assignment_result') %}
+                          {% if s in ['failed', 'overwrite_required'] %}red
+                          {% elif s == 'skipped' %}blue
+                          {% else %}grey{% endif %}
+                        tap_action:
+                          action: none
+                        card_mod:
+                          style: |
+                            mushroom-state-info {
+                              .primary { white-space: normal !important; }
+                              .secondary { white-space: normal !important; }
+                            }
+                    # --- Bambu RFID skipped card ---
+                    - type: conditional
+                      conditions:
+                        - entity: sensor.last_tray_assignment_result
+                          state: skipped_bambu_rfid
+                      card:
+                        type: custom:mushroom-template-card
+                        primary: >-
+                          {% set spool_eid = state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('') %}
+                          {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('RFID spool') %}
+                          {{ spool_name }}
+                        secondary: >-
+                          AMS will auto-configure this tray via RFID reader. No manual assignment needed.
+                        icon: mdi:contactless-payment-circle
+                        icon_color: blue
+                        tap_action:
+                          action: none
+                        card_mod:
+                          style: |
+                            mushroom-state-info {
+                              .primary { white-space: normal !important; }
+                            }
+                    # --- Tray picker: spool info + tray grid (only for needs_tray_selection) ---
+                    - type: conditional
+                      conditions:
+                        - entity: sensor.last_tray_assignment_result
+                          state: needs_tray_selection
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: custom:mushroom-template-card
+                            entity: >-
+                              {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                              {% if pending not in ['', 'unknown', 'unavailable'] %}
+                              sensor.spoolman_spool_{{ pending }}
+                              {% else %}sensor.last_tray_assignment_result{% endif %}
+                            primary: >-
+                              {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                              {% if pending not in ['', 'unknown', 'unavailable'] %}
+                              {% set spool_eid = 'sensor.spoolman_spool_' ~ pending %}
+                              {% set fname = state_attr(spool_eid, 'friendly_name') | default('', true) %}
+                              {{ fname if fname | length > 0 else 'Spool #' ~ pending }}
+                              {% else %}
+                              No pending tray assignment
+                              {% endif %}
+                            secondary: >-
+                              {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                              {% if pending not in ['', 'unknown', 'unavailable'] %}
+                              Which tray was it loaded into?
+                              {% endif %}
+                            picture: >-
+                              {% set pending = states('input_text.pending_tray_assignment_spool_id') %}
+                              {% if pending not in ['', 'unknown', 'unavailable'] %}
+                              {{ state_attr('sensor.spoolman_spool_' ~ pending, 'entity_picture') | default('', true) }}
+                              {% endif %}
+                            layout: horizontal
+                            fill_container: true
+                          - type: custom:mushroom-template-card
+                            primary: AMS 1
+                            icon: fapro:filament-2
+                            icon_color: blue
+                            tap_action:
+                              action: none
+                            card_mod:
+                              style: |
+                                ha-card {
+                                  background: none !important;
+                                  box-shadow: none !important;
+                                  --card-primary-font-size: 18px;
+                                }
+                                .container .primary {
+                                  font-size: 18px !important;
+                                  font-weight: 600 !important;
+                                  letter-spacing: 0.5px;
+                                }
+                          - type: grid
+                            columns: 4
+                            square: false
+                            cards:
+                              - type: custom:mushroom-template-card
+                                primary: A1
+                                icon: mdi:numeric-1-box
+                                icon_color: blue
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_1
+                              - type: custom:mushroom-template-card
+                                primary: A2
+                                icon: mdi:numeric-2-box
+                                icon_color: blue
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_2
+                              - type: custom:mushroom-template-card
+                                primary: A3
+                                icon: mdi:numeric-3-box
+                                icon_color: blue
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_3
+                              - type: custom:mushroom-template-card
+                                primary: A4
+                                icon: mdi:numeric-4-box
+                                icon_color: blue
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_1_tray_4
+                          - type: custom:mushroom-template-card
+                            primary: AMS 2
+                            icon: fapro:filament-2
+                            icon_color: teal
+                            tap_action:
+                              action: none
+                            card_mod:
+                              style: |
+                                ha-card {
+                                  background: none !important;
+                                  box-shadow: none !important;
+                                  --card-primary-font-size: 18px;
+                                }
+                                .container .primary {
+                                  font-size: 18px !important;
+                                  font-weight: 600 !important;
+                                  letter-spacing: 0.5px;
+                                }
+                          - type: grid
+                            columns: 4
+                            square: false
+                            cards:
+                              - type: custom:mushroom-template-card
+                                primary: B1
+                                icon: mdi:numeric-1-box
+                                icon_color: teal
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_1
+                              - type: custom:mushroom-template-card
+                                primary: B2
+                                icon: mdi:numeric-2-box
+                                icon_color: teal
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_2
+                              - type: custom:mushroom-template-card
+                                primary: B3
+                                icon: mdi:numeric-3-box
+                                icon_color: teal
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_3
+                              - type: custom:mushroom-template-card
+                                primary: B4
+                                icon: mdi:numeric-4-box
+                                icon_color: teal
+                                layout: vertical
+                                tap_action:
+                                  action: perform-action
+                                  perform_action: script.assign_pending_spool_to_tray
+                                  data:
+                                    tray_entity_id: sensor.p1s_01p00c460102350_ams_2_tray_4

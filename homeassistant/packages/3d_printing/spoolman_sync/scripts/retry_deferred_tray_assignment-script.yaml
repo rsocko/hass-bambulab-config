@@ -1,0 +1,28 @@
+retry_deferred_tray_assignment:
+  alias: Retry Deferred Tray Assignment
+  description: >-
+    Reads the spool and tray from the last tray assignment result sensor
+    and re-runs the assignment script. Intended for use after a print completes
+    when the previous assignment was deferred due to the printer being busy.
+  icon: mdi:refresh
+  mode: single
+  sequence:
+    - variables:
+        spool_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('', true) }}"
+        tray_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('', true) }}"
+        spool_id: >-
+          {{ (spool_entity_id | regex_findall('spoolman_spool_(\d+)'))[0] | default('') }}
+
+    - condition: template
+      value_template: >-
+        {{ spool_id | regex_match('^\d+$')
+           and tray_entity_id not in ['', 'None', 'unknown', 'unavailable'] }}
+
+    - action: script.turn_on
+      target:
+        entity_id: script.assign_spool_to_printer_tray
+      data:
+        variables:
+          spool_id: "{{ spool_id }}"
+          tray_entity_id: "{{ tray_entity_id }}"
+          force_write: true

@@ -365,12 +365,18 @@ Pick at least 3 spools:
 | T25 | `force_write` bypasses RFID skip | **PASS** | `force_write: false` → `skipped`; `force_write: true` → `success_awaiting_rfid` |
 | T26 | Non-Bambu spool → `success` not RFID pending | **PASS** | Spool 16 (Sunlu, no UUID) → T3 → status `success` |
 
+### Deferred / Active-Print Tests — 2026-03-26
+
+| Test | Description | Result | Notes |
+|------|-------------|--------|-------|
+| T5 | Chip hidden for Bambu UUID-matched spool | **PASS** | T1/T3/T4 all `match_strategy: uuid` → `canUpdateTraySettings` requires `manual_pin`, so chip correctly absent. Verified via template logic + tray_map state. |
+| T13 | Status chip deferred while printing | **PASS** | Spool 16 → T3, `force_write: true` while printer `running` → status `deferred`, message "Printer is actively printing; assignment deferred." |
+
 ### Deferred Tests (require printer idle or specific spool conditions)
 
 | Test | Description | Reason Deferred |
 |------|-------------|----------------|
 | T4 | Tap "Update Tray Settings" for non-Bambu pinned spool → full `set_filament` call succeeds | Printer was actively printing; `set_filament` blocked by deferred guard. Retest when printer is idle. |
-| T5 | Chip hidden for Bambu UUID-matched spool (verify no button rendered) | Requires tray with UUID match — verify chip is absent. |
 | T6 | Overwrite tray with different filament data via "Update Tray Settings" (pinned spool) | Requires idle printer + tray with pre-existing different filament info + manual pin. |
 | T-I1b | Tray button in popup for non-Bambu spool → full `set_filament` success | Tested with Bambu spool (correctly skipped). Need non-Bambu spool + idle printer to verify end-to-end write. |
 | T16 | Tap tray button in popup to complete pending assignment → success flow | Equivalent to T-I1b. Verify `input_text` clears, picker hides, status chip updates to success. |
