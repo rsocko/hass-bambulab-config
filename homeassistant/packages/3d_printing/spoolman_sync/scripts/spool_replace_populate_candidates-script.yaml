@@ -14,13 +14,12 @@ spool_replace_populate_candidates:
   sequence:
     - variables:
         fid: "{{ filament_id | string }}"
-
-    - variables:
         candidates: >-
+          {% set fid_local = filament_id | string %}
           {% set ns = namespace(results=[]) %}
           {% for s in states.sensor
              if s.entity_id.startswith('sensor.spoolman_spool_')
-             and state_attr(s.entity_id, 'filament_id') | default('') | string == fid
+             and state_attr(s.entity_id, 'filament_id') | default('') | string == fid_local
              and state_attr(s.entity_id, 'extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On']
              and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
             {% set sid = state_attr(s.entity_id, 'id') | default('?') %}
