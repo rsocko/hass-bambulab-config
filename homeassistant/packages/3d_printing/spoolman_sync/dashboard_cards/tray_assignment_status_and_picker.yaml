@@ -70,12 +70,12 @@ cards:
             {% elif s == 'success_awaiting_rfid' %}
               {%- set tray_eid = state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('') -%}
               {%- set tray_label = tray_eid | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 T\\2') -%}
-              ⚠ RFID pending · {{ tray_label }}
+              RFID pending · {{ tray_label }}
             {% elif s == 'needs_tray_selection' and has_pending %}Tap to select tray
             {% elif s == 'needs_tray_selection' %}Tray selection needed — re-scan spool to retry
             {% elif s == 'failed' %}{{ msg[:100] }}
-            {% elif s == 'overwrite_required' %}⚠ Overwrite needed — use Update Tray Settings
-            {% elif s == 'skipped_bambu_rfid' %}✓ RFID spool — AMS auto-configures
+            {% elif s == 'overwrite_required' %}Tray mismatch — tap to force update
+            {% elif s == 'skipped_bambu_rfid' %}RFID spool — AMS auto-configures
             {% elif s == 'skipped' %}{{ msg[:100] }}
             {% elif s == 'deferred' %}{{ msg[:100] }}
             {% else %}{{ msg[:100] }}{% endif %}

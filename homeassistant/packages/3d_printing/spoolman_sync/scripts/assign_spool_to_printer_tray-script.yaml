@@ -162,7 +162,7 @@ assign_spool_to_printer_tray:
           - event: spoolman_tray_assignment_result
             event_data:
               status: skipped
-              message: Bambu RFID spool in AMS detected; skipping automatic set_filament.
+              message: RFID spool detected — AMS handles configuration
               spool_entity_id: "{{ resolved_spool_entity_id }}"
               tray_entity_id: "{{ tray_entity_id }}"
               tray_info_idx: ""
@@ -172,7 +172,7 @@ assign_spool_to_printer_tray:
               response_object:
                 success: true
                 status: skipped
-                message: Bambu RFID spool in AMS detected; skipping automatic set_filament.
+                message: RFID spool detected — AMS handles configuration
           - stop: Assignment skipped for RFID-managed Bambu spool
             response_variable: response_object
 
@@ -184,12 +184,12 @@ assign_spool_to_printer_tray:
           - action: persistent_notification.create
             data:
               title: Tray Assignment Deferred
-              message: Printer is actively printing; assignment deferred.
+              message: Printer busy — assignment deferred until idle
               notification_id: tray_assignment_deferred_{{ spool_id_clean | default('unknown', true) }}
           - event: spoolman_tray_assignment_result
             event_data:
               status: deferred
-              message: Printer is actively printing; assignment deferred.
+              message: Printer busy — assignment deferred until idle
               spool_entity_id: "{{ resolved_spool_entity_id }}"
               tray_entity_id: "{{ tray_entity_id }}"
               tray_info_idx: ""
@@ -199,7 +199,7 @@ assign_spool_to_printer_tray:
               response_object:
                 success: false
                 status: deferred
-                message: Printer is actively printing; assignment deferred.
+                message: Printer busy — assignment deferred until idle
           - stop: Assignment deferred while printer is busy
             response_variable: response_object
 
@@ -276,7 +276,7 @@ assign_spool_to_printer_tray:
           - event: spoolman_tray_assignment_result
             event_data:
               status: skipped
-              message: Tray is already configured with matching type, color, and profile.
+              message: Tray already matches — no changes needed
               spool_entity_id: "{{ resolved_spool_entity_id }}"
               tray_entity_id: "{{ tray_entity_id }}"
               tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
@@ -286,7 +286,7 @@ assign_spool_to_printer_tray:
               response_object:
                 success: true
                 status: skipped
-                message: Tray is already configured with matching type, color, and profile.
+                message: Tray already matches — no changes needed
           - stop: Assignment skipped because tray already matches target
             response_variable: response_object
 
@@ -314,7 +314,7 @@ assign_spool_to_printer_tray:
           - event: spoolman_tray_assignment_result
             event_data:
               status: overwrite_required
-              message: Existing AMS tray metadata differs; explicit force_write is required.
+              message: Tray has different filament — force write required to overwrite
               spool_entity_id: "{{ resolved_spool_entity_id }}"
               tray_entity_id: "{{ tray_entity_id }}"
               tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
@@ -324,7 +324,7 @@ assign_spool_to_printer_tray:
               response_object:
                 success: false
                 status: overwrite_required
-                message: Existing AMS tray metadata differs; explicit force_write is required.
+                message: Tray has different filament — force write required to overwrite
           - stop: Assignment blocked by AMS non-interference guard
             response_variable: response_object
 
@@ -345,12 +345,19 @@ assign_spool_to_printer_tray:
            and (tray_uuid_after | upper) == (spool_uuid | upper) }}
       rfid_pending: "{{ (has_rfid_uuid | bool) and not (tray_uuid_matches | bool) and (is_ams_tray | bool) }}"
       final_status: "{{ 'success_awaiting_rfid' if (rfid_pending | bool) else 'success' }}"
+      tray_friendly_name: >-
+        {% set fn = state_attr(tray_entity_id, 'friendly_name') | default('', true) %}
+        {% if fn | length > 0 %}
+          {{ fn }}
+        {% else %}
+          {{ tray_entity_id | regex_replace('.*ams_(\\d+)_tray_(\\d+)$', 'AMS \\1 Tray \\2') }}
+        {% endif %}
       base_success_msg: >-
-        Set {{ mapping_result.params.tray_type }} on {{ tray_entity_id }}
+        Set {{ mapping_result.params.tray_type }} on {{ tray_friendly_name }}
         using {{ mapping_result.params.profile_name | default(mapping_result.params.tray_info_idx, true) }}.
       final_message: >-
         {% if rfid_pending | bool %}
-          {{ base_success_msg }} AMS has not yet confirmed RFID — tap status chip to refresh.
+          {{ base_success_msg }} RFID not yet confirmed — tap chip to refresh.
         {% else %}
           {{ base_success_msg }}
         {% endif %}
