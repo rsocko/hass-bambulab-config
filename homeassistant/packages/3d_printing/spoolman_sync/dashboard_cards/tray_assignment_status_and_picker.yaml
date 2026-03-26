@@ -84,15 +84,7 @@ cards:
             browser_mod:
               service: browser_mod.popup
               data:
-                title: >-
-                  {% set s = states('sensor.last_tray_assignment_result') %}
-                  {% if s == 'needs_tray_selection' %}Select Tray
-                  {% elif s == 'success_awaiting_rfid' %}RFID Pending
-                  {% elif s == 'deferred' %}Assignment Deferred
-                  {% elif s == 'success' %}Assignment Result
-                  {% elif s in ['failed', 'overwrite_required'] %}Assignment Failed
-                  {% elif s in ['skipped', 'skipped_bambu_rfid'] %}Assignment Skipped
-                  {% else %}Tray Assignment{% endif %}
+                title: Tray Assignment
                 size: normal
                 content:
                   type: vertical-stack
