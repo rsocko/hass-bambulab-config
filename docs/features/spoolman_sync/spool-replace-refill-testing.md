@@ -1,8 +1,9 @@
-# Spool Replace / Refill — Phase 1 Testing Plan
+# Spool Replace / Refill — Testing Plan
 
-> **Created:** 2026-03-26  
+> **Created:** 2026-03-26 · **Updated:** 2026-03-27  
 > **Companion to:** [spool-replace-refill-design.md](spool-replace-refill-design.md)  
-> **Status:** Ready for execution
+> **Phases covered:** 1, 2, 3  
+> **Status:** Phase 3 tests added — ready for manual execution
 
 ---
 
@@ -66,6 +67,84 @@ The Replace button in `catalog_spool_popup.yaml`:
 ### Test 7: Existing Test Suite Regression — 26/26 PASSED
 
 All 26 existing `spool_matching` tests continue to pass, confirming Phase 1 changes don't break existing functionality.
+
+---
+
+## Phase 3 Automated Tests (Completed)
+
+Executed via `tests/phase3/test_phase3_validation.py` — **45/45 PASSED**.
+
+### Test 8: Phase 3 YAML Syntax Validation — 2/2 PASSED
+
+Both Phase 3 deliverable files parse as valid YAML:
+- `filament_runout_capture_and_notify.yaml` (new automation)
+- `hms-error-alert-section.yaml` (modified HMS banner)
+
+### Test 9: Automation Structure Validation — 10/10 PASSED
+
+- Has all required fields: `alias`, `id`, `description`, `triggers`, `actions`
+- Automation ID is `filament_runout_capture_and_notify` (matches design spec)
+- Mode is `single` (correct for runout — only one runout event at a time)
+- Trigger entity is `sensor.ntk_ryansoffice_3dprinter_current_stage`
+- Trigger to-state is `paused_filament_runout`
+- Trigger type is `state`
+
+### Test 10: Action Coverage — Required Service Calls — 7/7 PASSED
+
+All required service calls present in the automation actions:
+- `script.resolve_matching_spool_from_tray_map` (primary spool resolution)
+- `input_text.set_value` (populate replace wizard source helper)
+- `persistent_notification.create` (dashboard-visible notification)
+- `notify.mobile_app_ryphone16` (iPhone push)
+- `notify.mobile_app_rypad10` (iPad push)
+- `system_log.write` (diagnostic logging)
+- `logbook.log` (user-visible event log)
+
+### Test 11: Notification Content & Quality — 6/6 PASSED
+
+- Persistent notification uses stable `notification_id` (`filament_runout_replace_spool`)
+- Notifications include dashboard link (`/3d-printing`)
+- Mobile notifications use `time-sensitive` interruption level
+- Graceful degradation message present when spool cannot be identified
+- Resolved spool notification includes `spool_name` + `spool_id`
+- Notification references the print job name (`task_name`)
+
+### Test 12: Two-Tier Spool Resolution Strategy — 6/6 PASSED
+
+- Primary resolution path via `spoolman_tray_map` → `resolve_matching_spool_from_tray_map` script
+- Fallback resolution path via `print_job_ams_tray_storage` UUID snapshot
+- External spool detection path present (`print_job_external_spool`)
+- `resolution_method` variable tracked for diagnostic logging
+- Writes resolved spool ID to `input_text.spool_replace_source_spool_id`
+- Uses 5 sequential `variables:` blocks (HA parallel-render scoping compliance)
+
+### Test 13: HMS Banner — Conditional Replace Button — 7/7 PASSED
+
+- Conditional card references `spool_replace_source_spool_id` helper
+- Uses `state_not` conditions for visibility (`""`, `"unknown"`, `"unavailable"`)
+- Uses `custom:config-template-card` for dynamic entity resolution
+- Card has "Replace Spool Now" label
+- Tap action launches `browser_mod` wizard flow
+- Tap action calls `script.spool_replace_populate_candidates`
+- Uses green accent color (`#4CAF50`)
+
+### Test 14: Entity Reference Cross-Check — 6/6 PASSED
+
+All critical entity references present and correctly formed:
+- `sensor.ntk_ryansoffice_3dprinter_current_stage`
+- `sensor.ntk_ryansoffice_3dprinter_active_tray`
+- `sensor.ntk_ryansoffice_3dprinter_task_name`
+- `sensor.print_job_ams_tray_storage`
+- `input_text.spool_replace_source_spool_id`
+- `input_text.print_job_external_spool`
+
+### Test 15: Phase 3 Regression — 298/298 PASSED
+
+All 298 YAML files in `homeassistant/packages/3d_printing/` parse successfully (with HA `!include` tag support), confirming Phase 3 additions don't break existing files.
+
+### Test 7 (Re-run): Spool Matching Regression — 26/26 PASSED
+
+Phase 1 spool matching test suite re-run after Phase 3 additions — all 26 tests continue to pass.
 
 ---
 
@@ -403,6 +482,179 @@ If you don't have the test spools already, create them in Spoolman:
 
 ---
 
+## Phase 3 Manual Tests — Filament Runout Automation + HMS Banner
+
+### Phase 3 Prerequisites
+
+- [ ] HA instance has the Bambu Lab integration active and printing capability
+- [ ] `sensor.ntk_ryansoffice_3dprinter_current_stage` entity exists
+- [ ] `sensor.print_job_ams_tray_storage` template sensor is active
+- [ ] `script.resolve_matching_spool_from_tray_map` is loaded
+- [ ] Mobile companion app is installed on both `ryphone16` and `rypad10`
+- [ ] `input_text.spool_replace_source_spool_id` helper exists (created in Phase 1)
+- [ ] At least one spool loaded in an AMS tray with a matching Spoolman spool
+
+> **Simulating filament runout:** You can trigger the automation without an actual runout by using Developer Tools → States to manually set `sensor.ntk_ryansoffice_3dprinter_current_stage` to `paused_filament_runout` while a print is active. However, for the two-tier resolution strategy to be fully tested, you should have a real AMS tray loaded (or use the HA service call method in M21).
+
+---
+
+### M20: Filament Runout Automation — Trigger Fires
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Start a print with a spool loaded in an AMS tray | Print starts, `print_job_ams_tray_storage` captures snapshot |
+| 2 | Either wait for actual filament runout OR simulate: in Developer Tools → States, set `sensor.ntk_ryansoffice_3dprinter_current_stage` to `paused_filament_runout` | Automation triggers |
+| 3 | Check Developer Tools → Traces → `filament_runout_capture_and_notify` | Trace shows automation executed |
+| 4 | Check `input_text.spool_replace_source_spool_id` in Developer Tools → States | Contains the resolved spool's numeric ID (not empty) |
+| 5 | Check HA persistent notifications | Notification titled "🔄 Filament Runout — Replace Spool" is present |
+| 6 | Verify notification message includes spool name, spool ID, and print job name | All three fields populated |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M21: Spool Resolution — Primary Path (tray_map)
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Ensure a spool is loaded in AMS tray 1 (or any tray) with a matched Spoolman spool | `spoolman_tray_map` shows the tray → spool mapping |
+| 2 | Trigger filament runout (real or simulated) | Automation fires |
+| 3 | Check automation trace → variables | `resolution_method` = `"tray_map"` |
+| 4 | Check `spool_replace_source_spool_id` value | Matches the spool ID from `spoolman_tray_map` for the active tray |
+| 5 | Check system_log for the logbook entry | Shows "Spool resolved via tray_map" message |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M22: Spool Resolution — Fallback Path (UUID snapshot)
+
+> **Setup:** This test requires the tray_map primary resolution to fail so the fallback engages.
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Start a print (so `print_job_ams_tray_storage` captures tray UUIDs) | Snapshot stored |
+| 2 | Before triggering runout, clear the `spoolman_tray_map` result for the active tray (e.g., change `resolve_matching_spool_from_tray_map` to return empty, or temporarily break tray matching) | Primary resolution will fail |
+| 3 | Trigger filament runout | Automation fires |
+| 4 | Check automation trace → variables | `resolution_method` = `"uuid_fallback"` |
+| 5 | Check `spool_replace_source_spool_id` value | Matches a spool whose `extra.tag_uuid` matches the UUID stored in the snapshot |
+| 6 | Check system_log | Shows "Spool resolved via uuid_fallback" message |
+
+> **Alternative approach:** If breaking tray_map is too disruptive, check the automation trace for the code path — the variables block should show `primary_resolved = ''` and the fallback block executing.
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M23: Spool Resolution — External Spool (no AMS tray)
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Load a spool on the external spool holder (not in AMS) | `active_tray` reads as external (typically `254` or similar) |
+| 2 | Set `input_text.print_job_external_spool` to a valid spool ID | Helper is populated |
+| 3 | Trigger filament runout | Automation fires |
+| 4 | Check automation trace → variables | `resolution_method` = `"external_spool"` |
+| 5 | Check `spool_replace_source_spool_id` value | Matches the external spool ID from the helper |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M24: Spool Resolution — Unresolved (Graceful Degradation)
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Ensure an AMS tray has no matched spool AND the UUID snapshot won't match anything AND no external spool is set | No spool can be resolved |
+| 2 | Trigger filament runout | Automation fires |
+| 3 | Check persistent notification | Message says "The spool could not be identified automatically" |
+| 4 | Check mobile notifications | Same degraded message on both devices |
+| 5 | Check `spool_replace_source_spool_id` | Should be empty `""` (not set, since no spool was resolved) |
+| 6 | Check that the HMS banner **Replace Spool Now** button is NOT visible | Button hidden because source spool ID is empty |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M25: Mobile Notifications — Delivery & Interactivity
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Trigger filament runout with a resolved spool | Automation fires |
+| 2 | Check iPhone (`ryphone16`) | Push notification arrives with `time-sensitive` priority (banner even in Focus mode) |
+| 3 | Check iPad (`rypad10`) | Push notification arrives with same content |
+| 4 | Tap the notification on iPhone | Opens HA companion app to `/3d-printing` dashboard |
+| 5 | Verify notification title | "🔄 Filament Runout — Replace Spool" |
+| 6 | Verify notification body | Includes spool name, spool ID, and print job name |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M26: HMS Banner — Replace Spool Now Button Visibility
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Clear `input_text.spool_replace_source_spool_id` (set to `""`) | Helper is empty |
+| 2 | Navigate to the 3D printing dashboard with an active HMS alert | HMS error banner shows, **no** Replace Spool Now button |
+| 3 | Set `input_text.spool_replace_source_spool_id` to a valid spool ID (e.g., `"42"`) | Helper now has a value |
+| 4 | Refresh the dashboard (or wait for auto-refresh) | **Replace Spool Now** button appears below the HMS error banner |
+| 5 | Verify button styling | Green left border, green-tinted background, spool name + ID in label |
+| 6 | Set the helper back to `""` | Button disappears |
+
+> **Note:** The HMS alert itself (`binary_sensor.hms_alert_display_wrapper`) must be ON for the banner section to render at all. Trigger a real or simulated HMS alert if needed.
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M27: HMS Banner — Replace Spool Now Button Action
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Ensure `spool_replace_source_spool_id` is set to a valid spool ID with a known filament | Button is visible |
+| 2 | Click/tap the **Replace Spool Now** button | Button launches the replace wizard |
+| 3 | Verify wizard opens at Step 1 | Step 1 popup shows the correct source spool |
+| 4 | Verify that `spool_replace_populate_candidates` was called | Step 2 should have sealed candidates populated for the correct `filament_id` |
+| 5 | Navigate through to Step 4 and verify data | Source spool matches what the runout automation resolved |
+| 6 | (Optional) Execute the replacement | Full flow completes normally |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
+### M28: End-to-End — Runout → Banner → Replace Wizard → Spoolman Updated
+
+> **FULL INTEGRATION TEST** — This is the golden path for Phase 3.
+
+| Step | Action | Expected Result |
+|------|--------|----------------|
+| 1 | Have a spool in AMS tray 1 with a matched Spoolman spool. Have a sealed replacement spool of the same filament. | Prerequisites ready |
+| 2 | Start a print job | `print_job_ams_tray_storage` captures tray snapshot |
+| 3 | Filament runs out (real or simulated) | `filament_runout_capture_and_notify` automation fires |
+| 4 | iPhone + iPad receive push notifications | ✓ Notifications with spool name + print job name |
+| 5 | HA persistent notification appears | ✓ Notification with dashboard link |
+| 6 | Navigate to `/3d-printing` dashboard | HMS banner is visible with error details |
+| 7 | Verify **Replace Spool Now** button is present in the HMS banner | ✓ Green button with spool name + ID |
+| 8 | Click **Replace Spool Now** | Wizard opens at Step 1 with the runout spool as source |
+| 9 | Complete wizard Steps 1→2→3→4→Execute | Script executes replacement |
+| 10 | Verify in Spoolman: source spool archived, target spool unsealed | ✓ Spoolman data updated correctly |
+| 11 | Verify `spool_replace_source_spool_id` is cleared to `""` | ✓ Helper reset by execute script |
+| 12 | Refresh dashboard — Replace Spool Now button is gone | ✓ Conditional hides button (source ID empty) |
+| 13 | Dismiss persistent notification | Clean state restored |
+
+**Result:** [ ] Pass / [ ] Fail  
+**Notes:** ___
+
+---
+
 ## Post-Test Cleanup
 
 After testing, if you used test/expendable spools:
@@ -416,11 +668,27 @@ After testing, if you used test/expendable spools:
 
 | Category | Tests | Status |
 |----------|-------|--------|
-| Automated: YAML Syntax | 17/17 | PASSED |
-| Automated: Schema Validation | 10/10 | PASSED |
-| Automated: Script Structure | 15/15 | PASSED |
-| Automated: Chain Integrity | 20/20 | PASSED |
-| Automated: Launch Sequence | 11/11 | PASSED |
-| Automated: Content Validation | 22/22 | PASSED |
-| Automated: Regression Suite | 26/26 | PASSED |
-| Manual: M1-M19 | 19 tests | PENDING |
+| **Phase 1 Automated** | | |
+| YAML Syntax | 17/17 | ✅ PASSED |
+| Schema Validation | 10/10 | ✅ PASSED |
+| Script Structure | 15/15 | ✅ PASSED |
+| Chain Integrity | 20/20 | ✅ PASSED |
+| Launch Sequence | 11/11 | ✅ PASSED |
+| Content Validation | 22/22 | ✅ PASSED |
+| Regression Suite | 26/26 | ✅ PASSED |
+| **Phase 3 Automated** | | |
+| Phase 3 YAML Syntax | 2/2 | ✅ PASSED |
+| Automation Structure | 10/10 | ✅ PASSED |
+| Action Coverage | 7/7 | ✅ PASSED |
+| Notification Content | 6/6 | ✅ PASSED |
+| Resolution Strategy | 6/6 | ✅ PASSED |
+| HMS Banner Card | 7/7 | ✅ PASSED |
+| Entity Cross-Check | 6/6 | ✅ PASSED |
+| Package Regression | 298/298 | ✅ PASSED |
+| Spool Matching Re-run | 26/26 | ✅ PASSED |
+| **Manual Tests** | | |
+| Phase 1-2: M1-M19 | 19 tests | ⏳ PENDING (6 passed) |
+| Phase 3: M20-M28 | 9 tests | ⏳ PENDING |
+| **Totals** | | |
+| Automated | 166 checks | ✅ ALL PASSED |
+| Manual | 28 tests | ⏳ 6 passed, 22 pending |
