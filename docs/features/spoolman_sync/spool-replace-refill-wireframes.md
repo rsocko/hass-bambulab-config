@@ -80,6 +80,39 @@
 
 ---
 
+### HMS Error Banner — "Replace Spool Now" Button (Phase 3)
+
+> **Note:** This button only appears when a filament-runout HMS error is active AND the `filament_runout_capture_and_notify` automation has populated `input_text.spool_replace_source_spool_id`. It renders as an additional card inside the existing HMS error details panel, below the error cards.
+
+```
+╔═════════════════════════════════════════════════════════╤════╗
+║  🔴  HMS ERROR ALERT                                    │ ▲  ║
+║      AMS B Slot 3 filament has run out. Please insert…  │    ║
+╠═════════════════════════════════════════════════════════╧════╣
+║                                                              ║
+║  ┌── 🔴 Error 1 (Serious) ─────────────────────────────┐   ║
+║  │  AMS B Slot 3 filament has run out.                   │   ║
+║  │  Code: HMS_0701_2200_0002_0001 · Wiki ↗              │   ║
+║  └───────────────────────────────────────────────────────┘   ║
+║                                                              ║
+║  ┌── ♻ Replace Spool Now ──────────────────────────────┐   ║
+║  │  🔄 PLA Basic White #42 ran out                      │   ║
+║  │     Tap to start the replace wizard                  │   ║
+║  └  (green left border, light green bg)  ───────────────┘   ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+**Button card details:**
+- Green accent: `rgba(76,175,80,0.12)` background, `#4CAF50` left border — visually distinct from red error cards
+- Icon: `mdi:swap-horizontal` (green)
+- Primary: **"♻ Replace Spool Now"** (bold)
+- Secondary: spool name + ID + "ran out · Tap to start wizard" (smaller, secondary color)
+- Tap action: populate candidates → open wizard popup
+- Auto-hidden when source spool ID is cleared (wizard complete) or HMS error clears
+
+---
+
 ### Step 1 Popup: Validate Empty Spool
 
 ```
@@ -311,17 +344,17 @@ distinguish them from the action labels.
 
 ### Phase 2: AMS Tray Popup + NFC Tag View Integration
 
-- [ ] **AMS Tray Popup**
-  - [ ] Add "Replace Spool" button to `ams_tray_popup.yaml`
-  - [ ] Place "Replace Spool" as the left-most action in the bottom action row
-  - [ ] Remove "More Details" button from bottom action row in `ams_tray_popup.yaml`
-  - [ ] Remove "Pin/Unpin" action from bottom action row design (pin status remains informational at top)
-  - [ ] Wire button to same wizard (set `source_spool_id` from tray context)
-  - [ ] Conditional visibility: only when `match_state === 'matched'` (no button on empty trays)
-- [ ] **NFC Filament Tag View (Mobile)**
-  - [ ] Add "Replace / Refill Spool" button to "Other Actions" section in `view_filament_tags.yaml`
-  - [ ] Wire button: write spool ID → call `script.spool_replace_populate_candidates` → open Step 1 popup
-  - [ ] Conditional enable: only when `sensor.selected_spool` resolves to a valid spool entity
+- [x] **AMS Tray Popup**
+  - [x] Add "Replace Spool" button to `ams_tray_popup.yaml`
+  - [x] Place "Replace Spool" as the left-most action in the bottom action row
+  - [x] Remove "More Details" button from bottom action row in `ams_tray_popup.yaml`
+  - [x] Remove "Pin/Unpin" action from bottom action row design (pin status remains informational at top)
+  - [x] Wire button to same wizard (set `source_spool_id` from tray context)
+  - [x] Conditional visibility: only when `match_state === 'matched'` (no button on empty trays)
+- [x] **NFC Filament Tag View (Mobile)**
+  - [x] Add "Replace / Refill Spool" button to "Other Actions" section in `view_filament_tags.yaml`
+  - [x] Wire button: write spool ID → call `script.spool_replace_populate_candidates` → open Step 1 popup
+  - [x] Conditional enable: only when `sensor.selected_spool` resolves to a valid spool entity
   - [ ] Test: full wizard flow on iPhone (HA Companion App) via NFC tag scan
   - [ ] Test: popup chain (close → delay → open next) works correctly on mobile Safari
 

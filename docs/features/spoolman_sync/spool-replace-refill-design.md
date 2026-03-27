@@ -1,9 +1,9 @@
 # Spool Replace / Refill Workflow — Design Document
 
-> **Status:** Phase 1 Complete (2026-03-26) · Phases 2–5 Pending  
+> **Status:** Phase 1 Complete (2026-03-26) · Phase 2 Complete (2026-03-26) · Phases 3–5 Pending  
 > **Package:** `spoolman_sync`  
-> **Related Packages:** `filament_catalog`, `filament_tag`, `core`  
-> **Entry Points:** Spool Popup (catalog), AMS Tray Popup (view_main)
+> **Related Packages:** `filament_catalog`, `filament_tag`, `core`, `hms_alert`  
+> **Entry Points:** Spool Popup (catalog), AMS Tray Popup (view_main), HMS Error Banner (view_main)
 
 ---
 
@@ -26,33 +26,34 @@ Today this is a fully manual process involving the Spoolman UI and multiple dash
 ┌──────────────────────────────────────────────────────────────────────┐
 │                          ENTRY POINTS                                │
 │                                                                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────┐  ┌────────┐ ┌──────┐ │
-│  │ AMS Tray     │  │ Spool Popup  │  │Sealed │  │Runout  │ │NFC   │ │
-│  │ Popup        │  │ (Catalog)    │  │Spool  │  │Notifi- │ │Tag   │ │
-│  │ "Replace     │  │ "Replace /   │  │Popup  │  │cation  │ │View  │ │
-│  │  Spool"      │  │  Refill      │  │"Unseal│  │"Replace│ │"Re-  │ │
-│  │  button      │  │  Spool"      │  │& Use" │  │ Spool" │ │place"│ │
-│  └──────┬───────┘  └──────┬───────┘  └───┬───┘  └───┬────┘ └──┬───┘ │
-│         │                 │              │           │         │      │
-│  (only if tray has       │              │    (auto-created    │      │
-│   matched spool —        │              │    on filament      │      │
-│   NOT available when     │              │    runout; links  (mobile  │
-│   tray goes empty        │              │    to catalog     NFC scan │
-│   mid-print)             │              │    with pre-set   on AMS   │
-│         │                │              │    source spool)  tag)     │
-│         └────────┬───────┘              │           │         │      │
-│                  │                      │           │         │      │
-│                  ▼                      ▼           │         │      │
-│         ┌───────────────────┐  ┌──────────────────┐ │         │      │
-│         │ STEP 1: Validate  │  │ STEP 1b: Pick    │ │         │      │
-│         │ Empty Spool       │  │ Empty Spool to   │ │         │      │
-│         │ (warn if > 0g     │  │ Replace (opt.)   │ │         │      │
-│         │  remaining)       │  │                  │ │         │      │
-│         └────────┬──────────┘  └────────┬─────────┘ │         │      │
-│                  │                      │           │         │      │
-│                  ├──────────────────────┘           │         │      │
-│                  │◄─────────────────────────────────┘         │      │
-│                  │◄───────────────────────────────────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────┐  ┌────────┐ ┌──────┐ ┌─────────┐ │
+│  │ AMS Tray     │  │ Spool Popup  │  │Sealed │  │Runout  │ │NFC   │ │HMS      │ │
+│  │ Popup        │  │ (Catalog)    │  │Spool  │  │Notifi- │ │Tag   │ │Runout   │ │
+│  │ "Replace     │  │ "Replace /   │  │Popup  │  │cation  │ │View  │ │Banner   │ │
+│  │  Spool"      │  │  Refill      │  │"Unseal│  │"Replace│ │"Re-  │ │"Replace │ │
+│  │  button      │  │  Spool"      │  │& Use" │  │ Spool" │ │place"│ │ Now"    │ │
+│  └──────┬───────┘  └──────┬───────┘  └───┬───┘  └───┬────┘ └──┬───┘ └────┬────┘ │
+│         │                 │              │           │         │          │       │
+│  (only if tray has       │              │    (auto-created    │   (inline on     │
+│   matched spool —        │              │    on filament      │    view_main     │
+│   NOT available when     │              │    runout; links  (mobile  when HMS    │
+│   tray goes empty        │              │    to catalog     NFC scan  reports    │
+│   mid-print)             │              │    with pre-set   on AMS   filament   │
+│         │                │              │    source spool)  tag)     runout)    │
+│         └────────┬───────┘              │           │         │          │       │
+│                  │                      │           │         │          │       │
+│                  ▼                      ▼           │         │          │       │
+│         ┌───────────────────┐  ┌──────────────────┐ │         │          │       │
+│         │ STEP 1: Validate  │  │ STEP 1b: Pick    │ │         │          │       │
+│         │ Empty Spool       │  │ Empty Spool to   │ │         │          │       │
+│         │ (warn if > 0g     │  │ Replace (opt.)   │ │         │          │       │
+│         │  remaining)       │  │                  │ │         │          │       │
+│         └────────┬──────────┘  └────────┬─────────┘ │         │          │       │
+│                  │                      │           │         │          │       │
+│                  ├──────────────────────┘           │         │          │       │
+│                  │◄─────────────────────────────────┘         │          │       │
+│                  │◄───────────────────────────────────────────┘          │       │
+│                  │◄─────────────────────────────────────────────────────┘       │
 │                  ▼                                                    │
 │   ┌─────────────────────────────┐                                    │
 │   │ STEP 2: Select Replacement  │                                    │
@@ -180,6 +181,62 @@ Open the Filament Catalog to find and replace this spool.
 **Why this entry point matters:** The NFC scan flow is the most natural mobile interaction for a user standing in front of their 3D printer. They physically scan the tag → see the spool info → realize it's empty → tap "Replace" — all without navigating through the Filament Catalog or AMS popups. Unlike the AMS tray popup entry point (3A), this works even when the tray is already empty (the tag identifies the filament, not the tray), making it ideal for the post-runout scenario.
 
 **Implementation:** The button calls `script.spool_replace_populate_candidates` (same as all other entry points) and then opens the wizard popup chain. Since the filament tag view is a full dashboard view (not a popup), the browser_mod popup opens on top of it — identical behavior to popups in the catalog view.
+
+### 3E. From the HMS Filament Runout Banner (Dashboard — Phase 3)
+
+**Context:** The printer pauses with an HMS error indicating filament runout (e.g., `HMS_0701_2200_0002_0001` — "AMS B Slot 3 filament has run out"). The HMS error alert section already renders a prominent red banner at the top of `view_main`. This entry point adds contextual **"Replace Spool"** action directly inside that banner so the user can act immediately without navigating to the Filament Catalog or waiting for a notification.
+
+**Why this matters:** The HMS error banner is the *first thing the user sees* when they open the dashboard after a runout event. Today, the banner is informational only — it tells the user something is wrong but provides no action. Adding a one-tap wizard launch here creates the shortest possible path from "spool ran out" to "replace it."
+
+**Trigger Condition:**
+- The HMS error banner is visible (`binary_sensor.hms_alert_display_wrapper` is `on`)
+- At least one error matches the filament-runout HMS code pattern (codes matching `HMS_0701_*` or error text containing "filament has run out" / "filament broken")
+- `input_text.spool_replace_source_spool_id` is populated (set by `filament_runout_capture_and_notify` automation from Phase 3)
+
+**Display — Inline Action Button:**
+When the trigger condition is met, a **"♻ Replace Spool Now"** action button appears within the HMS error details panel, directly below the filament-runout error card:
+
+```
+╔═════════════════════════════════════════════════════════╤════╗
+║  🔴  HMS ERROR ALERT                                    │ ▲  ║
+║      AMS B Slot 3 filament has run out.                 │    ║
+╠═════════════════════════════════════════════════════════╧════╣
+║                                                              ║
+║  ┌── 🔴 Error 1 (Serious) ─────────────────────────────┐   ║
+║  │  AMS B Slot 3 filament has run out.                   │   ║
+║  │  Code: HMS_0701_2200_0002_0001 · Wiki ↗              │   ║
+║  └──────────────────────────────────────────────────────┘   ║
+║                                                              ║
+║  ┌──────────────────────────────────────────────────────┐   ║
+║  │  ♻ Replace Spool Now                                  │   ║
+║  │  PLA Basic White #42 ran out · Tap to start wizard    │   ║
+║  └──────────────────────────────────────────────────────┘   ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+**Button Behavior:**
+1. Reads `input_text.spool_replace_source_spool_id` to identify the runout spool
+2. Calls `script.spool_replace_populate_candidates` with the spool's `filament_id`
+3. Sets `input_number.spool_replace_wizard_step` to `1`
+4. Opens the replace wizard popup via `browser_mod.popup`
+
+**Button Styling:**
+- Green accent background (`rgba(76,175,80,0.12)`) with green left border — contrasts against the red error cards to signal *actionable resolution*
+- `mdi:swap-horizontal` icon
+- Primary text: **"♻ Replace Spool Now"**
+- Secondary text: spool name + ID from the resolved source spool entity (e.g., *"PLA Basic White #42 ran out · Tap to start wizard"*)
+
+**Visibility Logic:**
+- Only shown when `input_text.spool_replace_source_spool_id` is non-empty AND the corresponding spool entity exists
+- Automatically hidden once the replace wizard completes (the execute script clears `input_text.spool_replace_source_spool_id`)
+- Also hidden when the HMS error clears (printer resumes), since the banner itself disappears
+
+**Implementation Notes:**
+- This is a new conditional card appended to the bottom of the existing HMS error details panel in `hms-error-alert-section.yaml`
+- The card is a `custom:button-card` with a `conditional` wrapper keyed on `input_text.spool_replace_source_spool_id` being non-empty
+- No changes to the HMS template sensor or helper entities are needed — this purely extends the dashboard card
+- Depends on the Phase 3 automation (`filament_runout_capture_and_notify`) to populate `input_text.spool_replace_source_spool_id`
 
 ---
 
@@ -725,16 +782,18 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 
 **Notes:** The AMS popup already has the spool context (`spoolEntityId`, `spoolId`, `filamentId`) so wiring it into the same wizard is straightforward. For empty trays (mid-print runout), the user is directed to the Filament Catalog via the Phase 3 notification — the AMS popup deliberately does not try to reconstruct stale spool context.
 
-### Phase 3: Filament Runout Detection & Notification
+### Phase 3: Filament Runout Detection, Notification & HMS Banner Action
 
-**Scope:** Detect mid-print spool runout and notify the user with an actionable link to the replace wizard.
+**Scope:** Detect mid-print spool runout, notify the user with actionable links, and surface a one-tap "Replace Spool Now" button directly in the HMS error banner on the main dashboard view.
 
 **Deliverables:**
 1. Automation `filament_runout_capture_and_notify` — triggers on `paused_filament_runout`, resolves last-known spool from `print_weight_backup`, creates persistent + mobile notification
 2. Modification to `active_tray_changed_update_spoolman` — write spool ID to `input_text.spool_replace_source_spool_id` at runout detection (or publish as separate automation)
 3. Optional: Filament Catalog banner that detects a pending spool replacement and offers one-tap wizard entry
+4. **HMS banner "Replace Spool Now" button** (Entry Point 3E) — conditional `button-card` inside the HMS error details panel in `hms-error-alert-section.yaml`. Shown when `input_text.spool_replace_source_spool_id` is populated and an HMS filament-runout error is active. Launches the replace wizard popup directly from the main dashboard view.
+5. Wiring: the button reads the source spool ID, calls `script.spool_replace_populate_candidates`, and opens the Step 1 wizard popup via `browser_mod.popup`
 
-**Notes:** This phase addresses the critical gap where the AMS tray loses spool context at runout. The persistent notification is the primary user-facing signal. The spool can still be found and acted on in the Filament Catalog even without the notification.
+**Notes:** This phase addresses the critical gap where the AMS tray loses spool context at runout. The persistent notification is the primary user-facing signal, but the HMS banner button provides the *fastest in-dashboard action path* — the user opens the dashboard, sees the red alert with a green "Replace Spool Now" button, and taps it. No navigation to the Filament Catalog required. The button auto-clears when the wizard completes (the execute script resets the source spool ID helper) or when the HMS error itself clears.
 
 The NFC filament tag view entry point is the most natural mobile path for a user standing at their printer. The `sensor.selected_spool` template sensor resolves the scanned `filament_id` to the matching unsealed spool — this provides the source spool context even when the AMS tray is empty (the NFC tag identifies the filament, not the tray state). The wizard popups open on top of the filament tag dashboard view via `browser_mod.popup`, reusing the same Step 1–4 popup chain.
 
@@ -828,6 +887,9 @@ homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/
 
 homeassistant/packages/3d_printing/common/dashboard_views/
 ├── view_filament_tags.yaml                              # Modified: Phase 2
+
+homeassistant/packages/3d_printing/hms_alert/dashboard_cards/
+├── hms-error-alert-section.yaml                         # Modified: Phase 3 (add Replace Spool Now button)
 
 docs/features/spoolman_sync/
 ├── spool-replace-refill-design.md                       # This document
