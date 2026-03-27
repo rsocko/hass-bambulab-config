@@ -33,7 +33,8 @@ tap_action:
 card_mod:
   style: |
     ha-card {
-      --card-primary-font-size: 24px;
+      --card-primary-font-size: 28px;
+      --card-primary-font-weight: 700;
       --card-secondary-font-size: 11px;
     }
 grid_options:
