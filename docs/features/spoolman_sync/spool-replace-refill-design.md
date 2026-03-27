@@ -1,6 +1,6 @@
 # Spool Replace / Refill Workflow — Design Document
 
-> **Status:** Phase 1 Complete (2026-03-26) · Phase 2 Complete (2026-03-26) · Phase 3 Complete (2026-03-27) · Phases 4–5 Pending  
+> **Status:** Phase 1 Complete (2026-03-26) · Phase 2 Complete (2026-03-26) · Phase 3 Complete (2026-03-27) · Phase 4 Complete (2026-03-27) · Phase 5 Pending  
 > **Package:** `spoolman_sync`  
 > **Related Packages:** `filament_catalog`, `filament_tag`, `core`, `hms_alert`  
 > **Entry Points:** Spool Popup (catalog), AMS Tray Popup (view_main), HMS Error Banner (view_main)
@@ -816,6 +816,7 @@ The NFC filament tag view entry point is the most natural mobile path for a user
 
 **Potential additions:**
 - **Toast notifications** after execution (via `browser_mod.notification`)
+- **Add Back button** in the wizard workflow
 - **Undo** capability (un-archive source spool within a timeout window)
 - **Spool type / clip type picker** instead of copy-only (for cases where the new spool has a different physical format)
 - **Batch replace** for multi-material prints where multiple spools ran out
@@ -864,7 +865,10 @@ homeassistant/packages/3d_printing/spoolman_sync/
 ├── scripts/
 │   ├── spool_replace_populate_candidates-script.yaml    # Phase 1
 │   ├── spool_replace_execute-script.yaml                # Phase 1
-│   └── spool_unseal_setup-script.yaml                   # Phase 4
+│   ├── spool_replace_sync_target_from_picker-script.yaml # Phase 1
+│   ├── spool_unseal_setup-script.yaml                   # Phase 4
+│   ├── spool_unseal_populate_empty_spools-script.yaml   # Phase 4
+│   └── spool_unseal_sync_source_from_picker-script.yaml # Phase 4
 ├── automations/
 │   └── (existing automations unchanged)
 ├── helpers/
@@ -877,18 +881,21 @@ homeassistant/packages/3d_printing/spoolman_sync/
 │   │   └── spool_replace_archive_source.yaml            # Phase 1
 │   ├── input_select/
 │   │   ├── spool_replace_desiccant_mode.yaml            # Phase 1
-│   │   └── spool_replace_target_picker.yaml             # Phase 1
+│   │   └── spool_replace_target_picker.yaml             # Phase 1 (reused by Phase 4)
 │   └── input_text/
-│       ├── spool_replace_source_spool_id.yaml           # Phase 1
-│       └── spool_replace_target_spool_id.yaml           # Phase 1
+│       ├── spool_replace_source_spool_id.yaml           # Phase 1 (reused by Phase 4)
+│       └── spool_replace_target_spool_id.yaml           # Phase 1 (reused by Phase 4)
 
 homeassistant/packages/3d_printing/spoolman_sync/
 ├── automations/
 │   └── filament_runout_capture_and_notify.yaml           # Phase 3
 
 homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/
-├── catalog_spool_popup.yaml                             # Modified: Phase 1
+├── catalog_spool_popup.yaml                             # Modified: Phase 1, Phase 4
 ├── ams_tray_popup.yaml                                  # Modified: Phase 2
+├── spool_unseal_wizard.yaml                             # Phase 4
+├── spool_unseal_wizard_step1.yaml                       # Phase 4
+├── spool_unseal_wizard_step2.yaml                       # Phase 4
 
 homeassistant/packages/3d_printing/common/dashboard_views/
 ├── view_filament_tags.yaml                              # Modified: Phase 2

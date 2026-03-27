@@ -1,0 +1,58 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+spool_unseal_populate_empty_spools:
+  alias: Spool Unseal — Populate Empty Spool Candidates
+  description: >-
+    Populates input_select.spool_replace_target_picker with unsealed, non-archived
+    spools of the same filament_id. Used in the "Unseal & Use" wizard to optionally
+    link an empty spool for archiving.
+  icon: mdi:package-variant-remove
+  fields:
+    filament_id:
+      description: The filament ID to match empty spools against.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        fid: "{{ filament_id | string }}"
+        candidates: >-
+          {% set fid_local = filament_id | string %}
+          {% set ns = namespace(results=[]) %}
+          {% for s in states.sensor
+             if s.entity_id.startswith('sensor.spoolman_spool_')
+             and state_attr(s.entity_id, 'filament_id') | default('') | string == fid_local
+             and state_attr(s.entity_id, 'extra_sealed') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On']
+             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set sid = state_attr(s.entity_id, 'id') | default('?') %}
+            {% set sname = s.name | default('Unknown') %}
+            {% set sloc = state_attr(s.entity_id, 'location') | default('N/A') %}
+            {% set swt = state_attr(s.entity_id, 'remaining_weight') | default(0) | float(0) %}
+            {% set ns.results = ns.results + [sname ~ ' (#' ~ sid ~ ') 📍 ' ~ sloc ~ ' — ' ~ swt | round(1) ~ 'g'] %}
+          {% endfor %}
+          {{ ns.results }}
+
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.spool_replace_target_picker
+      data:
+        options: >-
+          {% if candidates | length > 0 %}
+            {{ ['Skip — no spool to archive'] + candidates }}
+          {% else %}
+            {{ ['Skip — no spool to archive'] }}
+          {% endif %}
+
+    # Select "Skip" by default
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.spool_replace_target_picker
+      data:
+        option: "Skip — no spool to archive"
+
+    - action: system_log.write
+      data:
+        message: >-
+          Spool Unseal: Populated {{ candidates | length }} unsealed spool(s) for
+          filament_id '{{ fid }}' (optional archive candidates).
+        level: warning
+        logger: homeassistant.components.bambulab.spool_replace

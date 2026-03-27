@@ -1,0 +1,219 @@
+# spool_unseal_wizard_step1.yaml
+# Step 1: Configure Unseal Options
+# Shows the sealed spool info, optional picker for an empty spool to archive,
+# and desiccant mode selector.
+# Nav: Continue → Step 2, Cancel.
+#
+# Launched by: spool_unseal_wizard (Phase 4)
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_unseal_wizard_step1:
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+    grid:
+      - grid-template-areas: '"stepper" "content" "picker" "nav"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto auto auto auto
+    custom_fields:
+      stepper:
+        - padding: 0
+      content:
+        - padding: 0
+      picker:
+        - padding: 4px 0
+        - min-width: 0
+        - overflow: hidden
+      nav:
+        - padding: 8px 0 0 0
+  custom_fields:
+    stepper: |
+      [[[
+        return '<div style="text-align:center;padding:0 0 8px 0;">'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);">Step 1 of 2</div>'
+          + '<div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--divider-color);"></div>'
+          + '</div></div>';
+      ]]]
+    content: |
+      [[[
+        const tgtId = states['input_text.spool_replace_target_spool_id']?.state;
+        if (!tgtId || tgtId === '' || tgtId === 'unknown') {
+          return '<div style="padding:16px;text-align:center;color:var(--error-color);">No sealed spool selected.</div>';
+        }
+        const tgtEntity = states['sensor.spoolman_spool_' + tgtId];
+        if (!tgtEntity) {
+          return '<div style="padding:16px;text-align:center;color:var(--error-color);">Sealed spool entity not found (ID: ' + tgtId + ').</div>';
+        }
+
+        const name = tgtEntity.attributes.friendly_name || 'Unknown Spool';
+        const remaining = tgtEntity.attributes.remaining_weight;
+        const weightText = (remaining !== undefined && remaining !== null)
+          ? Number(remaining).toFixed(1) + ' g'
+          : 'N/A';
+        const initialWeight = tgtEntity.attributes.initial_weight || '?';
+        const location = tgtEntity.attributes.location || 'N/A';
+        const rawColor = (tgtEntity.attributes.filament_color_hex || '888888').replace('#', '');
+        const colorHex = '#' + rawColor;
+        const entityPicture = tgtEntity.attributes.entity_picture || '';
+        const filamentName = tgtEntity.attributes.filament_name || 'Unknown Filament';
+        const vendor = tgtEntity.attributes.filament_vendor_name || '';
+        const subtitle = vendor ? filamentName + ' (' + vendor + ')' : filamentName;
+
+        const lum = ((parseInt(rawColor.substring(0,2),16)||128)*299 + (parseInt(rawColor.substring(2,4),16)||128)*587 + (parseInt(rawColor.substring(4,6),16)||128)*114) / 1000;
+        const iconColor = lum > 128 ? '#000' : '#fff';
+        const spoolImageHtml = entityPicture
+          ? '<img src="' + entityPicture + '" style="width:64px;height:64px;border-radius:50%;border:3px solid ' + colorHex + ';flex-shrink:0;object-fit:cover;">'
+          : '<span style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:' + colorHex + ';flex-shrink:0;border:3px solid var(--divider-color);"><ha-icon icon="mdi:package-variant-closed" style="--mdc-icon-size:28px;color:' + iconColor + ';"></ha-icon></span>';
+
+        return '<div style="text-align:left;">'
+          + '<div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:12px;">'
+          + '<ha-icon icon="mdi:package-variant-remove" style="color:var(--info-color);--mdc-icon-size:28px;width:28px;height:28px;flex:0 0 28px;display:inline-flex;"></ha-icon>'
+          + '<div>'
+          + '<div style="font-weight:600;">Unseal & Use</div>'
+          + '<div style="font-size:0.9em;color:var(--secondary-text-color);">' + subtitle + '</div>'
+          + '</div></div>'
+          + '<div style="padding:12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);display:flex;align-items:center;gap:12px;">'
+          + spoolImageHtml
+          + '<div>'
+          + '<div><strong>' + name + '</strong> #' + tgtId + '</div>'
+          + '<div style="color:var(--secondary-text-color);font-size:0.9em;margin-top:2px;">\uD83D\uDCCD ' + location + ' \u00B7 ' + initialWeight + 'g (sealed)</div>'
+          + '</div>'
+          + '</div>'
+          + '<div style="margin-top:12px;padding:12px;border-radius:8px;background:rgba(33,150,243,0.1);border:1px solid rgba(33,150,243,0.3);">'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+          + '<ha-icon icon="mdi:information" style="color:#2196F3;--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+          + '<div>'
+          + '<div style="font-weight:600;">This spool will be unsealed and set as active.</div>'
+          + '<div style="font-size:0.9em;color:var(--secondary-text-color);margin-top:4px;">Date opened will be set to today. Optionally link an empty spool to archive below.</div>'
+          + '</div></div></div>'
+          + '</div>';
+      ]]]
+    picker:
+      card:
+        type: vertical-stack
+        cards:
+          - type: entities
+            card_mod:
+              style: |
+                ha-card {
+                  overflow: hidden;
+                }
+                .card-content {
+                  padding: 8px 12px;
+                }
+            entities:
+              - entity: input_select.spool_replace_target_picker
+                name: Archive an empty spool?
+                card_mod:
+                  style: |
+                    :host {
+                      overflow: hidden;
+                    }
+                    hui-generic-entity-row {
+                      overflow: hidden;
+                    }
+                    state-badge {
+                      flex-shrink: 0;
+                    }
+                    .info, .text-content {
+                      min-width: 0;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    }
+          - type: entities
+            card_mod:
+              style: |
+                .card-content {
+                  text-align: left;
+                }
+                hui-generic-entity-row {
+                  text-align: left;
+                }
+                ha-select {
+                  text-align: left;
+                  --ha-select-min-width: 0;
+                }
+            entities:
+              - entity: input_select.spool_replace_desiccant_mode
+                name: Desiccant Fill Date
+    nav:
+      card:
+        type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
+          - type: custom:button-card
+            name: Review & Execute
+            icon: mdi:arrow-right
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: script.spool_unseal_sync_source_from_picker
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 2
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px

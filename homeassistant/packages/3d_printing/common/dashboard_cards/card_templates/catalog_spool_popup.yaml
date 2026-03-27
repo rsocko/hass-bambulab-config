@@ -26,6 +26,8 @@ catalog_spool_popup:
       });
       const spoolName = entity?.attributes?.friendly_name || 'Unknown Spool';
       const nowISO = new Date().toISOString();
+      const _sealedVal = entity?.attributes?.extra_sealed;
+      const isSealed = _sealedVal === true || _sealedVal === 'true' || _sealedVal === 'True' || _sealedVal === 1 || _sealedVal === '1';
 
       // --- Minimal chart config ---
       const rawColor = (entity?.attributes?.filament_color_hex || '888888').replace('#', '');
@@ -658,7 +660,40 @@ catalog_spool_popup:
                   columns: 4,
                   square: false,
                   cards: [
-                    toolbarBtn('Replace', 'mdi:recycle-variant', {
+                    isSealed
+                    ? toolbarBtn('Unseal', 'mdi:package-variant-remove', {
+                      action: 'fire-dom-event',
+                      browser_mod: {
+                        service: 'browser_mod.sequence',
+                        data: {
+                          sequence: [
+                            { service: 'input_text.set_value', data: { entity_id: 'input_text.spool_replace_source_spool_id', value: '' } },
+                            { service: 'input_text.set_value', data: { entity_id: 'input_text.spool_replace_target_spool_id', value: String(spoolIdInt) } },
+                            { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_spool_type' } },
+                            { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_clip_type' } },
+                            { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_desiccant_present' } },
+                            { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_location' } },
+                            { service: 'input_boolean.turn_off', data: { entity_id: 'input_boolean.spool_replace_mark_used' } },
+                            { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_archive_source' } },
+                            { service: 'input_select.select_option', data: { entity_id: 'input_select.spool_replace_desiccant_mode', option: 'Reset to today' } },
+                            { service: 'input_number.set_value', data: { entity_id: 'input_number.spool_replace_wizard_step', value: 1 } },
+                            { service: 'script.spool_unseal_populate_empty_spools', data: { filament_id: String(filamentId) } },
+                            { service: 'browser_mod.close_popup' },
+                            { service: 'browser_mod.delay', data: { time: 500 } },
+                            { service: 'browser_mod.popup', data: {
+                              title: '📦 Unseal & Use',
+                              size: 'normal',
+                              content: {
+                                type: 'custom:button-card',
+                                template: 'spool_unseal_wizard',
+                                tap_action: { action: 'none' }
+                              }
+                            }}
+                          ]
+                        }
+                      }
+                    })
+                    : toolbarBtn('Replace', 'mdi:recycle-variant', {
                       action: 'fire-dom-event',
                       browser_mod: {
                         service: 'browser_mod.sequence',

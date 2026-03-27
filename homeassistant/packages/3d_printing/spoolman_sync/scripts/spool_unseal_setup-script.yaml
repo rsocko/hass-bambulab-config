@@ -1,0 +1,157 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+spool_unseal_setup:
+  alias: Spool Unseal — Execute
+  description: >-
+    Unseals the target spool (sets sealed=false, date_opened=now()), and optionally
+    archives a linked source spool. Uses read-merge-write pattern for extra fields
+    to avoid overwriting unrelated Spoolman extra data.
+  icon: mdi:package-variant-remove
+  sequence:
+    # --- Read spool IDs and option helpers ---
+    - variables:
+        tgt_id: "{{ states('input_text.spool_replace_target_spool_id') | int(0) }}"
+        src_id: "{{ states('input_text.spool_replace_source_spool_id') | int(0) }}"
+        tgt_entity: "{{ 'sensor.spoolman_spool_' ~ tgt_id }}"
+        src_entity: "{{ 'sensor.spoolman_spool_' ~ src_id }}"
+        has_source: "{{ src_id > 0 }}"
+        copy_spool_type: "{{ is_state('input_boolean.spool_replace_copy_spool_type', 'on') and src_id > 0 }}"
+        copy_clip_type: "{{ is_state('input_boolean.spool_replace_copy_clip_type', 'on') and src_id > 0 }}"
+        copy_desiccant_present: "{{ is_state('input_boolean.spool_replace_copy_desiccant_present', 'on') and src_id > 0 }}"
+        copy_location: "{{ is_state('input_boolean.spool_replace_copy_location', 'on') and src_id > 0 }}"
+        archive_source: "{{ is_state('input_boolean.spool_replace_archive_source', 'on') and src_id > 0 }}"
+        desiccant_mode: "{{ states('input_select.spool_replace_desiccant_mode') }}"
+        # Source spool attributes (only used if linked)
+        source_spool_type: "{{ state_attr(src_entity, 'extra_spool_type') | default('', true) if src_id > 0 else '' }}"
+        source_clip_type: "{{ state_attr(src_entity, 'extra_clip_type') | default('', true) if src_id > 0 else '' }}"
+        source_desiccant_filled: "{{ state_attr(src_entity, 'extra_desiccant_filled') | default('', true) if src_id > 0 else '' }}"
+        source_desiccant_in_spool: "{{ state_attr(src_entity, 'extra_desiccant_in_spool') | default('', true) if src_id > 0 else '' }}"
+        source_location: "{{ state_attr(src_entity, 'location') | default('', true) if src_id > 0 else '' }}"
+
+    # --- Validate ---
+    - if:
+        - condition: template
+          value_template: "{{ tgt_id <= 0 }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            title: Spool Unseal Error
+            message: No target spool selected for unsealing.
+            notification_id: spool_unseal_error
+        - stop: Invalid target spool ID
+
+    # --- Step 1: Reset source spool weight to 0 (if linked) ---
+    - if:
+        - condition: template
+          value_template: "{{ has_source }}"
+      then:
+        - action: spoolman.patch_spool
+          data:
+            id: "{{ src_id }}"
+            remaining_weight: 0
+
+    # --- Step 2: Build merged extra object for target spool (read-merge-write) ---
+    # NOTE: state_attr(entity, 'extra') returns None — the Spoolman integration
+    # flattens extras into individual extra_* attributes. We rebuild the dict
+    # from those attributes, preserving native Python types.
+    - variables:
+        target_current_extra: >-
+          {% set ns = namespace(d={}) %}
+          {% for key, val in states[tgt_entity].attributes.items() if key.startswith('extra_') %}
+            {% set field_key = key[6:] %}
+            {% if val is not none and val | string != '' %}
+              {% if val is sameas true or val is sameas false %}
+                {% set ns.d = dict(ns.d, **{field_key: val}) %}
+              {% else %}
+                {% set ns.d = dict(ns.d, **{field_key: val | string}) %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.d }}
+        target_extra_updates: >-
+          {% set updates = namespace(d={'sealed': false, 'date_opened': now().isoformat()}) %}
+          {% if copy_spool_type and source_spool_type %}
+            {% set updates.d = dict(updates.d, spool_type=source_spool_type) %}
+          {% endif %}
+          {% if copy_clip_type and source_clip_type %}
+            {% set updates.d = dict(updates.d, clip_type=source_clip_type) %}
+          {% endif %}
+          {% if desiccant_mode == 'Copy from old spool' and source_desiccant_filled %}
+            {% set updates.d = dict(updates.d, desiccant_filled=source_desiccant_filled) %}
+          {% elif desiccant_mode == 'Reset to today' %}
+            {% set updates.d = dict(updates.d, desiccant_filled=now().isoformat()) %}
+          {% endif %}
+          {% if copy_desiccant_present and source_desiccant_in_spool %}
+            {% set updates.d = dict(updates.d, desiccant_in_spool=(source_desiccant_in_spool | string | lower == 'true')) %}
+          {% endif %}
+          {{ updates.d }}
+        target_merged_extra: "{{ dict(target_current_extra, **target_extra_updates) }}"
+
+    # --- Step 3: Apply all extra field changes in a single call ---
+    - action: spoolman.patch_spool
+      data:
+        id: "{{ tgt_id }}"
+        extra: "{{ target_merged_extra }}"
+
+    # --- Step 4a: Set location on target (if copying from source) ---
+    - if:
+        - condition: template
+          value_template: "{{ copy_location and source_location }}"
+      then:
+        - action: spoolman.patch_spool
+          data:
+            id: "{{ tgt_id }}"
+            location: "{{ source_location }}"
+
+    # --- Step 5: Archive the source spool (LAST — entity disappears after this) ---
+    - if:
+        - condition: template
+          value_template: "{{ archive_source }}"
+      then:
+        - action: spoolman.patch_spool
+          data:
+            id: "{{ src_id }}"
+            archived: true
+
+    # --- Step 6: Refresh changed entities ---
+    - action: homeassistant.update_entity
+      target:
+        entity_id: "{{ tgt_entity }}"
+    - if:
+        - condition: template
+          value_template: "{{ has_source }}"
+      then:
+        - action: homeassistant.update_entity
+          target:
+            entity_id: "{{ src_entity }}"
+
+    # --- Step 7: Log the operation ---
+    - action: system_log.write
+      data:
+        message: >-
+          Spool Unseal completed. Target spool #{{ tgt_id }} unsealed
+          (date_opened set to {{ now().isoformat() }}).
+          {% if has_source %}Source spool #{{ src_id }}
+          ({{ 'archived' if archive_source else 'kept' }}).{% endif %}
+        level: info
+        logger: homeassistant.components.bambulab.spool_replace
+
+    - action: logbook.log
+      data:
+        name: Spool Unseal
+        message: >-
+          Unsealed spool #{{ tgt_id }}.
+          {% if has_source %}Linked empty spool #{{ src_id }}
+          ({{ 'archived' if archive_source else 'kept' }}).{% endif %}
+
+    # --- Step 8: Clear workflow state helpers ---
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.spool_replace_source_spool_id
+      data:
+        value: ""
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.spool_replace_target_spool_id
+      data:
+        value: ""

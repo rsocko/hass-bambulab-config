@@ -1,0 +1,55 @@
+# spool_unseal_wizard.yaml
+# Unified single-popup wizard wrapper for the "Unseal & Use" flow.
+# Uses conditional cards to show/hide steps 1–2 based on
+# input_number.spool_replace_wizard_step.
+#
+# Step 1: Configure — show sealed spool, optional empty spool picker, desiccant mode
+# Step 2: Review & Execute — summary of actions, execute button
+#
+# Launched by: "Unseal & Use" button in catalog_spool_popup (Phase 4)
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_unseal_wizard:
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+    grid:
+      - grid-template-areas: '"wizard"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto
+    custom_fields:
+      wizard:
+        - padding: 0
+        - min-height: 380px
+  custom_fields:
+    wizard:
+      card:
+        type: vertical-stack
+        cards:
+          # ── Step 1: Configure ──
+          - type: conditional
+            conditions:
+              - entity: input_number.spool_replace_wizard_step
+                state: "1.0"
+            card:
+              type: custom:button-card
+              template: spool_unseal_wizard_step1
+              tap_action:
+                action: none
+          # ── Step 2: Review & Execute ──
+          - type: conditional
+            conditions:
+              - entity: input_number.spool_replace_wizard_step
+                state: "2.0"
+            card:
+              type: custom:button-card
+              template: spool_unseal_wizard_step2
+              tap_action:
+                action: none

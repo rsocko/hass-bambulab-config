@@ -382,13 +382,13 @@ distinguish them from the action labels.
   - [ ] Test: HMS banner button launches wizard popup correctly
   - [ ] Test: HMS banner button hidden after wizard completes
 
-### Phase 4: Reverse Flow (Unseal & Use)
+### Phase 4: Reverse Flow (Unseal & Use) — Complete (2026-03-27)
 
-- [ ] Create `script.spool_unseal_setup`
-- [ ] Add "Unseal & Use" button (conditional on `extra_sealed`) in spool popup
-- [ ] Simplified popup flow (configure → execute, no source spool required)
-- [ ] Optional: link empty spool for archiving
-- [ ] Verify `date_opened` extra field is populated on unseal
+- [x] Create `script.spool_unseal_setup`
+- [x] Add "Unseal & Use" button (conditional on `extra_sealed`) in spool popup
+- [x] Simplified popup flow (configure → execute, no source spool required)
+- [x] Optional: link empty spool for archiving
+- [x] Verify `date_opened` extra field is populated on unseal
 
 ### Phase 5: Enhancements
 

@@ -1,0 +1,199 @@
+# spool_unseal_wizard_step2.yaml
+# Step 2: Review & Execute
+# Shows a live summary of what will happen (including optional source spool archiving).
+# Nav: Execute (calls spool_unseal_setup, green), Back, Cancel.
+#
+# Launched by: spool_unseal_wizard (Phase 4)
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_unseal_wizard_step2:
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+      - text-align: left
+    grid:
+      - grid-template-areas: '"stepper" "summary" "nav"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto auto auto
+    custom_fields:
+      stepper:
+        - padding: 0
+      summary:
+        - padding: 0
+        - text-align: left
+      nav:
+        - padding: 8px 0 0 0
+  custom_fields:
+    stepper: |
+      [[[
+        return '<div style="text-align:center;padding:0 0 8px 0;">'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);">Step 2 of 2</div>'
+          + '<div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '</div></div>';
+      ]]]
+    summary:
+      card:
+        type: markdown
+        card_mod:
+          style: |
+            ha-card {
+              text-align: left;
+            }
+            .card-content {
+              text-align: left;
+            }
+        content: >
+          {% set tgt_id = states('input_text.spool_replace_target_spool_id') %}
+          {% set src_id = states('input_text.spool_replace_source_spool_id') %}
+          {% set tgt = 'sensor.spoolman_spool_' ~ tgt_id %}
+          {% set src = 'sensor.spoolman_spool_' ~ src_id %}
+          {% set has_source = src_id | int(0) > 0 %}
+
+          ### Summary
+
+          **Target:** {{ state_attr(tgt, 'friendly_name') | default('Unknown', true) }} #{{ tgt_id }}
+
+          - **Unsealed:** Yes (Date Opened set to today)
+
+          {% set des_mode = states('input_select.spool_replace_desiccant_mode') %}
+          {% if des_mode == 'Copy from old spool' and has_source %}- **Desiccant Fill Date:** Copy from source{% elif des_mode == 'Reset to today' %}- **Desiccant Fill Date:** Reset to today{% endif %}
+
+          {% if has_source %}
+
+          ---
+
+          **Source (archive):** {{ state_attr(src, 'friendly_name') | default('Unknown', true) }} #{{ src_id }}
+
+          - **Weight:** Reset to 0g
+
+          - **Archive in Spoolman:** {% if is_state('input_boolean.spool_replace_archive_source', 'on') %}Yes{% else %}No{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_spool_type', 'on') %}- **Copy Spool Type:** {{ state_attr(src, 'extra_spool_type') | default('(none)', true) }}{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_clip_type', 'on') %}- **Copy Clip Type:** {{ state_attr(src, 'extra_clip_type') | default('(none)', true) }}{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_desiccant_present', 'on') %}- **Copy Desiccant Present:** from source{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_location', 'on') %}- **Copy Location:** {{ state_attr(src, 'location') | default('(none)', true) }}{% endif %}
+
+          {% else %}
+
+          ---
+
+          *No empty spool linked — unseal only.*
+
+          {% endif %}
+    nav:
+      card:
+        type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
+          - type: custom:button-card
+            name: Back
+            icon: mdi:arrow-left
+            tap_action:
+              action: call-service
+              service: input_number.set_value
+              service_data:
+                entity_id: input_number.spool_replace_wizard_step
+                value: 1
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--secondary-background-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: "var(--primary-text-color)"
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: "var(--primary-text-color)"
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
+          - type: custom:button-card
+            name: Execute
+            icon: mdi:check-bold
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: script.spool_unseal_setup
+                    - service: browser_mod.delay
+                      data:
+                        time: 2000
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "#4CAF50"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px

@@ -1,0 +1,25 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+spool_unseal_sync_source_from_picker:
+  alias: Spool Unseal — Sync Source Spool from Picker
+  description: >-
+    Reads the current selection in input_select.spool_replace_target_picker,
+    extracts the numeric spool ID if a real spool is selected (not "Skip"),
+    and writes it to input_text.spool_replace_source_spool_id.
+    If "Skip" is selected, clears the source spool ID.
+  icon: mdi:sync
+  sequence:
+    - variables:
+        selected: "{{ states('input_select.spool_replace_target_picker') }}"
+        is_skip: "{{ selected.startswith('Skip') }}"
+        extracted_id: >-
+          {% if '(#' in selected and not selected.startswith('Skip') %}
+            {{ selected.split('(#')[1].split(')')[0] | trim }}
+          {% else %}
+
+          {% endif %}
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.spool_replace_source_spool_id
+      data:
+        value: "{{ extracted_id }}"
