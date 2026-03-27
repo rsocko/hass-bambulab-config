@@ -52,8 +52,8 @@ spool_replace_wizard_step3:
         };
 
         return '<div style="text-align:left;width:100%;">'
-          + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:12px;">'
-          + '<ha-icon icon="mdi:cog-transfer" style="color:var(--warning-color);--mdc-icon-size:20px;flex-shrink:0;"></ha-icon>'
+          + '<div style="display:inline-flex;align-items:center;gap:6px;margin-bottom:12px;">'
+          + '<ha-icon icon="mdi:cog-transfer" style="color:var(--warning-color);--mdc-icon-size:20px;width:20px;height:20px;flex:0 0 20px;display:inline-flex;"></ha-icon>'
           + '<div>'
           + '<div style="font-weight:600;">Configure Transfer Options</div>'
           + '<div style="font-size:0.9em;color:var(--secondary-text-color);">Choose what to copy from the old spool to the new one.</div>'

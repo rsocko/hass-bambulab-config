@@ -52,8 +52,8 @@ spool_replace_wizard_step2:
           : '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colorHex + ';vertical-align:middle;margin-right:6px;border:1px solid var(--divider-color);"></span>';
 
         return '<div style="text-align:left;width:100%;">'
-          + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">'
-          + '<ha-icon icon="mdi:swap-horizontal" style="color:var(--info-color);--mdc-icon-size:20px;flex-shrink:0;"></ha-icon>'
+          + '<div style="display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;">'
+          + '<ha-icon icon="mdi:swap-horizontal" style="color:var(--info-color);--mdc-icon-size:20px;width:20px;height:20px;flex:0 0 20px;display:inline-flex;"></ha-icon>'
           + '<div style="min-width:0;overflow:hidden;">'
           + '<div style="font-weight:600;">Select a replacement spool</div>'
           + '<div style="font-size:0.9em;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Showing sealed spools of ' + subtitle + '</div>'
