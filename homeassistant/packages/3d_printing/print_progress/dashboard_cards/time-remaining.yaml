@@ -62,9 +62,13 @@ styles:
   card:
     - padding: 8px 12px
     - min-height: 50px
+    - text-align: left
+  grid:
+    - justify-content: flex-start
   custom_fields:
     tr:
       - width: 100%
+      - justify-self: start
 extra_styles: |
   .tr-wrap { display:flex; align-items:center; width:100%; gap:10px; min-height:34px; }
   .tr-icon { --mdc-icon-size:26px; flex-shrink:0; }
