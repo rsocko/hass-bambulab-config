@@ -185,22 +185,34 @@
 │                                                  │
 │  ─── Transfer Options ───────────────────────── │
 │                                                  │
-│  ☑ Copy Spool Type         "Bambu Spool"         │
-│  ☑ Copy Clip Type          "Slot Insert v2"      │
-│  ☑ Copy Desiccant Present  Yes                   │
+│  ☑ Copy Spool Type:  Bambu Spool                 │
+│                      ^^^^^^^^^^  (smaller, gray) │
+│  ☑ Copy Clip Type:  Slot Insert v2               │
+│                     ^^^^^^^^^^^^^^  (same style) │
+│  ☑ Copy Desiccant Present:  Yes                  │
+│                             ^^^  (smaller, gray) │
 │                                                  │
-│  Desiccant Fill Date:  [ Reset to today     ▼]   │
-│                         · Copy from old spool    │
-│                         · Reset to today    ◄──  │
-│                         · Skip                   │
+│  Desiccant Fill Date:                            │
+│  [ Reset to today     ▼]     ← left-aligned     │
+│    · Copy from old spool                         │
+│    · Reset to today                              │
+│    · Skip                                        │
 │                                                  │
-│  ☑ Set Location → AMS     (from source spool)    │
+│  ☑ Copy Location:  AMS                           │
+│                    ^^^  (smaller, gray)          │
 │  ☐ Mark Used in Current Print                    │
 │  ☑ Archive Empty Spool                           │
 │                                                  │
 │      [ Continue to Review ]  [ Back ]  [ Cancel ]│
 └──────────────────────────────────────────────────┘
 ```
+
+**Value styling:** The values after each label (e.g., "Bambu Spool", "Slot Insert v2",
+"Yes", "AMS") are rendered in a slightly smaller font (`0.88em`) with
+`var(--secondary-text-color)` to visually distinguish them from the label text.
+
+**Desiccant combo box:** Left-aligned via `card_mod` on the `entities` card to match
+the overall left-aligned layout of the popup.
 
 ---
 
@@ -216,12 +228,15 @@
 │  • Archive spool in Spoolman                     │
 │                                                  │
 │  ── Target: #78 Bambu Lab PLA Basic White ──     │
-│  • Mark as unsealed                              │
-│  • Set spool type: "Bambu Spool"                 │
-│  • Set clip type: "Slot Insert v2"               │
-│  • Set desiccant present: Yes                    │
+│  • Mark as unsealed (Date Opened set to today)   │
+│  • Copy spool type: Bambu Spool                  │
+│                      ^^^^^^^^^^  (gray, 0.92em)  │
+│  • Copy clip type: Slot Insert v2                │
+│                    ^^^^^^^^^^^^^^  (gray, 0.92em)│
+│  • Copy desiccant present                        │
 │  • Reset desiccant fill date to today            │
 │  • Set location: AMS                             │
+│                  ^^^  (gray, 0.92em)             │
 │                                                  │
 │  ⏱ After execution, the Spoolman integration     │
 │    will reload to reflect the changes.           │
@@ -229,6 +244,15 @@
 │        [ ✅ Execute ]    [ Back ]    [ Cancel ]   │
 └──────────────────────────────────────────────────┘
 ```
+
+**Left alignment:** All text is left-aligned via `card_mod` on the markdown card.
+
+**Value styling:** Copied values (spool type, clip type, location) are rendered with
+`var(--secondary-text-color)` at `0.92em` via inline `<span>` styles to visually
+distinguish them from the action labels.
+
+**"Date Opened":** The field `date_opened` is displayed as the user-friendly
+"Date Opened" in all UI text.
 
 ---
 

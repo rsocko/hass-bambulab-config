@@ -78,7 +78,7 @@ spool_replace_wizard_step3:
                 const srcId = states['input_text.spool_replace_source_spool_id']?.state;
                 const e = states['sensor.spoolman_spool_' + srcId];
                 const val = e?.attributes?.extra_spool_type || '(not set)';
-                return 'Copy Spool Type: ' + val;
+                return 'Copy Spool Type: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
               ]]]
           - type: custom:button-card
             template: checkbox_row
@@ -88,9 +88,21 @@ spool_replace_wizard_step3:
                 const srcId = states['input_text.spool_replace_source_spool_id']?.state;
                 const e = states['sensor.spoolman_spool_' + srcId];
                 const val = e?.attributes?.extra_clip_type || '(not set)';
-                return 'Copy Clip Type: ' + val;
+                return 'Copy Clip Type: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
               ]]]
           - type: entities
+            card_mod:
+              style: |
+                .card-content {
+                  text-align: left;
+                }
+                hui-generic-entity-row {
+                  text-align: left;
+                }
+                ha-select {
+                  text-align: left;
+                  --ha-select-min-width: 0;
+                }
             entities:
               - entity: input_select.spool_replace_desiccant_mode
                 name: Desiccant Fill Date
@@ -103,7 +115,7 @@ spool_replace_wizard_step3:
                 const e = states['sensor.spoolman_spool_' + srcId];
                 const raw = e?.attributes?.extra_desiccant_in_spool;
                 const val = (raw === 'true' || raw === true || raw === 'yes') ? 'Yes' : 'No';
-                return 'Copy Desiccant Present: ' + val;
+                return 'Copy Desiccant Present: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
               ]]]
           - type: custom:button-card
             template: checkbox_row
@@ -113,7 +125,7 @@ spool_replace_wizard_step3:
                 const srcId = states['input_text.spool_replace_source_spool_id']?.state;
                 const e = states['sensor.spoolman_spool_' + srcId];
                 const val = e?.attributes?.location || '(not set)';
-                return 'Copy Location: ' + val;
+                return 'Copy Location: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
               ]]]
           - type: custom:button-card
             template: checkbox_row

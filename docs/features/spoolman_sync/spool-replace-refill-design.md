@@ -223,10 +223,11 @@ Open the Filament Catalog to find and replace this spool.
   - Initial weight
   - Purchase date (if available)
 - If **zero candidates** are found:
-  - Display a warning banner: *"No sealed spools of this filament found in inventory. Add a sealed spool in Spoolman, then re-open this wizard."*
-  - The **"Continue to Step 3"** button is disabled (grayed out, `pointer-events: none`, label changes to *"No Candidates"*, icon changes to `mdi:block-helper`).
-  - Only **"Cancel"** remains active.
-  - This prevents the user from advancing through Steps 3–4 with an invalid target spool.
+  - Display a warning banner (orange background, black text): *"No sealed replacement spools found for this filament. You can archive the empty spool directly — this will set its weight to 0 and archive it in Spoolman."*
+  - The **"Continue to Step 3"** button transforms into an **"Archive Empty Spool"** button (red background, `mdi:archive-arrow-down` icon).
+  - Clicking **"Archive Empty Spool"** directly calls `spoolman.patch_spool` to set `remaining_weight: 0` and `archived: true` on the source spool, then closes the popup. This bypasses Steps 3–4 entirely.
+  - **"Cancel"** remains active.
+  - This prevents the user from advancing through Steps 3–4 with an invalid target spool while still offering a useful action.
 
 **Implementation approach — Candidate Discovery:**
 

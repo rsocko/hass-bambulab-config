@@ -205,19 +205,20 @@ If you don't have the test spools already, create them in Spoolman:
 
 ---
 
-### M8: Wizard Step 2 — No Sealed Candidates
+### M8: Wizard Step 2 — No Sealed Candidates (Archive-Only Flow)
 
 | Step | Action | Expected Result |
 |------|--------|----------------|
 | 1 | Pick a spool whose filament has NO sealed spools (or temporarily unseal all) | Ready |
 | 2 | Navigate to Step 2 | Step 2 opens |
 | 3 | Verify picker dropdown | Shows "No sealed spools found" as only option |
-| 4 | Verify warning banner | Yellow/orange banner appears: "No sealed spools of this filament found in inventory. Add a sealed spool in Spoolman, then re-open this wizard." |
-| 5 | Verify Continue button | Button shows "No Candidates" with block icon, grayed out and non-clickable |
-| 6 | Click the disabled Continue button | Nothing happens — button does not fire any action |
-| 7 | Click **Cancel** | Popup closes normally |
+| 4 | Verify warning banner | Orange banner with black text: "No sealed replacement spools found for this filament. You can archive the empty spool directly — this will set its weight to 0 and archive it in Spoolman." |
+| 5 | Verify right button | Shows "Archive Empty Spool" with archive icon, red background |
+| 6 | Click **Archive Empty Spool** | Spool weight set to 0, spool archived in Spoolman, popup closes |
+| 7 | Verify in Spoolman / catalog | Source spool is now archived with 0g remaining |
+| 8 | (Alternative) Click **Cancel** instead of Archive | Popup closes, spool is NOT archived |
 
-> **Guard behavior:** The Continue button is disabled via `pointer-events: none` and visual dimming when the picker state is `"No sealed spools found"`. The user cannot advance to Step 3 without a valid candidate selected.
+> **Guard behavior:** When no sealed candidates exist, the Continue button transforms into "Archive Empty Spool" which directly archives the source spool (weight → 0, archived → true) and closes the popup, bypassing Steps 3–4 entirely.
 
 **Result:** [X] Pass / [ ] Fail  
 **Notes:** ___

@@ -54,7 +54,7 @@ spool_replace_wizard_step2:
           + '</div></div>'
           + '<div style="display:flex;align-items:center;padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;">'
           + srcImgHtml
-          + 'Replacing: <strong>' + name + '</strong> #' + srcId
+          + 'Replacing:&nbsp; <strong>' + name + '</strong>&nbsp; #' + srcId
           + '</div>'
           + '</div>';
       ]]]
@@ -76,14 +76,14 @@ spool_replace_wizard_step2:
             card:
               type: markdown
               content: >-
-                ⚠️ **No sealed spools of this filament found in inventory.**
+                ⚠️ **No sealed replacement spools found for this filament.**
 
-                Add a sealed spool in Spoolman, then re-open this wizard.
+                You can archive the empty spool directly — this will set its weight to 0 and archive it in Spoolman.
               card_mod:
                 style: |
                   ha-card {
                     background: var(--warning-color, #ff9800);
-                    color: var(--primary-text-color);
+                    color: #000;
                     border-radius: 8px;
                     padding: 0;
                     box-shadow: none;
@@ -122,19 +122,40 @@ spool_replace_wizard_step2:
                 name: |
                   [[[
                     const picker = states['input_select.spool_replace_target_picker']?.state;
-                    return (picker === 'No sealed spools found') ? 'No Candidates' : 'Continue to Step 3';
+                    return (picker === 'No sealed spools found') ? 'Archive Empty Spool' : 'Continue to Step 3';
                   ]]]
                 icon: |
                   [[[
                     const picker = states['input_select.spool_replace_target_picker']?.state;
-                    return (picker === 'No sealed spools found') ? 'mdi:block-helper' : 'mdi:arrow-right';
+                    return (picker === 'No sealed spools found') ? 'mdi:archive-arrow-down' : 'mdi:arrow-right';
                   ]]]
                 tap_action:
                   action: |
                     [[[
                       const picker = states['input_select.spool_replace_target_picker']?.state;
-                      return (picker === 'No sealed spools found') ? 'none' : 'fire-dom-event';
+                      return (picker === 'No sealed spools found') ? 'call-service' : 'fire-dom-event';
                     ]]]
+                  service: |
+                    [[[
+                      const picker = states['input_select.spool_replace_target_picker']?.state;
+                      return (picker === 'No sealed spools found') ? 'browser_mod.sequence' : '';
+                    ]]]
+                  data:
+                    sequence:
+                      - service: spoolman.patch_spool
+                        data:
+                          id: "[[[ return states['input_text.spool_replace_source_spool_id']?.state; ]]]"
+                          remaining_weight: 0
+                      - service: spoolman.patch_spool
+                        data:
+                          id: "[[[ return states['input_text.spool_replace_source_spool_id']?.state; ]]]"
+                          archived: true
+                      - service: system_log.write
+                        data:
+                          message: "[[[ return 'Spool Replace: Archived empty spool #' + states['input_text.spool_replace_source_spool_id']?.state + ' (no sealed candidates available)'; ]]]"
+                          level: warning
+                          logger: homeassistant.components.bambulab.spool_replace
+                      - service: browser_mod.close_popup
                   browser_mod:
                     service: browser_mod.sequence
                     data:
@@ -163,21 +184,11 @@ spool_replace_wizard_step2:
                     - background: |
                         [[[
                           const picker = states['input_select.spool_replace_target_picker']?.state;
-                          return (picker === 'No sealed spools found') ? 'var(--disabled-color, #999)' : 'var(--primary-color)';
+                          return (picker === 'No sealed spools found') ? 'var(--error-color, #db4437)' : 'var(--primary-color)';
                         ]]]
                     - box-shadow: none
                     - border-radius: 6px
                     - padding: 6px
-                    - opacity: |
-                        [[[
-                          const picker = states['input_select.spool_replace_target_picker']?.state;
-                          return (picker === 'No sealed spools found') ? '0.5' : '1';
-                        ]]]
-                    - pointer-events: |
-                        [[[
-                          const picker = states['input_select.spool_replace_target_picker']?.state;
-                          return (picker === 'No sealed spools found') ? 'none' : 'auto';
-                        ]]]
                   name:
                     - color: white
                     - font-weight: 500
