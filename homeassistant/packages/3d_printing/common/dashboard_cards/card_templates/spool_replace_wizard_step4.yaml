@@ -14,6 +14,7 @@ spool_replace_wizard_step4:
       - background: none
       - box-shadow: none
       - padding: 0
+      - text-align: left
     grid:
       - grid-template-areas: '"summary" "nav"'
       - grid-template-columns: 1fr
@@ -21,6 +22,7 @@ spool_replace_wizard_step4:
     custom_fields:
       summary:
         - padding: 0
+        - text-align: left
       nav:
         - padding: 8px 0 0 0
   custom_fields:
@@ -29,7 +31,10 @@ spool_replace_wizard_step4:
         type: markdown
         card_mod:
           style: |
-            ha-markdown {
+            ha-card {
+              text-align: left;
+            }
+            .card-content {
               text-align: left;
             }
         content: >

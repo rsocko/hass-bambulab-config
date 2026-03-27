@@ -15,6 +15,7 @@ spool_replace_wizard_step2:
       - background: none
       - box-shadow: none
       - padding: 0
+      - text-align: left
     grid:
       - grid-template-areas: '"header" "picker" "nav"'
       - grid-template-columns: 1fr
