@@ -12,7 +12,7 @@ secondary: |-
   {% if total > 0 %}
     {% set ed = elapsed // 1440 %}{% set eh = (elapsed % 1440) // 60 %}{% set em = elapsed % 60 %}
     {% set td = total // 1440 %}{% set th = (total % 1440) // 60 %}{% set tm = total % 60 %}
-    {{ (ed ~ 'd ' if ed > 0 else '') ~ (eh ~ 'h ' if ed > 0 or eh > 0 else '') ~ em ~ 'm' }} elapsed of {{ (td ~ 'd ' if td > 0 else '') ~ (th ~ 'h ' if td > 0 or th > 0 else '') ~ tm ~ 'm' }} total
+    {% set nbsp = '\u00a0' %}{{ (ed ~ 'd ' if ed > 0 else '') ~ (eh ~ 'h ' if ed > 0 or eh > 0 else '') ~ em ~ 'm' }} elapsed of{{ nbsp }}{{ (td ~ 'd' ~ nbsp if td > 0 else '') ~ (th ~ 'h' ~ nbsp if td > 0 or th > 0 else '') ~ tm ~ 'm' ~ nbsp ~ 'total' }}
   {% endif %}
 icon: mdi:clock-time-four
 icon_color: |-
@@ -31,14 +31,17 @@ tap_action:
   action: more-info
   entity: sensor.print_time_remaining_formatted
 card_mod:
-  style:
-    mushroom-template-card$ha-tile-info$: |
-      .primary {
-        font-size: 28px !important;
-        font-weight: 700 !important;
-      }
-      .secondary {
-        font-size: 11px !important;
-      }
+  style: |
+    [slot="primary"] {
+      font-size: 28px !important;
+      font-weight: 700 !important;
+    }
+    [slot="secondary"] {
+      font-size: 11px !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+      opacity: 0.7 !important;
+    }
 grid_options:
   columns: 6

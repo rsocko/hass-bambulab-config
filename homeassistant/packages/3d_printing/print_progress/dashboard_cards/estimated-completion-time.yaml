@@ -1,10 +1,11 @@
 # Docs: docs/features/print_progress/README.md
 # Estimated Completion Time KPI card (mushroom)
-# Shows estimated end time with relative start time subtitle
-# - Same day: just time
-# - Yesterday: "Yesterday @ <time>"
-# - Within past week: "<DayOfWeek> @ <time>"
-# - 1 week+: "<M/D/YY> @ <time>"
+# Primary: just the time (e.g. "4:34 PM")
+# Secondary: day descriptor (if not today) on first line, start info on second line
+# - Same day: "Start 5:37 PM"
+# - Tomorrow: "Tomorrow\nStart 11:22 AM"
+# - Within week: "Wednesday\nStart Yesterday @ 10:15 AM"
+# - 1 week+: "1/21/26\nStart 1/14/26 @ 9:05 AM"
 
 type: custom:mushroom-template-card
 primary: |-
@@ -12,23 +13,8 @@ primary: |-
   {% if end not in ['unknown', 'unavailable', '', none] %}
     {% set ts = as_timestamp(end, 0) %}
     {% if ts > 0 %}
-      {% set now_ts = now().timestamp() %}
-      {% set today = now().strftime('%Y-%m-%d') %}
-      {% set tomorrow = (now_ts + 86400) | timestamp_custom('%Y-%m-%d', true) %}
-      {% set end_day = ts | timestamp_custom('%Y-%m-%d', true) %}
-      {% set time_str = ts | timestamp_custom('%-I:%M %p', true) %}
-      {% if end_day == tomorrow %}
-        {{ time_str }} tomorrow
-      {% elif end_day != today %}
-        {% set diff_days = ((ts - now_ts) / 86400) | int %}
-        {% if diff_days < 7 %}
-          {{ time_str }} {{ ts | timestamp_custom('%A', true) }}
-        {% else %}
-          {{ time_str }} {{ ts | timestamp_custom('%-m/%-d/%y', true) }}
-        {% endif %}
-      {% else %}
-        {{ time_str }}
-      {% endif %}
+      {% set nbsp = '\u00a0' %}
+      {{ ts | timestamp_custom('%-I:%M', true) ~ nbsp ~ ts | timestamp_custom('%p', true) }}
     {% else %}
       N/A
     {% endif %}
@@ -36,29 +22,49 @@ primary: |-
     N/A
   {% endif %}
 secondary: |-
-  {% set start = states('sensor.ntk_ryansoffice_3dprinter_start_time') %}
-  {% if start not in ['unknown', 'unavailable', '', none] %}
-    {% set ts = as_timestamp(start, 0) %}
+  {% set ns = namespace(day_line='', start_line='') %}
+  {% set now_ts = now().timestamp() %}
+  {% set today = now().strftime('%Y-%m-%d') %}
+  {% set end = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+  {% if end not in ['unknown', 'unavailable', '', none] %}
+    {% set ts = as_timestamp(end, 0) %}
     {% if ts > 0 %}
-      {% set now_ts = now().timestamp() %}
-      {% set today = now().strftime('%Y-%m-%d') %}
-      {% set yesterday = (now_ts - 86400) | timestamp_custom('%Y-%m-%d', true) %}
-      {% set start_day = ts | timestamp_custom('%Y-%m-%d', true) %}
-      {% set time_str = ts | timestamp_custom('%-I:%M %p', true) %}
-      {% if start_day == today %}
-        Start {{ time_str }}
-      {% elif start_day == yesterday %}
-        Start Yesterday @ {{ time_str }}
-      {% else %}
-        {% set diff_days = ((now_ts - ts) / 86400) | int %}
+      {% set tomorrow = (now_ts + 86400) | timestamp_custom('%Y-%m-%d', true) %}
+      {% set end_day = ts | timestamp_custom('%Y-%m-%d', true) %}
+      {% if end_day == tomorrow %}
+        {% set ns.day_line = 'Tomorrow' %}
+      {% elif end_day != today %}
+        {% set diff_days = ((ts - now_ts) / 86400) | int %}
         {% if diff_days < 7 %}
-          Start {{ ts | timestamp_custom('%A', true) }} @ {{ time_str }}
+          {% set ns.day_line = ts | timestamp_custom('%A', true) %}
         {% else %}
-          Start {{ ts | timestamp_custom('%-m/%-d/%y', true) }} @ {{ time_str }}
+          {% set ns.day_line = ts | timestamp_custom('%-m/%-d/%y', true) %}
         {% endif %}
       {% endif %}
     {% endif %}
   {% endif %}
+  {% set start = states('sensor.ntk_ryansoffice_3dprinter_start_time') %}
+  {% if start not in ['unknown', 'unavailable', '', none] %}
+    {% set ts = as_timestamp(start, 0) %}
+    {% if ts > 0 %}
+      {% set yesterday = (now_ts - 86400) | timestamp_custom('%Y-%m-%d', true) %}
+      {% set start_day = ts | timestamp_custom('%Y-%m-%d', true) %}
+      {% set time_str = ts | timestamp_custom('%-I:%M %p', true) %}
+      {% if start_day == today %}
+        {% set ns.start_line = 'Start ' ~ time_str %}
+      {% elif start_day == yesterday %}
+        {% set ns.start_line = 'Start Yesterday @ ' ~ time_str %}
+      {% else %}
+        {% set diff_days = ((now_ts - ts) / 86400) | int %}
+        {% if diff_days < 7 %}
+          {% set ns.start_line = 'Start ' ~ ts | timestamp_custom('%A', true) ~ ' @ ' ~ time_str %}
+        {% else %}
+          {% set ns.start_line = 'Start ' ~ ts | timestamp_custom('%-m/%-d/%y', true) ~ ' @ ' ~ time_str %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  {% endif %}
+  {{ (ns.day_line ~ '\n' if ns.day_line else '') ~ ns.start_line }}
 icon: mdi:flag-checkered
 icon_color: |-
   {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
@@ -76,14 +82,17 @@ tap_action:
   action: more-info
   entity: sensor.ntk_ryansoffice_3dprinter_end_time
 card_mod:
-  style:
-    mushroom-template-card$ha-tile-info$: |
-      .primary {
-        font-size: 28px !important;
-        font-weight: 700 !important;
-      }
-      .secondary {
-        font-size: 11px !important;
-      }
+  style: |
+    [slot="primary"] {
+      font-size: 28px !important;
+      font-weight: 700 !important;
+    }
+    [slot="secondary"] {
+      font-size: 11px !important;
+      white-space: pre-line !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+      opacity: 0.7 !important;
+    }
 grid_options:
   columns: 6
