@@ -1,0 +1,14 @@
+# Patch spool-level extra fields in Spoolman.
+# Uses Spoolman API v1 endpoint: PATCH /api/v1/spool/{spool_id}
+# Note: Spoolman replaces the entire `extra` object when provided.
+spoolman_patch_spool_extra:
+  url: "http://spoolman.socko.us/api/v1/spool/{{ spool_id }}"
+  method: PATCH
+  headers:
+    accept: "application/json, text/html"
+    Content-Type: "application/json"
+  payload: >-
+    {
+      "extra": {{ extra | tojson }}
+    }
+  content_type: "application/json"

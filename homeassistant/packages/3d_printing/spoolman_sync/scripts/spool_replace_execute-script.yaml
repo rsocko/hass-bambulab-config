@@ -85,9 +85,12 @@ spool_replace_execute:
         target_merged_extra: "{{ dict(target_current_extra, **target_extra_updates) }}"
 
     # --- Step 3: Apply all extra field changes in a single call ---
-    - action: spoolman.patch_spool
+    # Uses rest_command instead of spoolman.patch_spool because the
+    # integration service doesn't serialize the extra dict as valid JSON
+    # (renders Python repr with single quotes → Spoolman 400 Bad Request).
+    - action: rest_command.spoolman_patch_spool_extra
       data:
-        id: "{{ tgt_id }}"
+        spool_id: "{{ tgt_id }}"
         extra: "{{ target_merged_extra }}"
 
     # --- Step 4a: Set location on target (if checked) ---
