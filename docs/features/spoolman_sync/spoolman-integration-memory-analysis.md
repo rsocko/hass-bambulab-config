@@ -218,6 +218,31 @@ Since Home Assistant templates render everything as strings, a value like `"true
 
 ---
 
+## Why Boot Survives but Reload OOM-Kills
+
+All of the same costly activities (coordinator fetch, entity creation, PIL image generation, cleanup scans) run during `async_setup_entry` on every HA boot. The boot path is identical to the reload path. So why does boot work but reload doesn't?
+
+| Factor | Boot (clean start) | Reload (live system) |
+|--------|-------------------|---------------------|
+| Pre-existing entities in memory | **0** — clean slate | **~5,014** being torn down |
+| Baseline RAM from other integrations | Minimal — integrations load sequentially | Full — everything already running |
+| Peak memory | Setup cost only | Teardown **+** setup simultaneously |
+| Python GC timing | N/A — no prior objects | Old entity objects pending GC while new ones allocate |
+
+The critical difference is **reload creates roughly 2× peak memory**:
+
+1. `async_unload_entry` destroys ~5,000 entities (entity registry ops, state machine cleanup, event bus unsubscriptions), but **Python's garbage collector doesn't free that memory instantly**.
+2. `async_setup_entry` immediately starts allocating ~5,000 new entities, new PIL images, and new coordinator data **on top of the not-yet-collected old objects**.
+3. The combined footprint hits: `running_system_baseline + old_entities_pending_gc + new_entities + PIL_images` — exceeding available RAM.
+
+On boot, the Pi starts with just the OS + HA core. Integrations load sequentially into clean memory. The single setup cost fits in RAM (likely tight, but under the threshold).
+
+On reload — especially if triggered twice in quick succession (e.g., user clicks Execute twice on a script that calls `reload_config_entry`) — the doubled allocation pushes past the OOM limit, the kernel kills the HA process, and the Pi reboots.
+
+**Note on PIL images:** The images are generated sequentially (each `await hass.async_add_executor_job(...)` is awaited in the loop), so only one 100×100 image is in memory at a time before being saved to disk. The PIL overhead is real but not the primary killer. The main memory consumer is the **5,014 entity objects each holding a full spool dict copy**, doubled during reload.
+
+---
+
 ## Test Environment Details
 
 - **Hardware:** Raspberry Pi 5, aarch64
