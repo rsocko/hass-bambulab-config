@@ -370,10 +370,13 @@ sequence:
           id: "{{ source_spool_id }}"
           archived: true
 
-  # 6. Reload Spoolman integration to pick up changes
-  - action: homeassistant.reload_config_entry
+  # 6. Refresh changed entities (lightweight, no integration reload)
+  - action: homeassistant.update_entity
     target:
       entity_id: "sensor.spoolman_spool_{{ target_spool_id }}"
+  - action: homeassistant.update_entity
+    target:
+      entity_id: "sensor.spoolman_spool_{{ source_spool_id }}"
 
   # 7. Log the operation
   - action: system_log.write
@@ -622,15 +625,21 @@ Setting `extra.sealed` to `false` and recording the open date via `spoolman.patc
 
 The `date_opened` extra field already exists in Spoolman (type: Text, stores ISO 8601 datetime). The workflow sets it automatically when unsealing a spool.
 
-### 7.3 Integration Reload
+### 7.3 Entity Refresh (NOT Integration Reload)
 
-After archiving a spool, HA needs to reload the Spoolman integration so the archived spool's entity is removed and the new spool's state is refreshed:
+After patching spools, refresh the changed entities so HA picks up the new state:
 
 ```yaml
-- action: homeassistant.reload_config_entry
+- action: homeassistant.update_entity
   target:
     entity_id: "sensor.spoolman_spool_{{ target_spool_id }}"
+- action: homeassistant.update_entity
+  target:
+    entity_id: "sensor.spoolman_spool_{{ source_spool_id }}"
 ```
+
+> **ANTIPATTERN — DO NOT USE `homeassistant.reload_config_entry`.**
+> Reloading the entire Spoolman integration (`homeassistant.reload_config_entry`) tears down and reinitializes all spool sensors, websockets, and coordinator state. On resource-constrained hosts (e.g., Raspberry Pi), this causes extreme RAM spikes and can trigger OOM kills or full system reboots. Always use `homeassistant.update_entity` on specific spool entities instead.
 
 ### 7.4 Extra Field Merge Requirement (CRITICAL)
 

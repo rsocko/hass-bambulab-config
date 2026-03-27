@@ -26,7 +26,7 @@ All Phase 1 files parse as valid YAML:
 
 **spool_replace_execute:**
 - Has `alias`, `description`, `icon`, `sequence`
-- Uses `spoolman.patch_spool`, `homeassistant.reload_config_entry`, `system_log.write`, `logbook.log`, `input_text.set_value`
+- Uses `spoolman.patch_spool`, `rest_command.spoolman_patch_spool_extra`, `homeassistant.update_entity`, `system_log.write`, `logbook.log`, `input_text.set_value`
 - Implements read-merge-write pattern for extra fields (critical)
 - Validates spool IDs before proceeding (`src_id <= 0 or tgt_id <= 0`)
 - Clears workflow state helpers at end

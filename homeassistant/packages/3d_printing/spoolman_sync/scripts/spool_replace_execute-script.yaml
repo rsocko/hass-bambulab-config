@@ -124,10 +124,13 @@ spool_replace_execute:
             id: "{{ src_id }}"
             archived: true
 
-    # --- Step 6: Reload Spoolman integration to pick up changes ---
-    - action: homeassistant.reload_config_entry
+    # --- Step 6: Refresh changed entities (lightweight, no integration reload) ---
+    - action: homeassistant.update_entity
       target:
         entity_id: "{{ tgt_entity }}"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: "{{ src_entity }}"
 
     # --- Step 7: Log the operation ---
     - action: system_log.write
