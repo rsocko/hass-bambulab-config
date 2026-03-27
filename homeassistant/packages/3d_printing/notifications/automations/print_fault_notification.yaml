@@ -26,6 +26,9 @@
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
         fault_message_template: "{{ states('input_text.3dprinter_fault_message') }}"
         snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR_{{ task_name | replace(' ', '_') }}.jpg"
+        # Print error entity attributes (code + human-readable error message)
+        print_error_code: "{{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_print_error', 'code') | default('') }}"
+        print_error_message: "{{ state_attr('binary_sensor.ntk_ryansoffice_3dprinter_print_error', 'error') | default('') }}"
 
     # Turn on snapshot light if configured
     - if:
@@ -94,6 +97,7 @@
         title: "⚠️ Print Error"
         message: >-
           {{ notification_message }}
+          {% if print_error_code %}[{{ print_error_code }}] {{ print_error_message }}{% endif %}
           {% if error_details %}{{ error_details }}{% endif %}
         data:
           url: "/3d-printing"
@@ -111,6 +115,7 @@
         title: "⚠️ Print Error"
         message: >-
           {{ notification_message }}
+          {% if print_error_code %}[{{ print_error_code }}] {{ print_error_message }}{% endif %}
           {% if error_details %}{{ error_details }}{% endif %}
         data:
           url: "/3d-printing"
@@ -130,11 +135,15 @@
         title: "⚠️ Printer Error"
         message: >
           **{{ notification_message }}**
+          {% if print_error_code %}
+
+          **Error:** [{{ print_error_code }}] {{ print_error_message }}
+          {% endif %}
 
           Status: {{ print_status }}
           {% if error_details %}
 
-          **Error Details:**
+          **HMS Error Details:**
 
           {{ error_details }}
           {% endif %}
@@ -148,7 +157,7 @@
       data:
         message: >-
           Print Error: {{ printer_name }} encountered an error during {{ task_name }}.
-          Status: {{ print_status }}{% if error_details %} | Details: {{ error_details }}{% endif %}
+          Status: {{ print_status }}{% if print_error_code %} | [{{ print_error_code }}] {{ print_error_message }}{% endif %}{% if error_details %} | HMS: {{ error_details }}{% endif %}
         level: error
         logger: homeassistant.components.bambulab.notifications
 
@@ -156,7 +165,7 @@
       data:
         name: Print Error
         message: >-
-          Sent error notification for {{ task_name }}. Status: {{ print_status }}{% if error_details %} | {{ error_details }}{% endif %}
+          Sent error notification for {{ task_name }}. Status: {{ print_status }}{% if print_error_code %} | [{{ print_error_code }}] {{ print_error_message }}{% endif %}{% if error_details %} | {{ error_details }}{% endif %}
 
     # TTS announcement (always on for errors, but respect quiet hours)
     - if:
@@ -172,6 +181,7 @@
           data:
             message: >-
               Alert! {{ notification_message }}
+              {% if print_error_message %}{{ print_error_message }}{% endif %}
               {% if hms_error_count | int > 0 %}
               {{ hms_error_count }} H M S error{{ 's' if hms_error_count | int > 1 }} reported.
               {% endif %}
