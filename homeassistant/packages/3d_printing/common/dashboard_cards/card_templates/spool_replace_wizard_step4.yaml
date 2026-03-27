@@ -9,6 +9,8 @@ spool_replace_wizard_step4:
   show_icon: false
   show_name: false
   show_state: false
+  tap_action:
+    action: none
   styles:
     card:
       - background: none
@@ -48,28 +50,28 @@ spool_replace_wizard_step4:
 
           **Source:** {{ state_attr(src, 'friendly_name') | default('Unknown', true) }} #{{ src_id }}
 
-          Weight: <span style="{{ v }}">Reset to 0g</span>
+          - Weight: <span style="{{ v }}">Reset to 0g</span>
 
-          Archive in Spoolman: <span style="{{ v }}">{% if is_state('input_boolean.spool_replace_archive_source', 'on') %}Yes{% else %}No{% endif %}</span>
+          - Archive in Spoolman: <span style="{{ v }}">{% if is_state('input_boolean.spool_replace_archive_source', 'on') %}Yes{% else %}No{% endif %}</span>
 
           ---
 
           **Target:** {{ state_attr(tgt, 'friendly_name') | default('Unknown', true) }} #{{ tgt_id }}
 
-          Unsealed: <span style="{{ v }}">Yes (Date Opened set to today)</span>
+          - Unsealed: <span style="{{ v }}">Yes (Date Opened set to today)</span>
 
-          {% if is_state('input_boolean.spool_replace_copy_spool_type', 'on') %}Spool Type: <span style="{{ v }}">{{ state_attr(src, 'extra_spool_type') | default('(none)', true) }}</span>{% endif %}
+          {% if is_state('input_boolean.spool_replace_copy_spool_type', 'on') %}- Spool Type: <span style="{{ v }}">{{ state_attr(src, 'extra_spool_type') | default('(none)', true) }}</span>{% endif %}
 
-          {% if is_state('input_boolean.spool_replace_copy_clip_type', 'on') %}Clip Type: <span style="{{ v }}">{{ state_attr(src, 'extra_clip_type') | default('(none)', true) }}</span>{% endif %}
+          {% if is_state('input_boolean.spool_replace_copy_clip_type', 'on') %}- Clip Type: <span style="{{ v }}">{{ state_attr(src, 'extra_clip_type') | default('(none)', true) }}</span>{% endif %}
 
           {% set des_mode = states('input_select.spool_replace_desiccant_mode') %}
-          {% if des_mode == 'Copy from old spool' %}Desiccant Fill Date: <span style="{{ v }}">Copy from source</span>{% elif des_mode == 'Reset to today' %}Desiccant Fill Date: <span style="{{ v }}">Reset to today</span>{% endif %}
+          {% if des_mode == 'Copy from old spool' %}- Desiccant Fill Date: <span style="{{ v }}">Copy from source</span>{% elif des_mode == 'Reset to today' %}- Desiccant Fill Date: <span style="{{ v }}">Reset to today</span>{% endif %}
 
-          {% if is_state('input_boolean.spool_replace_copy_desiccant_present', 'on') %}Desiccant in Spool: <span style="{{ v }}">Copy from source</span>{% endif %}
+          {% if is_state('input_boolean.spool_replace_copy_desiccant_present', 'on') %}- Desiccant in Spool: <span style="{{ v }}">Copy from source</span>{% endif %}
 
-          {% if is_state('input_boolean.spool_replace_copy_location', 'on') %}Location: <span style="{{ v }}">{{ state_attr(src, 'location') | default('(none)', true) }}</span>{% endif %}
+          {% if is_state('input_boolean.spool_replace_copy_location', 'on') %}- Location: <span style="{{ v }}">{{ state_attr(src, 'location') | default('(none)', true) }}</span>{% endif %}
 
-          {% if is_state('input_boolean.spool_replace_mark_used', 'on') %}Mark as Used: <span style="{{ v }}">Yes (set first/last used)</span>{% endif %}
+          {% if is_state('input_boolean.spool_replace_mark_used', 'on') %}- Mark as Used: <span style="{{ v }}">Yes (set first/last used)</span>{% endif %}
     nav:
       card:
         type: horizontal-stack
