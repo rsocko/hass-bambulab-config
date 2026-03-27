@@ -17,7 +17,7 @@ catalog_spool_popup:
       const spoolIdInt = parseInt(spoolId, 10);
       const SPOOLMAN_BASE_URL = 'http://spoolman.socko.us/spool/show';
       // Mobile-responsive button styles (hides label text on narrow screens)
-      const btnStylePrimary = '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; } @media (max-width: 768px) { .bubble-name { display: none !important; } .bubble-button-card-container { min-width: unset !important; } }';
+      const btnStylePrimary = '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; } @media (max-width: 768px) { .bubble-name { display: none !important; } .bubble-button-card-container { min-width: unset !important; justify-content: center !important; } .bubble-icon-container { margin: 0 auto !important; } }';
       const spoolName = entity?.attributes?.friendly_name || 'Unknown Spool';
       const nowISO = new Date().toISOString();
 
