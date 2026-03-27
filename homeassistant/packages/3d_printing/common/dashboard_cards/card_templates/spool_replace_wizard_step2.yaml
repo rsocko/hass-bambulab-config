@@ -60,14 +60,15 @@ spool_replace_wizard_step2:
           grid:
             - grid-template-areas: '"i n" "i l" "replacing replacing"'
             - grid-template-columns: min-content auto
+            - column-gap: 10px
           card:
             - background: none
             - box-shadow: none
             - padding: 0
           icon:
             - color: var(--info-color)
-            - width: 20px
-            - height: 20px
+            - width: 28px
+            - height: 28px
           name:
             - font-weight: 600
             - justify-self: start
