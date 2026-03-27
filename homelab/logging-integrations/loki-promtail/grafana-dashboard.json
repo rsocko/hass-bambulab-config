@@ -15,7 +15,7 @@
         "title": "Log Volume by Level",
         "targets": [
           {
-            "expr": "sum by (level) (rate({job=\"homeassistant\", logger=~\".*bambulab.*\"}[5m]))",
+            "expr": "sum by (level) (rate({job=\"homeassistant\", logger=~\".*bambu.?lab.*\"}[5m]))",
             "legendFormat": "{{level}}"
           }
         ],
@@ -30,7 +30,7 @@
         "title": "Error Rate (Last 5m)",
         "targets": [
           {
-            "expr": "sum(rate({job=\"homeassistant\", level=\"ERROR\", logger=~\".*bambulab.*\"}[5m])) * 60",
+            "expr": "sum(rate({job=\"homeassistant\", level=\"ERROR\", logger=~\".*bambu.?lab.*\"}[5m])) * 60",
             "legendFormat": "Errors/min"
           }
         ],
@@ -61,10 +61,10 @@
         "id": 3,
         "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
         "type": "logs",
-        "title": "Recent Errors & Warnings",
+        "title": "Recent HMS / Error / Warning Logs",
         "targets": [
           {
-            "expr": "{job=\"homeassistant\", logger=~\".*bambulab.*\", level=~\"ERROR|WARNING\"}",
+            "expr": "{job=\"homeassistant\", logger=~\".*bambu.?lab.*\"} |~ \"(?i)(hms|error|warning)\"",
             "maxLines": 100
           }
         ],
@@ -205,7 +205,7 @@
         "title": "All Bambu Lab Logs (Live)",
         "targets": [
           {
-            "expr": "{job=\"homeassistant\", logger=~\".*bambulab.*\"}",
+            "expr": "{job=\"homeassistant\", logger=~\".*bambu.?lab.*\"}",
             "maxLines": 200
           }
         ],
@@ -223,7 +223,7 @@
         "title": "Automation Execution Rate",
         "targets": [
           {
-            "expr": "sum by (logger) (rate({job=\"homeassistant\", logger=~\".*bambulab.*spoolman.*\"}[5m]))",
+            "expr": "sum by (logger) (rate({job=\"homeassistant\", logger=~\".*bambu.?lab.*spoolman.*\"}[5m]))",
             "legendFormat": "{{logger}}"
           }
         ]

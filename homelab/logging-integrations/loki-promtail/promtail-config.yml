@@ -89,7 +89,7 @@ scrape_configs:
       
       # Stage 8: Add component label for Bambu Lab logs
       - match:
-          selector: '{logger=~".*bambulab.*"}'
+          selector: '{logger=~".*bambu.?lab.*"}'
           stages:
             - labels:
                 component: "bambulab"

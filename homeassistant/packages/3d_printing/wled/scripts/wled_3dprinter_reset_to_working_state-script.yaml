@@ -43,7 +43,12 @@ wled_3dprinter_reset_to_working_state:
             'calibrate_nozzle_offset', 'laser_calibration',
             'calibrate_birdeye_camera', 'motor_noise_showoff',
             'check_door_and_cover', 'check_quick_release',
-            'check_plaform', 'check_birdeye_camera_position'
+            'check_plaform', 'check_birdeye_camera_position',
+            'homing_blade_holder', 'calibrating_camera_offset',
+            'calibrating_blade_holder_position', 'hotend_pick_and_place_test',
+            'preparing_hotend', 'calibrating_nozzle_clumping_detection',
+            'purifying_chamber_air', 'preparing_ams',
+            'waiting_for_chamber_temperature'
           ] }}
         correct_state: >-
           {% set smart_lc = smart_status | lower %}
@@ -69,7 +74,7 @@ wled_3dprinter_reset_to_working_state:
             S3_PRINTING
           {% elif stage in maintenance_stages and smart_status not in ['Printing', 'Preparing Print'] %}
             S7_MAINTENANCE
-          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Waiting for Bed Temp', 'Thermal Preconditioning', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer'] %}
+          {% elif smart_status in ['Preparing Print', 'Heating Bed', 'Heating Nozzle', 'Heating Chamber', 'Cooling Chamber', 'Waiting for Bed Temp', 'Waiting for Chamber Temp', 'Thermal Preconditioning', 'Bed Leveling', 'Homing / Checks', 'Nozzle Prep', 'Filament Change', 'Calibration', 'Identifying Build Plate', 'Printing Calibration Lines', 'Inspecting First Layer', 'Chamber Purification'] %}
             S2_PREP
           {% elif smart_status == 'Idle' %}
             S1_IDLE
