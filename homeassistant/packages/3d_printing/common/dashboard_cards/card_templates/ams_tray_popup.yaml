@@ -669,12 +669,23 @@ ams_tray_popup:
       const qtyToOrder = Number.isFinite(parsedQtyToOrder) && parsedQtyToOrder > 0 ? parsedQtyToOrder : 0;
       const filamentIdInt = Number.parseInt(filamentId, 10);
       const filamentEntityId = Number.isFinite(filamentIdInt) ? 'sensor.spoolman_filament_' + filamentIdInt : null;
-      const mergedFilamentExtra = Object.entries(spoolEntity?.attributes || {})
+      const filamentEntity = filamentEntityId ? states[filamentEntityId] : null;
+      const filamentEntityExtra = Object.entries(filamentEntity?.attributes || {})
+        .filter(function(entry) { return entry[0].startsWith('extra_'); })
+        .reduce(function(acc, entry) {
+          acc[entry[0].replace('extra_', '')] = entry[1];
+          return acc;
+        }, {});
+      const spoolMirroredFilamentExtra = Object.entries(spoolEntity?.attributes || {})
         .filter(function(entry) { return entry[0].startsWith('filament_extra_'); })
         .reduce(function(acc, entry) {
           acc[entry[0].replace('filament_extra_', '')] = entry[1];
           return acc;
         }, {});
+      const mergedFilamentExtra = {
+        ...filamentEntityExtra,
+        ...spoolMirroredFilamentExtra
+      };
       // Other spools of same filament — read from pre-computed sensor.spoolman_filament_totals
       const otherSpools = (filamentId !== undefined && filamentId !== null && filamentTotal && filamentTotal.spools)
         ? filamentTotal.spools
