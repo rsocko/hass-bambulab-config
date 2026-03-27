@@ -1,201 +1,201 @@
 # Docs: docs/features/air_quality/bento-box-filter-tracking.md
-alias: Bento Box Filter Replacement Alerts
-id: bento_box_filter_replacement_alerts
-description: >
-  Sends notifications when Bento Box filters need replacement.
-  Monitors filter usage and alerts at different thresholds:
-  - 75%: Warning notification (check filters)
-  - 90%: Replace soon notification (order replacements)
-  - 100%: Overdue notification (replace immediately)
-  
-  Notifications are sent once per threshold to avoid spam.
+- alias: Bento Box Filter Replacement Alerts
+  id: bento_box_filter_replacement_alerts
+  description: >
+    Sends notifications when Bento Box filters need replacement.
+    Monitors filter usage and alerts at different thresholds:
+    - 75%: Warning notification (check filters)
+    - 90%: Replace soon notification (order replacements)
+    - 100%: Overdue notification (replace immediately)
 
-triggers:
-  # Check filter status every hour
-  - trigger: time_pattern
-    hours: "/1"
-  
-  # Also check when filter tracking updates
-  - trigger: state
-    entity_id:
-      - sensor.bento_box_hepa_filter_usage
-      - sensor.bento_box_carbon_filter_usage
+    Notifications are sent once per threshold to avoid spam.
 
-conditions:
-  # Only run if tracking is enabled
-  - condition: state
-    entity_id: input_boolean.bento_box_filter_tracking_enabled
-    state: "on"
+  triggers:
+    # Check filter status every hour
+    - trigger: time_pattern
+      hours: "/1"
 
-actions:
-  # Get current usage percentages
-  - variables:
-      hepa_usage: "{{ states('sensor.bento_box_hepa_filter_usage') | float(0) }}"
-      carbon_usage: "{{ states('sensor.bento_box_carbon_filter_usage') | float(0) }}"
-      hepa_status: "{{ state_attr('sensor.bento_box_hepa_filter_usage', 'status') }}"
-      carbon_status: "{{ state_attr('sensor.bento_box_carbon_filter_usage', 'status') }}"
-      hepa_remaining: "{{ state_attr('sensor.bento_box_hepa_filter_usage', 'remaining_hours') }}"
-      carbon_remaining: "{{ state_attr('sensor.bento_box_carbon_filter_usage', 'remaining_hours') }}"
-  
-  # HEPA Filter Alerts
-  - choose:
-      # HEPA Overdue (100%+)
-      - conditions:
-          - condition: template
-            value_template: "{{ hepa_usage >= 100 }}"
-        sequence:
-          - action: notify.notify
-            data:
-              title: "🚨 HEPA Filter Overdue"
-              message: >
-                Bento Box HEPA filter has exceeded its recommended lifespan.
-                
-                Usage: {{ hepa_usage }}%
-                Runtime: {{ states('input_number.bento_box_hepa_runtime_hours') | round(0) }}h
-                
-                Replace filter immediately for optimal air filtration.
-              data:
-                notification_id: bento_box_hepa_overdue
-                tag: bento_box_filter
-                priority: high
-          
-          - action: persistent_notification.create
-            data:
-              title: "HEPA Filter Replacement Overdue"
-              message: >
-                **Bento Box HEPA Filter - Replace Now**
-                
-                Usage: {{ hepa_usage }}%
-                Runtime: {{ states('input_number.bento_box_hepa_runtime_hours') | round(0) }} hours
-                Days since replacement: {{ state_attr('sensor.bento_box_hepa_filter_usage', 'days_since_replacement') }}
-                
-                **Action Required:**
-                1. Order replacement filter if not available
-                2. Replace filter as soon as possible
-                3. Reset counter after replacement
-              notification_id: bento_box_hepa_overdue_persistent
-      
-      # HEPA Replace Soon (90-99%)
-      - conditions:
-          - condition: template
-            value_template: "{{ hepa_usage >= 90 and hepa_usage < 100 }}"
-        sequence:
-          - action: notify.notify
-            data:
-              title: "⚠️ HEPA Filter - Replace Soon"
-              message: >
-                Bento Box HEPA filter approaching end of life.
-                
-                Usage: {{ hepa_usage }}%
-                Remaining: ~{{ hepa_remaining }}h
-                
-                Order replacement filter now.
-              data:
-                notification_id: bento_box_hepa_replace_soon
-                tag: bento_box_filter
-      
-      # HEPA Warning (75-89%)
-      - conditions:
-          - condition: template
-            value_template: "{{ hepa_usage >= 75 and hepa_usage < 90 }}"
-        sequence:
-          - action: notify.notify
-            data:
-              title: "ℹ️ HEPA Filter - Monitor"
-              message: >
-                Bento Box HEPA filter at {{ hepa_usage }}% usage.
-                
-                Remaining: ~{{ hepa_remaining }}h
-                
-                Consider ordering replacement filter.
-              data:
-                notification_id: bento_box_hepa_warning
-                tag: bento_box_filter
-  
-  # Carbon Filter Alerts
-  - choose:
-      # Carbon Overdue (100%+)
-      - conditions:
-          - condition: template
-            value_template: "{{ carbon_usage >= 100 }}"
-        sequence:
-          - action: notify.notify
-            data:
-              title: "🚨 Carbon Filter Overdue"
-              message: >
-                Bento Box carbon filter has exceeded its recommended lifespan.
-                
-                Usage: {{ carbon_usage }}%
-                Runtime: {{ states('input_number.bento_box_carbon_runtime_hours') | round(0) }}h
-                
-                Replace filter immediately for optimal VOC filtration.
-              data:
-                notification_id: bento_box_carbon_overdue
-                tag: bento_box_filter
-                priority: high
-          
-          - action: persistent_notification.create
-            data:
-              title: "Carbon Filter Replacement Overdue"
-              message: >
-                **Bento Box Carbon Filter - Replace Now**
-                
-                Usage: {{ carbon_usage }}%
-                Runtime: {{ states('input_number.bento_box_carbon_runtime_hours') | round(0) }} hours
-                Days since replacement: {{ state_attr('sensor.bento_box_carbon_filter_usage', 'days_since_replacement') }}
-                
-                **Action Required:**
-                1. Order replacement filter if not available
-                2. Replace filter as soon as possible
-                3. Reset counter after replacement
-                
-                **Note:** Carbon filters lose effectiveness with high-VOC materials (ABS, ASA, PC).
-              notification_id: bento_box_carbon_overdue_persistent
-      
-      # Carbon Replace Soon (90-99%)
-      - conditions:
-          - condition: template
-            value_template: "{{ carbon_usage >= 90 and carbon_usage < 100 }}"
-        sequence:
-          - action: notify.notify
-            data:
-              title: "⚠️ Carbon Filter - Replace Soon"
-              message: >
-                Bento Box carbon filter approaching end of life.
-                
-                Usage: {{ carbon_usage }}%
-                Remaining: ~{{ carbon_remaining }}h
-                
-                Order replacement filter now.
-              data:
-                notification_id: bento_box_carbon_replace_soon
-                tag: bento_box_filter
-      
-      # Carbon Warning (75-89%)
-      - conditions:
-          - condition: template
-            value_template: "{{ carbon_usage >= 75 and carbon_usage < 90 }}"
-        sequence:
-          - action: notify.notify
-            data:
-              title: "ℹ️ Carbon Filter - Monitor"
-              message: >
-                Bento Box carbon filter at {{ carbon_usage }}% usage.
-                
-                Remaining: ~{{ carbon_remaining }}h
-                
-                Consider ordering replacement filter.
-              data:
-                notification_id: bento_box_carbon_warning
-                tag: bento_box_filter
-  
-  # Log summary
-  - action: logbook.log
-    data:
-      name: Bento Box Filter Check
-      message: >
-        Filter status checked. HEPA: {{ hepa_status }} ({{ hepa_usage }}%),
-        Carbon: {{ carbon_status }} ({{ carbon_usage }}%)
+    # Also check when filter tracking updates
+    - trigger: state
+      entity_id:
+        - sensor.bento_box_hepa_filter_usage
+        - sensor.bento_box_carbon_filter_usage
 
-mode: single
-max_exceeded: silent
+  conditions:
+    # Only run if tracking is enabled
+    - condition: state
+      entity_id: input_boolean.bento_box_filter_tracking_enabled
+      state: "on"
+
+  actions:
+    # Get current usage percentages
+    - variables:
+        hepa_usage: "{{ states('sensor.bento_box_hepa_filter_usage') | float(0) }}"
+        carbon_usage: "{{ states('sensor.bento_box_carbon_filter_usage') | float(0) }}"
+        hepa_status: "{{ state_attr('sensor.bento_box_hepa_filter_usage', 'status') }}"
+        carbon_status: "{{ state_attr('sensor.bento_box_carbon_filter_usage', 'status') }}"
+        hepa_remaining: "{{ state_attr('sensor.bento_box_hepa_filter_usage', 'remaining_hours') }}"
+        carbon_remaining: "{{ state_attr('sensor.bento_box_carbon_filter_usage', 'remaining_hours') }}"
+
+    # HEPA Filter Alerts
+    - choose:
+        # HEPA Overdue (100%+)
+        - conditions:
+            - condition: template
+              value_template: "{{ hepa_usage >= 100 }}"
+          sequence:
+            - action: notify.notify
+              data:
+                title: "ðŸš¨ HEPA Filter Overdue"
+                message: >
+                  Bento Box HEPA filter has exceeded its recommended lifespan.
+
+                  Usage: {{ hepa_usage }}%
+                  Runtime: {{ states('input_number.bento_box_hepa_runtime_hours') | round(0) }}h
+
+                  Replace filter immediately for optimal air filtration.
+                data:
+                  notification_id: bento_box_hepa_overdue
+                  tag: bento_box_filter
+                  priority: high
+
+            - action: persistent_notification.create
+              data:
+                title: "HEPA Filter Replacement Overdue"
+                message: >
+                  **Bento Box HEPA Filter - Replace Now**
+
+                  Usage: {{ hepa_usage }}%
+                  Runtime: {{ states('input_number.bento_box_hepa_runtime_hours') | round(0) }} hours
+                  Days since replacement: {{ state_attr('sensor.bento_box_hepa_filter_usage', 'days_since_replacement') }}
+
+                  **Action Required:**
+                  1. Order replacement filter if not available
+                  2. Replace filter as soon as possible
+                  3. Reset counter after replacement
+                notification_id: bento_box_hepa_overdue_persistent
+
+        # HEPA Replace Soon (90-99%)
+        - conditions:
+            - condition: template
+              value_template: "{{ hepa_usage >= 90 and hepa_usage < 100 }}"
+          sequence:
+            - action: notify.notify
+              data:
+                title: "âš ï¸ HEPA Filter - Replace Soon"
+                message: >
+                  Bento Box HEPA filter approaching end of life.
+
+                  Usage: {{ hepa_usage }}%
+                  Remaining: ~{{ hepa_remaining }}h
+
+                  Order replacement filter now.
+                data:
+                  notification_id: bento_box_hepa_replace_soon
+                  tag: bento_box_filter
+
+        # HEPA Warning (75-89%)
+        - conditions:
+            - condition: template
+              value_template: "{{ hepa_usage >= 75 and hepa_usage < 90 }}"
+          sequence:
+            - action: notify.notify
+              data:
+                title: "â„¹ï¸ HEPA Filter - Monitor"
+                message: >
+                  Bento Box HEPA filter at {{ hepa_usage }}% usage.
+
+                  Remaining: ~{{ hepa_remaining }}h
+
+                  Consider ordering replacement filter.
+                data:
+                  notification_id: bento_box_hepa_warning
+                  tag: bento_box_filter
+
+    # Carbon Filter Alerts
+    - choose:
+        # Carbon Overdue (100%+)
+        - conditions:
+            - condition: template
+              value_template: "{{ carbon_usage >= 100 }}"
+          sequence:
+            - action: notify.notify
+              data:
+                title: "ðŸš¨ Carbon Filter Overdue"
+                message: >
+                  Bento Box carbon filter has exceeded its recommended lifespan.
+
+                  Usage: {{ carbon_usage }}%
+                  Runtime: {{ states('input_number.bento_box_carbon_runtime_hours') | round(0) }}h
+
+                  Replace filter immediately for optimal VOC filtration.
+                data:
+                  notification_id: bento_box_carbon_overdue
+                  tag: bento_box_filter
+                  priority: high
+
+            - action: persistent_notification.create
+              data:
+                title: "Carbon Filter Replacement Overdue"
+                message: >
+                  **Bento Box Carbon Filter - Replace Now**
+
+                  Usage: {{ carbon_usage }}%
+                  Runtime: {{ states('input_number.bento_box_carbon_runtime_hours') | round(0) }} hours
+                  Days since replacement: {{ state_attr('sensor.bento_box_carbon_filter_usage', 'days_since_replacement') }}
+
+                  **Action Required:**
+                  1. Order replacement filter if not available
+                  2. Replace filter as soon as possible
+                  3. Reset counter after replacement
+
+                  **Note:** Carbon filters lose effectiveness with high-VOC materials (ABS, ASA, PC).
+                notification_id: bento_box_carbon_overdue_persistent
+
+        # Carbon Replace Soon (90-99%)
+        - conditions:
+            - condition: template
+              value_template: "{{ carbon_usage >= 90 and carbon_usage < 100 }}"
+          sequence:
+            - action: notify.notify
+              data:
+                title: "âš ï¸ Carbon Filter - Replace Soon"
+                message: >
+                  Bento Box carbon filter approaching end of life.
+
+                  Usage: {{ carbon_usage }}%
+                  Remaining: ~{{ carbon_remaining }}h
+
+                  Order replacement filter now.
+                data:
+                  notification_id: bento_box_carbon_replace_soon
+                  tag: bento_box_filter
+
+        # Carbon Warning (75-89%)
+        - conditions:
+            - condition: template
+              value_template: "{{ carbon_usage >= 75 and carbon_usage < 90 }}"
+          sequence:
+            - action: notify.notify
+              data:
+                title: "â„¹ï¸ Carbon Filter - Monitor"
+                message: >
+                  Bento Box carbon filter at {{ carbon_usage }}% usage.
+
+                  Remaining: ~{{ carbon_remaining }}h
+
+                  Consider ordering replacement filter.
+                data:
+                  notification_id: bento_box_carbon_warning
+                  tag: bento_box_filter
+
+    # Log summary
+    - action: logbook.log
+      data:
+        name: Bento Box Filter Check
+        message: >
+          Filter status checked. HEPA: {{ hepa_status }} ({{ hepa_usage }}%),
+          Carbon: {{ carbon_status }} ({{ carbon_usage }}%)
+
+  mode: single
+  max_exceeded: silent

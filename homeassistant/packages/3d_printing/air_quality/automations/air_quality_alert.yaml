@@ -1,162 +1,162 @@
 # Docs: docs/features/air_quality/README.md
-alias: Air Quality Alert - Poor Air Detected
-id: air_quality_alert_poor_air_detected
-description: >
-  Sends a notification when air quality degrades to poor or very poor levels.
-  Monitors PM2.5, CO2, and VOC sensors and alerts when thresholds are exceeded.
-  
-  This automation helps you stay aware of air quality issues that may require
-  immediate action such as turning on air purification or opening windows.
+- alias: Air Quality Alert - Poor Air Detected
+  id: air_quality_alert_poor_air_detected
+  description: >
+    Sends a notification when air quality degrades to poor or very poor levels.
+    Monitors PM2.5, CO2, and VOC sensors and alerts when thresholds are exceeded.
 
-triggers:
-  # PM2.5 exceeds unhealthy threshold (35 µg/m³)
-  - trigger: numeric_state
-    entity_id: sensor.i_9psl_pm2_5
-    above: 35
-    for:
-      minutes: 2
-    id: pm25_high
-  
-  # CO2 exceeds poor threshold (1200 ppm)
-  - trigger: numeric_state
-    entity_id: sensor.i_9psl_carbon_dioxide
-    above: 1200
-    for:
-      minutes: 5
-    id: co2_high
-  
-  # VOC exceeds poor threshold (200 ppb or index)
-  - trigger: numeric_state
-    entity_id: sensor.i_9psl_voc_index
-    above: 200
-    for:
-      minutes: 2
-    id: voc_high
+    This automation helps you stay aware of air quality issues that may require
+    immediate action such as turning on air purification or opening windows.
 
-conditions: []
+  triggers:
+    # PM2.5 exceeds unhealthy threshold (35 Âµg/mÂ³)
+    - trigger: numeric_state
+      entity_id: sensor.i_9psl_pm2_5
+      above: 35
+      for:
+        minutes: 2
+      id: pm25_high
 
-actions:
-  - choose:
-      # PM2.5 High Alert
-      - conditions:
-          - condition: trigger
-            id: pm25_high
-        sequence:
-          - action: notify.notify
-            data:
-              title: "⚠️ High PM2.5 Detected"
-              message: >
-                PM2.5 level is {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
-                (Unhealthy: >35).
-                
-                Consider:
-                - Turn on air purifier
-                - Close windows if outdoor air quality is poor
-                - Avoid strenuous activities
+    # CO2 exceeds poor threshold (1200 ppm)
+    - trigger: numeric_state
+      entity_id: sensor.i_9psl_carbon_dioxide
+      above: 1200
+      for:
+        minutes: 5
+      id: co2_high
+
+    # VOC exceeds poor threshold (200 ppb or index)
+    - trigger: numeric_state
+      entity_id: sensor.i_9psl_voc_index
+      above: 200
+      for:
+        minutes: 2
+      id: voc_high
+
+  conditions: []
+
+  actions:
+    - choose:
+        # PM2.5 High Alert
+        - conditions:
+            - condition: trigger
+              id: pm25_high
+          sequence:
+            - action: notify.notify
               data:
-                notification_id: air_quality_pm25
-                tag: air_quality
-                priority: high
-          
-          - action: persistent_notification.create
-            data:
-              title: "High PM2.5 Detected"
-              message: >
-                **Current PM2.5:** {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
-                
-                **Status:** Unhealthy (>35 µg/m³)
-                
-                **Recommended Actions:**
-                - Turn on air purifier to high
-                - Keep windows closed
-                - Monitor printer area during and after prints
-                
-                **Govee Purifier:** {{ states('switch.ryans_office_air_power_switch') }} (Gear {{ states('number.ryans_office_air_gearmode') }})
-              notification_id: air_quality_pm25_alert
-      
-      # CO2 High Alert
-      - conditions:
-          - condition: trigger
-            id: co2_high
-        sequence:
-          - action: notify.notify
-            data:
-              title: "⚠️ High CO2 Detected"
-              message: >
-                CO2 level is {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
-                (Poor: >1200).
-                
-                Consider:
-                - Increase ventilation
-                - Open windows or doors
-                - Turn on air circulation fans
-              data:
-                notification_id: air_quality_co2
-                tag: air_quality
-                priority: high
-          
-          - action: persistent_notification.create
-            data:
-              title: "High CO2 Detected"
-              message: >
-                **Current CO2:** {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
-                
-                **Status:** Poor (>1200 ppm)
-                
-                **Recommended Actions:**
-                - Open windows for fresh air
-                - Increase ventilation in the room
-                - Turn on exhaust fans
-                
-                **Note:** High CO2 can cause drowsiness and reduced focus.
-              notification_id: air_quality_co2_alert
-      
-      # VOC High Alert
-      - conditions:
-          - condition: trigger
-            id: voc_high
-        sequence:
-          - action: notify.notify
-            data:
-              title: "⚠️ High VOC Detected"
-              message: >
-                VOC level is {{ states('sensor.i_9psl_voc_index') }} ppb
-                (Poor: >200).
-                
-                Consider:
-                - Turn on air purifier
-                - Increase ventilation
-                - Check for VOC sources (printing, cleaning products, etc.)
-              data:
-                notification_id: air_quality_voc
-                tag: air_quality
-                priority: high
-          
-          - action: persistent_notification.create
-            data:
-              title: "High VOC Detected"
-              message: >
-                **Current VOC:** {{ states('sensor.i_9psl_voc_index') }} ppb
-                
-                **Status:** Poor (>200 ppb)
-                
-                **Recommended Actions:**
-                - Turn on air purifier to high
-                - Increase ventilation
-                - Identify and remove VOC sources if possible
-                
-                **Common Sources:** 3D printing, paints, adhesives, cleaning products
-              notification_id: air_quality_voc_alert
+                title: "âš ï¸ High PM2.5 Detected"
+                message: >
+                  PM2.5 level is {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+                  (Unhealthy: >35).
 
-  # Log the alert
-  - action: logbook.log
-    data:
-      name: Air Quality Alert
-      message: >
-        Air quality alert triggered: {{ trigger.id }}
-        PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
-        CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
-        VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
+                  Consider:
+                  - Turn on air purifier
+                  - Close windows if outdoor air quality is poor
+                  - Avoid strenuous activities
+                data:
+                  notification_id: air_quality_pm25
+                  tag: air_quality
+                  priority: high
 
-mode: single
-max_exceeded: silent
+            - action: persistent_notification.create
+              data:
+                title: "High PM2.5 Detected"
+                message: >
+                  **Current PM2.5:** {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+
+                  **Status:** Unhealthy (>35 Âµg/mÂ³)
+
+                  **Recommended Actions:**
+                  - Turn on air purifier to high
+                  - Keep windows closed
+                  - Monitor printer area during and after prints
+
+                  **Govee Purifier:** {{ states('switch.ryans_office_air_power_switch') }} (Gear {{ states('number.ryans_office_air_gearmode') }})
+                notification_id: air_quality_pm25_alert
+
+        # CO2 High Alert
+        - conditions:
+            - condition: trigger
+              id: co2_high
+          sequence:
+            - action: notify.notify
+              data:
+                title: "âš ï¸ High CO2 Detected"
+                message: >
+                  CO2 level is {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+                  (Poor: >1200).
+
+                  Consider:
+                  - Increase ventilation
+                  - Open windows or doors
+                  - Turn on air circulation fans
+                data:
+                  notification_id: air_quality_co2
+                  tag: air_quality
+                  priority: high
+
+            - action: persistent_notification.create
+              data:
+                title: "High CO2 Detected"
+                message: >
+                  **Current CO2:** {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+
+                  **Status:** Poor (>1200 ppm)
+
+                  **Recommended Actions:**
+                  - Open windows for fresh air
+                  - Increase ventilation in the room
+                  - Turn on exhaust fans
+
+                  **Note:** High CO2 can cause drowsiness and reduced focus.
+                notification_id: air_quality_co2_alert
+
+        # VOC High Alert
+        - conditions:
+            - condition: trigger
+              id: voc_high
+          sequence:
+            - action: notify.notify
+              data:
+                title: "âš ï¸ High VOC Detected"
+                message: >
+                  VOC level is {{ states('sensor.i_9psl_voc_index') }} ppb
+                  (Poor: >200).
+
+                  Consider:
+                  - Turn on air purifier
+                  - Increase ventilation
+                  - Check for VOC sources (printing, cleaning products, etc.)
+                data:
+                  notification_id: air_quality_voc
+                  tag: air_quality
+                  priority: high
+
+            - action: persistent_notification.create
+              data:
+                title: "High VOC Detected"
+                message: >
+                  **Current VOC:** {{ states('sensor.i_9psl_voc_index') }} ppb
+
+                  **Status:** Poor (>200 ppb)
+
+                  **Recommended Actions:**
+                  - Turn on air purifier to high
+                  - Increase ventilation
+                  - Identify and remove VOC sources if possible
+
+                  **Common Sources:** 3D printing, paints, adhesives, cleaning products
+                notification_id: air_quality_voc_alert
+
+    # Log the alert
+    - action: logbook.log
+      data:
+        name: Air Quality Alert
+        message: >
+          Air quality alert triggered: {{ trigger.id }}
+          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+          CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+          VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
+
+  mode: single
+  max_exceeded: silent

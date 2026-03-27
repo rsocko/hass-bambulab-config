@@ -1,134 +1,134 @@
 # Docs: docs/features/air_quality/README.md
-alias: Air Quality Auto-Adjust Purifier Speed
-id: air_quality_auto_adjust_purifier_speed
-description: >
-  Automatically adjusts the Govee air purifier speed based on current air quality.
-  This automation monitors PM2.5, CO2, and VOC levels and increases or decreases
-  the purifier speed to maintain good air quality.
-  
-  The automation only runs when:
-  - The purifier is already on (won't turn it on automatically)
-  - A 3D print is in progress or recently completed (within 30 minutes)
-  
-  Speed adjustments (Govee gv2mqtt gear modes):
-  - Poor/Very Poor: Gear 3 (high purification)
-  - Moderate: Gear 2 (balanced)
-  - Good: Gear 1 (quiet operation)
+- alias: Air Quality Auto-Adjust Purifier Speed
+  id: air_quality_auto_adjust_purifier_speed
+  description: >
+    Automatically adjusts the Govee air purifier speed based on current air quality.
+    This automation monitors PM2.5, CO2, and VOC levels and increases or decreases
+    the purifier speed to maintain good air quality.
 
-triggers:
-  # Check air quality every 5 minutes
-  - trigger: time_pattern
-    minutes: "/5"
+    The automation only runs when:
+    - The purifier is already on (won't turn it on automatically)
+    - A 3D print is in progress or recently completed (within 30 minutes)
 
-conditions:
-  # Only adjust if purifier is already on
-  - condition: state
-    entity_id: switch.ryans_office_air_power_switch
-    state: "on"
-  
-  # Only adjust during or shortly after printing
-  - condition: or
-    conditions:
-      # Printer is currently printing
-      - condition: state
-        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
-        state: "printing"
-      
-      # Print finished within last 30 minutes
-      - condition: template
-        value_template: >
-          {% set print_end = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
-          {% if print_end not in ['unknown', 'unavailable', ''] %}
-            {{ (as_timestamp(now()) - as_timestamp(print_end)) < 1800 }}
+    Speed adjustments (Govee gv2mqtt gear modes):
+    - Poor/Very Poor: Gear 3 (high purification)
+    - Moderate: Gear 2 (balanced)
+    - Good: Gear 1 (quiet operation)
+
+  triggers:
+    # Check air quality every 5 minutes
+    - trigger: time_pattern
+      minutes: "/5"
+
+  conditions:
+    # Only adjust if purifier is already on
+    - condition: state
+      entity_id: switch.ryans_office_air_power_switch
+      state: "on"
+
+    # Only adjust during or shortly after printing
+    - condition: or
+      conditions:
+        # Printer is currently printing
+        - condition: state
+          entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+          state: "printing"
+
+        # Print finished within last 30 minutes
+        - condition: template
+          value_template: >
+            {% set print_end = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+            {% if print_end not in ['unknown', 'unavailable', ''] %}
+              {{ (as_timestamp(now()) - as_timestamp(print_end)) < 1800 }}
+            {% else %}
+              false
+            {% endif %}
+
+  actions:
+    # Calculate required purifier speed based on air quality
+    - variables:
+        pm25: "{{ states('sensor.i_9psl_pm2_5') | float(0) }}"
+        co2: "{{ states('sensor.i_9psl_carbon_dioxide') | int(0) }}"
+        voc: "{{ states('sensor.i_9psl_voc_index') | int(0) }}"
+        current_gear: "{{ states('number.ryans_office_air_gearmode') | int(0) }}"
+        target_gear: >
+          {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+          {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+          {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
+
+          {# Poor or very poor air quality â†’ Gear 3 (High) #}
+          {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
+            3
+          {# Moderate air quality â†’ Gear 2 (Medium) #}
+          {% elif pm25 >= 12 or co2 >= 800 or voc >= 100 %}
+            2
+          {# Good air quality â†’ Gear 1 (Low) #}
           {% else %}
-            false
+            1
           {% endif %}
 
-actions:
-  # Calculate required purifier speed based on air quality
-  - variables:
-      pm25: "{{ states('sensor.i_9psl_pm2_5') | float(0) }}"
-      co2: "{{ states('sensor.i_9psl_carbon_dioxide') | int(0) }}"
-      voc: "{{ states('sensor.i_9psl_voc_index') | int(0) }}"
-      current_gear: "{{ states('number.ryans_office_air_gearmode') | int(0) }}"
-      target_gear: >
-        {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
-        {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
-        {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
-        
-        {# Poor or very poor air quality → Gear 3 (High) #}
-        {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
-          3
-        {# Moderate air quality → Gear 2 (Medium) #}
-        {% elif pm25 >= 12 or co2 >= 800 or voc >= 100 %}
-          2
-        {# Good air quality → Gear 1 (Low) #}
-        {% else %}
-          1
-        {% endif %}
-  
-  # Only adjust if gear needs to change
-  - condition: template
-    value_template: "{{ target_gear | int != current_gear | int }}"
-  
-  # Ensure purifier is in gearMode
-  - action: select.select_option
-    target:
-      entity_id: select.ryans_office_air_mode
-    data:
-      option: gearMode
-  
-  # Adjust purifier gear
-  - action: number.set_value
-    target:
-      entity_id: number.ryans_office_air_gearmode
-    data:
-      value: "{{ target_gear }}"
-  
-  # Log significant speed increases (air quality worsened)
-  - if:
-      - condition: template
-        value_template: "{{ target_gear | int > current_gear | int }}"
-    then:
-      - action: logbook.log
-        data:
-          name: Air Purifier Speed Increased
-          message: >
-            Air quality degraded. Increased purifier gear from {{ current_gear }} to {{ target_gear }}.
-            PM2.5: {{ pm25 | round(1) }} µg/m³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
-      
-      # Send notification when jumping to max gear
-      - if:
-          - condition: template
-            value_template: "{{ target_gear | int == 3 and current_gear | int < 3 }}"
-        then:
-          - action: notify.notify
-            data:
-              title: "⚠️ Air Purifier at Maximum"
-              message: >
-                Air quality has degraded during printing.
-                
-                Purifier gear: {{ current_gear }} → {{ target_gear }} (High)
-                
-                Current readings:
-                PM2.5: {{ pm25 | round(1) }} µg/m³
-                CO2: {{ co2 }} ppm
-                VOC: {{ voc }} ppb
-              data:
-                notification_id: purifier_speed_increase
-                tag: air_quality
-  
-  # Log gear decreases (air quality improved)
-  - if:
-      - condition: template
-        value_template: "{{ target_gear | int < current_gear | int }}"
-    then:
-      - action: logbook.log
-        data:
-          name: Air Purifier Speed Decreased
-          message: >
-            Air quality improved. Decreased purifier gear from {{ current_gear }} to {{ target_gear }}.
-            PM2.5: {{ pm25 | round(1) }} µg/m³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+    # Only adjust if gear needs to change
+    - condition: template
+      value_template: "{{ target_gear | int != current_gear | int }}"
 
-mode: single
-max_exceeded: silent
+    # Ensure purifier is in gearMode
+    - action: select.select_option
+      target:
+        entity_id: select.ryans_office_air_mode
+      data:
+        option: gearMode
+
+    # Adjust purifier gear
+    - action: number.set_value
+      target:
+        entity_id: number.ryans_office_air_gearmode
+      data:
+        value: "{{ target_gear }}"
+
+    # Log significant speed increases (air quality worsened)
+    - if:
+        - condition: template
+          value_template: "{{ target_gear | int > current_gear | int }}"
+      then:
+        - action: logbook.log
+          data:
+            name: Air Purifier Speed Increased
+            message: >
+              Air quality degraded. Increased purifier gear from {{ current_gear }} to {{ target_gear }}.
+              PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+
+        # Send notification when jumping to max gear
+        - if:
+            - condition: template
+              value_template: "{{ target_gear | int == 3 and current_gear | int < 3 }}"
+          then:
+            - action: notify.notify
+              data:
+                title: "âš ï¸ Air Purifier at Maximum"
+                message: >
+                  Air quality has degraded during printing.
+
+                  Purifier gear: {{ current_gear }} â†’ {{ target_gear }} (High)
+
+                  Current readings:
+                  PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³
+                  CO2: {{ co2 }} ppm
+                  VOC: {{ voc }} ppb
+                data:
+                  notification_id: purifier_speed_increase
+                  tag: air_quality
+
+    # Log gear decreases (air quality improved)
+    - if:
+        - condition: template
+          value_template: "{{ target_gear | int < current_gear | int }}"
+      then:
+        - action: logbook.log
+          data:
+            name: Air Purifier Speed Decreased
+            message: >
+              Air quality improved. Decreased purifier gear from {{ current_gear }} to {{ target_gear }}.
+              PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+
+  mode: single
+  max_exceeded: silent

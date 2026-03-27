@@ -1,177 +1,177 @@
 # Docs: docs/features/air_quality/bento-box-fan-filament-control.md
-alias: Bento Box Fan - Auto Control Based on Air Quality and Filament
-id: bento_box_fan_auto_control
-description: >
-  Automatically controls the Bento Box fan based on air quality readings and filament type.
-  This automation runs independently of the chamber fan and Govee purifier.
-  
-  The fan speed is determined by:
-  1. Filament type (high-VOC materials like ABS/ASA/PC require higher ventilation)
-  2. Current air quality readings (PM2.5 and VOC primarily)
-  3. Whether a print is active or recently completed
-  
-  High-VOC filaments (require more ventilation):
-  - ABS (Acrylonitrile Butadiene Styrene)
-  - ASA (Acrylonitrile Styrene Acrylate)
-  - PC (Polycarbonate)
-  - Nylon (Polyamide)
-  - HIPS (High Impact Polystyrene)
-  
-  Low-VOC filaments (require less ventilation):
-  - PLA (Polylactic Acid)
-  - PETG (Polyethylene Terephthalate Glycol)
-  - TPU (Thermoplastic Polyurethane)
+- alias: Bento Box Fan - Auto Control Based on Air Quality and Filament
+  id: bento_box_fan_auto_control
+  description: >
+    Automatically controls the Bento Box fan based on air quality readings and filament type.
+    This automation runs independently of the chamber fan and Govee purifier.
 
-triggers:
-  # Trigger when print starts
-  - device_id: YOUR_PRINTER_DEVICE_ID_HERE
-    domain: bambu_lab
-    type: event_print_started
-    trigger: device
-    id: print_started
-  
-  # Check air quality every 5 minutes during printing
-  - trigger: time_pattern
-    minutes: "/5"
-    id: periodic_check
-  
-  # Trigger when print completes
-  - device_id: YOUR_PRINTER_DEVICE_ID_HERE
-    domain: bambu_lab
-    type: event_print_finished
-    trigger: device
-    id: print_finished
+    The fan speed is determined by:
+    1. Filament type (high-VOC materials like ABS/ASA/PC require higher ventilation)
+    2. Current air quality readings (PM2.5 and VOC primarily)
+    3. Whether a print is active or recently completed
 
-conditions:
-  # Only run during printing or within 45 minutes after print completion
-  - condition: or
-    conditions:
-      # Printer is currently printing
-      - condition: state
-        entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
-        state: "printing"
-      
-      # Print finished within last 45 minutes
-      - condition: template
-        value_template: >
-          {% set print_end = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
-          {% if print_end not in ['unknown', 'unavailable', ''] %}
-            {{ (as_timestamp(now()) - as_timestamp(print_end)) < 2700 }}
+    High-VOC filaments (require more ventilation):
+    - ABS (Acrylonitrile Butadiene Styrene)
+    - ASA (Acrylonitrile Styrene Acrylate)
+    - PC (Polycarbonate)
+    - Nylon (Polyamide)
+    - HIPS (High Impact Polystyrene)
+
+    Low-VOC filaments (require less ventilation):
+    - PLA (Polylactic Acid)
+    - PETG (Polyethylene Terephthalate Glycol)
+    - TPU (Thermoplastic Polyurethane)
+
+  triggers:
+    # Trigger when print starts
+    - device_id: YOUR_PRINTER_DEVICE_ID_HERE
+      domain: bambu_lab
+      type: event_print_started
+      trigger: device
+      id: print_started
+
+    # Check air quality every 5 minutes during printing
+    - trigger: time_pattern
+      minutes: "/5"
+      id: periodic_check
+
+    # Trigger when print completes
+    - device_id: YOUR_PRINTER_DEVICE_ID_HERE
+      domain: bambu_lab
+      type: event_print_finished
+      trigger: device
+      id: print_finished
+
+  conditions:
+    # Only run during printing or within 45 minutes after print completion
+    - condition: or
+      conditions:
+        # Printer is currently printing
+        - condition: state
+          entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+          state: "printing"
+
+        # Print finished within last 45 minutes
+        - condition: template
+          value_template: >
+            {% set print_end = states('sensor.ntk_ryansoffice_3dprinter_end_time') %}
+            {% if print_end not in ['unknown', 'unavailable', ''] %}
+              {{ (as_timestamp(now()) - as_timestamp(print_end)) < 2700 }}
+            {% else %}
+              false
+            {% endif %}
+
+  actions:
+    # Get filament type and air quality data
+    - variables:
+        filament_type: >
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | upper }}
+        pm25: "{{ states('sensor.i_9psl_pm2_5') | float(0) }}"
+        voc: "{{ states('sensor.i_9psl_voc_index') | int(0) }}"
+        co2: "{{ states('sensor.i_9psl_carbon_dioxide') | int(0) }}"
+        is_printing: >
+          {{ is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') }}
+
+        # Determine if filament is high-VOC (needs more ventilation)
+        is_high_voc_filament: >
+          {% set high_voc_materials = ['ABS', 'ASA', 'PC', 'NYLON', 'HIPS', 'POLYCARBONATE'] %}
+          {{ filament_type in high_voc_materials }}
+
+        # Calculate target fan speed based on multiple factors
+        target_speed: >
+          {% set filament_type = state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | upper %}
+          {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+          {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
+          {% set is_printing = is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') %}
+
+          {% set high_voc_materials = ['ABS', 'ASA', 'PC', 'NYLON', 'HIPS', 'POLYCARBONATE'] %}
+          {% set is_high_voc = filament_type in high_voc_materials %}
+
+          {# Very poor air quality - maximum ventilation #}
+          {% if pm25 >= 55 or voc >= 300 %}
+            100
+
+          {# Poor air quality OR high-VOC material printing #}
+          {% elif (pm25 >= 35 or voc >= 200) or (is_high_voc and is_printing) %}
+            80
+
+          {# Moderate air quality OR high-VOC material recently finished #}
+          {% elif (pm25 >= 12 or voc >= 100) or is_high_voc %}
+            60
+
+          {# Low air quality but printing with low-VOC material #}
+          {% elif is_printing and (pm25 >= 8 or voc >= 50) %}
+            40
+
+          {# Good air quality, not printing or low-VOC material #}
+          {% elif pm25 < 12 and voc < 100 %}
+            0
+
+          {# Default: low speed for circulation #}
           {% else %}
-            false
+            30
           {% endif %}
 
-actions:
-  # Get filament type and air quality data
-  - variables:
-      filament_type: >
-        {{ state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | upper }}
-      pm25: "{{ states('sensor.i_9psl_pm2_5') | float(0) }}"
-      voc: "{{ states('sensor.i_9psl_voc_index') | int(0) }}"
-      co2: "{{ states('sensor.i_9psl_carbon_dioxide') | int(0) }}"
-      is_printing: >
-        {{ is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') }}
-      
-      # Determine if filament is high-VOC (needs more ventilation)
-      is_high_voc_filament: >
-        {% set high_voc_materials = ['ABS', 'ASA', 'PC', 'NYLON', 'HIPS', 'POLYCARBONATE'] %}
-        {{ filament_type in high_voc_materials }}
-      
-      # Calculate target fan speed based on multiple factors
-      target_speed: >
-        {% set filament_type = state_attr('sensor.ntk_ryansoffice_3dprinter_active_tray', 'type') | upper %}
-        {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
-        {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
-        {% set is_printing = is_state('sensor.ntk_ryansoffice_3dprinter_print_status', 'printing') %}
-        
-        {% set high_voc_materials = ['ABS', 'ASA', 'PC', 'NYLON', 'HIPS', 'POLYCARBONATE'] %}
-        {% set is_high_voc = filament_type in high_voc_materials %}
-        
-        {# Very poor air quality - maximum ventilation #}
-        {% if pm25 >= 55 or voc >= 300 %}
-          100
-        
-        {# Poor air quality OR high-VOC material printing #}
-        {% elif (pm25 >= 35 or voc >= 200) or (is_high_voc and is_printing) %}
-          80
-        
-        {# Moderate air quality OR high-VOC material recently finished #}
-        {% elif (pm25 >= 12 or voc >= 100) or is_high_voc %}
-          60
-        
-        {# Low air quality but printing with low-VOC material #}
-        {% elif is_printing and (pm25 >= 8 or voc >= 50) %}
-          40
-        
-        {# Good air quality, not printing or low-VOC material #}
-        {% elif pm25 < 12 and voc < 100 %}
-          0
-        
-        {# Default: low speed for circulation #}
-        {% else %}
-          30
-        {% endif %}
-  
-  # Control Bento Box fan based on calculated speed
-  - choose:
-      # Turn off fan when target speed is 0 (good air quality, no printing)
-      - conditions:
-          - condition: template
-            value_template: "{{ target_speed | int == 0 }}"
-        sequence:
-          - action: fan.turn_off
-            target:
-              entity_id: fan.bento_box_fan
-            continue_on_error: true
-          
-          - action: logbook.log
-            data:
-              name: Bento Box Fan Off
-              message: >
-                Turned off Bento Box fan. Air quality is good.
-                PM2.5: {{ pm25 | round(1) }} µg/m³, VOC: {{ voc }} ppb
-                Filament: {{ filament_type }}
-    
-    # Turn on or adjust fan speed
-    default:
-      - action: fan.turn_on
-        target:
-          entity_id: fan.bento_box_fan
-        data:
-          percentage: "{{ target_speed }}"
-        continue_on_error: true
-      
-      - action: logbook.log
-        data:
-          name: Bento Box Fan Adjusted
-          message: >
-            Bento Box fan set to {{ target_speed }}%.
-            Filament: {{ filament_type }} (High-VOC: {{ is_high_voc_filament }})
-            Air Quality - PM2.5: {{ pm25 | round(1) }} µg/m³, VOC: {{ voc }} ppb, CO2: {{ co2 }} ppm
-            Printing: {{ is_printing }}
-  
-  # Send notification on print start for high-VOC materials
-  - if:
-      - condition: trigger
-        id: print_started
-      - condition: template
-        value_template: "{{ is_high_voc_filament }}"
-    then:
-      - action: notify.notify
-        data:
-          title: "⚠️ High-VOC Filament Detected"
-          message: >
-            Print started with {{ filament_type }} filament.
-            
-            Bento Box fan set to {{ target_speed }}% for enhanced ventilation.
-            
-            Current Air Quality:
-            PM2.5: {{ pm25 | round(1) }} µg/m³
-            VOC: {{ voc }} ppb
-            CO2: {{ co2 }} ppm
-          data:
-            notification_id: high_voc_filament_alert
-            tag: air_quality
-            priority: high
+    # Control Bento Box fan based on calculated speed
+    - choose:
+        # Turn off fan when target speed is 0 (good air quality, no printing)
+        - conditions:
+            - condition: template
+              value_template: "{{ target_speed | int == 0 }}"
+          sequence:
+            - action: fan.turn_off
+              target:
+                entity_id: fan.bento_box_fan
+              continue_on_error: true
 
-mode: restart
+            - action: logbook.log
+              data:
+                name: Bento Box Fan Off
+                message: >
+                  Turned off Bento Box fan. Air quality is good.
+                  PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, VOC: {{ voc }} ppb
+                  Filament: {{ filament_type }}
+
+      # Turn on or adjust fan speed
+      default:
+        - action: fan.turn_on
+          target:
+            entity_id: fan.bento_box_fan
+          data:
+            percentage: "{{ target_speed }}"
+          continue_on_error: true
+
+        - action: logbook.log
+          data:
+            name: Bento Box Fan Adjusted
+            message: >
+              Bento Box fan set to {{ target_speed }}%.
+              Filament: {{ filament_type }} (High-VOC: {{ is_high_voc_filament }})
+              Air Quality - PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, VOC: {{ voc }} ppb, CO2: {{ co2 }} ppm
+              Printing: {{ is_printing }}
+
+    # Send notification on print start for high-VOC materials
+    - if:
+        - condition: trigger
+          id: print_started
+        - condition: template
+          value_template: "{{ is_high_voc_filament }}"
+      then:
+        - action: notify.notify
+          data:
+            title: "âš ï¸ High-VOC Filament Detected"
+            message: >
+              Print started with {{ filament_type }} filament.
+
+              Bento Box fan set to {{ target_speed }}% for enhanced ventilation.
+
+              Current Air Quality:
+              PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³
+              VOC: {{ voc }} ppb
+              CO2: {{ co2 }} ppm
+            data:
+              notification_id: high_voc_filament_alert
+              tag: air_quality
+              priority: high
+
+  mode: restart

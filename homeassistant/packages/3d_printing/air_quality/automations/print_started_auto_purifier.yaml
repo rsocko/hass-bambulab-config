@@ -1,92 +1,92 @@
 # Docs: docs/features/air_quality/README.md
-alias: Print Started - Auto Enable Air Purification
-id: print_started_auto_enable_air_purification
-description: >
-  Automatically turns on the Govee air purifier when a 3D print starts.
-  This helps manage air quality during printing by proactively filtering
-  particles and VOCs that may be emitted during the printing process.
-  
-  The purifier gear is adjusted based on current air quality readings:
-  - Good air quality: Gear 1 (Low)
-  - Moderate air quality: Gear 2 (Medium)
-  - Poor air quality: Gear 3 (High)
+- alias: Print Started - Auto Enable Air Purification
+  id: print_started_auto_enable_air_purification
+  description: >
+    Automatically turns on the Govee air purifier when a 3D print starts.
+    This helps manage air quality during printing by proactively filtering
+    particles and VOCs that may be emitted during the printing process.
 
-triggers:
-  # Trigger when print starts
-  - device_id: YOUR_PRINTER_DEVICE_ID_HERE
-    domain: bambu_lab
-    type: event_print_started
-    trigger: device
+    The purifier gear is adjusted based on current air quality readings:
+    - Good air quality: Gear 1 (Low)
+    - Moderate air quality: Gear 2 (Medium)
+    - Poor air quality: Gear 3 (High)
 
-conditions: []
+  triggers:
+    # Trigger when print starts
+    - device_id: YOUR_PRINTER_DEVICE_ID_HERE
+      domain: bambu_lab
+      type: event_print_started
+      trigger: device
 
-actions:
-  # Wait a moment for sensor readings to stabilize
-  - delay:
-      seconds: 5
-  
-  # Calculate target gear based on current air quality
-  - variables:
-      target_gear: >
-        {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
-        {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
-        {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
-        {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
-          3
-        {% elif pm25 >= 12 or co2 >= 800 or voc >= 100 %}
-          2
-        {% else %}
-          1
-        {% endif %}
-  
-  # Turn on the purifier
-  - action: switch.turn_on
-    target:
-      entity_id: switch.ryans_office_air_power_switch
-  
-  # Set to gearMode and adjust gear
-  - action: select.select_option
-    target:
-      entity_id: select.ryans_office_air_mode
-    data:
-      option: gearMode
-  
-  - action: number.set_value
-    target:
-      entity_id: number.ryans_office_air_gearmode
-    data:
-      value: "{{ target_gear }}"
-  
-  # Note: Bento Box fan is now controlled by dedicated automation
-  # (bento_box_fan_auto_control.yaml) based on air quality and filament type
-  
-  # Send notification
-  - action: notify.notify
-    data:
-      title: "🖨️ Air Purification Started"
-      message: >
-        Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
-        
-        Air purifier turned on at gear {{ states('number.ryans_office_air_gearmode') }}.
-        
-        Current Air Quality:
-        PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
-        CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
-        VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
+  conditions: []
+
+  actions:
+    # Wait a moment for sensor readings to stabilize
+    - delay:
+        seconds: 5
+
+    # Calculate target gear based on current air quality
+    - variables:
+        target_gear: >
+          {% set pm25 = states('sensor.i_9psl_pm2_5') | float(0) %}
+          {% set co2 = states('sensor.i_9psl_carbon_dioxide') | int(0) %}
+          {% set voc = states('sensor.i_9psl_voc_index') | int(0) %}
+          {% if pm25 >= 35 or co2 >= 1200 or voc >= 200 %}
+            3
+          {% elif pm25 >= 12 or co2 >= 800 or voc >= 100 %}
+            2
+          {% else %}
+            1
+          {% endif %}
+
+    # Turn on the purifier
+    - action: switch.turn_on
+      target:
+        entity_id: switch.ryans_office_air_power_switch
+
+    # Set to gearMode and adjust gear
+    - action: select.select_option
+      target:
+        entity_id: select.ryans_office_air_mode
       data:
-        notification_id: print_air_purification
-        tag: print_control
-  
-  # Log the action
-  - action: logbook.log
-    data:
-      name: Air Purification Started
-      message: >
-        Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
-        Govee air purifier turned on at gear {{ states('number.ryans_office_air_gearmode') }}.
-        Air quality: PM2.5={{ states('sensor.i_9psl_pm2_5') | round(1) }}, 
-        CO2={{ states('sensor.i_9psl_carbon_dioxide') }}, 
-        VOC={{ states('sensor.i_9psl_voc_index') }}
-        Note: Bento Box fan controlled by separate automation based on filament type.
+        option: gearMode
 
-mode: restart
+    - action: number.set_value
+      target:
+        entity_id: number.ryans_office_air_gearmode
+      data:
+        value: "{{ target_gear }}"
+
+    # Note: Bento Box fan is now controlled by dedicated automation
+    # (bento_box_fan_auto_control.yaml) based on air quality and filament type
+
+    # Send notification
+    - action: notify.notify
+      data:
+        title: "ðŸ–¨ï¸ Air Purification Started"
+        message: >
+          Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
+
+          Air purifier turned on at gear {{ states('number.ryans_office_air_gearmode') }}.
+
+          Current Air Quality:
+          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+          CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
+          VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
+        data:
+          notification_id: print_air_purification
+          tag: print_control
+
+    # Log the action
+    - action: logbook.log
+      data:
+        name: Air Purification Started
+        message: >
+          Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
+          Govee air purifier turned on at gear {{ states('number.ryans_office_air_gearmode') }}.
+          Air quality: PM2.5={{ states('sensor.i_9psl_pm2_5') | round(1) }}, 
+          CO2={{ states('sensor.i_9psl_carbon_dioxide') }}, 
+          VOC={{ states('sensor.i_9psl_voc_index') }}
+          Note: Bento Box fan controlled by separate automation based on filament type.
+
+  mode: restart
