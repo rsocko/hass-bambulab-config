@@ -16,8 +16,8 @@ Animated print progress KPI cards showing layer count, percentage, time remainin
 
 - **Layer Progress** — Layers icon bounces upward while printing
 - **Print Progress** — Icon spins continuously while printing
-- **Time Remaining** — Clock icon rotates while printing
-- **Est. Completion** — Smart human-readable time format (today, tomorrow, weekday, or date)
+- **Time Remaining** — Elapsed-of-total subtitle, clock icon rotates while printing (mushroom card)
+- **Est. Completion** — Smart human-readable time with day descriptor and start time subtitle (mushroom card)
 - 13 design variants to choose from (options 1–13)
 - All animations stop on pause/stop/complete
 - 2×2 grid layout
@@ -42,6 +42,7 @@ Animated print progress KPI cards showing layer count, percentage, time remainin
 |------|-------------|
 | [print-progress-options-guide.md](print-progress-options-guide.md) | Comparison of all 13 variants with selection checklist |
 | [print-progress-dependencies.md](print-progress-dependencies.md) | Runtime dependency map: include chain, required entities, custom cards |
+| [mushroom-kpi-card-styling.md](mushroom-kpi-card-styling.md) | Mushroom template card styling reference — card-mod technique, typography, and text wrapping |
 
 ## Dependencies & Requirements
 
@@ -53,7 +54,9 @@ This is a dashboard-card-only feature — it has no loader in `_feature_loaders.
 
 | Card | Required | Purpose |
 |---|---|---|
-| [button-card](https://github.com/custom-cards/button-card) | **Yes** | Animated KPI card rendering with CSS animations |
+| [button-card](https://github.com/custom-cards/button-card) | **Yes** | Animated KPI card rendering for Layer/Print Progress |
+| [mushroom](https://github.com/piitaya/lovelace-mushroom) | **Yes** | Time Remaining and Est. Completion KPI cards |
+| [card-mod](https://github.com/thomasloven/lovelace-card-mod) | **Yes** | Custom typography and opacity on mushroom cards ([styling reference](mushroom-kpi-card-styling.md)) |
 
 ### Related Features
 
