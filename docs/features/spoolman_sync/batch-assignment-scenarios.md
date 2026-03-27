@@ -90,6 +90,44 @@ Queue storage is compact JSON in `input_text` helpers (max 255 chars):
 | User taps Cancel on any chip popup | `cancel_pending_tray_assignment` clears **all** queues + legacy helper |
 | **User sees** | All chips disappear |
 
+### 9. Bambu RFID spool loaded mid-print
+
+When the printer is actively printing, the AMS cannot re-read RFID tags on newly
+inserted spools. The system defers these so the user has visibility and the AMS
+re-reads once the printer returns to idle.
+
+| Step | What happens |
+|------|--------------|
+| User loads Bambu RFID spool into AMS during a print | Automation detects location → AMS 2 |
+| Spool is Bambu Lab + has RFID UUID | `is_bambu_rfid_in_ams` = true |
+| Printer busy check | `printer_busy` = true → cannot read RFID now |
+| Spool appended to deferred queue | Entry: `{"s": 33, "t": 21, "r": 1}` — the `r: 1` flag marks it as RFID |
+| **User sees** | Amber chip: "3 RFID spools — AMS reads after print" |
+| User taps chip | Popup: numbered list with "RFID — AMS reads after print" labels |
+| Print finishes | `auto_retry_deferred_tray_assignments` fires after 10s settle |
+| Retry processes RFID entries | Detects `r: 1` flag → fires `skipped_bambu_rfid` (does NOT call assign script) |
+| AMS physically re-reads trays | RFID tags detected, tray metadata updated by AMS hardware |
+| **User sees** | Blue chip: "RFID spool — AMS auto-configures" |
+
+**Why not just skip silently?** If the user loaded 4 RFID spools mid-print, they
+have no way to know whether the AMS actually picked them up. The deferred queue
+gives them a checklist — and the auto-retry clears it, confirming the printer is
+now idle and the AMS is reading.
+
+**Why not call `assign_spool_to_printer_tray` on retry?** The assign script's
+`should_skip_rfid` check is bypassed when `force_write: true` (used by retry).
+This would erroneously write filament metadata to the tray. Instead, the retry
+script detects `r: 1` and fires `skipped_bambu_rfid` directly.
+
+### 10. Bambu RFID spool loaded while printer idle
+
+| Step | What happens |
+|------|--------------|
+| User loads Bambu RFID spool while printer is idle | Automation detects location change |
+| Printer idle + Bambu RFID | Fires `skipped_bambu_rfid` immediately — AMS reads RFID now |
+| **User sees** | Blue chip: "RFID spool — AMS auto-configures" |
+| Nothing deferred | AMS is already reading the tag |
+
 ## Concurrency Model
 
 ```
@@ -120,4 +158,5 @@ Key guarantee: template evaluation in the automation happens in parallel (fast),
 ```
 - `s`: Spoolman spool ID (integer)
 - `t`: Tray code — `AMS_unit * 10 + tray_slot` (e.g. 11 = AMS1T1, 24 = AMS2T4, 0 = External)
+- `r`: _(optional)_ RFID flag — `1` = Bambu RFID spool loaded mid-print. Retry clears it without calling assign script.
 - Max ~8 items in 255 chars (covers all AMS slots)

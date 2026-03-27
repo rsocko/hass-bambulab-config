@@ -80,6 +80,11 @@
           {{ state_attr(spool_entity_id, 'friendly_name') | default('Spool #' ~ spool_id, true) }}
         is_bambu_rfid_in_ams: >-
           {{ spool_vendor == 'Bambu Lab' and (has_rfid_uuid | bool) and not target_is_external and is_supported_target }}
+        print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower }}"
+        smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
+        printer_busy: >-
+          {{ print_status in ['running', 'pause', 'paused', 'prepare', 'preparing']
+             or smart_status in ['printing', 'preparing', 'heating', 'leveling'] }}
 
     - choose:
         - conditions:
@@ -101,27 +106,81 @@
             - condition: template
               value_template: "{{ is_bambu_rfid_in_ams }}"
           sequence:
-            - action: logbook.log
-              data:
-                name: Tray Assignment
-                message: >-
-                  Spool {{ spool_id }} is a Bambu Lab spool with RFID UUID —
-                  AMS will configure the tray automatically via RFID reader.
-                  No tray assignment needed.
-                entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
-                domain: automation
-            - event: spoolman_tray_assignment_result
-              event_data:
-                status: skipped_bambu_rfid
-                message: >-
-                  Bambu Lab spool {{ spool_id }} moved to {{ to_location }} —
-                  AMS will auto-configure via RFID reader.
-                spool_entity_id: "{{ spool_entity_id }}"
-                tray_entity_id: ""
-                tray_info_idx: ""
-                tray_type: ""
-                tray_color: ""
-            - stop: Bambu RFID spool in AMS — RFID reader is authoritative
+            - choose:
+                # Printer busy → defer for RFID re-read after print
+                - conditions:
+                    - condition: template
+                      value_template: "{{ printer_busy | bool }}"
+                  sequence:
+                    - variables:
+                        rfid_tray_code: >-
+                          {% if inferred_tray_entity_id | length > 0 %}
+                            {% set ams_n = (inferred_tray_entity_id | regex_findall('ams_(\d+)_tray_'))[0] | default('0') | int %}
+                            {% set tray_n = (inferred_tray_entity_id | regex_findall('_tray_(\d+)'))[0] | default('0') | int %}
+                            {{ ams_n * 10 + tray_n }}
+                          {% elif target_is_ams_2 %}20
+                          {% elif target_is_ams_1 %}10
+                          {% else %}0{% endif %}
+                        new_deferred_queue: >-
+                          {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+                          {% set current = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                          {% if current is not iterable or current is string %}{% set current = [] %}{% endif %}
+                          {% set ns = namespace(items=[]) %}
+                          {% for item in current %}
+                            {% if (item.s | int(-1)) != (spool_id | int(-1)) %}
+                              {% set ns.items = ns.items + [item] %}
+                            {% endif %}
+                          {% endfor %}
+                          {% set ns.items = ns.items + [{'s': spool_id | int, 't': rfid_tray_code | int, 'r': 1}] %}
+                          {{ ns.items | to_json }}
+                    - action: input_text.set_value
+                      data:
+                        entity_id: input_text.deferred_tray_assignments_queue
+                        value: "{{ new_deferred_queue }}"
+                    - action: logbook.log
+                      data:
+                        name: Tray Assignment
+                        message: >-
+                          Bambu RFID spool {{ spool_id }} loaded mid-print → deferred.
+                          AMS will re-read RFID after print finishes.
+                          {{ (new_deferred_queue | from_json) | count }} item(s) in deferred queue.
+                        entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                        domain: automation
+                    - event: spoolman_tray_assignment_result
+                      event_data:
+                        status: deferred
+                        message: >-
+                          Bambu RFID spool {{ spool_id }} loaded into {{ to_location }} mid-print.
+                          AMS will re-read RFID tag when printer is idle.
+                          {{ (new_deferred_queue | from_json) | count }} item(s) deferred.
+                        spool_entity_id: "{{ spool_entity_id }}"
+                        tray_entity_id: "{{ inferred_tray_entity_id }}"
+                        tray_info_idx: ""
+                        tray_type: ""
+                        tray_color: ""
+              default:
+                # Printer idle → AMS can read RFID now, no assignment needed
+                - action: logbook.log
+                  data:
+                    name: Tray Assignment
+                    message: >-
+                      Spool {{ spool_id }} is a Bambu Lab spool with RFID UUID —
+                      AMS will configure the tray automatically via RFID reader.
+                      No tray assignment needed.
+                    entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
+                    domain: automation
+                - event: spoolman_tray_assignment_result
+                  event_data:
+                    status: skipped_bambu_rfid
+                    message: >-
+                      Bambu Lab spool {{ spool_id }} moved to {{ to_location }} —
+                      AMS will auto-configure via RFID reader.
+                    spool_entity_id: "{{ spool_entity_id }}"
+                    tray_entity_id: ""
+                    tray_info_idx: ""
+                    tray_type: ""
+                    tray_color: ""
+            - stop: Bambu RFID spool in AMS
 
     - choose:
         - conditions:

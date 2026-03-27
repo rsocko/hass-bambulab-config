@@ -291,7 +291,13 @@ cards:
           icon_color: amber
           content: >-
             {% set count = states('sensor.deferred_tray_assignment_queue') | int(0) %}
-            {{ count }} assignment{{ 's' if count != 1 }} deferred
+            {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+            {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+            {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
+            {% set rfid_count = queue | selectattr('r', 'defined') | selectattr('r', 'equalto', 1) | list | count %}
+            {% if rfid_count == count %}{{ count }} RFID spool{{ 's' if count != 1 }} — AMS reads after print
+            {% elif rfid_count > 0 %}{{ count }} deferred ({{ rfid_count }} RFID)
+            {% else %}{{ count }} assignment{{ 's' if count != 1 }} deferred{% endif %}
           tap_action:
             action: fire-dom-event
             browser_mod:
@@ -311,9 +317,13 @@ cards:
                         {% for item in queue %}
                         {% set spool_eid = 'sensor.spoolman_spool_' ~ (item.s | string) %}
                         {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Spool #' ~ item.s, true) %}
+                        {% if (item.r | default(0) | int) == 1 %}
+                        {{ loop.index }}. **{{ spool_name }}** · RFID — AMS reads after print
+                        {% else %}
                         {% set code = item.t | int(0) %}
                         {% if code == 0 %}{% set tray_label = 'External Spool' %}{% else %}{% set tray_label = 'AMS ' ~ ((code / 10) | int) ~ ' Tray ' ~ (code % 10) %}{% endif %}
                         {{ loop.index }}. **{{ spool_name }}** → {{ tray_label }}
+                        {% endif %}
                         {% endfor %}
                     # Retry Next
                     - type: custom:mushroom-template-card
@@ -324,11 +334,20 @@ cards:
                           {% set first = queue[0] %}
                           {% set spool_eid = 'sensor.spoolman_spool_' ~ (first.s | string) %}
                           {% set spool_name = state_attr(spool_eid, 'friendly_name') | default('Spool #' ~ first.s, true) %}
+                          {% if (first.r | default(0) | int) == 1 %}
+                          Clear: {{ spool_name }} (RFID)
+                          {% else %}
                           {% set code = first.t | int(0) %}
                           {% if code == 0 %}{% set tl = 'External' %}{% else %}{% set tl = 'AMS ' ~ ((code / 10) | int) ~ ' T' ~ (code % 10) %}{% endif %}
                           Retry: {{ spool_name }} → {{ tl }}
+                          {% endif %}
                         {% else %}Queue empty{% endif %}
-                      secondary: Tap to retry next assignment
+                      secondary: >-
+                        {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% if queue is iterable and queue is not string and queue | count > 0 and (queue[0].r | default(0) | int) == 1 %}
+                        Tap to acknowledge — AMS will read RFID now
+                        {% else %}Tap to retry next assignment{% endif %}
                       icon: mdi:refresh
                       icon_color: amber
                       tap_action:

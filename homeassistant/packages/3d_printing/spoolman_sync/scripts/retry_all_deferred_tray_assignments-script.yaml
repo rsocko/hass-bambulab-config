@@ -33,6 +33,7 @@ retry_all_deferred_tray_assignments:
               first: "{{ (queue_parsed | from_json)[0] | default(none) }}"
               spool_id: "{{ first.s | default('') | string }}"
               tray_code: "{{ first.t | default(0) | int }}"
+              is_rfid_entry: "{{ (first.r | default(0) | int) == 1 if first is mapping else false }}"
               tray_entity_id: >-
                 {% if tray_code | int == 0 %}
                   sensor.ntk_ryansoffice_3dprinter_external_spool
@@ -52,13 +53,31 @@ retry_all_deferred_tray_assignments:
               entity_id: input_text.deferred_tray_assignments_queue
               value: "{{ remaining_json }}"
 
-          # Call assign and wait for completion
-          - action: script.assign_spool_to_printer_tray
-            data:
-              spool_id: "{{ spool_id }}"
-              tray_entity_id: "{{ tray_entity_id }}"
-              force_write: true
+          - choose:
+              # RFID entry: AMS re-reads tag now that printer is idle
+              - conditions:
+                  - condition: template
+                    value_template: "{{ is_rfid_entry }}"
+                sequence:
+                  - event: spoolman_tray_assignment_result
+                    event_data:
+                      status: skipped_bambu_rfid
+                      message: >-
+                        Bambu RFID spool {{ spool_id }} — printer now idle,
+                        AMS will auto-configure via RFID reader.
+                      spool_entity_id: "sensor.spoolman_spool_{{ spool_id }}"
+                      tray_entity_id: "{{ tray_entity_id }}"
+                      tray_info_idx: ""
+                      tray_type: ""
+                      tray_color: ""
+            default:
+              # Normal entry: retry the assignment
+              - action: script.assign_spool_to_printer_tray
+                data:
+                  spool_id: "{{ spool_id }}"
+                  tray_entity_id: "{{ tray_entity_id }}"
+                  force_write: true
 
-          # Delay between assignments so set_filament fully completes
+          # Delay between items so set_filament fully completes
           - delay:
               seconds: 5
