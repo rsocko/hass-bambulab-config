@@ -60,10 +60,16 @@ spool_replace_wizard_step3:
           + '</div></div>'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;">'
           + mkImg(srcPic, srcColor)
-          + '<div><div>' + srcName + ' #' + srcId + '</div><div style="font-size:0.85em;color:var(--secondary-text-color);">📍 ' + srcLocation + '</div></div>'
+          + '<div style="min-width:0;flex:1;">'
+          + '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + srcName + '</div>'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#' + srcId + ' · 📍 ' + srcLocation + '</div>'
+          + '</div>'
           + '<ha-icon icon="mdi:arrow-right" style="--mdc-icon-size:18px;color:var(--secondary-text-color);flex-shrink:0;"></ha-icon>'
           + mkImg(tgtPic, tgtColor)
-          + '<div><div>' + tgtName + ' #' + tgtId + '</div><div style="font-size:0.85em;color:var(--secondary-text-color);">📍 ' + tgtLocation + '</div></div>'
+          + '<div style="min-width:0;flex:1;">'
+          + '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + tgtName + '</div>'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#' + tgtId + ' · 📍 ' + tgtLocation + '</div>'
+          + '</div>'
           + '</div>'
           + '</div>';
       ]]]

@@ -16,9 +16,10 @@ spool_replace_wizard_step2:
       - box-shadow: none
       - padding: 0
       - text-align: left
+      - overflow: hidden
     grid:
       - grid-template-areas: '"header" "picker" "nav"'
-      - grid-template-columns: 1fr
+      - grid-template-columns: minmax(0, 1fr)
       - grid-template-rows: auto auto auto
     custom_fields:
       header:
@@ -26,8 +27,12 @@ spool_replace_wizard_step2:
         - text-align: left
         - justify-self: start
         - width: 100%
+        - min-width: 0
+        - overflow: hidden
       picker:
         - padding: 4px 0
+        - min-width: 0
+        - overflow: hidden
       nav:
         - padding: 8px 0 0 0
   custom_fields:
@@ -49,22 +54,47 @@ spool_replace_wizard_step2:
         return '<div style="text-align:left;width:100%;">'
           + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">'
           + '<ha-icon icon="mdi:swap-horizontal" style="color:var(--info-color);--mdc-icon-size:20px;flex-shrink:0;"></ha-icon>'
-          + '<div>'
+          + '<div style="min-width:0;overflow:hidden;">'
           + '<div style="font-weight:600;">Select a replacement spool</div>'
-          + '<div style="font-size:0.9em;color:var(--secondary-text-color);">Showing sealed spools of ' + subtitle + '</div>'
+          + '<div style="font-size:0.9em;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Showing sealed spools of ' + subtitle + '</div>'
           + '</div></div>'
-          + '<div style="display:flex;align-items:center;padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;">'
+          + '<div style="display:flex;align-items:center;padding:8px 12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);font-size:0.9em;box-sizing:border-box;min-width:0;overflow:hidden;">'
           + srcImgHtml
+          + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'
           + 'Replacing:&nbsp; <strong>' + name + '</strong>&nbsp; #' + srcId
-          + '</div>'
+          + '</span></div>'
           + '</div>';
       ]]]
     picker:
       card:
         type: entities
+        card_mod:
+          style: |
+            ha-card {
+              overflow: hidden;
+            }
+            .card-content {
+              padding: 8px 12px;
+            }
         entities:
           - entity: input_select.spool_replace_target_picker
             name: Replacement Spool
+            card_mod:
+              style: |
+                :host {
+                  overflow: hidden;
+                }
+                hui-generic-entity-row {
+                  overflow: hidden;
+                }
+                state-badge {
+                  flex-shrink: 0;
+                }
+                .info, .text-content {
+                  min-width: 0;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                }
     nav:
       card:
         type: vertical-stack
