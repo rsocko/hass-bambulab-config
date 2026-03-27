@@ -153,21 +153,55 @@ spool_unseal_wizard_step1:
                         font-size: 0.88em;
                         color: var(--secondary-text-color);
                       }
-                - type: entities
-                  card_mod:
-                    style: |
-                      .card-content { padding: 4px 12px; }
-                  entities:
-                    - entity: input_boolean.spool_replace_copy_spool_type
-                      name: Copy Spool Type
-                    - entity: input_boolean.spool_replace_copy_clip_type
-                      name: Copy Clip Type
-                    - entity: input_boolean.spool_replace_copy_location
-                      name: Copy Location
-                    - entity: input_boolean.spool_replace_copy_desiccant_present
-                      name: Copy Desiccant Status
-                    - entity: input_boolean.spool_replace_archive_source
-                      name: Archive Source Spool
+                - type: custom:button-card
+                  template: checkbox_row
+                  entity: input_boolean.spool_replace_copy_spool_type
+                  name: |
+                    [[[
+                      const pick = states['input_select.spool_replace_target_picker']?.state || '';
+                      const m = pick.match(/#(\d+)\)/);
+                      const e = m ? states['sensor.spoolman_spool_' + m[1]] : null;
+                      const val = e?.attributes?.extra_spool_type || '(not set)';
+                      return 'Copy Spool Type: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
+                    ]]]
+                - type: custom:button-card
+                  template: checkbox_row
+                  entity: input_boolean.spool_replace_copy_clip_type
+                  name: |
+                    [[[
+                      const pick = states['input_select.spool_replace_target_picker']?.state || '';
+                      const m = pick.match(/#(\d+)\)/);
+                      const e = m ? states['sensor.spoolman_spool_' + m[1]] : null;
+                      const val = e?.attributes?.extra_clip_type || '(not set)';
+                      return 'Copy Clip Type: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
+                    ]]]
+                - type: custom:button-card
+                  template: checkbox_row
+                  entity: input_boolean.spool_replace_copy_location
+                  name: |
+                    [[[
+                      const pick = states['input_select.spool_replace_target_picker']?.state || '';
+                      const m = pick.match(/#(\d+)\)/);
+                      const e = m ? states['sensor.spoolman_spool_' + m[1]] : null;
+                      const val = e?.attributes?.location || '(not set)';
+                      return 'Copy Location: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
+                    ]]]
+                - type: custom:button-card
+                  template: checkbox_row
+                  entity: input_boolean.spool_replace_copy_desiccant_present
+                  name: |
+                    [[[
+                      const pick = states['input_select.spool_replace_target_picker']?.state || '';
+                      const m = pick.match(/#(\d+)\)/);
+                      const e = m ? states['sensor.spoolman_spool_' + m[1]] : null;
+                      const raw = e?.attributes?.extra_desiccant_in_spool;
+                      const val = (raw === 'true' || raw === true || raw === 'yes') ? 'Yes' : 'No';
+                      return 'Copy Desiccant Present: <span style="font-size:0.88em;color:var(--secondary-text-color);">' + val + '</span>';
+                    ]]]
+                - type: custom:button-card
+                  template: checkbox_row
+                  entity: input_boolean.spool_replace_archive_source
+                  name: Archive Source Spool
           # --- Refill spool type warning + pickers (shown when Skip selected AND spool type is Refill) ---
           - type: conditional
             conditions:
