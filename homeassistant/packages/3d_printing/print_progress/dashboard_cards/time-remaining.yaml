@@ -31,13 +31,14 @@ tap_action:
   action: more-info
   entity: sensor.print_time_remaining_formatted
 card_mod:
-  style: |
-    .primary {
-      font-size: 28px !important;
-      font-weight: 700;
-    }
-    .secondary {
-      font-size: 11px !important;
-    }
+  style:
+    mushroom-template-card$ha-tile-info$: |
+      .primary {
+        font-size: 28px !important;
+        font-weight: 700 !important;
+      }
+      .secondary {
+        font-size: 11px !important;
+      }
 grid_options:
   columns: 6
