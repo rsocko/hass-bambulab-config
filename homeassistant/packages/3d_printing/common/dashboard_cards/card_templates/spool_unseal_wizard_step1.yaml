@@ -13,6 +13,8 @@ spool_unseal_wizard_step1:
   show_state: false
   tap_action:
     action: none
+  triggers_update:
+    - input_text.spool_replace_target_spool_id
   styles:
     card:
       - background: none
@@ -129,6 +131,43 @@ spool_unseal_wizard_step1:
                       overflow: hidden;
                       text-overflow: ellipsis;
                     }
+          # --- Copy toggles (shown when a source spool is selected) ---
+          - type: conditional
+            conditions:
+              - entity: input_select.spool_replace_target_picker
+                state_not: "Skip — no spool to archive"
+            card:
+              type: vertical-stack
+              cards:
+                - type: markdown
+                  content: >
+                    Choose which attributes to copy from the empty spool
+                    and whether to archive it in Spoolman.
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(33,150,243,0.08);
+                        border: 1px solid rgba(33,150,243,0.2);
+                        border-radius: 8px;
+                        box-shadow: none;
+                        font-size: 0.88em;
+                        color: var(--secondary-text-color);
+                      }
+                - type: entities
+                  card_mod:
+                    style: |
+                      .card-content { padding: 4px 12px; }
+                  entities:
+                    - entity: input_boolean.spool_replace_copy_spool_type
+                      name: Copy Spool Type
+                    - entity: input_boolean.spool_replace_copy_clip_type
+                      name: Copy Clip Type
+                    - entity: input_boolean.spool_replace_copy_location
+                      name: Copy Location
+                    - entity: input_boolean.spool_replace_copy_desiccant_present
+                      name: Copy Desiccant Status
+                    - entity: input_boolean.spool_replace_archive_source
+                      name: Archive Source Spool
           # --- Refill spool type warning + pickers (shown when Skip selected AND spool type is Refill) ---
           - type: conditional
             conditions:
