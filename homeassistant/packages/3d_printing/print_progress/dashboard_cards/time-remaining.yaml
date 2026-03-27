@@ -47,7 +47,7 @@ custom_fields:
       const elapsedMins = Math.max(0, totalMins - remainMins);
       let subStr = '';
       if (totalMins > 0) {
-        subStr = `${fmtMins(elapsedMins)} elapsed of ${fmtMins(totalMins)}`;
+        subStr = `${fmtMins(elapsedMins)} elapsed of ${fmtMins(totalMins)} total`;
       }
 
       return `<div class="tr-wrap">
