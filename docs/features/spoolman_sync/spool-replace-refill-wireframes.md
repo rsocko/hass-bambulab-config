@@ -358,20 +358,29 @@ distinguish them from the action labels.
   - [ ] Test: full wizard flow on iPhone (HA Companion App) via NFC tag scan
   - [ ] Test: popup chain (close → delay → open next) works correctly on mobile Safari
 
-### Phase 3: Filament Runout Detection & Notification
+### Phase 3: Filament Runout Detection, Notification & HMS Banner ✅ COMPLETE (2026-03-27)
 
-- [ ] **Automation**
-  - [ ] Create `filament_runout_capture_and_notify` automation
-  - [ ] Trigger on `sensor.ntk_ryansoffice_3dprinter_current_stage` → `paused_filament_runout`
-  - [ ] Resolve last-known spool from `input_text.print_weight_backup` + active tray sensor
-  - [ ] Write spool ID to `input_text.spool_replace_source_spool_id`
-  - [ ] Create persistent notification with spool name, ID, tray, and link to dashboard
-  - [ ] Send mobile notification (same pattern as `print_fault_notification.yaml`)
+- [x] **Automation**
+  - [x] Create `filament_runout_capture_and_notify` automation
+  - [x] Trigger on `sensor.ntk_ryansoffice_3dprinter_current_stage` → `paused_filament_runout`
+  - [x] Resolve last-known spool from `spoolman_tray_map` (primary) + `print_job_ams_tray_storage` UUID fallback
+  - [x] Write spool ID to `input_text.spool_replace_source_spool_id`
+  - [x] Create persistent notification with spool name, ID, tray, and link to dashboard
+  - [x] Send mobile notification (same pattern as `print_fault_notification.yaml`)
+- [x] **HMS Banner — Replace Spool Now Button**
+  - [x] Add conditional `button-card` inside `hms-error-alert-section.yaml`
+  - [x] Green accent styling (rgba(76,175,80,0.12) bg, #4CAF50 left border)
+  - [x] Shows spool name + ID from `input_text.spool_replace_source_spool_id`
+  - [x] Launches replace wizard popup via `browser_mod.popup`
+  - [x] Auto-hidden when source spool ID is cleared (wizard complete) or HMS error clears
 - [ ] **Testing**
   - [ ] Test: simulate `paused_filament_runout` → verify notification created with correct spool
   - [ ] Test: verify `spool_replace_source_spool_id` is populated
   - [ ] Test: verify notification link navigates to dashboard
   - [ ] Test: active tray sensor still available at runout vs. already cleared
+  - [ ] Test: HMS banner button visible when source spool ID is set
+  - [ ] Test: HMS banner button launches wizard popup correctly
+  - [ ] Test: HMS banner button hidden after wizard completes
 
 ### Phase 4: Reverse Flow (Unseal & Use)
 

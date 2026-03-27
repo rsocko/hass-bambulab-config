@@ -259,6 +259,115 @@ cards:
           .hms-empty {
             color: var(--secondary-text-color);
           }
+      # ── Replace Spool Now (Phase 3) ────────────────────────────
+      # Shown when filament_runout_capture_and_notify has populated
+      # the source spool ID helper. Auto-hidden when wizard completes
+      # (execute script clears the helper) or HMS error clears.
+      - type: conditional
+        conditions:
+          - entity: input_text.spool_replace_source_spool_id
+            state_not: ""
+          - entity: input_text.spool_replace_source_spool_id
+            state_not: "unknown"
+          - entity: input_text.spool_replace_source_spool_id
+            state_not: "unavailable"
+        card:
+          type: custom:config-template-card
+          entities:
+            - input_text.spool_replace_source_spool_id
+          variables:
+            srcIdVar: "states['input_text.spool_replace_source_spool_id'].state"
+            srcEntityVar: "states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state]"
+            filamentIdVar: >-
+              ${states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state]
+                ? String(states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state].attributes.filament_id || '')
+                : ''}
+          card:
+            type: custom:button-card
+            entity: input_text.spool_replace_source_spool_id
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_text.set_value
+                      data:
+                        entity_id: input_text.spool_replace_target_spool_id
+                        value: ''
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_spool_type
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_clip_type
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_desiccant_present
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_location
+                    - service: input_boolean.turn_off
+                      data:
+                        entity_id: input_boolean.spool_replace_mark_used
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_archive_source
+                    - service: input_select.select_option
+                      data:
+                        entity_id: input_select.spool_replace_desiccant_mode
+                        option: Reset to today
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: script.spool_replace_populate_candidates
+                      data:
+                        filament_id: "${filamentIdVar}"
+                    - service: browser_mod.popup
+                      data:
+                        title: ♻ Replace Spool
+                        size: normal
+                        content:
+                          type: custom:button-card
+                          template: spool_replace_wizard
+                          tap_action:
+                            action: none
+            custom_fields:
+              content: |
+                [[[
+                  const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                  if (!srcId || srcId === '' || srcId === 'unknown' || srcId === 'unavailable') {
+                    return '';
+                  }
+                  const e = states['sensor.spoolman_spool_' + srcId];
+                  const name = e?.attributes?.friendly_name || 'Unknown Spool';
+                  return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;">'
+                    + '<ha-icon icon="mdi:swap-horizontal" style="color:#4CAF50;--mdc-icon-size:28px;flex-shrink:0;"></ha-icon>'
+                    + '<div style="text-align:left;">'
+                    + '<div style="font-weight:700;font-size:1.02rem;">♻ Replace Spool Now</div>'
+                    + '<div style="font-size:0.9em;color:var(--secondary-text-color);margin-top:2px;">'
+                    + name + ' #' + srcId + ' ran out · Tap to start wizard</div>'
+                    + '</div></div>';
+                ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"content"'
+                - grid-template-columns: 1fr
+                - grid-template-rows: auto
+              card:
+                - background: "rgba(76,175,80,0.12)"
+                - border-left: "4px solid #4CAF50"
+                - border-radius: 12px
+                - box-shadow: none
+                - margin-top: 12px
+                - cursor: pointer
+              custom_fields:
+                content:
+                  - padding: 0
     grid_options:
       columns: full
 column_span: 3

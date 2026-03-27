@@ -1,6 +1,6 @@
 # Spool Replace / Refill Workflow — Design Document
 
-> **Status:** Phase 1 Complete (2026-03-26) · Phase 2 Complete (2026-03-26) · Phases 3–5 Pending  
+> **Status:** Phase 1 Complete (2026-03-26) · Phase 2 Complete (2026-03-26) · Phase 3 Complete (2026-03-27) · Phases 4–5 Pending  
 > **Package:** `spoolman_sync`  
 > **Related Packages:** `filament_catalog`, `filament_tag`, `core`, `hms_alert`  
 > **Entry Points:** Spool Popup (catalog), AMS Tray Popup (view_main), HMS Error Banner (view_main)
@@ -782,16 +782,21 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 
 **Notes:** The AMS popup already has the spool context (`spoolEntityId`, `spoolId`, `filamentId`) so wiring it into the same wizard is straightforward. For empty trays (mid-print runout), the user is directed to the Filament Catalog via the Phase 3 notification — the AMS popup deliberately does not try to reconstruct stale spool context.
 
-### Phase 3: Filament Runout Detection, Notification & HMS Banner Action
+### Phase 3: Filament Runout Detection, Notification & HMS Banner Action ✅ COMPLETE (2026-03-27)
 
 **Scope:** Detect mid-print spool runout, notify the user with actionable links, and surface a one-tap "Replace Spool Now" button directly in the HMS error banner on the main dashboard view.
 
 **Deliverables:**
-1. Automation `filament_runout_capture_and_notify` — triggers on `paused_filament_runout`, resolves last-known spool from `print_weight_backup`, creates persistent + mobile notification
-2. Modification to `active_tray_changed_update_spoolman` — write spool ID to `input_text.spool_replace_source_spool_id` at runout detection (or publish as separate automation)
-3. Optional: Filament Catalog banner that detects a pending spool replacement and offers one-tap wizard entry
-4. **HMS banner "Replace Spool Now" button** (Entry Point 3E) — conditional `button-card` inside the HMS error details panel in `hms-error-alert-section.yaml`. Shown when `input_text.spool_replace_source_spool_id` is populated and an HMS filament-runout error is active. Launches the replace wizard popup directly from the main dashboard view.
-5. Wiring: the button reads the source spool ID, calls `script.spool_replace_populate_candidates`, and opens the Step 1 wizard popup via `browser_mod.popup`
+1. ✅ Automation `filament_runout_capture_and_notify` — triggers on `paused_filament_runout`, resolves last-known spool from `spoolman_tray_map` (primary) with UUID fallback via `print_job_ams_tray_storage` snapshot, creates persistent + mobile notification
+2. ✅ Spool ID stored in `input_text.spool_replace_source_spool_id` directly by the runout automation (no modification to `active_tray_changed_update_spoolman` needed)
+3. Optional: Filament Catalog banner that detects a pending spool replacement and offers one-tap wizard entry (deferred)
+4. ✅ **HMS banner "Replace Spool Now" button** (Entry Point 3E) — conditional `config-template-card` + `button-card` inside the HMS error details panel in `hms-error-alert-section.yaml`. Shown when `input_text.spool_replace_source_spool_id` is populated. Launches the replace wizard popup directly from the main dashboard view.
+5. ✅ Wiring: the button reads the source spool ID, resolves `filament_id` via `config-template-card` variables, calls `script.spool_replace_populate_candidates`, and opens the Step 1 wizard popup via `browser_mod.popup`
+
+**Implementation notes:**
+- The runout automation uses a two-tier spool resolution strategy: (1) `spoolman_tray_map` as the primary source (the stage change MQTT message arrives before the tray empty notification, so the tray_map should still have cached match data), (2) UUID-based fallback using the `print_job_ams_tray_storage` snapshot captured at print start. This avoids adding per-tray input_text helpers.
+- The HMS banner button uses `custom:config-template-card` to dynamically resolve the `filament_id` from the source spool entity at render time, using the same `${variable}` interpolation pattern as the NFC filament tag view entry point.
+- Mobile notifications use `interruption-level: time-sensitive` (not `critical`) to avoid overriding Do Not Disturb on iOS while still ensuring prominent display.
 
 **Notes:** This phase addresses the critical gap where the AMS tray loses spool context at runout. The persistent notification is the primary user-facing signal, but the HMS banner button provides the *fastest in-dashboard action path* — the user opens the dashboard, sees the red alert with a green "Replace Spool Now" button, and taps it. No navigation to the Filament Catalog required. The button auto-clears when the wizard completes (the execute script resets the source spool ID helper) or when the HMS error itself clears.
 

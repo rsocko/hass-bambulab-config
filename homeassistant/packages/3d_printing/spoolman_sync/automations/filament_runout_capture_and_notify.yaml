@@ -1,0 +1,216 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md §3C
+#
+# Fires when the printer pauses due to filament runout. Resolves the
+# last-known spool for the active tray using the spoolman_tray_map sensor
+# (which should still have cached data before the tray is wiped), with a
+# fallback to the print-start tray snapshot (sensor.print_job_ams_tray_storage)
+# for UUID-based spool resolution. Stores the resolved spool ID in the
+# replace wizard source helper and sends persistent + mobile notifications.
+#
+# Timing note: The printer sends the stage change (paused_filament_runout)
+# and the tray empty notification as separate MQTT messages. This automation
+# triggers on the stage change, so the tray data should still be intact when
+# it fires. The snapshot fallback handles the unlikely case where the tray
+# has already been wiped.
+
+- alias: "3D Printer - Filament Runout: Capture and Notify"
+  id: filament_runout_capture_and_notify
+  description: >-
+    Fires when the printer enters paused_filament_runout stage. Resolves the
+    last-known spool for the affected tray, stores it in the replace wizard
+    source helper, and sends persistent + mobile notifications to guide the
+    user through spool replacement.
+  triggers:
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_current_stage
+      to: paused_filament_runout
+
+  conditions: []
+
+  actions:
+    # --- Determine which tray ran out ---
+    - variables:
+        task_name: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | default('Unknown Print', true) }}
+        active_tray_state: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_active_tray') }}
+        external_spool_is_active: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'active') is true }}
+        is_external_spool: >-
+          {{ active_tray_state == 'none' and external_spool_is_active }}
+        active_tray_source: >-
+          {{ 'sensor.ntk_ryansoffice_3dprinter_external_spool'
+             if is_external_spool
+             else 'sensor.ntk_ryansoffice_3dprinter_active_tray' }}
+        tray_display_name: >-
+          {% if is_external_spool %}External Spool{% else %}{{ active_tray_state }}{% endif %}
+
+    # --- Primary: Resolve spool via tray_map (tray data likely still intact) ---
+    - action: script.resolve_matching_spool_from_tray_map
+      data:
+        tray_entity_id: "{{ active_tray_source }}"
+      response_variable: tray_map_response
+
+    # --- Compute final spool ID (primary + fallback) ---
+    - variables:
+        # Primary result from tray_map
+        primary_spool_id: >-
+          {{ tray_map_response.spool.id | default('') | string }}
+        primary_resolved: >-
+          {{ primary_spool_id | length > 0
+             and primary_spool_id not in ['None', 'none', ''] }}
+
+        # Fallback: search stored print-start tray snapshot by UUID
+        # The tray_map_response.tray_key tells us which physical tray slot
+        # was resolved, even if no spool was matched.
+        resolved_tray_key: >-
+          {{ tray_map_response.tray_key | default('') | string }}
+
+    - variables:
+        fallback_spool_id: >-
+          {% if primary_resolved %}
+            {{ '' }}
+          {% else %}
+            {%- set stored_raw = state_attr('sensor.print_job_ams_tray_storage', 'data') | default('[]', true) -%}
+            {%- set stored = stored_raw | from_json([]) if stored_raw is string else (stored_raw if stored_raw is list else []) -%}
+            {%- set tray_num = resolved_tray_key.split('_') | last | int(0) if 'tray_' in resolved_tray_key else 0 -%}
+            {%- set active_uuid_raw = state_attr(active_tray_source, 'tray_uuid') | default('', true) | string | trim('"') | lower -%}
+            {%- set ns = namespace(uuid='', spool_id='') -%}
+            {# Try stored snapshot first #}
+            {%- for t in stored -%}
+              {%- if t.tray | int(0) == tray_num and tray_num > 0 -%}
+                {%- set ns.uuid = t.uuid | default('') | string | lower -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {# If external spool, try external spool backup data #}
+            {%- if ns.uuid | length == 0 and is_external_spool -%}
+              {%- set ext_raw = states('input_text.print_job_external_spool') | from_json({}) -%}
+              {%- set ns.uuid = ext_raw.uuid | default('') | string | lower -%}
+            {%- endif -%}
+            {# Last resort: use the active tray's own UUID (may already be wiped) #}
+            {%- if ns.uuid | length == 0 and active_uuid_raw | length > 0 and not active_uuid_raw | regex_match('^0+$') -%}
+              {%- set ns.uuid = active_uuid_raw -%}
+            {%- endif -%}
+            {# Search spool entities by UUID #}
+            {%- if ns.uuid | length > 0 and not ns.uuid | regex_match('^0+$') -%}
+              {%- for s in states.sensor if s.entity_id.startswith('sensor.spoolman_spool_') -%}
+                {%- set spool_uuid = state_attr(s.entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | lower -%}
+                {%- if spool_uuid == ns.uuid -%}
+                  {%- set ns.spool_id = state_attr(s.entity_id, 'id') | default('') | string -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {{ ns.spool_id }}
+          {% endif %}
+
+    # --- Merge primary + fallback into final resolved values ---
+    - variables:
+        spool_id: >-
+          {% if primary_resolved %}{{ primary_spool_id }}{% else %}{{ fallback_spool_id | default('') }}{% endif %}
+        spool_entity: >-
+          {{ 'sensor.spoolman_spool_' ~ spool_id if spool_id | string | length > 0 else '' }}
+
+    - variables:
+        spool_name: >-
+          {% if spool_entity | length > 0 %}
+            {{ state_attr(spool_entity, 'friendly_name') | default('Unknown Spool', true) }}
+          {% elif primary_resolved %}
+            {{ tray_map_response.spool.filament.name | default('Unknown Spool', true) }}
+          {% else %}Unknown Spool{% endif %}
+        spool_location: >-
+          {% if spool_entity | length > 0 %}
+            {{ state_attr(spool_entity, 'location') | default('N/A', true) }}
+          {% else %}N/A{% endif %}
+        resolution_method: >-
+          {% if primary_resolved %}tray_map{% elif fallback_spool_id | default('') | string | length > 0 %}snapshot_uuid{% else %}unresolved{% endif %}
+
+    # --- Store source spool ID for the replace wizard ---
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.spool_replace_source_spool_id
+      data:
+        value: "{{ spool_id | string }}"
+
+    # --- Create persistent notification ---
+    - action: persistent_notification.create
+      data:
+        notification_id: filament_runout_replace_spool
+        title: >-
+          ♻ Filament Runout{% if spool_id | string | length > 0 %} — Spool #{{ spool_id }}{% endif %}
+        message: >-
+          {% if spool_id | string | length > 0 %}
+          **{{ spool_name }}** ran out on **{{ tray_display_name }}** during "{{ task_name }}".
+
+          Open the Filament Catalog to find and replace this spool.
+
+          [Open 3D Printing Dashboard →](/3d-printing)
+          {% else %}
+          Filament ran out on **{{ tray_display_name }}** during "{{ task_name }}", but the spool could not be identified.
+
+          Open the Filament Catalog to manually locate and replace the spool.
+
+          [Open 3D Printing Dashboard →](/3d-printing)
+          {% endif %}
+
+    # --- Send mobile notifications ---
+    - action: notify.mobile_app_ryphone16
+      data:
+        title: "♻ Filament Runout"
+        message: >-
+          {% if spool_id | string | length > 0 %}
+          {{ spool_name }} (#{{ spool_id }}) ran out on {{ tray_display_name }} during "{{ task_name }}".
+          {% else %}
+          Filament ran out on {{ tray_display_name }} during "{{ task_name }}".
+          {% endif %}
+        data:
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
+          push:
+            interruption-level: time-sensitive
+          actions:
+            - action: "URI"
+              title: "Open Dashboard"
+              uri: "/3d-printing"
+
+    - action: notify.mobile_app_rypad10
+      data:
+        title: "♻ Filament Runout"
+        message: >-
+          {% if spool_id | string | length > 0 %}
+          {{ spool_name }} (#{{ spool_id }}) ran out on {{ tray_display_name }} during "{{ task_name }}".
+          {% else %}
+          Filament ran out on {{ tray_display_name }} during "{{ task_name }}".
+          {% endif %}
+        data:
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
+          push:
+            interruption-level: time-sensitive
+          actions:
+            - action: "URI"
+              title: "Open Dashboard"
+              uri: "/3d-printing"
+
+    # --- Log the operation ---
+    - action: system_log.write
+      data:
+        message: >-
+          Filament Runout: {{ tray_display_name }} ran out during "{{ task_name }}".
+          Resolved spool: {% if spool_id | string | length > 0 %}#{{ spool_id }}
+          ({{ spool_name }}) via {{ resolution_method }}{% else %}UNRESOLVED{% endif %}.
+          Active tray state: {{ active_tray_state }}, tray key: {{ resolved_tray_key }}.
+        level: warning
+        logger: homeassistant.components.bambulab.spool_replace
+
+    - action: logbook.log
+      data:
+        name: Filament Runout
+        message: >-
+          {{ tray_display_name }} ran out during "{{ task_name }}".
+          {% if spool_id | string | length > 0 %}
+          Spool #{{ spool_id }} ({{ spool_name }}) identified for replacement.
+          {% else %}
+          Could not identify the empty spool.
+          {% endif %}
+
+  mode: single
