@@ -48,7 +48,7 @@ ams_tray_popup:
       // Toolbar-style action button: icon above label, used in grid for app-like command bar
       const toolbarBtn = (n, ico, act, bg) => ({
         type: 'custom:button-card', name: n, icon: ico, show_icon: true, show_name: true, show_state: false, tap_action: act,
-        styles: { card: [{ 'background-color': bg || 'var(--primary-color)' }, { 'border-radius': '12px' }, { padding: '12px 4px 8px' }, { cursor: 'pointer' }, { '--mdc-icon-size': '24px' }, { transition: 'filter 0.2s' }], icon: [{ color: 'white' }], name: [{ color: 'white' }, { 'font-size': '11px' }, { 'font-weight': '500' }, { 'margin-top': '4px' }] },
+        styles: { card: [{ 'background-color': bg || 'var(--primary-color)' }, { 'border-radius': '12px' }, { padding: '12px 4px 8px' }, { cursor: 'pointer' }, { '--mdc-icon-size': '24px' }, { transition: 'filter 0.2s' }, { height: '68px' }, { 'box-sizing': 'border-box' }, { display: 'flex' }, { 'flex-direction': 'column' }, { 'align-items': 'center' }, { 'justify-content': 'center' }], icon: [{ color: 'white' }], name: [{ color: 'white' }, { 'font-size': '11px' }, { 'font-weight': '500' }, { 'margin-top': '4px' }] },
         card_mod: { style: 'ha-card { transition: filter 0.2s; } ha-card:hover { filter: brightness(1.3); } ha-card:active { filter: brightness(0.8); }' }
       });
       // ---------------------
