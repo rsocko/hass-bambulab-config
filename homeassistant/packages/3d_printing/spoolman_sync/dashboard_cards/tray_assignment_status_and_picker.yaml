@@ -273,9 +273,13 @@ cards:
                             icon_color: red
                             layout: horizontal
                             tap_action:
-                              action: perform-action
-                              perform_action: script.cancel_pending_tray_assignment
-                              data: {}
+                              action: fire-dom-event
+                              browser_mod:
+                                service: browser_mod.sequence
+                                data:
+                                  sequence:
+                                    - service: script.cancel_pending_tray_assignment
+                                    - service: browser_mod.close_popup
                             hold_action:
                               action: none
                             card_mod:
@@ -426,9 +430,13 @@ cards:
                         icon_color: grey
                         layout: horizontal
                         tap_action:
-                          action: perform-action
-                          perform_action: script.cancel_pending_tray_assignment
-                          data: {}
+                          action: fire-dom-event
+                          browser_mod:
+                            service: browser_mod.sequence
+                            data:
+                              sequence:
+                                - service: script.cancel_pending_tray_assignment
+                                - service: browser_mod.close_popup
                         card_mod:
                           style: |
                             ha-card {
