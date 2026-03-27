@@ -916,13 +916,13 @@ This would eliminate the need for any condition-based filtering — the trigger 
 
 ### Phase 4: Label-Based Entity Discovery
 
-| Task | Deliverable | Location |
-|---|---|---|
-| Create `spoolman_spool_location` label | One-time label creation via HA UI (Settings → Areas, Labels & Zones → Labels) | HA entity registry |
-| Apply label to existing spool location entities | Bulk-select all `select.spoolman_spool_*_location` entities and apply label | HA UI (Settings → Devices & Services → Entities) |
-| Unlabeled entity notification automation | `automation.notify_unlabeled_spoolman_spool_entities` — runs on HA start + every 6h; notifies when new spool entities are missing the label (Strategy B from §10) | `spoolman_sync/automations/` |
-| Trigger condition migration | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')` | `spoolman_sync/automations/` |
-| (Optional) REST auto-labeling | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
+| Task                                            | Deliverable                                                                                                                                                       | Location                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Create `spoolman_spool_location` label          | One-time label creation via HA UI (Settings → Areas, Labels & Zones → Labels)                                                                                     | HA entity registry                                            |
+| Apply label to existing spool location entities | Bulk-select all `select.spoolman_spool_*_location` entities and apply label                                                                                       | HA UI (Settings → Devices & Services → Entities)              |
+| Unlabeled entity notification automation        | `automation.notify_unlabeled_spoolman_spool_entities` — runs on HA start + every 6h; notifies when new spool entities are missing the label (Strategy B from §10) | `spoolman_sync/automations/`                                  |
+| Trigger condition migration                     | Update `spool_location_change_assign_tray.yaml` condition from regex to `label_entities('spoolman_spool_location')`                                               | `spoolman_sync/automations/`                                  |
+| (Optional) REST auto-labeling                   | `rest_command.label_spoolman_entity` + `automation.auto_label_spoolman_spool_location_entities` — Strategy A from §10; requires long-lived token                  | `spoolman_sync/automations/` + `spoolman_sync/rest_commands/` |
 
 ### Phase 5: Refinement
 
@@ -982,7 +982,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Firmware auth blocks write access | High | High | Detect failure, notify user with firmware guidance |
 | `tray_info_idx` mapping is wrong/stale | Medium | Medium | Dynamic lookup from `get_filament_data`; hardcoded fallback table |
 | `get_filament_data` response format changes | Medium | Low | Version-check; fallback to hardcoded table |
-| Spool loaded during active print | Medium | High | Check printer status before calling `set_filament`; defer if printing |
+| Spool loaded during active print (single pending helper overwrite) | High | High | Phase 5A queue: store deferred requests as FIFO JSON queue, not single spool ID |
 | Race condition: location change + tray state change timing | Medium | Medium | Simple empty-tray-count approach avoids timing dependency |
 | Overwriting user's Bambu Studio edits | Medium | Low | Location-change and manual flows both use `force_write: true`; exact-match pre-check skips redundant writes. Bambu Studio edits are superseded by the more recent Spoolman location change. |
 | Filament tag view user doesn't see tray assignment result | Medium | Medium | Assignment result sensor + conditional status chip in filament tag view (Phase 3) |
@@ -1006,6 +1006,8 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | Spool missing both `filament_color_hex` and usable `filament_multi_color_hexes` | Assignment blocked; notification: "Incomplete spool data: missing usable color" |
 | `set_filament` fails (auth error) | Persistent notification with firmware guidance |
 | Printer is actively printing when spool loaded | Assignment deferred; notification: "Will assign after print completes" |
+| Printer busy, then 2+ spool location changes occur before print completes | All deferred requests are preserved in FIFO queue (no overwrite) |
+| Queue head needs tray selection while additional deferred requests exist | Queue pauses at head; user selects tray; processing resumes without losing later items |
 | Manual "Update Tray Settings" from tray popup (pinned spool) | set_filament called for pinned spool + current tray |
 | Tray already has correct filament info | Skip set_filament; log "Already configured" |
 | Tray has non-empty filament info that differs from computed Spoolman target (location-change flow) | Auto-overwrite with `force_write: true` — location change is explicit user intent |
@@ -1037,7 +1039,7 @@ This would eliminate the need for any condition-based filtering — the trigger 
 | 5 | ~~Check if tray already has correct data before writing?~~ | Resolved: exact-match check skips redundant writes. Location-change automation and manual "Update Tray Settings" both pass `force_write: true` (user-initiated actions). The `overwrite_required` guard remains as a safety net for non-user-initiated callers. | **Resolved** |
 | 6 | ~~How to store filament lookup cache?~~ | No caching. Call `get_filament_data` inline at assignment time (local call, fast). Hardcoded generic fallback table for offline resilience. | **Resolved** |
 | 7 | Should "Update Tray Settings" work for Bambu spools too? | No — hidden for UUID matches (RFID is authoritative). Only shown for `manual_pin` matches where tray attributes may differ from the pinned spool. The location-change automation still respects the RFID skip guard (skips Bambu UUID spools in AMS trays unless `force_write` is true AND the spool lacks UUID). | **Resolved** |
-| 8 | Should assignment be deferred if printer is printing? | Yes — queue and apply after print completes | Pending decision |
+| 8 | Should assignment be deferred if printer is printing? | Yes. Phase 5A refines this to a FIFO deferred-assignment queue so multiple requests are preserved during long prints. | **Resolved (refinement design added)** |
 | 9 | Should the filament tag view use a combined script (location + assign) or rely on the automation? | Start with automation-driven flow (two-phase); combined script deferred to Phase 5 (see §9: Enhancement B2) | Pending decision |
 | 10 | Should removing a spool from AMS also clear the printer tray info? | Likely no-op — the AMS detects physical removal. May be relevant for External Spool. | Pending decision |
 | 11 | Auto-labeling strategy: REST API (Strategy A) vs manual notification (Strategy B)? | Start with Strategy B (notification). Migrate to Strategy A if manual labeling becomes tedious (>2 new spools/month). See §10. | Pending decision |

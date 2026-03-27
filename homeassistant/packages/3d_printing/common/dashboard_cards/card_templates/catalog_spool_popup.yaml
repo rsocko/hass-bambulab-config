@@ -110,12 +110,23 @@ catalog_spool_popup:
       const qtyToOrder = Number.isFinite(parsedQtyToOrder) && parsedQtyToOrder > 0 ? parsedQtyToOrder : 0;
       const filamentIdInt = Number.parseInt(filamentId, 10);
       const filamentEntityId = Number.isFinite(filamentIdInt) ? 'sensor.spoolman_filament_' + filamentIdInt : null;
-      const mergedFilamentExtra = Object.entries(entity?.attributes || {})
+      const filamentEntity = filamentEntityId ? states[filamentEntityId] : null;
+      const filamentEntityExtra = Object.entries(filamentEntity?.attributes || {})
+        .filter(function(entry) { return entry[0].startsWith('extra_'); })
+        .reduce(function(acc, entry) {
+          acc[entry[0].replace('extra_', '')] = entry[1];
+          return acc;
+        }, {});
+      const spoolMirroredFilamentExtra = Object.entries(entity?.attributes || {})
         .filter(function(entry) { return entry[0].startsWith('filament_extra_'); })
         .reduce(function(acc, entry) {
           acc[entry[0].replace('filament_extra_', '')] = entry[1];
           return acc;
         }, {});
+      const mergedFilamentExtra = {
+        ...filamentEntityExtra,
+        ...spoolMirroredFilamentExtra
+      };
 
       const weightEditorModeEntity = 'input_select.spoolman_weight_editor_mode';
       const weightEditorDeltaGramsEntity = 'input_number.spoolman_weight_editor_delta_grams';
