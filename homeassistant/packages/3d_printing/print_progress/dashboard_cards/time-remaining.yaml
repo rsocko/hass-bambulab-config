@@ -32,10 +32,12 @@ tap_action:
   entity: sensor.print_time_remaining_formatted
 card_mod:
   style: |
-    ha-card {
-      --card-primary-font-size: 28px;
-      --card-primary-font-weight: 700;
-      --card-secondary-font-size: 11px;
+    .primary {
+      font-size: 28px !important;
+      font-weight: 700;
+    }
+    .secondary {
+      font-size: 11px !important;
     }
 grid_options:
   columns: 6
