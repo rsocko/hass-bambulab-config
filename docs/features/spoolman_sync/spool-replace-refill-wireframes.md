@@ -392,6 +392,7 @@ distinguish them from the action labels.
 
 ### Phase 5: Enhancements
 
+- [x] Add Back button in the wizard workflow (Steps 2, 3, 4)
 - [ ] Toast notifications (browser_mod.notification) after execute
 - [ ] Spool type / clip type picker (instead of copy-only)
 - [ ] Undo capability (un-archive within timeout)

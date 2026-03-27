@@ -816,7 +816,7 @@ The NFC filament tag view entry point is the most natural mobile path for a user
 
 **Potential additions:**
 - **Toast notifications** after execution (via `browser_mod.notification`)
-- **Add Back button** in the wizard workflow
+- ~~**Add Back button** in the wizard workflow~~ ✅ Done (2026-03-27)
 - **Undo** capability (un-archive source spool within a timeout window)
 - **Spool type / clip type picker** instead of copy-only (for cases where the new spool has a different physical format)
 - **Batch replace** for multi-material prints where multiple spools ran out
