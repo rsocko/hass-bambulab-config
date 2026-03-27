@@ -1578,17 +1578,81 @@ ams_tray_popup:
                 {
                   type: 'horizontal-stack',
                   cards: [
-                    {
+                    // --- Replace Spool button (Phase 2) — only when tray has matched spool ---
+                    ...(matchState === 'matched' ? [{
                       type: 'custom:bubble-card',
                       card_type: 'button',
                       button_type: 'name',
-                      entity: spoolEntityId,
-                      name: 'Details',
-                      icon: 'mdi:information-outline',
-                      tap_action: { action: 'more-info' },
-                      button_action: { tap_action: { action: 'more-info' } },
+                      name: 'Replace',
+                      icon: 'mdi:recycle-variant',
+                      tap_action: {
+                        action: 'fire-dom-event',
+                        browser_mod: {
+                          service: 'browser_mod.sequence',
+                          data: {
+                            sequence: [
+                              { service: 'input_text.set_value', data: { entity_id: 'input_text.spool_replace_source_spool_id', value: String(spoolIdInt) } },
+                              { service: 'input_text.set_value', data: { entity_id: 'input_text.spool_replace_target_spool_id', value: '' } },
+                              { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_spool_type' } },
+                              { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_clip_type' } },
+                              { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_desiccant_present' } },
+                              { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_location' } },
+                              { service: 'input_boolean.turn_off', data: { entity_id: 'input_boolean.spool_replace_mark_used' } },
+                              { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_archive_source' } },
+                              { service: 'input_select.select_option', data: { entity_id: 'input_select.spool_replace_desiccant_mode', option: 'Reset to today' } },
+                              { service: 'input_number.set_value', data: { entity_id: 'input_number.spool_replace_wizard_step', value: 1 } },
+                              { service: 'script.spool_replace_populate_candidates', data: { filament_id: String(filamentId) } },
+                              { service: 'browser_mod.close_popup' },
+                              { service: 'browser_mod.delay', data: { time: 500 } },
+                              { service: 'browser_mod.popup', data: {
+                                title: '♻ Replace Spool',
+                                size: 'normal',
+                                content: {
+                                  type: 'custom:button-card',
+                                  template: 'spool_replace_wizard',
+                                  tap_action: { action: 'none' }
+                                }
+                              }}
+                            ]
+                          }
+                        }
+                      },
+                      button_action: {
+                        tap_action: {
+                          action: 'fire-dom-event',
+                          browser_mod: {
+                            service: 'browser_mod.sequence',
+                            data: {
+                              sequence: [
+                                { service: 'input_text.set_value', data: { entity_id: 'input_text.spool_replace_source_spool_id', value: String(spoolIdInt) } },
+                                { service: 'input_text.set_value', data: { entity_id: 'input_text.spool_replace_target_spool_id', value: '' } },
+                                { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_spool_type' } },
+                                { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_clip_type' } },
+                                { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_desiccant_present' } },
+                                { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_copy_location' } },
+                                { service: 'input_boolean.turn_off', data: { entity_id: 'input_boolean.spool_replace_mark_used' } },
+                                { service: 'input_boolean.turn_on', data: { entity_id: 'input_boolean.spool_replace_archive_source' } },
+                                { service: 'input_select.select_option', data: { entity_id: 'input_select.spool_replace_desiccant_mode', option: 'Reset to today' } },
+                                { service: 'input_number.set_value', data: { entity_id: 'input_number.spool_replace_wizard_step', value: 1 } },
+                                { service: 'script.spool_replace_populate_candidates', data: { filament_id: String(filamentId) } },
+                                { service: 'browser_mod.close_popup' },
+                                { service: 'browser_mod.delay', data: { time: 500 } },
+                                { service: 'browser_mod.popup', data: {
+                                  title: '♻ Replace Spool',
+                                  size: 'normal',
+                                  content: {
+                                    type: 'custom:button-card',
+                                    template: 'spool_replace_wizard',
+                                    tap_action: { action: 'none' }
+                                  }
+                                }}
+                              ]
+                            }
+                          }
+                        }
+                      },
                       styles: '.bubble-button-card-container { background-color: var(--primary-color) !important; cursor: pointer; pointer-events: auto; transition: filter 0.2s; } .bubble-button-card-container:hover { filter: brightness(1.3); } .bubble-button-card-container:active { filter: brightness(0.8); } .bubble-icon-container { background-color: transparent !important; color: white !important; } .bubble-name { color: white !important; }'
-                    },
+                    }] : []),
                     {
                       type: 'custom:bubble-card',
                       card_type: 'button',

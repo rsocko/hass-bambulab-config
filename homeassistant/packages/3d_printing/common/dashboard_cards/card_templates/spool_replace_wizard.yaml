@@ -1,0 +1,75 @@
+# spool_replace_wizard.yaml
+# Unified single-popup wizard wrapper.
+# Uses conditional cards to show/hide steps 1–4 based on
+# input_number.spool_replace_wizard_step.
+# Navigation buttons in each step set the input_number to advance/go back,
+# and the popup reactively re-renders without closing.
+#
+# Launched by: Replace button in catalog_spool_popup, ams_tray_popup,
+#              view_filament_tags (Phase 3), filament_runout notification (Phase 2)
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_replace_wizard:
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+    grid:
+      - grid-template-areas: '"wizard"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto
+    custom_fields:
+      wizard:
+        - padding: 0
+        - min-height: 380px
+  custom_fields:
+    wizard:
+      card:
+        type: vertical-stack
+        cards:
+          # ── Step 1 ──
+          - type: conditional
+            conditions:
+              - entity: input_number.spool_replace_wizard_step
+                state: "1.0"
+            card:
+              type: custom:button-card
+              template: spool_replace_wizard_step1
+              tap_action:
+                action: none
+          # ── Step 2 ──
+          - type: conditional
+            conditions:
+              - entity: input_number.spool_replace_wizard_step
+                state: "2.0"
+            card:
+              type: custom:button-card
+              template: spool_replace_wizard_step2
+              tap_action:
+                action: none
+          # ── Step 3 ──
+          - type: conditional
+            conditions:
+              - entity: input_number.spool_replace_wizard_step
+                state: "3.0"
+            card:
+              type: custom:button-card
+              template: spool_replace_wizard_step3
+              tap_action:
+                action: none
+          # ── Step 4 ──
+          - type: conditional
+            conditions:
+              - entity: input_number.spool_replace_wizard_step
+                state: "4.0"
+            card:
+              type: custom:button-card
+              template: spool_replace_wizard_step4
+              tap_action:
+                action: none

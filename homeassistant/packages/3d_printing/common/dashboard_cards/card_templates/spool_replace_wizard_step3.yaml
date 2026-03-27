@@ -19,10 +19,12 @@ spool_replace_wizard_step3:
       - padding: 0
       - text-align: left
     grid:
-      - grid-template-areas: '"header" "options" "nav"'
+      - grid-template-areas: '"stepper" "header" "options" "nav"'
       - grid-template-columns: 1fr
-      - grid-template-rows: auto auto auto
+      - grid-template-rows: auto auto auto auto
     custom_fields:
+      stepper:
+        - padding: 0
       header:
         - padding: 0
         - text-align: left
@@ -33,6 +35,17 @@ spool_replace_wizard_step3:
       nav:
         - padding: 8px 0 0 0
   custom_fields:
+    stepper: |
+      [[[
+        return '<div style="text-align:center;padding:0 0 8px 0;">'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);">Step 3 of 4</div>'
+          + '<div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--divider-color);"></div>'
+          + '</div></div>';
+      ]]]
     header: |
       [[[
         const srcId = states['input_text.spool_replace_source_spool_id']?.state;
@@ -154,7 +167,14 @@ spool_replace_wizard_step3:
             tap_action:
               action: fire-dom-event
               browser_mod:
-                service: browser_mod.close_popup
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
             styles:
               grid:
                 - grid-template-areas: '"i" "n"'
@@ -179,24 +199,11 @@ spool_replace_wizard_step3:
             name: Review & Execute
             icon: mdi:arrow-right
             tap_action:
-              action: fire-dom-event
-              browser_mod:
-                service: browser_mod.sequence
-                data:
-                  sequence:
-                    - service: browser_mod.close_popup
-                    - service: browser_mod.delay
-                      data:
-                        time: 500
-                    - service: browser_mod.popup
-                      data:
-                        title: "♻ Replace Spool — Step 4 of 4"
-                        size: normal
-                        content:
-                          type: custom:button-card
-                          template: spool_replace_wizard_step4
-                          tap_action:
-                            action: none
+              action: call-service
+              service: input_number.set_value
+              service_data:
+                entity_id: input_number.spool_replace_wizard_step
+                value: 4
             styles:
               grid:
                 - grid-template-areas: '"i" "n"'

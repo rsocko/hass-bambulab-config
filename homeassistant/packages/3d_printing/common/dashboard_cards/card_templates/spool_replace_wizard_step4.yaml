@@ -18,16 +18,29 @@ spool_replace_wizard_step4:
       - padding: 0
       - text-align: left
     grid:
-      - grid-template-areas: '"summary" "nav"'
+      - grid-template-areas: '"stepper" "summary" "nav"'
       - grid-template-columns: 1fr
-      - grid-template-rows: auto auto
+      - grid-template-rows: auto auto auto
     custom_fields:
+      stepper:
+        - padding: 0
       summary:
         - padding: 0
         - text-align: left
       nav:
         - padding: 8px 0 0 0
   custom_fields:
+    stepper: |
+      [[[
+        return '<div style="text-align:center;padding:0 0 8px 0;">'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);">Step 4 of 4</div>'
+          + '<div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '</div></div>';
+      ]]]
     summary:
       card:
         type: markdown
@@ -81,7 +94,14 @@ spool_replace_wizard_step4:
             tap_action:
               action: fire-dom-event
               browser_mod:
-                service: browser_mod.close_popup
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
             styles:
               grid:
                 - grid-template-areas: '"i" "n"'
@@ -115,6 +135,10 @@ spool_replace_wizard_step4:
                     - service: browser_mod.delay
                       data:
                         time: 2000
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
                     - service: browser_mod.close_popup
             styles:
               grid:

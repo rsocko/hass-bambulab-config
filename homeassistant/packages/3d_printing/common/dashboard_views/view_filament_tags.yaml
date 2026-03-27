@@ -389,6 +389,101 @@ cards:
     bottom: []
   name: Other Actions
   icon: mdi:gesture-tap
+# --- Replace / Refill Spool button (Phase 2) ---
+# Opens the spool replace wizard popup. Only active when sensor.selected_spool
+# resolves to a valid spool entity with an ID and filament_id.
+- type: custom:config-template-card
+  entities:
+    - sensor.selected_spool
+  variables:
+    selected_entity: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states['sensor.selected_spool'].state : null"
+    spool_id_raw: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.id : null"
+    filament_id_raw: "states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] ? states[states['sensor.selected_spool'].state].attributes.filament_id : null"
+    has_spool: "!!(states['sensor.selected_spool'] && states[states['sensor.selected_spool'].state] && states[states['sensor.selected_spool'].state].attributes.id)"
+  card:
+    type: custom:button-card
+    name: Replace / Refill Spool
+    icon: mdi:recycle-variant
+    show_icon: true
+    show_name: true
+    show_label: true
+    label: "${ has_spool ? 'Open the spool replacement wizard' : 'Scan or select a spool first' }"
+    tap_action:
+      action: "${has_spool ? 'fire-dom-event' : 'none'}"
+      browser_mod:
+        service: browser_mod.sequence
+        data:
+          sequence:
+            - service: input_text.set_value
+              data:
+                entity_id: input_text.spool_replace_source_spool_id
+                value: "${String(spool_id_raw || '')}"
+            - service: input_text.set_value
+              data:
+                entity_id: input_text.spool_replace_target_spool_id
+                value: ''
+            - service: input_boolean.turn_on
+              data:
+                entity_id: input_boolean.spool_replace_copy_spool_type
+            - service: input_boolean.turn_on
+              data:
+                entity_id: input_boolean.spool_replace_copy_clip_type
+            - service: input_boolean.turn_on
+              data:
+                entity_id: input_boolean.spool_replace_copy_desiccant_present
+            - service: input_boolean.turn_on
+              data:
+                entity_id: input_boolean.spool_replace_copy_location
+            - service: input_boolean.turn_off
+              data:
+                entity_id: input_boolean.spool_replace_mark_used
+            - service: input_boolean.turn_on
+              data:
+                entity_id: input_boolean.spool_replace_archive_source
+            - service: input_select.select_option
+              data:
+                entity_id: input_select.spool_replace_desiccant_mode
+                option: Reset to today
+            - service: input_number.set_value
+              data:
+                entity_id: input_number.spool_replace_wizard_step
+                value: 1
+            - service: script.spool_replace_populate_candidates
+              data:
+                filament_id: "${String(filament_id_raw || '')}"
+            - service: browser_mod.popup
+              data:
+                title: ♻ Replace Spool
+                size: normal
+                content:
+                  type: custom:button-card
+                  template: spool_replace_wizard
+                  tap_action:
+                    action: none
+    styles:
+      grid:
+        - grid-template-areas: '"i n" "i l"'
+        - grid-template-columns: min-content 1fr
+        - grid-template-rows: min-content min-content
+      card:
+        - border: 1px solid rgba(0,0,0,0.15)
+        - box-shadow: none
+        - padding: 12px
+        - cursor: "${has_spool ? 'pointer' : 'not-allowed'}"
+        - opacity: "${has_spool ? '1' : '0.45'}"
+        - transition: filter 0.2s
+      icon:
+        - width: 28px
+        - height: 28px
+        - margin-right: 8px
+      name:
+        - font-size: 15px
+        - font-weight: bold
+        - text-align: left
+      label:
+        - font-size: 12px
+        - text-align: left
+        - opacity: '0.7'
 - type: custom:config-template-card
   entities: []
   variables:
