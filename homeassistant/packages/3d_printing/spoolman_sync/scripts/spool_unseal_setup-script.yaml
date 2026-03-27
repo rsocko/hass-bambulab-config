@@ -20,6 +20,9 @@ spool_unseal_setup:
         copy_location: "{{ is_state('input_boolean.spool_replace_copy_location', 'on') and src_id > 0 }}"
         archive_source: "{{ is_state('input_boolean.spool_replace_archive_source', 'on') and src_id > 0 }}"
         desiccant_mode: "{{ states('input_select.spool_replace_desiccant_mode') }}"
+        # Unseal-specific type override pickers (used when no source spool is linked)
+        unseal_spool_type_pick: "{{ states('input_select.spool_unseal_spool_type') }}"
+        unseal_clip_type_pick: "{{ states('input_select.spool_unseal_clip_type') }}"
         # Source spool attributes (only used if linked)
         source_spool_type: "{{ state_attr(src_entity, 'extra_spool_type') | default('', true) if src_id > 0 else '' }}"
         source_clip_type: "{{ state_attr(src_entity, 'extra_clip_type') | default('', true) if src_id > 0 else '' }}"
@@ -71,9 +74,13 @@ spool_unseal_setup:
           {% set updates = namespace(d={'sealed': false, 'date_opened': now().isoformat()}) %}
           {% if copy_spool_type and source_spool_type %}
             {% set updates.d = dict(updates.d, spool_type=source_spool_type) %}
+          {% elif not has_source and unseal_spool_type_pick != '(keep as is)' %}
+            {% set updates.d = dict(updates.d, spool_type=unseal_spool_type_pick) %}
           {% endif %}
           {% if copy_clip_type and source_clip_type %}
             {% set updates.d = dict(updates.d, clip_type=source_clip_type) %}
+          {% elif not has_source and unseal_clip_type_pick != '(keep as is)' %}
+            {% set updates.d = dict(updates.d, clip_type=unseal_clip_type_pick) %}
           {% endif %}
           {% if desiccant_mode == 'Copy from old spool' and source_desiccant_filled %}
             {% set updates.d = dict(updates.d, desiccant_filled=source_desiccant_filled) %}

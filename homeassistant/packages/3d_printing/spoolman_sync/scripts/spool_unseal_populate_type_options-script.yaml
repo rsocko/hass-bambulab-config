@@ -1,0 +1,65 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+spool_unseal_populate_type_options:
+  alias: Spool Unseal — Populate Spool Type & Clip Type Options
+  description: >-
+    Scans all non-archived spools to build the set of distinct spool_type and
+    clip_type values. Populates input_select.spool_unseal_spool_type and
+    input_select.spool_unseal_clip_type with those options, prefixed by
+    "(keep as is)". Called before opening the unseal wizard.
+  icon: mdi:format-list-bulleted-type
+  sequence:
+    - variables:
+        spool_types: >-
+          {% set ns = namespace(vals=[]) %}
+          {% for s in states.sensor
+             if s.entity_id.startswith('sensor.spoolman_spool_')
+             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set v = state_attr(s.entity_id, 'extra_spool_type') | default('') | string | trim %}
+            {% if v and v not in ['', 'unknown', 'unavailable', 'None', 'none'] and v not in ns.vals %}
+              {% set ns.vals = ns.vals + [v] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.vals | sort }}
+        clip_types: >-
+          {% set ns = namespace(vals=[]) %}
+          {% for s in states.sensor
+             if s.entity_id.startswith('sensor.spoolman_spool_')
+             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set v = state_attr(s.entity_id, 'extra_clip_type') | default('') | string | trim %}
+            {% if v and v not in ['', 'unknown', 'unavailable', 'None', 'none'] and v not in ns.vals %}
+              {% set ns.vals = ns.vals + [v] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.vals | sort }}
+
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.spool_unseal_spool_type
+      data:
+        options: "{{ ['(keep as is)'] + spool_types }}"
+
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.spool_unseal_spool_type
+      data:
+        option: "(keep as is)"
+
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.spool_unseal_clip_type
+      data:
+        options: "{{ ['(keep as is)'] + clip_types }}"
+
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.spool_unseal_clip_type
+      data:
+        option: "(keep as is)"
+
+    - action: system_log.write
+      data:
+        message: >-
+          Spool Unseal: Populated {{ spool_types | length }} spool type(s) and
+          {{ clip_types | length }} clip type(s) for type pickers.
+        level: warning
+        logger: homeassistant.components.bambulab.spool_replace

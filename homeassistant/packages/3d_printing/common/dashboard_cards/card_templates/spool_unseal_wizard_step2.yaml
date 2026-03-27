@@ -91,6 +91,13 @@ spool_unseal_wizard_step2:
 
           *No empty spool linked — unseal only.*
 
+          {% set st_pick = states('input_select.spool_unseal_spool_type') %}
+          {% set ct_pick = states('input_select.spool_unseal_clip_type') %}
+          {% if st_pick != '(keep as is)' %}- **Set Spool Type:** {{ st_pick }}
+          {% endif %}
+          {% if ct_pick != '(keep as is)' %}- **Set Clip Type:** {{ ct_pick }}
+          {% endif %}
+
           {% endif %}
     nav:
       card:

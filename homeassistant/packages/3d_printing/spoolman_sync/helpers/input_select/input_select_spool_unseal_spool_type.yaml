@@ -1,0 +1,6 @@
+spool_unseal_spool_type:
+  name: Unseal — Spool Type
+  options:
+    - "(keep as is)"
+  initial: "(keep as is)"
+  icon: mdi:package-variant

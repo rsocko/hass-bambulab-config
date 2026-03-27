@@ -1,0 +1,6 @@
+spool_unseal_clip_type:
+  name: Unseal — Clip Type
+  options:
+    - "(keep as is)"
+  initial: "(keep as is)"
+  icon: mdi:paperclip

@@ -129,6 +129,58 @@ spool_unseal_wizard_step1:
                       overflow: hidden;
                       text-overflow: ellipsis;
                     }
+          # --- Refill spool type warning + pickers (shown when Skip selected AND spool type is Refill) ---
+          - type: conditional
+            conditions:
+              - entity: input_select.spool_replace_target_picker
+                state: "Skip — no spool to archive"
+            card:
+              type: custom:config-template-card
+              entities:
+                - input_text.spool_replace_target_spool_id
+              variables:
+                _isRefill: >-
+                  ${(() => {
+                    const e = states['sensor.spoolman_spool_' + states['input_text.spool_replace_target_spool_id'].state];
+                    const st = e && e.attributes ? (e.attributes.extra_spool_type || '') : '';
+                    return st.toLowerCase() === 'refill';
+                  })()}
+              card:
+                type: "vertical-stack"
+                cards:
+                  - type: markdown
+                    content: >-
+                      ${(() => {
+                        const e = states['sensor.spoolman_spool_' + states['input_text.spool_replace_target_spool_id'].state];
+                        const st = e && e.attributes ? (e.attributes.extra_spool_type || '') : '';
+                        if (st.toLowerCase() !== 'refill') return '&nbsp;';
+                        return '⚠️ **This spool is marked as "Refill".** Set the spool type and clip type for the physical spool you are loading it into.';
+                      })()}
+                    card_mod:
+                      style: >
+                        ha-card {
+                          ${(() => {
+                            const e = states['sensor.spoolman_spool_' + states['input_text.spool_replace_target_spool_id'].state];
+                            const st = e && e.attributes ? (e.attributes.extra_spool_type || '') : '';
+                            if (st.toLowerCase() !== 'refill') return 'display:none;';
+                            return 'background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:8px;box-shadow:none;font-size:0.9em;';
+                          })()}
+                        }
+                  - type: "${_isRefill ? 'entities' : 'markdown'}"
+                    content: "${_isRefill ? undefined : '&nbsp;'}"
+                    card_mod:
+                      style: >
+                        ha-card {
+                          ${_isRefill ? '' : 'display:none;'}
+                        }
+                        .card-content { text-align: left; }
+                        hui-generic-entity-row { text-align: left; }
+                        ha-select { text-align: left; --ha-select-min-width: 0; }
+                    entities:
+                      - entity: input_select.spool_unseal_spool_type
+                        name: Spool Type
+                      - entity: input_select.spool_unseal_clip_type
+                        name: Clip Type
           - type: entities
             card_mod:
               style: |
