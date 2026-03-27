@@ -49,8 +49,8 @@ spool_replace_execute:
     # --- Step 2: Build merged extra object for target spool (read-merge-write) ---
     # NOTE: state_attr(entity, 'extra') returns None — the Spoolman integration
     # flattens extras into individual extra_* attributes. We rebuild the dict
-    # from those attributes, casting all values to strings (Spoolman API
-    # requirement — extra values must be strings, not booleans/numbers).
+    # from those attributes. Spoolman requires each extra value to be valid JSON
+    # on its own: booleans as bare true/false, strings as '"quoted"'.
     - variables:
         target_current_extra: >-
           {% set ns = namespace(d={}) %}
@@ -60,23 +60,23 @@ spool_replace_execute:
               {% if val is sameas true or val is sameas false %}
                 {% set ns.d = dict(ns.d, **{field_key: 'true' if val else 'false'}) %}
               {% else %}
-                {% set ns.d = dict(ns.d, **{field_key: val | string}) %}
+                {% set ns.d = dict(ns.d, **{field_key: val | string | tojson}) %}
               {% endif %}
             {% endif %}
           {% endfor %}
           {{ ns.d }}
         target_extra_updates: >-
-          {% set updates = namespace(d={'sealed': 'false', 'date_opened': now().isoformat()}) %}
+          {% set updates = namespace(d={'sealed': 'false', 'date_opened': now().isoformat() | tojson}) %}
           {% if copy_spool_type and source_spool_type %}
-            {% set updates.d = dict(updates.d, spool_type=source_spool_type) %}
+            {% set updates.d = dict(updates.d, spool_type=source_spool_type | tojson) %}
           {% endif %}
           {% if copy_clip_type and source_clip_type %}
-            {% set updates.d = dict(updates.d, clip_type=source_clip_type) %}
+            {% set updates.d = dict(updates.d, clip_type=source_clip_type | tojson) %}
           {% endif %}
           {% if desiccant_mode == 'Copy from old spool' and source_desiccant_filled %}
-            {% set updates.d = dict(updates.d, desiccant_filled=source_desiccant_filled) %}
+            {% set updates.d = dict(updates.d, desiccant_filled=source_desiccant_filled | tojson) %}
           {% elif desiccant_mode == 'Reset to today' %}
-            {% set updates.d = dict(updates.d, desiccant_filled=now().isoformat()) %}
+            {% set updates.d = dict(updates.d, desiccant_filled=now().isoformat() | tojson) %}
           {% endif %}
           {% if copy_desiccant_present and source_desiccant_in_spool %}
             {% set updates.d = dict(updates.d, desiccant_in_spool=source_desiccant_in_spool | string | lower) %}
