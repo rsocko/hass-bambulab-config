@@ -100,6 +100,8 @@ spool_replace_wizard_step2:
                 info:
                   - min-width: 0
                   - overflow: hidden
+                  - justify-self: start
+                  - width: 100%
             custom_fields:
               info: |
                 [[[
