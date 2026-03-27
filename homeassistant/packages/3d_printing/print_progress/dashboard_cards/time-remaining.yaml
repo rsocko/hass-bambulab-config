@@ -70,7 +70,7 @@ extra_styles: |
   .tr-icon { --mdc-icon-size:26px; flex-shrink:0; }
   .tr-text { flex-grow:1; display:flex; flex-direction:column; }
   .tr-value { font-size:24px; font-weight:700; line-height:1; }
-  .tr-sub { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:2px; width:100%; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:clip; }
+  .tr-sub { font-size:11px; font-weight:500; opacity:0.7; line-height:1.3; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:clip; }
   @keyframes clock-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
   .tr-clock-anim { animation:clock-spin 4s linear infinite; }
 grid_options:
