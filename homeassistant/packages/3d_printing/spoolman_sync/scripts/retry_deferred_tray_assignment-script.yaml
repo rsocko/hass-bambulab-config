@@ -1,22 +1,38 @@
 retry_deferred_tray_assignment:
   alias: Retry Deferred Tray Assignment
   description: >-
-    Reads the spool and tray from the last tray assignment result sensor
-    and re-runs the assignment script. Intended for use after a print completes
-    when the previous assignment was deferred due to the printer being busy.
+    Pops the first item from the deferred tray assignment queue and
+    re-runs the assignment script with force_write. If the printer is
+    still busy the assign script will re-append the item to the queue.
+    Intended for manual retry from the dashboard popup.
   icon: mdi:refresh
   mode: single
   sequence:
     - variables:
-        spool_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('', true) }}"
-        tray_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('', true) }}"
-        spool_id: >-
-          {{ (spool_entity_id | regex_findall('spoolman_spool_(\d+)'))[0] | default('') }}
+        raw_queue: "{{ states('input_text.deferred_tray_assignments_queue') }}"
+        queue_parsed: >-
+          {% set parsed = (raw_queue | from_json | default([], true)) if raw_queue not in ['', 'unknown', 'unavailable'] else [] %}
+          {% if parsed is not iterable or parsed is string %}[]{% else %}{{ parsed | to_json }}{% endif %}
+        first: "{{ (queue_parsed | from_json)[0] | default(none) }}"
+        has_item: "{{ first is mapping }}"
+        spool_id: "{{ first.s | default('') | string if has_item else '' }}"
+        tray_code: "{{ first.t | default(0) | int if has_item else 0 }}"
+        tray_entity_id: >-
+          {% if not has_item %}{{ '' }}
+          {% elif tray_code | int == 0 %}sensor.ntk_ryansoffice_3dprinter_external_spool
+          {% else %}sensor.p1s_01p00c460102350_ams_{{ (tray_code | int / 10) | int }}_tray_{{ tray_code | int % 10 }}{% endif %}
+        remaining_json: >-
+          {% set parsed = (raw_queue | from_json | default([], true)) if raw_queue not in ['', 'unknown', 'unavailable'] else [] %}
+          {% if parsed is iterable and parsed is not string %}{{ parsed[1:] | to_json }}{% else %}[]{% endif %}
 
     - condition: template
-      value_template: >-
-        {{ spool_id | regex_match('^\d+$')
-           and tray_entity_id not in ['', 'None', 'unknown', 'unavailable'] }}
+      value_template: "{{ has_item and spool_id | regex_match('^\\d+$') }}"
+
+    # Pop first item from queue before calling assign
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.deferred_tray_assignments_queue
+        value: "{{ remaining_json }}"
 
     - action: script.turn_on
       target:

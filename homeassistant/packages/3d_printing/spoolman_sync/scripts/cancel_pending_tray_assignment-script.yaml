@@ -1,10 +1,9 @@
 cancel_pending_tray_assignment:
   alias: Cancel Pending Tray Assignment
   description: >-
-    Clears the pending tray assignment spool ID and resets the
-    last_tray_assignment_result sensor back to idle. Used by the
-    dashboard Cancel button when the user wants to dismiss a
-    pending or stale tray assignment prompt.
+    Clears the pending tray selection queue, the legacy pending spool ID,
+    empties the deferred queue, and resets the last_tray_assignment_result
+    sensor back to idle. Used by the dashboard Cancel/Dismiss/Clear buttons.
   icon: mdi:close-circle-outline
   mode: single
   sequence:
@@ -12,6 +11,18 @@ cancel_pending_tray_assignment:
       data:
         entity_id: input_text.pending_tray_assignment_spool_id
         value: ""
+
+    # Clear pending tray selections queue
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.pending_tray_selections_queue
+        value: "[]"
+
+    # Clear deferred queue
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.deferred_tray_assignments_queue
+        value: "[]"
 
     - event: spoolman_tray_assignment_result
       event_data:
@@ -26,6 +37,6 @@ cancel_pending_tray_assignment:
     - action: logbook.log
       data:
         name: Tray Assignment
-        message: Pending tray assignment cancelled by user
+        message: Pending tray assignment cancelled by user — all queues cleared
         entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
         domain: automation

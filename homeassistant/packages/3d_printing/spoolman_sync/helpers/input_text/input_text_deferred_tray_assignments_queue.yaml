@@ -1,0 +1,4 @@
+deferred_tray_assignments_queue:
+  name: Deferred Tray Assignments Queue
+  max: 255
+  icon: mdi:tray-alert

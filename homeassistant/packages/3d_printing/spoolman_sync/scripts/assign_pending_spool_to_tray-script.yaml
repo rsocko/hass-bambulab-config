@@ -1,11 +1,10 @@
 assign_pending_spool_to_tray:
   alias: Assign Pending Spool to Tray
   description: >-
-    Dashboard wrapper: reads the pending spool ID from
-    input_text.pending_tray_assignment_spool_id and delegates
-    to script.assign_spool_to_printer_tray.  Exists because
-    browser_mod popup tap-actions cannot evaluate Jinja2 or
-    config-template-card JS in perform-action data fields.
+    Dashboard wrapper: reads the first spool ID from the pending tray
+    selections queue and delegates to script.assign_spool_to_printer_tray.
+    Exists because browser_mod popup tap-actions cannot evaluate Jinja2
+    or config-template-card JS in perform-action data fields.
   icon: mdi:tray-arrow-down
   mode: queued
   fields:
@@ -16,7 +15,19 @@ assign_pending_spool_to_tray:
       selector:
         text:
   sequence:
+    - variables:
+        pending_raw: "{{ states('input_text.pending_tray_selections_queue') }}"
+        pending_queue: >-
+          {% set parsed = (pending_raw | from_json | default([], true)) if pending_raw not in ['', 'unknown', 'unavailable'] else [] %}
+          {% if parsed is iterable and parsed is not string %}{{ parsed | to_json }}{% else %}[]{% endif %}
+        first_spool_id: >-
+          {% set q = pending_queue | from_json %}
+          {% if q | count > 0 %}{{ q[0].s | default('') | string }}{% else %}{{ states('input_text.pending_tray_assignment_spool_id') }}{% endif %}
+
+    - condition: template
+      value_template: "{{ first_spool_id | regex_match('^\\d+$') }}"
+
     - action: script.assign_spool_to_printer_tray
       data:
-        spool_id: "{{ states('input_text.pending_tray_assignment_spool_id') }}"
+        spool_id: "{{ first_spool_id }}"
         tray_entity_id: "{{ tray_entity_id }}"

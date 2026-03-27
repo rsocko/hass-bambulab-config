@@ -1,0 +1,26 @@
+- alias: "3D Printer - Auto-Retry Deferred Tray Assignments"
+  id: auto_retry_deferred_tray_assignments
+  description: >-
+    Processes the deferred tray assignment queue when the printer returns
+    to idle. Triggers on print_status changes to finish/idle/failed and
+    delegates to script.retry_all_deferred_tray_assignments for FIFO
+    processing with inter-assignment delay.
+  trigger:
+    - platform: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+  condition:
+    - condition: template
+      value_template: >-
+        {% set status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+        {{ status in ['finish', 'idle', 'failed'] }}
+    - condition: template
+      value_template: >-
+        {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+        {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
+        {{ queue | count > 0 }}
+  action:
+    # Let printer fully settle before retrying assignments
+    - delay:
+        seconds: 10
+    - action: script.retry_all_deferred_tray_assignments

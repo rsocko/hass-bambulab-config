@@ -1,0 +1,4 @@
+pending_tray_selections_queue:
+  name: Pending Tray Selections Queue
+  max: 255
+  icon: mdi:tray-alert

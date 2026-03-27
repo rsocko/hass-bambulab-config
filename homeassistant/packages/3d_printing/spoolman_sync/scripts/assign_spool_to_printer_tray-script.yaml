@@ -137,10 +137,29 @@ assign_spool_to_printer_tray:
                   - condition: template
                     value_template: "{{ (tray_entity_id | string) | length == 0 and (spool_id_clean | string) | length > 0 }}"
                 sequence:
+                  # Append to pending tray selections queue (dedup by spool_id)
+                  - variables:
+                      new_pending_queue: >-
+                        {% set raw = states('input_text.pending_tray_selections_queue') %}
+                        {% set current = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% if current is not iterable or current is string %}{% set current = [] %}{% endif %}
+                        {% set ns = namespace(items=[]) %}
+                        {% for item in current %}
+                          {% if (item.s | int(-1)) != (spool_id_clean | int(-1)) %}
+                            {% set ns.items = ns.items + [item] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% set ns.items = ns.items + [{'s': spool_id_clean | int}] %}
+                        {{ ns.items | to_json }}
+                  - action: input_text.set_value
+                    data:
+                      entity_id: input_text.pending_tray_selections_queue
+                      value: "{{ new_pending_queue }}"
+                  # Keep legacy helper in sync (first item in queue)
                   - action: input_text.set_value
                     data:
                       entity_id: input_text.pending_tray_assignment_spool_id
-                      value: "{{ spool_id_clean }}"
+                      value: "{{ ((new_pending_queue | from_json)[0].s | default('')) | string }}"
             default: []
           - action: persistent_notification.create
             data:
@@ -196,10 +215,33 @@ assign_spool_to_printer_tray:
               title: Tray Assignment Deferred
               message: Printer busy — assignment deferred until idle
               notification_id: tray_assignment_deferred_{{ spool_id_clean | default('unknown', true) }}
+          # Append to deferred queue (dedup by spool_id, FIFO order)
+          - variables:
+              new_queue_json: >-
+                {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+                {% set current = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                {% if current is not iterable or current is string %}{% set current = [] %}{% endif %}
+                {% set ams_n = tray_entity_id | regex_findall('ams_(\d+)_tray_') %}
+                {% set tray_n = tray_entity_id | regex_findall('_tray_(\d+)') %}
+                {% set tray_code = ((ams_n[0] | int) * 10 + (tray_n[0] | int)) if ams_n and tray_n else 0 %}
+                {% set ns = namespace(items=[]) %}
+                {% for item in current %}
+                  {% if (item.s | int(-1)) != (spool_id_clean | int(-1)) %}
+                    {% set ns.items = ns.items + [item] %}
+                  {% endif %}
+                {% endfor %}
+                {% set ns.items = ns.items + [{'s': spool_id_clean | int, 't': tray_code}] %}
+                {{ ns.items | to_json }}
+          - action: input_text.set_value
+            data:
+              entity_id: input_text.deferred_tray_assignments_queue
+              value: "{{ new_queue_json }}"
           - event: spoolman_tray_assignment_result
             event_data:
               status: deferred
-              message: Printer busy — assignment deferred until idle
+              message: >-
+                Printer busy — assignment deferred
+                ({{ (new_queue_json | from_json) | count }} in queue)
               spool_entity_id: "{{ resolved_spool_entity_id }}"
               tray_entity_id: "{{ tray_entity_id }}"
               tray_info_idx: ""
@@ -209,7 +251,9 @@ assign_spool_to_printer_tray:
               response_object:
                 success: false
                 status: deferred
-                message: Printer busy — assignment deferred until idle
+                message: >-
+                  Printer busy — assignment deferred
+                  ({{ (new_queue_json | from_json) | count }} in queue)
           - stop: Assignment deferred while printer is busy
             response_variable: response_object
 
@@ -365,6 +409,33 @@ assign_spool_to_printer_tray:
     data:
       entity_id: input_text.pending_tray_assignment_spool_id
       value: ""
+
+  # Pop the completed spool from pending tray selections queue
+  - variables:
+      pending_raw: "{{ states('input_text.pending_tray_selections_queue') }}"
+      pending_current: >-
+        {% set parsed = (pending_raw | from_json | default([], true)) if pending_raw not in ['', 'unknown', 'unavailable'] else [] %}
+        {% if parsed is not iterable or parsed is string %}[]{% else %}{{ parsed | to_json }}{% endif %}
+      pending_after_pop: >-
+        {% set items = pending_current | from_json %}
+        {% set ns = namespace(result=[]) %}
+        {% for item in items %}
+          {% if (item.s | int(-1)) != (spool_id_clean | int(-1)) %}
+            {% set ns.result = ns.result + [item] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.result | to_json }}
+  - action: input_text.set_value
+    data:
+      entity_id: input_text.pending_tray_selections_queue
+      value: "{{ pending_after_pop }}"
+  # Sync legacy helper to next pending spool (or clear)
+  - action: input_text.set_value
+    data:
+      entity_id: input_text.pending_tray_assignment_spool_id
+      value: >-
+        {% set remaining = pending_after_pop | from_json %}
+        {% if remaining | count > 0 %}{{ remaining[0].s | string }}{% endif %}
 
   - action: persistent_notification.create
     data:

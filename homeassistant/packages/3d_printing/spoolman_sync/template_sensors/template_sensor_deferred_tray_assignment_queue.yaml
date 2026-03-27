@@ -1,0 +1,35 @@
+# Parses the compact JSON queue in input_text.deferred_tray_assignments_queue
+# and exposes count, next item, and decoded tray entity IDs.
+#
+# Queue item format: {"s": <spool_id_int>, "t": <tray_code_int>}
+#   tray_code: AMS unit*10 + slot (e.g., 11 = AMS 1 Tray 1, 24 = AMS 2 Tray 4)
+#              0 = External Spool
+- sensor:
+    - name: Deferred Tray Assignment Queue
+      unique_id: deferred_tray_assignment_queue
+      icon: mdi:tray-alert
+      state: >-
+        {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+        {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
+        {{ queue | count }}
+      attributes:
+        queue_json: >-
+          {{ states('input_text.deferred_tray_assignments_queue') | default('[]', true) }}
+        next_spool_id: >-
+          {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+          {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+          {% if queue is iterable and queue is not string and queue | count > 0 %}
+            {{ queue[0].s | default('') }}
+          {% endif %}
+        next_tray_entity_id: >-
+          {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+          {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+          {% if queue is iterable and queue is not string and queue | count > 0 %}
+            {% set code = queue[0].t | int(0) %}
+            {% if code == 0 %}
+              sensor.ntk_ryansoffice_3dprinter_external_spool
+            {% else %}
+              sensor.p1s_01p00c460102350_ams_{{ (code / 10) | int }}_tray_{{ code % 10 }}
+            {% endif %}
+          {% endif %}

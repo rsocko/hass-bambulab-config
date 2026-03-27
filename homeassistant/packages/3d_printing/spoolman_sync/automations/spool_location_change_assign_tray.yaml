@@ -175,16 +175,35 @@
                   failed ({{ empty_candidate_trays | count }} empty trays). Awaiting manual selection.
                 entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
                 domain: automation
+            # Append to pending tray selections queue (dedup by spool_id)
+            - variables:
+                new_pending_queue: >-
+                  {% set raw = states('input_text.pending_tray_selections_queue') %}
+                  {% set current = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                  {% if current is not iterable or current is string %}{% set current = [] %}{% endif %}
+                  {% set ns = namespace(items=[]) %}
+                  {% for item in current %}
+                    {% if (item.s | int(-1)) != (spool_id | int(-1)) %}
+                      {% set ns.items = ns.items + [item] %}
+                    {% endif %}
+                  {% endfor %}
+                  {% set ns.items = ns.items + [{'s': spool_id | int}] %}
+                  {{ ns.items | to_json }}
+            - action: input_text.set_value
+              data:
+                entity_id: input_text.pending_tray_selections_queue
+                value: "{{ new_pending_queue }}"
+            # Keep legacy helper in sync for backward compat (first item)
             - action: input_text.set_value
               data:
                 entity_id: input_text.pending_tray_assignment_spool_id
-                value: "{{ spool_id }}"
+                value: "{{ ((new_pending_queue | from_json)[0].s | default('')) | string }}"
             - event: spoolman_tray_assignment_result
               event_data:
                 status: needs_tray_selection
                 message: >-
                   Unable to infer tray for spool {{ spool_id }} in {{ to_location }}.
-                  Empty tray count was {{ empty_candidate_trays | count }}.
+                  {{ (new_pending_queue | from_json) | count }} spool(s) awaiting tray selection.
                 spool_entity_id: "{{ spool_entity_id }}"
                 tray_entity_id: ""
                 tray_info_idx: ""

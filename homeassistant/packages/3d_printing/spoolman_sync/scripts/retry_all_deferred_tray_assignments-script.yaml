@@ -1,0 +1,64 @@
+retry_all_deferred_tray_assignments:
+  alias: Retry All Deferred Tray Assignments
+  description: >-
+    Processes the entire deferred tray assignment queue sequentially.
+    Pops one item at a time, calls assign_spool_to_printer_tray, and
+    waits between each to let set_filament complete. Stops early if
+    the printer becomes busy again. Used by the dashboard "Retry All"
+    button and the auto-retry automation.
+  icon: mdi:refresh-auto
+  mode: single
+  sequence:
+    - repeat:
+        while:
+          - condition: template
+            value_template: >-
+              {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+              {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+              {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
+              {{ queue | count > 0 }}
+          # Stop if printer becomes busy (a prior retry was deferred again)
+          - condition: template
+            value_template: >-
+              {% set ps = states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower %}
+              {% set ss = states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower %}
+              {{ ps not in ['running', 'pause', 'paused', 'prepare', 'preparing']
+                 and ss not in ['printing', 'preparing', 'heating', 'leveling'] }}
+        sequence:
+          - variables:
+              raw_queue: "{{ states('input_text.deferred_tray_assignments_queue') }}"
+              queue_parsed: >-
+                {% set parsed = (raw_queue | from_json | default([], true)) if raw_queue not in ['', 'unknown', 'unavailable'] else [] %}
+                {% if parsed is iterable and parsed is not string %}{{ parsed | to_json }}{% else %}[]{% endif %}
+              first: "{{ (queue_parsed | from_json)[0] | default(none) }}"
+              spool_id: "{{ first.s | default('') | string }}"
+              tray_code: "{{ first.t | default(0) | int }}"
+              tray_entity_id: >-
+                {% if tray_code | int == 0 %}
+                  sensor.ntk_ryansoffice_3dprinter_external_spool
+                {% else %}
+                  sensor.p1s_01p00c460102350_ams_{{ (tray_code | int / 10) | int }}_tray_{{ tray_code | int % 10 }}
+                {% endif %}
+              remaining_json: >-
+                {% set parsed = (raw_queue | from_json | default([], true)) if raw_queue not in ['', 'unknown', 'unavailable'] else [] %}
+                {% if parsed is iterable and parsed is not string %}{{ parsed[1:] | to_json }}{% else %}[]{% endif %}
+
+          - condition: template
+            value_template: "{{ spool_id | regex_match('^\\d+$') }}"
+
+          # Pop first item
+          - action: input_text.set_value
+            data:
+              entity_id: input_text.deferred_tray_assignments_queue
+              value: "{{ remaining_json }}"
+
+          # Call assign and wait for completion
+          - action: script.assign_spool_to_printer_tray
+            data:
+              spool_id: "{{ spool_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              force_write: true
+
+          # Delay between assignments so set_filament fully completes
+          - delay:
+              seconds: 5

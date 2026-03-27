@@ -1,0 +1,23 @@
+# Parses the compact JSON queue in input_text.pending_tray_selections_queue
+# and exposes count + first spool ID for the tray picker UI.
+#
+# Queue item format: {"s": <spool_id_int>}
+# Only spool_id is stored — user selects tray via the picker popup.
+- sensor:
+    - name: Pending Tray Selection Queue
+      unique_id: pending_tray_selection_queue
+      icon: mdi:tray-alert
+      state: >-
+        {% set raw = states('input_text.pending_tray_selections_queue') %}
+        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+        {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
+        {{ queue | count }}
+      attributes:
+        queue_json: >-
+          {{ states('input_text.pending_tray_selections_queue') | default('[]', true) }}
+        next_spool_id: >-
+          {% set raw = states('input_text.pending_tray_selections_queue') %}
+          {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+          {% if queue is iterable and queue is not string and queue | count > 0 %}
+            {{ queue[0].s | default('') }}
+          {% endif %}
