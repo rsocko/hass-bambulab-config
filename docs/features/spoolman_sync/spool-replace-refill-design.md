@@ -677,7 +677,7 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 | **Multiple users trigger simultaneously** | Helpers are global singleton state. For a single-user home setup this is acceptable. If needed, prefix helpers with a session ID, but this adds significant complexity. |
 | **Target spool was already unsealed by another process** | Wizard should re-check `extra_sealed` at execution time and warn if no longer sealed. Still allow proceed (idempotent unseal). |
 | **Print in progress when replacing** | The "Mark as Used in Current Print" checkbox handles this. The `active_tray_changed` automation already tracks last_used; this checkbox sets `first_used` for a brand-new spool that hasn't triggered that automation yet. |
-| **Spool runs out mid-print (tray goes empty)** | AMS tray popup won't show Replace button (no spool context). User is guided via persistent notification (Phase 2) or manually navigates to the Filament Catalog. The runout automation captures the last-known spool ID so the wizard can be pre-populated. |
+| **Spool runs out mid-print (tray goes empty)** | AMS tray popup won't show Replace button (no spool context). User is guided via persistent notification (Phase 3) or manually navigates to the Filament Catalog. The runout automation captures the last-known spool ID so the wizard can be pre-populated. |
 
 ---
 
@@ -701,18 +701,7 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 - Test with negative weight spool → verify info banner → verify weight reset
 - Test with no sealed candidates → verify empty-state message
 
-### Phase 2: Filament Runout Detection & Notification
-
-**Scope:** Detect mid-print spool runout and notify the user with an actionable link to the replace wizard.
-
-**Deliverables:**
-1. Automation `filament_runout_capture_and_notify` — triggers on `paused_filament_runout`, resolves last-known spool from `print_weight_backup`, creates persistent + mobile notification
-2. Modification to `active_tray_changed_update_spoolman` — write spool ID to `input_text.spool_replace_source_spool_id` at runout detection (or publish as separate automation)
-3. Optional: Filament Catalog banner that detects a pending spool replacement and offers one-tap wizard entry
-
-**Notes:** This phase addresses the critical gap where the AMS tray loses spool context at runout. The persistent notification is the primary user-facing signal. The spool can still be found and acted on in the Filament Catalog even without the notification.
-
-### Phase 3: AMS Tray Popup + NFC Filament Tag View Integration
+### Phase 2: AMS Tray Popup + NFC Filament Tag View Integration
 
 **Scope:** Add "Replace Spool" button to the AMS tray popup and "Replace / Refill Spool" button to the NFC filament tag view.
 
@@ -725,7 +714,18 @@ The Spoolman REST API uses **full replacement semantics** for the `extra` field:
 6. Conditional enable: only when `sensor.selected_spool` resolves to valid spool entity
 7. Mobile testing on iPhone (HA Companion App and mobile Safari)
 
-**Notes:** The AMS popup already has the spool context (`spoolEntityId`, `spoolId`, `filamentId`) so wiring it into the same wizard is straightforward. For empty trays (mid-print runout), the user is directed to the Filament Catalog via the Phase 2 notification — the AMS popup deliberately does not try to reconstruct stale spool context.
+**Notes:** The AMS popup already has the spool context (`spoolEntityId`, `spoolId`, `filamentId`) so wiring it into the same wizard is straightforward. For empty trays (mid-print runout), the user is directed to the Filament Catalog via the Phase 3 notification — the AMS popup deliberately does not try to reconstruct stale spool context.
+
+### Phase 3: Filament Runout Detection & Notification
+
+**Scope:** Detect mid-print spool runout and notify the user with an actionable link to the replace wizard.
+
+**Deliverables:**
+1. Automation `filament_runout_capture_and_notify` — triggers on `paused_filament_runout`, resolves last-known spool from `print_weight_backup`, creates persistent + mobile notification
+2. Modification to `active_tray_changed_update_spoolman` — write spool ID to `input_text.spool_replace_source_spool_id` at runout detection (or publish as separate automation)
+3. Optional: Filament Catalog banner that detects a pending spool replacement and offers one-tap wizard entry
+
+**Notes:** This phase addresses the critical gap where the AMS tray loses spool context at runout. The persistent notification is the primary user-facing signal. The spool can still be found and acted on in the Filament Catalog even without the notification.
 
 The NFC filament tag view entry point is the most natural mobile path for a user standing at their printer. The `sensor.selected_spool` template sensor resolves the scanned `filament_id` to the matching unsealed spool — this provides the source spool context even when the AMS tray is empty (the NFC tag identifies the filament, not the tray state). The wizard popups open on top of the filament tag dashboard view via `browser_mod.popup`, reusing the same Step 1–4 popup chain.
 
@@ -768,7 +768,7 @@ When the AMS detects a new spool UUID in a tray that previously held a different
 
 When a tray goes empty after filament runout, keep the last-known spool context visible in the AMS tray popup so the user can still launch the replace wizard from there.
 
-**Verdict:** Rejected. The AMS tray popup's data comes from `spoolman_tray_map` which correctly reports `match_state: 'empty'` once the Bambu Lab integration clears the tray. Showing stale data in the tray popup would be misleading — the tray *is* empty. Instead, the Filament Runout Notification (Phase 2) guides the user to the correct spool in the Filament Catalog, which always has the full spool context.
+**Verdict:** Rejected. The AMS tray popup's data comes from `spoolman_tray_map` which correctly reports `match_state: 'empty'` once the Bambu Lab integration clears the tray. Showing stale data in the tray popup would be misleading — the tray *is* empty. Instead, the Filament Runout Notification (Phase 3) guides the user to the correct spool in the Filament Catalog, which always has the full spool context.
 
 ### C. Dedicated dashboard view instead of popup wizard
 
@@ -811,14 +811,14 @@ homeassistant/packages/3d_printing/spoolman_sync/
 
 homeassistant/packages/3d_printing/spoolman_sync/
 ├── automations/
-│   └── filament_runout_capture_and_notify.yaml           # Phase 2
+│   └── filament_runout_capture_and_notify.yaml           # Phase 3
 
 homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/
 ├── catalog_spool_popup.yaml                             # Modified: Phase 1
-├── ams_tray_popup.yaml                                  # Modified: Phase 3
+├── ams_tray_popup.yaml                                  # Modified: Phase 2
 
 homeassistant/packages/3d_printing/common/dashboard_views/
-├── view_filament_tags.yaml                              # Modified: Phase 3
+├── view_filament_tags.yaml                              # Modified: Phase 2
 
 docs/features/spoolman_sync/
 ├── spool-replace-refill-design.md                       # This document
@@ -851,7 +851,7 @@ This field is set to `now()` whenever a spool is unsealed (both the replace flow
 | `filament_catalog_filter` | **No change.** Already filters by `sealed` and `archived` status. The new spool will appear as unsealed; the old spool will be excluded as archived. |
 | `filament_catalog_metrics` | **No change.** Already skips archived spools in all metrics. |
 | `sensor.selected_spool` (filament tag) | **No change.** Template sensor resolves `filament_id` to the matching unsealed spool. After replace, the new unsealed spool will be resolved correctly. The archived old spool (no longer an entity) will be naturally excluded. |
-| `view_filament_tags.yaml` | **Modified (Phase 3).** New "Replace / Refill Spool" button added to "Other Actions" section. Uses the same wizard popup chain as all other entry points. |
+| `view_filament_tags.yaml` | **Modified (Phase 2).** New "Replace / Refill Spool" button added to "Other Actions" section. Uses the same wizard popup chain as all other entry points. |
 
 ---
 

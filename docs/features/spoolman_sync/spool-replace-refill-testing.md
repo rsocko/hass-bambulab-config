@@ -325,7 +325,7 @@ If you don't have the test spools already, create them in Spoolman:
 | 3 | Launch wizard, proceed to Step 3, cancel | Same — no Spoolman changes |
 | 4 | Verify in Spoolman | No spool data was modified in any of the above |
 
-**Result:** [ ] Pass / [ ] Fail  
+**Result:** [X] Pass / [ ] Fail  
 **Notes:** ___
 
 ---

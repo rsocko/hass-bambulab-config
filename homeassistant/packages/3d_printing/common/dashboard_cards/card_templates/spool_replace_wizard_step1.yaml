@@ -5,7 +5,7 @@
 # Nav: Continue → Step 2, Cancel.
 #
 # Launched by: Replace button in catalog_spool_popup, ams_tray_popup,
-#              view_filament_tags (Phase 3), filament_runout notification (Phase 2)
+#              view_filament_tags (Phase 2), filament_runout notification (Phase 3)
 # Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
 
 spool_replace_wizard_step1:

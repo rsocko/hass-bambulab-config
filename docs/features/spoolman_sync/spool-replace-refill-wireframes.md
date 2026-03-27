@@ -45,7 +45,7 @@
 
 ### AMS Tray Popup — "Replace Spool" Button Placement
 
-> **Note:** This button is only visible when the tray has a matched spool (`match_state === 'matched'`). When a spool runs out mid-print, the Bambu Lab integration clears the tray data, so `spoolman_tray_map` reports `match_state: 'empty'` and the button will not appear. In that scenario, the user is guided via a **Filament Runout Notification** (Phase 2) to find the spool in the Filament Catalog.
+> **Note:** This button is only visible when the tray has a matched spool (`match_state === 'matched'`). When a spool runs out mid-print, the Bambu Lab integration clears the tray data, so `spoolman_tray_map` reports `match_state: 'empty'` and the button will not appear. In that scenario, the user is guided via a **Filament Runout Notification** (Phase 3) to find the spool in the Filament Catalog.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -309,22 +309,7 @@ distinguish them from the action labels.
   - [ ] Test: archive step → verify spool entity disappears after reload
   - [ ] Test: cancel at each step → verify no Spoolman changes
 
-### Phase 2: Filament Runout Detection & Notification
-
-- [ ] **Automation**
-  - [ ] Create `filament_runout_capture_and_notify` automation
-  - [ ] Trigger on `sensor.ntk_ryansoffice_3dprinter_current_stage` → `paused_filament_runout`
-  - [ ] Resolve last-known spool from `input_text.print_weight_backup` + active tray sensor
-  - [ ] Write spool ID to `input_text.spool_replace_source_spool_id`
-  - [ ] Create persistent notification with spool name, ID, tray, and link to dashboard
-  - [ ] Send mobile notification (same pattern as `print_fault_notification.yaml`)
-- [ ] **Testing**
-  - [ ] Test: simulate `paused_filament_runout` → verify notification created with correct spool
-  - [ ] Test: verify `spool_replace_source_spool_id` is populated
-  - [ ] Test: verify notification link navigates to dashboard
-  - [ ] Test: active tray sensor still available at runout vs. already cleared
-
-### Phase 3: AMS Tray Popup + NFC Tag View Integration
+### Phase 2: AMS Tray Popup + NFC Tag View Integration
 
 - [ ] **AMS Tray Popup**
   - [ ] Add "Replace Spool" button to `ams_tray_popup.yaml`
@@ -339,6 +324,21 @@ distinguish them from the action labels.
   - [ ] Conditional enable: only when `sensor.selected_spool` resolves to a valid spool entity
   - [ ] Test: full wizard flow on iPhone (HA Companion App) via NFC tag scan
   - [ ] Test: popup chain (close → delay → open next) works correctly on mobile Safari
+
+### Phase 3: Filament Runout Detection & Notification
+
+- [ ] **Automation**
+  - [ ] Create `filament_runout_capture_and_notify` automation
+  - [ ] Trigger on `sensor.ntk_ryansoffice_3dprinter_current_stage` → `paused_filament_runout`
+  - [ ] Resolve last-known spool from `input_text.print_weight_backup` + active tray sensor
+  - [ ] Write spool ID to `input_text.spool_replace_source_spool_id`
+  - [ ] Create persistent notification with spool name, ID, tray, and link to dashboard
+  - [ ] Send mobile notification (same pattern as `print_fault_notification.yaml`)
+- [ ] **Testing**
+  - [ ] Test: simulate `paused_filament_runout` → verify notification created with correct spool
+  - [ ] Test: verify `spool_replace_source_spool_id` is populated
+  - [ ] Test: verify notification link navigates to dashboard
+  - [ ] Test: active tray sensor still available at runout vs. already cleared
 
 ### Phase 4: Reverse Flow (Unseal & Use)
 
