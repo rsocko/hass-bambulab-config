@@ -60,9 +60,28 @@
           target:
             entity_id: "{{ snapshot_light }}"
 
+    # Collect HMS error details if available
+    - variables:
+        hms_active: >-
+          {{ is_state('binary_sensor.hms_alert_display_wrapper', 'on')
+             and state_attr('binary_sensor.hms_alert_display_wrapper', 'source') == 'real' }}
+        hms_error_count: >-
+          {% if hms_active %}
+            {{ state_attr('binary_sensor.hms_alert_display_wrapper', 'Count') | int(0) }}
+          {% else %}0{% endif %}
+        error_details: >-
+          {% if hms_active and hms_error_count | int > 0 %}
+            {% for i in range(1, hms_error_count | int + 1) %}
+          {{ i }}. [{{ state_attr('binary_sensor.hms_alert_display_wrapper', i ~ '-Severity') | upper }}] {{ state_attr('binary_sensor.hms_alert_display_wrapper', i ~ '-Code') }} — {{ state_attr('binary_sensor.hms_alert_display_wrapper', i ~ '-Error') }}
+          {% set w = state_attr('binary_sensor.hms_alert_display_wrapper', i ~ '-Wiki') %}
+          {% if w %}   Troubleshoot: {{ w }}
+          {% endif %}
+            {% endfor %}
+          {% endif %}
+
     # Build notification message with template support
     - variables:
-        notification_message: >
+        notification_message: >-
           {% set msg = fault_message_template %}
           {% set msg = msg | replace('{{printer_name}}', printer_name) %}
           {% set msg = msg | replace('{{task_name}}', task_name) %}
@@ -73,7 +92,9 @@
     - action: notify.mobile_app_ryphone16
       data:
         title: "⚠️ Print Error"
-        message: "{{ notification_message }}"
+        message: >-
+          {{ notification_message }}
+          {% if error_details %}{{ error_details }}{% endif %}
         data:
           url: "/3d-printing"
           clickAction: "/3d-printing"
@@ -88,7 +109,9 @@
     - action: notify.mobile_app_rypad10
       data:
         title: "⚠️ Print Error"
-        message: "{{ notification_message }}"
+        message: >-
+          {{ notification_message }}
+          {% if error_details %}{{ error_details }}{% endif %}
         data:
           url: "/3d-printing"
           clickAction: "/3d-printing"
@@ -109,6 +132,12 @@
           **{{ notification_message }}**
 
           Status: {{ print_status }}
+          {% if error_details %}
+
+          **Error Details:**
+
+          {{ error_details }}
+          {% endif %}
 
           Time: {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
 
@@ -119,14 +148,15 @@
       data:
         message: >-
           Print Error: {{ printer_name }} encountered an error during {{ task_name }}.
-          Status: {{ print_status }}
+          Status: {{ print_status }}{% if error_details %} | Details: {{ error_details }}{% endif %}
         level: error
         logger: homeassistant.components.bambulab.notifications
 
     - action: logbook.log
       data:
         name: Print Error
-        message: "Sent error notification for {{ task_name }}. Status: {{ print_status }}"
+        message: >-
+          Sent error notification for {{ task_name }}. Status: {{ print_status }}{% if error_details %} | {{ error_details }}{% endif %}
 
     # TTS announcement (always on for errors, but respect quiet hours)
     - if:
@@ -140,7 +170,11 @@
           target:
             entity_id: "{{ states('input_text.3dprinter_tts_media_player') }}"
           data:
-            message: "Alert! {{ notification_message }}"
+            message: >-
+              Alert! {{ notification_message }}
+              {% if hms_error_count | int > 0 %}
+              {{ hms_error_count }} H M S error{{ 's' if hms_error_count | int > 1 }} reported.
+              {% endif %}
             options:
               volume_level: "{{ states('input_number.3dprinter_tts_volume') | float / 100 }}"
 
