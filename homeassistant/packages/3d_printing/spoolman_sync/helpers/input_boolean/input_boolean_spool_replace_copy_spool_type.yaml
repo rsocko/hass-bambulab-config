@@ -1,0 +1,4 @@
+spool_replace_copy_spool_type:
+  name: Copy Spool Type
+  initial: true
+  icon: mdi:package-variant

@@ -45,7 +45,7 @@
 
 ### AMS Tray Popup — "Replace Spool" Button Placement
 
-> **Note:** This button is only visible when the tray has a matched spool (`match_state === 'matched'`). When a spool runs out mid-print, the Bambu Lab integration clears the tray data, so `spoolman_tray_map` reports `match_state: 'empty'` and the button will not appear. In that scenario, the user is guided via a **Filament Runout Notification** (Phase 2) to find the spool in the Filament Catalog.
+> **Note:** This button is only visible when the tray has a matched spool (`match_state === 'matched'`). When a spool runs out mid-print, the Bambu Lab integration clears the tray data, so `spoolman_tray_map` reports `match_state: 'empty'` and the button will not appear. In that scenario, the user is guided via a **Filament Runout Notification** (Phase 3) to find the spool in the Filament Catalog.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -185,22 +185,34 @@
 │                                                  │
 │  ─── Transfer Options ───────────────────────── │
 │                                                  │
-│  ☑ Copy Spool Type         "Bambu Spool"         │
-│  ☑ Copy Clip Type          "Slot Insert v2"      │
-│  ☑ Copy Desiccant Present  Yes                   │
+│  ☑ Copy Spool Type:  Bambu Spool                 │
+│                      ^^^^^^^^^^  (smaller, gray) │
+│  ☑ Copy Clip Type:  Slot Insert v2               │
+│                     ^^^^^^^^^^^^^^  (same style) │
+│  ☑ Copy Desiccant Present:  Yes                  │
+│                             ^^^  (smaller, gray) │
 │                                                  │
-│  Desiccant Fill Date:  [ Reset to today     ▼]   │
-│                         · Copy from old spool    │
-│                         · Reset to today    ◄──  │
-│                         · Skip                   │
+│  Desiccant Fill Date:                            │
+│  [ Reset to today     ▼]     ← left-aligned     │
+│    · Copy from old spool                         │
+│    · Reset to today                              │
+│    · Skip                                        │
 │                                                  │
-│  ☑ Set Location → AMS     (from source spool)    │
+│  ☑ Copy Location:  AMS                           │
+│                    ^^^  (smaller, gray)          │
 │  ☐ Mark Used in Current Print                    │
 │  ☑ Archive Empty Spool                           │
 │                                                  │
 │      [ Continue to Review ]  [ Back ]  [ Cancel ]│
 └──────────────────────────────────────────────────┘
 ```
+
+**Value styling:** The values after each label (e.g., "Bambu Spool", "Slot Insert v2",
+"Yes", "AMS") are rendered in a slightly smaller font (`0.88em`) with
+`var(--secondary-text-color)` to visually distinguish them from the label text.
+
+**Desiccant combo box:** Left-aligned via `card_mod` on the `entities` card to match
+the overall left-aligned layout of the popup.
 
 ---
 
@@ -216,12 +228,15 @@
 │  • Archive spool in Spoolman                     │
 │                                                  │
 │  ── Target: #78 Bambu Lab PLA Basic White ──     │
-│  • Mark as unsealed                              │
-│  • Set spool type: "Bambu Spool"                 │
-│  • Set clip type: "Slot Insert v2"               │
-│  • Set desiccant present: Yes                    │
+│  • Mark as unsealed (Date Opened set to today)   │
+│  • Copy spool type: Bambu Spool                  │
+│                      ^^^^^^^^^^  (gray, 0.92em)  │
+│  • Copy clip type: Slot Insert v2                │
+│                    ^^^^^^^^^^^^^^  (gray, 0.92em)│
+│  • Copy desiccant present                        │
 │  • Reset desiccant fill date to today            │
 │  • Set location: AMS                             │
+│                  ^^^  (gray, 0.92em)             │
 │                                                  │
 │  ⏱ After execution, the Spoolman integration     │
 │    will reload to reflect the changes.           │
@@ -230,51 +245,61 @@
 └──────────────────────────────────────────────────┘
 ```
 
+**Left alignment:** All text is left-aligned via `card_mod` on the markdown card.
+
+**Value styling:** Copied values (spool type, clip type, location) are rendered with
+`var(--secondary-text-color)` at `0.92em` via inline `<span>` styles to visually
+distinguish them from the action labels.
+
+**"Date Opened":** The field `date_opened` is displayed as the user-friendly
+"Date Opened" in all UI text.
+
 ---
 
 ## Implementation Checklist
 
-### Phase 1: Core Replace Flow
+### Phase 1: Core Replace Flow ✅ COMPLETE (2026-03-26)
 
-- [ ] **Helpers**
-  - [ ] Create `input_text.spool_replace_source_spool_id`
-  - [ ] Create `input_text.spool_replace_target_spool_id`
-  - [ ] Create `input_boolean.spool_replace_copy_spool_type` (default ON)
-  - [ ] Create `input_boolean.spool_replace_copy_clip_type` (default ON)
-  - [ ] Create `input_boolean.spool_replace_copy_desiccant_present` (default ON)
-  - [ ] Create `input_boolean.spool_replace_copy_location` (default ON)
-  - [ ] Create `input_boolean.spool_replace_mark_used` (default OFF)
-  - [ ] Create `input_boolean.spool_replace_archive_source` (default ON)
-  - [ ] Create `input_select.spool_replace_desiccant_mode` (3 options)
-  - [ ] Create `input_select.spool_replace_target_picker`
+- [x] **Helpers**
+  - [x] Create `input_text.spool_replace_source_spool_id`
+  - [x] Create `input_text.spool_replace_target_spool_id`
+  - [x] Create `input_boolean.spool_replace_copy_spool_type` (default ON)
+  - [x] Create `input_boolean.spool_replace_copy_clip_type` (default ON)
+  - [x] Create `input_boolean.spool_replace_copy_desiccant_present` (default ON)
+  - [x] Create `input_boolean.spool_replace_copy_location` (default ON)
+  - [x] Create `input_boolean.spool_replace_mark_used` (default OFF)
+  - [x] Create `input_boolean.spool_replace_archive_source` (default ON)
+  - [x] Create `input_select.spool_replace_desiccant_mode` (3 options)
+  - [x] Create `input_select.spool_replace_target_picker`
 
 - [x] **Archive Support**
   - [x] ~~Create `rest_command.spoolman_archive_spool`~~ — Not needed; `spoolman.patch_spool` with `archived: true` confirmed working
   - [x] ~~Test `spoolman.patch_spool` with `archived: true`~~ — Confirmed via source review (Spoolman API + HA integration `services.yaml` + `__init__.py`)
 
-- [ ] **Scripts**
-  - [ ] Create `script.spool_replace_populate_candidates`
-  - [ ] Create `script.spool_replace_execute` (read-merge-write pattern for extra fields — see design doc §7.4)
-  - [ ] Add logbook + system_log entries
+- [x] **Scripts**
+  - [x] Create `script.spool_replace_populate_candidates`
+  - [x] Create `script.spool_replace_execute` (read-merge-write pattern for extra fields — see design doc §7.4)
+  - [x] Create `script.spool_replace_sync_target_from_picker` (extracts spool ID from picker selection)
+  - [x] Add logbook + system_log entries
 
-- [ ] **Dashboard — Spool Popup**
-  - [ ] Add "Replace / Refill Spool" button as the left-most action in `catalog_spool_popup.yaml`
+- [x] **Dashboard — Spool Popup**
+  - [x] Add "Replace / Refill Spool" button as the left-most action in `catalog_spool_popup.yaml`
   - [x] Add "Qty to Order" stacked KPI card to `catalog_spool_popup.yaml` (to the right of `Total (all spools)`)
   - [x] Add `+` / `-` qty adjust buttons in the stacked card, with `-` disabled at `0`
-  - [ ] Remove bottom-row "Location" button in `catalog_spool_popup.yaml` (location control remains in the Change Location row)
-  - [ ] Implement Step 1 popup (validate empty spool)
-  - [ ] Implement Step 2 popup (select replacement)
-  - [ ] Implement Step 3 popup (configure transfer options)
-  - [ ] Implement Step 4 popup (review & execute)
-  - [ ] Wire popup chain (close → delay → open next)
+  - [x] Remove bottom-row "Location" button in `catalog_spool_popup.yaml` (location control remains in the Change Location row)
+  - [x] Implement Step 1 popup (validate empty spool)
+  - [x] Implement Step 2 popup (select replacement)
+  - [x] Implement Step 3 popup (configure transfer options)
+  - [x] Implement Step 4 popup (review & execute)
+  - [x] Wire popup chain (close → delay → open next)
 
-- [ ] **Dashboard — AMS Tray Popup**
+- [x] **Dashboard — AMS Tray Popup**
   - [x] Add "Qty to Order" stacked KPI card to `ams_tray_popup.yaml` (to the right of `Total (all spools)`)
   - [x] Add `+` / `-` qty adjust buttons in the stacked card, with `-` disabled at `0`
 
 **Qty field fallback note:** If a spool does not yet have `extra_purchase_qty`, both popups render qty as `0` and allow `+` to initialize the field on first update.
 
-- [ ] **Testing**
+- [ ] **Testing** — See [spool-replace-refill-testing.md](spool-replace-refill-testing.md)
   - [ ] Test: spool at 0g → full flow → verify Spoolman state
   - [ ] Test: spool at >0g → warning shown → continue → weight reset
   - [ ] Test: spool at <0g → info shown → weight reset
@@ -284,22 +309,7 @@
   - [ ] Test: archive step → verify spool entity disappears after reload
   - [ ] Test: cancel at each step → verify no Spoolman changes
 
-### Phase 2: Filament Runout Detection & Notification
-
-- [ ] **Automation**
-  - [ ] Create `filament_runout_capture_and_notify` automation
-  - [ ] Trigger on `sensor.ntk_ryansoffice_3dprinter_current_stage` → `paused_filament_runout`
-  - [ ] Resolve last-known spool from `input_text.print_weight_backup` + active tray sensor
-  - [ ] Write spool ID to `input_text.spool_replace_source_spool_id`
-  - [ ] Create persistent notification with spool name, ID, tray, and link to dashboard
-  - [ ] Send mobile notification (same pattern as `print_fault_notification.yaml`)
-- [ ] **Testing**
-  - [ ] Test: simulate `paused_filament_runout` → verify notification created with correct spool
-  - [ ] Test: verify `spool_replace_source_spool_id` is populated
-  - [ ] Test: verify notification link navigates to dashboard
-  - [ ] Test: active tray sensor still available at runout vs. already cleared
-
-### Phase 3: AMS Tray Popup + NFC Tag View Integration
+### Phase 2: AMS Tray Popup + NFC Tag View Integration
 
 - [ ] **AMS Tray Popup**
   - [ ] Add "Replace Spool" button to `ams_tray_popup.yaml`
@@ -314,6 +324,21 @@
   - [ ] Conditional enable: only when `sensor.selected_spool` resolves to a valid spool entity
   - [ ] Test: full wizard flow on iPhone (HA Companion App) via NFC tag scan
   - [ ] Test: popup chain (close → delay → open next) works correctly on mobile Safari
+
+### Phase 3: Filament Runout Detection & Notification
+
+- [ ] **Automation**
+  - [ ] Create `filament_runout_capture_and_notify` automation
+  - [ ] Trigger on `sensor.ntk_ryansoffice_3dprinter_current_stage` → `paused_filament_runout`
+  - [ ] Resolve last-known spool from `input_text.print_weight_backup` + active tray sensor
+  - [ ] Write spool ID to `input_text.spool_replace_source_spool_id`
+  - [ ] Create persistent notification with spool name, ID, tray, and link to dashboard
+  - [ ] Send mobile notification (same pattern as `print_fault_notification.yaml`)
+- [ ] **Testing**
+  - [ ] Test: simulate `paused_filament_runout` → verify notification created with correct spool
+  - [ ] Test: verify `spool_replace_source_spool_id` is populated
+  - [ ] Test: verify notification link navigates to dashboard
+  - [ ] Test: active tray sensor still available at runout vs. already cleared
 
 ### Phase 4: Reverse Flow (Unseal & Use)
 

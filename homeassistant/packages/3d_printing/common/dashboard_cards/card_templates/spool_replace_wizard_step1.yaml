@@ -1,0 +1,183 @@
+# spool_replace_wizard_step1.yaml
+# Step 1: Validate Empty Spool
+# Reads source spool from input_text helper, displays spool info card
+# with conditional warning/info/ok banner based on remaining weight.
+# Nav: Continue → Step 2, Cancel.
+#
+# Launched by: Replace button in catalog_spool_popup, ams_tray_popup,
+#              view_filament_tags (Phase 2), filament_runout notification (Phase 3)
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_replace_wizard_step1:
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+    grid:
+      - grid-template-areas: '"stepper" "content" "nav"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto auto auto
+    custom_fields:
+      stepper:
+        - padding: 0
+      content:
+        - padding: 0
+      nav:
+        - padding: 8px 0 0 0
+  custom_fields:
+    stepper: |
+      [[[
+        return '<div style="text-align:center;padding:0 0 8px 0;">'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);">Step 1 of 4</div>'
+          + '<div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--divider-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--divider-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--divider-color);"></div>'
+          + '</div></div>';
+      ]]]
+    content: |
+      [[[
+        const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+        if (!srcId || srcId === '' || srcId === 'unknown') {
+          return '<div style="padding:16px;text-align:center;color:var(--error-color);">No source spool selected.</div>';
+        }
+        const srcEntity = states['sensor.spoolman_spool_' + srcId];
+        if (!srcEntity) {
+          return '<div style="padding:16px;text-align:center;color:var(--error-color);">Source spool entity not found (ID: ' + srcId + ').</div>';
+        }
+
+        const name = srcEntity.attributes.friendly_name || 'Unknown Spool';
+        const remaining = srcEntity.attributes.remaining_weight;
+        const remainingNum = (remaining !== undefined && remaining !== null) ? Number(remaining) : 0;
+        const weightText = (remaining !== undefined && remaining !== null)
+          ? Number(remaining).toFixed(1) + ' g'
+          : 'N/A';
+        const location = srcEntity.attributes.location || 'N/A';
+        const rawColor = (srcEntity.attributes.filament_color_hex || '888888').replace('#', '');
+        const colorHex = '#' + rawColor;
+        const entityPicture = srcEntity.attributes.entity_picture || '';
+
+        // --- Warning / info / ok banner ---
+        let bannerHtml = '';
+        if (remainingNum > 0) {
+          bannerHtml = '<div style="margin-top:12px;padding:12px;border-radius:8px;background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);">'
+            + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<ha-icon icon="mdi:alert" style="color:#FF9800;--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+            + '<div>'
+            + '<div style="font-weight:600;">This spool still shows ' + weightText + ' remaining.</div>'
+            + '<div style="font-size:0.9em;color:var(--secondary-text-color);margin-top:4px;">If you continue, the remaining weight will be reset to 0g before archiving.</div>'
+            + '</div></div></div>';
+        } else if (remainingNum < 0) {
+          bannerHtml = '<div style="margin-top:12px;padding:12px;border-radius:8px;background:rgba(33,150,243,0.1);border:1px solid rgba(33,150,243,0.3);">'
+            + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<ha-icon icon="mdi:information" style="color:#2196F3;--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+            + '<div>'
+            + '<div style="font-weight:600;">This spool shows ' + weightText + ' (negative).</div>'
+            + '<div style="font-size:0.9em;color:var(--secondary-text-color);margin-top:4px;">Weight will be reset to 0g before archiving.</div>'
+            + '</div></div></div>';
+        } else {
+          bannerHtml = '<div style="margin-top:12px;padding:12px;border-radius:8px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);">'
+            + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<ha-icon icon="mdi:check-circle" style="color:#4CAF50;--mdc-icon-size:24px;flex-shrink:0;"></ha-icon>'
+            + '<div style="font-weight:600;">Spool is confirmed empty. Ready to pick a sealed replacement.</div>'
+            + '</div></div>';
+        }
+
+        const lum = ((parseInt(rawColor.substring(0,2),16)||128)*299 + (parseInt(rawColor.substring(2,4),16)||128)*587 + (parseInt(rawColor.substring(4,6),16)||128)*114) / 1000;
+        const iconColor = lum > 128 ? '#000' : '#fff';
+        const spoolImageHtml = entityPicture
+          ? '<img src="' + entityPicture + '" style="width:64px;height:64px;border-radius:50%;border:3px solid ' + colorHex + ';flex-shrink:0;object-fit:cover;">'
+          : '<span style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:' + colorHex + ';flex-shrink:0;border:3px solid var(--divider-color);"><ha-icon icon="mdi:printer-3d-nozzle" style="--mdc-icon-size:28px;color:' + iconColor + ';"></ha-icon></span>';
+
+        return '<div style="text-align:left;">'
+          + '<div style="font-size:1.1em;font-weight:600;">Source Spool:</div>'
+          + '<div style="margin-top:6px;padding:12px;border-radius:8px;background:var(--card-background-color);border:1px solid var(--divider-color);display:flex;align-items:center;gap:12px;">'
+          + spoolImageHtml
+          + '<div>'
+          + '<div><strong>' + name + '</strong> #' + srcId + '</div>'
+          + '<div style="color:var(--secondary-text-color);font-size:0.9em;margin-top:2px;">📍 ' + location + ' · ' + weightText + ' remaining</div>'
+          + '</div>'
+          + '</div>'
+          + bannerHtml
+          + '</div>';
+      ]]]
+    nav:
+      card:
+        type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
+          - type: custom:button-card
+            name: |
+              [[[
+                const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                const e = states['sensor.spoolman_spool_' + srcId];
+                const w = e?.attributes?.remaining_weight;
+                return (w && Number(w) > 0) ? "Yes, It's Empty — Continue" : 'Continue';
+              ]]]
+            icon: mdi:arrow-right
+            tap_action:
+              action: call-service
+              service: input_number.set_value
+              service_data:
+                entity_id: input_number.spool_replace_wizard_step
+                value: 2
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px

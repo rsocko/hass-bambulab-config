@@ -1,0 +1,5 @@
+spool_replace_target_spool_id:
+  name: Spool Replace — Target Spool ID
+  max: 10
+  initial: ""
+  icon: mdi:identifier

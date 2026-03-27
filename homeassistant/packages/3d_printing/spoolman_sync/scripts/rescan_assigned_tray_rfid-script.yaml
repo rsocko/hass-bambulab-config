@@ -1,0 +1,49 @@
+rescan_assigned_tray_rfid:
+  alias: Rescan Assigned Tray RFID
+  description: >-
+    Reads the tray entity from the last tray assignment result sensor and calls
+    bambu_lab.read_rfid to physically re-scan the RFID tag on that tray.
+    After a delay for the RFID read to complete, checks the tray UUID and
+    fires a clearing event if the RFID is now confirmed.
+  icon: mdi:contactless-payment-circle-outline
+  mode: single
+  sequence:
+    - variables:
+        tray_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'tray_entity_id') | default('', true) }}"
+        spool_entity_id: "{{ state_attr('sensor.last_tray_assignment_result', 'spool_entity_id') | default('', true) }}"
+
+    - condition: template
+      value_template: "{{ tray_entity_id not in ['', 'None', 'unknown', 'unavailable'] }}"
+
+    - action: bambu_lab.read_rfid
+      data:
+        entity_id: "{{ tray_entity_id }}"
+
+    # Wait for the physical RFID read and MQTT update to propagate
+    - delay:
+        seconds: 45
+
+    - variables:
+        tray_uuid_after: >-
+          {{ state_attr(tray_entity_id, 'tray_uuid') | default('', true) | string | trim }}
+
+    - variables:
+        tray_has_uuid: >-
+          {{ tray_uuid_after | lower not in ['', 'none', 'unknown', 'unavailable']
+             and not (tray_uuid_after | lower | regex_match('^0+$')) }}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ tray_has_uuid }}"
+          sequence:
+            - event: spoolman_tray_assignment_result
+              event_data:
+                status: success
+                message: >-
+                  RFID confirmed after re-scan on {{ tray_entity_id }}.
+                spool_entity_id: "{{ spool_entity_id }}"
+                tray_entity_id: "{{ tray_entity_id }}"
+                tray_info_idx: "{{ state_attr('sensor.last_tray_assignment_result', 'tray_info_idx') | default('', true) }}"
+                tray_type: "{{ state_attr(tray_entity_id, 'type') | default('', true) }}"
+                tray_color: "{{ state_attr(tray_entity_id, 'color') | default('', true) }}"

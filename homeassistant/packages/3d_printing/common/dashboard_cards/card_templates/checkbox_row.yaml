@@ -1,0 +1,37 @@
+# checkbox_row.yaml
+# Reusable button-card template for checkbox-style toggle rows.
+# Used in spool replace wizard step 3 to show transfer options with inline values.
+# Clicking the row toggles the input_boolean. No more-info dialog is opened.
+
+checkbox_row:
+  show_state: false
+  show_icon: true
+  show_name: true
+  layout: icon_name
+  tap_action:
+    action: toggle
+  icon: |
+    [[[
+      return entity?.state === 'on' ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline';
+    ]]]
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - border-radius: 0
+      - padding: 8px 16px
+      - border-bottom: 1px solid var(--divider-color)
+    grid:
+      - grid-template-areas: '"i n"'
+      - grid-template-columns: 24px 1fr
+    icon:
+      - color: |
+          [[[
+            return entity?.state === 'on' ? 'var(--primary-color)' : 'var(--disabled-text-color)';
+          ]]]
+      - width: 24px
+      - height: 24px
+    name:
+      - justify-self: left
+      - padding-left: 12px
+      - font-size: 14px

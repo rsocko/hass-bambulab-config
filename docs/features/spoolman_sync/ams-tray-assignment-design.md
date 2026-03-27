@@ -71,6 +71,26 @@ data:
 
 This is critical for resolving the `tray_info_idx` value from Spoolman data.
 
+### `bambu_lab.read_rfid`
+
+Triggers the AMS to physically re-read the RFID tag on a specific tray. Unlike the force-refresh button (which does a software-only data pull via MQTT `PUSH_ALL`), this causes the AMS to eject and re-scan the spool's RFID tag — the same action as the "Refresh" button in the ha-bambulab AMS tray card popup.
+
+```yaml
+action: bambu_lab.read_rfid
+data:
+  entity_id: sensor.p1s_01p00c460102350_ams_1_tray_2
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `entity_id` | string | AMS tray sensor entity ID |
+
+The service derives `ams_index` and `tray_index` automatically from the entity's unique_id. On newer printers, sends the `ams_get_rfid` MQTT command; on older printers, falls back to G-code `M620 R{n}`.
+
+**Used by:** `script.rescan_assigned_tray_rfid` — called from the RFID pending warning card in the status chip popup to re-read the tray's RFID after `set_filament` overwrites metadata.
+
 ### Existing Spoolman Data Available Per-Spool
 
 From `sensor.spoolman_spool_*` entity attributes:
@@ -291,13 +311,27 @@ This is the most complex mapping challenge. Bambu's `set_filament` requires a `t
 2. **Parse and cache** the response into a lookup structure: `profile_name → tray_info_idx`
 3. **At assignment time**, look up the spool's `filament_extra_profile_name` in this table
 
-**Lookup precedence:**
+**Lookup precedence (tray_info_idx):**
 
 | Step | Condition | Result |
 |---|---|---|
 | 1 | `filament_extra_profile_name` matches a Bambu profile name exactly | Use that profile's `tray_info_idx` |
 | 2 | No exact match; `filament_material` matches a generic Bambu profile | Use the generic profile ID (e.g., `GFL99` for Generic PLA) |
 | 3 | No match at all | Use a hardcoded fallback map by material type (see below) |
+
+**Resolved profile name precedence:**
+
+| Step | Condition | Result |
+|---|---|---|
+| 1 | Catalog lookup matched a Bambu profile | Use the matched catalog profile name |
+| 2 | Spool has `filament_extra_profile_name` set | Use the spool's own profile name (spool is authoritative) |
+| 3 | No profile name on spool | Use generic profile name from material fallback table |
+
+> **Bug fix (Issue #722)**: The original implementation had steps 2 and 3 reversed — the generic material fallback ("Generic PLA") took precedence over the spool's own profile name ("Bambu PLA Basic"). When the spool has a profile name defined, that is authoritative.
+
+**`printer_device_id` auto-derivation:**
+
+> The `assign_spool_to_printer_tray` orchestrator script auto-derives `printer_device_id` from the `tray_entity_id` using HA's `device_id()` function when not explicitly provided. This ensures `bambu_lab.get_filament_data` is always called for profile catalog lookup, even when callers (automation, dashboard, wrapper script) don't pass the device ID explicitly.
 
 **Hardcoded generic fallback table** (validated against `filaments_detail.json` bundled with ha-bambulab):
 
@@ -455,9 +489,9 @@ When a Bambu Lab spool with a valid UUID is loaded into an AMS tray:
 
 **Enforcement — two layers:**
 
-1. **Automation early exit** (`spool_location_change_assign_tray`): When a Spoolman location change targets AMS, the automation checks `filament_vendor_name == 'Bambu Lab'` and `extra_spool_uuid` is non-empty. If both are true, it logs and stops immediately — no tray inference, no tray picker, no script call. There is nothing to assign; the AMS RFID reader is authoritative, and the read-side `spoolman_tray_map` matches the spool to its tray via UUID for dashboard display.
+1. **Automation early exit** (`spool_location_change_assign_tray`): When a Spoolman location change targets AMS, the automation checks `filament_vendor_name == 'Bambu Lab'` and `extra_spool_uuid` is non-empty. If both are true, it fires a `spoolman_tray_assignment_result` event with status `skipped_bambu_rfid` (so the status chip briefly shows "RFID spool — AMS auto-configures"), logs, and stops — no tray inference, no tray picker, no script call. There is nothing to assign; the AMS RFID reader is authoritative, and the read-side `spoolman_tray_map` matches the spool to its tray via UUID for dashboard display.
 
-2. **Script safety net** (`assign_spool_to_printer_tray`): The `should_skip_rfid` guard unconditionally skips Bambu UUID spools targeting AMS trays (`force_write` cannot override it). This protects against any future caller that bypasses the automation.
+2. **Script safety net** (`assign_spool_to_printer_tray`): The `should_skip_rfid` guard skips Bambu UUID spools targeting AMS trays **unless `force_write` is true**. When `force_write` is passed, the RFID skip is bypassed and the script proceeds to call `set_filament`. This is needed for the RFID pending detection flow: after writing metadata for a Bambu spool, the script checks if the tray's `tray_uuid` matches the spool's UUID and sets a `success_awaiting_rfid` status if it doesn't (indicating the AMS hasn't read the physical RFID yet).
 
 Additional safeguards:
 - The "Update Tray Settings" button is hidden for UUID matches (popup restricts to `manual_pin` only), so the user cannot trigger a write from the UI.
@@ -580,7 +614,7 @@ After the user taps "AMS" / "AMS 2" / "Ext. Spool", show inline feedback about t
 Create a template sensor (`sensor.last_tray_assignment_result`) that the assignment automation updates after each attempt:
 
 ```
-state: "success" | "needs_tray_selection" | "failed" | "skipped"
+state: "success" | "needs_tray_selection" | "failed" | "skipped" | "success_awaiting_rfid" | "skipped_bambu_rfid"
 attributes:
   spool_name: "Sunlu PLA Matte (Black)"
   tray_entity: "sensor.p1s_..._ams_1_tray_3"
@@ -892,83 +926,16 @@ This would eliminate the need for any condition-based filtering — the trigger 
 
 ### Phase 5: Refinement
 
-| Task                                            | Deliverable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Location                                                                                                                        |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Deferred assignment queue (multi-spool safe)    | Replace single-value pending state with FIFO queue state so multiple spool events during an active print are preserved. Add queue helper (`input_text.pending_tray_assignment_queue_json`), enqueue/dequeue scripts, and post-print drain automation that replays assignments in order. Keep `input_text.pending_tray_assignment_spool_id` as a UI pointer to queue head for backward compatibility with existing tray picker cards.                                                                                                                                                | `spoolman_sync/helpers/`, `spoolman_sync/scripts/`, `spoolman_sync/automations/`                                              |
-| Tray state change correlation                   | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation)                                                                                                                                                                                                                                                                                                                                                                                       | `spoolman_sync/automations/`                                                                                                    |
-| "Update Tray Settings" pin attribute comparison | Refine the `canUpdateTraySettings` visibility logic in `ams_tray_popup.yaml` to also compare the pinned spool's color and material against the tray's reported values (`trayData.color` vs spool color, tray `type` attribute vs `filament_material`). Hide the button even for `manual_pin` when both sides already agree — the pin is confirmed and the tray is already correctly configured. This requires reading tray-side attributes (type, color) that are available on the tray entity but not currently surfaced in the `trayData` from `sensor.spoolman_tray_map`. | `common/dashboard_cards/card_templates/ams_tray_popup.yaml`                                                                     |
-| Combined location + assign script               | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2)                                                                                                                                                                                                                                                                                                                                                 | `spoolman_sync/scripts/`                                                                                                        |
-| Batch assignment                                | Handle multiple spool location changes at once. Depends on deferred assignment queue foundation to avoid last-write-wins loss when printer is busy.                                                                                                                                                                                                                                                                                                                                                                                                                        | Enhancement to Phase 2 automation                                                                                               |
-| State trigger migration                         | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration)                                                                                                                                                                                                                                                                                                                                                                                            | `spoolman_sync/automations/`                                                                                                    |
-| Transient "Waiting for AMS" status              | When a Bambu RFID spool's location changes to AMS but the AMS tray entity hasn't reported the matching `tray_uuid` yet (lid still closing, RFID not read), show a transient chip/status indicating the system is aware and waiting for the AMS RFID reader to confirm. Auto-clear once `spoolman_tray_map` resolves the UUID match, or after a configurable timeout (e.g. 60 s).                                                                                                                                                                                             | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml`, possibly `core/template_sensors/spoolman_tray_map.yaml` |
-
-#### Phase 5A Refinement Design: Deferred Assignment Queue (Multi-Spool Safe)
-
-**Problem being solved**
-
-The current design and implementation use a single helper (`input_text.pending_tray_assignment_spool_id`) to represent pending work. During an active print, `set_filament` is deferred. If 2 or more spool events occur before the print ends (for example, multiple location changes, or multiple inference-failure events requiring tray selection), later events overwrite earlier ones.
-
-**Risk**: last-write-wins data loss of pending assignments.
-
-**Design objective**
-
-Preserve every deferred assignment event until it is either successfully applied, explicitly canceled, or expired by policy.
-
-**Queue data model**
-
-- New helper: `input_text.pending_tray_assignment_queue_json`
-- Value: JSON array of queue entries (FIFO)
-- Entry shape:
-
-```json
-{
-  "request_id": "taq_20260325T210455Z_8421",
-  "spool_id": "8421",
-  "location": "AMS",
-  "tray_entity_id": "",
-  "reason": "printer_busy",
-  "source": "spool_location_change_assign_tray",
-  "created_at": "2026-03-25T21:04:55Z",
-  "attempts": 0
-}
-```
-
-**Behavioral rules**
-
-1. Any deferred assignment appends an entry instead of replacing a single helper value.
-2. Dedupe key: `spool_id + location + tray_entity_id`.
-3. If an existing queue entry has empty `tray_entity_id` and user later selects a tray, update that entry instead of creating a duplicate.
-4. Keep `input_text.pending_tray_assignment_spool_id` as a compatibility pointer to queue head (`queue[0].spool_id`) so current UI cards continue working.
-5. Queue drain runs only when printer is not busy.
-6. Drain policy is FIFO and single-worker (`mode: queued`) to avoid concurrent writes.
-7. Failure policy: increment `attempts`; after N retries (recommended: 3), mark failed via notification and remove from active queue.
-
-**Processing flow**
-
-1. `script.enqueue_tray_assignment_request` is called from all defer paths.
-2. Script normalizes payload, dedupes/merges, writes updated queue JSON helper.
-3. Script updates `pending_tray_assignment_spool_id` to queue head (or empty when queue empty).
-4. `automation.drain_tray_assignment_queue_after_print` triggers on print transition to non-active states (e.g., `finished`, `idle`, `ready`) and on HA start.
-5. Drain script reads head item and calls `script.assign_spool_to_printer_tray`.
-6. On success/skipped: dequeue head and continue.
-7. On `needs_tray_selection`: keep item in queue with empty tray and notify user; pause drain.
-8. On hard failure: retry with bounded attempts, then dead-letter notification.
-
-**UI implications**
-
-- Status chip may display queue depth when `len(queue) > 1` (example: `Tray assignment pending (3)`).
-- Tray picker should apply selection to queue head by default.
-- Optional Phase 5 enhancement: picker list of all queued spool names with explicit selection.
-
-**Operational constraints**
-
-- `input_text` size limits require compact JSON entries and bounded queue length.
-- Recommended queue cap: 6 entries.
-- If cap exceeded: keep existing entries, create persistent notification requiring manual processing, and log dropped event details.
-
-**Why this belongs in Phase 5A**
-
-The current Phase 2/3 flow is functionally correct for single-event deferrals but not lossless for burst scenarios during active prints. Queueing is a reliability refinement, not a redesign of core assignment logic.
+| Task | Deliverable | Location |
+|---|---|---|
+| Tray state change correlation | Monitor AMS tray Empty→non-empty transitions within a time window after Spoolman location change to confirm which tray a spool was loaded into (see §2: Tray State Change Correlation) | `spoolman_sync/automations/` |
+| "Update Tray Settings" pin attribute comparison | Refine the `canUpdateTraySettings` visibility logic in `ams_tray_popup.yaml` to also compare the pinned spool's color and material against the tray's reported values (`trayData.color` vs spool color, tray `type` attribute vs `filament_material`). Hide the button even for `manual_pin` when both sides already agree — the pin is confirmed and the tray is already correctly configured. This requires reading tray-side attributes (type, color) that are available on the tray entity but not currently surfaced in the `trayData` from `sensor.spoolman_tray_map`. | `common/dashboard_cards/card_templates/ams_tray_popup.yaml` |
+| Combined location + assign script | `script.assign_spool_to_ams` — single script that updates Spoolman location AND pushes to printer tray; filament tag view calls this instead of `update_spool_location` for a tighter feedback loop (see §9: Enhancement B2) | `spoolman_sync/scripts/` |
+| Batch assignment & deferred queue | Handle multiple spool location changes at once, including multiple deferred assignments. **Design notes**: (1) Replace the single `sensor.last_tray_assignment_result` with a queue-aware structure. Options: (a) a JSON list stored in an `input_text` helper (e.g., `input_text.deferred_tray_assignments_queue`) containing `[{spool_id, tray_entity_id, deferred_at}, ...]`, or (b) a template sensor with a list attribute. (2) The assign script's deferred block should append to the queue instead of overwriting the sensor. (3) The status chip should show the count of deferred items (e.g., "2 assignments deferred"). (4) The popup should show the queue as a scrollable list — each item displays spool name → tray label with a tap-to-retry action. (5) The auto-retry automation processes the queue FIFO, one at a time, with a delay between each to let `set_filament` complete. Pop each item off the queue after success; leave it if it defers again. (6) The manual retry popup should process one item at a time — show the first queued item with "tap to retry", and after success, advance to the next or close. (7) Consider a "Retry All" button that processes the full queue sequentially. | Enhancement to Phase 2 automation, `spoolman_sync/helpers/`, `spoolman_sync/scripts/`, `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml` |
+| State trigger migration | When HA supports label-based entity targeting in `platform: state` triggers, migrate from `platform: event` + label condition to native label trigger (see §10: Future Migration) | `spoolman_sync/automations/` |
+| Transient "Waiting for AMS" status | When a Bambu RFID spool's location changes to AMS but the AMS tray entity hasn't reported the matching `tray_uuid` yet (lid still closing, RFID not read), show a transient chip/status indicating the system is aware and waiting for the AMS RFID reader to confirm. Auto-clear once `spoolman_tray_map` resolves the UUID match, or after a configurable timeout (e.g. 60 s). **Implemented**: The `success_awaiting_rfid` status is emitted by the assign script when `set_filament` writes metadata but the tray's `tray_uuid` doesn't match the spool's UUID. The status chip shows an amber "RFID pending" indicator, and the popup includes a "Re-scan Tray" button calling `bambu_lab.read_rfid` via `script.rescan_assigned_tray_rfid`. After the physical re-scan completes (~6 s delay), the rescan script checks the tray's UUID; if it's now valid, it fires a `spoolman_tray_assignment_result` event with status `success` to clear the chip. Auto-clear on tray_map UUID match (without manual re-scan) is not yet implemented. | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml`, `spoolman_sync/scripts/rescan_assigned_tray_rfid-script.yaml`, `spoolman_sync/scripts/assign_spool_to_printer_tray-script.yaml` |
+| Reset tray filament metadata | Clear a tray's filament info (type, color, temps) to make it report as Empty — equivalent to Bambu Studio's Reset button. Confirmation dialog via nested `browser_mod.popup`. Also clears any `input_text.*_spool_override` pin. Visible in both matched-spool and no-spool popups (hidden when tray is already empty). See [reset-tray-filament-design.md](reset-tray-filament-design.md) | `spoolman_sync/scripts/reset_tray_filament-script.yaml`, `common/dashboard_cards/card_templates/ams_tray_popup.yaml` |
+| Auto-retry deferred assignments on print completion | Create an automation that triggers on `sensor.ntk_ryansoffice_3dprinter_print_status` transitioning to `finish` or `idle`. When fired, check `sensor.last_tray_assignment_result` — if state is `deferred`, call `script.retry_deferred_tray_assignment` to automatically re-run the assignment. **Design notes**: (1) Add a short delay (10–15 s) after print completion to let AMS retract spools and tray states settle. (2) Only retry if the sensor is still `deferred` after the delay (user may have manually retried or dismissed). (3) Dismiss the `tray_assignment_deferred_*` persistent notification on successful retry. (4) If the retry also fails (e.g., printer immediately starts another print), keep the `deferred` status and notification. (5) Multiple deferred assignments are currently not supported — only the last deferred assignment is tracked in a single sensor. See the "Batch assignment & deferred queue" task for the full multi-spool queue design that should be implemented alongside auto-retry. **Current manual workaround**: The deferred popup card has a "tap to retry" action that calls `script.retry_deferred_tray_assignment`, allowing the user to manually retry after the print completes. | `spoolman_sync/automations/`, `spoolman_sync/scripts/retry_deferred_tray_assignment-script.yaml` |
 
 ---
 
@@ -988,13 +955,16 @@ The current Phase 2/3 flow is functionally correct for single-event deferrals bu
 | `spoolman_sync/automations/auto_label_spoolman_spool_location_entities.yaml` | Phase 4 (optional): auto-applies label via REST API |
 | `spoolman_sync/rest_commands/label_spoolman_entity.yaml` | Phase 4 (optional): REST command for entity registry label update |
 | `spoolman_sync/scripts/assign_pending_spool_to_tray-script.yaml` | Phase 3: Dashboard wrapper — reads pending spool ID server-side, delegates to `assign_spool_to_printer_tray` |
+| `spoolman_sync/scripts/rescan_assigned_tray_rfid-script.yaml` | RFID re-scan wrapper — reads tray entity from `sensor.last_tray_assignment_result` and calls `bambu_lab.read_rfid` to physically re-read the tray's RFID tag |
+| `spoolman_sync/scripts/retry_deferred_tray_assignment-script.yaml` | Deferred retry wrapper — reads spool + tray from `sensor.last_tray_assignment_result` and re-runs `assign_spool_to_printer_tray` with `force_write: true` |
 | `spoolman_sync/dashboard_cards/tray_assignment_status_and_picker.yaml` | Phase 3: Shared include — conditional status chip + browser_mod popup tray picker |
+| `spoolman_sync/scripts/reset_tray_filament-script.yaml` | Reset/clear filament metadata on any AMS tray or external spool — calls `bambu_lab.set_filament` with empty values, clears pin override, fires status event. See [reset-tray-filament-design.md](reset-tray-filament-design.md) |
 
 ### Modified Files
 
 | File | Change |
 |---|---|
-| `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Update Tray Settings" action chip (visible only for `manual_pin` matches) |
+| `common/dashboard_cards/card_templates/ams_tray_popup.yaml` | Add "Update Tray Settings" action chip (visible only for `manual_pin` matches); add "Reset Tray" button to both matched-spool and no-spool popups (hidden when tray is already empty) |
 | `common/dashboard_views/view_main.yaml` | Add `!include` of shared status chip + popup tray picker |
 | `common/dashboard_views/view_filament_tags.yaml` | Add "Ext. Spool" quick button; add `!include` of shared status chip + popup tray picker |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | Add `!include` of shared status chip + popup tray picker |
@@ -1027,7 +997,8 @@ The current Phase 2/3 flow is functionally correct for single-event deferrals bu
 | Non-Bambu spool location → "AMS", 1 empty tray | Auto-infer tray, set_filament called, confirmation shown |
 | Non-Bambu spool location → "AMS", 0 empty trays | Notification: "Please select tray"; pending assignment created |
 | Non-Bambu spool location → "AMS", 2+ empty trays | Notification: "Multiple empty trays — please select"; pending assignment created |
-| Bambu spool (with UUID) location → "AMS" | Skipped — RFID handles it; no set_filament call |
+| Bambu spool (with UUID) location → "AMS" | Skipped — RFID handles it; no set_filament call; status chip briefly shows "RFID spool — AMS auto-configures" (`skipped_bambu_rfid`) |
+| Bambu spool (with UUID) assigned with `force_write: true` → AMS tray | set_filament called; status `success_awaiting_rfid` if tray UUID doesn't match spool UUID after write; RFID re-scan available via popup |
 | Bambu spool (with UUID) location → "External Spool" | set_filament called (external has no RFID reader) |
 | Any spool location → "External Spool" | set_filament called on external_spool entity |
 | Spool missing `filament_material` | Assignment blocked; notification: "Incomplete spool data" |
@@ -1040,8 +1011,9 @@ The current Phase 2/3 flow is functionally correct for single-event deferrals bu
 | Manual "Update Tray Settings" from tray popup (pinned spool) | set_filament called for pinned spool + current tray |
 | Tray already has correct filament info | Skip set_filament; log "Already configured" |
 | Tray has non-empty filament info that differs from computed Spoolman target (location-change flow) | Auto-overwrite with `force_write: true` — location change is explicit user intent |
-| Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range |
-| Profile name has no Bambu match | Use generic profile for the material type |
+| Profile name matches Bambu profile exactly | Use matched profile's `tray_info_idx` and temp range; use matched profile name |
+| Profile name has no Bambu match but spool has profile_name set | Use generic `tray_info_idx` for the material type; use spool's profile_name as `resolved_profile_name` (spool is authoritative — Issue #722 fix) |
+| Profile name has no Bambu match and spool has no profile_name | Use generic profile for the material type |
 | Missing profile name and missing extruder temp, material has defaults | Proceed using generic profile + material default temp range |
 | Missing profile name and missing extruder temp, material unsupported | Assignment blocked; notification: "Unsupported material for default temp fallback" |
 | Location change to non-AMS/non-External | No action taken |

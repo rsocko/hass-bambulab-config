@@ -1,0 +1,7 @@
+spool_replace_wizard_step:
+  name: Spool Replace Wizard Step
+  min: 1
+  max: 4
+  step: 1
+  icon: mdi:numeric
+  mode: box

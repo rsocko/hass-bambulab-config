@@ -76,6 +76,8 @@
           {{ state_attr(spool_entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | trim }}
         has_rfid_uuid: >-
           {{ spool_uuid | lower not in ['', 'none', 'unknown', 'unavailable'] and not (spool_uuid | lower | regex_match('^0+$')) }}
+        spool_name: >-
+          {{ state_attr(spool_entity_id, 'friendly_name') | default('Spool #' ~ spool_id, true) }}
         is_bambu_rfid_in_ams: >-
           {{ spool_vendor == 'Bambu Lab' and (has_rfid_uuid | bool) and not target_is_external and is_supported_target }}
 
@@ -108,6 +110,17 @@
                   No tray assignment needed.
                 entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
                 domain: automation
+            - event: spoolman_tray_assignment_result
+              event_data:
+                status: skipped_bambu_rfid
+                message: >-
+                  Bambu Lab spool {{ spool_id }} moved to {{ to_location }} —
+                  AMS will auto-configure via RFID reader.
+                spool_entity_id: "{{ spool_entity_id }}"
+                tray_entity_id: ""
+                tray_info_idx: ""
+                tray_type: ""
+                tray_color: ""
             - stop: Bambu RFID spool in AMS — RFID reader is authoritative
 
     - choose:
@@ -144,9 +157,9 @@
                   sequence:
                     - action: persistent_notification.create
                       data:
-                        title: Tray Assignment Did Not Complete
+                        title: "Tray Assignment Did Not Complete — {{ spool_name }}"
                         message: >-
-                          Spool {{ spool_id }} -> {{ to_location }} failed.
+                          {{ spool_name }} -> {{ to_location }} failed.
                           {{ assignment_response.message | default('Unknown tray assignment error.') }}
                         notification_id: tray_assignment_auto_failed_{{ spool_id }}
 
@@ -179,9 +192,9 @@
                 tray_color: ""
             - action: persistent_notification.create
               data:
-                title: "Tray Selection Needed — Spool #{{ spool_id }}"
+                title: "Tray Selection Needed — {{ spool_name }}"
                 message: >-
-                  Spool {{ spool_id }} moved to {{ to_location }}, but tray inference
+                  {{ spool_name }} moved to {{ to_location }}, but tray inference
                   could not pick one tray automatically
                   ({{ empty_candidate_trays | count }} empty tray{{ 's' if (empty_candidate_trays | count) != 1 else '' }} found).
 

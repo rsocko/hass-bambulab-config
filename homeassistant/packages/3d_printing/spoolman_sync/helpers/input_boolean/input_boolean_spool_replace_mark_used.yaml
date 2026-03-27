@@ -1,0 +1,4 @@
+spool_replace_mark_used:
+  name: Mark as Used in Current Print
+  initial: false
+  icon: mdi:printer-3d-nozzle

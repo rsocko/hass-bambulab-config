@@ -227,6 +227,7 @@ cards:
           - input_select.filament_catalog_filter_sealed
           - input_select.filament_catalog_filter_desiccant
           - input_select.filament_catalog_filter_data_quality
+          - input_text.filament_catalog_search
           - sensor.filament_catalog_filtered_spools
         card:
           type: custom:bubble-card
@@ -475,8 +476,8 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }))}
-              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }))}
+              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || !!(states['input_text.filament_catalog_search']?.state))}
+              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || !!(states['input_text.filament_catalog_search']?.state))}
               tap_action:
                 action: call-service
                 service: script.filament_catalog_clear_filters

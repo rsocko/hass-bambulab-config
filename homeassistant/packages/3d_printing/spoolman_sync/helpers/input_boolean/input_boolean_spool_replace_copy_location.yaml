@@ -1,0 +1,4 @@
+spool_replace_copy_location:
+  name: Copy Location
+  initial: true
+  icon: mdi:map-marker

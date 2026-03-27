@@ -1,0 +1,162 @@
+# spool_replace_wizard_step4.yaml
+# Step 4: Review & Execute
+# Shows a live summary of what will happen (Jinja2 markdown), source/target IDs.
+# Nav: Execute (calls spool_replace_execute, green), Cancel.
+#
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+
+spool_replace_wizard_step4:
+  show_icon: false
+  show_name: false
+  show_state: false
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: none
+      - box-shadow: none
+      - padding: 0
+      - text-align: left
+    grid:
+      - grid-template-areas: '"stepper" "summary" "nav"'
+      - grid-template-columns: 1fr
+      - grid-template-rows: auto auto auto
+    custom_fields:
+      stepper:
+        - padding: 0
+      summary:
+        - padding: 0
+        - text-align: left
+      nav:
+        - padding: 8px 0 0 0
+  custom_fields:
+    stepper: |
+      [[[
+        return '<div style="text-align:center;padding:0 0 8px 0;">'
+          + '<div style="font-size:0.85em;color:var(--secondary-text-color);">Step 4 of 4</div>'
+          + '<div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '<div style="width:40px;height:3px;border-radius:2px;background:var(--primary-color);"></div>'
+          + '</div></div>';
+      ]]]
+    summary:
+      card:
+        type: markdown
+        card_mod:
+          style: |
+            ha-card {
+              text-align: left;
+            }
+            .card-content {
+              text-align: left;
+            }
+        content: >
+          {% set src_id = states('input_text.spool_replace_source_spool_id') %}
+          {% set tgt_id = states('input_text.spool_replace_target_spool_id') %}
+          {% set src = 'sensor.spoolman_spool_' ~ src_id %}
+          {% set tgt = 'sensor.spoolman_spool_' ~ tgt_id %}
+
+          ### Summary
+
+          **Source:** {{ state_attr(src, 'friendly_name') | default('Unknown', true) }} #{{ src_id }}
+
+          - **Weight:** Reset to 0g
+
+          - **Archive in Spoolman:** {% if is_state('input_boolean.spool_replace_archive_source', 'on') %}Yes{% else %}No{% endif %}
+
+          ---
+
+          **Target:** {{ state_attr(tgt, 'friendly_name') | default('Unknown', true) }} #{{ tgt_id }}
+
+          - **Unsealed:** Yes (Date Opened set to today)
+
+          {% if is_state('input_boolean.spool_replace_copy_spool_type', 'on') %}- **Spool Type:** {{ state_attr(src, 'extra_spool_type') | default('(none)', true) }}{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_clip_type', 'on') %}- **Clip Type:** {{ state_attr(src, 'extra_clip_type') | default('(none)', true) }}{% endif %}
+
+          {% set des_mode = states('input_select.spool_replace_desiccant_mode') %}
+          {% if des_mode == 'Copy from old spool' %}- **Desiccant Fill Date:** Copy from source{% elif des_mode == 'Reset to today' %}- **Desiccant Fill Date:** Reset to today{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_desiccant_present', 'on') %}- **Desiccant in Spool:** Copy from source{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_copy_location', 'on') %}- **Location:** {{ state_attr(src, 'location') | default('(none)', true) }}{% endif %}
+
+          {% if is_state('input_boolean.spool_replace_mark_used', 'on') %}- **Mark as Used:** Yes (set first/last used){% endif %}
+    nav:
+      card:
+        type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "var(--primary-color)"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px
+          - type: custom:button-card
+            name: Execute
+            icon: mdi:check-bold
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: script.spool_replace_execute
+                    - service: browser_mod.delay
+                      data:
+                        time: 2000
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: browser_mod.close_popup
+            styles:
+              grid:
+                - grid-template-areas: '"i" "n"'
+                - grid-template-rows: min-content min-content
+                - justify-items: center
+                - align-items: center
+              card:
+                - background: "#4CAF50"
+                - box-shadow: none
+                - border-radius: 6px
+                - padding: 6px
+              name:
+                - color: white
+                - font-weight: 500
+                - font-size: 12px
+              icon:
+                - color: white
+                - width: 20px
+                - height: 20px
+                - margin-bottom: 2px

@@ -1,0 +1,163 @@
+# Docs: docs/features/spoolman_sync/reset-tray-filament-design.md
+reset_tray_filament:
+  alias: Reset Tray Filament Info
+  description: >-
+    Clears filament metadata on an AMS tray or external spool by calling
+    bambu_lab.set_filament with empty values. Equivalent to Bambu Studio's
+    "Reset" button. Also clears any active manual spool pin on the tray.
+  icon: mdi:delete-sweep
+  mode: single
+  fields:
+    tray_entity_id:
+      name: Tray Entity ID
+      description: Target tray sensor entity (AMS tray or external spool)
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        tray_entity_id: "{{ tray_entity_id | default('', true) | string | trim }}"
+        tray_entity_ok: >-
+          {{ (tray_entity_id | string) | length > 0
+             and states(tray_entity_id) not in ['unknown', 'unavailable'] }}
+        is_external_tray: "{{ tray_entity_id == 'sensor.ntk_ryansoffice_3dprinter_external_spool' }}"
+        is_ams_tray: "{{ tray_entity_id | regex_match('^sensor\\..*_ams_\\d+_tray_\\d+$') }}"
+        tray_type_raw: >-
+          {{ state_attr(tray_entity_id, 'type') | default('', true) | string | trim }}
+        tray_name_raw: >-
+          {{ state_attr(tray_entity_id, 'name') | default('', true) | string | trim }}
+        is_already_empty: >-
+          {% if is_ams_tray | bool %}
+            {{ tray_type_raw | lower == 'empty' }}
+          {% elif is_external_tray | bool %}
+            {{ tray_name_raw == 'Empty' }}
+          {% else %}
+            {{ false }}
+          {% endif %}
+        tray_label: >-
+          {% set tray_labels = {
+            'sensor.p1s_01p00c460102350_ams_1_tray_1': 'AMS 1 Tray 1',
+            'sensor.p1s_01p00c460102350_ams_1_tray_2': 'AMS 1 Tray 2',
+            'sensor.p1s_01p00c460102350_ams_1_tray_3': 'AMS 1 Tray 3',
+            'sensor.p1s_01p00c460102350_ams_1_tray_4': 'AMS 1 Tray 4',
+            'sensor.p1s_01p00c460102350_ams_2_tray_1': 'AMS 2 Tray 1',
+            'sensor.p1s_01p00c460102350_ams_2_tray_2': 'AMS 2 Tray 2',
+            'sensor.p1s_01p00c460102350_ams_2_tray_3': 'AMS 2 Tray 3',
+            'sensor.p1s_01p00c460102350_ams_2_tray_4': 'AMS 2 Tray 4',
+            'sensor.ntk_ryansoffice_3dprinter_external_spool': 'External Spool'
+          } %}
+          {{ tray_labels.get(tray_entity_id, tray_entity_id) }}
+        override_helper: >-
+          {% set tray_by_entity = {
+            'sensor.p1s_01p00c460102350_ams_1_tray_1': 'ams_1_tray_1',
+            'sensor.p1s_01p00c460102350_ams_1_tray_2': 'ams_1_tray_2',
+            'sensor.p1s_01p00c460102350_ams_1_tray_3': 'ams_1_tray_3',
+            'sensor.p1s_01p00c460102350_ams_1_tray_4': 'ams_1_tray_4',
+            'sensor.p1s_01p00c460102350_ams_2_tray_1': 'ams_2_tray_1',
+            'sensor.p1s_01p00c460102350_ams_2_tray_2': 'ams_2_tray_2',
+            'sensor.p1s_01p00c460102350_ams_2_tray_3': 'ams_2_tray_3',
+            'sensor.p1s_01p00c460102350_ams_2_tray_4': 'ams_2_tray_4',
+            'sensor.ntk_ryansoffice_3dprinter_external_spool': 'external_spool'
+          } %}
+          {% set tray_key = tray_by_entity.get(tray_entity_id, '') %}
+          {{ 'input_text.' ~ tray_key ~ '_spool_override' if tray_key | length > 0 else '' }}
+        print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | lower }}"
+        smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
+        printer_busy: >-
+          {{ print_status in ['running', 'pause', 'paused', 'prepare', 'preparing']
+             or smart_status in ['printing', 'preparing', 'heating', 'leveling'] }}
+
+    # --- Validation: tray entity must be valid ---
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ not (tray_entity_ok | bool) }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: Tray Reset Failed
+                message: "The selected tray is invalid or unavailable. Please try again from the dashboard."
+                notification_id: tray_reset_failed
+            - stop: Invalid tray entity
+
+    # --- Validation: must be an AMS tray or external spool ---
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ not (is_ams_tray | bool) and not (is_external_tray | bool) }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: Tray Reset Failed
+                message: "The selected entity is not a recognized AMS tray or external spool."
+                notification_id: tray_reset_failed
+            - stop: Not a tray entity
+
+    # --- Guard: already empty ---
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ is_already_empty | bool }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: Tray Reset Skipped
+                message: "{{ tray_label }} is already empty."
+                notification_id: tray_reset_skipped
+            - stop: Tray is already empty
+
+    # --- Guard: printer busy ---
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ printer_busy | bool }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: Tray Reset Blocked
+                message: >-
+                  Cannot reset {{ tray_label }} while the printer is actively
+                  printing. Wait for the current print to finish and try again.
+                notification_id: tray_reset_blocked
+            - stop: Printer is busy
+
+    # --- Clear filament metadata via set_filament with empty values ---
+    - action: bambu_lab.set_filament
+      data:
+        entity_id: "{{ tray_entity_id }}"
+        tray_info_idx: ""
+        tray_color: "00000000"
+        tray_type: ""
+        nozzle_temp_min: 0
+        nozzle_temp_max: 0
+
+    # --- Clear manual spool pin if one exists ---
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ override_helper | length > 0
+                   and states(override_helper) not in ['', 'unknown', 'unavailable', 'none'] }}
+          sequence:
+            - action: input_text.set_value
+              data:
+                entity_id: "{{ override_helper }}"
+                value: ""
+
+    # --- Fire tray assignment result event for status chip ---
+    - event: spoolman_tray_assignment_result
+      event_data:
+        status: success
+        message: "Cleared filament info on {{ tray_label }}."
+        spool_entity_id: ""
+        tray_entity_id: "{{ tray_entity_id }}"
+        tray_info_idx: ""
+        tray_type: ""
+        tray_color: ""
+
+    # --- Confirmation notification ---
+    - action: persistent_notification.create
+      data:
+        title: Tray Reset Successful
+        message: "Filament info cleared on {{ tray_label }}."
+        notification_id: tray_reset_success

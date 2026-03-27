@@ -484,6 +484,7 @@ badges:
   show_name: true
   show_state: true
   show_icon: true
+  name: Serial Number
   entity: sensor.3d_printer_serial_number_display
   icon: mdi:barcode
 - type: entity

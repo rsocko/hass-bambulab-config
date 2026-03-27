@@ -174,10 +174,12 @@ resolve_bambu_filament_params:
       resolved_profile_name: >-
         {% if matched_profile.get('profile_name') is string and (matched_profile.get('profile_name') | string) | length > 0 %}
           {{ matched_profile.get('profile_name') }}
+        {% elif (profile_name | string) | length > 0 %}
+          {{ profile_name }}
         {% elif fallback_for_material.get('profile_name') is string and (fallback_for_material.get('profile_name') | string) | length > 0 %}
           {{ fallback_for_material.get('profile_name') }}
         {% else %}
-          {{ profile_name }}
+          {{ '' }}
         {% endif %}
       nozzle_temp_min: >-
         {% set from_profile = matched_profile.get('nozzle_temp_min', 0) | int(0) %}

@@ -1189,6 +1189,26 @@ jobs:
           fi
 
           do_reload_domains() {
+            # Re-process configuration.yaml and packages from disk before domain reloads.
+            # Without this, domain-specific reloads may use stale in-memory package config.
+            echo "Reloading core config (homeassistant.reload_core_config)..."
+            if core_config_output="$(ha core api post --raw-json '{}' '/api/services/homeassistant/reload_core_config' 2>&1)"; then
+              echo "  OK: homeassistant/reload_core_config"
+            else
+              echo "  ERROR: homeassistant/reload_core_config"
+              echo "$core_config_output"
+              if [ "$reload_strict" = "true" ]; then
+                echo "Strict mode: aborting domain reloads because core config reload failed."
+                return 1
+              fi
+            fi
+
+            # The reload_core_config service call is asynchronous — HA returns 200 immediately
+            # but re-processes configuration.yaml and packages in the background. Wait for HA
+            # to finish before firing domain-specific reloads, otherwise they see stale config.
+            echo "Waiting for core config reload to settle..."
+            sleep 5
+
             # These domains are commonly edited in package-based repos and support reload services.
             local reload_domains=(
               automation
@@ -1317,6 +1337,21 @@ jobs:
             fi
 
             do_reload_domains() {
+              echo "Reloading core config (homeassistant.reload_core_config)..."
+              if core_config_output="$(ha core api post --raw-json '{}' '/api/services/homeassistant/reload_core_config' 2>&1)"; then
+                echo "  OK: homeassistant/reload_core_config"
+              else
+                echo "  ERROR: homeassistant/reload_core_config"
+                echo "$core_config_output"
+                if [ "$reload_strict" = "true" ]; then
+                  echo "Strict mode: aborting domain reloads because core config reload failed."
+                  return 1
+                fi
+              fi
+
+              echo "Waiting for core config reload to settle..."
+              sleep 5
+
               local reload_domains=(
                 automation
                 script

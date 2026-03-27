@@ -74,7 +74,8 @@ This is the most complex mapping. The `tray_info_idx` is Bambu's internal filame
                ▼
 ┌─────────────────────────────────────────┐
 │ 2. Call bambu_lab.get_filament_data     │
-│    (or use cached response)             │
+│    (printer_device_id auto-derived from │
+│     tray entity if not provided)        │
 │    → returns JSON of all profiles       │
 └──────────────┬──────────────────────────┘
                │
@@ -90,12 +91,19 @@ This is the most complex mapping. The `tray_info_idx` is Bambu's internal filame
    Match found    No match
        │               │
        ▼               ▼
-  Use matched     ┌─────────────────────┐
-  entry's ID      │ 4. Fallback:        │
-  and temp range  │    Use generic ID   │
-                  │    for material type │
-                  └─────────────────────┘
+  Use matched     ┌──────────────────────────┐
+  entry's ID,     │ 4a. profile_name set on  │
+  temp range,     │     spool? Use spool's   │
+  and name        │     profile_name as-is   │
+                  │     (spool is authority)  │
+                  │                          │
+                  │ 4b. No profile_name?     │
+                  │     Fallback: generic ID │
+                  │     for material type    │
+                  └──────────────────────────┘
 ```
+
+> **Bug fix (Issue #722)**: The original implementation used the generic material fallback profile name (e.g., "Generic PLA") even when the spool had its own profile name (e.g., "Bambu PLA Basic"). The corrected flow treats the spool's profile name as authoritative — the generic fallback is only used when the spool has no profile name at all.
 
 #### Profile Name Handling
 

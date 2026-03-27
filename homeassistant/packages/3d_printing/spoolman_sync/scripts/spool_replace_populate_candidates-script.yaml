@@ -1,0 +1,68 @@
+# Docs: docs/features/spoolman_sync/spool-replace-refill-design.md
+spool_replace_populate_candidates:
+  alias: Spool Replace — Populate Sealed Candidates
+  description: >-
+    Populates input_select.spool_replace_target_picker with sealed, non-archived
+    spools matching the given filament_id. Called before opening the Step 2 popup.
+  icon: mdi:swap-horizontal
+  fields:
+    filament_id:
+      description: The filament ID to match sealed replacement spools against.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        fid: "{{ filament_id | string }}"
+        candidates: >-
+          {% set fid_local = filament_id | string %}
+          {% set ns = namespace(results=[]) %}
+          {% for s in states.sensor
+             if s.entity_id.startswith('sensor.spoolman_spool_')
+             and state_attr(s.entity_id, 'filament_id') | default('') | string == fid_local
+             and state_attr(s.entity_id, 'extra_sealed') in [true, 'true', 'True', 1, '1', 'on', 'On']
+             and state_attr(s.entity_id, 'archived') | default(false) not in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+            {% set sid = state_attr(s.entity_id, 'id') | default('?') %}
+            {% set sname = s.name | default('Unknown') %}
+            {% set sloc = state_attr(s.entity_id, 'location') | default('N/A') %}
+            {% set swt = state_attr(s.entity_id, 'initial_weight') | default('?') %}
+            {% set ns.results = ns.results + [sname ~ ' (#' ~ sid ~ ') 📍 ' ~ sloc ~ ' — ' ~ swt ~ 'g'] %}
+          {% endfor %}
+          {{ ns.results }}
+
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.spool_replace_target_picker
+      data:
+        options: >-
+          {% if candidates | length > 0 %}
+            {{ candidates }}
+          {% else %}
+            {{ ['No sealed spools found'] }}
+          {% endif %}
+
+    # Select the first candidate by default if available
+    - if:
+        - condition: template
+          value_template: "{{ candidates | length > 0 }}"
+      then:
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.spool_replace_target_picker
+          data:
+            option: "{{ candidates[0] }}"
+        # Extract spool ID from first candidate and write to target spool ID helper
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.spool_replace_target_spool_id
+          data:
+            value: "{{ candidates[0].split('(#')[1].split(')')[0] | trim }}"
+
+    - action: system_log.write
+      data:
+        message: >-
+          Spool Replace: Populated {{ candidates | length }} sealed candidate(s)
+          for filament_id '{{ fid }}'.
+          {% if candidates | length > 0 %}Candidates: {{ candidates | join(', ') }}{% endif %}
+        level: warning
+        logger: homeassistant.components.bambulab.spool_replace

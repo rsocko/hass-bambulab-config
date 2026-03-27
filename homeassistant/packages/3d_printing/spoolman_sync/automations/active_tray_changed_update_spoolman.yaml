@@ -193,9 +193,9 @@
             data:
               title: "Spoolman Spool Updated: {{ find_spool_response.spool.filament.name }}"
               message: >-
-                Active tray changed - updated last used for spool ID {{
-                find_spool_response.spool.id }} ({{
-                find_spool_response.spool.filament.name }}). Tray: {{
+                Active tray changed - updated last used for
+                {{ find_spool_response.spool.filament.name }} (Spool #{{
+                find_spool_response.spool.id }}). Tray: {{
                 active_tray.name }}{{ external_spool_suffix }}.
               notification_id: >-
                 spoolman_active_tray_{{ active_tray.uuid if active_tray.uuid and
@@ -255,23 +255,23 @@
               title: "Spoolman Update Error: Cannot Find Spool"
               message: >-
                 **Print Job:** {{ task_name }}
-  
+
                 Cannot update Spoolman with last used spool information.
-  
+
                 **Error:** {{ find_spool_response.message }}
-  
-  
+
+
                 **Active Tray Details:**{{ external_spool_suffix }}
-  
-                - UUID: `{{ active_tray.uuid }}`
-  
-                - Color: `{{ active_tray.color }}`
-  
-                - Type: `{{ active_tray.type }}`
-  
-                - Name: `{{ active_tray.name }}`
-  
-  
+
+                - UUID: {{ active_tray.uuid }}
+
+                - Color: {{ active_tray.color }}
+
+                - Type: {{ active_tray.type }}
+
+                - Profile: {{ active_tray.name }}
+
+
                 This may indicate the spool is not registered in Spoolman or
                 multiple spools match.
               notification_id: >-
