@@ -40,86 +40,73 @@ spool_replace_wizard_step2:
   custom_fields:
     header:
       card:
-        type: vertical-stack
-        cards:
-          - type: custom:button-card
-            icon: mdi:swap-horizontal
-            show_icon: true
-            show_name: true
-            show_label: true
-            tap_action:
-              action: none
-            name: Select a replacement spool
-            label: |
-              [[[
-                const srcId = states['input_text.spool_replace_source_spool_id']?.state;
-                const srcEntity = (srcId && srcId !== '') ? states['sensor.spoolman_spool_' + srcId] : null;
-                const filamentName = srcEntity?.attributes?.filament_name || 'this filament';
-                const vendor = srcEntity?.attributes?.filament_vendor_name || '';
-                return 'Showing sealed spools of ' + (vendor ? filamentName + ' (' + vendor + ')' : filamentName);
-              ]]]
-            styles:
-              grid:
-                - grid-template-areas: '"i n" "i l"'
-                - grid-template-columns: min-content auto
-              card:
-                - background: none
-                - box-shadow: none
-                - padding: 0
-              icon:
-                - color: var(--info-color)
-                - width: 20px
-                - height: 20px
-              name:
-                - font-weight: 600
-                - justify-self: start
-                - font-size: 1em
-              label:
-                - font-size: 0.9em
-                - color: var(--secondary-text-color)
-                - justify-self: start
-                - white-space: nowrap
-                - overflow: hidden
-                - text-overflow: ellipsis
-          - type: custom:button-card
-            show_icon: false
-            show_name: false
-            show_state: false
-            tap_action:
-              action: none
-            styles:
-              card:
-                - background: var(--card-background-color)
-                - border: 1px solid var(--divider-color)
-                - border-radius: 8px
-                - padding: 8px 12px
-                - box-shadow: none
-                - font-size: 0.9em
-                - overflow: hidden
-              custom_fields:
-                info:
-                  - min-width: 0
-                  - overflow: hidden
-                  - justify-self: start
-                  - width: 100%
-            custom_fields:
-              info: |
-                [[[
-                  const srcId = states['input_text.spool_replace_source_spool_id']?.state;
-                  const srcEntity = (srcId && srcId !== '') ? states['sensor.spoolman_spool_' + srcId] : null;
-                  const name = srcEntity?.attributes?.friendly_name || 'Unknown';
-                  const rawColor = (srcEntity?.attributes?.filament_color_hex || '888888').replace('#', '');
-                  const colorHex = '#' + rawColor;
-                  const entityPicture = srcEntity?.attributes?.entity_picture || '';
-                  const srcImgHtml = entityPicture
-                    ? '<img src="' + entityPicture + '" style="width:24px;height:24px;border-radius:50%;border:2px solid ' + colorHex + ';vertical-align:middle;margin-right:6px;object-fit:cover;">'
-                    : '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colorHex + ';vertical-align:middle;margin-right:6px;border:1px solid var(--divider-color);"></span>';
-                  return '<div style="display:flex;align-items:center;min-width:0;overflow:hidden;">'
-                    + srcImgHtml
-                    + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'
-                    + 'Replacing:&nbsp; <strong>' + name + '</strong>&nbsp; #' + srcId
-                    + '</span></div>';
-                ]]]
+        type: custom:button-card
+        icon: mdi:swap-horizontal
+        show_icon: true
+        show_name: true
+        show_label: true
+        tap_action:
+          action: none
+        name: Select a replacement spool
+        label: |
+          [[[
+            const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+            const srcEntity = (srcId && srcId !== '') ? states['sensor.spoolman_spool_' + srcId] : null;
+            const filamentName = srcEntity?.attributes?.filament_name || 'this filament';
+            const vendor = srcEntity?.attributes?.filament_vendor_name || '';
+            return 'Showing sealed spools of ' + (vendor ? filamentName + ' (' + vendor + ')' : filamentName);
+          ]]]
+        styles:
+          grid:
+            - grid-template-areas: '"i n" "i l" "replacing replacing"'
+            - grid-template-columns: min-content auto
+          card:
+            - background: none
+            - box-shadow: none
+            - padding: 0
+          icon:
+            - color: var(--info-color)
+            - width: 20px
+            - height: 20px
+          name:
+            - font-weight: 600
+            - justify-self: start
+            - font-size: 1em
+          label:
+            - font-size: 0.9em
+            - color: var(--secondary-text-color)
+            - justify-self: start
+            - white-space: nowrap
+            - overflow: hidden
+            - text-overflow: ellipsis
+          custom_fields:
+            replacing:
+              - margin-top: 8px
+              - padding: 8px 12px
+              - border-radius: 8px
+              - background: var(--card-background-color)
+              - border: 1px solid var(--divider-color)
+              - font-size: 0.9em
+              - overflow: hidden
+              - min-width: 0
+        custom_fields:
+          replacing: |
+            [[[
+              const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+              const srcEntity = (srcId && srcId !== '') ? states['sensor.spoolman_spool_' + srcId] : null;
+              const name = srcEntity?.attributes?.friendly_name || 'Unknown';
+              const rawColor = (srcEntity?.attributes?.filament_color_hex || '888888').replace('#', '');
+              const colorHex = '#' + rawColor;
+              const entityPicture = srcEntity?.attributes?.entity_picture || '';
+              const srcImgHtml = entityPicture
+                ? '<img src="' + entityPicture + '" style="width:24px;height:24px;border-radius:50%;border:2px solid ' + colorHex + ';vertical-align:middle;margin-right:6px;object-fit:cover;">'
+                : '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colorHex + ';vertical-align:middle;margin-right:6px;border:1px solid var(--divider-color);"></span>';
+              return '<div style="display:flex;align-items:center;min-width:0;overflow:hidden;">'
+                + srcImgHtml
+                + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'
+                + 'Replacing:&nbsp; <strong>' + name + '</strong>&nbsp; #' + srcId
+                + '</span></div>';
+            ]]]
     picker:
       card:
         type: entities
