@@ -78,6 +78,7 @@ bambu_ams_control:
           options:
             - "pause"
             - "resume"
+            - "done"
             - "reset"
     sequence_id:
       description: "Optional sequence_id value. Default is 0."
@@ -95,9 +96,9 @@ bambu_ams_control:
         param: "{{ ams_action }}"
         sequence_id: "{{ sequence_id | default('0') }}"
   sequence:
-    - alias: "Guard: action must be pause/resume/reset"
+    - alias: "Guard: action must be pause/resume/done/reset"
       condition: template
-      value_template: "{{ ams_action in ['pause', 'resume', 'reset'] }}"
+      value_template: "{{ ams_action in ['pause', 'resume', 'done', 'reset'] }}"
     - alias: "Publish ams_control command"
       action: mqtt.publish
       data:
