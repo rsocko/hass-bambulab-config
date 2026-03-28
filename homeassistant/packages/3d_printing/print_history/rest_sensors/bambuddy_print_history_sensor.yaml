@@ -62,9 +62,9 @@
       icon: mdi:image
       value_template: >-
         {% if value_json | default([]) | count > 0 %}
-          {% set thumb = value_json[0].thumbnail_path | default('') %}
-          {% if thumb %}
-            {{ states('input_text.bambuddy_api_base_url') }}/{{ thumb }}
+          {% set aid = value_json[0].id | default('') %}
+          {% if aid %}
+            {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ aid }}/thumbnail
           {% else %}
             none
           {% endif %}

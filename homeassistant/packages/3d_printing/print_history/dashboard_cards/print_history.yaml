@@ -67,9 +67,9 @@ cards:
               return `<span style="background:${bg};color:#fff;border-radius:4px;padding:1px 5px;font-size:10px;margin-right:2px">${tag}</span>`;
             }).join('');
 
-            // Thumbnail: thumbnail_path (prefixed with base URL) or fallback
-            const thumb = a.thumbnail_path
-              ? `<img src="${baseUrl}/${a.thumbnail_path}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;vertical-align:middle" loading="lazy">`
+            // Thumbnail: use /api/v1/archives/{id}/thumbnail (unauthenticated)
+            const thumb = a.id
+              ? `<img src="${baseUrl}/api/v1/archives/${a.id}/thumbnail" style="width:44px;height:44px;object-fit:cover;border-radius:6px;vertical-align:middle" loading="lazy" onerror="this.style.display='none'">`
               : `<div style="width:44px;height:44px;background:#37474F;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:20px">🖨️</div>`;
 
             return `
