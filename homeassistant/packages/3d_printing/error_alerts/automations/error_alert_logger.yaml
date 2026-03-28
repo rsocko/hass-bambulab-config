@@ -1,0 +1,63 @@
+# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Log all errors (HMS + print) to logbook and system_log when the unified
+# display wrapper transitions to 'on'.  Real errors only — test-mode excluded.
+# Each error is iterated and logged individually with type, severity, and code.
+- alias: "Error Alert: Log Errors"
+  id: error_alert_log_errors
+  description: >-
+    Write unified error alerts (HMS + print errors) to logbook and system_log
+    for persistent, searchable records.
+  mode: queued
+  max: 10
+
+  triggers:
+    - entity_id: binary_sensor.error_alert_display_wrapper
+      to: "on"
+      trigger: state
+
+  conditions:
+    # Only log real printer errors, never test-mode scenarios
+    - condition: template
+      value_template: >-
+        {{ state_attr('binary_sensor.error_alert_display_wrapper', 'source') == 'real' }}
+
+  actions:
+    - variables:
+        errs: >-
+          {{ state_attr('binary_sensor.error_alert_display_wrapper', 'errors') or [] }}
+        error_count: "{{ errs | count if errs is iterable and errs is not string else 0 }}"
+        timestamp: "{{ now().isoformat() }}"
+
+    # --- Iterate over each reported error ---
+    - repeat:
+        count: "{{ error_count }}"
+        sequence:
+          - variables:
+              idx: "{{ repeat.index - 1 }}"
+              err: "{{ errs[idx | int] }}"
+              error_type: "{{ err.type | default('unknown') | upper }}"
+              error_text: "{{ err.message | default('Unknown error') }}"
+              error_code: "{{ err.code | default('N/A') }}"
+              severity: "{{ err.severity | default('unknown') }}"
+              wiki: "{{ err.wiki | default('') }}"
+
+          # Persistent logbook entry (survives restarts, visible in entity history)
+          - action: logbook.log
+            data:
+              name: "Error Alert"
+              message: >-
+                [{{ error_type }}] [{{ severity | upper }}] {{ error_code }} — {{ error_text }}{% if wiki %} ({{ wiki }}){% endif %}
+              entity_id: binary_sensor.error_alert_display_wrapper
+
+          # System log entry (visible in Settings > System > Logs)
+          - action: system_log.write
+            data:
+              message: >-
+                Error Alert: [{{ error_type }}] [{{ severity | upper }}] {{ error_code }} — {{ error_text }}{% if wiki %} Wiki: {{ wiki }}{% endif %}
+              level: >-
+                {% if severity in ['critical', 'serious'] %}error{% else %}warning{% endif %}
+              logger: homeassistant.components.bambulab.error_alerts
+
+    # Note: persistent_notification and mobile push are handled by the
+    # notifications feature (Phase 2: error_alert_notification.yaml).
+    # This automation is responsible only for logbook + system_log records.

@@ -1,0 +1,16 @@
+error_alert_test_scenario:
+  name: Error Alert Test Scenario
+  icon: mdi:playlist-check
+  options:
+    - Real Sensor
+    - Single Serious Error
+    - Multiple Mixed Errors
+    - Critical No Wiki
+    - Legacy Errors Payload
+    - Single Print Error — User Pause
+    - Single Print Error — Cancellation
+    - Single Print Error — Mechanical
+    - Single Print Error — First Layer
+    - Single Print Error — Integration
+    - Mixed HMS + Print Error
+  initial: Real Sensor

@@ -1,0 +1,4 @@
+error_alert_test_mode:
+  name: Error Alert Test Mode
+  icon: mdi:flask-outline
+  initial: false

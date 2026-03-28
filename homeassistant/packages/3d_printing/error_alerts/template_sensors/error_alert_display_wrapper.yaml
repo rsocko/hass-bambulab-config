@@ -1,0 +1,324 @@
+# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Unified Error Alert Display Wrapper
+# Aggregates HMS errors + print errors into a single source of truth.
+# Phase 1: backward-compatible numbered attributes + new 'type' field per error.
+- name: Error Alert Display Wrapper
+  unique_id: error_alert_display_wrapper
+  icon: mdi:alert-circle
+  state: >-
+    {% set test_mode = is_state('input_boolean.error_alert_test_mode', 'on') %}
+    {% set scenario = states('input_select.error_alert_test_scenario') %}
+    {% set hms_on = is_state('binary_sensor.ntk_ryansoffice_3dprinter_hms_errors', 'on') %}
+    {% set print_err_on = is_state('binary_sensor.ntk_ryansoffice_3dprinter_print_error', 'on') %}
+    {{ test_mode and scenario != 'Real Sensor' or hms_on or print_err_on }}
+  attributes:
+    source: >-
+      {% set test_mode = is_state('input_boolean.error_alert_test_mode', 'on') %}
+      {% set scenario = states('input_select.error_alert_test_scenario') %}
+      {% if test_mode and scenario != 'Real Sensor' %}
+        test
+      {% else %}
+        real
+      {% endif %}
+
+    # --- Computed error list (used by all numbered attributes below) ---
+    # This builds a unified list of errors from both HMS and print-error sources.
+    # Test scenarios inject synthetic errors; real mode reads live entities.
+    errors: >-
+      {% set test_mode = is_state('input_boolean.error_alert_test_mode', 'on') %}
+      {% set scenario = states('input_select.error_alert_test_scenario') %}
+      {% if test_mode and scenario != 'Real Sensor' %}
+        {# ── Test scenarios ── #}
+        {% if scenario == 'Single Serious Error' %}
+          {{ [
+            { 'type': 'hms', 'severity': 'serious',
+              'code': 'HMS_0701_2200_0002_0001',
+              'message': 'AMS B Slot 3 filament has run out. Please insert a new filament.',
+              'wiki': 'https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out' }
+          ] }}
+        {% elif scenario == 'Multiple Mixed Errors' %}
+          {{ [
+            { 'type': 'hms', 'severity': 'serious',
+              'code': 'HMS_0701_2200_0002_0001',
+              'message': 'AMS B Slot 3 filament has run out. Please insert a new filament.',
+              'wiki': 'https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out' },
+            { 'type': 'hms', 'severity': 'medium',
+              'code': 'HMS_0500_4001_0001_0003',
+              'message': 'Filament cutter jam detected.',
+              'wiki': 'https://wiki.bambulab.com/en/x1/troubleshooting/cutter-jam' },
+            { 'type': 'hms', 'severity': 'minor',
+              'code': 'HMS_0A00_3001_0002_0004',
+              'message': 'Chamber fan RPM is lower than expected.',
+              'wiki': 'https://wiki.bambulab.com/en/x1/troubleshooting/fan-rpm' }
+          ] }}
+        {% elif scenario == 'Critical No Wiki' %}
+          {{ [
+            { 'type': 'hms', 'severity': 'critical',
+              'code': 'HMS_0200_0300_0005_0002',
+              'message': 'Toolhead board communication fault. Power cycle printer and re-seat cable.',
+              'wiki': '' }
+          ] }}
+        {% elif scenario == 'Legacy Errors Payload' %}
+          {{ [
+            { 'type': 'hms', 'severity': 'serious',
+              'code': 'HMS_0701_2200_0002_0001',
+              'message': 'AMS B Slot 3 filament has run out. Please insert a new filament.',
+              'wiki': 'https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out' },
+            { 'type': 'hms', 'severity': 'medium',
+              'code': 'HMS_0500_4001_0001_0003',
+              'message': 'Filament cutter jam detected.',
+              'wiki': 'https://wiki.bambulab.com/en/x1/troubleshooting/cutter-jam' }
+          ] }}
+        {% elif scenario == 'Single Print Error — User Pause' %}
+          {{ [
+            { 'type': 'print', 'severity': 'minor',
+              'code': '0300_8013',
+              'message': 'Printing paused due to the pause command added to the printing file.',
+              'wiki': '' }
+          ] }}
+        {% elif scenario == 'Single Print Error — Cancellation' %}
+          {{ [
+            { 'type': 'print', 'severity': 'minor',
+              'code': '0300_1001',
+              'message': 'Print cancelled by user.',
+              'wiki': '' }
+          ] }}
+        {% elif scenario == 'Single Print Error — Mechanical' %}
+          {{ [
+            { 'type': 'print', 'severity': 'critical',
+              'code': '0500_0200',
+              'message': 'Nozzle clog detected. Please clean the nozzle and resume.',
+              'wiki': '' }
+          ] }}
+        {% elif scenario == 'Single Print Error — First Layer' %}
+          {{ [
+            { 'type': 'print', 'severity': 'medium',
+              'code': '0C00_0100',
+              'message': 'First layer inspection failed. Check bed adhesion and retry.',
+              'wiki': '' }
+          ] }}
+        {% elif scenario == 'Single Print Error — Integration' %}
+          {{ [
+            { 'type': 'print', 'severity': 'serious',
+              'code': '9999_0001',
+              'message': 'Cannot assign filament while print is in progress.',
+              'wiki': '' }
+          ] }}
+        {% elif scenario == 'Mixed HMS + Print Error' %}
+          {{ [
+            { 'type': 'hms', 'severity': 'serious',
+              'code': 'HMS_0701_2200_0002_0001',
+              'message': 'AMS B Slot 3 filament has run out. Please insert a new filament.',
+              'wiki': 'https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out' },
+            { 'type': 'hms', 'severity': 'medium',
+              'code': 'HMS_0500_4001_0001_0003',
+              'message': 'Filament cutter jam detected.',
+              'wiki': 'https://wiki.bambulab.com/en/x1/troubleshooting/cutter-jam' },
+            { 'type': 'print', 'severity': 'medium',
+              'code': '0C00_0100',
+              'message': 'First layer inspection failed. Check bed adhesion and retry.',
+              'wiki': '' }
+          ] }}
+        {% else %}
+          {{ [] }}
+        {% endif %}
+      {% else %}
+        {# ── Real mode: aggregate HMS + print errors ── #}
+        {% set ns = namespace(errors=[]) %}
+        {# HMS errors #}
+        {% set hms_entity = 'binary_sensor.ntk_ryansoffice_3dprinter_hms_errors' %}
+        {% if is_state(hms_entity, 'on') %}
+          {% set hms_count = (state_attr(hms_entity, 'Count') or state_attr(hms_entity, 'count') or 0) | int(0) %}
+          {% for i in range(1, hms_count + 1) %}
+            {% set ns.errors = ns.errors + [{
+              'type': 'hms',
+              'severity': state_attr(hms_entity, i ~ '-Severity') | default('unknown') | string | lower,
+              'code': state_attr(hms_entity, i ~ '-Code') | default('') | string,
+              'message': state_attr(hms_entity, i ~ '-Error') | default('Unknown error') | string,
+              'wiki': state_attr(hms_entity, i ~ '-Wiki') | default('') | string
+            }] %}
+          {% endfor %}
+        {% endif %}
+        {# Print error #}
+        {% set pe_entity = 'binary_sensor.ntk_ryansoffice_3dprinter_print_error' %}
+        {% if is_state(pe_entity, 'on') %}
+          {% set pe_code = state_attr(pe_entity, 'code') | default('') | string %}
+          {% set pe_msg = state_attr(pe_entity, 'error') | default('Print error') | string %}
+          {# Severity mapping based on error code prefix #}
+          {% if pe_code[:6] == '0300_8' %}
+            {% set pe_severity = 'minor' %}
+          {% elif pe_code[:6] == '0300_1' %}
+            {% set pe_severity = 'minor' %}
+          {% elif pe_code[:5] == '0300_' %}
+            {% set pe_severity = 'serious' %}
+          {% elif pe_code[:5] == '0500_' %}
+            {% set pe_severity = 'critical' %}
+          {% elif pe_code[:5] == '0700_' %}
+            {% set pe_severity = 'serious' %}
+          {% elif pe_code[:5] == '0C00_' %}
+            {% set pe_severity = 'medium' %}
+          {% else %}
+            {% set pe_severity = 'serious' %}
+          {% endif %}
+          {% set ns.errors = ns.errors + [{
+            'type': 'print',
+            'severity': pe_severity,
+            'code': pe_code,
+            'message': pe_msg,
+            'wiki': ''
+          }] %}
+        {% endif %}
+        {{ ns.errors }}
+      {% endif %}
+
+    # --- Derived attributes ---
+    error_count: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string %}
+        {{ errs | count }}
+      {% else %}0{% endif %}
+
+    worst_severity: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% set severity_order = {'critical': 0, 'serious': 1, 'medium': 2, 'minor': 3, 'unknown': 4} %}
+      {% if errs is iterable and errs is not string and errs | count > 0 %}
+        {% set ns = namespace(worst='unknown') %}
+        {% for e in errs %}
+          {% set sev = e.severity | default('unknown') | string | lower %}
+          {% if severity_order.get(sev, 4) < severity_order.get(ns.worst, 4) %}
+            {% set ns.worst = sev %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.worst }}
+      {% else %}
+        unknown
+      {% endif %}
+
+    is_paused: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string %}
+        {{ errs | selectattr('type', 'equalto', 'print')
+                | selectattr('code', 'match', '^0300_[18]')
+                | list | count > 0 }}
+      {% else %}false{% endif %}
+
+    # --- Backward-compatible numbered attributes (Count, N-Error, N-Code, N-Severity, N-Wiki, N-Type) ---
+    Count: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string %}
+        {{ errs | count }}
+      {% else %}0{% endif %}
+
+    count: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string %}
+        {{ errs | count }}
+      {% else %}0{% endif %}
+
+    # Error 1
+    1-Error: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 1 %}
+        {{ errs[0].message | default('') }}
+      {% else %}{% endif %}
+    1-Code: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 1 %}
+        {{ errs[0].code | default('') }}
+      {% else %}{% endif %}
+    1-Severity: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 1 %}
+        {{ errs[0].severity | default('') }}
+      {% else %}{% endif %}
+    1-Wiki: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 1 %}
+        {{ errs[0].wiki | default('') }}
+      {% else %}{% endif %}
+    1-Type: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 1 %}
+        {{ errs[0].type | default('') }}
+      {% else %}{% endif %}
+
+    # Error 2
+    2-Error: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 2 %}
+        {{ errs[1].message | default('') }}
+      {% else %}{% endif %}
+    2-Code: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 2 %}
+        {{ errs[1].code | default('') }}
+      {% else %}{% endif %}
+    2-Severity: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 2 %}
+        {{ errs[1].severity | default('') }}
+      {% else %}{% endif %}
+    2-Wiki: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 2 %}
+        {{ errs[1].wiki | default('') }}
+      {% else %}{% endif %}
+    2-Type: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 2 %}
+        {{ errs[1].type | default('') }}
+      {% else %}{% endif %}
+
+    # Error 3
+    3-Error: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 3 %}
+        {{ errs[2].message | default('') }}
+      {% else %}{% endif %}
+    3-Code: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 3 %}
+        {{ errs[2].code | default('') }}
+      {% else %}{% endif %}
+    3-Severity: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 3 %}
+        {{ errs[2].severity | default('') }}
+      {% else %}{% endif %}
+    3-Wiki: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 3 %}
+        {{ errs[2].wiki | default('') }}
+      {% else %}{% endif %}
+    3-Type: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 3 %}
+        {{ errs[2].type | default('') }}
+      {% else %}{% endif %}
+
+    # Error 4 (new: print error can add a 4th slot when 3 HMS errors are active)
+    4-Error: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 4 %}
+        {{ errs[3].message | default('') }}
+      {% else %}{% endif %}
+    4-Code: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 4 %}
+        {{ errs[3].code | default('') }}
+      {% else %}{% endif %}
+    4-Severity: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 4 %}
+        {{ errs[3].severity | default('') }}
+      {% else %}{% endif %}
+    4-Wiki: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 4 %}
+        {{ errs[3].wiki | default('') }}
+      {% else %}{% endif %}
+    4-Type: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string and errs | count >= 4 %}
+        {{ errs[3].type | default('') }}
+      {% else %}{% endif %}

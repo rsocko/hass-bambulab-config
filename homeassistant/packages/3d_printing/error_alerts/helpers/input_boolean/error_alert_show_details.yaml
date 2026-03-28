@@ -1,0 +1,4 @@
+error_alert_show_details:
+  name: Error Alert Show Details
+  icon: mdi:chevron-down
+  initial: false
