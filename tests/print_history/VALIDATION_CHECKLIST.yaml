@@ -1,0 +1,391 @@
+# Phase 2 — Print History: Manual & Live Validation Checklist
+#
+# This document catalogs:
+#   A. Live HA validation results (automated via MCP, 2026-03-28)
+#   B. Manual tests requiring human interaction
+#   C. End-to-end smoke tests for the full print lifecycle
+#
+# Automated pytest tests: tests/print_history/test_phase2_print_history.py (82 tests)
+# Run: pytest tests/print_history/ -v
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# A. LIVE HA VALIDATION RESULTS (via ha-mcp-docker, 2026-03-28)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# These tests were executed against the live Home Assistant instance.
+# Re-run manually using Developer Tools → Template or the HA MCP tools.
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ TEST                                          │ RESULT │ NOTES         │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │ HA config check (`ha core check`)             │ PASS   │ Valid config  │
+# │                                                                        │
+# │ ENTITY EXISTENCE (35 entities checked)        │ 33/35  │               │
+# │   sensor.bambuddy_print_history               │ WARN   │ REST unavail  │
+# │   sensor.bambuddy_last_print_status           │ WARN   │ 'unknown'     │
+# │   (all other 33 entities)                     │ PASS   │ Materialized  │
+# │                                                                        │
+# │ AUTOMATION MODE VALIDATION                    │ PASS   │ All 6 match   │
+# │   capture_archive_id                          │ single │               │
+# │   capture_print_photos                        │ single │               │
+# │   capture_error_photos                        │ queued │               │
+# │   enrich_archive_on_complete                  │ single │               │
+# │   refresh_on_event                            │ single │               │
+# │   webhook_receiver                            │ queued │               │
+# │                                                                        │
+# │ SCRIPT MODE VALIDATION                        │ PASS   │ All 4 match   │
+# │   capture_and_upload_snapshot                  │ queued │               │
+# │   resolve_current_archive_id                   │ single │               │
+# │   load_history_page                            │ single │               │
+# │   navigate_history                             │ single │               │
+# │                                                                        │
+# │ PAGINATION MATH (live template eval)          │ PASS   │ Page 1 of 1   │
+# │                                                                        │
+# │ TRAY MAP SNAPSHOT TEMPLATE                    │ PASS   │ 130 chars     │
+# │   Format: ams_1_tray_1:25,ams_1_tray_2:72,.. │        │ < 255 limit   │
+# │                                                                        │
+# │ ENRICHMENT TAG GENERATION (live)              │ PASS   │               │
+# │   Spool tags: spoolman:25,spoolman:72,...     │        │ 8 unique IDs  │
+# │   Vendor tags: (empty from tray_map)          │ NOTE   │ See finding   │
+# │   Status/cost/ha_enriched tags                │ PASS   │               │
+# │                                                                        │
+# │ MQTT SENSOR (bambuddy_printer_status)         │ PASS   │ RUNNING       │
+# │   Connected, progress, temps, print name      │        │ Full attrs    │
+# │                                                                        │
+# │ LEGACY ENTITY CONFLICT CHECK                  │ PASS   │ No conflicts  │
+# │ DUPLICATE ENTITY (_2 suffix) CHECK            │ PASS   │ No duplicates │
+# │                                                                        │
+# │ WEBHOOK RECEIVER HEALTH                       │ PASS   │               │
+# │   State: on, last_triggered: 17:52 UTC        │        │               │
+# │                                                                        │
+# │ CAMERA DEPENDENCY                             │ PASS   │ Streaming     │
+# │ ENRICHMENT DEPENDENCIES                       │ PASS   │               │
+# │   spoolman_tray_map: available                │        │               │
+# │   print_cost: available ($0.34)               │        │               │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# FINDINGS:
+#
+# 1. REST SENSOR UNAVAILABLE — sensor.bambuddy_print_history shows
+#    restored=True after HA restart. Logbook shows it WAS polling
+#    successfully (state=0, 0 archives) between 18:47-18:57 UTC, then
+#    went unavailable post-restart at 19:12. MQTT path works fine.
+#    ACTION: Verify Bambuddy API reachability from HA host. Check
+#    http://bambuddy.socko.us/api/v1/archives from HA shell.
+#
+# 2. VENDOR TAGS EMPTY — The enrichment tag builder reads vendor from
+#    cost_breakdown and tray_map, but neither currently carries vendor
+#    info. The tray_map stores spool_id/color/material but not vendor.
+#    The cost_breakdown has material name (includes vendor prefix like
+#    "Bambu Lab Blue Gray PLA") but the separate vendor field is empty.
+#    ACTION: Either parse vendor from material name or enhance
+#    spoolman_tray_map/print_cost to expose vendor attribute.
+#
+# 3. CAPTURE TOGGLES ALL OFF — All 4 photo capture booleans are OFF.
+#    This means photo capture won't happen even during active prints.
+#    ACTION: Enable desired capture stages in HA UI or via helper values.
+#
+# 4. HISTORY FETCH DISABLED — input_boolean.bambuddy_history_fetch_enabled
+#    is OFF. While this doesn't gate the REST sensor itself, it gates
+#    the refresh and capture automations.
+#    ACTION: Turn on when ready to activate print history features.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# B. MANUAL TESTS — REQUIRE HUMAN INTERACTION
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# These tests cannot be fully automated and require you to trigger events,
+# observe dashboard behavior, or verify physical printer state.
+#
+# ── B1. WEBHOOK END-TO-END ───────────────────────────────────────────────────
+#
+# B1.1  Webhook Delivery (API Format)
+#       POST to http://<ha-host>/api/webhook/bambuddy_events
+#       Body: {"event":"print_started","data":{"archive_id":"999","name":"Test Print","printer_id":"1"}}
+#       VERIFY: Check logbook for "Received event 'print_started'"
+#       VERIFY: input_text.bambuddy_current_archive_id = "999"
+#       VERIFY: input_text.bambuddy_photo_manifest = "[]"
+#       VERIFY: input_text.bambuddy_tray_map_snapshot = <tray map CSV>
+#       VERIFY: input_select.bambuddy_photo_review_state = "idle"
+#
+# B1.2  Webhook Delivery (Notification Format)
+#       POST to http://<ha-host>/api/webhook/bambuddy_events
+#       Body: {"event":"print_complete","print_name":"Test Print","printer_id":"1","archive_id":"999"}
+#       VERIFY: Enrichment automation fires (check traces)
+#       VERIFY: rest_command.bambuddy_update_archive called with tags string
+#
+# B1.3  Webhook with Missing Archive ID
+#       POST: {"event":"print_started","data":{"name":"Test Print","printer_id":"1"}}
+#       VERIFY: script.resolve_current_archive_id is called (fallback)
+#       VERIFY: Logbook shows fallback resolution attempt
+#
+# ── B2. PHOTO CAPTURE (requires active print) ────────────────────────────────
+#
+# B2.1  Enable Capture Toggles
+#       Turn ON: input_boolean.capture_at_start
+#       Turn ON: input_boolean.capture_at_midprint
+#       Turn ON: input_boolean.capture_near_complete
+#       Turn ON: input_boolean.capture_on_error
+#
+# B2.2  Start Capture Test
+#       Start a print → wait 3 minutes (delay in start stage)
+#       VERIFY: Photo saved to /config/www/printer_snapshots/<task>_start_<ts>.jpg
+#       VERIFY: Photo manifest updated (check input_text.bambuddy_photo_manifest)
+#       VERIFY: If archive_id set, photo uploaded to Bambuddy
+#
+# B2.3  Mid-Print Capture Test
+#       Wait for print progress to cross midprint_capture_percent (default 50%)
+#       VERIFY: Photo saved as <task>_midprint_<ts>.jpg
+#
+# B2.4  Near-Complete Capture Test
+#       Wait for print progress > 94%
+#       VERIFY: Photo saved as <task>_near_complete_<ts>.jpg
+#
+# B2.5  Finish Capture Test
+#       Let print complete (or simulate print_complete webhook)
+#       VERIFY: Photo saved as <task>_finish_<ts>.jpg
+#       VERIFY: Photo review state changes to "pending" if photos were captured
+#
+# B2.6  Error Capture Test
+#       Trigger a print error (or simulate print_failed webhook)
+#       VERIFY: Photo saved as <task>_error_<ts>.jpg
+#       VERIFY: Error capture uses queued mode (send multiple rapid errors)
+#
+# B2.7  Secondary Camera Test
+#       Set input_text.secondary_camera_entity to a valid camera entity
+#       Trigger a capture event
+#       VERIFY: Two photos saved: <task>_<stage>_<ts>.jpg and <task>_<stage>_<ts>_cam2.jpg
+#
+# B2.8  Snapshot Light Test
+#       Ensure input_text.3dprinter_snapshot_light is set to a light entity
+#       Trigger a capture
+#       VERIFY: Light turns on briefly, photos captured, light turns off
+#
+# ── B3. ARCHIVE ENRICHMENT ────────────────────────────────────────────────────
+#
+# B3.1  Enrichment on Successful Print
+#       Complete a print (or send print_complete webhook with archive_id)
+#       VERIFY: Automation trace shows tag building + PATCH call
+#       VERIFY: Tags include: spoolman:<id>, material:<name>, cost:$<x>,
+#               status:success, ha_enriched:true
+#       VERIFY: Notes include cost breakdown with per-tray details
+#       VERIFY: bambuddy_current_archive_id is cleared after enrichment
+#
+# B3.2  Enrichment on Failed Print
+#       Simulate print_failed webhook
+#       VERIFY: Tags include status:failed
+#       VERIFY: Archive ID cleared after enrichment
+#
+# B3.3  Enrichment on Stopped Print
+#       Simulate print_stopped webhook
+#       VERIFY: Tags include status:stopped
+#
+# B3.4  Enrichment with No Archive ID
+#       Clear bambuddy_current_archive_id, then send print_complete webhook
+#       VERIFY: Enrichment skipped (condition blocks — archive_id is empty)
+#       VERIFY: Logbook does NOT show enrichment running
+#
+# B3.5  Verify Tag Format in Bambuddy
+#       After enrichment, open the archive in Bambuddy UI
+#       VERIFY: Tags display correctly (comma-separated, not JSON array)
+#       VERIFY: Notes section shows HA Enrichment block with cost details
+#
+# ── B4. REST SENSOR & HISTORY BROWSING ────────────────────────────────────────
+#
+# B4.1  REST Sensor Activation
+#       Ensure Bambuddy API is reachable from HA host
+#       Turn ON input_boolean.bambuddy_history_fetch_enabled
+#       Force refresh: Developer Tools → Services → homeassistant.update_entity
+#           target: sensor.bambuddy_print_history
+#       VERIFY: Sensor goes from unavailable to a number (total archives)
+#       VERIFY: sensor.bambuddy_last_print_name shows latest print name
+#       VERIFY: sensor.bambuddy_last_print_status shows success/failed/etc
+#       VERIFY: sensor.bambuddy_last_print_duration shows hours
+#       VERIFY: sensor.bambuddy_last_print_image_url shows full URL
+#
+# B4.2  History Sensor Refresh on Print Complete
+#       After a print completes, wait ~10 seconds
+#       VERIFY: sensor.bambuddy_print_history updates with new archive
+#       VERIFY: Template sensors reflect the newly completed print
+#
+# B4.3  Pagination — Navigate Forward
+#       Set input_number.bambuddy_history_limit to 5 (small page size)
+#       Call script.load_history_page with page=2
+#       VERIFY: input_number.history_current_page = 2
+#       VERIFY: input_text.history_page_data contains JSON response
+#       VERIFY: sensor.print_history_page_info = "Page 2 of N"
+#
+# B4.4  Pagination — Navigate with Script
+#       Call script.navigate_history with direction=next
+#       VERIFY: Page increments by 1
+#       Call with direction=prev from page 1
+#       VERIFY: Page stays at 1 (clamped)
+#       Call with direction=last
+#       VERIFY: Page jumps to total_pages
+#       Call with direction=first
+#       VERIFY: Page goes back to 1
+#
+# B4.5  Page Boundary Clamping
+#       Navigate to the last page, then attempt direction=next
+#       VERIFY: Page does not exceed total_pages
+#
+# ── B5. DASHBOARD UI ─────────────────────────────────────────────────────────
+#
+# B5.1  Print History View Loads
+#       Navigate to /print-history in the dashboard
+#       VERIFY: View renders without errors
+#       VERIFY: Print history table shows (may be empty if REST sensor unavailable)
+#
+# B5.2  History Table with Data
+#       With REST sensor active and archives present:
+#       VERIFY: Table shows thumbnails, print names, dates, durations, tags
+#       VERIFY: Status icons (check/alert) render correctly
+#       VERIFY: Tags display as colored chips (spoolman, vendor, material, cost)
+#
+# B5.3  Pagination Controls
+#       With > 1 page of archives:
+#       VERIFY: Prev/Next/First/Last buttons appear
+#       VERIFY: Clicking Next loads the next page
+#       VERIFY: Page info text updates ("Page X of Y")
+#       VERIFY: Prev disabled/hidden on page 1
+#       VERIFY: Next disabled/hidden on last page
+#
+# B5.4  Photo Review Chip
+#       After a print with photos captured:
+#       VERIFY: Photo review chip appears (conditional card)
+#       VERIFY: Chip shows "pending" state
+#       VERIFY: Chip hidden when state is "idle"
+#
+# B5.5  Capture Settings Section
+#       In the print history view:
+#       VERIFY: Capture toggle switches render for each stage
+#       VERIFY: Mid-print percentage slider works
+#       VERIFY: Photo review timeout slider works
+#
+# ── B6. INTEGRATION ENABLE/DISABLE ───────────────────────────────────────────
+#
+# B6.1  Master Switch Off
+#       Turn OFF input_boolean.bambuddy_integration_enabled
+#       Trigger a webhook event
+#       VERIFY: Webhook receiver does NOT fire (condition blocks)
+#       VERIFY: No downstream automations trigger
+#
+# B6.2  Master Switch On
+#       Turn ON input_boolean.bambuddy_integration_enabled
+#       Trigger a webhook event
+#       VERIFY: Webhook receiver fires and processes normally
+#
+# B6.3  History Fetch Toggle
+#       Turn OFF input_boolean.bambuddy_history_fetch_enabled
+#       VERIFY: Refresh automation does not run on print_complete
+#       (Note: REST sensor polls independently based on scan_interval)
+#
+# ── B7. ARCHIVE ID RESOLUTION FALLBACK ───────────────────────────────────────
+#
+# B7.1  Test Fallback Resolution
+#       Clear input_text.bambuddy_current_archive_id
+#       Call script.resolve_current_archive_id
+#       VERIFY: Script queries GET /archives?printer_id=X&sort=-created_at&limit=1
+#       VERIFY: If match found (task_name in archive.name), archive_id is stored
+#       VERIFY: Logbook shows "Resolved archive_id=..." or "Could not resolve..."
+#
+# B7.2  Fallback During Photo Capture
+#       Clear archive_id, then trigger a photo capture
+#       VERIFY: capture_and_upload_snapshot calls resolve_current_archive_id
+#       VERIFY: If resolved, photo is uploaded; if not, photo saved locally only
+#
+# ── B8. BAMBUDDY COMMON DEPENDENCIES ─────────────────────────────────────────
+#
+# B8.1  MQTT Sensor Connectivity
+#       VERIFY: sensor.bambuddy_printer_status shows "RUNNING"/"IDLE"/etc
+#       VERIFY: Attributes include printer_id, progress, temperatures
+#       VERIFY: Updates in near-real-time (< 2 seconds)
+#
+# B8.2  API Key Auth
+#       VERIFY: REST commands authenticate with secrets.yaml key
+#       Test: Call rest_command.bambuddy_query_recent_archive from Dev Tools
+#       VERIFY: Returns 200 OK (not 401/403)
+#
+# B8.3  Webhook URL
+#       VERIFY: Bambuddy is configured to send webhooks to:
+#               http(s)://<ha-host>/api/webhook/bambuddy_events
+#       VERIFY: Bambuddy sends both API and Notification format webhooks
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# C. END-TO-END SMOKE TEST — FULL PRINT LIFECYCLE
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Prerequisites:
+#   [ ] Bambuddy server running and reachable from HA
+#   [ ] API key configured in secrets.yaml
+#   [ ] input_boolean.bambuddy_integration_enabled = ON
+#   [ ] input_boolean.bambuddy_history_fetch_enabled = ON
+#   [ ] At least one capture toggle ON (e.g., capture_at_start, capture_on_error)
+#   [ ] Bambuddy webhook configured to POST to HA
+#   [ ] Printer connected and idle
+#
+# Steps:
+#   1. [ ] Start a short test print (~5 min benchy/cube)
+#   2. [ ] VERIFY: Bambuddy fires print_started webhook
+#   3. [ ] VERIFY: bambuddy_current_archive_id is populated
+#   4. [ ] VERIFY: bambuddy_tray_map_snapshot has tray:spool CSV
+#   5. [ ] VERIFY: bambuddy_photo_manifest reset to "[]"
+#   6. [ ] VERIFY: Start photo captured after 3-min delay (if toggle on)
+#   7. [ ] Wait for print to reach midprint threshold
+#   8. [ ] VERIFY: Midprint photo captured (if toggle on + threshold crossed)
+#   9. [ ] Wait for print to reach >94% progress
+#   10. [ ] VERIFY: Near-complete photo captured (if toggle on)
+#   11. [ ] Wait for print to complete
+#   12. [ ] VERIFY: Bambuddy fires print_complete webhook
+#   13. [ ] VERIFY: Finish photo captured
+#   14. [ ] VERIFY: Enrichment automation runs (check traces)
+#   15. [ ] VERIFY: Archive in Bambuddy has HA-enriched tags + notes
+#   16. [ ] VERIFY: History sensor refreshes (5s delay then update)
+#   17. [ ] VERIFY: Template sensors show latest print data
+#   18. [ ] VERIFY: bambuddy_current_archive_id cleared
+#   19. [ ] VERIFY: Photo review state = "pending" (if photos captured)
+#   20. [ ] VERIFY: Dashboard shows the completed print in history table
+#
+# Error Path Variant:
+#   1. [ ] Start a print and deliberately cancel/stop it mid-print
+#   2. [ ] VERIFY: print_failed/print_stopped webhook fires
+#   3. [ ] VERIFY: Error photo captured (if capture_on_error is ON)
+#   4. [ ] VERIFY: Enrichment runs with status:failed or status:stopped
+#   5. [ ] VERIFY: Archive in Bambuddy reflects error state in tags/notes
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# D. REGRESSION CHECKS — KNOWN PITFALLS
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# D1. Tags must be comma-separated strings, NOT JSON arrays
+#     The Bambuddy PATCH /archives/{id} expects: "tags": "a,b,c"
+#     NOT: "tags": ["a", "b", "c"]
+#     Verified in: test_enrichment_builds_comma_separated_tags (pytest)
+#     Verified in: test_update_archive_payload_uses_tojson_for_strings (pytest)
+#
+# D2. Tray map snapshot must fit 255-char input_text limit
+#     Uses compact format: ams_1_tray_1:25,ams_1_tray_2:72,...
+#     Verified live: 130 chars for 8 trays mapped (safe margin)
+#     Risk: > ~20 trays or very long tray names could exceed limit
+#
+# D3. YAML automations must NOT use 'enabled:' key
+#     Only UI-managed automations support this. YAML uses condition hack.
+#     Verified in: test_automations_do_not_use_enabled_key (pytest)
+#
+# D4. No 'initial:' on state-persistence helpers
+#     Prevents recorder restore on HA restart.
+#     Verified in: test_state_persistence_helpers_have_no_initial (pytest)
+#     OK on config helpers: history_limit, midprint_capture_percent, etc.
+#
+# D5. No hardcoded device_id values
+#     Legacy bambuddy had device_id 210dfdfa... hardcoded.
+#     Verified in: test_no_device_id_in_print_history (pytest)
+#
+# D6. REST sensor scan_interval must be reasonable (60s-3600s)
+#     Currently 300s (5 min). Too aggressive hammers Bambuddy API.
+#     Verified in: test_has_reasonable_scan_interval (pytest)
+#
+# D7. Vendor tags may be empty from current enrichment sources
+#     Neither cost_breakdown.vendor nor tray_map.vendor is populated.
+#     Material names include vendor prefix as workaround.
+#     FUTURE: Parse vendor from material name or enhance data sources.
