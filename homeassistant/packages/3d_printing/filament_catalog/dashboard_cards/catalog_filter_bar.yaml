@@ -34,7 +34,7 @@ cards:
               - entity: input_select.filament_catalog_tab
                 sub_button_type: select
                 name: View
-                icon: mdi:tab
+                icon: mdi:format-list-group
                 show_name: true
                 show_state: true
                 fill_width: true

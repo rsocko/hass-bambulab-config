@@ -1,7 +1,7 @@
 # Docs: docs/features/filament_catalog/filament-catalog.md
 filament_catalog_tab:
   name: "Filament Catalog Tab"
-  icon: mdi:tab
+  icon: mdi:format-list-group
   options:
     - "By Location"
     - "By Material"
