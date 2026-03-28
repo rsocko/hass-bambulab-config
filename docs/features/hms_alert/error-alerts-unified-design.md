@@ -1,6 +1,6 @@
 # Error Alerts — Unified Design
 
-> **Status:** Design  
+> **Status:** Phase 2 Complete — Phase 3 pending  
 > **Replaces:** HMS-only alert system  
 > **Scope:** Dashboard UI, notifications, logging, template sensors  
 > **Tracks:** [#667](https://github.com/rsocko/hass-bambulab-config/issues/667), [#688](https://github.com/rsocko/hass-bambulab-config/issues/688), [#717](https://github.com/rsocko/hass-bambulab-config/issues/717)
@@ -498,15 +498,15 @@ docs/features/hms_alert/                               → RENAMED: error_alerts
 
 ## Migration Checklist
 
-- [ ] Phase 1: Unified wrapper sensor created and tested
-- [ ] Phase 1: Backward compat alias verified
-- [ ] Phase 1: New test scenarios working
-- [ ] Phase 2: Unified notification automation created
+- [x] Phase 1: Unified wrapper sensor created and tested
+- [x] Phase 1: Backward compat alias verified
+- [x] Phase 1: New test scenarios working
+- [x] Phase 2: Unified notification automation created
 - [ ] Phase 2: Parallel run period completed (1 week)
-- [ ] Phase 2: WLED severity-driven effects working
-- [ ] Phase 2: Printer front/chamber light flash on critical/serious errors ([#618](https://github.com/rsocko/hass-bambulab-config/issues/618))
-- [ ] Phase 2: Minor-severity pauses send passive (not critical) notifications
-- [ ] Phase 2: Old automations disabled
+- [x] Phase 2: WLED severity-driven effects working
+- [x] Phase 2: Printer front/chamber light flash on critical/serious errors ([#618](https://github.com/rsocko/hass-bambulab-config/issues/618))
+- [x] Phase 2: Minor-severity pauses send passive (not critical) notifications
+- [x] Phase 2: Old automations disabled
 - [ ] Phase 3: New dashboard card deployed
 - [ ] Phase 3: Action buttons use correct protocol per error type (Resume Print vs AMS Retry/Done vs Dismiss)
 - [ ] Phase 3: Dismiss button invokes `clean_print_error` (not just UI-only)

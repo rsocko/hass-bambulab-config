@@ -1,0 +1,45 @@
+# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Phase 2: Dismiss persistent notification and restore WLED when all errors clear.
+- alias: "Error Alert: Clear on Resolve"
+  id: error_alert_clear_on_resolve
+  description: >-
+    When the unified error wrapper returns to 'off' (all HMS + print errors resolved),
+    dismiss the persistent notification and restore WLED to normal state.
+  mode: single
+
+  triggers:
+    - entity_id: binary_sensor.error_alert_display_wrapper
+      to: "off"
+      trigger: state
+
+  conditions:
+    # Only act on real clears, not test-mode toggling
+    - condition: template
+      value_template: >-
+        {{ state_attr('binary_sensor.error_alert_display_wrapper', 'source') != 'test' }}
+
+  actions:
+    # ── Dismiss persistent notification ───────────────────────────
+    - action: persistent_notification.dismiss
+      data:
+        notification_id: "error_alert_active"
+
+    # ── Restore WLED front-door segments to normal state ──────────
+    # Re-apply the current core state preset so the WLED state machine
+    # regains control of segments 0+1 (progress bars).
+    - if:
+        - condition: template
+          value_template: "{{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}"
+        - condition: state
+          entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+          state: "on"
+      then:
+        - action: script.wled_3dprinter_apply_core_state_to_presets
+          data: {}
+          continue_on_error: true
+
+    # ── Log the clear ─────────────────────────────────────────────
+    - action: logbook.log
+      data:
+        name: Error Alert
+        message: "All errors resolved — persistent notification dismissed, WLED restored."

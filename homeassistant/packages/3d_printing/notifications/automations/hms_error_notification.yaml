@@ -1,8 +1,11 @@
 # Docs: docs/features/notifications/README.md
+# DEPRECATED Phase 2: Superseded by error_alert_notification.yaml (unified pipeline).
+# Kept for rollback during parallel-run period. Remove in Phase 4.
 # Notify on HMS hardware/firmware errors via mobile push, persistent notification,
 # and optional TTS — using the same delivery helpers as the other print notifications.
 - alias: "HMS Error Notification with Snapshot"
   id: hms_error_notification_with_snapshot
+  enabled: false
   description: >
     Sends a notification with camera snapshot when the printer reports one or more
     HMS errors (filament runout, cutter jam, fan fault, etc.).

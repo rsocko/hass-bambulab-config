@@ -1,0 +1,272 @@
+# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Phase 2: Unified notification for all error types (HMS + print errors).
+# Replaces: hms_error_notification.yaml + print_fault_notification.yaml
+# Severity-based mobile push, persistent notification, TTS, WLED, chamber light.
+- alias: "Error Alert: Unified Notification"
+  id: error_alert_unified_notification
+  description: >-
+    Single notification pipeline for all printer errors. Reads the unified
+    error_alert_display_wrapper to build one notification covering HMS errors,
+    print errors, and mixed conditions. Severity determines push priority,
+    WLED color, chamber light flash, and TTS behavior.
+  mode: queued
+  max: 5
+
+  triggers:
+    - entity_id: binary_sensor.error_alert_display_wrapper
+      to: "on"
+      trigger: state
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.3dprinter_notifications_enabled
+      state: "on"
+    # Only notify on real printer errors, not test-mode scenarios
+    - condition: template
+      value_template: >-
+        {{ state_attr('binary_sensor.error_alert_display_wrapper', 'source') == 'real' }}
+
+  actions:
+    # ── Gather data from unified wrapper ──────────────────────────
+    - variables:
+        printer_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_printer_name') }}"
+        task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+        print_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_status') }}"
+        camera_entity: "camera.ntk_ryansoffice_3dprinter_camera"
+        snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
+        snapshot_filename: "{{ now().strftime('%Y%m%d_%H%M%S') }}_ERROR.jpg"
+        timestamp: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+        errs: >-
+          {{ state_attr('binary_sensor.error_alert_display_wrapper', 'errors') or [] }}
+        error_count: >-
+          {{ errs | count if errs is iterable and errs is not string else 0 }}
+        worst_severity: >-
+          {{ state_attr('binary_sensor.error_alert_display_wrapper', 'worst_severity') | default('unknown') }}
+        is_urgent: "{{ worst_severity in ['critical', 'serious'] }}"
+        has_hms: >-
+          {{ errs | selectattr('type', 'equalto', 'hms') | list | count > 0
+             if errs is iterable and errs is not string else false }}
+        has_print: >-
+          {{ errs | selectattr('type', 'equalto', 'print') | list | count > 0
+             if errs is iterable and errs is not string else false }}
+
+    # ── Build unified error summary ───────────────────────────────
+    - variables:
+        error_summary: >-
+          {% if errs is iterable and errs is not string %}
+            {% for e in errs %}
+          {{ loop.index }}. [{{ e.type | default('?') | upper }}] [{{ e.severity | default('unknown') | upper }}] {{ e.code | default('N/A') }} — {{ e.message | default('Unknown error') }}
+          {% if e.wiki | default('') | length > 0 %}   Troubleshoot: {{ e.wiki }}
+          {% endif %}
+            {% endfor %}
+          {% endif %}
+        notification_title: >-
+          {% if worst_severity == 'critical' %}🔴 Critical Error Alert
+          {% elif worst_severity == 'serious' %}🟠 Serious Error Alert
+          {% elif worst_severity == 'medium' %}🟡 Error Warning
+          {% else %}⚪ Error Notice{% endif %}
+        push_priority: >-
+          {% if worst_severity in ['critical', 'serious'] %}critical
+          {% elif worst_severity == 'medium' %}active
+          {% else %}passive{% endif %}
+        source_label: >-
+          {% if has_hms | bool and has_print | bool %}HMS + Print
+          {% elif has_hms | bool %}HMS
+          {% elif has_print | bool %}Print
+          {% else %}Unknown{% endif %}
+
+    # ── Snapshot capture with light control ───────────────────────
+    - if:
+        - condition: template
+          value_template: "{{ snapshot_light != '' and snapshot_light != 'unavailable' }}"
+      then:
+        - action: light.turn_on
+          target:
+            entity_id: "{{ snapshot_light }}"
+          data:
+            brightness_pct: "{{ states('input_number.3dprinter_snapshot_light_brightness') | int }}"
+        - delay:
+            seconds: 1
+
+    - action: camera.snapshot
+      target:
+        entity_id: "{{ camera_entity }}"
+      data:
+        filename: "/config/www/printer_snapshots/{{ snapshot_filename }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ snapshot_light != '' and snapshot_light != 'unavailable' }}"
+      then:
+        - delay:
+            seconds: 1
+        - action: light.turn_off
+          target:
+            entity_id: "{{ snapshot_light }}"
+
+    # ── Mobile push notifications (severity-based priority) ───────
+    - action: notify.mobile_app_ryphone16
+      data:
+        title: "{{ notification_title }}"
+        message: >-
+          {{ printer_name }} — {{ error_count }} {{ source_label }} error{{ 's' if error_count | int > 1 }} (worst: {{ worst_severity }})
+
+          {{ error_summary }}
+        data:
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
+          image: "/local/printer_snapshots/{{ snapshot_filename }}"
+          push:
+            interruption-level: "{{ push_priority }}"
+          actions:
+            - action: "URI"
+              title: "View Printer"
+              uri: "/3d-printing"
+
+    - action: notify.mobile_app_rypad10
+      data:
+        title: "{{ notification_title }}"
+        message: >-
+          {{ printer_name }} — {{ error_count }} {{ source_label }} error{{ 's' if error_count | int > 1 }} (worst: {{ worst_severity }})
+
+          {{ error_summary }}
+        data:
+          url: "/3d-printing"
+          clickAction: "/3d-printing"
+          image: "/local/printer_snapshots/{{ snapshot_filename }}"
+          push:
+            interruption-level: "{{ push_priority }}"
+          actions:
+            - action: "URI"
+              title: "View Printer"
+              uri: "/3d-printing"
+
+    # ── Persistent notification (critical/serious only) ───────────
+    - if:
+        - condition: template
+          value_template: "{{ is_urgent | bool }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            notification_id: "error_alert_active"
+            title: "{{ notification_title }}"
+            message: >
+              **{{ printer_name }} — {{ error_count }} {{ source_label }} error{{ 's' if error_count | int > 1 }}**
+
+              {{ error_summary }}
+
+              Task: {{ task_name }}
+              Status: {{ print_status }}
+              Time: {{ timestamp }}
+
+              ![Printer Snapshot](/local/printer_snapshots/{{ snapshot_filename }})
+
+    # ── Logbook entry ─────────────────────────────────────────────
+    - action: logbook.log
+      data:
+        name: Error Alert Notification
+        message: >-
+          Sent {{ worst_severity }} notification — {{ error_count }} {{ source_label }}
+          error{{ 's' if error_count | int > 1 }}.
+
+    # ── TTS announcement ──────────────────────────────────────────
+    # Critical/serious: always announce. Medium/minor: respect quiet hours.
+    - if:
+        - condition: state
+          entity_id: input_boolean.3dprinter_tts_enabled
+          state: "on"
+        - condition: template
+          value_template: "{{ states('input_text.3dprinter_tts_media_player') != '' }}"
+        - condition: or
+          conditions:
+            - condition: template
+              value_template: "{{ is_urgent | bool }}"
+            - condition: template
+              value_template: >-
+                {% set now_time = now().strftime('%H:%M:%S') %}
+                {% set quiet_start = states('input_datetime.3dprinter_quiet_hours_start') %}
+                {% set quiet_end = states('input_datetime.3dprinter_quiet_hours_end') %}
+                {% if quiet_start > quiet_end %}
+                  {{ not (now_time >= quiet_start or now_time < quiet_end) }}
+                {% else %}
+                  {{ not (now_time >= quiet_start and now_time < quiet_end) }}
+                {% endif %}
+      then:
+        - action: tts.speak
+          target:
+            entity_id: "{{ states('input_text.3dprinter_tts_media_player') }}"
+          data:
+            message: >-
+              {% if worst_severity == 'critical' %}Critical alert!
+              {% elif worst_severity == 'serious' %}Attention!
+              {% else %}Notice.{% endif %}
+              {{ printer_name }} has {{ error_count }}
+              {{ source_label }} error{{ 's' if error_count | int > 1 }}.
+              {% if errs is iterable and errs is not string and errs | count == 1 %}
+                {{ errs[0].message | default('') }}
+              {% else %}
+                Worst severity is {{ worst_severity }}.
+              {% endif %}
+            options:
+              volume_level: "{{ states('input_number.3dprinter_tts_volume') | float / 100 }}"
+
+    # ── WLED severity-driven overlay (front-door segments 0+1) ────
+    # Override progress bar segments with severity color.
+    # Cleared by error_alert_clear.yaml when errors resolve.
+    - if:
+        - condition: template
+          value_template: "{{ states('input_text.wled_3dprinter_digquad_ip') | length > 0 }}"
+        - condition: state
+          entity_id: input_boolean.wled_3dprinter_state_machine_enabled
+          state: "on"
+      then:
+        - variables:
+            wled_fx: >-
+              {% if worst_severity in ['critical', 'serious'] %}0{% else %}2{% endif %}
+            wled_color: >-
+              {% if worst_severity in ['critical', 'serious'] %}[255, 0, 0]
+              {% elif worst_severity == 'medium' %}[255, 152, 0]
+              {% else %}[255, 193, 7]{% endif %}
+            wled_bri: >-
+              {% if worst_severity == 'critical' %}255
+              {% elif worst_severity == 'serious' %}200
+              {% elif worst_severity == 'medium' %}150
+              {% else %}100{% endif %}
+            wled_speed: >-
+              {% if worst_severity in ['critical', 'serious'] %}128
+              {% elif worst_severity == 'medium' %}100
+              {% else %}80{% endif %}
+        - action: rest_command.wled_3dprinter_digquad_update_state
+          data:
+            payload: >-
+              {{ {
+                'seg': [
+                  {'id': 0, 'col': [wled_color], 'fx': wled_fx | int, 'sx': wled_speed | int, 'bri': wled_bri | int},
+                  {'id': 1, 'col': [wled_color], 'fx': wled_fx | int, 'sx': wled_speed | int, 'bri': wled_bri | int}
+                ]
+              } | tojson }}
+          continue_on_error: true
+
+    # ── Chamber light flash for critical/serious errors ───────────
+    # Brief 3-cycle flash as physical attention signal on the printer itself.
+    - if:
+        - condition: template
+          value_template: "{{ is_urgent | bool }}"
+      then:
+        - repeat:
+            count: 3
+            sequence:
+              - action: light.turn_on
+                target:
+                  entity_id: light.ntk_ryansoffice_3dprinter_chamber_light
+                data:
+                  brightness_pct: 100
+                continue_on_error: true
+              - delay:
+                  milliseconds: 400
+              - action: light.turn_off
+                target:
+                  entity_id: light.ntk_ryansoffice_3dprinter_chamber_light
+                continue_on_error: true
+              - delay:
+                  milliseconds: 400

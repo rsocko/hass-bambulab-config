@@ -1,6 +1,9 @@
 # Docs: docs/features/notifications/README.md
+# DEPRECATED Phase 2: Superseded by error_alert_notification.yaml (unified pipeline).
+# Kept for rollback during parallel-run period. Remove in Phase 4.
 - alias: Print Fault - Error Notification with Snapshot
   id: print_fault_error_notification_with_snapshot
+  enabled: false
   description: >
     Sends a notification with camera snapshot when a print encounters an error or fault.
     Creates a persistent notification that requires dismissal.
