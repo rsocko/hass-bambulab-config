@@ -1,9 +1,10 @@
 # Unified error alert wrapper entities for preview/testing scenarios.
 # Aggregates HMS errors + print errors into a single display wrapper.
-# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Docs: docs/features/error_alerts/error-alerts-unified-design.md
 automation: !include_dir_merge_list automations
 
 input_boolean: !include_dir_merge_named helpers/input_boolean
 input_select: !include_dir_merge_named helpers/input_select
+input_text: !include_dir_merge_named helpers/input_text
 template:
   - binary_sensor: !include_dir_merge_list template_sensors

@@ -28,20 +28,28 @@ sections:
         entities:
           - entity: input_boolean.error_alert_test_mode
           - entity: input_select.error_alert_test_scenario
+          - entity: input_text.error_alert_test_spool_id
           - entity: binary_sensor.error_alert_display_wrapper
           - entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
           - entity: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+          - entity: input_text.spool_replace_source_spool_id
       - type: markdown
         title: Action Button Test Guide
         content: |
           **AMS Filament Runout (Spool Empty):**
-          Enable test mode → select **AMS Filament Runout (Spool Empty)**.
-          Expected: 🔄 Retry, ✅ Done, ✕ Dismiss buttons visible.
-          Check `has_ams_error`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'has_ams_error') }}
+          1. Enter a valid Spoolman spool ID in **Error Alert Test Spool ID**
+          2. Enable test mode → select **AMS Filament Runout (Spool Empty)**
+          3. Expected on error alert card:
+             - 🔄 Retry, ✅ Done, ✕ Dismiss buttons (AMS controls)
+             - ♻ Replace Spool Now button (spool replace wizard entry)
+          4. Tap "Replace Spool Now" to launch the 4-step wizard
+
+          `has_ams_error`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'has_ams_error') }}
+          `spool_replace_source`: {{ states('input_text.spool_replace_source_spool_id') }}
 
           **Single Print Error — User Pause:**
           Expected: ▶ Resume Print, ⏹ Cancel Print buttons visible.
-          Check `is_paused`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'is_paused') }}
+          `is_paused`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'is_paused') }}
 
           **Single Serious Error (HMS runout):**
           Expected: 🔄 Retry, ✅ Done, ✕ Dismiss buttons (same as AMS).

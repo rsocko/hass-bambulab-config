@@ -1,0 +1,8 @@
+error_alert_test_spool_id:
+  name: Error Alert Test Spool ID
+  icon: mdi:identifier
+  initial: ""
+  max: 10
+  min: 0
+  mode: text
+  pattern: "^[0-9]*$"

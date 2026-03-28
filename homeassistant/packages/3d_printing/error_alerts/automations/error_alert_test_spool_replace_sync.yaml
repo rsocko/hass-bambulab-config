@@ -1,0 +1,64 @@
+# Syncs the test spool ID into the spool replace wizard helper when
+# the AMS Filament Runout test scenario is active. Clears it on deactivate
+# (only if the current value matches the test spool ID to avoid clobbering
+# a real runout that may be in progress).
+- alias: "Error Alert: Test Mode Spool Replace Sync"
+  id: error_alert_test_spool_replace_sync
+  description: >-
+    When test mode is on and the AMS Filament Runout scenario is selected,
+    copy the configured test spool ID into spool_replace_source_spool_id
+    so the Replace Spool Now button and wizard are testable. Clears it
+    when leaving the scenario or disabling test mode.
+  mode: restart
+
+  triggers:
+    - trigger: state
+      entity_id: input_boolean.error_alert_test_mode
+    - trigger: state
+      entity_id: input_select.error_alert_test_scenario
+    - trigger: state
+      entity_id: input_text.error_alert_test_spool_id
+
+  actions:
+    - variables:
+        test_mode: "{{ is_state('input_boolean.error_alert_test_mode', 'on') }}"
+        scenario: "{{ states('input_select.error_alert_test_scenario') }}"
+        test_spool_id: "{{ states('input_text.error_alert_test_spool_id') | default('') | trim }}"
+        current_source: "{{ states('input_text.spool_replace_source_spool_id') | default('') | trim }}"
+        should_activate: >-
+          {{ test_mode and scenario == 'AMS Filament Runout (Spool Empty)'
+             and test_spool_id | length > 0 }}
+
+    - choose:
+        # Activate: populate the spool replace source helper
+        - conditions:
+            - condition: template
+              value_template: "{{ should_activate }}"
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.spool_replace_source_spool_id
+              data:
+                value: "{{ test_spool_id }}"
+            - action: logbook.log
+              data:
+                name: Error Alert Test
+                message: "Set spool_replace_source_spool_id to test spool #{{ test_spool_id }}"
+
+        # Deactivate: clear only if current value is our test spool
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ not should_activate
+                   and current_source | length > 0
+                   and current_source == test_spool_id }}
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.spool_replace_source_spool_id
+              data:
+                value: ""
+            - action: logbook.log
+              data:
+                name: Error Alert Test
+                message: "Cleared spool_replace_source_spool_id (was test spool #{{ test_spool_id }})"
