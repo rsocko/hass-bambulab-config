@@ -19,6 +19,9 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor
 │   └── bambuddy_photo_review_auto_dismiss.yaml    # auto-dismiss review after timeout or next print
 ├── rest_commands/
+│   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos
+│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
+│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover photo
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
 │   └── bambuddy_add_archive_tags.yaml             # POST /archives/{id}/tags
 ├── rest_sensors/
@@ -92,6 +95,9 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Service | Method | Endpoint | Purpose |
 |---|---|---|---|
+| `rest_command.bambuddy_upload_photo_to_archive` | POST | `/api/v1/archives/{id}/photos` | Upload photo to archive |
+| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{photo_id}` | Delete a photo from archive (photo review) |
+| `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Set cover photo for archive thumbnail (photo review) |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_add_archive_tags` | POST | `/api/v1/archives/{id}/tags` | Add tags to an archive |
 
@@ -187,7 +193,7 @@ For detailed design of the two major subsystems, see:
 
 | Dependency | Required | Purpose |
 |---|---|---|
-| [bambuddy_common](../bambuddy_common/README.md) | **Yes** | API config helpers, webhook receiver, photo upload command |
+| [bambuddy_common](../bambuddy_common/README.md) | **Yes** | API config helpers, webhook receiver, printer status sensor |
 | [Core](../core/README.md) | **Yes** | `sensor.spoolman_tray_map` (spool IDs per tray), `sensor.print_cost` |
 | [Spoolman Sync](../spoolman_sync/README.md) | No | Per-tray weight data (`sensor.*_print_weight` attributes). Enrichment degrades gracefully without it. |
 | [Notifications](../notifications/README.md) | No | Snapshot light + brightness helpers reused from notification package |

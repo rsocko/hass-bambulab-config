@@ -35,22 +35,83 @@ None of the slot_ids matched the AMS position. The slicer slot numbers are arbit
 
 ### Implication for Enrichment
 
-Since `filament_slots.slot_id` cannot be used to identify which AMS tray (and therefore which Spoolman spool) was used, the enrichment automation must **match by color** between:
-- `filament_slots[].color` (what color the slicer requested)
-- `spoolman_tray_map[tray].color` (what spool is in each AMS tray)
+Since `filament_slots.slot_id` cannot be used to identify which AMS tray (and therefore which Spoolman spool) was used, the enrichment must use other data to resolve spools:
 
-Or, more reliably, use HA's own `sensor.spoolman_tray_map` data at print time (which already knows which spool is in which tray based on UUID/color matching) and match by the filament colors used in the print via `filament_color` (top-level archive field: `"#000000,#FFFFFF,#C12E1F,#F4EE2A"`).
+1. **AMS tray UUIDs from the archive** — The archive's `extra_data._print_data.raw_data.ams[].tray[].tray_uuid` stores the physical spool RFID UUID that was loaded in each AMS tray at the moment Bambuddy captured the print. These can be matched directly against Spoolman's `extra_spool_uuid` field.
 
-### Recommended Matching Strategy
+2. **`sensor.spoolman_tray_map` snapshot** — This sensor already resolves each AMS tray to a Spoolman spool using UUID as the primary strategy. Capturing its state at `print_started` gives us the exact spool-per-tray mapping during the print.
 
-1. At print time, `sensor.spoolman_tray_map` already has `spool_id` per AMS tray
-2. The archive's `filament_color` field lists the colors used (comma-separated)
-3. Match each color in `filament_color` to a tray in `spoolman_tray_map` by color
-4. This gives us the spool_id for each filament used in the print
-5. For single-material prints (most common), there's only one color and typically one matched spool
-6. For multi-color prints, color matching across the tray map resolves which spools were used
+3. **Color matching** — Only as a last-resort fallback when UUID matching is unavailable.
 
-> **Edge case**: If two trays have the same color (e.g., two black PLA spools), the enrichment cannot determine which one the printer actually used. In this case, tag both spool IDs and note the ambiguity.
+### Recommended Matching Strategy (UUID-First)
+
+The enrichment uses a three-tier strategy to resolve which Spoolman spool contributed each filament used in the print:
+
+#### Tier 1: Direct UUID Lookup from Archive Data (Highest Confidence)
+
+The archive contains the actual AMS state at capture time in `extra_data._print_data.raw_data.ams`. Each tray entry includes `tray_uuid` — the physical RFID UUID of the spool loaded in that tray. This UUID is the same value that Spoolman stores as `extra_spool_uuid`.
+
+**Matching flow:**
+1. Extract the `ams` array from `extra_data._print_data.raw_data`
+2. Build a lookup of `tray_color → tray_uuid` for all trays across all AMS units
+3. For each color in the archive's `filament_color`, find the tray with matching `tray_color`
+4. Look up that tray's `tray_uuid` in Spoolman spools via `extra_spool_uuid`
+5. This gives us the exact `spool_id` for each filament used
+
+**Why this works even with same-color spools**: Two trays may have the same color (e.g., two black PLA spools — one matte, one basic), but they will have different `tray_uuid` values. The UUID uniquely identifies the physical spool.
+
+**Example from archive 171:**
+| AMS | Tray | tray_color | tray_uuid | tray_sub_brands |
+|-----|------|-----------|-----------|-----------------|
+| 0 | 0 | 0A2989FF | 2A54EDC175324234B2B934B802EAB0B6 | PLA Basic |
+| 0 | 1 | 5B6579FF | EECEB50203C24CDDBCDDEEEE267CF1BB | PLA Basic |
+| 0 | 2 | F7E6DEFF | 69FED7F0C98C4DC5878036A6720ABA1B | PLA Basic |
+| 0 | 3 | F4EE2AFF | CD54F81F81D2453AA5043D883C326D87 | PLA Basic |
+| 1 | 0 | C12E1FFF | DFECA877D8CD4711B299FA4A4A116A1F | PLA Basic |
+| 1 | 1 | 000000FF | 1CF7FCD88593469C9BA35ECA4282CB0D | PLA Matte |
+| 1 | 2 | FFFFFFFF | ... | PLA Basic |
+| 1 | 3 | ... | ... | ... |
+
+The archive's `filament_color` is `#000000,#FFFFFF,#C12E1F,#F4EE2A`. Matching:
+- `#000000` → AMS 1 Tray 1 → UUID `1CF7FCD8...` → Spoolman lookup → spool_id 42
+- `#FFFFFF` → AMS 1 Tray 2 → UUID from that tray → spool_id 18
+- `#C12E1F` → AMS 1 Tray 0 → UUID `DFECA877...` → spool_id 55
+- `#F4EE2A` → AMS 0 Tray 3 → UUID `CD54F81F...` → spool_id 61
+
+> **Note**: Archive `tray_color` includes alpha channel (`FF` suffix). Normalize by stripping the last 2 hex chars to compare with archive's `filament_color` (6-char hex).
+
+#### Tier 2: Spoolman Tray Map Snapshot (High Confidence)
+
+If the archive doesn't contain AMS `raw_data` (e.g., older archives, external spool prints), fall back to the `sensor.spoolman_tray_map` snapshot captured at `print_started`.
+
+**Matching flow:**
+1. At `print_started`, capture the full `tray_map` attribute of `sensor.spoolman_tray_map` into `input_text.bambuddy_tray_map_snapshot`
+2. The tray map already resolves spools via UUID → manual_pin → color fallback (same multi-tier logic the tray map sensor uses)
+3. At enrichment time, for each color in `filament_color`, find the tray in the snapshot with matching color
+4. The tray's `spool_id` is already resolved (via UUID if available)
+
+**Why snapshot at print_started**: Spools can be swapped mid-print or between prints. The snapshot preserves the tray state when the print began.
+
+**Edge case — same-color trays**: If two trays in the snapshot have the same color but different spools, the tray map snapshot provides per-tray `spool_id` already resolved by UUID. We can cross-reference the `filament_slots[].used_g` weights to determine which trays were actually used (trays with >0g usage contributed to the print).
+
+#### Tier 3: Color-Only Fallback (Lower Confidence)
+
+Only used when neither archive AMS data nor tray map snapshot is available:
+1. Match each `filament_color` entry to `spoolman_tray_map` trays by color
+2. If exactly one tray matches a color, use its `spool_id`
+3. If multiple trays match (same color), mark as `ambiguous` and tag all candidate spool IDs with a note
+
+### Edge Cases
+
+| Scenario | Resolution |
+|----------|-----------|
+| Two trays, same color, different material (PLA Matte vs PLA Basic) | **UUID resolves this** — different physical spools have different UUIDs |
+| Two trays, same color, same material (two rolls of black PLA) | **UUID resolves this** — each roll has a unique RFID UUID |
+| External spool (no AMS tray) | Use `external_spool` entry in `spoolman_tray_map` snapshot; UUID may not be available for non-RFID spools |
+| Non-RFID spool (third-party, no UUID) | Falls back to Tier 2 (tray map with manual_pin or color matching) or Tier 3 |
+| Spool swapped mid-print | Snapshot at `print_started` reflects what was loaded when printing began; archive `raw_data.ams` reflects capture time. Both should be consistent for the print-start state. |
+| Archive missing `_print_data` or `raw_data.ams` | Falls back to Tier 2, then Tier 3 |
+| `filament_color` has a color not matching any loaded tray | Log warning, skip that color, tag as `unmatched_color:#XXXXXX` |
 
 ## Data Sources Available in HA
 
@@ -58,29 +119,85 @@ At the time of `print_complete` or `print_failed`, these sensors contain the rel
 
 | Sensor | Data | Package |
 |---|---|---|
-| `sensor.spoolman_tray_map` | Per-tray spool_id, filament name/vendor/color, match state | core |
+| `sensor.spoolman_tray_map` | Per-tray spool_id, filament name/vendor/color, match state, UUID match strategy | core |
 | `sensor.print_cost` | Total print cost ($), per-tray breakdown (cost, weight, price_per_kg, name, color, price_source) | core |
 | `sensor.ntk_ryansoffice_3dprinter_print_weight` | Per-tray weight used (attributes: `AMS 1 Tray 1`, `AMS 2 Tray 3`, etc.) | ha-bambulab |
 | `sensor.ntk_ryansoffice_3dprinter_task_name` | Print file name | ha-bambulab |
 | `input_text.bambuddy_current_archive_id` | Archive ID to PATCH | print_history |
+| `input_text.bambuddy_tray_map_snapshot` | JSON snapshot of `spoolman_tray_map` captured at `print_started` | print_history |
+
+### Archive AMS Data (embedded in GET response)
+
+The archive's `extra_data._print_data.raw_data.ams` contains the AMS state at Bambuddy capture time. Structure:
+
+```json
+{
+  "extra_data": {
+    "_print_data": {
+      "raw_data": {
+        "ams": [
+          {
+            "id": "0",
+            "humidity": "5",
+            "tray": [
+              {
+                "id": "0",
+                "tray_type": "PLA",
+                "tray_sub_brands": "PLA Basic",
+                "tray_color": "000000FF",
+                "tray_uuid": "1CF7FCD88593469C9BA35ECA4282CB0D",
+                "tag_uid": "4DD9DA3600000100",
+                "remain": 31,
+                "cols": ["000000FF"]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Key fields per tray:
+- `tray_uuid` — Physical spool RFID UUID (32-char hex, uppercase). **Primary matching key.**
+- `tray_color` — 8-char hex with alpha (e.g., `000000FF`). Strip last 2 for 6-char comparison.
+- `tray_type` / `tray_sub_brands` — Material type and sub-brand (e.g., "PLA" / "PLA Matte")
+- `tag_uid` — RFID tag UID (different from tray_uuid; identifies the physical RFID chip, not the spool)
+- `remain` — Estimated remaining percentage
+- `cols` — Color array (usually single entry matching `tray_color`)
 
 ### Spoolman Tray Map Attributes (per tray)
 
-The `tray_map` attribute of `sensor.spoolman_tray_map` provides a dictionary keyed by tray name:
+The `tray_map` attribute of `sensor.spoolman_tray_map` provides a dictionary keyed by tray name. It uses multi-tier matching: UUID → manual_pin → color+material fallback.
 
 ```json
 {
   "ams_1_tray_1": {
-    "spool_id": 42,
+    "spool_entity_id": "sensor.spoolman_spool_42",
+    "spool_id": "42",
     "name": "PLA Basic",
-    "vendor": "Bambu Lab",
-    "color": "#FFFFFF",
-    "material": "PLA",
-    "match_state": "uuid_match"
-  },
-  "ams_1_tray_2": { ... }
+    "desiccant": true,
+    "filled": "2026-03-15T12:00:00",
+    "status": "green",
+    "color": "000000",
+    "reason": null,
+    "match_strategy": "uuid",
+    "match_tier": "uuid",
+    "match_state": "matched",
+    "candidate_count": 0,
+    "candidate_spool_ids": [],
+    "pin_active": false,
+    "pin_spool_id": null,
+    "pin_applied": false
+  }
 }
 ```
+
+**Match states**: `empty` | `matched` | `ambiguous` | `unmatched`
+**Match tiers**: `uuid` | `manual_pin` | `color_type` | `multicolor_first_hex` | `multicolor_any_hex` | `*_ams_preference`
+
+The `match_strategy` and `match_tier` fields indicate how the spool was resolved. When `match_tier` is `uuid`, the match is definitive — the AMS tray's RFID UUID matched a Spoolman spool's `extra_spool_uuid` exactly.
 
 ### Print Cost Attributes (per tray)
 
@@ -98,6 +215,30 @@ The `breakdown` attribute of `sensor.print_cost` provides per-tray cost data:
   }
 }
 ```
+
+## Tray Map Snapshot at Print Start
+
+A separate automation captures the `spoolman_tray_map` state when a print begins:
+
+**`bambuddy_snapshot_tray_map_on_start.yaml`** triggers on `print_started` webhook (or `bambuddy_webhook_event` with `event: print_started`) and stores the full tray_map JSON into `input_text.bambuddy_tray_map_snapshot`.
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: bambuddy_webhook_event
+    event_data:
+      event: "print_started"
+
+actions:
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.bambuddy_tray_map_snapshot
+    data:
+      value: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | tojson }}"
+```
+
+> **Note**: `input_text` max length is 255 chars by default. For 8+ trays this will overflow.
+> Options: (1) Use `input_text` with `max: 4096` (HA supports up to 255 by default — may need a custom helper or `trigger`-based template sensor to store larger state), or (2) Store a simplified version with only `tray_name → spool_id` mappings, or (3) Use a `trigger`-based template sensor that persists the snapshot as its own state/attributes.
 
 ## Enrichment Automation
 
@@ -168,31 +309,42 @@ conditions:
     value_template: "{{ states('input_text.bambuddy_current_archive_id') != '' }}"
 
 actions:
-  # 1. Collect data from sensors
-  # 2. Build tags list
-  # 3. Build notes string
-  # 4. Call rest_command.bambuddy_add_archive_tags
-  # 5. Call rest_command.bambuddy_update_archive (notes field)
+  # 1. GET archive detail (for extra_data.ams tray UUIDs)
+  #    Call GET /archives/{id} to retrieve raw_data.ams[].tray[].tray_uuid
+  #
+  # 2. Resolve spools via UUID-first strategy:
+  #    a. Extract ams[].tray[] from archive response
+  #    b. For each color in filament_color:
+  #       - Find matching tray by color (normalize: strip '#' and alpha)
+  #       - Get tray_uuid from that tray
+  #       - Look up tray_uuid in all sensor.spoolman_spool_* entities
+  #         by comparing against extra_spool_uuid attribute
+  #       - If UUID match found → definitive spool_id (Tier 1)
+  #    c. If no UUID available, fall back to spoolman_tray_map snapshot (Tier 2)
+  #    d. If no snapshot, fall back to current spoolman_tray_map color matching (Tier 3)
+  #
+  # 3. Build tags list with resolved spool data
+  # 4. Build notes string with per-tray breakdown
+  # 5. Call rest_command.bambuddy_update_archive (PATCH with tags + notes)
   # 6. Clear input_text.bambuddy_current_archive_id
 ```
 
 ### REST Commands Used
 
-**Add tags** — `POST /archives/{id}/tags`:
-```yaml
-rest_command.bambuddy_add_archive_tags:
-  url: "{{ base_url }}/api/v1/archives/{{ archive_id }}/tags"
-  method: POST
-  payload: '{"tags": {{ tags | tojson }}}'
-```
-
-**Update notes** — `PATCH /archives/{id}`:
+**Update archive** — `PATCH /archives/{id}` (tags, notes, cost, is_favorite):
 ```yaml
 rest_command.bambuddy_update_archive:
   url: "{{ base_url }}/api/v1/archives/{{ archive_id }}"
   method: PATCH
-  payload: '{"notes": "{{ notes }}"}'
+  headers:
+    X-API-Key: "{{ api_key }}"
+    Content-Type: "application/json"
+  payload: '{"tags": "{{ tags }}", "notes": "{{ notes }}"}'
 ```
+
+> **Important**: Tags are a **comma-separated string** in the PATCH body, NOT a JSON array.
+> Example: `"tags": "spoolman:42,vendor:Bambu Lab,ha_enriched:true"`
+> There is no separate `POST /archives/{id}/tags` endpoint — tags are set via the main PATCH endpoint.
 
 ## Idempotency
 
