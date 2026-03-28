@@ -1,4 +1,17 @@
-# Bambuddy Photo Archive Integration
+# Bambuddy Photo Archive Integration (SUPERSEDED)
+
+> **This document is being replaced.** Photo capture and archive upload are now designed in:
+> - [print_history/photo-capture-design.md](../print_history/photo-capture-design.md) — Multi-camera, multi-stage capture design
+> - [print_history/archive-enrichment.md](../print_history/archive-enrichment.md) — Spoolman data enrichment pipeline
+> - [print_history/README.md](../print_history/README.md) — Full print_history package overview
+>
+> This file will be deleted after migration (Phase 6).
+
+---
+
+*Original content preserved below for reference during migration.*
+
+---
 
 ## Overview
 
