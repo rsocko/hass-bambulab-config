@@ -13,7 +13,7 @@
 
   triggers:
     # Trigger when print starts
-    - device_id: YOUR_PRINTER_DEVICE_ID_HERE
+    - device_id: 210dfdfa64085e8cf073e50eae757d90
       domain: bambu_lab
       type: event_print_started
       trigger: device
