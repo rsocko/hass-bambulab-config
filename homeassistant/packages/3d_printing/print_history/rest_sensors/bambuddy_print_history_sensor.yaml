@@ -1,14 +1,20 @@
 # Bambuddy Print History — polls the archives API for recent prints.
 # Docs: docs/features/print_history/README.md
+#
+# NOTE: resource_template must ALWAYS produce a URL string, even at boot
+# before input_text helpers are restored. An empty resource_template causes
+# the REST platform to skip sensor creation entirely, orphaning the entity.
+# Instead, we let it produce a bad URL (which fails gracefully) and use
+# availability_template to signal readiness.
 - platform: rest
   name: "Bambuddy Print History"
   unique_id: bambuddy_print_history
   resource_template: >-
-    {% if has_value('input_text.bambuddy_api_base_url') %}
-      {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{
-        states('input_number.bambuddy_history_limit') | int(10)
-      }}&sort=created_at&order=desc
-    {% endif %}
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{
+      states('input_number.bambuddy_history_limit') | int(10)
+    }}&sort=created_at&order=desc
+  availability_template: >-
+    {{ has_value('input_text.bambuddy_api_base_url') }}
   headers:
     X-API-Key: !secret bambuddy_api_key
     Content-Type: application/json
