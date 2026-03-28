@@ -9,7 +9,7 @@
     immediate action such as turning on air purification or opening windows.
 
   triggers:
-    # PM2.5 exceeds unhealthy threshold (35 Âµg/mÂ³)
+    # PM2.5 exceeds unhealthy threshold (35 µg/m³)
     - trigger: numeric_state
       entity_id: sensor.i_9psl_pm2_5
       above: 35
@@ -44,9 +44,9 @@
           sequence:
             - action: notify.notify
               data:
-                title: "âš ï¸ High PM2.5 Detected"
+                title: "⚠️ High PM2.5 Detected"
                 message: >
-                  PM2.5 level is {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+                  PM2.5 level is {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
                   (Unhealthy: >35).
 
                   Consider:
@@ -62,9 +62,9 @@
               data:
                 title: "High PM2.5 Detected"
                 message: >
-                  **Current PM2.5:** {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+                  **Current PM2.5:** {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
 
-                  **Status:** Unhealthy (>35 Âµg/mÂ³)
+                  **Status:** Unhealthy (>35 µg/m³)
 
                   **Recommended Actions:**
                   - Turn on air purifier to high
@@ -81,7 +81,7 @@
           sequence:
             - action: notify.notify
               data:
-                title: "âš ï¸ High CO2 Detected"
+                title: "⚠️ High CO2 Detected"
                 message: >
                   CO2 level is {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
                   (Poor: >1200).
@@ -118,7 +118,7 @@
           sequence:
             - action: notify.notify
               data:
-                title: "âš ï¸ High VOC Detected"
+                title: "⚠️ High VOC Detected"
                 message: >
                   VOC level is {{ states('sensor.i_9psl_voc_index') }} ppb
                   (Poor: >200).
@@ -154,7 +154,7 @@
         name: Air Quality Alert
         message: >
           Air quality alert triggered: {{ trigger.id }}
-          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
           CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
           VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
 
