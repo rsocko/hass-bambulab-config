@@ -1,4 +1,4 @@
-# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Docs: docs/features/error_alerts/error-alerts-unified-design.md
 # Unified Error Alert Display Wrapper
 # Aggregates HMS errors + print errors into a single source of truth.
 # Phase 1: backward-compatible numbered attributes + new 'type' field per error.
@@ -68,6 +68,13 @@
               'code': 'HMS_0500_4001_0001_0003',
               'message': 'Filament cutter jam detected.',
               'wiki': 'https://wiki.bambulab.com/en/x1/troubleshooting/cutter-jam' }
+          ] }}
+        {% elif scenario == 'AMS Filament Runout (Spool Empty)' %}
+          {{ [
+            { 'type': 'hms', 'severity': 'serious',
+              'code': 'HMS_0700_2000_0002_0001',
+              'message': 'AMS A Slot 1 filament has run out; printer paused. Please load new filament and press Retry.',
+              'wiki': 'https://wiki.bambulab.com/en/ams/troubleshooting/filament-run-out' }
           ] }}
         {% elif scenario == 'Single Print Error — User Pause' %}
           {{ [
@@ -193,6 +200,13 @@
       {% else %}
         unknown
       {% endif %}
+
+    has_ams_error: >-
+      {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}
+      {% if errs is iterable and errs is not string %}
+        {{ errs | selectattr('code', 'match', '^HMS_07|^0700_')
+                | list | count > 0 }}
+      {% else %}false{% endif %}
 
     is_paused: >-
       {% set errs = state_attr('binary_sensor.error_alert_display_wrapper', 'errors') %}

@@ -31,6 +31,24 @@ sections:
           - entity: binary_sensor.error_alert_display_wrapper
           - entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
           - entity: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+      - type: markdown
+        title: Action Button Test Guide
+        content: |
+          **AMS Filament Runout (Spool Empty):**
+          Enable test mode → select **AMS Filament Runout (Spool Empty)**.
+          Expected: 🔄 Retry, ✅ Done, ✕ Dismiss buttons visible.
+          Check `has_ams_error`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'has_ams_error') }}
+
+          **Single Print Error — User Pause:**
+          Expected: ▶ Resume Print, ⏹ Cancel Print buttons visible.
+          Check `is_paused`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'is_paused') }}
+
+          **Single Serious Error (HMS runout):**
+          Expected: 🔄 Retry, ✅ Done, ✕ Dismiss buttons (same as AMS).
+        visibility:
+          - condition: state
+            entity: input_boolean.error_alert_test_mode
+            state: "on"
     column_span: 2
 
   - type: grid

@@ -7,6 +7,7 @@ error_alert_test_scenario:
     - Multiple Mixed Errors
     - Critical No Wiki
     - Legacy Errors Payload
+    - AMS Filament Runout (Spool Empty)
     - Single Print Error — User Pause
     - Single Print Error — Cancellation
     - Single Print Error — Mechanical
