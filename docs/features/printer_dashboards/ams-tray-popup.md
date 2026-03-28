@@ -295,14 +295,14 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 
 ## Future Enhancements
 
-| Enhancement | Notes |
-|------------|-------|
-| ~~Location dropdown~~ | **Implemented** — uses native `select.spoolman_spool_{id}_location` entity from Spoolman integration v1.1 |
-| ~~Reset Tray~~ | **Implemented** — clears filament metadata via `script.reset_tray_filament` with confirmation dialog; available in both matched-spool and no-spool popups. See [reset-tray-filament-design.md](../../features/spoolman_sync/reset-tray-filament-design.md) |
-| Total inventory | Sum weight across all spools of same material type |
-| Quality/age warnings | Alert when `first_used` > configurable age threshold |
-| Custom notes | Display/edit `extra.notes` field per spool |
-| Print estimate bar | Visual gauge of remaining vs required for current print |
+| Enhancement           | Notes                                                                                                                                                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~Location dropdown~~ | **Implemented** — uses native `select.spoolman_spool_{id}_location` entity from Spoolman integration v1.1                                                                                                                                                  |
+| ~~Reset Tray~~        | **Implemented** — clears filament metadata via `script.reset_tray_filament` with confirmation dialog; available in both matched-spool and no-spool popups. See [reset-tray-filament-design.md](../../features/spoolman_sync/reset-tray-filament-design.md) |
+| Total inventory       | **Implemented -** Sum weight across all spools of same material type                                                                                                                                                                                       |
+| Quality/age warnings  | Alert when `first_used` > configurable age threshold                                                                                                                                                                                                       |
+| Custom notes          | Display/edit `extra.notes` field per spool                                                                                                                                                                                                                 |
+| Print estimate bar    | Visual gauge of remaining vs required for current print                                                                                                                                                                                                    |
 
 ---
 

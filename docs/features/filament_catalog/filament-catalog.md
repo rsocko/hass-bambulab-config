@@ -1,7 +1,7 @@
 # Filament Catalog — Design Document
 
-> **Status**: Phase 1–4 complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
-> **Last updated**: 2026-03-19
+> **Status**: Phase 1–4 and 5A complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
+> **Last updated**: 2026-03-27
 
 ## Problem Statement
 
@@ -55,20 +55,37 @@ homeassistant/packages/3d_printing/
 ├── filament_catalog/
 │   ├── filament_catalog_loader.yaml          ← HA package loader
 │   ├── automations/
-│   │   └── sync_filter_options.yaml          ← Dynamically populates filter dropdowns from spoolman data
+│   │   ├── sync_filter_options.yaml          ← Dynamically populates filter dropdowns from spoolman data
+│   │   └── sync_quality_filter_grouping.yaml ← Auto-switch to By Hex Color on Duplicate Hex filter
 │   ├── helpers/
-│   │   ├── input_boolean/                    ← Toggle filters (low stock, desiccant old)
-│   │   ├── input_number/                     ← Stock threshold
-│   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, etc.)
+│   │   ├── input_boolean/                    ← Toggle filters (low stock, desiccant old, nearly empty, needs repurchase, needs drying, stale, missing desiccant, unsealed only, compact cards, show insights)
+│   │   ├── input_number/                     ← Stock threshold + desiccant thresholds (yellow/orange/red days)
+│   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, etc.) + stock level, desiccant, data quality, tab, sort, history range, sealed
 │   │   └── input_text/                       ← Free-text search
 │   ├── scripts/
-│   │   └── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
+│   │   ├── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
+│   │   └── filament_catalog_apply_quality_filter.yaml ← Apply data quality filter + optional hex grouping
 │   ├── template_sensors/
 │   │   ├── template_sensor_filament_catalog_filter.yaml  ← Server-side filtered spool list
-│   │   └── filament_catalog_metrics.yaml      ← Metrics & alert computations (Phase 5)
+│   │   ├── filament_catalog_metrics.yaml      ← Pre-computed chart + alert + data quality data (Phase 5A)
+│   │   ├── filament_catalog_alert_count_sensors.yaml  ← Individual HA sensors per alert type (Phase 5A)
+│   │   └── filament_catalog_material_breakdown_sensors.yaml ← Per-material count sensors (Phase 5A)
 │   ├── dashboard_cards/
-│   │   ├── catalog_filter_bar.yaml           ← Filter bar with dropdowns, toggles, search (Phase 2)
-│   │   └── catalog_inventory_kpi.yaml        ← Inventory KPI summary chips
+│   │   ├── catalog_filter_bar.yaml           ← Filter bar with dropdowns, toggles, search (Phase 2+)
+│   │   ├── catalog_inventory_kpi.yaml        ← Inventory KPI summary chips + insights toggle
+│   │   ├── catalog_insights_panel.yaml       ← Collapsible insights panel wrapper (Phase 5A)
+│   │   └── insights/                         ← Individual chart cards (Phase 5A)
+│   │       ├── chart_weight_by_material.yaml
+│   │       ├── chart_weight_by_vendor.yaml
+│   │       ├── chart_weight_by_color_family.yaml
+│   │       ├── chart_weight_by_primary_color.yaml
+│   │       ├── chart_weight_by_primary_color_stacked.yaml
+│   │       ├── chart_count_by_material.yaml
+│   │       ├── chart_count_by_vendor.yaml
+│   │       ├── chart_count_by_spool_type_clip_type.yaml
+│   │       ├── chart_count_by_primary_color.yaml
+│   │       ├── chart_spools_by_location.yaml
+│   │       └── chart_alert_counts.yaml
 │   └── dashboard_views/
 │       └── view_filament_catalog.yaml        ← The main catalog view
 ├── common/
@@ -714,7 +731,8 @@ All Phase 5 work is tracked in [GitHub Project #18](https://github.com/users/rso
 
 ---
 
-#### Phase 5A: Inventory Insights & Alert Analytics
+#### Phase 5A: Inventory Insights & Alert Analytics — IMPLEMENTED
+**Status**: ✅ Complete (2026-03-27)
 **Data source**: Spoolman entities only (available now)
 **Dependency**: Phases 1–2
 **Estimated Complexity**: High
@@ -723,52 +741,89 @@ Phase 5A delivers the core metrics panel using data already present on `sensor.s
 
 ##### 5A.1 — Inventory Distribution Charts
 
-| Chart | Type | Data Source | Issue | Notes |
-|---|---|---|---|---|
-| Weight by Material | Tree map | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `custom:apex-direct-bar-card` with `chart_type: treemap` |
-| Weight by Vendor | Pie/Bar | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
-| Weight by Color Family | Pie/Bar | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as `apexcharts-card` bar chart |
-| Spools per Location | Bar | Count of spools grouped by `location` | — | |
-| Weight by Primary Color | Stacked Bar | `filament_extra_primary_color` + `filament_color_hex` + `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | Implemented as a stacked bar with real filament colors and `max_items: 0` (show all filaments) |
+| Chart | Type | Data Source | Issue | Status | Notes |
+|---|---|---|---|---|---|
+| Weight by Material | Tree map | `filament_material` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ✅ In panel | `custom:apex-direct-bar-card` with `chart_type: treemap` |
+| Weight by Vendor | Bar | `filament_vendor_name` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ✅ In panel | `custom:apex-direct-bar-card` bar chart |
+| Weight by Color Family | Bar | `filament_extra_color_family` × `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ✅ In panel | `custom:apex-direct-bar-card` bar chart |
+| Weight by Primary Color | Bar | `filament_extra_primary_color` + `filament_color_hex` + `remaining_weight` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ✅ In panel | Bar chart with real filament colors, top-20 segments |
+| Weight by Primary Color (Stacked) | Stacked Bar | Same as above, stacked by filament name | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ⚙️ Built, not in panel | Card file exists (`chart_weight_by_primary_color_stacked.yaml`) but not included in insights panel |
+| Spools per Location | Bar | Count of spools grouped by `location` | — | ⚙️ Built, not in panel | Card file exists (`chart_spools_by_location.yaml`) but not included in insights panel |
 
 These charts answer: "How is my filament inventory distributed?" All data is directly available from spool entity attributes. These distribution charts use `remaining_weight` (not `initial_weight`) to reflect *current* inventory value rather than what was purchased.
 
 ##### 5A.1.1 — Inventory Distribution Charts (by count of Spool)
 
-| Chart | Type | Data Source | Issue |
-|---|---|---|---|
-| Count by Material | Pie/Bar | Count of spools grouped by `filament_material` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
-| Count by Vendor | Pie/Bar | Count of spools grouped by `filament_vendor_name` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
-| Count by Color Family | Pie/Bar | Count of spools grouped by `filament_extra_color_family` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) |
+| Chart | Type | Data Source | Issue | Status |
+|---|---|---|---|---|
+| Count by Material | Bar | Count of spools grouped by `filament_material` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ✅ In panel |
+| Count by Vendor | Bar | Count of spools grouped by `filament_vendor_name` | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ✅ In panel |
+| Count by Spool Type × Clip Type | Stacked Bar | `extra_spool_type` × `extra_clip_type` count, color-coded by clip type | — | ✅ In panel (replaced Count by Color Family) |
+| Count by Primary Color | Bar | Count by `filament_extra_primary_color` with real hex colors | [#105](https://github.com/rsocko/hass-bambulab-config/issues/105) | ⚙️ Built, not in panel |
 
 These charts answer: "How is my filament inventory distributed but using count instead of weight?" All data is directly available from spool entity attributes.
 
-> **Update**: The dedicated "Count by Primary Color" chart was removed from the insights panel.
-##### 5A.2 — Alert Aggregation Charts
+> **Design change**: The "Count by Color Family" slot in the panel was replaced by "Count by Spool Type × Clip Type" — a more actionable chart showing the physical spool/clip inventory breakdown. The Count by Primary Color and Count by Color Family chart data remain available in the metrics sensor but are not wired into the insights panel.
+##### 5A.2 — Alert Aggregation & Data Quality Charts
 
-Instead of a standalone alert summary card or dedicated alert tab, alert counts appear as chart segments. Phase 3's card visuals already handle per-spool indicators; this answers "how many of each problem do I have?" at a glance.
+Instead of standalone alert summary cards, dedicated alert tabs, or separate data quality lists, all alert and data quality counts appear as segments in a single interactive horizontal bar chart (`chart_alert_counts.yaml`). Phase 3's card visuals already handle per-spool indicators; this answers "how many of each problem do I have?" at a glance. Tapping any bar segment applies the corresponding filter to the catalog grid below.
+
+The chart covers three categories of alerts:
+
+**Stock & Usage Alerts**
 
 | Alert Category | Trigger | Issue(s) |
 |---|---|---|
-| **Running Low** | `remaining_weight` < stock threshold (tiered: Red/Orange/Yellow) | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
+| **Low Stock** | `remaining_weight` < stock threshold | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
 | **Nearly Empty** | `remaining_weight` < 50g | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
 | **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < threshold | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
-| **Desiccant Overdue** | `extra_desiccant_filled` age > 60 days (tiered: R/O/Y/G/Missing) | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
-| **Missing Desiccant** | `extra_desiccant_in_spool = false` for custom or other spools | [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102) |
 | **Needs Drying** | `extra_last_dried` > 90 days AND `extra_sealed = false` | — |
 | **Unused (Stale)** | `last_used` > 6 months ago | — |
 
-The horizontal bar chart uses clickable segments that set the corresponding catalog filter (existing Phase 2 toggle or new lightweight `input_boolean` where needed).
+**Desiccant Alerts** (tiered, with configurable thresholds via `input_number` helpers)
 
-##### 5A.3 — Data Quality Reports
-
-Proactive detection of inventory data issues. Rendered as a compact card list below the charts (or as a dedicated "Health Check" section in the insights panel).
-
-| Report | Description | Issue |
+| Alert Category | Trigger | Issue(s) |
 |---|---|---|
-| **Multiple Unsealed Duplicates** | Flags filaments where >1 spool is unsealed for the same `filament_id` — indicates a spool that should be consumed before opening another | [#133](https://github.com/rsocko/hass-bambulab-config/issues/133) |
-| **Orphan Filaments** | Filament definitions in Spoolman with zero associated spools — candidates for cleanup | [#118](https://github.com/rsocko/hass-bambulab-config/issues/118) |
-| **Duplicate Hex Colors** | Multiple filaments sharing the same `filament_color_hex` — may cause incorrect AMS color matching | [#117](https://github.com/rsocko/hass-bambulab-config/issues/117) |
+| **Desiccant Overdue** | `extra_desiccant_filled` age > yellow threshold (aggregate of all tiers below) | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
+| **Desiccant Red** | Age > `desiccant_threshold_red_days` (default 75d) | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
+| **Desiccant Orange** | Age > orange threshold (default 60d) but ≤ red | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
+| **Desiccant Yellow** | Age > yellow threshold (default 45d) but ≤ orange | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
+| **Desiccant Undefined** | Unsealed spool with no `extra_desiccant_filled` date | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
+| **Missing Desiccant** | `extra_desiccant_in_spool = false` for unsealed spools | [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102) |
+
+**Data Quality Alerts** (previously 5A.3 — merged into the alert chart)
+
+| Alert Category | Trigger | Issue(s) |
+|---|---|---|
+| **Multiple Unsealed Duplicates** | >1 unsealed spool for the same `filament_id` | [#133](https://github.com/rsocko/hass-bambulab-config/issues/133) |
+| **Duplicate Hex Colors** | Multiple filament IDs sharing the same `filament_color_hex` | [#117](https://github.com/rsocko/hass-bambulab-config/issues/117) |
+| **Missing UUID** | Bambu Lab spool, unsealed, with no `extra_spool_uuid` | — |
+| **Tag ≠ UUID** | `extra_tag` and `extra_spool_uuid` exist but don't match, or one is present without the other | — |
+| **Missing Profile** | Bambu Lab spool with no `filament_extra_profile_name` | — |
+
+Each alert has a corresponding `tap_action` that sets the appropriate filter:
+- Stock alerts → `input_select.filament_catalog_filter_stock_level` or `input_boolean` toggles
+- Desiccant alerts → `input_select.filament_catalog_filter_desiccant` (tiered dropdown)
+- Data quality alerts → `script.filament_catalog_apply_quality_filter` (sets `input_select.filament_catalog_filter_data_quality` and optionally switches grouping to By Hex Color for duplicate hex inspection)
+
+Both `alert_counts_json` and `alert_entity_ids_json` attributes provide counts and affected entity IDs for every alert category. Individual HA sensors per alert type (`filament_catalog_alert_count_sensors.yaml`) are also created for Recorder/statistics tracking.
+
+##### 5A.3 — Data Quality Reports (Merged)
+
+> **Design change**: The original 5A.3 called for a standalone `card_data_quality_reports.yaml` rendered as a compact list below the charts. During implementation, data quality checks were **merged into the alert aggregation chart** (5A.2) as additional bar segments with clickable filter integration. This provides a unified view of all inventory issues in one chart, with consistent tap-to-filter behavior. No separate data quality card was created.
+
+The data quality checks from the original design are all implemented:
+
+| Report | Status | Notes |
+|---|---|---|
+| **Multiple Unsealed Duplicates** | ✅ In alert chart | Taps `script.filament_catalog_apply_quality_filter` |
+| **Duplicate Hex Colors** | ✅ In alert chart | Taps script + auto-switches to By Hex Color grouping |
+| **Missing UUID** | ✅ In alert chart (expanded beyond original design) | Bambu Lab spools only |
+| **Tag ≠ UUID** | ✅ In alert chart (expanded beyond original design) | Cross-checks tag and UUID consistency |
+| **Missing Profile** | ✅ In alert chart (expanded beyond original design) | Bambu Lab spools only |
+| **Orphan Filaments** | ⏳ Deferred to future phase | See note below |
+
+> **Orphan Filaments ([#118](https://github.com/rsocko/hass-bambulab-config/issues/118))**: Deferred from Phase 5A. This check requires detecting filament definitions with zero associated spools, but the Spoolman HA integration only creates entities for spools (`sensor.spoolman_spool_*`), not for filaments. The current catalog UI renders spool cards — showing an orphan filament (which has no spool entity) would require a different card template and data source. This is better suited for a future phase that adds a "By Filament" aggregated view with access to filament-level data from the Spoolman API.
 
 > **Scope decision**: AMS vs. Spoolman weight drift is removed from Filament Catalog quality checks. This signal is more actionable on the main dashboard while a spool is actively in AMS, and provides limited value in static catalog analytics.
 
@@ -780,18 +835,17 @@ The metrics panel lives **inside** the existing Filament Catalog view — not on
 
 ```
 view_filament_catalog.yaml (panel: true + vertical-stack)
-├── Inventory KPI chips (existing)
+├── Inventory KPI chips (existing) — includes insights toggle button (#695)
 │
-├── [📊 Show Insights]  ← input_boolean toggle or mushroom chip
-│   └── Collapsible Metrics Panel (shown when toggle is on)
-│       ├── Row 1: [Tree map: Weight by Material] [Donut: Count by Material]
-│       ├── Row 2: [Bar: Weight by Vendor] [Bar: Count by Vendor]
-│       ├── Row 3: [Bar: Weight by Color Family] [Bar: Count by Color Family]
-│       ├── Row 4: [Stacked Bar: Weight by Primary Color (all filaments)]
-│       ├── Row 5: [Bar: Alert Counts by Type]  ← clickable segments
-│       ├── Row 6: [Data Quality: Issues Found]  ← compact list
-│       └── (Rows 7+: added incrementally by 5B–5D)
+├── Collapsible Metrics Panel (shown when input_boolean.filament_catalog_show_insights is on)
+│   ├── Row 1: [Treemap: Weight by Material] [Bar: Count by Material]
+│   ├── Row 2: [Bar: Weight by Vendor] [Bar: Count by Vendor]
+│   ├── Row 3: [Bar: Weight by Color Family] [Stacked Bar: Count by Spool Type × Clip Type]
+│   ├── Row 4: [Bar: Weight by Primary Color (real hex colors, top-20)]
+│   ├── Row 5: [Horizontal Bar: Alert & Data Quality Counts (16 categories, clickable)]
+│   └── (Rows 6+: added incrementally by 5B–5D)
 │
+├── Tray Assignment Status & Picker (spoolman_sync)
 ├── Filter Bar (existing)
 └── Single auto-entities grid (existing)
 ```
@@ -807,54 +861,83 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 
 ###### Toggle Helper
 
-`input_boolean.filament_catalog_show_insights` — Controls visibility of the metrics panel. Default: off (collapsed). The toggle chip appears in the KPI row or as a standalone mushroom chip.
+`input_boolean.filament_catalog_show_insights` — Controls visibility of the metrics panel. Default: off (collapsed). The toggle button is rendered inside the `catalog_inventory_kpi.yaml` card (#695).
 
 ###### Clickable Chart Segments → Filter Integration
 
-Chart segments are **interactive** — tapping a segment applies the corresponding filter to the catalog grid below:
+Chart segments in the alert counts chart are **interactive** — tapping a segment applies the corresponding filter to the catalog grid below:
 
-| Chart | Click Action |
+| Chart Segment | Click Action |
 |---|---|
-| Tree map: Weight by Material → "PLA" tile | Sets `input_select.filament_catalog_filter_material` to `PLA` |
-| Bar: Spools per Location → "AMS" bar | Sets `input_select.filament_catalog_filter_location` to `AMS` |
-| Bar: Alert Counts → "Desiccant Overdue" bar | Turns on `input_boolean.filament_catalog_filter_desiccant_old` |
-| Bar: Alert Counts → "Low Stock" bar | Turns on `input_boolean.filament_catalog_filter_low_stock` |
-| Bar: Alert Counts → "Needs Drying" / "Stale" | Sets a new dedicated filter or search term (see below) |
+| Low Stock | Sets `input_select.filament_catalog_filter_stock_level` to `Low Stock` |
+| Nearly Empty | Turns on `input_boolean.filament_catalog_filter_nearly_empty` |
+| Needs Repurchase | Turns on `input_boolean.filament_catalog_filter_needs_repurchase` |
+| Desiccant Overdue | Sets `input_select.filament_catalog_filter_desiccant` to `Needs Desiccant (Any Age)` |
+| Desiccant Red | Sets `input_select.filament_catalog_filter_desiccant` to `Red (>75 days)` |
+| Desiccant Orange | Sets `input_select.filament_catalog_filter_desiccant` to `Orange (>60 – ≤75 days)` |
+| Desiccant Yellow | Sets `input_select.filament_catalog_filter_desiccant` to `Yellow (>45 – ≤60 days)` |
+| Desiccant Undefined | Sets `input_select.filament_catalog_filter_desiccant` to `Undefined` |
+| Missing Desiccant | Sets `input_select.filament_catalog_filter_desiccant` to `Missing Desiccant` |
+| Needs Drying | Turns on `input_boolean.filament_catalog_filter_needs_drying` |
+| Stale | Turns on `input_boolean.filament_catalog_filter_stale` |
+| Multiple Unsealed Duplicates | Calls `script.filament_catalog_apply_quality_filter` with `quality_filter: Multiple Unsealed Duplicates` |
+| Duplicate Hex Colors | Calls `script.filament_catalog_apply_quality_filter` with `quality_filter: Duplicate Hex Colors, group_by_hex: true` |
+| Missing UUID | Calls `script.filament_catalog_apply_quality_filter` with `quality_filter: Missing UUID` |
+| Tag ≠ UUID | Calls `script.filament_catalog_apply_quality_filter` with `quality_filter: Tag != UUID` |
+| Missing Profile | Calls `script.filament_catalog_apply_quality_filter` with `quality_filter: Missing Profile` |
 
-**Implementation**: `custom:apexcharts-card` supports `chart.events.dataPointSelection` which can trigger a `browser_mod` service call or `fire-dom-event`. For HA-native integration, each clickable segment calls `input_select.select_option` or `input_boolean.turn_on` via `tap_action: call-service`.
-
-> **Note**: For alert types that don't have existing filter toggles (Needs Drying, Stale), clicking those bars could set a search term or add new lightweight `input_boolean` toggles. Alternatively, these can initially be display-only with filter integration added incrementally.
+**Implementation**: The alert chart uses `custom:apex-direct-bar-card` with a `tap_actions` map. Each key maps an alert category to a `call-service` action targeting the appropriate filter helper. The `filament_catalog_apply_quality_filter` script sets `input_select.filament_catalog_filter_data_quality` and optionally switches the catalog tab to "By Hex Color" for duplicate hex inspection.
 
 ###### Template Sensor: `sensor.filament_catalog_metrics`
 
-A dedicated template sensor pre-computes all chart data server-side to avoid heavy JS in apexcharts configs:
+A dedicated template sensor pre-computes all chart data server-side to avoid heavy JS in chart card configs:
 
 ```yaml
+state: <total non-archived spool count>
 attributes:
-  # 5A.1 — Distribution
-  weight_by_material_json: '{"PLA": 45200, "PETG": 12300, ...}'  # grams
+  generated_at: '<ISO timestamp>'
+
+  # 5A.1 — Distribution (by weight)
+  weight_by_material_json: '{"PLA": 45200, "PETG": 12300, ...}'    # grams
   weight_by_vendor_json: '{"Bambu Lab": 38000, "Sunlu": 15000, ...}'
   weight_by_color_family_json: '{"Blues": 12000, "Reds": 8000, ...}'
+  primary_color_weight_segments_json: '[{"name":"Blue","weight":8200,"hex":"#4169E1"}, ...]'
+  primary_color_weight_stack_segments_json: '[{"primary":"Blue","segment_label":"Silk+ Blue (#4169e1)","hex":"#4169e1","weight":782}, ...]'  # top-20
+
+  # 5A.1.1 — Distribution (by count)
   count_by_material_json: '{"PLA": 42, "PETG": 16, ...}'
   count_by_vendor_json: '{"Bambu Lab": 31, "Sunlu": 28, ...}'
   count_by_color_family_json: '{"Blues": 19, "Reds": 12, ...}'
+  count_by_type_json: '{"Matte": 25, "Silk": 18, ...}'            # parsed from filament_extra_type_details
   count_by_primary_color_json: '{"Blue": 14, "Gray": 10, ...}'
-  primary_color_weight_segments_json: '[{"name":"Blue","weight":8200,"hex":"#4169E1"}, ...]'
+  primary_color_count_segments_json: '[{"name":"Blue","count":14,"hex":"#4169E1"}, ...]'
+  primary_color_count_stack_segments_json: '[{"primary":"Blue","segment_label":"...","hex":"...","count":3}, ...]'  # top-20
+  count_by_spool_type_clip_type_stack_segments_json: '[{"spool_type":"Bambu Spool","clip_type":"Slot Insert v2","count":45,"hex":"#42A5F5"}, ...]'
   spools_by_location_json: '{"AMS": 5, "Closet Shelf 1": 12, ...}'
 
-  # 5A.2 — Alerts
-  alert_counts_json: '{"repurchase": 2, "desiccant": 5, "drying": 3, "empty": 1, "stale": 4, "missing_desiccant": 2}'
-  alert_entity_ids_json: '{"repurchase": ["sensor.spoolman_spool_12", ...], ...}'
+  # 5A.2 — Alert counts (16 categories)
+  alert_counts_json: >-
+    {"low_stock": 8, "nearly_empty": 3, "needs_repurchase": 2,
+     "desiccant_overdue": 12, "desiccant_red": 5, "desiccant_orange": 4, "desiccant_yellow": 3, "desiccant_undefined": 8,
+     "missing_desiccant": 2, "needs_drying": 3, "stale": 4,
+     "multiple_unsealed_duplicates": 6, "duplicate_hex_colors": 4,
+     "missing_uuid": 1, "tag_uuid_mismatch": 2, "missing_profile": 3}
+  alert_entity_ids_json: '{"low_stock": ["sensor.spoolman_spool_12", ...], ...}'  # entity IDs per alert category
 
-  # 5A.3 — Data Quality
-  data_quality_json: '{"multiple_unsealed": [...], "orphan_filaments": [...], "duplicate_hex": [...]}'
+  # 5A.3 — Data Quality (detailed reports)
+  data_quality_json: >-
+    {"multiple_unsealed_duplicates": [{"filament_id": "42", "count": 2, "entity_ids": [...]}],
+     "duplicate_hex_colors": [{"hex": "#4169e1", "count": 2, "filament_ids": [...]}],
+     "missing_uuid": [{"entity_id": "...", "vendor": "Bambu Lab"}],
+     "tag_uuid_mismatch": [{"entity_id": "...", "tag": "...", "uuid": "..."}],
+     "missing_profile": [{"entity_id": "...", "filament_id": "42"}]}
 
   # Summary
-  total_inventory_value: 3245.50
-  avg_cost_per_kg: 22.50
+  total_inventory_value: 3245.50   # (remaining/initial) × price, summed
+  avg_cost_per_kg: 22.50           # average across spools with known prices
 ```
 
-The sensor triggers on `sensor.spoolman_filament_totals` changes (same as the filter sensor), so it recomputes only when spool data changes — not on every state change.
+The sensor triggers on `sensor.spoolman_filament_totals` changes and a `/1` hour time_pattern, so it recomputes only when spool data changes — not on every state change.
 
 ###### Modularity: Card-Per-Chart Pattern
 
@@ -865,20 +948,44 @@ filament_catalog/
 ├── dashboard_cards/
 │   ├── catalog_insights_panel.yaml          ← wrapper: conditional on toggle + vertical-stack
 │   ├── insights/
-│   │   ├── chart_weight_by_material.yaml    ← custom apex-direct-bar-card (treemap)
-│   │   ├── chart_weight_by_vendor.yaml      ← custom apex-direct-bar-card (bar)
-│   │   ├── chart_weight_by_color_family.yaml ← custom apex-direct-bar-card (bar)
-│   │   ├── chart_weight_by_primary_color.yaml  ← weight by primary color (bar)
-│   │   ├── chart_count_by_material.yaml     ← count distribution
-│   │   ├── chart_count_by_vendor.yaml       ← count distribution
-│   │   ├── chart_count_by_color_family.yaml ← count distribution
-│   │   ├── chart_spools_by_location.yaml    ← custom apex-direct-bar-card (bar)
-│   │   ├── chart_alert_counts.yaml          ← custom apex-direct-bar-card (horizontal bar, clickable)
-│   │   ├── card_data_quality_reports.yaml   ← button-card list of data quality issues
+│   │   ├── chart_weight_by_material.yaml    ← custom:apex-direct-bar-card (treemap) — IN PANEL
+│   │   ├── chart_weight_by_vendor.yaml      ← custom:apex-direct-bar-card (bar) — IN PANEL
+│   │   ├── chart_weight_by_color_family.yaml ← custom:apex-direct-bar-card (bar) — IN PANEL
+│   │   ├── chart_weight_by_primary_color.yaml  ← bar with real hex colors (top-20) — IN PANEL
+│   │   ├── chart_weight_by_primary_color_stacked.yaml ← stacked bar variant — BUILT, NOT IN PANEL
+│   │   ├── chart_count_by_material.yaml     ← count distribution — IN PANEL
+│   │   ├── chart_count_by_vendor.yaml       ← count distribution — IN PANEL
+│   │   ├── chart_count_by_spool_type_clip_type.yaml ← stacked bar by spool type × clip type — IN PANEL
+│   │   ├── chart_count_by_primary_color.yaml ← count distribution — BUILT, NOT IN PANEL
+│   │   ├── chart_spools_by_location.yaml    ← bar chart — BUILT, NOT IN PANEL
+│   │   ├── chart_alert_counts.yaml          ← horizontal bar, 16 categories, clickable — IN PANEL
 │   │   └── (future sub-phase charts added here)
 │   └── ...
 ├── template_sensors/
-│   └── filament_catalog_metrics.yaml        ← pre-computed chart data
+│   ├── filament_catalog_metrics.yaml        ← pre-computed chart data (all 5A attributes)
+│   ├── filament_catalog_alert_count_sensors.yaml  ← individual HA sensors per alert type (for Recorder)
+│   └── filament_catalog_material_breakdown_sensors.yaml ← per-material count sensors (for Recorder)
+├── automations/
+│   └── sync_quality_filter_grouping.yaml    ← auto-switch to By Hex Color when Duplicate Hex selected
+├── scripts/
+│   └── filament_catalog_apply_quality_filter.yaml ← set data quality filter + optional hex grouping
+└── helpers/
+    ├── input_boolean/
+    │   ├── filament_catalog_show_insights.yaml        ← insights panel toggle
+    │   ├── filament_catalog_filter_nearly_empty.yaml   ← alert filter toggle
+    │   ├── filament_catalog_filter_needs_repurchase.yaml
+    │   ├── filament_catalog_filter_needs_drying.yaml
+    │   ├── filament_catalog_filter_stale.yaml
+    │   ├── filament_catalog_filter_missing_desiccant.yaml
+    │   └── filament_catalog_filter_unsealed_only.yaml
+    ├── input_number/
+    │   ├── desiccant_threshold_yellow_days.yaml  ← configurable desiccant thresholds
+    │   ├── desiccant_threshold_orange_days.yaml
+    │   └── desiccant_threshold_red_days.yaml
+    └── input_select/
+        ├── filament_catalog_filter_stock_level.yaml    ← tiered stock filter
+        ├── filament_catalog_filter_desiccant.yaml      ← tiered desiccant filter
+        └── filament_catalog_filter_data_quality.yaml   ← data quality filter dropdown
 ```
 
 The `catalog_insights_panel.yaml` is a `conditional` card (condition: `input_boolean.filament_catalog_show_insights` is on) wrapping a `vertical-stack` of `horizontal-stack` rows that `!include` each chart card. Adding a new chart = create the card file + add an `!include` line.
@@ -888,23 +995,49 @@ The `catalog_insights_panel.yaml` is a `conditional` card (condition: `input_boo
 - **`triggers_update`**: Every chart card MUST use `triggers_update: sensor.filament_catalog_metrics` to prevent re-render on unrelated entity changes.
 - **Conditional wrapper**: When the insights panel is collapsed (toggle off), the chart cards are not rendered at all — zero performance cost.
 - **No additional `auto-entities`**: Charts read from the pre-computed template sensor attributes, not from entity iteration.
-- **Apex chart settings**: Disable animations (`chart.animations.enabled: false`), limit data points for trend charts.
+- **`custom:apex-direct-bar-card`**: A lightweight custom card (`www/3d_printing/filament_catalog/apex-direct-bar-card.js`) that reads JSON attributes directly from a source entity. Avoids the overhead of `apexcharts-card` history queries and complex JS config templates. Supports treemap, bar, stacked bar, and horizontal bar layouts with built-in `tap_actions` support.
+- **Apex chart settings**: Animations disabled for speed.
 
-###### 5A Files to Create/Modify
+###### 5A Files Created/Modified
 
-| File | Action |
-|---|---|
-| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Create** — Pre-computed chart + alert + data quality data |
-| `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Create** — Conditional wrapper for insights section |
-| `filament_catalog/dashboard_cards/insights/chart_weight_by_material.yaml` | **Create** — Pie chart |
-| `filament_catalog/dashboard_cards/insights/chart_weight_by_vendor.yaml` | **Create** — Pie chart |
-| `filament_catalog/dashboard_cards/insights/chart_weight_by_color_family.yaml` | **Create** — Pie chart |
-| `filament_catalog/dashboard_cards/insights/chart_spools_by_location.yaml` | **Create** — Bar chart |
-| `filament_catalog/dashboard_cards/insights/chart_alert_counts.yaml` | **Create** — Alert breakdown (clickable) |
-| `filament_catalog/dashboard_cards/insights/card_data_quality_reports.yaml` | **Create** — Data quality issue list |
-| `filament_catalog/helpers/input_boolean/filament_catalog_show_insights.yaml` | **Create** — Insights panel toggle |
-| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modify** — Insert insights panel between KPIs and filter bar |
-| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modify** — Add insights toggle chip (optional) |
+| File | Action | Notes |
+|---|---|---|
+| `filament_catalog/template_sensors/filament_catalog_metrics.yaml` | **Created** | Pre-computed chart + alert + data quality data (all 5A attributes) |
+| `filament_catalog/template_sensors/filament_catalog_alert_count_sensors.yaml` | **Created** | Individual HA sensors per alert type for Recorder/statistics |
+| `filament_catalog/template_sensors/filament_catalog_material_breakdown_sensors.yaml` | **Created** | Per-material count sensors for Recorder/statistics |
+| `filament_catalog/dashboard_cards/catalog_insights_panel.yaml` | **Created** | Conditional wrapper for insights section |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_material.yaml` | **Created** | Treemap chart |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_vendor.yaml` | **Created** | Bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_color_family.yaml` | **Created** | Bar chart |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_primary_color.yaml` | **Created** | Bar chart with real hex colors |
+| `filament_catalog/dashboard_cards/insights/chart_weight_by_primary_color_stacked.yaml` | **Created** | Stacked bar variant (built, not in panel) |
+| `filament_catalog/dashboard_cards/insights/chart_count_by_material.yaml` | **Created** | Count distribution |
+| `filament_catalog/dashboard_cards/insights/chart_count_by_vendor.yaml` | **Created** | Count distribution |
+| `filament_catalog/dashboard_cards/insights/chart_count_by_spool_type_clip_type.yaml` | **Created** | Stacked bar by spool type × clip type |
+| `filament_catalog/dashboard_cards/insights/chart_count_by_primary_color.yaml` | **Created** | Count distribution (built, not in panel) |
+| `filament_catalog/dashboard_cards/insights/chart_spools_by_location.yaml` | **Created** | Bar chart (built, not in panel) |
+| `filament_catalog/dashboard_cards/insights/chart_alert_counts.yaml` | **Created** | Alert + data quality horizontal bar (16 categories, clickable) |
+| `filament_catalog/helpers/input_boolean/filament_catalog_show_insights.yaml` | **Created** | Insights panel toggle |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_nearly_empty.yaml` | **Created** | Alert filter toggle |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_needs_repurchase.yaml` | **Created** | Alert filter toggle |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_needs_drying.yaml` | **Created** | Alert filter toggle |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_stale.yaml` | **Created** | Alert filter toggle |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_missing_desiccant.yaml` | **Created** | Alert filter toggle |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_unsealed_only.yaml` | **Created** | Alert filter toggle |
+| `filament_catalog/helpers/input_number/desiccant_threshold_yellow_days.yaml` | **Created** | Configurable desiccant threshold |
+| `filament_catalog/helpers/input_number/desiccant_threshold_orange_days.yaml` | **Created** | Configurable desiccant threshold |
+| `filament_catalog/helpers/input_number/desiccant_threshold_red_days.yaml` | **Created** | Configurable desiccant threshold |
+| `filament_catalog/helpers/input_select/filament_catalog_filter_stock_level.yaml` | **Created** | Tiered stock level dropdown |
+| `filament_catalog/helpers/input_select/filament_catalog_filter_desiccant.yaml` | **Created** | Tiered desiccant dropdown |
+| `filament_catalog/helpers/input_select/filament_catalog_filter_data_quality.yaml` | **Created** | Data quality filter dropdown |
+| `filament_catalog/automations/sync_quality_filter_grouping.yaml` | **Created** | Auto-switch to By Hex Color on Duplicate Hex Colors selection |
+| `filament_catalog/scripts/filament_catalog_apply_quality_filter.yaml` | **Created** | Set data quality filter + optional hex grouping |
+| `www/3d_printing/filament_catalog/apex-direct-bar-card.js` | **Created** | Custom Lovelace card for reading JSON attributes directly |
+| `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** | Inserted insights panel between KPIs and filter bar |
+| `filament_catalog/dashboard_cards/catalog_inventory_kpi.yaml` | **Modified** | Added insights toggle button (#695) |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added stock level, desiccant, data quality dropdowns + new toggle filters |
+| `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added support for all new filter dimensions |
+| `filament_catalog/scripts/filament_catalog_clear_filters.yaml` | **Modified** | Reset new filters to defaults |
 
 ---
 
@@ -1202,15 +1335,15 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 | **2** | Filters, search, stock threshold helper | High | Phase 1 | ✅ Complete |
 | **3** | Enhanced card visuals + density toggle | Medium | Phase 1 | ✅ Complete |
 | **4** | Tabbed views + sort options | Medium | Phase 1; benefits from 2 | ✅ Complete |
-| **5A** | Inventory insights, alerts, data quality | High | Phase 1; benefits from 2, 4 | |
+| **5A** | Inventory insights, alerts, data quality | High | Phase 1; benefits from 2, 4 | ✅ Complete |
 | **5B** | Cost analytics | Medium | Phase 5A | |
 | **5C** | Usage & recency analytics | Medium | Phase 5A | |
 | **5D** | Print history analytics | High | Phase 5A + print history source (TBD) | ⚠️ Blocked |
 | **5E** | Advanced BI & external tooling | Variable | Independent (research) | |
 
-**Recommended order**: Phase 1 → 2 → 3 → 4 → **5A → 5B → 5C** (start 5E research in parallel) → **5D** (once print history source is determined)
+**Recommended order**: Phase 1 → 2 → 3 → 4 → **5A** → **5B → 5C** (start 5E research in parallel) → **5D** (once print history source is determined)
 
-Phases 1–4 are complete. Phase 5 is broken into five incremental sub-phases:
-- **5A–5C** are unblocked and use existing Spoolman data — these are the immediate next steps
+Phases 1–4 and 5A are complete. Phase 5 is broken into five incremental sub-phases:
+- **5A** is complete. **5B–5C** are unblocked and use existing Spoolman data — these are the immediate next steps
 - **5D** requires a print history integration (Bambuddy, OpenSpoolman, or custom) that is still being evaluated ([#251](https://github.com/rsocko/hass-bambulab-config/issues/251), [#248](https://github.com/rsocko/hass-bambulab-config/issues/248), [#249](https://github.com/rsocko/hass-bambulab-config/issues/249))
 - **5E** is an independent research track that can proceed at any time and may influence the implementation approach for 5A–5D

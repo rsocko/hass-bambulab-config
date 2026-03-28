@@ -35,7 +35,7 @@ Filament weight visualization and cost tracking for active prints, showing per-t
 
 | File | Description |
 |------|-------------|
-| [print-weight-bar-chart.md](print-weight-bar-chart.md) | Stacked bar chart v2: weight labels, legend, color accuracy, troubleshooting |
+| [print-weight-and-cost-bar-charts.md](print-weight-and-cost-bar-charts.md) | Weight & cost stacked bar charts: visual design, price fallback logic, legends, troubleshooting |
 | [print-weight-per-tray.md](print-weight-per-tray.md) | Per-tray consumption display with color-coded remaining filament warnings |
 
 ## Dependencies & Requirements
