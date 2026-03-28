@@ -11,7 +11,7 @@ Error information in the current system is fragmented across three independent s
 
 | Subsystem | Source Entity | What It Covers | Dashboard UI | Notifications |
 |---|---|---|---|---|
-| **HMS Alert** | `binary_sensor.*_hms_errors` | Hardware Monitoring System alerts (filament runout, cutter jam, fan fault, etc.) | Full: red banner, severity-coloured detail cards, expand/collapse, test mode | Mobile push, persistent notification (critical/serious only), TTS, logbook |
+| **HMS Alert** | `binary_sensor.*_hms_errors` | Hardware Monitoring System alerts (filament runout, cutter jam, fan fault, etc.) | Full: red banner, severity-coloured detail cards, always-visible details, test mode | Mobile push, persistent notification (critical/serious only), TTS, logbook |
 | **Print Fault** | `binary_sensor.*_print_error` | Printer errors during active prints (pause commands, mechanical faults, etc.) | **None** — no dashboard card | Mobile push (always critical), persistent notification, TTS, system log, logbook |
 | **Logging Error Handler** | `system_log_event` (event bus) | Bambu Lab integration errors in HA logs (spool matching, UUID conflicts, etc.) | **None** — not deployed | Persistent notification (not currently loaded in HA) |
 
@@ -447,7 +447,7 @@ docs/features/hms_alert/                               → RENAMED: error_alerts
   - Print-only errors render with `PRINT` badge and no wiki link
   - Mixed errors render both types side-by-side
 - Responsive behavior preserved at mobile and desktop widths
-- Expand/collapse toggle works
+- Error details always visible when errors exist (no expand/collapse)
 
 **Risk:** Low — dashboard cards are stateless and can be swapped at any time.
 
