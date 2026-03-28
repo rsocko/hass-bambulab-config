@@ -64,7 +64,7 @@ input_text: !include_dir_merge_named helpers/input_text
 |---|---|---|---|
 | `sensor.bambuddy_printer_status` | `GET /api/v1/printers/{id}/status` | 30s | bambuddy/sensors.yaml |
 
-Attributes: `status`, `current_print`, `maintenance`, `error`, `nozzle_temp`, `bed_temp`, `chamber_temp`, `print_progress`, `time_remaining_minutes`, `fan_speed`, `filament`
+Attributes: `name`, `connected`, `state`, `current_print`, `subtask_name`, `gcode_file`, `progress`, `remaining_time`, `layer_num`, `total_layers`, `temperatures` (nested: bed, bed_target, nozzle, nozzle_target, nozzle_heating), `cover_url`, `hms_errors`, `ams`
 
 ### REST Commands
 
