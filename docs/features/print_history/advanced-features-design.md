@@ -62,7 +62,59 @@ rest_command:
 
 ---
 
-## Comparison Dashboard Widget
+## Core Enrichment Extensions (Phase 2, no separate phase number)
+
+These are lightweight additions to the core enrichment automation, not standalone features:
+
+### Timelapse Auto-Attach
+
+After tag/note enrichment completes, trigger Bambuddy to scan the printer's SD for the timelapse:
+```yaml
+- action: rest_command.bambuddy_scan_timelapse
+  data:
+    archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
+```
+API: `POST /archives/{id}/timelapse/scan`
+
+### Tag Audit Sensor
+
+REST sensor polling `GET /archives/tags` — state is total unique tag count, attributes contain tag→count mapping. Useful for verifying enrichment is working. Simple entity card on maintenance/diagnostic dashboard.
+
+---
+
+## Future Features (Unphased)
+
+### Reprint from HA
+
+`POST /archives/{id}/reprint` dispatches a 3MF to the printer with AMS mapping, plate selection, bed leveling, and calibration options. Complex because it needs AMS mapping UI and unattended reprint safety considerations. Best surfaced as a dashboard button with confirmation. Blocked until `spoolman_tray_map` can auto-generate the `ams_mapping` body from current tray state.
+
+### Search from HA
+
+`GET /archives/search?q=benchy` — FTS5 full-text search across print_name, filename, tags, notes, designer, filament_type. Useful for voice assistant integration ("Hey Google, find my Benchy prints") but the Bambuddy UI is a better search experience. Low priority.
+
+---
+
+## Priority Ranking
+
+| Feature | Phase | Effort | Value |
+|---------|-------|--------|-------|
+| Favorites toggle | 2.1 | Low | Medium — quick win, useful UX |
+| Timelapse auto-attach | 2 (enrichment) | Low | High — automates manual step |
+| Failure analysis sensor | 3.1 (statistics) | Medium | High — surfaced in dashboard |
+| Tag audit sensor | 2 (common/diagnostic) | Low | Medium — enrichment verification |
+| Compare on failure | 2.2 | Medium | Medium — debugging prints |
+| Duplicate/reprint awareness | 2.3 | Medium | High — "printed this before" intelligence |
+| MakerWorld attribution | 2.4 | Low | Medium — designer credit + source links |
+| Spool remaining pre-print warning | 2.5 | Medium | **Very High** — prevent failed prints from empty spools |
+| Energy cost enrichment | 2.6 | Medium | High — ties power_monitoring to Bambuddy |
+| Rich print notifications | 2.7 | Low | Medium — better notification content |
+| Spool usage provenance | 2.8 | Low | Medium — "what did this spool print?" |
+| Reprint from HA | Future | High | Medium — safety concerns |
+| Search from HA | Future | Medium | Low — Bambuddy UI is better |
+
+---
+
+## Phase 2.2: Compare on Failure — "Why Did This Print Fail?"
 
 ### API
 
@@ -81,7 +133,6 @@ Returns field-by-field comparison with difference detection:
     {"field": "layer_height", "label": "Layer Height", "unit": "mm", "values": [0.2, 0.16], "has_difference": true},
     {"field": "nozzle_temperature", "label": "Nozzle Temperature", "unit": "°C", "values": [220, 215], "has_difference": true}
   ],
-  "differences": [...],
   "success_correlation": {
     "has_both_outcomes": true,
     "insights": [
@@ -95,163 +146,303 @@ Compared fields: `layer_height`, `nozzle_diameter`, `bed_temperature`, `nozzle_t
 
 ### Use Case
 
-"Why did my Benchy fail this time?" — Compare the failed print against the last successful one. The `success_correlation.insights` field automatically surfaces which settings differ between successful and failed prints.
-
-### Implementation Approach
-
-This is best surfaced in the Bambuddy UI directly (it already has a comparison view). From HA, we could:
-1. **Link to Bambuddy compare page** — Construct URL: `{bambuddy_url}/compare?ids=1,2,3`
-2. **REST sensor** — Poll `/archives/{id}/similar` for the most recent archive and surface "similar prints" as a sensor attribute
-3. **Automation** — On `print_failed`, auto-find similar successful prints and send a notification with the compare link
-
-**Recommended**: Option 3 — on failure, send a notification like:
-> "Print 'Benchy' failed. Compare with last successful attempt: [link]"
-
----
-
-## Failure Analysis Dashboard
-
-### API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/archives/analysis/failures` | Failure rate, failures by reason/filament/printer, time-of-day distribution, weekly trend |
-
-### Response Shape
-
-```json
-{
-  "total_prints": 500,
-  "failed_prints": 45,
-  "failure_rate": 0.09,
-  "failures_by_reason": {"spaghetti_detection": 12, "user_stopped": 20, ...},
-  "failures_by_filament": {"PLA": 30, "PETG": 15},
-  "failures_by_printer": {"1": 25, "2": 20},
-  "failures_by_hour": {"0": 2, "1": 0, ..., "23": 3},
-  "weekly_trend": [{"week": "2026-W12", "failures": 5, "total": 50}]
-}
-```
+"Why did my Benchy fail this time?" — On `print_failed`, auto-find the last successful archive with the same `print_name`, then construct a comparison link. The `success_correlation.insights` field automatically surfaces which slicer settings differ between successful and failed runs.
 
 ### Implementation
 
-**REST sensor** polling `/analysis/failures` with configurable interval (hourly or daily):
-- State: failure_rate percentage
-- Attributes: full breakdown data
-- Dashboard: ApexCharts card with failure-by-hour heatmap, weekly trend line
+**Automation: `bambuddy_compare_on_failure`** — triggers on `print_failed` webhook:
+1. Call `GET /archives/{id}/similar` to find past successful prints of the same model
+2. If a match exists, construct the compare URL: `{bambuddy_url}/compare?ids={failed_id},{success_id}`
+3. Send actionable notification:
+   > "Print 'Benchy' failed. [Compare with last successful attempt →]({compare_url})"
 
-**Phase**: print_statistics (natural fit)
+**REST sensor (optional)**: Poll `/archives/{id}/similar` for the most recent archive and expose `similar_archives` as an attribute for dashboard display.
+
+### Phase & Dependencies
+
+- **Phase**: 2.2
+- **Depends on**: bambuddy_common, print_history core (archive_id capture)
+- **Package**: print_history
+- **Effort**: Medium — one new automation, one REST command, notification integration
 
 ---
 
-## Tag Cloud / Tag Audit
+## Phase 2.3: Duplicate & Reprint Intelligence
+
+### Data Sources
+
+From the archive response:
+- `content_hash` — SHA-256 of the 3MF file, identical across reprints of the same file
+- `duplicate_count` — how many other archives share this hash
+- `duplicate_sequence` — this archive's position in the duplicate chain (0 = original)
+- `original_archive_id` — links to the first archive with this hash (if duplicate)
 
 ### API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/archives/tags` | List all unique tags with usage counts |
+| `GET` | `/archives/{id}/duplicates` | Get all archives that are duplicates of this one (same `content_hash` + name) |
+| `GET` | `/archives/{id}/similar` | Find similar archives by name, hash, filament type |
+| `GET` | `/archives/search?q=...` | Search by print_name to find past prints of the same model |
+
+### Use Cases
+
+1. **"You've printed this before" notification** — On `print_started`, if the archive has `duplicate_count > 0` or `GET /{id}/similar` returns matches, send a notification:
+   > "Starting 'Benchy' — you've printed this model 3 times before. Last result: completed (94.4% time accuracy). Best attempt: archive #145."
+
+2. **Reprint history enrichment** — Tag archives with `reprint_of:{original_id}` and `print_attempt:{sequence}` during enrichment:
+   ```
+   reprint_of:145, print_attempt:4, model_hash:351f48cd
+   ```
+
+3. **Auto-favorite first success** — When a `print_complete` archive has `duplicate_count == 0` (first print of this model and it succeeded), auto-favorite it as a "notable first print."
+
+4. **Dashboard widget** — Show "Print History for this Model" on the archive detail view, listing all previous attempts with their outcomes.
+
+### Implementation
+
+**Enrichment extension** — During the existing enrichment automation on `print_complete`:
+1. Call `GET /archives/{id}/duplicates`
+2. If duplicates exist, add tags: `print_attempt:{count+1}`, `reprint_of:{original_id}`
+3. If no duplicates (first print of this model) and status is `completed`, auto-favorite
+
+**Notification extension** — During `print_started` notification:
+1. Query `GET /archives/search?q={print_name}&status=completed`
+2. Include previous attempt count and last outcome in the notification
+
+### Phase & Dependencies
+
+- **Phase**: 2.3
+- **Depends on**: bambuddy_common, print_history core (enrichment automation)
+- **Package**: print_history
+- **Effort**: Medium — extends enrichment + notification automations, one new REST call
+
+---
+
+## Phase 2.4: MakerWorld Attribution & Designer Tracking
+
+### Data Sources
+
+From the archive response `extra_data`:
+- `makerworld_url` — Full URL to the MakerWorld model page
+- `makerworld_model_id` — Numeric MakerWorld model ID (e.g., `"775698"`)
+- `designer` — Model creator name (e.g., `"StefBull85"`)
+
+Also:
+- `GET /archives/{id}/project-page` — Full embedded MakerWorld project page data from the 3MF
+
+### Use Cases
+
+1. **Designer attribution in enrichment** — Tag archives with `designer:{name}`:
+   ```
+   designer:StefBull85, makerworld:775698
+   ```
+   This enables Bambuddy tag search: "Show me all prints by StefBull85."
+
+2. **Source link in notes** — Add MakerWorld URL to the enrichment notes:
+   ```
+   --- Source ---
+   Designer: StefBull85
+   MakerWorld: https://makerworld.com/en/models/775698
+   ```
+
+3. **Print started notification** — Include designer and source:
+   > "Printing 'Hueforge Back to the Future' by StefBull85 (MakerWorld)"
+
+4. **Designer stats** (future) — Template sensor counting prints per designer from tag data, "Top Designers" widget.
+
+### Implementation
+
+**Enrichment extension** — Extract `designer` and `makerworld_model_id` from the archive GET response during enrichment:
+1. If `extra_data.designer` exists and is non-empty → add tag `designer:{name}`
+2. If `extra_data.makerworld_model_id` exists → add tag `makerworld:{id}`
+3. Append source section to notes (after existing Spoolman enrichment notes)
+
+**No new REST calls needed** — this data is already in the archive GET response used for UUID-based enrichment (Tier 1).
+
+### Phase & Dependencies
+
+- **Phase**: 2.4
+- **Depends on**: print_history core (enrichment automation reads archive detail)
+- **Package**: print_history
+- **Effort**: Low — extends existing enrichment template, no new API calls
+
+---
+
+## Phase 2.5: Spool Remaining Pre-Print Warning
+
+### Data Sources
+
+From the archive's `extra_data._print_data.raw_data.ams[].tray[]`:
+- `remain` — Estimated remaining spool percentage (e.g., `31` = 31%)
+- `tray_weight` — Original roll weight in grams (e.g., `"1000"`)
+- `tray_uuid` — Spool UUID for precise identification
+
+From the archive's `extra_data.filament_slots[]`:
+- `used_g` — Grams this print will consume from each slot
+
+Also:
+- `GET /archives/{id}/filament-requirements` — Per-plate filament requirements (type, color, weight)
+
+Cross-referenced with:
+- `sensor.spoolman_tray_map` — Current tray-to-spool mapping with match state
+
+### Use Cases
+
+1. **"Might run out" notification** — On `print_started`, for each filament color used:
+   - Lookup the AMS tray by color from `raw_data.ams`
+   - Calculate estimated remaining grams: `remain% × tray_weight / 100`
+   - Compare against `filament_slots[].used_g` (print's demand for that color)
+   - If demand > estimated remaining → alert:
+     > "⚠️ AMS 2 Tray 2 (PLA Matte Black) is at 31% (~310g remaining). This print uses 29.69g of black — tight but should be OK."
+     > "🚨 AMS 1 Tray 4 (PLA Basic Yellow) is at 6% (~60g remaining). This print uses 45g of yellow — **may run out!**"
+
+2. **Spoolman precise check** — If the spool is UUID-matched in Spoolman, use Spoolman's `remaining_weight` attribute (more accurate than the printer's `remain` estimate) for the comparison.
+
+3. **Dashboard pre-print card** — Show filament requirements vs availability before a queued print starts.
+
+### Implementation
+
+**Automation: `bambuddy_spool_remaining_check`** — triggers on `print_started`:
+1. Read `sensor.spoolman_tray_map` for current spool state
+2. For each color in the archive's `filament_color`:
+   - Find matching tray in `spoolman_tray_map` by color
+   - Get Spoolman spool's remaining weight (if available) or fallback to `remain% × tray_weight`
+   - Get print demand from `filament_slots[].used_g`
+   - If demand > 80% of remaining → warning notification
+   - If demand > remaining → critical notification
+3. This runs in parallel with (not blocking) the actual print
+
+### Phase & Dependencies
+
+- **Phase**: 2.5
+- **Depends on**: bambuddy_common, print_history core (archive_id capture), spoolman_sync (tray_map)
+- **Package**: print_history (or could be its own micro-feature)
+- **Effort**: Medium — new automation, Jinja template for remaining calculations
+- **Value**: **Very High** — prevents the #1 most frustrating 3D printing failure (running out of filament on a long print)
+
+---
+
+## Phase 2.6: Energy Cost Enrichment
+
+### Data Sources
+
+Archive fields (currently null, waiting to be populated):
+- `energy_kwh` — Energy consumed by this print
+- `energy_cost` — Dollar cost of that energy
+
+HA sensors (from power_monitoring package):
+- `sensor.tp_link_power_strip_ab64_ams_heater_current_consumption` — Printer plug live wattage
+- Integration-based energy tracking or manual delta calculation
 
 ### Use Case
 
-Verify enrichment is working correctly. Surface tag distribution. Detect orphaned or malformed tags.
+Write HA's actual measured energy consumption back to the Bambuddy archive's `energy_kwh` and `energy_cost` fields. This completes the cost picture: filament cost (from Spoolman) + energy cost (from power monitoring) = total cost.
 
 ### Implementation
 
-**REST sensor** polling `/tags`:
-- State: total unique tag count
-- Attributes: full tag → count mapping
-- Dashboard: Simple entity card or custom tag cloud visualization
+**Helpers:**
+- `input_number.print_energy_kwh_at_start` — Snapshot of printer plug's cumulative kWh at `print_started`
 
-**Phase**: print_history or bambuddy_common (diagnostic utility)
+**Automation: `bambuddy_capture_energy_at_start`** — on `print_started`:
+1. Record `states('sensor.tp_link_power_strip_ab64_ams_heater_today_s_consumption')` → helper
+
+**Enrichment extension** — on `print_complete`/`print_failed`:
+1. Read current kWh, subtract start snapshot → delta kWh
+2. Multiply by electricity rate (from `input_number.electricity_cost_per_kwh` helper)
+3. PATCH the archive: `{"energy_kwh": 0.45, "energy_cost": 0.07}`
+4. Optionally update the archive `cost` field to be filament + energy
+
+### Phase & Dependencies
+
+- **Phase**: 2.6
+- **Depends on**: bambuddy_common, print_history core, power_monitoring (energy sensors)
+- **Package**: print_history (cross-feature with power_monitoring)
+- **Effort**: Medium — kWh snapshot at start, delta calculation, PATCH extension
+- **Value**: High — fills in the `null` energy fields, completes total cost picture
 
 ---
 
-## Timelapse Auto-Attach
+## Phase 2.7: Rich Print Notifications
 
-### API
+### Data Sources
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/{id}/timelapse/scan` | Scan printer for matching timelapse video and auto-attach |
+From the completed archive and enrichment data:
+- `GET /archives/{id}/thumbnail` — Unauthenticated thumbnail PNG
+- `time_accuracy` — Slicer estimation accuracy percentage
+- `actual_time_seconds` vs `print_time_seconds` — Real vs estimated duration
+- `cost` — Total print cost
+- `extra_data.designer` — Model designer
+- `extra_data.makerworld_url` — Source link
+- Enrichment tags — Spoolman spool info, energy cost
 
-### Use Case
+From the notification infrastructure:
+- `input_text.3dprinter_notification_service` — Target notify service
+- Camera snapshot pipeline — Already captures printer camera photos
 
-After a print completes, automatically trigger Bambuddy to scan the printer's SD card for the timelapse and attach it to the archive.
+### Use Cases
+
+**Enhanced print completion notification:**
+> **✅ Print Complete: Hueforge Back to the Future**
+> ⏱ 4h 32m (94.4% of estimate)
+> 🧵 44.82g PLA (4 colors)
+> 💰 $1.12 filament + $0.07 energy = $1.19 total
+> 👤 by StefBull85 (MakerWorld)
+> 📸 [thumbnail image attached]
+
+**Enhanced print failure notification:**
+> **❌ Print Failed: Benchy**
+> ⏱ Failed at 2h 15m (52% complete)
+> 🧵 ~23g PLA wasted
+> 🔍 [Compare with last success →]({compare_url})
 
 ### Implementation
 
-```yaml
-# Add to enrichment automation (after tag/note enrichment):
-- action: rest_command.bambuddy_scan_timelapse
-  data:
-    archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
-```
+**Extend existing notification automations** in the notifications package:
+1. On `print_complete` or `print_failed`, read archive data (already fetched for enrichment)
+2. Build rich notification body with time accuracy, cost, designer, filament summary
+3. Attach thumbnail URL: `{bambuddy_url}/api/v1/archives/{id}/thumbnail`
+4. For failures, include compare link from Phase 2.2
 
-**Phase**: print_history (extends enrichment flow)
+### Phase & Dependencies
+
+- **Phase**: 2.7
+- **Depends on**: print_history core (enrichment data), notifications package
+- **Package**: notifications (cross-feature with print_history)
+- **Effort**: Low — extends existing notification templates, no new API calls
+- **Value**: Medium — makes notifications genuinely useful instead of just "print done"
 
 ---
 
-## Reprint from HA
+## Phase 2.8: Spool Usage Provenance
 
-### API
+### Data Sources
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/{id}/reprint` | Send archive to printer with AMS mapping and plate selection |
+From enrichment tags already created by the core enrichment:
+- `spoolman:42` — Spool IDs used in each archive
+- `tray:ams_2_tray_2:spoolman:42` — Per-tray spool assignments
 
-### Request Body
+From the Bambuddy search API:
+- `GET /archives/search?q=spoolman:42` — Find all archives tagged with a specific spool
 
-```json
-{
-  "ams_mapping": {"0": 3, "1": 5},
-  "plate_id": 1,
-  "use_ams": true,
-  "bed_leveling": true,
-  "flow_calibration": false,
-  "vibration_calibration": false
-}
-```
+### Use Cases
 
-### Use Case
+1. **"What did this spool print?"** — Given a Spoolman spool ID, query Bambuddy for all archives that used it. Surface as a count + link on the filament catalog spool popup.
 
-"Reprint last successful print" button on dashboard. Or automation: "If print failed, offer to reprint automatically."
+2. **Spool lifecycle summary** — For a sealed/empty spool, generate a summary: "This spool printed 12 models over 3 months, using 980g of its 1000g capacity."
+
+3. **Template sensor** — `sensor.bambuddy_spool_archive_count` with spool_id as input, returns the count of archives using that spool. Could be a script that updates a helper.
 
 ### Implementation
 
-**Script: `bambuddy_reprint_archive`** with `archive_id` field. Dashboard button or notification action.
+**Script: `bambuddy_spool_print_history`** — Takes `spool_id`, calls `GET /archives/search?q=spoolman:{spool_id}`, returns count and archive list.
 
-**Phase**: Future (complex — needs AMS mapping UI, safety considerations for unattended reprints)
+**Dashboard integration** — On filament catalog spool popup, add "Bambuddy Prints: N" badge that links to filtered Bambuddy view.
 
----
+### Phase & Dependencies
 
-## Search from HA
-
-### API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/archives/search?q=benchy` | Full-text search across print_name, filename, tags, notes, designer, filament_type |
-
-### Use Case
-
-Voice assistant: "Hey Google, find my Benchy prints" → query Bambuddy search → return results.
-
-### Implementation
-
-**Script** that calls the search API and stores results in a sensor or notification.
-
-**Phase**: Future (nice-to-have, voice assistant integration)
-
----
-
-## Priority Ranking
-
-| Feature | Phase | Effort | Value |
-|---------|-------|--------|-------|
-| Favorites toggle | 2.1 | Low | Medium — quick win, useful UX |
-| Timelapse auto-attach | 2 (enrichment) | Low | High — automates manual step |
-| Failure analysis sensor | 2.3 (statistics) | Medium | High — surfaced in dashboard |
-| Tag audit sensor | 2 (common/diagnostic) | Low | Medium — enrichment verification |
-| Compare on failure | 2.2 (history) | Medium | Medium — debugging prints |
-| Reprint from HA | Future | High | Medium — safety concerns |
-| Search from HA | Future | Medium | Low — Bambuddy UI is better |
+- **Phase**: 2.8
+- **Depends on**: print_history core (enrichment must tag archives with `spoolman:` tags first)
+- **Package**: print_history (cross-feature with filament_catalog)
+- **Effort**: Low — one script, one REST call, dashboard badge
+- **Value**: Medium — bridges Spoolman↔Bambuddy data, closes the loop

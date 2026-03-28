@@ -6,9 +6,9 @@
 
 ## Overview
 
-Shared infrastructure for all Bambuddy feature packages. Provides API configuration helpers, a unified webhook receiver, printer status sensor, and a printer-level REST command. All other Bambuddy packages depend on this package.
+Shared infrastructure for all Bambuddy feature packages. Provides API configuration helpers, a unified webhook receiver, MQTT-based printer status sensor, and a printer-level REST command. All other Bambuddy packages depend on this package.
 
-**HA Role**: Configuration layer — holds API base URL/printer ID, fires normalized events from Bambuddy webhooks, and provides shared printer status polling. Archive-specific commands (photo upload, delete, cover, enrichment) live in `print_history`.
+**HA Role**: Configuration layer — holds API base URL/printer ID, fires normalized events from Bambuddy webhooks, and subscribes to Bambuddy's MQTT status topic for real-time printer state. Archive-specific commands (photo upload, delete, cover, enrichment) live in `print_history`.
 
 ## Package Structure
 
@@ -17,10 +17,10 @@ homeassistant/packages/3d_printing/bambuddy_common/
 ├── bambuddy_common_loader.yaml
 ├── automations/
 │   └── bambuddy_webhook_receiver.yaml       # webhook → fires bambuddy_webhook_event
+├── mqtt_sensors/
+│   └── bambuddy_printer_status.yaml         # MQTT subscription → real-time status
 ├── rest_commands/
 │   └── bambuddy_refresh_printer_status.yaml
-├── rest_sensors/
-│   └── bambuddy_printer_status.yaml
 └── helpers/
     ├── input_boolean/
     │   └── input_boolean_bambuddy_integration_enabled.yaml
@@ -36,7 +36,8 @@ homeassistant/packages/3d_printing/bambuddy_common/
 ```yaml
 # bambuddy_common_loader.yaml
 automation: !include_dir_merge_list automations
-sensor: !include_dir_merge_list rest_sensors
+mqtt:
+  sensor: !include_dir_merge_list mqtt_sensors
 rest_command: !include_dir_merge_named rest_commands
 input_boolean: !include_dir_merge_named helpers/input_boolean
 input_text: !include_dir_merge_named helpers/input_text
@@ -58,13 +59,15 @@ input_text: !include_dir_merge_named helpers/input_text
 |---|---|
 | `bambuddy_api_key` | API key for Bambuddy authentication — used in all REST sensor/command headers via `!secret` |
 
-### REST Sensors
+### MQTT Sensors
 
-| Entity | Endpoint | Interval | Source |
+| Entity | Topic | Update Rate | Source |
 |---|---|---|---|
-| `sensor.bambuddy_printer_status` | `GET /api/v1/printers/{id}/status` | 30s | bambuddy/sensors.yaml |
+| `sensor.bambuddy_printer_status` | `bambuddy/printers/{serial}/status` | ~1/sec (retained) | Bambuddy MQTT Publishing |
 
-Attributes: `name`, `connected`, `state`, `current_print`, `subtask_name`, `gcode_file`, `progress`, `remaining_time`, `layer_num`, `total_layers`, `temperatures` (nested: bed, bed_target, nozzle, nozzle_target, nozzle_heating), `cover_url`, `hms_errors`, `ams`
+Attributes (auto-extracted from full JSON payload): `printer_id`, `printer_name`, `printer_serial`, `timestamp`, `connected`, `state`, `current_print`, `subtask_name`, `gcode_file`, `progress`, `remaining_time`, `layer_num`, `total_layers`, `temperatures` (nested: bed, bed_target, nozzle, nozzle_target, chamber), `wifi_signal`, `chamber_light`, `speed_level`, `cooling_fan_speed`, `big_fan1_speed`, `big_fan2_speed`, `cover_url`, `hms_errors`, `ams`
+
+> **Prerequisites**: Bambuddy MQTT Publishing must be enabled (Settings → Network → MQTT Publishing) and pointed at the same Mosquitto broker HA uses. See [Bambuddy MQTT Setup](#bambuddy-mqtt-setup) below.
 
 ### REST Commands
 
@@ -130,7 +133,7 @@ event_data:
 
 ### Sources
 - **Helpers**: Extracted from `bambuddy/helpers.yaml` (2 input_text + 1 input_boolean). API key moved to `secrets.yaml` instead of an entity.
-- **Printer Status REST sensor**: Extracted from `bambuddy/sensors.yaml` (`bambuddy_printer_status`)
+- **Printer Status sensor**: Originally a REST sensor polling every 30s; migrated to MQTT subscription (`bambuddy/printers/{serial}/status`) for real-time updates
 - **Refresh command**: Extracted from `bambuddy/rest_commands.yaml` (`bambuddy_refresh_printer_status`)
 - **Webhook receiver**: Replaces `bambuddy/automations/webhook_handler.yaml` — fires events instead of handling inline
 
@@ -149,6 +152,7 @@ event_data:
 | Dependency | Required | Purpose |
 |---|---|---|
 | [Bambuddy](https://github.com/maziggy/bambuddy) | **Yes** | Self-hosted print archive server |
+| Mosquitto MQTT broker | **Yes** | Bambuddy publishes printer state; HA subscribes via MQTT integration |
 
 ### Downstream (packages that depend on this)
 - `print_history` (Phase 2)
@@ -156,8 +160,50 @@ event_data:
 - `print_statistics` (Phase 4)
 - `printer_maintenance` (Phase 5)
 
+## Bambuddy MQTT Setup
+
+Bambuddy publishes printer events and real-time status to an MQTT broker. HA subscribes via the built-in MQTT integration (auto-configured by the Mosquitto addon).
+
+### Bambuddy Settings → Network → MQTT Publishing
+
+| Setting | Value | Notes |
+|---|---|---|
+| Enable MQTT | **On** | |
+| Broker Hostname | `192.168.1.5` | HA IP address (Mosquitto runs on HA) |
+| Port | `1883` | Default non-TLS |
+| Username | *(HA user)* | Mosquitto addon uses HA user credentials |
+| Password | *(HA password)* | Same password as the HA user |
+| Topic Prefix | `bambuddy` | Default — matches `state_topic` in sensor YAML |
+| Use TLS | **Off** | Local network; no TLS needed |
+
+> **Tip**: Create a dedicated HA user (e.g., `bambuddy_mqtt`) with minimal permissions for MQTT auth rather than using your admin account.
+
+### Verification
+
+1. Open **MQTT Explorer** addon in HA (Settings → Add-ons → MQTT Explorer)
+2. Connect to `192.168.1.5:1883` with the same credentials
+3. Confirm topic `bambuddy/printers/{serial}/status` appears with retained JSON payload
+4. In HA, check `sensor.bambuddy_mqtt_printer_status` for state and attributes
+
+### Available MQTT Topics
+
+| Topic | Retained | Purpose |
+|---|---|---|
+| `bambuddy/status` | Yes | Bambuddy online/offline |
+| `bambuddy/printers/{serial}/status` | Yes | Real-time printer state (~1/sec) |
+| `bambuddy/printers/{serial}/print/started` | No | Print job started |
+| `bambuddy/printers/{serial}/print/completed` | No | Print completed |
+| `bambuddy/printers/{serial}/print/failed` | No | Print failed |
+| `bambuddy/printers/{serial}/ams/changed` | No | AMS filament changed |
+| `bambuddy/queue/*` | No | Queue events (job_added, job_started, job_completed) |
+| `bambuddy/maintenance/*` | No | Maintenance alerts and resets |
+| `bambuddy/archive/*` | No | Archive created/updated |
+
+> Future phases will subscribe to event topics (print/started, archive/created, etc.) for automations.
+
 ## Open Items
 
 | # | Item | Impact | Blocking? |
 |---|---|---|---|
 | 1 | Confirm webhook format received by "Webhook (Custom)" provider | Determines if archive_id is available in payload or requires fallback | No — both paths designed |
+| 2 | Clean up orphaned `sensor.bambuddy_printer_status` REST entity after deploy | Old REST entity stays in registry as unavailable; delete from Settings → Entities | No |
