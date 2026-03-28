@@ -1,0 +1,75 @@
+# Print History View — dedicated tab in the 3D Printing dashboard.
+# Combines: photo review chip, history table, pagination browser, capture settings.
+title: Print History
+path: print-history
+icon: mdi:history
+type: sections
+max_columns: 2
+sections:
+  # Photo review notification (conditional — only shows when photos pending)
+  - type: grid
+    cards:
+      - !include ../dashboard_cards/photo_review_chip.yaml
+
+  # Main history table: recent prints from REST sensor
+  - type: grid
+    cards:
+      - !include ../dashboard_cards/print_history.yaml
+
+  # Pagination browser: prev/next/first/last + page info
+  - type: grid
+    cards:
+      - !include ../dashboard_cards/print_history_browser.yaml
+
+  # Capture settings section
+  - type: grid
+    title: Photo Capture Settings
+    cards:
+      - type: entities
+        title: Capture Stages
+        entities:
+          - entity: input_boolean.capture_at_start
+            name: At Print Start
+          - entity: input_boolean.capture_at_midprint
+            name: At Mid-Print
+          - entity: input_boolean.capture_near_complete
+            name: Near Completion
+          - entity: input_boolean.capture_on_error
+            name: On Error/Failure
+          - type: divider
+          - entity: input_number.midprint_capture_percent
+            name: Mid-Print Threshold
+          - entity: input_text.secondary_camera_entity
+            name: Secondary Camera
+
+  # History fetch settings
+  - type: grid
+    title: History Settings
+    cards:
+      - type: entities
+        title: Data Fetch
+        entities:
+          - entity: input_boolean.bambuddy_history_fetch_enabled
+            name: Auto-Fetch History
+          - entity: input_number.bambuddy_history_limit
+            name: Items Per Page
+          - entity: input_number.photo_review_timeout_hours
+            name: Review Timeout (hrs)
+
+  # Current print info (diagnostic)
+  - type: grid
+    title: Current Print
+    cards:
+      - type: entities
+        title: Active Session
+        entities:
+          - entity: input_text.bambuddy_current_archive_id
+            name: Archive ID
+          - entity: input_select.bambuddy_photo_review_state
+            name: Review State
+          - entity: sensor.bambuddy_last_print_name
+            name: Last Print
+          - entity: sensor.bambuddy_last_print_status
+            name: Last Status
+          - entity: sensor.bambuddy_last_print_duration
+            name: Last Duration

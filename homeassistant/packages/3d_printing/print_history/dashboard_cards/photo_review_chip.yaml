@@ -1,0 +1,34 @@
+# Photo Review Chip — conditional chip shown when photos need review.
+# Appears when input_select.bambuddy_photo_review_state is 'pending'.
+# Advanced review popup actions are Phase 2 advanced — chip just shows status.
+
+type: conditional
+conditions:
+  - condition: state
+    entity: input_select.bambuddy_photo_review_state
+    state_not: "idle"
+card:
+  type: custom:button-card
+  entity: input_select.bambuddy_photo_review_state
+  name: "📸 Photos to Review"
+  icon: mdi:image-check
+  show_state: false
+  tap_action:
+    action: more-info
+  styles:
+    card:
+      - background: "#1565C0"
+      - color: "#FFFFFF"
+      - border-radius: 20px
+      - padding: 6px 16px
+      - height: 40px
+      - box-shadow: "0 2px 6px rgba(0,0,0,0.3)"
+    name:
+      - font-size: 13px
+      - font-weight: 500
+    icon:
+      - width: 20px
+      - color: "#FFFFFF"
+    grid:
+      - grid-template-areas: '"i n"'
+      - grid-template-columns: 28px 1fr

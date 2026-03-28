@@ -107,14 +107,16 @@ Cleared at two points:
 
 ## New Entities
 
-### REST Commands (added to `bambuddy_common/`)
+> **Implementation Status**: Helpers and REST commands below are **implemented** as part of Phase 2 core. Review scripts (delete, replace, set cover, dismiss) and the review popup card are **deferred to the advanced phase**. The `photo_review_chip.yaml` conditional card is implemented and wired into `view_print_history.yaml`.
+
+### REST Commands (in `print_history/rest_commands/`)
 
 | Service | Method | Endpoint | Fields |
 |---|---|---|---|
 | `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{archive_id}/photos/{photo_id}` | `archive_id`, `photo_id` |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{archive_id}` | `archive_id`, `cover_photo_id` |
 
-### Scripts (in `print_history/scripts/`)
+### Scripts (in `print_history/scripts/` — **advanced phase, not yet implemented**)
 
 | Script | Purpose |
 |---|---|
@@ -123,7 +125,7 @@ Cleared at two points:
 | `script.review_set_cover` | Call `bambuddy_set_archive_cover` with selected photo |
 | `script.review_dismiss` | Set review state → `idle`, optionally clean up local files for removed photos |
 
-### Helpers (in `print_history/helpers/`)
+### Helpers (in `print_history/helpers/` — **implemented in Phase 2 core**)
 
 | Entity | Type | Purpose |
 |---|---|---|
@@ -131,7 +133,7 @@ Cleared at two points:
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` |
 | `input_number.photo_review_timeout_hours` | input_number | Hours before auto-dismiss (default: 24, min: 1, max: 168) |
 
-### Automations (in `print_history/automations/`)
+### Automations (in `print_history/automations/` — **advanced phase, not yet implemented**)
 
 | ID | Trigger | Action |
 |---|---|---|
@@ -139,17 +141,13 @@ Cleared at two points:
 
 ## Dashboard Card Design
 
-### Review Chip (Main View)
+### Review Chip (Print History View)
 
-A conditional chip that appears when `input_select.bambuddy_photo_review_state` = `pending`:
+A conditional chip that appears in `view_print_history.yaml` when `input_select.bambuddy_photo_review_state` != `idle`.
 
-```
-📷 Review 4 photos from "Benchy" →
-```
+**Implemented**: `dashboard_cards/photo_review_chip.yaml` — shows "📸 Photos to Review" with blue background. Tapping opens more-info for now; advanced phase will wire to a browser_mod popup.
 
-Tapping opens a browser_mod popup with the full review grid.
-
-### Review Popup
+### Review Popup (**Advanced Phase**)
 
 The popup renders from the manifest JSON:
 

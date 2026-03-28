@@ -1,0 +1,101 @@
+# Multi-stage photo capture during normal print lifecycle.
+# Stages: start (delayed), midprint (% threshold), near_complete (95%+), finish.
+# Each stage is gated by its input_boolean toggle.
+# Docs: docs/features/print_history/photo-capture-design.md
+- alias: "Print History - Capture Print Photos"
+  id: bambuddy_capture_print_photos
+  description: >
+    Captures photos at multiple print stages using the primary camera
+    (and optional secondary camera). Each stage is gated by a toggle.
+
+  triggers:
+    # Start: printer just began printing (delayed to show first layer)
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+      to: "running"
+      id: "start"
+
+    # Mid-print: progress crosses configured percentage
+    - trigger: numeric_state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_print_progress
+      above: input_number.midprint_capture_percent
+      id: "midprint"
+
+    # Near-complete: progress ≥ 95%
+    - trigger: numeric_state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_print_progress
+      above: 94
+      id: "near_complete"
+
+    # Finish: print_complete webhook (always captures, no gate)
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_complete"
+      id: "finish"
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.bambuddy_history_fetch_enabled
+      state: "on"
+
+  actions:
+    - variables:
+        stage: "{{ trigger.id }}"
+
+    - choose:
+        # Start: gate + delay for first layer visibility
+        - conditions:
+            - condition: trigger
+              id: "start"
+            - condition: state
+              entity_id: input_boolean.capture_at_start
+              state: "on"
+          sequence:
+            - delay:
+                minutes: 3
+            # Confirm still printing after delay
+            - condition: state
+              entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+              state: "running"
+            - action: script.capture_and_upload_snapshot
+              data:
+                stage: "start"
+
+        # Mid-print: gate only
+        - conditions:
+            - condition: trigger
+              id: "midprint"
+            - condition: state
+              entity_id: input_boolean.capture_at_midprint
+              state: "on"
+          sequence:
+            - action: script.capture_and_upload_snapshot
+              data:
+                stage: "midprint"
+
+        # Near-complete: gate only
+        - conditions:
+            - condition: trigger
+              id: "near_complete"
+            - condition: state
+              entity_id: input_boolean.capture_near_complete
+              state: "on"
+          sequence:
+            - action: script.capture_and_upload_snapshot
+              data:
+                stage: "near_complete"
+
+        # Finish: always captures (no gate)
+        - conditions:
+            - condition: trigger
+              id: "finish"
+          sequence:
+            - action: script.capture_and_upload_snapshot
+              data:
+                stage: "finish"
+
+  mode: single

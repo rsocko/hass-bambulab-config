@@ -1,0 +1,49 @@
+# Refresh the print history REST sensor when relevant events occur.
+# Triggers on print_complete, print_failed, print_stopped webhooks.
+# Docs: docs/features/print_history/README.md
+- alias: "Print History - Refresh on Event"
+  id: bambuddy_event_history_refresh
+  description: >
+    Refreshes the print history REST sensor when a print completes,
+    fails, or is stopped so the dashboard shows the latest data.
+
+  triggers:
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_complete"
+
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_failed"
+
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_stopped"
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.bambuddy_history_fetch_enabled
+      state: "on"
+
+  actions:
+    # Small delay to let Bambuddy finish updating the archive
+    - delay:
+        seconds: 5
+
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.bambuddy_print_history
+
+    - action: logbook.log
+      data:
+        name: Print History
+        message: >-
+          History sensor refreshed after {{ trigger.event.data.event }}
+
+  mode: single

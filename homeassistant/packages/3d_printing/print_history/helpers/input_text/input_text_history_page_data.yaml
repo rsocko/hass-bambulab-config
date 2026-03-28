@@ -1,0 +1,4 @@
+history_page_data:
+  name: Print History Page Data
+  max: 255
+  icon: mdi:database-outline

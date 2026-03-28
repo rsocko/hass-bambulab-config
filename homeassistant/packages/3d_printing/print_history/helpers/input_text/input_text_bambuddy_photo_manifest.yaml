@@ -1,0 +1,5 @@
+bambuddy_photo_manifest:
+  name: Bambuddy Photo Manifest
+  max: 255
+  initial: "[]"
+  icon: mdi:image-multiple

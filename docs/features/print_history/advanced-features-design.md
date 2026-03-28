@@ -2,6 +2,8 @@
 
 > Based on full archive API catalog: [bambuddy-archive-api-catalog.md](../bambuddy_common/bambuddy-archive-api-catalog.md)
 
+> **Integration point**: Advanced features add scripts/REST commands to `print_history/scripts/` and `print_history/rest_commands/`. Dashboard additions go in `print_history/dashboard_cards/` and are included from `print_history/dashboard_views/view_print_history.yaml`. Photo review scripts and popup are tracked separately in [photo-review-design.md](photo-review-design.md).
+
 ## Phase 2.1: Favorites from Home Assistant
 
 ### API

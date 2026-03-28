@@ -11,7 +11,7 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | Package | Depends On | Design Doc | Status |
 |---------|-----------|------------|--------|
 | `bambuddy_common` | — | [docs/features/bambuddy_common/README.md](../features/bambuddy_common/README.md) | **Complete** |
-| `print_history` | Phase 1 | [docs/features/print_history/README.md](../features/print_history/README.md) | Not started |
+| `print_history` | Phase 1 | [docs/features/print_history/README.md](../features/print_history/README.md) | **Core complete** — advanced (photo review scripts/popup) pending |
 | `print_queue` | Phase 1 | [docs/features/print_queue/README.md](../features/print_queue/README.md) | Not started |
 | `print_statistics` | Phase 1 | [docs/features/print_statistics/README.md](../features/print_statistics/README.md) | Not started |
 | `printer_maintenance` | Phase 1 + 4 | [docs/features/printer_maintenance/README.md](../features/printer_maintenance/README.md) | **Blocked** |
@@ -47,23 +47,26 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 
 | Step | Description | Status | Notes |
 |------|------------|--------|-------|
-| 10 | Create directory tree | Not started | automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views |
-| 11 | Create `print_history_loader.yaml` | Not started | 8 domain types |
-| 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | Not started | Read-only, page 1 |
-| 13 | REST commands: `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), `bambuddy_add_archive_tags.yaml` (POST tags) | **Partial** | 3 photo commands already created (moved from bambuddy_common); 2 enrichment commands not started |
-| 14 | Archive ID capture automation | Not started | Triggers on `print_started` webhook; stores archive_id; fallback query |
-| 15 | Photo capture automation | Not started | Multi-trigger: start, mid, near-complete — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
-| 16 | Error photo automation | Not started | Triggers: print_failed, print_stopped, HMS error |
-| 17 | Snapshot capture+upload script | Not started | Light → capture → upload; multipart upload concern |
-| 18 | Archive ID fallback script | Not started | `GET /archives?printer_id=X&sort=-created_at&limit=1` + filename match |
-| 19 | Enrichment automation | Not started | See [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
-| 20 | History refresh automation | Not started | Webhook print_complete/print_failed → refresh REST sensor |
-| 21 | Pagination scripts | Not started | `load_history_page.yaml`, `navigate_history.yaml` |
-| 22 | Template sensors (modern format) | Not started | 4 last-print + 2 pagination |
-| 23 | Helpers | Not started | ~13 helpers: archive_id, page_data, camera, fetch_enabled, capture booleans (4), mid-capture %, limit, current_page, photo manifest, review state |
-| 24 | Dashboard cards | Not started | print_history.yaml (compact), print_history_browser.yaml (paginated), photo_review chip |
-| 25 | Dashboard view: `view_print_history.yaml` | Not started | Register in `_dashboards.yaml` |
-| 26 | Wire loader, finalize docs | Not started | |
+| 10 | Create directory tree | **Done** | automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views |
+| 11 | Create `print_history_loader.yaml` | **Done** | 9 domain includes (added input_number, input_select) |
+| 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | **Done** | Read-only, page 1 |
+| 13 | REST commands: `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), `bambuddy_add_archive_tags.yaml` (POST tags), `bambuddy_query_recent_archive.yaml` (GET fallback), `bambuddy_query_history_page.yaml` (GET pagination) | **Done** | 7 REST commands total |
+| 14 | Archive ID capture automation | **Done** | Triggers on `print_started` webhook; stores archive_id; fallback query; snapshots tray map; resets manifest |
+| 15 | Photo capture automation | **Done** | Multi-trigger: start (3min delay), mid, near-complete, finish — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
+| 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
+| 17 | Snapshot capture+upload script | **Done** | Light → capture → upload; manifest tracking |
+| 18 | Archive ID fallback script | **Done** | `GET /archives?printer_id=X&sort=-created_at&limit=1` + filename match |
+| 19 | Enrichment automation | **Done** | Spoolman tags + notes via PATCH; tray map snapshot; cost data; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
+| 20 | History refresh automation | **Done** | Webhook print_complete/print_failed/print_stopped → 5s delay → refresh REST sensor |
+| 21 | Pagination scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml` |
+| 22 | Template sensors (modern format) | **Done** | 4 last-print + 2 pagination |
+| 23 | Helpers | **Done** | 15 helpers: archive_id, page_data, camera, tray_map_snapshot, photo_manifest, fetch_enabled, capture booleans (4), mid-capture %, limit, current_page, review_timeout, review_state |
+| 24 | Dashboard cards | **Done** | `print_history.yaml` (table), `print_history_browser.yaml` (pagination), `photo_review_chip.yaml` (conditional chip) |
+| 25 | Dashboard view: `view_print_history.yaml` | **Done** | Registered in `common/dashboards/3d_printing.yaml` views list |
+| 26 | Wire loader, finalize docs | **Done** | Uncommented in `_feature_loaders.yaml`; docs updated |
+| 26a | Photo review scripts (advanced) | Not started | `review_delete_photo`, `review_replace_photo`, `review_set_cover`, `review_dismiss` |
+| 26b | Photo review auto-dismiss automation (advanced) | Not started | `bambuddy_photo_review_auto_dismiss.yaml` |
+| 26c | Photo review popup card (advanced) | Not started | browser_mod popup with per-photo actions | |
 
 ## Phase 3: `print_queue`
 
@@ -150,7 +153,7 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 5 | **`print_started` includes `archive_id`?** — API docs confirm it for `print_complete`. Likely yes for `print_started` since archive exists from start. | No — fallback script handles missing ID | 2 | Verify during Phase 2 step 14 |
 | 6 | **Photo delete endpoint** — `DELETE /archives/{id}/photos/{photo_id}` assumed but not confirmed in API docs. | No — blocks photo review only | 2 | Verify via API browser; needed for photo review feature |
 | 7 | **Set-cover-photo endpoint** — assumed PATCH or dedicated endpoint for setting archive cover image. | No — blocks photo review only | 2 | Verify via API browser |
-| 8 | **Dashboard view registration** — `view_maintenance.yaml` and `view_print_history.yaml` must be added to `common/dashboards/_dashboards.yaml`. | No | 2, 5 | Add during Phase 2 step 25 and Phase 5 step 48 |
+| 8 | **Dashboard view registration** — `view_print_history.yaml` and `view_maintenance.yaml` must be added to `common/dashboards/3d_printing.yaml` views list. | No | 2, 5 | `view_print_history.yaml` **Done** (added during Phase 2 step 25). Phase 5 still pending. |
 | 9 | **Enrichment idempotency** — PATCHing tags/notes twice shouldn't create duplicates. | No | 2 | Verify Bambuddy behavior during testing |
 | 10 | **Webhook image field** — payload can include base64 JPEG for some events. Could be decoded as bonus data. | No — nice-to-have | 2 | Defer to post-MVP enhancement |
 
@@ -173,7 +176,7 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 | Phase | Ready? | Blockers |
 |-------|--------|----------|
 | 1 — bambuddy_common | **Yes** | None |
-| 2 — print_history | **Yes** | Photo upload method TBD (has fallback) |
+| 2 — print_history | **Core complete** | Photo review scripts/popup (steps 26a–26c) deferred to advanced phase |
 | 3 — print_queue | **Yes** | None |
 | 4 — print_statistics | **Yes** | None |
 | 5 — printer_maintenance | **No** | Maintenance API endpoints unknown |

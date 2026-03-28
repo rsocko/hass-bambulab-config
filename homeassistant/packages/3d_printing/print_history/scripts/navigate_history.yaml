@@ -1,0 +1,43 @@
+# Navigate print history: prev/next/first/last.
+# Adjusts the current page and delegates to load_history_page.
+# Docs: docs/features/print_history/README.md
+navigate_history:
+  alias: "Navigate History"
+  description: >-
+    Navigate paginated print history. Accepts a direction and loads
+    the corresponding page.
+  fields:
+    direction:
+      description: "Navigation direction: prev, next, first, last"
+      required: true
+      selector:
+        select:
+          options:
+            - prev
+            - next
+            - first
+            - last
+  sequence:
+    - variables:
+        current: "{{ states('input_number.history_current_page') | int(1) }}"
+        total: "{{ states('sensor.print_history_total_pages') | int(1) }}"
+        target_page: >-
+          {% if direction == 'first' %}
+            1
+          {% elif direction == 'last' %}
+            {{ total }}
+          {% elif direction == 'next' %}
+            {{ [current + 1, total] | min }}
+          {% elif direction == 'prev' %}
+            {{ [current - 1, 1] | max }}
+          {% else %}
+            {{ current }}
+          {% endif %}
+
+    - condition: template
+      value_template: "{{ target_page | int != current }}"
+
+    - action: script.load_history_page
+      data:
+        page: "{{ target_page | int }}"
+  mode: single

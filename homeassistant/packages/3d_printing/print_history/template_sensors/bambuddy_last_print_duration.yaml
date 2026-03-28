@@ -1,0 +1,15 @@
+# Most recent print duration in hours (from duration_seconds).
+# Docs: docs/features/print_history/README.md
+- sensor:
+    - name: Bambuddy Last Print Duration
+      unique_id: bambuddy_last_print_duration
+      icon: mdi:clock-outline
+      unit_of_measurement: "h"
+      state: >
+        {% set archives = state_attr('sensor.bambuddy_print_history', 'archives') %}
+        {% if archives and archives | length > 0 %}
+          {% set secs = archives[0].duration_seconds | default(0) | int %}
+          {{ (secs / 3600) | round(1) }}
+        {% else %}
+          0
+        {% endif %}

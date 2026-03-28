@@ -1,0 +1,14 @@
+# Update a Bambuddy archive — tags, notes, name.
+# Tags are a comma-separated string, not a JSON array.
+# Usage: service: rest_command.bambuddy_update_archive
+# Data: { "archive_id": "42", "tags": "ha_enriched:true,spoolman:42", "notes": "..." }
+# Docs: docs/features/print_history/archive-enrichment.md
+bambuddy_update_archive:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}
+  method: PATCH
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  payload: >-
+    {"tags": {{ tags | default('') | tojson }}, "notes": {{ notes | default('') | tojson }}}
+  content_type: "application/json"

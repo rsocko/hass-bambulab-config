@@ -1,0 +1,8 @@
+history_current_page:
+  name: Print History Current Page
+  min: 1
+  max: 100
+  step: 1
+  initial: 1
+  icon: mdi:book-open-page-variant
+  mode: box

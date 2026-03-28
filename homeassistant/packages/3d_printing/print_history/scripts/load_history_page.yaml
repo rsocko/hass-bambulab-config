@@ -1,0 +1,50 @@
+# Fetch a specific page of archive history from Bambuddy.
+# Called by script.navigate_history or directly from dashboard buttons.
+# Stores the result JSON in input_text.history_page_data.
+# Docs: docs/features/print_history/README.md
+load_history_page:
+  alias: "Load History Page"
+  description: >-
+    Fetches a specific page of print history from Bambuddy archives API
+    using offset-based pagination.
+  fields:
+    page:
+      description: "Page number to load (1-based)"
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 100
+  sequence:
+    - variables:
+        limit: "{{ states('input_number.bambuddy_history_limit') | int(10) }}"
+        offset: "{{ ((page | int(1)) - 1) * limit }}"
+
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.history_current_page
+      data:
+        value: "{{ page | int(1) }}"
+
+    # Use rest_command with response_variable to fetch the page
+    - action: rest_command.bambuddy_query_history_page
+      data:
+        limit: "{{ limit }}"
+        offset: "{{ offset }}"
+      response_variable: api_response
+
+    - if:
+        - condition: template
+          value_template: "{{ api_response.status == 200 }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.history_page_data
+          data:
+            value: "{{ api_response.content }}"
+      else:
+        - action: logbook.log
+          data:
+            name: Print History
+            message: "Failed to load page {{ page }}: HTTP {{ api_response.status | default('?') }}"
+  mode: single

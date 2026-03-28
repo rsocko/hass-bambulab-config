@@ -1,0 +1,14 @@
+# Query the most recent archive for a printer.
+# Used by script.resolve_current_archive_id as a fallback when the webhook
+# doesn't include an archive_id.
+# Returns response via response_variable when called from scripts/automations.
+# Docs: docs/features/print_history/photo-capture-design.md
+bambuddy_query_recent_archive:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?printer_id={{
+      states('input_text.bambuddy_printer_id')
+    }}&sort=-created_at&limit=1
+  method: GET
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  content_type: "application/json"

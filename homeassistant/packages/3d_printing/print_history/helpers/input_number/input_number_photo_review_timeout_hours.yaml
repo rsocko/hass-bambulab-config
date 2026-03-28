@@ -1,0 +1,8 @@
+photo_review_timeout_hours:
+  name: Photo Review Timeout Hours
+  min: 1
+  max: 168
+  step: 1
+  initial: 24
+  icon: mdi:timer-sand
+  mode: box

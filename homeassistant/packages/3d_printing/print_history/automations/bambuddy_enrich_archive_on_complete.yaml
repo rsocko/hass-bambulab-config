@@ -1,0 +1,180 @@
+# Enrich Bambuddy archive with Spoolman data on print completion/failure.
+# Uses tray_map snapshot (captured at print_started) + print_cost sensor.
+# PATCHes tags (comma-separated) and notes to the archive.
+# Docs: docs/features/print_history/archive-enrichment.md
+- alias: "Print History - Enrich Archive on Complete"
+  id: bambuddy_enrich_archive_on_complete
+  description: >
+    When a print finishes (success/failed/stopped), enriches the Bambuddy
+    archive with Spoolman spool IDs, vendor, material, cost tags and
+    structured per-tray notes.
+
+  triggers:
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_complete"
+
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_failed"
+
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_stopped"
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('input_text.bambuddy_current_archive_id')
+           not in ['', 'unknown', 'unavailable', 'None'] }}
+
+  actions:
+    - variables:
+        archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
+        event_name: "{{ trigger.event.data.event | default('unknown') }}"
+        status_tag: >-
+          {% if event_name == 'print_complete' %}success
+          {% elif event_name == 'print_failed' %}failed
+          {% elif event_name == 'print_stopped' %}stopped
+          {% else %}unknown{% endif %}
+        # Parse tray_map snapshot (simplified format: tray_name:spool_id,...)
+        tray_snapshot_raw: "{{ states('input_text.bambuddy_tray_map_snapshot') }}"
+        # Get print cost data
+        total_cost: "{{ states('sensor.print_cost') | default('0') }}"
+        cost_breakdown: "{{ state_attr('sensor.print_cost', 'breakdown') | default({}) }}"
+        # Get current tray_map for vendor/material info
+        tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}) }}"
+
+    # Build tags and notes from available data
+    - variables:
+        # Collect unique spool IDs from cost breakdown trays
+        spool_tags: >-
+          {% set ns = namespace(tags=[], spool_ids=[]) %}
+          {% if tray_map is mapping %}
+            {% for tray_name, tray in tray_map.items() %}
+              {% if tray.spool_id is defined and tray.spool_id not in [None, '', 'None'] %}
+                {% set sid = tray.spool_id | string %}
+                {% if sid not in ns.spool_ids %}
+                  {% set ns.spool_ids = ns.spool_ids + [sid] %}
+                  {% set ns.tags = ns.tags + ['spoolman:' ~ sid] %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.tags | join(',') }}
+
+        # Collect unique vendors
+        vendor_tags: >-
+          {% set ns = namespace(vendors=[]) %}
+          {% if cost_breakdown is mapping %}
+            {% for tray_name, tray in cost_breakdown.items() %}
+              {% set vendor = tray.vendor | default('') %}
+              {% if vendor and vendor not in ns.vendors %}
+                {% set ns.vendors = ns.vendors + [vendor] %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if tray_map is mapping and ns.vendors | length == 0 %}
+            {% for tray_name, tray in tray_map.items() %}
+              {% set vendor = tray.vendor | default('') %}
+              {% if vendor and vendor not in ns.vendors %}
+                {% set ns.vendors = ns.vendors + [vendor] %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% set result = [] %}
+          {% for v in ns.vendors %}
+            {% set result = result + ['vendor:' ~ v] %}
+          {% endfor %}
+          {{ result | join(',') }}
+
+        # Collect unique materials
+        material_tags: >-
+          {% set ns = namespace(materials=[]) %}
+          {% if cost_breakdown is mapping %}
+            {% for tray_name, tray in cost_breakdown.items() %}
+              {% set mat = tray.name | default('') %}
+              {% if mat and mat not in ns.materials %}
+                {% set ns.materials = ns.materials + [mat] %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% set result = [] %}
+          {% for m in ns.materials %}
+            {% set result = result + ['material:' ~ m] %}
+          {% endfor %}
+          {{ result | join(',') }}
+
+        # Assemble all tags
+        all_tags: >-
+          {% set parts = [] %}
+          {% if spool_tags %}{% set parts = parts + [spool_tags] %}{% endif %}
+          {% if vendor_tags %}{% set parts = parts + [vendor_tags] %}{% endif %}
+          {% if material_tags %}{% set parts = parts + [material_tags] %}{% endif %}
+          {% set parts = parts + ['cost:$' ~ (total_cost | float(0) | round(2))] %}
+          {% set parts = parts + ['status:' ~ status_tag] %}
+          {% set parts = parts + ['ha_enriched:true'] %}
+          {{ parts | join(',') }}
+
+        # Build structured notes
+        notes_text: >-
+          --- HA Enrichment ---
+          Total cost: ${{ total_cost | float(0) | round(2) }}
+          Status: {{ status_tag }}
+          {% if cost_breakdown is mapping and cost_breakdown | length > 0 %}
+          Trays used: {{ cost_breakdown | length }}
+          {% for tray_name, tray in cost_breakdown.items() %}
+
+          {{ tray_name }}: {{ tray.name | default('Unknown') }} {{ tray.color | default('') }}
+            {% if tray.cost is defined %}Cost: ${{ tray.cost | round(2) }}{% endif %}
+            {% if tray.weight is defined %} | Weight: {{ tray.weight | round(2) }}g{% endif %}
+            {% if tray.price_per_kg is defined %} | Rate: ${{ tray.price_per_kg | round(2) }}/kg{% endif %}
+          {% endfor %}
+          {% endif %}
+
+    # PATCH archive with tags and notes
+    - action: rest_command.bambuddy_update_archive
+      data:
+        archive_id: "{{ archive_id }}"
+        tags: "{{ all_tags }}"
+        notes: "{{ notes_text }}"
+
+    # Set photo review to pending if manifest has photos
+    - variables:
+        manifest_raw: "{{ states('input_text.bambuddy_photo_manifest') }}"
+        has_photos: >-
+          {{ manifest_raw not in ['', '[]', 'unknown', 'unavailable']
+             and (manifest_raw | from_json | default([]) | length > 0) }}
+
+    - if:
+        - condition: template
+          value_template: "{{ has_photos }}"
+      then:
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.bambuddy_photo_review_state
+          data:
+            option: "pending"
+
+    # Clear archive_id — this print cycle is complete
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_current_archive_id
+      data:
+        value: ""
+
+    - action: logbook.log
+      data:
+        name: Print History
+        message: >-
+          Enriched archive {{ archive_id }} ({{ status_tag }},
+          cost=${{ total_cost | float(0) | round(2) }},
+          tags={{ all_tags | truncate(100) }})
+
+  mode: single

@@ -1,0 +1,8 @@
+bambuddy_history_limit:
+  name: Bambuddy History Page Size
+  min: 5
+  max: 50
+  step: 5
+  initial: 10
+  icon: mdi:format-list-numbered
+  mode: slider

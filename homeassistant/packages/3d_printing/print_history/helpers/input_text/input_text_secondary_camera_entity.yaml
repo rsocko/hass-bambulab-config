@@ -1,0 +1,4 @@
+secondary_camera_entity:
+  name: Secondary Camera Entity
+  max: 255
+  icon: mdi:camera-plus

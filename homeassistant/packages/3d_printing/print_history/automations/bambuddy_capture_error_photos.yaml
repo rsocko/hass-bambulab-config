@@ -1,0 +1,50 @@
+# Capture photos on print failure, stop, or HMS error for diagnostics.
+# Queued mode handles rapid HMS error cascades.
+# Docs: docs/features/print_history/photo-capture-design.md
+- alias: "Print History - Capture Error Photos"
+  id: bambuddy_capture_error_photos
+  description: >
+    Captures diagnostic photos when a print fails, is stopped, or an
+    HMS error fires. Queued to handle rapid error cascades.
+
+  triggers:
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_failed"
+      id: "failed"
+
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_stopped"
+      id: "stopped"
+
+    # HMS error from printer sensor
+    - trigger: state
+      entity_id: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+      to: "on"
+      id: "hms_error"
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.capture_on_error
+      state: "on"
+
+  actions:
+    - action: script.capture_and_upload_snapshot
+      data:
+        stage: "error"
+
+    - action: logbook.log
+      data:
+        name: Print History
+        message: >-
+          Error photo captured (trigger={{ trigger.id }},
+          archive_id={{ states('input_text.bambuddy_current_archive_id') }})
+
+  mode: queued
+  max: 3

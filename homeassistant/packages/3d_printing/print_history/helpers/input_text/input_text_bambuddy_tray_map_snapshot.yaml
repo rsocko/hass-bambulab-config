@@ -1,0 +1,9 @@
+# Snapshot of sensor.spoolman_tray_map at print start.
+# Used by enrichment to resolve which Spoolman spools were loaded
+# at the time the print began (Tier 2 matching strategy).
+# Note: input_text max is 255 chars. For larger tray maps, consider
+# a trigger-based template sensor or simplified spool_id-only format.
+bambuddy_tray_map_snapshot:
+  name: Bambuddy Tray Map Snapshot
+  max: 255
+  icon: mdi:tray-full

@@ -23,7 +23,9 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover photo
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
-│   └── bambuddy_add_archive_tags.yaml             # POST /archives/{id}/tags
+│   ├── bambuddy_add_archive_tags.yaml             # POST /archives/{id}/tags
+│   ├── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
+│   └── bambuddy_query_history_page.yaml           # GET /archives — offset-based pagination
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/
@@ -45,6 +47,8 @@ homeassistant/packages/3d_printing/print_history/
 ├── helpers/
 │   ├── input_text/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
+│   │   ├── input_text_bambuddy_photo_manifest.yaml
+│   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
 │   │   ├── input_text_history_page_data.yaml
 │   │   └── input_text_secondary_camera_entity.yaml
 │   ├── input_boolean/
@@ -100,6 +104,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Set cover photo for archive thumbnail (photo review) |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_add_archive_tags` | POST | `/api/v1/archives/{id}/tags` | Add tags to an archive |
+| `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives?printer_id=...&sort=-created_at&limit=1` | Fallback archive_id resolution |
+| `rest_command.bambuddy_query_history_page` | GET | `/api/v1/archives?limit=N&offset=N` | Offset-based history pagination |
 
 ### Template Sensors (from REST attributes)
 
@@ -119,6 +125,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
 | `input_text.history_page_data` | input_text | JSON storage for current page results | — |
 | `input_text.secondary_camera_entity` | input_text | Configurable secondary camera entity_id | — |
+| `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
 | `input_boolean.bambuddy_history_fetch_enabled` | input_boolean | Enable/disable history REST polling | — |
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
@@ -186,6 +193,22 @@ For detailed design of the two major subsystems, see:
 - Pagination scripts and template sensors
 - Configurable capture stage toggles and secondary camera helper
 - Dedicated history view (`view_print_history.yaml`)
+- Dashboard cards: `print_history.yaml` (history table), `print_history_browser.yaml` (pagination), `photo_review_chip.yaml` (conditional review chip)
+- Wired into main dashboard via `common/dashboards/3d_printing.yaml` views list
+
+## Dashboard
+
+The Print History view is registered as a tab in the 3D Printing dashboard:
+
+- **View**: `dashboard_views/view_print_history.yaml` — `path: print-history`, `icon: mdi:history`
+- **Registration**: `!include ../../print_history/dashboard_views/view_print_history.yaml` in `common/dashboards/3d_printing.yaml`
+- **Cards included**:
+  - `dashboard_cards/photo_review_chip.yaml` — conditional chip (visible when photos pending review)
+  - `dashboard_cards/print_history.yaml` — recent prints table with thumbnails, tags, status
+  - `dashboard_cards/print_history_browser.yaml` — pagination controls (⏮ ◀ ▶ ⏭) + page size
+  - Capture settings (entities card with stage toggles)
+  - History settings (fetch toggle, page size, review timeout)
+  - Current session diagnostics (archive ID, review state, last print info)
 
 ## Dependencies
 

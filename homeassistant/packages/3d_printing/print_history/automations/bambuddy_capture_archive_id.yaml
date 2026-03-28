@@ -1,0 +1,82 @@
+# Store archive_id from webhook + snapshot tray map at print start.
+# Triggers on print_started from bambuddy_webhook_event.
+# Also snapshots spoolman_tray_map for enrichment (Tier 2 matching).
+# Docs: docs/features/print_history/photo-capture-design.md
+- alias: "Print History - Capture Archive ID"
+  id: bambuddy_capture_archive_id
+  description: >
+    When Bambuddy fires a print_started webhook, stores the archive_id
+    and captures a snapshot of the Spoolman tray map for later enrichment.
+
+  triggers:
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_started"
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+
+  actions:
+    - variables:
+        archive_id: "{{ trigger.event.data.archive_id | default('') }}"
+        print_name: "{{ trigger.event.data.print_name | default('') }}"
+
+    # Store archive_id (primary path — from webhook payload)
+    - if:
+        - condition: template
+          value_template: "{{ archive_id not in ['', 'None', 'none'] }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_current_archive_id
+          data:
+            value: "{{ archive_id }}"
+      else:
+        # Fallback: try to resolve from API
+        - action: script.resolve_current_archive_id
+
+    # Reset photo manifest for new print
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_photo_manifest
+      data:
+        value: "[]"
+
+    # Snapshot spoolman tray map for enrichment (Tier 2 matching)
+    # Stores simplified tray_name → spool_id mapping to stay within 255 chars
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_tray_map_snapshot
+      data:
+        value: >-
+          {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
+          {% if tray_map is mapping %}
+            {% set ns = namespace(entries=[]) %}
+            {% for tray_name, tray in tray_map.items() %}
+              {% if tray.spool_id is defined and tray.spool_id not in [None, '', 'None'] %}
+                {% set ns.entries = ns.entries + [tray_name ~ ':' ~ tray.spool_id] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.entries | join(',') }}
+          {% else %}
+            unavailable
+          {% endif %}
+
+    # Reset photo review state for new print
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.bambuddy_photo_review_state
+      data:
+        option: "idle"
+
+    - action: logbook.log
+      data:
+        name: Print History
+        message: >-
+          Print started: '{{ print_name }}'
+          (archive_id={{ states('input_text.bambuddy_current_archive_id') }})
+
+  mode: single

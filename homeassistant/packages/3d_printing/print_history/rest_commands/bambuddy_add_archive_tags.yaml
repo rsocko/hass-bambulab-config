@@ -1,0 +1,14 @@
+# Add tags to a Bambuddy archive.
+# Note: If the API only supports PATCH (not a dedicated POST tags endpoint),
+# use rest_command.bambuddy_update_archive with the tags field instead.
+# Usage: service: rest_command.bambuddy_add_archive_tags
+# Data: { "archive_id": "42", "tags": "spoolman:42,vendor:Bambu Lab" }
+# Docs: docs/features/print_history/README.md
+bambuddy_add_archive_tags:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/tags
+  method: POST
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  payload: '{"tags": {{ tags | default('') | tojson }}}'
+  content_type: "application/json"

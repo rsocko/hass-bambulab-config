@@ -1,0 +1,47 @@
+# Fallback: query Bambuddy for the most recent archive and match by task name.
+# Used when the print_started webhook doesn't include an archive_id.
+# Docs: docs/features/print_history/photo-capture-design.md
+resolve_current_archive_id:
+  alias: "Resolve Current Archive ID"
+  description: >-
+    Queries Bambuddy for the most recent archive and matches against the
+    current task name. Stores the archive_id if a match is found.
+  sequence:
+    - action: rest_command.bambuddy_query_recent_archive
+      response_variable: api_response
+
+    - variables:
+        task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | default('') }}"
+        response_ok: "{{ api_response is defined and api_response.status == 200 }}"
+        archives: >-
+          {% if response_ok %}
+            {{ (api_response.content | from_json).archives | default([]) }}
+          {% else %}
+            []
+          {% endif %}
+        matched_id: >-
+          {% for archive in archives %}
+            {% if task_name and task_name in (archive.name | default('')) %}
+              {{ archive.id }}
+            {% endif %}
+          {% endfor %}
+
+    - if:
+        - condition: template
+          value_template: "{{ matched_id | trim not in ['', 'None'] }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_current_archive_id
+          data:
+            value: "{{ matched_id | trim }}"
+        - action: logbook.log
+          data:
+            name: Print History
+            message: "Resolved archive_id={{ matched_id | trim }} for '{{ task_name }}' (fallback)"
+      else:
+        - action: logbook.log
+          data:
+            name: Print History
+            message: "Could not resolve archive_id for '{{ task_name }}'"
+  mode: single

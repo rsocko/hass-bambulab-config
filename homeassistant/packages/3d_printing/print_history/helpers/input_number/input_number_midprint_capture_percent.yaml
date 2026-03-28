@@ -1,0 +1,8 @@
+midprint_capture_percent:
+  name: Mid-Print Capture Progress %
+  min: 10
+  max: 90
+  step: 5
+  initial: 50
+  icon: mdi:percent
+  mode: slider

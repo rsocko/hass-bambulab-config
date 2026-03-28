@@ -1,0 +1,95 @@
+# Print History Browser — paginated archive browsing with navigation.
+# Uses script.navigate_history for prev/next/first/last.
+# Displays page info from template sensors.
+
+type: vertical-stack
+cards:
+  # Navigation bar: first / prev / page info / next / last
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        name: "⏮"
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: first
+        styles:
+          card:
+            - height: 40px
+            - background: var(--ha-card-background)
+          name:
+            - font-size: 18px
+      - type: custom:button-card
+        name: "◀"
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: prev
+        styles:
+          card:
+            - height: 40px
+            - background: var(--ha-card-background)
+          name:
+            - font-size: 18px
+      - type: entity
+        entity: sensor.print_history_page_info
+        name: " "
+        icon: none
+        card_mod:
+          style: |
+            ha-card {
+              text-align: center;
+              font-size: 14px;
+              background: transparent;
+              box-shadow: none;
+            }
+      - type: custom:button-card
+        name: "▶"
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: next
+        styles:
+          card:
+            - height: 40px
+            - background: var(--ha-card-background)
+          name:
+            - font-size: 18px
+      - type: custom:button-card
+        name: "⏭"
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: last
+        styles:
+          card:
+            - height: 40px
+            - background: var(--ha-card-background)
+          name:
+            - font-size: 18px
+
+  # Refresh button + page size config
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        name: Refresh
+        icon: mdi:refresh
+        tap_action:
+          action: perform-action
+          perform_action: homeassistant.update_entity
+          target:
+            entity_id: sensor.bambuddy_print_history
+        styles:
+          card:
+            - height: 36px
+            - background: var(--ha-card-background)
+            - font-size: 12px
+          icon:
+            - width: 18px
+      - type: entity
+        entity: input_number.bambuddy_history_limit
+        name: Page Size

@@ -1,0 +1,13 @@
+# Most recent print name from the archives REST sensor.
+# Docs: docs/features/print_history/README.md
+- sensor:
+    - name: Bambuddy Last Print Name
+      unique_id: bambuddy_last_print_name
+      icon: mdi:printer-3d-nozzle
+      state: >
+        {% set archives = state_attr('sensor.bambuddy_print_history', 'archives') %}
+        {% if archives and archives | length > 0 %}
+          {{ archives[0].name | default('Unknown') }}
+        {% else %}
+          No prints
+        {% endif %}

@@ -1,0 +1,20 @@
+# Bambuddy Print History — polls the archives API for recent prints.
+# Docs: docs/features/print_history/README.md
+- platform: rest
+  name: "Bambuddy Print History"
+  unique_id: bambuddy_print_history
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{
+      states('input_number.bambuddy_history_limit') | int(10)
+    }}&sort=created_at&order=desc
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.total | default(0) }}
+  json_attributes:
+    - archives
+    - total
+    - page
+  scan_interval: 300

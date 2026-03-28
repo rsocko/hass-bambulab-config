@@ -1,0 +1,8 @@
+bambuddy_photo_review_state:
+  name: Bambuddy Photo Review State
+  icon: mdi:image-check
+  options:
+    - idle
+    - pending
+    - reviewing
+  initial: idle
