@@ -308,8 +308,8 @@ Extended from HMS-only to cover print error scenarios:
 ### New / Renamed Files
 
 ```
-homeassistant/packages/3d_printing/hms_alert/        → RENAMED: error_alerts/
-├── error_alerts_loader.yaml                           ← was hms_alert_loader.yaml
+homeassistant/packages/3d_printing/hms_alert/        → STAYS (error_alerts/ already exists as a separate package)
+├── hms_alert_loader.yaml                              ← unchanged (hms_alert package remains separate)
 ├── automations/
 │   ├── error_alert_logger.yaml                        ← was hms_error_logger.yaml
 │   └── error_alert_clear.yaml                         ← NEW: dismiss persistent notif on clear
@@ -458,24 +458,23 @@ docs/features/hms_alert/                               → RENAMED: error_alerts
 **Goal:** Complete the rename from `hms_alert` to `error_alerts` and remove deprecated files.
 
 **Deliverables:**
-1. Rename `hms_alert/` directory → `error_alerts/`
-2. Rename loader: `hms_alert_loader.yaml` → `error_alerts_loader.yaml`
-3. Update `_feature_loaders.yaml` reference
-4. Remove deprecated automations:
+1. Rename docs directory: `docs/features/hms_alert/` → `docs/features/error_alerts/`
+2. Remove deprecated automations:
    - `hms_error_notification.yaml`
    - `print_fault_notification.yaml`
-5. Remove compat alias sensor (`hms_alert_display_wrapper_compat.yaml`)
-6. Rename docs directory: `docs/features/hms_alert/` → `docs/features/error_alerts/`
-7. Update all cross-references in other feature READMEs
-8. Update dashboard view includes
+3. Remove compat alias sensor (`hms_alert_display_wrapper_compat.yaml`)
+4. Update all cross-references in other feature READMEs
+5. Update dashboard view includes
+
+> **Note:** The `homeassistant/packages/3d_printing/hms_alert/` package is **not** renamed — `error_alerts/` already exists as a separate package under `3d_printing/`. The two packages coexist: `hms_alert` owns HMS-specific sensors/helpers, `error_alerts` owns the unified wrapper and notification pipeline.
 
 **Validation:**
 - Full HA config check passes
 - All automations reload cleanly
 - No dangling references to old entity IDs or file paths
-- `grep -r "hms_alert"` returns zero hits outside of git history
+- `grep -r "hms_alert"` returns zero hits in `docs/` outside of git history (the `homeassistant/packages/3d_printing/hms_alert/` package legitimately retains the name)
 
-**Risk:** Medium — directory renames require updating multiple references. Do this in a single commit with a config check gate.
+**Risk:** Low-medium — docs directory rename requires updating cross-references. Do this in a single commit with a config check gate.
 
 ---
 
@@ -513,7 +512,7 @@ docs/features/hms_alert/                               → RENAMED: error_alerts
 - [ ] Phase 3: "Replace Spool Now" button carried forward from existing HMS card ([#727](https://github.com/rsocko/hass-bambulab-config/issues/727))
 - [ ] Phase 3: All test scenarios rendered correctly
 - [ ] Phase 3: OpenHASP data contract documented
-- [ ] Phase 4: Directory rename completed
+- [ ] Phase 4: Docs directory rename completed
 - [ ] Phase 4: All cross-references updated
 - [ ] Phase 4: Zero `hms_alert` references remaining
 - [ ] Phase 5: Logging package loaded and handler deployed
