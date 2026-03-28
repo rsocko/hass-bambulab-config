@@ -82,7 +82,7 @@
           sequence:
             - action: notify.notify
               data:
-                title: "âš ï¸ HEPA Filter - Replace Soon"
+                title: "⚠️ HEPA Filter - Replace Soon"
                 message: >
                   Bento Box HEPA filter approaching end of life.
 
@@ -101,7 +101,7 @@
           sequence:
             - action: notify.notify
               data:
-                title: "â„¹ï¸ HEPA Filter - Monitor"
+                title: "ℹ️ HEPA Filter - Monitor"
                 message: >
                   Bento Box HEPA filter at {{ hepa_usage }}% usage.
 
@@ -159,7 +159,7 @@
           sequence:
             - action: notify.notify
               data:
-                title: "âš ï¸ Carbon Filter - Replace Soon"
+                title: "⚠️ Carbon Filter - Replace Soon"
                 message: >
                   Bento Box carbon filter approaching end of life.
 
@@ -178,7 +178,7 @@
           sequence:
             - action: notify.notify
               data:
-                title: "â„¹ï¸ Carbon Filter - Monitor"
+                title: "ℹ️ Carbon Filter - Monitor"
                 message: >
                   Bento Box carbon filter at {{ carbon_usage }}% usage.
 

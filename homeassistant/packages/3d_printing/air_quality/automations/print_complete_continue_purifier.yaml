@@ -63,14 +63,14 @@
     # Send notification
     - action: notify.notify
       data:
-        title: "ðŸ–¨ï¸ Print Complete - Air Filtering"
+        title: "🖨️ Print Complete - Air Filtering"
         message: >
           Print completed: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
 
           Air purifier will continue running for 30 minutes.
           Current gear: {{ states('number.ryans_office_air_gearmode') }}
 
-          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
           VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
         data:
           notification_id: print_complete_air
@@ -96,7 +96,7 @@
                 name: Air Purification Extended
                 message: >
                   Air quality still poor after 30 minutes. Keeping purifier running.
-                  PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³,
+                  PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³,
                   CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm,
                   VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
 
@@ -108,7 +108,7 @@
 
                   Keeping purifier running.
 
-                  PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+                  PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
                   CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
                   VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
                 data:
@@ -135,7 +135,7 @@
                 name: Air Purifier Reduced
                 message: >
                   Air quality moderate after 30 minutes. Reduced purifier to gear 1.
-                  PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+                  PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
                   Note: Bento Box fan controlled by separate automation.
 
       # Default: Air quality is good, turn off purifier
@@ -149,7 +149,7 @@
             name: Air Purification Complete
             message: >
               Air quality good after 30 minutes. Turned off purifier.
-              PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³,
+              PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³,
               CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm,
               VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
               Note: Bento Box fan controlled by separate automation.
@@ -162,7 +162,7 @@
 
               Purifier turned off.
 
-              PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+              PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
               CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
               VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
             data:

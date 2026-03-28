@@ -129,7 +129,7 @@
                 name: Bento Box Fan Off
                 message: >
                   Turned off Bento Box fan. Air quality is good.
-                  PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, VOC: {{ voc }} ppb
+                  PM2.5: {{ pm25 | round(1) }} µg/m³, VOC: {{ voc }} ppb
                   Filament: {{ filament_type }}
 
       # Turn on or adjust fan speed
@@ -147,7 +147,7 @@
             message: >
               Bento Box fan set to {{ target_speed }}%.
               Filament: {{ filament_type }} (High-VOC: {{ is_high_voc_filament }})
-              Air Quality - PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, VOC: {{ voc }} ppb, CO2: {{ co2 }} ppm
+              Air Quality - PM2.5: {{ pm25 | round(1) }} µg/m³, VOC: {{ voc }} ppb, CO2: {{ co2 }} ppm
               Printing: {{ is_printing }}
 
     # Send notification on print start for high-VOC materials
@@ -159,14 +159,14 @@
       then:
         - action: notify.notify
           data:
-            title: "âš ï¸ High-VOC Filament Detected"
+            title: "⚠️ High-VOC Filament Detected"
             message: >
               Print started with {{ filament_type }} filament.
 
               Bento Box fan set to {{ target_speed }}% for enhanced ventilation.
 
               Current Air Quality:
-              PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³
+              PM2.5: {{ pm25 | round(1) }} µg/m³
               VOC: {{ voc }} ppb
               CO2: {{ co2 }} ppm
             data:

@@ -63,14 +63,14 @@
     # Send notification
     - action: notify.notify
       data:
-        title: "ðŸ–¨ï¸ Air Purification Started"
+        title: "🖨️ Air Purification Started"
         message: >
           Print started: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}
 
           Air purifier turned on at gear {{ states('number.ryans_office_air_gearmode') }}.
 
           Current Air Quality:
-          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} Âµg/mÂ³
+          PM2.5: {{ states('sensor.i_9psl_pm2_5') | round(1) }} µg/m³
           CO2: {{ states('sensor.i_9psl_carbon_dioxide') }} ppm
           VOC: {{ states('sensor.i_9psl_voc_index') }} ppb
         data:

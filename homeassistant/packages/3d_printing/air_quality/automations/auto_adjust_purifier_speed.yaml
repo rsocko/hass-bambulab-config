@@ -95,7 +95,7 @@
             name: Air Purifier Speed Increased
             message: >
               Air quality degraded. Increased purifier gear from {{ current_gear }} to {{ target_gear }}.
-              PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+              PM2.5: {{ pm25 | round(1) }} µg/m³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
 
         # Send notification when jumping to max gear
         - if:
@@ -104,14 +104,14 @@
           then:
             - action: notify.notify
               data:
-                title: "âš ï¸ Air Purifier at Maximum"
+                title: "⚠️ Air Purifier at Maximum"
                 message: >
                   Air quality has degraded during printing.
 
                   Purifier gear: {{ current_gear }} â†’ {{ target_gear }} (High)
 
                   Current readings:
-                  PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³
+                  PM2.5: {{ pm25 | round(1) }} µg/m³
                   CO2: {{ co2 }} ppm
                   VOC: {{ voc }} ppb
                 data:
@@ -128,7 +128,7 @@
             name: Air Purifier Speed Decreased
             message: >
               Air quality improved. Decreased purifier gear from {{ current_gear }} to {{ target_gear }}.
-              PM2.5: {{ pm25 | round(1) }} Âµg/mÂ³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
+              PM2.5: {{ pm25 | round(1) }} µg/m³, CO2: {{ co2 }} ppm, VOC: {{ voc }} ppb
 
   mode: single
   max_exceeded: silent
