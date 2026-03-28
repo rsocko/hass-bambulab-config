@@ -121,7 +121,7 @@
           sequence:
             - action: fan.turn_off
               target:
-                entity_id: fan.bento_box_fan
+                entity_id: fan.3dprinter_controller_box_bento_box_fan
               continue_on_error: true
 
             - action: logbook.log
@@ -136,7 +136,7 @@
       default:
         - action: fan.turn_on
           target:
-            entity_id: fan.bento_box_fan
+            entity_id: fan.3dprinter_controller_box_bento_box_fan
           data:
             percentage: "{{ target_speed }}"
           continue_on_error: true

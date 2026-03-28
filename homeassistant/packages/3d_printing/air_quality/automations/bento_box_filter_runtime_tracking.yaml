@@ -24,7 +24,7 @@
 
     # Only accumulate when fan is actually on
     - condition: state
-      entity_id: fan.bento_box_fan
+      entity_id: fan.3dprinter_controller_box_bento_box_fan
       state: "on"
 
   actions:
@@ -33,7 +33,7 @@
         runtime_increment: 0.0167  # 1 minute in hours (1/60)
         current_hepa_runtime: "{{ states('input_number.bento_box_hepa_runtime_hours') | float(0) }}"
         current_carbon_runtime: "{{ states('input_number.bento_box_carbon_runtime_hours') | float(0) }}"
-        fan_speed: "{{ state_attr('fan.bento_box_fan', 'percentage') | int(0) }}"
+        fan_speed: "{{ state_attr('fan.3dprinter_controller_box_bento_box_fan', 'percentage') | int(0) }}"
 
     # Update HEPA filter runtime
     - action: input_number.set_value

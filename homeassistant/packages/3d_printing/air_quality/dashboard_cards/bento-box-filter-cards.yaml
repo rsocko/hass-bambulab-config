@@ -136,7 +136,7 @@ tap_action:
 
           # ── Fan speed control ──────────────────────────
           - type: custom:mushroom-fan-card
-            entity: fan.bento_box_fan
+            entity: fan.3dprinter_controller_box_bento_box_fan
             name: Bento Box Fan
             show_percentage_control: true
 
