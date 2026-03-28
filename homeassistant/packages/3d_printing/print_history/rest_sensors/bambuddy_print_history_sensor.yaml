@@ -1,28 +1,74 @@
 # Bambuddy Print History — polls the archives API for recent prints.
 # Docs: docs/features/print_history/README.md
 #
-# NOTE: resource_template must ALWAYS produce a URL string, even at boot
-# before input_text helpers are restored. An empty resource_template causes
-# the REST platform to skip sensor creation entirely, orphaning the entity.
-# Instead, we let it produce a bad URL (which fails gracefully) and use
-# availability_template to signal readiness.
-- platform: rest
-  name: "Bambuddy Print History"
-  unique_id: bambuddy_print_history
-  resource_template: >-
+# Uses the rest: integration (top-level) so multiple sensors share one
+# API call.  The Bambuddy API returns a flat JSON array of archive
+# objects — not a paginated wrapper — so we extract directly from
+# value_json rather than relying on json_attributes.
+#
+# NOTE: resource_template always produces a URL string, even at boot
+# before helpers restore (e.g. "unknown/api/v1/…").  The REST
+# integration treats a failed HTTP request as "unavailable", which is
+# the correct behaviour — no availability_template needed.
+- resource_template: >-
     {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{
       states('input_number.bambuddy_history_limit') | int(10)
     }}&sort=created_at&order=desc
-  availability_template: >-
-    {{ has_value('input_text.bambuddy_api_base_url') }}
   headers:
     X-API-Key: !secret bambuddy_api_key
     Content-Type: application/json
-  method: GET
-  value_template: >-
-    {{ value_json.total | default(0) }}
-  json_attributes:
-    - archives
-    - total
-    - page
   scan_interval: 300
+  sensor:
+    # ── Count of archives returned ──────────────────────────────────
+    - name: "Bambuddy Print History"
+      unique_id: bambuddy_print_history
+      icon: mdi:history
+      value_template: "{{ value_json | count }}"
+
+    # ── Most-recent archive fields (index 0) ───────────────────────
+    - name: "Bambuddy Last Print Name"
+      unique_id: bambuddy_last_print_name
+      icon: mdi:printer-3d-nozzle
+      value_template: >-
+        {% if value_json | count > 0 %}
+          {{ value_json[0].print_name | default('Unknown') }}
+        {% else %}
+          No prints
+        {% endif %}
+
+    - name: "Bambuddy Last Print Status"
+      unique_id: bambuddy_last_print_status
+      icon: mdi:list-status
+      value_template: >-
+        {% if value_json | count > 0 %}
+          {{ value_json[0].status | default('unknown') }}
+        {% else %}
+          unknown
+        {% endif %}
+
+    - name: "Bambuddy Last Print Duration"
+      unique_id: bambuddy_last_print_duration
+      icon: mdi:clock-outline
+      unit_of_measurement: "h"
+      value_template: >-
+        {% if value_json | count > 0 %}
+          {% set secs = value_json[0].print_time_seconds | default(0) | int %}
+          {{ (secs / 3600) | round(1) }}
+        {% else %}
+          0
+        {% endif %}
+
+    - name: "Bambuddy Last Print Image URL"
+      unique_id: bambuddy_last_print_image_url
+      icon: mdi:image
+      value_template: >-
+        {% if value_json | count > 0 %}
+          {% set thumb = value_json[0].thumbnail_path | default('') %}
+          {% if thumb %}
+            {{ states('input_text.bambuddy_api_base_url') }}/{{ thumb }}
+          {% else %}
+            none
+          {% endif %}
+        {% else %}
+          none
+        {% endif %}

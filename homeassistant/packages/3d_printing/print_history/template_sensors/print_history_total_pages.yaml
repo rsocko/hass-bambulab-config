@@ -5,7 +5,7 @@
       unique_id: print_history_total_pages
       icon: mdi:book-multiple
       state: >
-        {% set total = state_attr('sensor.bambuddy_print_history', 'total') | int(0) %}
+        {% set total = states('sensor.bambuddy_print_history') | int(0) %}
         {% set limit = states('input_number.bambuddy_history_limit') | int(10) %}
         {% if total > 0 and limit > 0 %}
           {{ (total / limit) | round(0, 'ceil') | int }}
