@@ -10,5 +10,6 @@ bambuddy_add_archive_tags:
   method: POST
   headers:
     X-API-Key: !secret bambuddy_api_key
-  payload: '{"tags": {{ tags | default('') | tojson }}}'
+  payload: >-
+    {"tags": {{ tags | default("") | tojson }}}
   content_type: "application/json"
