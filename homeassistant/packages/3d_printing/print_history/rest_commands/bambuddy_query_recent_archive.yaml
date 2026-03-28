@@ -5,9 +5,7 @@
 # Docs: docs/features/print_history/photo-capture-design.md
 bambuddy_query_recent_archive:
   url: >-
-    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?printer_id={{
-      states('input_text.bambuddy_printer_id')
-    }}&sort=created_at&order=desc&limit=1
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit=1&sort=created_at&order=desc
   method: GET
   headers:
     X-API-Key: !secret bambuddy_api_key

@@ -7,7 +7,7 @@ load_history_page:
   alias: "Load History Page"
   description: >-
     Fetches a specific page of print history from Bambuddy archives API
-    using offset-based pagination.
+    using page-based pagination.
   fields:
     page:
       description: "Page number to load (1-based)"
@@ -19,7 +19,6 @@ load_history_page:
   sequence:
     - variables:
         limit: "{{ states('input_number.bambuddy_history_limit') | int(10) }}"
-        offset: "{{ ((page | int(1)) - 1) * limit }}"
 
     - action: input_number.set_value
       target:
@@ -27,11 +26,11 @@ load_history_page:
       data:
         value: "{{ page | int(1) }}"
 
-    # Fetch the page via REST command
+    # Fetch the page via REST command (page-based pagination)
     - action: rest_command.bambuddy_query_history_page
       data:
         limit: "{{ limit }}"
-        offset: "{{ offset }}"
+        page: "{{ page | int(1) }}"
       response_variable: api_response
 
     - if:
@@ -39,9 +38,12 @@ load_history_page:
           value_template: "{{ api_response.status == 200 }}"
       then:
         - variables:
-            result_archives: "{{ api_response.content | default([]) }}"
-            result_count: "{{ api_response.content | default([]) | length }}"
-            result_has_more: "{{ (api_response.content | default([]) | length) >= (limit | int) }}"
+            # API returns { total, page, archives: [...] }
+            response_body: "{{ api_response.content | default({}) }}"
+            result_archives: "{{ response_body.archives | default([]) }}"
+            result_count: "{{ result_archives | length }}"
+            result_total: "{{ response_body.total | default(0) | int }}"
+            result_has_more: "{{ (result_count | int) >= (limit | int) and ((page | int) * (limit | int)) < result_total }}"
 
         # Fire event for trigger-based template sensor
         - event: bambuddy_history_page_loaded
@@ -49,6 +51,7 @@ load_history_page:
             page: "{{ page | int(1) }}"
             archives: "{{ result_archives }}"
             count: "{{ result_count }}"
+            total: "{{ result_total }}"
             has_more: "{{ result_has_more }}"
       else:
         - action: logbook.log

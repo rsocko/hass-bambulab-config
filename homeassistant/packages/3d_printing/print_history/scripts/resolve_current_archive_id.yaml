@@ -13,8 +13,13 @@ resolve_current_archive_id:
     - variables:
         task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | default('') }}"
         response_ok: "{{ api_response is defined and api_response.status == 200 }}"
-        # API returns a flat JSON array, not a wrapper object
-        archives: "{{ api_response.content | default([]) if response_ok else [] }}"
+        # API returns { total, page, archives: [...] }
+        archives: >-
+          {% if response_ok %}
+            {{ (api_response.content | default({})).archives | default([]) }}
+          {% else %}
+            []
+          {% endif %}
         matched_id: >-
           {% for archive in archives %}
             {% if task_name and task_name in (archive.print_name | default('')) %}
