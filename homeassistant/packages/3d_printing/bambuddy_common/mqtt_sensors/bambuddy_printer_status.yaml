@@ -1,0 +1,17 @@
+# Bambuddy Printer Status — subscribes to Bambuddy MQTT status topic.
+# Docs: docs/features/bambuddy_common/README.md
+#
+# Replaces the REST polling sensor. MQTT provides real-time updates
+# (1/sec, retained) instead of 30s polling. No API key needed — auth
+# is handled at the Mosquitto broker level.
+#
+# Topic: bambuddy/printers/{serial}/status
+# Update the serial below to match your printer.
+# Find yours at: States → sensor.3d_printer_serial_number
+- name: "Bambuddy Printer Status"
+  unique_id: bambuddy_mqtt_printer_status
+  state_topic: "bambuddy/printers/01P00C460102350/status"
+  value_template: >-
+    {{ value_json.state | default('unknown') }}
+  json_attributes_topic: "bambuddy/printers/01P00C460102350/status"
+  icon: mdi:printer-3d

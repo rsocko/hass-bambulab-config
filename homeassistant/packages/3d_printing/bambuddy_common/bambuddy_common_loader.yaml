@@ -1,7 +1,8 @@
 # Bambuddy Common — shared API config, webhook receiver, printer status.
 # Docs: docs/features/bambuddy_common/README.md
 automation: !include_dir_merge_list automations
-sensor: !include_dir_merge_list rest_sensors
+mqtt:
+  sensor: !include_dir_merge_list mqtt_sensors
 rest_command: !include_dir_merge_named rest_commands
 input_boolean: !include_dir_merge_named helpers/input_boolean
 input_text: !include_dir_merge_named helpers/input_text
