@@ -1,0 +1,15 @@
+# Upload a photo to an existing Bambuddy archive.
+# Usage: service: rest_command.bambuddy_upload_photo_to_archive
+# Data: { "archive_id": "42", "photo_url": "/local/printer_snapshots/file.jpg" }
+#
+# Note: If Bambuddy requires multipart/form-data, a shell_command (curl)
+# fallback will be needed. See docs/features/bambuddy_common/README.md.
+# Docs: docs/features/bambuddy_common/README.md
+bambuddy_upload_photo_to_archive:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/photos
+  method: POST
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  payload: '{"photo_url": "{{ photo_url }}"}'
+  content_type: "application/json"

@@ -1,0 +1,13 @@
+# Set the cover photo for a Bambuddy archive.
+# Usage: service: rest_command.bambuddy_set_archive_cover
+# Data: { "archive_id": "42", "cover_photo_id": "7" }
+# Used by: print_history photo review feature.
+# Docs: docs/features/bambuddy_common/README.md
+bambuddy_set_archive_cover:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}
+  method: PATCH
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  payload: '{"cover_photo_id": {{ cover_photo_id }}}'
+  content_type: "application/json"

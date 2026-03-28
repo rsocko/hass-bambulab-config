@@ -1,0 +1,88 @@
+# Bambuddy Webhook Receiver — ingests webhooks from Bambuddy and fires a
+# normalized HA event (`bambuddy_webhook_event`) for downstream features.
+#
+# Configure in Bambuddy → Settings → Notifications → Webhook (Custom):
+#   URL: http(s)://<ha-host>/api/webhook/bambuddy_events
+#
+# Handles two Bambuddy payload formats:
+#   1. API format (structured): { "event": "...", "data": { "archive_id": ..., ... } }
+#   2. Notifications format (flat): { "event": "...", "print_name": "...", ... }
+#
+# Downstream automations listen for `bambuddy_webhook_event` — NOT raw webhooks.
+# Docs: docs/features/bambuddy_common/README.md
+- alias: "Bambuddy - Webhook Receiver"
+  id: bambuddy_webhook_receiver
+  description: >
+    Receives webhook events from Bambuddy, normalizes both API and notification
+    payload formats, and fires a consistent bambuddy_webhook_event HA event.
+
+  triggers:
+    - trigger: webhook
+      webhook_id: "bambuddy_events"
+      allowed_methods:
+        - POST
+      local_only: false
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+
+  actions:
+    # Detect which format we received and extract fields consistently.
+    # API format puts details inside a `data` object; notification format is flat.
+    - variables:
+        is_api_format: "{{ trigger.json.data is defined and trigger.json.data is mapping }}"
+        event_name: >-
+          {{ trigger.json.event | default('unknown') }}
+        archive_id: >-
+          {% if is_api_format %}
+            {{ trigger.json.data.archive_id | default('') }}
+          {% else %}
+            {{ trigger.json.archive_id | default('') }}
+          {% endif %}
+        print_name: >-
+          {% if is_api_format %}
+            {{ trigger.json.data.name | default('') }}
+          {% else %}
+            {{ trigger.json.print_name | default('') }}
+          {% endif %}
+        printer_name: >-
+          {% if is_api_format %}
+            {{ trigger.json.data.printer_name | default('') }}
+          {% else %}
+            {{ trigger.json.printer_name | default('') }}
+          {% endif %}
+        status: >-
+          {% if is_api_format %}
+            {{ trigger.json.data.status | default('') }}
+          {% else %}
+            {{ trigger.json.status | default('') }}
+          {% endif %}
+        printer_id: >-
+          {% if is_api_format %}
+            {{ trigger.json.data.printer_id | default('') }}
+          {% else %}
+            {{ trigger.json.printer_id | default('') }}
+          {% endif %}
+
+    - action: logbook.log
+      data:
+        name: Bambuddy Webhook
+        message: >-
+          Received event '{{ event_name }}' for '{{ print_name }}'
+          on {{ printer_name }} (archive_id={{ archive_id }})
+
+    # Fire normalized event for all downstream features to consume
+    - event: bambuddy_webhook_event
+      event_data:
+        event: "{{ event_name }}"
+        archive_id: "{{ archive_id }}"
+        print_name: "{{ print_name }}"
+        printer_name: "{{ printer_name }}"
+        printer_id: "{{ printer_id }}"
+        status: "{{ status }}"
+        raw_payload: "{{ trigger.json }}"
+
+  mode: queued
+  max: 10

@@ -1,0 +1,11 @@
+# Delete a photo from a Bambuddy archive.
+# Usage: service: rest_command.bambuddy_delete_archive_photo
+# Data: { "archive_id": "42", "photo_id": "7" }
+# Used by: print_history photo review feature.
+# Docs: docs/features/bambuddy_common/README.md
+bambuddy_delete_archive_photo:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/photos/{{ photo_id }}
+  method: DELETE
+  headers:
+    X-API-Key: !secret bambuddy_api_key

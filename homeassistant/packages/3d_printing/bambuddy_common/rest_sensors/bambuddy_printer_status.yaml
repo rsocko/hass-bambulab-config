@@ -1,0 +1,29 @@
+# Bambuddy Printer Status — polls Bambuddy for live printer state.
+# Docs: docs/features/bambuddy_common/README.md
+- platform: rest
+  name: "Bambuddy Printer Status"
+  unique_id: bambuddy_printer_status
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/printers/{{
+      states('input_text.bambuddy_printer_id')
+    }}/status
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.status | default('unknown') }}
+  json_attributes:
+    - status
+    - current_print
+    - maintenance
+    - error
+    - nozzle_temp
+    - bed_temp
+    - chamber_temp
+    - print_progress
+    - time_remaining_minutes
+    - fan_speed
+    - filament
+  scan_interval: 30
+  icon: mdi:printer-3d

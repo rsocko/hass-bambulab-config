@@ -1,0 +1,10 @@
+# Force Bambuddy to re-poll the printer and update its cached status.
+# Docs: docs/features/bambuddy_common/README.md
+bambuddy_refresh_printer_status:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/printers/{{
+      states('input_text.bambuddy_printer_id')
+    }}/refresh-status
+  method: POST
+  headers:
+    X-API-Key: !secret bambuddy_api_key

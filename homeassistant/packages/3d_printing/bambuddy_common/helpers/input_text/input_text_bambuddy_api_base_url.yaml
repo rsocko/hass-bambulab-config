@@ -1,0 +1,4 @@
+bambuddy_api_base_url:
+  name: Bambuddy API Base URL
+  max: 255
+  icon: mdi:server

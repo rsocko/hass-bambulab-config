@@ -1,0 +1,4 @@
+bambuddy_printer_id:
+  name: Bambuddy Printer ID
+  max: 100
+  icon: mdi:printer-3d
