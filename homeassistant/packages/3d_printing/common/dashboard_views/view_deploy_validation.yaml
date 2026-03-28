@@ -39,10 +39,12 @@ sections:
           **AMS Filament Runout (Spool Empty):**
           1. Enter a valid Spoolman spool ID in **Error Alert Test Spool ID**
           2. Enable test mode → select **AMS Filament Runout (Spool Empty)**
-          3. Expected on error alert card:
+          3. Tap **Activate Spool Replace** below to populate the wizard
+          4. Expected on error alert card (main dashboard):
              - 🔄 Retry, ✅ Done, ✕ Dismiss buttons (AMS controls)
              - ♻ Replace Spool Now button (spool replace wizard entry)
-          4. Tap "Replace Spool Now" to launch the 4-step wizard
+          5. Tap "Replace Spool Now" to launch the 4-step wizard
+          6. When done testing, tap **Clear Spool Replace** to reset
 
           `has_ams_error`: {{ state_attr('binary_sensor.error_alert_display_wrapper', 'has_ams_error') }}
           `spool_replace_source`: {{ states('input_text.spool_replace_source_spool_id') }}
@@ -57,6 +59,50 @@ sections:
           - condition: state
             entity: input_boolean.error_alert_test_mode
             state: "on"
+      # ── Spool Replace test action buttons ────────────────────
+      - type: horizontal-stack
+        visibility:
+          - condition: state
+            entity: input_boolean.error_alert_test_mode
+            state: "on"
+          - condition: state
+            entity: input_select.error_alert_test_scenario
+            state: "AMS Filament Runout (Spool Empty)"
+        cards:
+          - type: button
+            name: Activate Spool Replace
+            icon: mdi:swap-horizontal
+            icon_height: 30px
+            tap_action:
+              action: perform-action
+              perform_action: input_text.set_value
+              target:
+                entity_id: input_text.spool_replace_source_spool_id
+              data:
+                value: "{{ states('input_text.error_alert_test_spool_id') }}"
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(76,175,80,0.12);
+                  border: 1px solid rgba(76,175,80,0.5);
+                }
+          - type: button
+            name: Clear Spool Replace
+            icon: mdi:close-circle-outline
+            icon_height: 30px
+            tap_action:
+              action: perform-action
+              perform_action: input_text.set_value
+              target:
+                entity_id: input_text.spool_replace_source_spool_id
+              data:
+                value: ""
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(158,158,158,0.12);
+                  border: 1px solid rgba(158,158,158,0.4);
+                }
     column_span: 2
 
   - type: grid

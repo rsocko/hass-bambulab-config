@@ -66,7 +66,7 @@ docs/
     ├── print_weight_and_cost/
     ├── air_quality/
     ├── humidity/
-    ├── hms_alert/
+    ├── error_alerts/
     ├── wled/
     ├── openhasp_display/
     ├── spoolman_sync/

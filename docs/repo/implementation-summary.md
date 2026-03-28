@@ -167,8 +167,9 @@ sensor:
 
 ## 📚 Documentation
 
-Complete documentation provided in [docs/features/hms_alert/](../features/hms_alert/):
-- `hms-error-alert-implementation.md` - Technical details
+Complete documentation provided in [docs/features/error_alerts/](../features/error_alerts/):
+- `error-alerts-unified-design.md` - Unified design and phased implementation plan
+- `hms-error-alert-implementation.md` - Technical details (legacy HMS card)
 - `hms-error-ui-mockup.md` - Visual mockups and examples
 - `hms-error-testing-guide.md` - Testing instructions
 
@@ -189,11 +190,11 @@ Complete documentation provided in [docs/features/hms_alert/](../features/hms_al
 
 ## 📝 Files Changed
 
-- `homeassistant/packages/3d_printing/hms_alert/dashboard_cards/hms-error-alert-section.yaml` - Unified responsive HMS alert card (replaced separate mobile/desktop cards)
+- `homeassistant/packages/3d_printing/error_alerts/dashboard_cards/error-alert-section.yaml` - Unified error alert card (HMS + print errors)
 - `homeassistant/packages/3d_printing/common/dashboard_views/view_main.yaml` - Updated include reference
-- [docs/features/hms_alert/hms-error-alert-implementation.md](../features/hms_alert/hms-error-alert-implementation.md) - Technical documentation
-- [docs/features/hms_alert/hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md) - Visual documentation
-- [docs/features/hms_alert/hms-error-testing-guide.md](../features/hms_alert/hms-error-testing-guide.md) - Testing guide
+- [docs/features/error_alerts/hms-error-alert-implementation.md](../features/error_alerts/hms-error-alert-implementation.md) - Technical documentation
+- [docs/features/error_alerts/hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) - Visual documentation
+- [docs/features/error_alerts/hms-error-testing-guide.md](../features/error_alerts/hms-error-testing-guide.md) - Testing guide
 
 ## 🎉 Result
 

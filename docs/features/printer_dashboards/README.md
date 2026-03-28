@@ -57,7 +57,7 @@ Each feature contributes dashboard cards — see feature-specific docs:
 
 | Dashboard Section | Feature Docs |
 |-------------------|-------------|
-| HMS Error Banner | [HMS Alert](../hms_alert/README.md) |
+| Error Alert Banner | [Error Alerts](../error_alerts/README.md) |
 | Temperature Cards | [Printer Temps](../printer_temps/README.md) |
 | Print Progress KPIs | [Print Progress](../print_progress/README.md) |
 | Weight & Cost | [Print Weight & Cost](../print_weight_and_cost/README.md) |

@@ -1,4 +1,4 @@
-# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Docs: docs/features/error_alerts/error-alerts-unified-design.md
 # Log all errors (HMS + print) to logbook and system_log when the unified
 # display wrapper transitions to 'on'.  Real errors only — test-mode excluded.
 # Each error is iterated and logged individually with type, severity, and code.

@@ -1,4 +1,4 @@
-# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Docs: docs/features/error_alerts/error-alerts-unified-design.md
 # Phase 2: Unified notification for all error types (HMS + print errors).
 # Replaces: hms_error_notification.yaml + print_fault_notification.yaml
 # Severity-based mobile push, persistent notification, TTS, WLED, chamber light.

@@ -1,4 +1,4 @@
-# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Docs: docs/features/error_alerts/error-alerts-unified-design.md
 # Unified Error Alert Section — Phase 3
 # Replaces: hms-error-alert-section.yaml
 # Shows all active errors (HMS + print) with source badges, severity-colored

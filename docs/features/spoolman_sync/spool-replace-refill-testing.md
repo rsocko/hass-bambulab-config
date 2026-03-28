@@ -607,7 +607,7 @@ If you don't have the test spools already, create them in Spoolman:
 | 5 | Verify button styling | Green left border, green-tinted background, spool name + ID in label |
 | 6 | Set the helper back to `""` | Button disappears |
 
-> **Note:** The HMS alert itself (`binary_sensor.hms_alert_display_wrapper`) must be ON for the banner section to render at all. Trigger a real or simulated HMS alert if needed.
+> **Note:** The error alert wrapper (`binary_sensor.error_alert_display_wrapper`) must be ON for the banner section to render at all. Trigger a real or simulated error alert if needed.
 
 **Result:** [ ] Pass / [ ] Fail  
 **Notes:** ___

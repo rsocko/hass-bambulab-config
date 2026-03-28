@@ -1,4 +1,0 @@
-hms_alert_test_mode:
-  name: HMS Alert Test Mode
-  icon: mdi:flask-outline
-  initial: false

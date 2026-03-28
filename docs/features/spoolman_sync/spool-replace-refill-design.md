@@ -2,7 +2,7 @@
 
 > **Status:** Phase 1 Complete (2026-03-26) · Phase 2 Complete (2026-03-26) · Phase 3 Complete (2026-03-27) · Phase 4 Complete (2026-03-27) · Phase 5 Pending  
 > **Package:** `spoolman_sync`  
-> **Related Packages:** `filament_catalog`, `filament_tag`, `core`, `hms_alert`  
+> **Related Packages:** `filament_catalog`, `filament_tag`, `core`, `error_alerts`  
 > **Entry Points:** Spool Popup (catalog), AMS Tray Popup (view_main), HMS Error Banner (view_main)
 
 ---
@@ -189,7 +189,7 @@ Open the Filament Catalog to find and replace this spool.
 **Why this matters:** The HMS error banner is the *first thing the user sees* when they open the dashboard after a runout event. Today, the banner is informational only — it tells the user something is wrong but provides no action. Adding a one-tap wizard launch here creates the shortest possible path from "spool ran out" to "replace it."
 
 **Trigger Condition:**
-- The HMS error banner is visible (`binary_sensor.hms_alert_display_wrapper` is `on`)
+- The error alert banner is visible (`binary_sensor.error_alert_display_wrapper` is `on`)
 - At least one error matches the filament-runout HMS code pattern (codes matching `HMS_0701_*` or error text containing "filament has run out" / "filament broken")
 - `input_text.spool_replace_source_spool_id` is populated (set by `filament_runout_capture_and_notify` automation from Phase 3)
 
@@ -900,8 +900,8 @@ homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/
 homeassistant/packages/3d_printing/common/dashboard_views/
 ├── view_filament_tags.yaml                              # Modified: Phase 2
 
-homeassistant/packages/3d_printing/hms_alert/dashboard_cards/
-├── hms-error-alert-section.yaml                         # Modified: Phase 3 (add Replace Spool Now button)
+homeassistant/packages/3d_printing/error_alerts/dashboard_cards/
+├── error-alert-section.yaml                              # Modified: Phase 3 (add Replace Spool Now button)
 
 docs/features/spoolman_sync/
 ├── spool-replace-refill-design.md                       # This document

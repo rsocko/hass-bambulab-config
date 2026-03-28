@@ -81,17 +81,17 @@
 | ✅ | `weight-bar-chart-multicolor` | png | Stacked bar chart — multi-color print | [README](../features/print_weight_and_cost/README.md) |
 | ⬜ | `weight-per-tray-warnings` | png | Per-tray weight cards with warnings | [README](../features/print_weight_and_cost/README.md) |
 
-## HMS Alert
+## Error Alerts
 
 | Status | ID | Format | Description | Doc Location |
 |--------|-----|--------|-------------|-------------|
-| ⬜ | `hms-alert-single-error` | png | Single error expanded (red banner) | [README](../features/hms_alert/README.md) |
-| ⬜ | `hms-alert-multiple-errors` | png | Multiple errors with severity colors | [README](../features/hms_alert/README.md) |
-| ⬜ | `hms-alert-collapse-toggle` | gif | Expand/collapse interaction | [README](../features/hms_alert/README.md) |
-| ⬜ | `hms-alert-no-errors` | png | Dashboard with banner hidden (no errors) | [README](../features/hms_alert/README.md) |
-| ⬜ | `hms-ui-single-expanded` | png | UI mockup — single error expanded | [hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md) |
-| ⬜ | `hms-ui-multiple-errors` | png | UI mockup — multiple errors | [hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md) |
-| ⬜ | `hms-ui-collapsed` | png | UI mockup — collapsed state | [hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md) |
+| ⬜ | `hms-alert-single-error` | png | Single error expanded (red banner) | [README](../features/error_alerts/README.md) |
+| ⬜ | `hms-alert-multiple-errors` | png | Multiple errors with severity colors | [README](../features/error_alerts/README.md) |
+| ⬜ | `hms-alert-collapse-toggle` | gif | Expand/collapse interaction | [README](../features/error_alerts/README.md) |
+| ⬜ | `hms-alert-no-errors` | png | Dashboard with banner hidden (no errors) | [README](../features/error_alerts/README.md) |
+| ⬜ | `hms-ui-single-expanded` | png | UI mockup — single error expanded | [hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) |
+| ⬜ | `hms-ui-multiple-errors` | png | UI mockup — multiple errors | [hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) |
+| ⬜ | `hms-ui-collapsed` | png | UI mockup — collapsed state | [hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md) |
 
 ## Air Quality
 

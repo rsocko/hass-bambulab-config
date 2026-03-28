@@ -51,13 +51,13 @@ homeassistant/packages/3d_printing/core/dashboard_views/lovelace.3d_printing
 ### Files Created / Updated
 ```
 Dashboard card (unified):
-  └── homeassistant/packages/3d_printing/hms_alert/dashboard_cards/
+  └── homeassistant/packages/3d_printing/error_alerts/dashboard_cards/
       └── hms-error-alert-section.yaml                (Single responsive card)
 
 Documentation:
   ├── quick-start.md                                  (Quick reference guide)
   ├── implementation-summary.md                       (Complete overview)
-  └── docs/features/hms_alert/
+  └── docs/features/error_alerts/
       ├── hms-error-alert-implementation.md           (Technical details)
       ├── hms-error-ui-mockup.md                      (Visual examples)
       └── hms-error-testing-guide.md                  (Testing instructions)
@@ -79,7 +79,7 @@ Removed (replaced by unified card):
 - **Dramatic red banner immediately visible** with pulsing glow and warm icon animation
 - **1 error**: error description shown inline in the banner subtitle
 - **>1 errors**: count shown in banner (e.g. "3 Errors")
-- Chevron button on the right side of the header toggles `input_boolean.hms_alert_show_details` to expand/collapse error details
+- Chevron button on the right side of the header toggles `input_boolean.error_alert_show_details` to expand/collapse error details
 - Error cards coloured by severity (red/orange/yellow) in a flex-wrap horizontal layout
 - HMS badge shows "Problem"
 - All HMS displays clickable for more info

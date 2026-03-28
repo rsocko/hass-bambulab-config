@@ -39,7 +39,7 @@ Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_print
 | [printer_temps](features/printer_temps/README.md) | Nozzle and bed temperature monitoring cards |
 | [printer_led](features/printer_led/README.md) | LED lighting control (MagWLED, chamber, AMS, front display) |
 | [printer_dashboards](features/printer_dashboards/README.md) | Dashboard composition, layout, views, AMS tray UI |
-| [hms_alert](features/hms_alert/README.md) | HMS error detection, alert banner, testing |
+| [error_alerts](features/error_alerts/README.md) | Unified error alerts (HMS + print errors), severity mapping, action buttons |
 
 ### Print Tracking
 
@@ -93,7 +93,7 @@ Every feature's README has a **Dependencies & Requirements** section in a consis
 | **air_quality** | **Yes** | **Yes** | **Yes** | printer_controls *(optional)* | AirGradient, Govee (gv2mqtt), Bento Box fan |
 | **bambuddy_integration** | **Yes** | — | **Yes** | notifications *(optional)* | Bambuddy service |
 | **filament_tag** | **Yes** | **Yes** | **Yes** | spoolman_sync | NFC reader, Spoolman |
-| **hms_alert** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom |
+| **error_alerts** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom, button-card, card-mod |
 | **humidity** | **Yes** | **Yes** | **Yes** | *(none)* | mushroom, card-mod |
 | **logging** | — | — | — | *(none — standalone)* | Loki/Grafana *(optional)* |
 | **notifications** | **Yes** | — | **Yes** | *(none)* | Mobile app, light *(opt)*, TTS *(opt)* |

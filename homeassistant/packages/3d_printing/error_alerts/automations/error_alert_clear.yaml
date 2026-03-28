@@ -1,4 +1,4 @@
-# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Docs: docs/features/error_alerts/error-alerts-unified-design.md
 # Phase 2: Dismiss persistent notification and restore WLED when all errors clear.
 - alias: "Error Alert: Clear on Resolve"
   id: error_alert_clear_on_resolve

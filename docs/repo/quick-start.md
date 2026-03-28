@@ -162,9 +162,9 @@ See `implementation-summary.md` for ideas on:
 ## 📚 More Information
 
 - **Full Details**: See `implementation-summary.md`
-- **Technical Docs**: See [docs/features/hms_alert/hms-error-alert-implementation.md](../features/hms_alert/hms-error-alert-implementation.md)
-- **Testing Guide**: See [docs/features/hms_alert/hms-error-testing-guide.md](../features/hms_alert/hms-error-testing-guide.md)
-- **Visual Examples**: See [docs/features/hms_alert/hms-error-ui-mockup.md](../features/hms_alert/hms-error-ui-mockup.md)
+- **Technical Docs**: See [docs/features/error_alerts/hms-error-alert-implementation.md](../features/error_alerts/hms-error-alert-implementation.md)
+- **Testing Guide**: See [docs/features/error_alerts/hms-error-testing-guide.md](../features/error_alerts/hms-error-testing-guide.md)
+- **Visual Examples**: See [docs/features/error_alerts/hms-error-ui-mockup.md](../features/error_alerts/hms-error-ui-mockup.md)
 
 ## ✅ Checklist Before Using
 
@@ -177,7 +177,7 @@ See `implementation-summary.md` for ideas on:
 
 ---
 
-**Need Help?** Check the full documentation in the [docs/features/hms_alert/](../features/hms_alert/) folder!
+**Need Help?** Check the full documentation in the [docs/features/error_alerts/](../features/error_alerts/) folder!
 
 
 
