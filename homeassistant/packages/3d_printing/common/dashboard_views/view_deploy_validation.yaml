@@ -24,12 +24,13 @@ sections:
           - entity: sensor.ntk_ryansoffice_3dprinter_current_stage
           - entity: sensor.ntk_ryansoffice_3dprinter_print_progress
       - type: entities
-        title: HMS Alert Test Controls
+        title: Error Alert Test Controls
         entities:
-          - entity: input_boolean.hms_alert_test_mode
-          - entity: input_select.hms_alert_test_scenario
-          - entity: binary_sensor.hms_alert_display_wrapper
+          - entity: input_boolean.error_alert_test_mode
+          - entity: input_select.error_alert_test_scenario
+          - entity: binary_sensor.error_alert_display_wrapper
           - entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
+          - entity: binary_sensor.ntk_ryansoffice_3dprinter_print_error
     column_span: 2
 
   - type: grid
@@ -43,8 +44,11 @@ sections:
         entity: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
         name: HMS Errors
       - type: tile
-        entity: binary_sensor.hms_alert_display_wrapper
-        name: HMS Display Wrapper
+        entity: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+        name: Print Error
+      - type: tile
+        entity: binary_sensor.error_alert_display_wrapper
+        name: Error Alert Wrapper
       - type: tile
         entity: camera.ntk_ryansoffice_3dprinter_camera
         name: Printer Camera
