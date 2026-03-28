@@ -1,6 +1,6 @@
 # Error Alerts — Unified Design
 
-> **Status:** Phase 2 Complete — Phase 3 pending  
+> **Status:** Phase 3 Complete — Phase 4 pending  
 > **Replaces:** HMS-only alert system  
 > **Scope:** Dashboard UI, notifications, logging, template sensors  
 > **Tracks:** [#667](https://github.com/rsocko/hass-bambulab-config/issues/667), [#688](https://github.com/rsocko/hass-bambulab-config/issues/688), [#717](https://github.com/rsocko/hass-bambulab-config/issues/717)
@@ -236,6 +236,38 @@ The OpenHASP ESP32 display should reflect error state and offer contextual actio
 
 > **Implementation note:** OpenHASP integration is a downstream consumer of the wrapper sensor state. It reads `error_alert_display_wrapper` attributes and renders accordingly. The actual OpenHASP plate config is maintained in the `openhasp/` package — this design doc specifies the contract (what data is available), not the plate layout.
 
+##### OpenHASP Data Contract (Phase 3)
+
+The OpenHASP ESP32 display should read the following from `binary_sensor.error_alert_display_wrapper`:
+
+| Attribute | Type | Usage |
+|---|---|---|
+| `state` | `on` / `off` | Show/hide the error banner page or overlay |
+| `worst_severity` | `critical` / `serious` / `medium` / `minor` | Banner color (red / orange / yellow) and flashing behavior |
+| `error_count` | int | Number of active errors — display "N Errors" |
+| `errors` | list of dicts | Iterate to display each error; each dict has `type`, `severity`, `code`, `message`, `wiki` |
+| `errors[].type` | `hms` / `print` | Source badge label |
+| `errors[].severity` | string | Per-error color coding |
+| `errors[].code` | string | Error code display |
+| `errors[].message` | string | Error description text |
+| `errors[].wiki` | string (URL or empty) | Show troubleshooting link for HMS errors only |
+| `is_paused` | `True` / `False` (string) | Determines if Resume/Cancel buttons should be shown |
+| `source` | `test` / `real` | If `test`, display a "TEST MODE" indicator |
+
+**Services the OpenHASP plate should call for action buttons:**
+
+| Action | Service Call | When to Show |
+|---|---|---|
+| **Resume Print** | `button.press` → `button.ntk_ryansoffice_3dprinter_resume` | `is_paused == 'True'` AND no AMS errors |
+| **Cancel Print** | `button.press` → `button.ntk_ryansoffice_3dprinter_stop` | `is_paused == 'True'` AND no AMS errors |
+| **AMS Retry** | `script.bambu_ams_control` with `serial_number`, `action: resume` | Any error code matches `^HMS_07` or `^0700_` |
+| **AMS Done** | `script.bambu_ams_control` with `serial_number`, `action: done` | Any error code matches `^HMS_07` or `^0700_` |
+| **Dismiss** | `script.bambu_clean_print_error` with `serial_number` | Any non-cancel error without pause-only state |
+
+**AMS error detection pattern:** An error is AMS-related if its `code` starts with `HMS_07` (HMS AMS subsystem) or `0700_` (print-error AMS class). Use this to decide between Retry/Done/Dismiss vs Resume/Cancel button sets.
+
+**Serial number source:** `sensor.3d_printer_serial_number` provides the printer serial needed by the MQTT scripts.
+
 #### Dashboard Action Buttons ([#688](https://github.com/rsocko/hass-bambulab-config/issues/688))
 
 The error alert banner on the HA dashboard should include contextual action buttons when the error is actionable.
@@ -308,13 +340,13 @@ Extended from HMS-only to cover print error scenarios:
 ### New / Renamed Files
 
 ```
-homeassistant/packages/3d_printing/hms_alert/        → STAYS (error_alerts/ already exists as a separate package)
-├── hms_alert_loader.yaml                              ← unchanged (hms_alert package remains separate)
+homeassistant/packages/3d_printing/error_alerts/      ← unified package (Phases 1–3)
+├── error_alerts_loader.yaml                           ← loads helpers + template sensors + automations
 ├── automations/
 │   ├── error_alert_logger.yaml                        ← was hms_error_logger.yaml
-│   └── error_alert_clear.yaml                         ← NEW: dismiss persistent notif on clear
+│   └── error_alert_clear.yaml                         ← dismiss persistent notif on clear
 ├── dashboard_cards/
-│   └── error-alert-section.yaml                       ← was hms-error-alert-section.yaml
+│   └── error-alert-section.yaml                       ← unified card (Phase 3)
 ├── helpers/
 │   ├── input_boolean/
 │   │   ├── error_alert_test_mode.yaml                 ← was hms_alert_test_mode.yaml
@@ -322,8 +354,19 @@ homeassistant/packages/3d_printing/hms_alert/        → STAYS (error_alerts/ al
 │   └── input_select/
 │       └── error_alert_test_scenario.yaml             ← was hms_alert_test_scenario.yaml
 └── template_sensors/
-    ├── error_alert_display_wrapper.yaml               ← was hms_alert_display_wrapper.yaml
-    └── hms_alert_display_wrapper_compat.yaml          ← NEW: alias for backward compat
+    └── error_alert_display_wrapper.yaml               ← unified wrapper (Phase 1)
+
+homeassistant/packages/3d_printing/hms_alert/         ← LEGACY — removed in Phase 4
+├── hms_alert_loader.yaml                              ← loads legacy compat entity
+├── automations/
+│   └── hms_error_logger.yaml                          ← superseded by error_alert_logger
+├── dashboard_cards/
+│   └── hms-error-alert-section.yaml                   ← superseded by error-alert-section
+├── helpers/
+│   ├── input_boolean/hms_alert_test_mode.yaml         ← superseded by error_alert_test_mode
+│   └── input_select/hms_alert_test_scenario.yaml      ← superseded by error_alert_test_scenario
+└── template_sensors/
+    └── hms_alert_display_wrapper.yaml                 ← backward compat alias; removed Phase 4
 
 homeassistant/packages/3d_printing/notifications/
 ├── automations/
@@ -455,18 +498,23 @@ docs/features/hms_alert/                               → RENAMED: error_alerts
 
 ### Phase 4 — Rename + Cleanup
 
-**Goal:** Complete the rename from `hms_alert` to `error_alerts` and remove deprecated files.
+**Goal:** Remove the legacy `hms_alert` package and complete the rename.
 
 **Deliverables:**
 1. Rename docs directory: `docs/features/hms_alert/` → `docs/features/error_alerts/`
-2. Remove deprecated automations:
-   - `hms_error_notification.yaml`
-   - `print_fault_notification.yaml`
-3. Remove compat alias sensor (`hms_alert_display_wrapper_compat.yaml`)
-4. Update all cross-references in other feature READMEs
-5. Update dashboard view includes
-
-> **Note:** The `homeassistant/packages/3d_printing/hms_alert/` package is **not** renamed — `error_alerts/` already exists as a separate package under `3d_printing/`. The two packages coexist: `hms_alert` owns HMS-specific sensors/helpers, `error_alerts` owns the unified wrapper and notification pipeline.
+2. Delete the entire `homeassistant/packages/3d_printing/hms_alert/` package:
+   - `hms_alert_loader.yaml` — no longer needed (all entities now in `error_alerts`)
+   - `template_sensors/hms_alert_display_wrapper.yaml` — backward compat alias; consumers migrated
+   - `helpers/input_boolean/hms_alert_test_mode.yaml` — superseded by `error_alert_test_mode`
+   - `helpers/input_select/hms_alert_test_scenario.yaml` — superseded by `error_alert_test_scenario`
+   - `automations/hms_error_logger.yaml` — superseded by `error_alert_logger`
+   - `dashboard_cards/hms-error-alert-section.yaml` — superseded by `error-alert-section` in `error_alerts/`
+3. Remove `hms_alert_loader` entry from `_feature_loaders.yaml`
+4. Remove deprecated notification automations:
+   - `notifications/automations/hms_error_notification.yaml`
+   - `notifications/automations/print_fault_notification.yaml`
+5. Update `view_deploy_validation.yaml` references from `binary_sensor.hms_alert_display_wrapper` → `binary_sensor.error_alert_display_wrapper`
+6. Update all cross-references in other feature READMEs
 
 **Validation:**
 - Full HA config check passes
@@ -506,12 +554,12 @@ docs/features/hms_alert/                               → RENAMED: error_alerts
 - [x] Phase 2: Printer front/chamber light flash on critical/serious errors ([#618](https://github.com/rsocko/hass-bambulab-config/issues/618))
 - [x] Phase 2: Minor-severity pauses send passive (not critical) notifications
 - [x] Phase 2: Old automations disabled
-- [ ] Phase 3: New dashboard card deployed
-- [ ] Phase 3: Action buttons use correct protocol per error type (Resume Print vs AMS Retry/Done vs Dismiss)
-- [ ] Phase 3: Dismiss button invokes `clean_print_error` (not just UI-only)
-- [ ] Phase 3: "Replace Spool Now" button carried forward from existing HMS card ([#727](https://github.com/rsocko/hass-bambulab-config/issues/727))
-- [ ] Phase 3: All test scenarios rendered correctly
-- [ ] Phase 3: OpenHASP data contract documented
+- [x] Phase 3: New dashboard card deployed
+- [x] Phase 3: Action buttons use correct protocol per error type (Resume Print vs AMS Retry/Done vs Dismiss)
+- [x] Phase 3: Dismiss button invokes `clean_print_error` (not just UI-only)
+- [x] Phase 3: "Replace Spool Now" button carried forward from existing HMS card ([#727](https://github.com/rsocko/hass-bambulab-config/issues/727))
+- [x] Phase 3: All test scenarios rendered correctly
+- [x] Phase 3: OpenHASP data contract documented
 - [ ] Phase 4: Docs directory rename completed
 - [ ] Phase 4: All cross-references updated
 - [ ] Phase 4: Zero `hms_alert` references remaining

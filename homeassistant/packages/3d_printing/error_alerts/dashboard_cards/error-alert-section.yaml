@@ -1,0 +1,648 @@
+# Docs: docs/features/hms_alert/error-alerts-unified-design.md
+# Unified Error Alert Section — Phase 3
+# Replaces: hms-error-alert-section.yaml
+# Shows all active errors (HMS + print) with source badges, severity-colored
+# cards, contextual action buttons, and spool-replace wizard entry point.
+type: grid
+visibility:
+  - condition: state
+    entity: binary_sensor.error_alert_display_wrapper
+    state: 'on'
+cards:
+  - type: vertical-stack
+    cards:
+      # ── Header Banner ──────────────────────────────────────────
+      - type: custom:mushroom-template-card
+        entity: binary_sensor.error_alert_display_wrapper
+        primary: ERROR ALERT
+        secondary: >-
+          {%- set entity = 'binary_sensor.error_alert_display_wrapper' -%}
+          {%- set errors = state_attr(entity, 'errors') -%}
+          {%- set count = state_attr(entity, 'error_count') | int(0) -%}
+          {%- if count == 0 -%}
+            {%- set count = state_attr(entity, 'Count') | int(0) -%}
+          {%- endif -%}
+          {%- if count == 1 -%}
+            {%- if errors is iterable and errors is not string and errors | count > 0 -%}
+              {{ errors[0].message | default('1 Error') }}
+            {%- else -%}
+              {{ state_attr(entity, '1-Error') | default('1 Error') }}
+            {%- endif -%}
+          {%- elif count > 1 -%}
+            {{ count }} Errors
+          {%- else -%}
+            Error Detected
+          {%- endif -%}
+        icon: mdi:alert-circle
+        icon_color: >-
+          {%- set ws = state_attr('binary_sensor.error_alert_display_wrapper', 'worst_severity') -%}
+          {%- if ws in ['critical', 'serious'] -%}red
+          {%- elif ws == 'medium' -%}orange
+          {%- else -%}amber{%- endif -%}
+        fill_container: true
+        tap_action:
+          action: more-info
+          entity: binary_sensor.error_alert_display_wrapper
+        hold_action:
+          action: more-info
+          entity: binary_sensor.error_alert_display_wrapper
+        card_mod:
+          style:
+            ha-card: |
+              ha-card {
+                {% set ws = state_attr('binary_sensor.error_alert_display_wrapper', 'worst_severity') %}
+                {% if ws in ['critical', 'serious'] %}
+                background: rgba(183, 28, 28, 0.22);
+                border: 2px solid rgba(244,67,54,0.9);
+                --card-mod-icon-color: red;
+                {% elif ws == 'medium' %}
+                background: rgba(255, 152, 0, 0.15);
+                border: 2px solid rgba(255,152,0,0.9);
+                --card-mod-icon-color: #ff9800;
+                {% else %}
+                background: rgba(255, 193, 7, 0.12);
+                border: 2px solid rgba(255,193,7,0.9);
+                --card-mod-icon-color: #ffc107;
+                {% endif %}
+                border-radius: 14px;
+              }
+            mushroom-card$mushroom-state-info$: |
+              .primary {
+                font-size: 1.5rem !important;
+                font-weight: 900 !important;
+                letter-spacing: 0.04em;
+                white-space: normal !important;
+                word-break: break-word !important;
+              }
+              .secondary {
+                font-size: 1rem !important;
+                font-weight: 600 !important;
+                white-space: normal !important;
+                word-break: break-word !important;
+                line-height: 1.35 !important;
+                opacity: 0.92;
+              }
+              @media (max-width: 600px) {
+                .primary  { font-size: 1.2rem !important; }
+                .secondary { font-size: 0.92rem !important; }
+              }
+      # ── Error Details (always visible) ─────────────────────────
+      - type: custom:button-card
+        entity: binary_sensor.error_alert_display_wrapper
+        show_name: false
+        show_state: false
+        show_icon: false
+        tap_action:
+          action: none
+        custom_fields:
+          details: |
+            [[[
+              if (!entity) {
+                return '<div class="ea-empty">No error details available.</div>';
+              }
+
+              var attrs = entity.attributes || {};
+              var items = [];
+
+              // Primary source: errors array (unified format with type field)
+              var errorsList = Array.isArray(attrs.errors) ? attrs.errors : [];
+              if (errorsList.length > 0) {
+                for (var li = 0; li < errorsList.length; li += 1) {
+                  var le = errorsList[li] || {};
+                  items.push({
+                    type: le.type || 'unknown',
+                    text: le.message || le.attr || le.text || 'No description available',
+                    code: le.code || 'Unknown',
+                    severity: le.severity || 'unknown',
+                    wiki: le.wiki || ''
+                  });
+                }
+              } else {
+                // Fallback: numbered attributes (backward compat)
+                var rawCount = (attrs.Count !== undefined && attrs.Count !== null) ? attrs.Count : attrs.count;
+                var count = parseInt(rawCount || 0, 10) || 0;
+                for (var i = 1; i <= count; i += 1) {
+                  items.push({
+                    type: attrs[i + '-Type'] || 'hms',
+                    text: attrs[i + '-Error'] || 'No description available',
+                    code: attrs[i + '-Code'] || 'Unknown',
+                    severity: attrs[i + '-Severity'] || 'unknown',
+                    wiki: attrs[i + '-Wiki'] || ''
+                  });
+                }
+              }
+
+              if (items.length === 0) {
+                return '<div class="ea-empty">No error details available.</div>';
+              }
+
+              var escapeHtml = function(value) {
+                return String(value || '')
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+              };
+
+              var getSeverity = function(raw) {
+                var sev = String(raw || 'unknown').toLowerCase();
+                if (sev.indexOf('critical') !== -1 || sev.indexOf('serious') !== -1 || sev.indexOf('fatal') !== -1 || sev.indexOf('high') !== -1) {
+                  return { icon: '🔴', border: '#f44336', bg: 'rgba(244,67,54,0.10)' };
+                }
+                if (sev.indexOf('medium') !== -1 || sev.indexOf('warn') !== -1) {
+                  return { icon: '🟠', border: '#ff9800', bg: 'rgba(255,152,0,0.10)' };
+                }
+                if (sev.indexOf('minor') !== -1 || sev.indexOf('low') !== -1) {
+                  return { icon: '🟡', border: '#ffc107', bg: 'rgba(255,193,7,0.10)' };
+                }
+                return { icon: '⚪', border: '#9e9e9e', bg: 'rgba(158,158,158,0.10)' };
+              };
+
+              var getTypeBadge = function(type) {
+                var t = String(type || '').toLowerCase();
+                if (t === 'hms') {
+                  return '<span class="ea-badge ea-badge-hms">HMS</span>';
+                }
+                if (t === 'print') {
+                  return '<span class="ea-badge ea-badge-print">PRINT</span>';
+                }
+                return '<span class="ea-badge">' + escapeHtml(type).toUpperCase() + '</span>';
+              };
+
+              var html = '<div class="ea-wrap">';
+              for (var idx = 0; idx < items.length; idx += 1) {
+                var it = items[idx];
+                var sev = getSeverity(it.severity);
+                var title = escapeHtml(it.severity || 'unknown');
+                var text = escapeHtml(it.text);
+                var code = escapeHtml(it.code);
+                var wiki = String(it.wiki || '');
+                var typeBadge = getTypeBadge(it.type);
+                // Wiki link only for HMS errors that have one
+                var wikiHtml = (it.type === 'hms' && wiki)
+                  ? ' · <a href="' + wiki + '" target="_blank" rel="noopener noreferrer">Troubleshooting Wiki ↗</a>'
+                  : '';
+
+                html += '<div class="ea-item" style="border-left-color:' + sev.border + ';background:' + sev.bg + ';">';
+                html +=   '<div class="ea-title">' + sev.icon + ' Error ' + (idx + 1) + ' — ' + typeBadge + ' <span>(' + title + ')</span></div>';
+                html +=   '<div class="ea-text">' + text + '</div>';
+                html +=   '<div class="ea-code"><code>' + code + '</code>' + wikiHtml + '</div>';
+                html += '</div>';
+              }
+              html += '</div>';
+              return html;
+            ]]]
+        styles:
+          grid:
+            - grid-template-areas: '"details"'
+            - grid-template-columns: 1fr
+            - grid-template-rows: auto
+            - justify-items: stretch
+            - align-items: stretch
+          card:
+            - background: var(--card-background-color, var(--ha-card-background, #1c1c1c))
+            - border-top: none
+            - border-radius: 0 0 14px 14px
+            - box-shadow: none
+            - padding: 12px 16px 16px 16px
+            - margin-top: -8px
+          custom_fields:
+            details:
+              - width: 100%
+              - display: block
+              - text-align: left
+              - justify-self: stretch
+              - align-self: stretch
+              - margin: 0
+              - padding: 0
+        card_mod:
+          style: |
+            ha-card {
+              {% set ws = state_attr('binary_sensor.error_alert_display_wrapper', 'worst_severity') %}
+              {% if ws in ['critical', 'serious'] %}
+              border: 2px solid rgba(244,67,54,0.9) !important;
+              {% elif ws == 'medium' %}
+              border: 2px solid rgba(255,152,0,0.9) !important;
+              {% else %}
+              border: 2px solid rgba(255,193,7,0.9) !important;
+              {% endif %}
+              border-top: none !important;
+              border-radius: 0 0 14px 14px !important;
+            }
+            :host {
+              display: block;
+              width: 100%;
+            }
+            #container {
+              width: 100% !important;
+              grid-template-columns: 1fr !important;
+              justify-items: stretch !important;
+              align-items: stretch !important;
+            }
+            #container > * {
+              justify-self: stretch !important;
+              width: 100% !important;
+              min-width: 0;
+            }
+        extra_styles: |
+          .ea-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+          }
+          .ea-item {
+            display: block;
+            width: 100% !important;
+            max-width: 100%;
+            box-sizing: border-box;
+            border-left: 8px solid #9e9e9e;
+            border-radius: 0 12px 12px 0;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            margin-left: 0;
+            margin-right: 0;
+          }
+          .ea-item:last-child {
+            margin-bottom: 0;
+          }
+          .ea-title {
+            font-size: 1.02rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+          }
+          .ea-title span {
+            opacity: 0.82;
+            font-weight: 600;
+          }
+          .ea-badge {
+            display: inline-block;
+            font-size: 0.72em;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            padding: 1px 6px;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin: 0 2px;
+          }
+          .ea-badge-hms {
+            background: rgba(33, 150, 243, 0.18);
+            color: #64b5f6;
+          }
+          .ea-badge-print {
+            background: rgba(255, 152, 0, 0.18);
+            color: #ffb74d;
+          }
+          .ea-text {
+            line-height: 1.5;
+            margin-bottom: 10px;
+            white-space: normal;
+            word-break: break-word;
+          }
+          .ea-code {
+            white-space: normal;
+            word-break: break-word;
+          }
+          .ea-code code {
+            font-size: 0.88em;
+            white-space: normal;
+            word-break: break-all;
+          }
+          .ea-code a {
+            color: #64b5f6;
+          }
+          .ea-empty {
+            color: var(--secondary-text-color);
+          }
+      # ── Action Buttons ─────────────────────────────────────────
+      # Contextual actions based on error type:
+      # - Paused (user/gcode, non-AMS): Resume Print + Cancel Print
+      # - AMS error (filament runout, jam): Retry + Done + Dismiss
+      # - Other errors: Dismiss
+      # - Cancellation (code 0300_1*): no buttons (banner auto-clears)
+      # Serial number resolved via config-template-card for MQTT scripts.
+      - type: custom:config-template-card
+        entities:
+          - binary_sensor.error_alert_display_wrapper
+          - sensor.3d_printer_serial_number
+        variables:
+          _serial: "states['sensor.3d_printer_serial_number'].state || ''"
+        card:
+          type: custom:button-card
+          entity: binary_sensor.error_alert_display_wrapper
+          show_name: false
+          show_state: false
+          show_icon: false
+          tap_action:
+            action: none
+          styles:
+            card:
+              - background: transparent
+              - box-shadow: none
+              - border: none
+              - padding: 4px 16px 0 16px
+              - margin-top: 4px
+              - display: |
+                  [[[
+                    var errs = (entity && entity.attributes) ? entity.attributes.errors : [];
+                    if (!Array.isArray(errs) || errs.length === 0) return 'none';
+                    if (errs.every(function(e) { return /^0300_1/.test(e.code || ''); })) return 'none';
+                    return '';
+                  ]]]
+            grid:
+              - display: flex
+              - flex-wrap: wrap
+              - gap: 8px
+              - justify-content: center
+          custom_fields:
+            resume:
+              card:
+                type: custom:button-card
+                entity: binary_sensor.error_alert_display_wrapper
+                name: "▶ Resume Print"
+                icon: mdi:play
+                show_state: false
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  service_data:
+                    entity_id: button.ntk_ryansoffice_3dprinter_resume
+                styles:
+                  card:
+                    - background: rgba(76, 175, 80, 0.15)
+                    - border: 1px solid rgba(76, 175, 80, 0.5)
+                    - border-radius: 10px
+                    - padding: 10px 16px
+                    - cursor: pointer
+                    - display: |
+                        [[[
+                          var a = entity.attributes || {};
+                          var errs = Array.isArray(a.errors) ? a.errors : [];
+                          var isCancelled = errs.length > 0 && errs.every(function(e) { return /^0300_1/.test(e.code || ''); });
+                          var hasAms = errs.some(function(e) { return /^HMS_07|^0700_/.test(e.code || ''); });
+                          var isPaused = String(a.is_paused || '').toLowerCase() === 'true' && !isCancelled;
+                          return (isPaused && !hasAms) ? '' : 'none';
+                        ]]]
+                  icon:
+                    - color: '#4CAF50'
+                  name:
+                    - color: '#4CAF50'
+                    - font-weight: 600
+                    - font-size: 0.9rem
+            cancel:
+              card:
+                type: custom:button-card
+                entity: binary_sensor.error_alert_display_wrapper
+                name: "⏹ Cancel Print"
+                icon: mdi:stop
+                show_state: false
+                tap_action:
+                  action: call-service
+                  confirmation:
+                    text: "Cancel the current print?"
+                  service: button.press
+                  service_data:
+                    entity_id: button.ntk_ryansoffice_3dprinter_stop
+                styles:
+                  card:
+                    - background: rgba(244, 67, 54, 0.12)
+                    - border: 1px solid rgba(244, 67, 54, 0.4)
+                    - border-radius: 10px
+                    - padding: 10px 16px
+                    - cursor: pointer
+                    - display: |
+                        [[[
+                          var a = entity.attributes || {};
+                          var errs = Array.isArray(a.errors) ? a.errors : [];
+                          var isCancelled = errs.length > 0 && errs.every(function(e) { return /^0300_1/.test(e.code || ''); });
+                          var hasAms = errs.some(function(e) { return /^HMS_07|^0700_/.test(e.code || ''); });
+                          var isPaused = String(a.is_paused || '').toLowerCase() === 'true' && !isCancelled;
+                          return (isPaused && !hasAms) ? '' : 'none';
+                        ]]]
+                  icon:
+                    - color: '#f44336'
+                  name:
+                    - color: '#f44336'
+                    - font-weight: 600
+                    - font-size: 0.9rem
+            retry:
+              card:
+                type: custom:button-card
+                entity: binary_sensor.error_alert_display_wrapper
+                name: "🔄 Retry"
+                icon: mdi:refresh
+                show_state: false
+                tap_action:
+                  action: call-service
+                  service: script.bambu_ams_control
+                  service_data:
+                    serial_number: "${_serial}"
+                    action: resume
+                styles:
+                  card:
+                    - background: rgba(33, 150, 243, 0.12)
+                    - border: 1px solid rgba(33, 150, 243, 0.4)
+                    - border-radius: 10px
+                    - padding: 10px 16px
+                    - cursor: pointer
+                    - display: |
+                        [[[
+                          var errs = Array.isArray((entity.attributes || {}).errors)
+                            ? entity.attributes.errors : [];
+                          return errs.some(function(e) {
+                            return /^HMS_07|^0700_/.test(e.code || '');
+                          }) ? '' : 'none';
+                        ]]]
+                  icon:
+                    - color: '#2196F3'
+                  name:
+                    - color: '#2196F3'
+                    - font-weight: 600
+                    - font-size: 0.9rem
+            done:
+              card:
+                type: custom:button-card
+                entity: binary_sensor.error_alert_display_wrapper
+                name: "✅ Done"
+                icon: mdi:check-circle
+                show_state: false
+                tap_action:
+                  action: call-service
+                  service: script.bambu_ams_control
+                  service_data:
+                    serial_number: "${_serial}"
+                    action: done
+                styles:
+                  card:
+                    - background: rgba(76, 175, 80, 0.12)
+                    - border: 1px solid rgba(76, 175, 80, 0.4)
+                    - border-radius: 10px
+                    - padding: 10px 16px
+                    - cursor: pointer
+                    - display: |
+                        [[[
+                          var errs = Array.isArray((entity.attributes || {}).errors)
+                            ? entity.attributes.errors : [];
+                          return errs.some(function(e) {
+                            return /^HMS_07|^0700_/.test(e.code || '');
+                          }) ? '' : 'none';
+                        ]]]
+                  icon:
+                    - color: '#4CAF50'
+                  name:
+                    - color: '#4CAF50'
+                    - font-weight: 600
+                    - font-size: 0.9rem
+            dismiss:
+              card:
+                type: custom:button-card
+                entity: binary_sensor.error_alert_display_wrapper
+                name: "✕ Dismiss"
+                icon: mdi:close-circle-outline
+                show_state: false
+                tap_action:
+                  action: call-service
+                  confirmation:
+                    text: "Clear this error from the printer?"
+                  service: script.bambu_clean_print_error
+                  service_data:
+                    serial_number: "${_serial}"
+                styles:
+                  card:
+                    - background: rgba(158, 158, 158, 0.12)
+                    - border: 1px solid rgba(158, 158, 158, 0.4)
+                    - border-radius: 10px
+                    - padding: 10px 16px
+                    - cursor: pointer
+                    - display: |
+                        [[[
+                          var a = entity.attributes || {};
+                          var errs = Array.isArray(a.errors) ? a.errors : [];
+                          if (errs.length === 0) return 'none';
+                          if (errs.every(function(e) { return /^0300_1/.test(e.code || ''); })) return 'none';
+                          var hasAms = errs.some(function(e) { return /^HMS_07|^0700_/.test(e.code || ''); });
+                          var isCancelled = errs.every(function(e) { return /^0300_1/.test(e.code || ''); });
+                          var isPaused = String(a.is_paused || '').toLowerCase() === 'true' && !isCancelled;
+                          // Dismiss: shown alongside AMS buttons OR for non-paused errors.
+                          // Hidden when paused without AMS (Resume/Cancel shown instead).
+                          return (isPaused && !hasAms) ? 'none' : '';
+                        ]]]
+                  icon:
+                    - color: '#9e9e9e'
+                  name:
+                    - color: '#9e9e9e'
+                    - font-weight: 600
+                    - font-size: 0.9rem
+      # ── Replace Spool Now (carried forward from HMS card, #727) ─
+      # Shown when filament_runout_capture_and_notify has populated
+      # the source spool ID helper. Auto-hidden when wizard completes
+      # (execute script clears the helper) or error clears.
+      - type: conditional
+        conditions:
+          - entity: input_text.spool_replace_source_spool_id
+            state_not: ""
+          - entity: input_text.spool_replace_source_spool_id
+            state_not: "unknown"
+          - entity: input_text.spool_replace_source_spool_id
+            state_not: "unavailable"
+        card:
+          type: custom:config-template-card
+          entities:
+            - input_text.spool_replace_source_spool_id
+          variables:
+            srcIdVar: "states['input_text.spool_replace_source_spool_id'].state"
+            srcEntityVar: "states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state]"
+            filamentIdVar: >-
+              ${states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state]
+                ? String(states['sensor.spoolman_spool_' + states['input_text.spool_replace_source_spool_id'].state].attributes.filament_id || '')
+                : ''}
+          card:
+            type: custom:button-card
+            entity: input_text.spool_replace_source_spool_id
+            show_name: false
+            show_state: false
+            show_icon: false
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.sequence
+                data:
+                  sequence:
+                    - service: input_text.set_value
+                      data:
+                        entity_id: input_text.spool_replace_target_spool_id
+                        value: ''
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_spool_type
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_clip_type
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_desiccant_present
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_copy_location
+                    - service: input_boolean.turn_off
+                      data:
+                        entity_id: input_boolean.spool_replace_mark_used
+                    - service: input_boolean.turn_on
+                      data:
+                        entity_id: input_boolean.spool_replace_archive_source
+                    - service: input_select.select_option
+                      data:
+                        entity_id: input_select.spool_replace_desiccant_mode
+                        option: Reset to today
+                    - service: input_number.set_value
+                      data:
+                        entity_id: input_number.spool_replace_wizard_step
+                        value: 1
+                    - service: script.spool_replace_populate_candidates
+                      data:
+                        filament_id: "${filamentIdVar}"
+                    - service: browser_mod.popup
+                      data:
+                        title: ♻ Replace Spool
+                        size: normal
+                        content:
+                          type: custom:button-card
+                          template: spool_replace_wizard
+                          tap_action:
+                            action: none
+            custom_fields:
+              content: |
+                [[[
+                  const srcId = states['input_text.spool_replace_source_spool_id']?.state;
+                  if (!srcId || srcId === '' || srcId === 'unknown' || srcId === 'unavailable') {
+                    return '';
+                  }
+                  const e = states['sensor.spoolman_spool_' + srcId];
+                  const name = e?.attributes?.friendly_name || 'Unknown Spool';
+                  return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;">'
+                    + '<ha-icon icon="mdi:swap-horizontal" style="color:#4CAF50;--mdc-icon-size:28px;flex-shrink:0;"></ha-icon>'
+                    + '<div style="text-align:left;">'
+                    + '<div style="font-weight:700;font-size:1.02rem;">♻ Replace Spool Now</div>'
+                    + '<div style="font-size:0.9em;color:var(--secondary-text-color);margin-top:2px;">'
+                    + name + ' #' + srcId + ' ran out · Tap to start wizard</div>'
+                    + '</div></div>';
+                ]]]
+            styles:
+              grid:
+                - grid-template-areas: '"content"'
+                - grid-template-columns: 1fr
+                - grid-template-rows: auto
+              card:
+                - background: "rgba(76,175,80,0.12)"
+                - border-left: "4px solid #4CAF50"
+                - border-radius: 12px
+                - box-shadow: none
+                - margin-top: 12px
+                - cursor: pointer
+              custom_fields:
+                content:
+                  - padding: 0
+    grid_options:
+      columns: full
+column_span: 3

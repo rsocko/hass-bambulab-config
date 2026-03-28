@@ -1,9 +1,9 @@
 # Docs: docs/features/printer_dashboards/README.md
 title: Home
-# Keep at 3 so HMS sections with column_span: 3 always render full-width
+# Keep at 3 so error-alert sections with column_span: 3 always render full-width
 max_columns: 3
 sections:
-- !include ../../hms_alert/dashboard_cards/hms-error-alert-section.yaml
+- !include ../../error_alerts/dashboard_cards/error-alert-section.yaml
 - type: grid
   cards:
     - type: horizontal-stack
