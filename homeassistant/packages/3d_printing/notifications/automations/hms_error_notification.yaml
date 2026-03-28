@@ -5,7 +5,6 @@
 # and optional TTS — using the same delivery helpers as the other print notifications.
 - alias: "HMS Error Notification with Snapshot"
   id: hms_error_notification_with_snapshot
-  enabled: false
   description: >
     Sends a notification with camera snapshot when the printer reports one or more
     HMS errors (filament runout, cutter jam, fan fault, etc.).
@@ -16,6 +15,9 @@
       trigger: state
 
   conditions:
+    # DISABLED Phase 2: Superseded by error_alert_notification.yaml
+    - condition: template
+      value_template: "{{ false }}"
     - condition: state
       entity_id: input_boolean.3dprinter_notifications_enabled
       state: "on"
