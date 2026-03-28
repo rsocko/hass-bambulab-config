@@ -1,6 +1,7 @@
 # Fetch a specific page of archive history from Bambuddy.
 # Called by script.navigate_history or directly from dashboard buttons.
-# Stores the result JSON in input_text.history_page_data.
+# Fires a bambuddy_history_page_loaded event for the trigger-based
+# template sensor (sensor.print_history_page_archives).
 # Docs: docs/features/print_history/README.md
 load_history_page:
   alias: "Load History Page"
@@ -26,7 +27,7 @@ load_history_page:
       data:
         value: "{{ page | int(1) }}"
 
-    # Use rest_command with response_variable to fetch the page
+    # Fetch the page via REST command
     - action: rest_command.bambuddy_query_history_page
       data:
         limit: "{{ limit }}"
@@ -37,11 +38,18 @@ load_history_page:
         - condition: template
           value_template: "{{ api_response.status == 200 }}"
       then:
-        - action: input_text.set_value
-          target:
-            entity_id: input_text.history_page_data
-          data:
-            value: "{{ api_response.content }}"
+        - variables:
+            result_archives: "{{ api_response.content | default([]) }}"
+            result_count: "{{ api_response.content | default([]) | length }}"
+            result_has_more: "{{ (api_response.content | default([]) | length) >= (limit | int) }}"
+
+        # Fire event for trigger-based template sensor
+        - event: bambuddy_history_page_loaded
+          event_data:
+            page: "{{ page | int(1) }}"
+            archives: "{{ result_archives }}"
+            count: "{{ result_count }}"
+            has_more: "{{ result_has_more }}"
       else:
         - action: logbook.log
           data:

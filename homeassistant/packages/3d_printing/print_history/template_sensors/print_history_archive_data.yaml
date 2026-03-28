@@ -1,0 +1,24 @@
+# Trigger-based template sensor — stores the full archives array for
+# dashboard table rendering.  Populated by bambuddy_history_page_loaded
+# events fired from script.load_history_page.
+#
+# The HA rest: integration cannot store a JSON array response as an
+# entity attribute, so this sensor bridges the gap: the script fetches
+# archives via rest_command, fires an event with the native list, and
+# this sensor captures it in attributes.
+#
+# Docs: docs/features/print_history/README.md
+- trigger:
+    - trigger: event
+      event_type: bambuddy_history_page_loaded
+  sensor:
+    - name: "Print History Page Archives"
+      unique_id: print_history_page_archives
+      icon: mdi:archive-outline
+      state: "{{ trigger.event.data.page | default(1) }}"
+      attributes:
+        archives: "{{ trigger.event.data.archives | default([]) }}"
+        page: "{{ trigger.event.data.page | default(1) }}"
+        has_more: "{{ trigger.event.data.has_more | default(false) }}"
+        count: "{{ trigger.event.data.count | default(0) }}"
+        loaded_at: "{{ now().isoformat() }}"

@@ -1,14 +1,17 @@
-# Total number of pages available in print history (for pagination).
+# Estimated total pages — derived from the trigger-based page archives
+# sensor.  The API returns a flat array (no total count), so we infer:
+# if returned items == limit → more pages exist (has_more).
 # Docs: docs/features/print_history/README.md
 - sensor:
     - name: Print History Total Pages
       unique_id: print_history_total_pages
       icon: mdi:book-multiple
       state: >
-        {% set total = states('sensor.bambuddy_print_history') | int(0) %}
-        {% set limit = states('input_number.bambuddy_history_limit') | int(10) %}
-        {% if total > 0 and limit > 0 %}
-          {{ (total / limit) | round(0, 'ceil') | int }}
+        {% set page_sensor = states.sensor.print_history_page_archives %}
+        {% set current = states('input_number.history_current_page') | int(1) %}
+        {% if page_sensor and page_sensor.attributes is defined %}
+          {% set has_more = page_sensor.attributes.get('has_more', false) | bool(false) %}
+          {{ current + 1 if has_more else current }}
         {% else %}
           1
         {% endif %}

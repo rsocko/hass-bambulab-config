@@ -2,8 +2,19 @@
 # Usage: service: rest_command.bambuddy_upload_photo_to_archive
 # Data: { "archive_id": "42", "photo_url": "/local/printer_snapshots/file.jpg" }
 #
-# Note: If Bambuddy requires multipart/form-data, a shell_command (curl)
-# fallback will be needed. See docs/features/bambuddy_common/README.md.
+# IMPORTANT: The Bambuddy API requires multipart/form-data for photo upload
+# (POST /{id}/photos accepts file uploads, not JSON).  HA's rest_command
+# cannot send multipart.  This command sends a JSON hint with the local
+# path — it will only work if Bambuddy has been patched to accept a
+# photo_url JSON field.  For production, use a shell_command with curl:
+#
+#   shell_command:
+#     bambuddy_upload_photo: >-
+#       curl -s -X POST
+#       -H "X-API-Key: {{ api_key }}"
+#       -F "file=@{{ file_path }}"
+#       {{ base_url }}/api/v1/archives/{{ archive_id }}/photos
+#
 # Docs: docs/features/bambuddy_common/README.md
 bambuddy_upload_photo_to_archive:
   url: >-

@@ -1,9 +1,7 @@
 # Print History Card — recent-prints summary + table.
 # Summary row uses individual rest: sensors (always works).
-# Table section requires the full archives array — currently inactive
-# because the rest: integration cannot store a JSON array response as
-# an entity attribute.  Re-enable once a trigger-based template sensor
-# or similar mechanism populates entity.attributes.archives.
+# Table reads from sensor.print_history_page_archives (trigger-based
+# template sensor populated by script.load_history_page events).
 
 type: vertical-stack
 cards:
@@ -30,18 +28,19 @@ cards:
         - width: 24px
         - color: "#2196F3"
 
-  # History table rendered from REST sensor attributes
+  # History table rendered from trigger-based page archives sensor
   - type: custom:button-card
-    entity: sensor.bambuddy_print_history
+    entity: sensor.print_history_page_archives
     show_name: false
     show_icon: false
     show_state: false
     custom_fields:
       history_table: |
         [[[
-          const archives = entity.attributes.archives || [];
+          const archives = entity && entity.attributes && Array.isArray(entity.attributes.archives)
+            ? entity.attributes.archives : [];
           if (archives.length === 0) {
-            return '<div style="padding:16px;color:var(--secondary-text-color);text-align:center">No print history available</div>';
+            return '<div style="padding:16px;color:var(--secondary-text-color);text-align:center">No print history available — tap Refresh below</div>';
           }
           const baseUrl = states['input_text.bambuddy_api_base_url'].state;
           const rows = archives.slice(0, 10).map(a => {

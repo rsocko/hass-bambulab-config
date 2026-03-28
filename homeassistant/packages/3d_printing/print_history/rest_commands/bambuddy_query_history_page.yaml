@@ -8,4 +8,3 @@ bambuddy_query_history_page:
   method: GET
   headers:
     X-API-Key: !secret bambuddy_api_key
-    Content-Type: application/json

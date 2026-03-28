@@ -1,6 +1,7 @@
 # Print History Browser — paginated archive browsing with navigation.
 # Uses script.navigate_history for prev/next/first/last.
 # Displays page info from template sensors.
+# Refresh button loads page 1 to populate the table via trigger sensor.
 
 type: vertical-stack
 cards:
@@ -72,7 +73,7 @@ cards:
           name:
             - font-size: 18px
 
-  # Refresh button + page size config
+  # Refresh: loads current page (populates table) + page size config
   - type: horizontal-stack
     cards:
       - type: custom:button-card
@@ -80,9 +81,9 @@ cards:
         icon: mdi:refresh
         tap_action:
           action: perform-action
-          perform_action: homeassistant.update_entity
-          target:
-            entity_id: sensor.bambuddy_print_history
+          perform_action: script.load_history_page
+          data:
+            page: "[[[ return states['input_number.history_current_page'].state || '1'; ]]]"
         styles:
           card:
             - height: 36px

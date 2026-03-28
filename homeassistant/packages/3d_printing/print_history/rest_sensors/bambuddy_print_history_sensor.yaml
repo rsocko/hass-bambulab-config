@@ -16,7 +16,6 @@
     }}&sort=created_at&order=desc
   headers:
     X-API-Key: !secret bambuddy_api_key
-    Content-Type: application/json
   scan_interval: 300
   sensor:
     # ── Count of archives returned ──────────────────────────────────

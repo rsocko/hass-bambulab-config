@@ -1,27 +1,36 @@
 # Refresh the print history REST sensor when relevant events occur.
-# Triggers on print_complete, print_failed, print_stopped webhooks.
+# Also loads page 1 for the dashboard table (trigger-based sensor).
+# Triggers on print_complete, print_failed, print_stopped webhooks
+# and on HA startup.
 # Docs: docs/features/print_history/README.md
 - alias: "Print History - Refresh on Event"
   id: bambuddy_event_history_refresh
   description: >
-    Refreshes the print history REST sensor when a print completes,
-    fails, or is stopped so the dashboard shows the latest data.
+    Refreshes the print history REST sensor and loads page 1 for the
+    dashboard table when a print completes, fails, stops, or on HA startup.
 
   triggers:
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_complete"
+      id: webhook
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_failed"
+      id: webhook
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_stopped"
+      id: webhook
+
+    - trigger: homeassistant
+      event: start
+      id: startup
 
   conditions:
     - condition: state
@@ -32,18 +41,25 @@
       state: "on"
 
   actions:
-    # Small delay to let Bambuddy finish updating the archive
+    # Delay: let Bambuddy finalize data (webhook) or helpers restore (startup)
     - delay:
-        seconds: 5
+        seconds: >-
+          {{ 30 if trigger.id == 'startup' else 5 }}
 
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.bambuddy_print_history
 
+    # Load page 1 to populate the dashboard table via trigger-based sensor
+    - action: script.load_history_page
+      data:
+        page: 1
+
     - action: logbook.log
       data:
         name: Print History
         message: >-
-          History sensor refreshed after {{ trigger.event.data.event }}
+          History refreshed
+          {% if trigger.id == 'startup' %}(startup){% else %}after {{ trigger.event.data.event | default('event') }}{% endif %}
 
   mode: single
