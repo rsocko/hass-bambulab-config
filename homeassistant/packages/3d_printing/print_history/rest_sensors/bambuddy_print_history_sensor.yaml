@@ -2,39 +2,35 @@
 # Docs: docs/features/print_history/README.md
 #
 # Uses the rest: integration (top-level) so multiple sensors share one
-# API call.  The Bambuddy API returns a paginated wrapper:
-#   { "total": N, "page": 1, "archives": [{...}, ...] }
-# Derived sensors extract from value_json.archives[0].
+# API call.  The Bambuddy archives API returns a flat JSON array:
+#   [ {archive_0}, {archive_1}, … ]
+# Derived sensors extract from value_json[0].
 #
 # NOTE: resource_template always produces a URL string, even at boot
 # before helpers restore (e.g. "unknown/api/v1/…").  The REST
 # integration treats a failed HTTP request as "unavailable", which is
 # the correct behaviour — no availability_template needed.
 - resource_template: >-
-    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/?limit={{
       states('input_number.bambuddy_history_limit') | int(10)
-    }}&sort=created_at&order=desc
+    }}
   headers:
     X-API-Key: !secret bambuddy_api_key
   scan_interval: 300
   sensor:
-    # ── Total archives available (from API wrapper) ─────────────────
+    # ── Count of archives returned on this page ───────────────────
     - name: "Bambuddy Print History"
       unique_id: bambuddy_print_history
       icon: mdi:history
-      value_template: "{{ value_json.total | default(0) }}"
-      json_attributes:
-        - total
-        - page
+      value_template: "{{ value_json | default([]) | count }}"
 
-    # ── Most-recent archive fields (archives[0]) ───────────────────
+    # ── Most-recent archive fields (value_json[0]) ───────────────
     - name: "Bambuddy Last Print Name"
       unique_id: bambuddy_last_print_name
       icon: mdi:printer-3d-nozzle
       value_template: >-
-        {% set archives = value_json.archives | default([]) %}
-        {% if archives | count > 0 %}
-          {{ archives[0].print_name | default('Unknown') }}
+        {% if value_json | default([]) | count > 0 %}
+          {{ value_json[0].print_name | default('Unknown') }}
         {% else %}
           No prints
         {% endif %}
@@ -43,9 +39,8 @@
       unique_id: bambuddy_last_print_status
       icon: mdi:list-status
       value_template: >-
-        {% set archives = value_json.archives | default([]) %}
-        {% if archives | count > 0 %}
-          {{ archives[0].status | default('unknown') }}
+        {% if value_json | default([]) | count > 0 %}
+          {{ value_json[0].status | default('unknown') }}
         {% else %}
           unknown
         {% endif %}
@@ -55,9 +50,8 @@
       icon: mdi:clock-outline
       unit_of_measurement: "h"
       value_template: >-
-        {% set archives = value_json.archives | default([]) %}
-        {% if archives | count > 0 %}
-          {% set secs = archives[0].print_time_seconds | default(0) | int %}
+        {% if value_json | default([]) | count > 0 %}
+          {% set secs = value_json[0].print_time_seconds | default(0) | int %}
           {{ (secs / 3600) | round(1) }}
         {% else %}
           0
@@ -67,9 +61,8 @@
       unique_id: bambuddy_last_print_image_url
       icon: mdi:image
       value_template: >-
-        {% set archives = value_json.archives | default([]) %}
-        {% if archives | count > 0 %}
-          {% set thumb = archives[0].thumbnail_path | default('') %}
+        {% if value_json | default([]) | count > 0 %}
+          {% set thumb = value_json[0].thumbnail_path | default('') %}
           {% if thumb %}
             {{ states('input_text.bambuddy_api_base_url') }}/{{ thumb }}
           {% else %}

@@ -1,11 +1,11 @@
 # Fetch a specific page of archives for history pagination.
 # Used by script.load_history_page.
-# The API uses page-based pagination: ?page=1&limit=10
+# The API uses offset-based pagination: ?offset=0&limit=10
 # Returns response_variable when called from scripts.
 # Docs: docs/features/print_history/README.md
 bambuddy_query_history_page:
   url: >-
-    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives?limit={{ limit }}&page={{ page }}&sort=created_at&order=desc
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/?limit={{ limit }}&offset={{ offset }}
   method: GET
   headers:
     X-API-Key: !secret bambuddy_api_key

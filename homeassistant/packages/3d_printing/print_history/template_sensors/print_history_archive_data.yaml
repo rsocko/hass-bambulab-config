@@ -21,5 +21,4 @@
         page: "{{ trigger.event.data.page | default(1) }}"
         has_more: "{{ trigger.event.data.has_more | default(false) }}"
         count: "{{ trigger.event.data.count | default(0) }}"
-        total: "{{ trigger.event.data.total | default(0) }}"
         loaded_at: "{{ now().isoformat() }}"

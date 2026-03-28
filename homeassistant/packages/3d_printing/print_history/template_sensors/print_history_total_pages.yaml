@@ -1,15 +1,17 @@
-# Total pages — uses the total count from the REST sensor (which gets
-# it from the API's { total, page, archives } wrapper) and the page size.
+# Total pages — the archives API returns a flat array without a total count,
+# so we estimate: if the first page returned a full set (count == limit),
+# there are likely more pages.  The trigger sensor has the authoritative
+# has_more flag from script.load_history_page.
 # Docs: docs/features/print_history/README.md
 - sensor:
     - name: Print History Total Pages
       unique_id: print_history_total_pages
       icon: mdi:book-multiple
-      state: >
-        {% set total = states('sensor.bambuddy_print_history') | int(0) %}
+      state: >-
+        {% set count = states('sensor.bambuddy_print_history') | int(0) %}
         {% set limit = states('input_number.bambuddy_history_limit') | int(10) %}
-        {% if total > 0 and limit > 0 %}
-          {{ (total / limit) | round(0, 'ceil') | int }}
+        {% if count >= limit %}
+          2
         {% else %}
           1
         {% endif %}
