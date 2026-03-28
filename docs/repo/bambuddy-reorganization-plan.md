@@ -34,13 +34,12 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 |------|------------|--------|-------|
 | 1 | Create directory tree | **Done** | automations/, rest_commands/, rest_sensors/, helpers/input_boolean/, helpers/input_text/ |
 | 2 | Create `bambuddy_common_loader.yaml` | **Done** | 5 domain includes |
-| 3 | Split shared helpers into individual files (3 `input_text` + 1 `input_boolean`) | **Done** | 4 files extracted from `bambuddy/helpers.yaml` |
+| 3 | Split shared helpers into individual files (2 `input_text` + 1 `input_boolean`) | **Done** | API key stored in `secrets.yaml` as `bambuddy_api_key` — not as an entity |
 | 4 | Extract `bambuddy_printer_status` REST sensor | **Done** | list-item format in rest_sensors/ |
 | 5 | Extract `bambuddy_refresh_printer_status` REST command | **Done** | |
-| 6 | Create `bambuddy_upload_photo_to_archive` REST command | **Done** | JSON photo_url; shell_command fallback noted in comments |
-| 7 | Create `bambuddy_webhook_receiver.yaml` | **Done** | Normalizes API + notification formats; fires `bambuddy_webhook_event`; gated by integration_enabled |
-| 8 | Add commented `bambuddy_common_loader` to `_feature_loaders.yaml` | **Done** | All 5 Bambuddy loaders added commented-out |
-| 9 | Create docs | **Done** | Design doc drafted earlier; updated below |
+| 6 | Create `bambuddy_webhook_receiver.yaml` | **Done** | Normalizes API + notification formats; fires `bambuddy_webhook_event`; gated by integration_enabled |
+| 7 | Add commented `bambuddy_common_loader` to `_feature_loaders.yaml` | **Done** | All 5 Bambuddy loaders added commented-out |
+| 8 | Create docs | **Done** | Design doc drafted earlier; updated below |
 
 ## Phase 2: `print_history` — Archive Reading, Photo Capture, Enrichment
 
@@ -51,7 +50,7 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 10 | Create directory tree | Not started | automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views |
 | 11 | Create `print_history_loader.yaml` | Not started | 8 domain types |
 | 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | Not started | Read-only, page 1 |
-| 13 | REST commands: `bambuddy_update_archive.yaml` (PATCH) + `bambuddy_add_archive_tags.yaml` (POST tags) | Not started | |
+| 13 | REST commands: `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), `bambuddy_add_archive_tags.yaml` (POST tags) | **Partial** | 3 photo commands already created (moved from bambuddy_common); 2 enrichment commands not started |
 | 14 | Archive ID capture automation | Not started | Triggers on `print_started` webhook; stores archive_id; fallback query |
 | 15 | Photo capture automation | Not started | Multi-trigger: start, mid, near-complete — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
 | 16 | Error photo automation | Not started | Triggers: print_failed, print_stopped, HMS error |

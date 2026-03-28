@@ -106,8 +106,7 @@ homeassistant/packages/3d_printing/bambuddy_common/
 ├── automations/
 │   └── bambuddy_webhook_receiver.yaml       # webhook → fires bambuddy_webhook_event
 ├── rest_commands/
-│   ├── bambuddy_refresh_printer_status.yaml
-│   └── bambuddy_upload_photo_to_archive.yaml  # POST /archives/{id}/photos
+│   └── bambuddy_refresh_printer_status.yaml
 ├── rest_sensors/
 │   └── bambuddy_printer_status.yaml
 └── helpers/
@@ -115,10 +114,11 @@ homeassistant/packages/3d_printing/bambuddy_common/
     │   └── input_boolean_bambuddy_integration_enabled.yaml
     └── input_text/
         ├── input_text_bambuddy_api_base_url.yaml
-        ├── input_text_bambuddy_api_key.yaml
         └── input_text_bambuddy_printer_id.yaml
 ```
 Loader domains: automation, sensor, rest_command, input_boolean, input_text
+
+> **Secrets**: The API key is stored in `secrets.yaml` as `bambuddy_api_key` — not as an input_text entity. All REST sensors/commands reference it via `!secret bambuddy_api_key`.
 
 ### Package 2: `print_history/`
 ```
@@ -131,6 +131,9 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped/HMS → immediate capture + upload
 │   └── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor
 ├── rest_commands/
+│   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos
+│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
+│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover_photo_id
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} for tags/notes enrichment
 │   └── bambuddy_add_archive_tags.yaml             # POST /archives/{id}/tags
 ├── rest_sensors/
@@ -263,20 +266,19 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
 
 1. Create directory tree
 2. Create `bambuddy_common_loader.yaml`
-3. Split shared helpers from `bambuddy/helpers.yaml` into individual files (3 input_text + 1 input_boolean)
+3. Split shared helpers from `bambuddy/helpers.yaml` into individual files (2 input_text + 1 input_boolean). API key stored in `secrets.yaml` as `bambuddy_api_key` — not as an entity.
 4. Extract `bambuddy_printer_status` REST sensor
 5. Extract `bambuddy_refresh_printer_status` REST command
-6. Create `bambuddy_upload_photo_to_archive.yaml` REST command — `POST /archives/{archive_id}/photos` (shared by print_history photo capture)
-7. Create `bambuddy_webhook_receiver.yaml` — webhook trigger → fires `bambuddy_webhook_event` with full payload. API webhook format includes `archive_id` in `data` object. Receiver should normalize both webhook formats (notifications vs API) into a consistent HA event.
-8. Add commented `bambuddy_common_loader` to `_feature_loaders.yaml`
-9. Create docs
+6. Create `bambuddy_webhook_receiver.yaml` — webhook trigger → fires `bambuddy_webhook_event` with full payload. Normalizes both webhook formats (notifications vs API) into a consistent HA event.
+7. Add commented `bambuddy_common_loader` to `_feature_loaders.yaml`
+8. Create docs
 
 ### Phase 2: `print_history` — Archive Reading, Photo Capture, Enrichment *(depends on Phase 1)*
 
 10. Create directory tree (automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views)
 11. Create `print_history_loader.yaml`
 12. **REST sensor**: Extract `bambuddy_print_history_sensor.yaml` (read-only, page 1)
-13. **REST commands**: Create `bambuddy_update_archive.yaml` (PATCH) and `bambuddy_add_archive_tags.yaml` (POST tags)
+13. **REST commands**: Create `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), and `bambuddy_add_archive_tags.yaml` (POST tags)
 14. **Archive ID capture automation** (`bambuddy_capture_archive_id.yaml`):
     - Triggers on `bambuddy_webhook_event` where event == `print_started`
     - Extracts `archive_id` from `trigger.event.data.data.archive_id`

@@ -18,7 +18,7 @@ notifications_loader: !include notifications/notifications_loader.yaml
 #bambuddy_integration_loader: !include bambuddy_integration/bambuddy_integration_loader.yaml
 
 # --- Bambuddy feature packages (Phase 1-5) ---
-#bambuddy_common_loader: !include bambuddy_common/bambuddy_common_loader.yaml
+bambuddy_common_loader: !include bambuddy_common/bambuddy_common_loader.yaml
 #print_history_loader: !include print_history/print_history_loader.yaml
 #print_queue_loader: !include print_queue/print_queue_loader.yaml
 #print_statistics_loader: !include print_statistics/print_statistics_loader.yaml
