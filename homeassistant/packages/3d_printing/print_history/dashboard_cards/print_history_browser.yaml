@@ -697,8 +697,8 @@ cards:
               'show_name': false,
               'show_state': false,
               'tap_action': {
-                'action': 'call-service',
-                'service': 'script.toggle_print_history_color_filter',
+                'action': 'perform-action',
+                'perform_action': 'script.toggle_print_history_color_filter',
                 'data': {'color': color}
               },
               'card_mod': {
