@@ -678,7 +678,7 @@ cards:
     card_param: cards
     filter:
       template: >
-        {% set raw = state_attr('sensor.print_history_filtered', 'available_colors_json') | default('[]', true) %}
+        {% set raw = state_attr('sensor.print_history_filtered', 'available_colors_json') | default([], true) %}
         {% if raw is string %}
           {% set colors = raw | from_json %}
         {% elif raw is iterable %}
@@ -694,10 +694,6 @@ cards:
             {% set cards.items = cards.items + [{
               'type': 'button',
               'icon': 'mdi:circle',
-              'icon_height': '22px',
-              'show_icon': true,
-              'show_name': false,
-              'show_state': false,
               'tap_action': {
                 'action': 'perform-action',
                 'perform_action': 'script.toggle_print_history_color_filter',
