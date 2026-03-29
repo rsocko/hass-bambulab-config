@@ -3,10 +3,103 @@
 
 type: vertical-stack
 cards:
-  - type: custom:bubble-card
-    card_type: separator
-    name: Print History Browser
-    icon: mdi:history
+  - type: grid
+    columns: 3
+    square: false
+    cards:
+      - type: custom:button-card
+        name: Print History Browser
+        icon: mdi:history
+        show_state: false
+        tap_action:
+          action: none
+        styles:
+          card:
+            - height: 44px
+            - background: transparent
+            - box-shadow: none
+            - border: none
+            - padding: 0
+          grid:
+            - grid-template-areas: 'i n divider'
+            - grid-template-columns: 22px max-content 1fr
+            - column-gap: 8px
+            - align-items: center
+          icon:
+            - width: 18px
+            - color: var(--primary-text-color)
+          name:
+            - justify-self: start
+            - font-size: 14px
+            - font-weight: 700
+          custom_fields:
+            divider:
+              - width: 100%
+              - height: 3px
+              - border-radius: 999px
+              - background: color-mix(in srgb, var(--divider-color) 72%, transparent)
+        custom_fields:
+          divider: ' '
+      - type: custom:button-card
+        icon: mdi:open-in-new
+        show_name: false
+        show_state: false
+        tap_action:
+          action: url
+          url_path: "[[[ return states['input_text.bambuddy_api_base_url']?.state + '/archives'; ]]]"
+        styles:
+          card:
+            - height: 44px
+            - width: 44px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - justify-self: end
+          icon:
+            - width: 20px
+      - type: custom:button-card
+        icon: mdi:cog-outline
+        show_name: false
+        show_state: false
+        tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: Print History Settings
+              size: normal
+              content:
+                type: entities
+                show_header_toggle: false
+                entities:
+                  - entity: input_boolean.capture_at_start
+                    name: At Start
+                  - entity: input_boolean.capture_at_midprint
+                    name: Mid-Print
+                  - entity: input_boolean.capture_near_complete
+                    name: Near Complete
+                  - entity: input_boolean.capture_on_error
+                    name: On Error
+                  - type: divider
+                  - entity: input_number.midprint_capture_percent
+                    name: Mid-Print %
+                  - entity: input_select.secondary_camera_entity
+                    name: Secondary Camera
+                  - type: divider
+                  - entity: input_boolean.bambuddy_history_fetch_enabled
+                    name: Auto-Fetch History
+                  - entity: input_number.print_history_max_archives
+                    name: Max Cached
+                  - entity: input_number.photo_review_timeout_hours
+                    name: Review Timeout (hrs)
+        styles:
+          card:
+            - height: 44px
+            - width: 44px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - justify-self: end
+          icon:
+            - width: 20px
 
   - type: horizontal-stack
     cards:
@@ -80,64 +173,6 @@ cards:
           icon:
             - width: 18px
             - color: var(--accent-color)
-      - type: custom:button-card
-        name: Open Bambuddy
-        icon: mdi:open-in-new
-        tap_action:
-          action: url
-          url_path: "[[[ return states['input_text.bambuddy_api_base_url']?.state + '/archives'; ]]]"
-        styles:
-          card:
-            - height: 58px
-            - border-radius: 999px
-            - padding: 0 16px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 13px
-            - font-weight: 600
-      - type: custom:button-card
-        name: Settings
-        icon: mdi:cog-outline
-        tap_action:
-          action: fire-dom-event
-          browser_mod:
-            service: browser_mod.popup
-            data:
-              title: Print History Settings
-              size: normal
-              content:
-                type: entities
-                show_header_toggle: false
-                entities:
-                  - entity: input_boolean.capture_at_start
-                    name: At Start
-                  - entity: input_boolean.capture_at_midprint
-                    name: Mid-Print
-                  - entity: input_boolean.capture_near_complete
-                    name: Near Complete
-                  - entity: input_boolean.capture_on_error
-                    name: On Error
-                  - type: divider
-                  - entity: input_number.midprint_capture_percent
-                    name: Mid-Print %
-                  - entity: input_select.secondary_camera_entity
-                    name: Secondary Camera
-                  - type: divider
-                  - entity: input_boolean.bambuddy_history_fetch_enabled
-                    name: Auto-Fetch History
-                  - entity: input_number.print_history_max_archives
-                    name: Max Cached
-                  - entity: input_number.photo_review_timeout_hours
-                    name: Review Timeout (hrs)
-        styles:
-          card:
-            - height: 58px
-            - border-radius: 999px
-            - padding: 0 16px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 13px
-            - font-weight: 600
 
   - type: grid
     columns: 4
