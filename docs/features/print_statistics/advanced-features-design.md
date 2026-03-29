@@ -224,3 +224,88 @@ From `GET /archives/tags` (after enrichment):
 | Time accuracy tracking | 3.2 | Low | Medium — slicer optimization |
 | Environmental correlation tags | 3.3 | Low | Medium — unique long-term insight |
 | Filament type breakdown | 3.4 | Low | Low-Medium — informational |
+| Fleet efficiency & energy dashboard | 3.5 | Low-Medium | Medium-High — operational cost + workload insight |
+| Rolling window exception sensors | 3.6 | Medium | **High** — recent anomaly detection |
+
+---
+
+## Phase 3.5: Fleet Efficiency & Energy Dashboard
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/archives/stats` | Aggregate totals including `total_energy_kwh`, `total_energy_cost`, `prints_by_printer`, `time_accuracy_by_printer` |
+| `GET` | `/archives/stats/export` | Export the current stats slice for external analysis |
+
+### Feature Scope
+
+**Operational analytics** — Turn Bambuddy’s totals into a practical “which printer is most efficient?” view inside HA.
+
+**Use cases:**
+1. **Energy KPI** — Show lifetime and recent energy cost directly beside print totals.
+2. **Per-printer workload** — Identify which printer is doing most of the fleet work.
+3. **Time-accuracy by printer** — Spot slicer/profile mismatch on one printer before it becomes a queue-planning problem.
+4. **Efficiency trend export** — Expose a dashboard link/button for stat export when the user wants spreadsheet analysis.
+
+### Implementation
+
+**Template sensors**:
+- `sensor.bambuddy_total_energy_kwh`
+- `sensor.bambuddy_total_energy_cost`
+- `sensor.bambuddy_busiest_printer`
+- `sensor.bambuddy_least_accurate_printer`
+
+**Dashboard card (`efficiency.yaml`)**:
+- Top row: energy consumed, energy cost, average time accuracy
+- Bottom row: per-printer workload split and time-accuracy bar chart
+
+### Phase & Dependencies
+
+- **Phase**: 3.5
+- **Depends on**: print_statistics core
+- **Package**: print_statistics
+- **Effort**: Low-Medium
+- **Value**: Medium-High — operational insight with no new write-path risk
+
+---
+
+## Phase 3.6: Rolling Window Exception Sensors
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/archives/stats?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` | Windowed summary over a recent period |
+| `GET` | `/archives/analysis/failures` | Failure breakdown for correlation and alert context |
+
+### Feature Scope
+
+**Short-horizon anomaly detection** — Add sensors and alerts for conditions that matter now, not just all-time totals.
+
+**Use cases:**
+1. **7-day failure spike** — Alert when the recent failure rate exceeds a threshold even if the lifetime rate looks healthy.
+2. **Stopped-print surge** — Detect a run of cancellations/stopped prints that often signals workflow or queue issues rather than printer faults.
+3. **No-output alert** — Notify if a normally active printer has produced zero completed prints over the last 7 or 14 days.
+4. **Recent energy jump** — Alert when 7-day energy cost changes sharply versus the prior window.
+
+### Implementation
+
+**Pattern**:
+- Add one or more time-windowed REST sensors:
+  - `sensor.bambuddy_stats_last_7_days`
+  - `sensor.bambuddy_stats_last_30_days`
+- Derive exception sensors from those rolling windows rather than all-time totals.
+
+**Template sensors**:
+- `binary_sensor.bambuddy_failure_rate_spike`
+- `binary_sensor.bambuddy_stopped_print_spike`
+- `binary_sensor.bambuddy_output_stalled`
+
+### Phase & Dependencies
+
+- **Phase**: 3.6
+- **Depends on**: print_statistics core, optional failure analysis sensor
+- **Package**: print_statistics
+- **Effort**: Medium
+- **Value**: High — gives HA a stronger alerting role instead of just a passive stats mirror

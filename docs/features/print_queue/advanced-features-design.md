@@ -2,6 +2,8 @@
 
 > Based on full Bambuddy queue API: [`print_queue.py`](https://github.com/maziggy/bambuddy/blob/main/backend/app/api/routes/print_queue.py)
 > Cross-references printer status API for filament/nozzle validation and archive API for reprint.
+>
+> **OpenAPI note**: The live queue API exposes a flat array response plus lifecycle endpoints (`start`, `stop`, `cancel`, `PATCH`, `bulk`, `reorder`). Examples below assume the core package normalizes that flat response into a `jobs` attribute for template-friendly use.
 
 ---
 
@@ -527,13 +529,110 @@ This is complex enough to warrant its own sub-phase and depends on print_history
 | 4.4 | Nozzle Compatibility Guard | Low | High | print_queue core, printer status |
 | 4.5 | Batch Filament Planning | Medium | Low | print_queue core |
 | 4.6 | Reprint from HA | Medium | High | print_queue + print_history core |
+| 4.7 | Queue Lifecycle Control Surface | Medium | High | print_queue core, confirmation UX |
+| 4.8 | Plate-Clear Verified Auto-Start | Medium | High | print_queue core, camera endpoints |
 
-**Recommended order**: 4.2 → 4.4 → 4.1 → 4.3 → 4.6 → 4.5
+**Recommended order**: 4.2 → 4.4 → 4.1 → 4.3 → 4.7 → 4.6 → 4.8 → 4.5
 
 - 4.2 and 4.4 are low-effort, high-value — implement first
 - 4.1 and 4.3 add safety net and UX polish
+- 4.7 closes the biggest functional gap between the documented queue card and the actual API
 - 4.6 is the crown jewel (reprint from HA) but depends on print_history
+- 4.8 becomes compelling once queue lifecycle actions exist and plate-detection is calibrated
 - 4.5 is nice-to-have analysis, implement last
+
+---
+
+## Phase 4.7: Queue Lifecycle Control Surface
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/queue/{item_id}` | Retrieve one queue item with full current state |
+| `PATCH` | `/queue/{item_id}` | Reassign printer, change options, or adjust schedule |
+| `DELETE` | `/queue/{item_id}` | Remove queue item |
+| `POST` | `/queue/{item_id}/cancel` | Cancel a pending item without deleting history |
+| `POST` | `/queue/{item_id}/stop` | Stop the currently printing queue item |
+| `POST` | `/queue/{item_id}/start` | Start a `manual_start` queue item |
+| `PATCH` | `/queue/bulk` | Apply shared changes to many items |
+| `POST` | `/queue/reorder` | Reorder queue positions |
+
+### Feature Scope
+
+**Queue operations from HA** — Turn the queue card into an actionable control surface instead of a read-only status view.
+
+**Use cases:**
+1. **Manual start approval** — Approve or reject staged `manual_start` jobs from a dashboard chip or notification.
+2. **Recover from a bad assignment** — Move a pending job to a different printer or change options without opening Bambuddy.
+3. **Emergency stop or cancel** — Stop the current queued print or cancel future jobs from HA when a printer error is active.
+4. **Batch edit** — Toggle `timelapse`, `bed_levelling`, or `use_ams` across a selected set of pending jobs.
+
+### Implementation
+
+**REST commands**:
+- `bambuddy_queue_start`
+- `bambuddy_queue_stop`
+- `bambuddy_queue_cancel`
+- `bambuddy_queue_update`
+- `bambuddy_queue_reorder`
+- `bambuddy_queue_bulk_update`
+
+**Dashboard ideas**:
+- Per-item action row: Start, Cancel, Stop, Reassign
+- `Needs approval` chip for `manual_start=true`
+- Admin popup for bulk queue actions on pending items
+
+### Phase & Dependencies
+
+- **Phase**: 4.7 (after core queue sensor/card)
+- **Depends on**: print_queue core, webhook/event refresh, HA confirmation patterns
+- **Package**: print_queue
+- **Effort**: Medium
+- **Value**: High — this is the largest functional gap between the current queue plan and the actual API
+
+---
+
+## Phase 4.8: Plate-Clear Verified Auto-Start
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/printers/{printer_id}/camera/check-plate` | Detect whether the build plate is empty |
+| `POST` | `/printers/{printer_id}/camera/plate-detection/calibrate` | Capture empty-plate references |
+| `GET` | `/printers/{printer_id}/camera/plate-detection/status` | Report calibration readiness/health |
+| `GET` | `/printers/{printer_id}/camera/plate-detection/references` | Inspect saved plate references |
+| `POST` | `/queue/{item_id}/start` | Start the next staged/manual queue item |
+
+### Feature Scope
+
+**Automated queue safety** — Only release the next job when Bambuddy’s camera-based empty-plate check says the bed is clear.
+
+**Use cases:**
+1. **Safe auto-start** — Start the next queued job only if the plate-clear check passes.
+2. **Calibration stale warning** — Alert when the queue wants auto-start but no valid plate-detection calibration exists.
+3. **Human-in-the-loop retry** — If the plate check fails, send a notification with `re-check now` and `start anyway` options.
+
+### Implementation
+
+**Automation concept**:
+1. Trigger when printer transitions to idle/finish and pending queue items remain.
+2. Call `check-plate`.
+3. If clear → call `queue/{item_id}/start`.
+4. If not clear → create actionable HA notification instead of starting.
+
+**Exception sensor**:
+- `binary_sensor.bambuddy_plate_clear_ready`
+- attributes: last confidence/result, calibration status, next queue item
+
+### Phase & Dependencies
+
+- **Phase**: 4.8 (after queue lifecycle actions exist)
+- **Depends on**: print_queue core, Bambuddy camera endpoints, printer-finished state detection
+- **Package**: print_queue
+- **Effort**: Medium
+- **Value**: High — directly reduces failed unattended queue handoffs
 
 ---
 

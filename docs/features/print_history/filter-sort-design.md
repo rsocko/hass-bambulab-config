@@ -19,6 +19,192 @@ The current print history view is a flat list of the N most recent archives. The
 
 ---
 
+## Data Strategy: Slim vs Full Archives
+
+### The Core Question
+
+The `/slim` endpoint returns a minimal set of fields (~200 bytes/archive). But meaningful filtering (e.g., by filament color) and card rendering (e.g., thumbnails, designer info) requires fields that only exist in the full `/archives` response.
+
+### Field Comparison: Slim vs Full vs What We Need
+
+| Field | In Slim? | In Full? | Needed For | Category |
+|-------|----------|----------|------------|----------|
+| `printer_id` | ✅ | ✅ | Printer filter | Filter |
+| `print_name` | ✅ | ✅ | Search, display | Filter + Display |
+| `print_time_seconds` | ✅ | ✅ | Sort | Sort |
+| `actual_time_seconds` | ✅ | ✅ | Duration sort/display | Sort + Display |
+| `filament_used_grams` | ✅ | ✅ | Sort, display | Sort + Display |
+| `filament_type` | ✅ | ✅ | Material filter | Filter |
+| `filament_color` | ✅ | ✅ | **Color filter**, color swatches | **Filter + Display** |
+| `status` | ✅ | ✅ | Status filter | Filter |
+| `started_at` | ✅ | ✅ | Date filter, sort | Filter + Sort |
+| `completed_at` | ✅ | ✅ | Display | Display |
+| `cost` | ✅ | ✅ | Sort, display | Sort + Display |
+| `quantity` | ✅ | ✅ | Display | Display |
+| `created_at` | ✅ | ✅ | Display | Display |
+| **`id`** | ❌ | ✅ | **Thumbnail URL construction**, detail link | **Critical Display** |
+| `layer_height` | ❌ | ✅ | Display, potential filter | Display |
+| `nozzle_diameter` | ❌ | ✅ | Display | Display |
+| `nozzle_temperature` | ❌ | ✅ | Display | Display |
+| `total_layers` | ❌ | ✅ | Display | Display |
+| `sliced_for_model` | ❌ | ✅ | Display | Display |
+| `designer` | ❌ | ✅ | Display, search | Display |
+| `makerworld_url` | ❌ | ✅ | Link | Display |
+| `is_favorite` | ❌ | ✅ | Filter, display | Filter + Display |
+| `tags` | ❌ | ✅ | Filter (enriched tags), search | Filter |
+| `notes` | ❌ | ✅ | Search | Search |
+| `failure_reason` | ❌ | ✅ | Display (on failures) | Display |
+| `thumbnail_path` | ❌ | ✅ | Card image | Display |
+| `extra_data.filament_slots[]` | ❌ | ✅ | Per-color grams, color swatches | Display |
+| `extra_data._print_data.*` | ❌ | ✅ | Raw AMS tray data | *(Not needed)* |
+
+### What's Missing from Slim That Actually Matters
+
+1. **`id`** — Can't construct thumbnail URLs (`/archives/{id}/thumbnail`) without it. This alone makes slim insufficient for card rendering.
+2. **`is_favorite`** — Can't filter or highlight favorites.
+3. **`tags`** — Can't filter by enrichment tags (e.g., `vendor:Bambu Lab`, `spoolman:42`).
+4. **`designer`** — Can't search by designer name.
+5. **`layer_height`** — Nice for display but not critical for filtering.
+6. **`filament_slots[]`** — Per-slot color hex codes and gram usage. Richer than the comma-separated `filament_color` string (which IS in slim). Useful for color swatch rendering.
+
+Note: `filament_color` (comma-separated hex string like `#000000,#FFFFFF,#C12E1F`) IS in the slim response, so basic color filtering is possible without full data. However, per-slot breakdown requires `extra_data.filament_slots[]`.
+
+### Options Evaluated
+
+#### Option A: Use `/slim` as originally designed
+- **Pro**: Small payload (~200 bytes/archive), fast
+- **Con**: No `id` (no thumbnails), no favorites, no tags, no designer. The card would be text-only with no images. Fundamentally insufficient for a good history view.
+- **Verdict**: ❌ Rejected — missing `id` is a dealbreaker
+
+#### Option B: Use full `/archives` and trim in template
+- **Source**: `GET /archives/?limit=500`
+- **Pro**: ALL fields available — thumbnails, tags, favorites, designer, filament_slots
+- **Con**: The full response includes `extra_data` with the enormous `_print_data.raw_data.ams[].tray[]` blob (~8-12 KB per archive). At 500 archives, that's 4-6 MB of JSON in a single sensor attribute.
+- **Verdict**: ⚠️ Feasible ONLY if we trim `extra_data` down
+
+#### Option C: Full `/archives` with Jinja2 field projection in Layer 1 ← **RECOMMENDED**
+- **Source**: `GET /archives/?limit=500`
+- **Approach**: The trigger-based template sensor fetches the full response, then the attribute template **projects** (cherry-picks) only the fields we need into a trimmed array before storing as `archives_json`.
+- **How**: Jinja2 `for` loop builds a new list of dicts with only the ~20 fields we want, discarding `extra_data._print_data`, `file_path`, `content_hash`, `duplicates`, etc.
+- **Per-archive size**: ~400-500 bytes (vs ~200 for slim, vs ~10-15 KB for raw full)
+- **500 archives**: ~200-250 KB (comfortable for HA state machine)
+- **Pro**: All useful fields available for filtering and display; bloat stripped at ingest
+- **Con**: The initial API response is still large (fetched once, processed once, then discarded). Jinja2 projection loop adds ~0.5s processing on each fetch. This happens on trigger events (~5-min interval), NOT on filter changes.
+- **Verdict**: ✅ Best balance — rich data for filtering/display, manageable storage
+
+#### Option D: Two-tier fetch — slim for filter + on-demand detail
+- **Approach**: Fetch `/slim` for the list. When rendering a card row, fetch `/archives/{id}` for thumbnail + details.
+- **Con**: N+1 API calls on each page render. Rate limited. Slow. Complex. Doesn't solve the filter problem (no `id` in slim means we can't even fetch details).
+- **Verdict**: ❌ Rejected — impractical
+
+#### Option E: Fetch full JSON → save to disk → read from file
+- **Approach**: A `shell_command` or automation fetches the full response to `/config/www/3d_printing/print_history/archives_cache.json`, then a `command_line` sensor reads from disk.
+- **Pro**: Decouples fetch frequency from template evaluation. Could store the full raw response with no size concern.
+- **Con**: HA's `command_line` sensor still parses the JSON in Jinja2 — same template evaluation cost. The disk roundtrip adds I/O latency. File management (permissions, cleanup) is fragile. And the real bottleneck is Jinja2 iteration, not the fetch or storage — so this doesn't meaningfully help.
+- **Verdict**: ❌ Rejected — solves the wrong problem. The bottleneck is template eval speed, not storage.
+
+#### Option F: Fetch full JSON → trim in Python (AppDaemon / custom component)
+- **Approach**: A Python-based HA component or AppDaemon app fetches, trims, indexes, and exposes the data as a sensor.
+- **Pro**: Python is orders of magnitude faster than Jinja2 for iteration/filtering. Could handle 5000+ archives easily.
+- **Con**: Adds a runtime dependency (AppDaemon or custom component). Breaks the "pure YAML" approach. Overkill for <1000 archives.
+- **Verdict**: ❌ Deferred — only consider if Jinja2 becomes the bottleneck at 1000+ archives
+
+### Decision: Option C — Full Endpoint with Jinja2 Field Projection
+
+The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed schema:
+
+```jinja2
+{# Project each archive to only the fields we need #}
+{% set ns = namespace(trimmed=[]) %}
+{% for a in raw_archives %}
+  {% set slots = a.get('extra_data', {}).get('filament_slots', [])
+       if a.get('extra_data') is mapping else [] %}
+  {% set ns.trimmed = ns.trimmed + [dict(
+    id=a.get('id'),
+    printer_id=a.get('printer_id'),
+    print_name=a.get('print_name', ''),
+    print_time_seconds=a.get('print_time_seconds', 0),
+    actual_time_seconds=a.get('actual_time_seconds'),
+    filament_used_grams=a.get('filament_used_grams', 0),
+    filament_type=a.get('filament_type', ''),
+    filament_color=a.get('filament_color', ''),
+    filament_slots=slots,
+    status=a.get('status', ''),
+    started_at=a.get('started_at', ''),
+    completed_at=a.get('completed_at'),
+    cost=a.get('cost', 0),
+    quantity=a.get('quantity', 1),
+    layer_height=a.get('layer_height'),
+    total_layers=a.get('total_layers'),
+    nozzle_diameter=a.get('nozzle_diameter'),
+    designer=a.get('designer', ''),
+    is_favorite=a.get('is_favorite', false),
+    tags=a.get('tags', ''),
+    notes=a.get('notes', ''),
+    failure_reason=a.get('failure_reason', '')
+  )] %}
+{% endfor %}
+{{ ns.trimmed | tojson }}
+```
+
+### Projected Archive Schema (~450 bytes per archive)
+
+```json
+{
+  "id": 171,
+  "printer_id": 1,
+  "print_name": "Hueforge back to the future",
+  "print_time_seconds": 15533,
+  "actual_time_seconds": null,
+  "filament_used_grams": 44.82,
+  "filament_type": "PLA",
+  "filament_color": "#000000,#FFFFFF,#C12E1F,#F4EE2A",
+  "filament_slots": [
+    {"slot_id": 1, "used_g": 29.69, "type": "PLA", "color": "#000000"},
+    {"slot_id": 2, "used_g": 2.38, "type": "PLA", "color": "#FFFFFF"},
+    {"slot_id": 7, "used_g": 8.45, "type": "PLA", "color": "#C12E1F"},
+    {"slot_id": 8, "used_g": 4.3, "type": "PLA", "color": "#F4EE2A"}
+  ],
+  "status": "printing",
+  "started_at": "2026-03-28T13:55:04.674129",
+  "completed_at": null,
+  "cost": 1.12,
+  "quantity": 1,
+  "layer_height": 0.08,
+  "total_layers": 30,
+  "nozzle_diameter": 0.4,
+  "designer": "StefBull85",
+  "is_favorite": false,
+  "tags": "spoolman:42,vendor:Bambu Lab,ha_enriched:true",
+  "notes": "",
+  "failure_reason": ""
+}
+```
+
+### Updated Size Estimates (Projected Schema)
+
+| Archive Count | Projected JSON | vs Slim (~200B) | vs Raw Full (~10KB) | Template Eval | Practical? |
+|---------------|---------------|-----------------|---------------------|---------------|------------|
+| 50 | ~22 KB | +12 KB | -490 KB | <0.1s | ✅ Trivial |
+| 200 | ~90 KB | +50 KB | -1.9 MB | ~0.3s | ✅ Comfortable |
+| 500 | ~225 KB | +125 KB | -4.8 MB | ~0.8s | ✅ Good default |
+| 1,000 | ~450 KB | +250 KB | -9.5 MB | ~2s | ⚠️ Noticeable |
+| 2,000 | ~900 KB | +500 KB | -19 MB | ~4-5s | ⚠️ Sluggish |
+
+The projected schema is roughly **2.2x** the size of slim but gives us every field needed for filtering and display. Compared to raw full (~10-15 KB/archive), it's a **95% reduction** (strips `_print_data`, AMS dumps, file paths, content hashes).
+
+### Additional Filters Enabled by Full Data
+
+| Filter | Field | Helper Type |
+|--------|-------|-------------|
+| **Filament Color** | `filament_color` (also in slim) | `input_select` — dynamic, values extracted from comma-separated colors across all archives |
+| **Favorites** | `is_favorite` | `input_boolean` or `input_select` (`All`/`Favorites Only`) |
+| **Has Tags** | `tags` (non-empty) | `input_boolean` |
+| **Designer** | `designer` | `input_select` — dynamic |
+| **Layer Height** | `layer_height` | `input_select` — dynamic (`0.04`, `0.08`, `0.12`, `0.16`, `0.20`) |
+
+---
+
 ## Architecture Overview
 
 ### Why This Differs from the Filament Catalog
@@ -31,9 +217,9 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Layer 1: API Data Fetch                                         │
-│  Trigger-based template sensor + REST command action             │
-│  Calls GET /slim → stores full array in sensor attribute         │
+│  Layer 1: API Data Fetch + Field Projection                      │
+│  Trigger-based template sensor + REST command action              │
+│  Calls GET /archives → projects to trimmed schema (~450B/item)   │
 ├──────────────────────────────────────────────────────────────────┤
 │  Layer 2: Client-Side Filter + Sort + Page                       │
 │  Template sensor reads Layer 1 attribute + input helpers          │
@@ -48,20 +234,24 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
 ### Data Flow
 
 ```
-                ┌─────────────────┐
-                │ Bambuddy API    │
-                │ GET /slim       │
-                │ ?limit=500      │
-                └────────┬────────┘
-                         │  JSON array (flat)
+                ┌──────────────────┐
+                │ Bambuddy API     │
+                │ GET /archives/   │
+                │ ?limit=500       │
+                └────────┬─────────┘
+                         │  JSON array (full, ~5 MB)
                          ▼
-        ┌────────────────────────────────┐
-        │ sensor.print_history_archives  │  Layer 1
-        │ (trigger-based template)       │
-        │                                │
-        │ state: archive count           │
-        │ attr.archives_json: full array │
-        └────────────────┬───────────────┘
+        ┌─────────────────────────────────────┐
+        │ sensor.print_history_archives       │  Layer 1
+        │ (trigger-based template)            │
+        │                                     │
+        │ Jinja2 projects to trimmed schema   │
+        │ Strips extra_data._print_data, etc. │
+        │                                     │
+        │ state: archive count                │
+        │ attr.archives_json: trimmed array   │
+        │ (~225 KB for 500 archives)          │
+        └────────────────┬────────────────────┘
                          │
           ┌──────────────┼──────────────┐
           │              │              │
@@ -70,7 +260,9 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
    │ input_select│ │input_text│ │ input_number  │
    │ (status,    │ │ (search) │ │ (page, size)  │
    │ material,   │ │          │ │               │
-   │ printer,    │ └──────────┘ └───────────────┘
+   │ color,      │ └──────────┘ └───────────────┘
+   │ printer,    │
+   │ favorites,  │
    │ date_range, │
    │ sort)       │
    └──────┬──────┘
@@ -91,6 +283,8 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
   │ Dashboard                       │  Layer 3
   │ • Filter bar (bubble-card)      │
   │ • History table (button-card)   │
+  │   w/ thumbnails from /archives  │
+  │   /{id}/thumbnail               │
   │ • Pagination controls           │
   └─────────────────────────────────┘
 ```
@@ -108,10 +302,10 @@ Starting with HA 2024.11, **trigger-based template sensors** support an `action`
 ### REST Command (data fetcher)
 
 ```yaml
-# rest_commands/bambuddy_fetch_slim_archives.yaml
-bambuddy_fetch_slim_archives:
+# rest_commands/bambuddy_fetch_archives.yaml
+bambuddy_fetch_archives:
   url: >-
-    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/slim?limit={{
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/?limit={{
       states('input_number.print_history_max_archives') | int(500)
     }}
   method: GET
@@ -120,7 +314,7 @@ bambuddy_fetch_slim_archives:
   content_type: application/json
 ```
 
-### Trigger-Based Template Sensor (raw data store)
+### Trigger-Based Template Sensor (fetch + project + store)
 
 ```yaml
 # template_sensors/print_history_archives.yaml
@@ -145,7 +339,7 @@ bambuddy_fetch_slim_archives:
     - trigger: homeassistant
       event: start
   action:
-    - action: rest_command.bambuddy_fetch_slim_archives
+    - action: rest_command.bambuddy_fetch_archives
       response_variable: result
   sensor:
     - name: "Print History Archives"
@@ -160,17 +354,58 @@ bambuddy_fetch_slim_archives:
         {% endif %}
       attributes:
         archives_json: >-
-          {{ result.get('content', '[]') }}
+          {# Project full archives to trimmed schema — strip extra_data._print_data #}
+          {% set content = result.get('content', '[]') %}
+          {% if content is string %}
+            {% set raw = content | from_json %}
+          {% elif content is iterable %}
+            {% set raw = content | list %}
+          {% else %}
+            {% set raw = [] %}
+          {% endif %}
+          {% set ns = namespace(trimmed=[]) %}
+          {% for a in raw %}
+            {% set ed = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
+            {% set slots = ed.get('filament_slots', []) %}
+            {% set ns.trimmed = ns.trimmed + [dict(
+              id=a.get('id'),
+              printer_id=a.get('printer_id'),
+              print_name=a.get('print_name', ''),
+              print_time_seconds=a.get('print_time_seconds', 0),
+              actual_time_seconds=a.get('actual_time_seconds'),
+              filament_used_grams=a.get('filament_used_grams', 0),
+              filament_type=a.get('filament_type', ''),
+              filament_color=a.get('filament_color', ''),
+              filament_slots=slots,
+              status=a.get('status', ''),
+              started_at=a.get('started_at', ''),
+              completed_at=a.get('completed_at'),
+              cost=a.get('cost', 0),
+              quantity=a.get('quantity', 1),
+              layer_height=a.get('layer_height'),
+              total_layers=a.get('total_layers'),
+              nozzle_diameter=a.get('nozzle_diameter'),
+              designer=a.get('designer', ''),
+              is_favorite=a.get('is_favorite', false),
+              tags=a.get('tags', ''),
+              notes=a.get('notes', ''),
+              failure_reason=a.get('failure_reason', '')
+            )] %}
+          {% endfor %}
+          {{ ns.trimmed | tojson }}
         last_fetch: >-
           {{ now().isoformat() }}
 ```
 
 ### Key Characteristics
 
-- **Single entity** (`sensor.print_history_archives`) holds ALL fetched archive data
+- **Single entity** (`sensor.print_history_archives`) holds ALL fetched + projected archive data
 - **Triggers on events** — immediate refresh when prints complete/fail, plus 5-minute polling
-- **Archives stored as JSON string attribute** — accessible by downstream template sensors
-- **Uses `/slim` endpoint** — excludes `extra_data`, ~200 bytes per archive vs ~2KB for full archives
+- **Field projection at ingest** — strips `extra_data._print_data` (AMS dumps, raw MQTT data) and other unused fields (`file_path`, `content_hash`, `duplicates`, `source_3mf_path`, etc.), keeping ~21 fields per archive
+- **Preserves `filament_slots[]`** — extracted from `extra_data` before the rest is discarded. Provides per-slot color hex + grams for color swatch rendering.
+- **Uses full `/archives/` endpoint** — not `/slim`, because `/slim` lacks `id` (needed for thumbnail URLs), `is_favorite`, `tags`, `designer`, and `extra_data.filament_slots[]`
+- **~450 bytes/archive after projection** — vs ~200B (slim) and ~10-15 KB (raw full). 500 archives ≈ 225 KB.
+- **Projection happens once per fetch** (every 5 min or on events), NOT on every filter change. Filter changes re-evaluate the already-trimmed data in Layer 2.
 
 ### What About the Existing REST Sensor?
 
@@ -184,15 +419,21 @@ The new `print_history_archives` sensor is specifically for the filterable table
 
 ### Filter Dimensions
 
-Derived from the slim archive data shape (`archiveSlimExample.json`):
+Derived from the projected archive schema (full endpoint, trimmed fields):
 
-| Filter | Helper Type | Options | API Pre-Filterable? |
-|--------|-------------|---------|---------------------|
-| **Status** | `input_select` | `All`, `Completed`, `Failed`, `Stopped`, `Printing` | Yes (`?status=X`) |
-| **Material** | `input_select` | `All`, + dynamic from fetched data | No |
-| **Printer** | `input_select` | `All`, + dynamic from fetched data (printer_id → name) | Yes (`?printer_id=X`) |
-| **Date Range** | `input_select` | `All Time`, `Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days` | Partial (API has date range params) |
-| **Search** | `input_text` | Free text on `print_name` | Yes (`?search=Q` or `/search?q=Q`) |
+| Filter | Helper Type | Options | Source Field |
+|--------|-------------|---------|--------------|
+| **Status** | `input_select` | `All`, `Completed`, `Failed`, `Stopped`, `Printing` | `status` |
+| **Material** | `input_select` | `All`, + dynamic from fetched data | `filament_type` |
+| **Color** | `input_select` | `All`, + dynamic unique colors from `filament_color` | `filament_color` (comma-sep hex) |
+| **Printer** | `input_select` | `All`, + dynamic from fetched data (printer_id → name) | `printer_id` |
+| **Date Range** | `input_select` | `All Time`, `Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days` | `started_at` |
+| **Favorites** | `input_select` | `All`, `Favorites Only` | `is_favorite` |
+| **Designer** | `input_select` | `All`, + dynamic unique designers | `designer` |
+| **Layer Height** | `input_select` | `All`, + dynamic (e.g., 0.04, 0.08, 0.12, 0.16, 0.20) | `layer_height` |
+| **Search** | `input_text` | Free text on `print_name`, `designer`, `tags` | Multiple fields |
+
+> **Color filter note**: The `filament_color` field is a comma-separated hex string (e.g., `#000000,#FFFFFF,#C12E1F`). The filter applies a "contains" check — selecting `#C12E1F` matches any archive that used that color, even in a multi-color print. The dropdown options are populated from all unique hex values across all archives' `filament_color` strings.
 
 ### Sort Options
 
@@ -238,6 +479,12 @@ input_select_print_history_filter_material:
   initial: "All"
   icon: mdi:flask-outline
 
+input_select_print_history_filter_color:
+  name: Print History Filter - Color
+  options: ["All"]  # Populated dynamically from filament_color hex values
+  initial: "All"
+  icon: mdi:palette-outline
+
 input_select_print_history_filter_printer:
   name: Print History Filter - Printer
   options: ["All"]  # Populated dynamically
@@ -255,6 +502,24 @@ input_select_print_history_filter_date_range:
     - "Last 90 Days"
   initial: "All Time"
   icon: mdi:calendar-range
+
+input_select_print_history_filter_favorites:
+  name: Print History Filter - Favorites
+  options: ["All", "Favorites Only"]
+  initial: "All"
+  icon: mdi:star-outline
+
+input_select_print_history_filter_designer:
+  name: Print History Filter - Designer
+  options: ["All"]  # Populated dynamically
+  initial: "All"
+  icon: mdi:account-outline
+
+input_select_print_history_filter_layer_height:
+  name: Print History Filter - Layer Height
+  options: ["All"]  # Populated dynamically (e.g., 0.04, 0.08, 0.12, 0.16, 0.20)
+  initial: "All"
+  icon: mdi:layers-outline
 
 input_select_print_history_sort:
   name: Print History Sort
@@ -319,23 +584,37 @@ Jinja2 template that mirrors the Filament Catalog's `sensor.filament_catalog_fil
           {% if raw is string %}{% set archives = raw | from_json %}{% else %}{% set archives = raw | default([]) %}{% endif %}
           {%- set filter_status = states('input_select.print_history_filter_status') -%}
           {%- set filter_material = states('input_select.print_history_filter_material') -%}
+          {%- set filter_color = states('input_select.print_history_filter_color') -%}
           {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
           {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
+          {%- set filter_favorites = states('input_select.print_history_filter_favorites') -%}
+          {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
+          {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
           {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(matches=[]) -%}
           {%- for a in archives -%}
             {%- set status = a.get('status', '') | lower -%}
             {%- set material = a.get('filament_type', '') -%}
+            {%- set colors = a.get('filament_color', '') -%}
             {%- set printer = a.get('printer_id', '') | string -%}
             {%- set name = a.get('print_name', '') | lower -%}
+            {%- set designer = a.get('designer', '') -%}
+            {%- set lh = a.get('layer_height') -%}
+            {%- set is_fav = a.get('is_favorite', false) -%}
+            {%- set tags = a.get('tags', '') | lower -%}
             {%- set started_raw = a.get('started_at', '') -%}
             {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
             {%- set days_ago = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
             {%- set m_status = filter_status == 'All' or status == filter_status | lower -%}
             {%- set m_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+            {%- set m_color = filter_color == 'All' or filter_color in colors -%}
             {%- set m_printer = filter_printer == 'All' or printer == filter_printer -%}
-            {%- set m_search = search_text == '' or search_text in name -%}
+            {%- set m_favorites = filter_favorites == 'All' or (filter_favorites == 'Favorites Only' and is_fav) -%}
+            {%- set m_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
+            {%- set m_layer_height = filter_layer_height == 'All' or (lh | string == filter_layer_height) -%}
+            {%- set search_blob = (name ~ ' ' ~ designer ~ ' ' ~ tags) | lower -%}
+            {%- set m_search = search_text == '' or search_text in search_blob -%}
             {%- if filter_date == 'Today' -%}
               {%- set m_date = days_ago < 1 -%}
             {%- elif filter_date == 'This Week' -%}
@@ -349,7 +628,7 @@ Jinja2 template that mirrors the Filament Catalog's `sensor.filament_catalog_fil
             {%- else -%}
               {%- set m_date = true -%}
             {%- endif -%}
-            {%- if m_status and m_material and m_printer and m_search and m_date -%}
+            {%- if m_status and m_material and m_color and m_printer and m_search and m_date and m_favorites and m_designer and m_layer_height -%}
               {%- set ns.matches = ns.matches + [a] -%}
             {%- endif -%}
           {%- endfor -%}
@@ -381,7 +660,10 @@ Triggers:
 Behavior:
 - Reads `archives_json` attribute from `sensor.print_history_archives`
 - Collects unique `filament_type` values → updates `input_select.print_history_filter_material`
+- Collects unique hex colors from `filament_color` (splits comma-separated strings) → updates `input_select.print_history_filter_color`
 - Collects unique `printer_id` values (mapped to names if available) → updates `input_select.print_history_filter_printer`
+- Collects unique `designer` values (non-empty) → updates `input_select.print_history_filter_designer`
+- Collects unique `layer_height` values (formatted as strings) → updates `input_select.print_history_filter_layer_height`
 - Prepends `All` to each list
 - If current selection not in new list → HA resets to `All` (first option)
 
@@ -408,7 +690,8 @@ Mirrors the Filament Catalog's `catalog_filter_bar.yaml` — `custom:bubble-card
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ 🔽 Sort: Date (Newest)                                          │
-│ Status ▼  Material ▼  Printer ▼  Date Range ▼                  │
+│ Status ▼  Material ▼  Color ▼  Printer ▼                       │
+│ Date Range ▼  Favorites ▼  Designer ▼  Layer Height ▼          │
 │ 🔍 [___search___]              [47 of 500]  [Clear Filters]     │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -418,8 +701,9 @@ Mirrors the Filament Catalog's `catalog_filter_bar.yaml` — `custom:bubble-card
 | Row | Controls | Implementation |
 |-----|----------|----------------|
 | 1 | Sort dropdown | `sub_button_type: select` on `input_select.print_history_sort` |
-| 2 | Status, Material, Printer, Date Range dropdowns | `sub_button_type: select`, state-highlight when not "All" |
-| 3 | Search text + result count + Clear Filters button | `entities` card (search input) + chip buttons |
+| 2 | Status, Material, Color, Printer dropdowns | `sub_button_type: select`, state-highlight when not "All" |
+| 3 | Date Range, Favorites, Designer, Layer Height dropdowns | `sub_button_type: select`, state-highlight when not default |
+| 4 | Search text + result count + Clear Filters button | `entities` card (search input) + chip buttons |
 
 #### Active Filter Highlighting
 
@@ -465,27 +749,29 @@ The `page_json` attribute contains an array of archive objects (already filtered
 
 > *"Does this only work if we somehow pull ALL data (not paged)? Is that a concern?"*
 
-**Short answer**: You don't need ALL data. A reasonable cap (default 500) works well. Here's the detailed analysis:
+**Short answer**: You don't need ALL data. A reasonable cap (default 500) works well. The projection step makes the full endpoint viable.
 
-### Data Size Estimates
+### Data Size Estimates (After Projection)
 
-| Archive Count | Slim JSON Size | Template Evaluation | Practical? |
-|---------------|---------------|---------------------|------------|
-| 50 | ~10 KB | <0.1s | ✅ Trivial |
-| 200 | ~40 KB | ~0.2s | ✅ Comfortable |
-| 500 | ~100 KB | ~0.5s | ✅ Good default cap |
-| 1,000 | ~200 KB | ~1-2s | ⚠️ Noticeable delay on filter change |
-| 2,000 | ~400 KB | ~3-5s | ⚠️ Sluggish UX |
-| 5,000+ | ~1 MB+ | 10s+ | ❌ Jinja2 not designed for this |
+| Archive Count | API Response | Projected JSON | Template Eval (L1) | Template Eval (L2) | Practical? |
+|---------------|-------------|---------------|---------------------|---------------------|------------|
+| 50 | ~500 KB | ~22 KB | ~0.2s | <0.1s | ✅ Trivial |
+| 200 | ~2 MB | ~90 KB | ~0.5s | ~0.2s | ✅ Comfortable |
+| 500 | ~5 MB | ~225 KB | ~1s | ~0.5s | ✅ Good default |
+| 1,000 | ~10 MB | ~450 KB | ~2-3s | ~1s | ⚠️ Noticeable on fetch |
+| 2,000 | ~20 MB | ~900 KB | ~5-8s | ~2-3s | ⚠️ Sluggish |
 
-*Estimates based on ~200 bytes/archive (slim) and Jinja2 iteration benchmarks from the Filament Catalog (165 entities with attribute lookups).*
+*L1 = projection loop (runs on fetch events, ~every 5 min). L2 = filter/sort/page (runs on every helper change, but operates on already-projected data).*
+
+**Key insight**: L1 projection is the heavier step but runs infrequently (fetch events). L2 filtering operates on the trimmed data and is fast even at 500 items. Filter/sort/page changes feel instant because they don't re-fetch.
 
 ### Why 500 Is the Right Default
 
 - **2 prints/day × 250 days = 500** — covers ~8 months for active users
-- **Jinja2 overhead**: The Filament Catalog handles 165 entities with ~15 attribute lookups per entity. Print history archives are simpler (flat dict, fewer fields per item). 500 flat dicts ≈ 165 entities with rich attributes in computational cost.
-- **Attribute storage**: ~100KB JSON attribute is well within HA's state machine capacity (attributes don't have the 255-char state limit)
-- **Recorder optimization**: Exclude `archives_json` attribute from the recorder (it's a large, frequently-changing blob that has no historical value):
+- **API response at 500**: ~5 MB (full JSON with `extra_data`). Fetched once, projected to ~225 KB, and stored. The 5 MB is transient (in Jinja2 variable during render), not persisted.
+- **Projected data size**: ~225 KB is well within HA's state machine capacity
+- **L2 template speed**: Iterating 500 flat dicts with ~5 filter checks each ≈ Filament Catalog's 165 entities with ~15 attribute lookups
+- **Recorder optimization**: Exclude `archives_json` attribute from the recorder:
   ```yaml
   recorder:
     exclude:
@@ -497,8 +783,10 @@ The `page_json` attribute contains an array of archive objects (already filtered
 
 | Concern | Mitigation |
 |---------|------------|
+| **Large API response** | Transient — held in Jinja2 variable during projection, then discarded. Only the trimmed ~225 KB is stored as an attribute. |
 | **Too much API data** | `input_number.print_history_max_archives` caps the `?limit=` param (default 500, max 2000) |
-| **Slow template evaluation** | Date Range filter is applied FIRST, reducing the working set before material/status checks |
+| **Slow L1 projection** | Runs only on trigger events (~5-min interval + webhooks), NOT on filter changes |
+| **Slow L2 filtering** | Operates on projected data (~450 bytes/item). Date Range filter applied early to reduce working set. |
 | **Large attribute in recorder** | Exclude `sensor.print_history_archives` from recorder |
 | **5-minute polling for stale data** | Webhook triggers (`print_complete`, `print_failed`) refresh immediately on events that matter |
 | **Very large histories** | Users with 2000+ archives should use date range filters or the Bambuddy web UI for deep history |
@@ -508,7 +796,7 @@ The `page_json` attribute contains an array of archive objects (already filtered
 The Bambuddy API supports `?status=X&printer_id=Y&search=Q` server-side. We COULD push filters to the API level:
 
 ```
-GET /slim?limit=500&status=completed&printer_id=1&search=benchy
+GET /archives/?limit=500&status=completed&printer_id=1&search=benchy
 ```
 
 **Pros**: Much smaller response, faster template evaluation.
@@ -517,16 +805,15 @@ GET /slim?limit=500&status=completed&printer_id=1&search=benchy
 - Can't do instant client-side sort or page navigation
 - Filter UX feels sluggish (API round-trip on each dropdown change)
 - More complex implementation (REST command params change dynamically)
-- The `/slim` endpoint may not support all the same query params as `GET /`
 
-**Verdict**: Start with the client-side approach (pull 500, filter in template). If users report scale issues at 1000+ archives, add an optional "server-side mode" that pushes status + date range filters to the API as query params. This is an optimization, not a requirement — identical to how the Filament Catalog handles 165 spools entirely client-side.
+**Verdict**: Start with the client-side approach (pull 500, project, filter in template). If users report scale issues at 1000+ archives, add an optional "server-side mode" that pushes status + date range filters to the API as query params. This is an optimization, not a requirement.
 
 ### Alternative: Hybrid API Pre-Filter + Client Sort (Future Optimization)
 
 If scale becomes an issue, the architecture supports a middle ground:
 
 1. API pre-filters by **date range** (reduces dataset the most, e.g., "Last 30 Days" → ~60 archives)
-2. Client-side handles **status**, **material**, **search**, **sort**, **page**
+2. Client-side handles **status**, **material**, **color**, **search**, **sort**, **page**
 
 This would require switching from trigger-based template to a script + REST command flow where filter changes trigger an API re-fetch. The downside is that filter changes are no longer instant. This can be added later without changing the dashboard or filter helpers — only the data fetch layer changes.
 
@@ -540,26 +827,30 @@ New and modified files (additions to existing `print_history/` package):
 homeassistant/packages/3d_printing/print_history/
 ├── rest_commands/
 │   ├── (existing files...)
-│   └── bambuddy_fetch_slim_archives.yaml        # NEW — GET /slim for bulk fetch
+│   └── bambuddy_fetch_archives.yaml             # NEW — GET /archives for bulk fetch
 ├── template_sensors/
 │   ├── (existing files...)
-│   ├── print_history_archives.yaml               # NEW — trigger-based, raw data store
+│   ├── print_history_archives.yaml               # NEW — trigger-based, fetch + project + store
 │   └── print_history_filtered.yaml               # NEW — filter/sort/page sensor
 ├── helpers/
 │   ├── input_select/
 │   │   ├── (existing files...)
-│   │   ├── input_select_print_history_filter_status.yaml      # NEW
-│   │   ├── input_select_print_history_filter_material.yaml    # NEW
-│   │   ├── input_select_print_history_filter_printer.yaml     # NEW
-│   │   ├── input_select_print_history_filter_date_range.yaml  # NEW
-│   │   └── input_select_print_history_sort.yaml               # NEW
+│   │   ├── input_select_print_history_filter_status.yaml        # NEW
+│   │   ├── input_select_print_history_filter_material.yaml      # NEW
+│   │   ├── input_select_print_history_filter_color.yaml         # NEW
+│   │   ├── input_select_print_history_filter_printer.yaml       # NEW
+│   │   ├── input_select_print_history_filter_date_range.yaml    # NEW
+│   │   ├── input_select_print_history_filter_favorites.yaml     # NEW
+│   │   ├── input_select_print_history_filter_designer.yaml      # NEW
+│   │   ├── input_select_print_history_filter_layer_height.yaml  # NEW
+│   │   └── input_select_print_history_sort.yaml                 # NEW
 │   ├── input_text/
 │   │   ├── (existing files...)
-│   │   └── input_text_print_history_search.yaml               # NEW
+│   │   └── input_text_print_history_search.yaml                 # NEW
 │   └── input_number/
 │       ├── (existing files...)
-│       ├── input_number_print_history_page_size.yaml          # NEW
-│       └── input_number_print_history_max_archives.yaml       # NEW
+│       ├── input_number_print_history_page_size.yaml            # NEW
+│       └── input_number_print_history_max_archives.yaml         # NEW
 ├── automations/
 │   ├── (existing files...)
 │   ├── print_history_sync_filter_options.yaml    # NEW — dynamic dropdown population
@@ -595,8 +886,12 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 |--------|------|---------|
 | `input_select.print_history_filter_status` | input_select | `All` |
 | `input_select.print_history_filter_material` | input_select | `All` (dynamic) |
+| `input_select.print_history_filter_color` | input_select | `All` (dynamic) |
 | `input_select.print_history_filter_printer` | input_select | `All` (dynamic) |
 | `input_select.print_history_filter_date_range` | input_select | `All Time` |
+| `input_select.print_history_filter_favorites` | input_select | `All` |
+| `input_select.print_history_filter_designer` | input_select | `All` (dynamic) |
+| `input_select.print_history_filter_layer_height` | input_select | `All` (dynamic) |
 | `input_select.print_history_sort` | input_select | `Date (Newest)` |
 | `input_text.print_history_search` | input_text | `""` |
 | `input_number.print_history_page_size` | input_number | 10 |
@@ -672,8 +967,12 @@ The template sensor logic follows the same pattern as `sensor.filament_catalog_f
 {# ── Read filter helpers ────────────────────────────────────── #}
 {% set filter_status = states('input_select.print_history_filter_status') %}
 {% set filter_material = states('input_select.print_history_filter_material') %}
+{% set filter_color = states('input_select.print_history_filter_color') %}
 {% set filter_printer = states('input_select.print_history_filter_printer') %}
 {% set filter_date = states('input_select.print_history_filter_date_range') %}
+{% set filter_favorites = states('input_select.print_history_filter_favorites') %}
+{% set filter_designer = states('input_select.print_history_filter_designer') %}
+{% set filter_layer_height = states('input_select.print_history_filter_layer_height') %}
 {% set search_text = states('input_text.print_history_search') | lower | trim %}
 {% set sort_option = states('input_select.print_history_sort')
      | default('Date (Newest)', true) %}
@@ -762,20 +1061,22 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 │ ╔═══════════════════════════════════════════════════════════════════╗ │
 │ ║  Sort ▼ Date (Newest)                                           ║ │
 │ ╠═══════════════════════════════════════════════════════════════════╣ │
-│ ║  Status ▼  │  Material ▼  │  Printer ▼  │  Date Range ▼        ║ │
+│ ║  Status ▼  │  Material ▼  │  Color ▼  │  Printer ▼             ║ │
+│ ╠═══════════════════════════════════════════════════════════════════╣ │
+│ ║  Date Range ▼  │  Favorites ▼  │  Designer ▼  │  Layer Ht ▼    ║ │
 │ ╠═══════════════════════════════════════════════════════════════════╣ │
 │ ║  🔍 [___________________________________]   47 matches   🗑 Clear║ │
 │ ╚═══════════════════════════════════════════════════════════════════╝ │
 │                                                                      │
 │ ┌──────────────────────── Print History Table ─────────────────────┐ │
-│ │ 📷  Hueforge BTTF          PLA   44.8g  $1.12  🖨 printing     │ │
-│ │     Mar 28 · est 4.3h                                           │ │
+│ │ 📷  Hueforge BTTF          PLA  ⬛⬜🟥🟨  44.8g  $1.12  🖨    │ │
+│ │     Mar 28 · est 4.3h · 0.08mm           ★  printing            │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
-│ │ 📷  Darth Vader Saber P2   PLA   69.3g  $1.73  ✅ completed    │ │
-│ │     Mar 28 · 4.5h                                               │ │
+│ │ 📷  Darth Vader Saber P2   PLA  ⬛🟥⬜    69.3g  $1.73         │ │
+│ │     Mar 28 · 4.5h · 0.04mm                  ✅ completed        │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
-│ │ 📷  Magnetic Frame P12     PLA   87.3g  $2.18  ✅ completed    │ │
-│ │     Mar 28 · 1.8h                                               │ │
+│ │ 📷  Magnetic Frame P12     PLA  ⬛         87.3g  $2.18         │ │
+│ │     Mar 28 · 1.8h · 0.08mm                  ✅ completed        │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
 │ │ ...                                                             │ │
 │ └─────────────────────────────────────────────────────────────────┘ │
@@ -875,16 +1176,16 @@ cards:
 
 | Aspect | Filament Catalog | Print History |
 |--------|-----------------|---------------|
-| **Data source** | HA entity states (`sensor.spoolman_spool_*`) | External API → JSON attribute |
+| **Data source** | HA entity states (`sensor.spoolman_spool_*`) | External API → projected JSON attribute |
 | **Data volume** | ~165 entities (fixed) | 50–2000 archives (growing) |
-| **Data fetch** | Always in HA (Spoolman integration) | Trigger-based fetch with `rest_command` action |
+| **Data fetch** | Always in HA (Spoolman integration) | Trigger-based fetch with `rest_command` action + Jinja2 field projection |
 | **Filter sensor** | `sensor.filament_catalog_filtered_spools` | `sensor.print_history_filtered` |
-| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 5 input_selects + 1 input_text + 2 input_numbers |
+| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 8 input_selects + 1 input_text + 2 input_numbers |
 | **Grouping/tabs** | Yes (By Location, By Material, etc.) | No (flat list with sort) |
 | **Sort** | 9 options (name, weight, cost, hue, etc.) | 10 options (date, duration, cost, filament, name) |
 | **Pagination** | No (all shown, relies on auto-entities) | Yes (page_size + current_page) |
 | **Filter bar card** | `catalog_filter_bar.yaml` | `print_history_filter_bar.yaml` |
-| **Filter bar style** | `bubble-card` sub-buttons, 4 rows | `bubble-card` sub-buttons, 2-3 rows |
+| **Filter bar style** | `bubble-card` sub-buttons, 4 rows | `bubble-card` sub-buttons, 4 rows |
 | **Dynamic options** | `sync_filter_options` automation | `print_history_sync_filter_options` automation |
 | **Clear filters** | `script.filament_catalog_clear_filters` | `script.print_history_clear_filters` |
 | **Scale concern** | 165 is comfortable, >300 would need paging | 500 default cap, configurable to 2000 |
@@ -895,9 +1196,9 @@ cards:
 
 | # | Item | Impact | Blocking? |
 |---|---|---|---|
-| 1 | Verify `GET /slim` supports `?limit=N` query param | Determines if we can cap the fetch | Yes — test against Bambuddy API |
+| 1 | Verify `GET /archives/` response shape matches projection expectations | Ensure `extra_data.filament_slots` path is correct, and all projected fields exist | Yes — test against Bambuddy API |
 | 2 | Verify trigger-based template sensor `action` + `rest_command` response handling works as designed | Core architecture dependency (HA 2024.11+ feature) | Yes — test on live HA instance |
-| 3 | Determine if `GET /slim` supports `?status=X` or `?printer_id=Y` | Could enable API-side pre-filtering in future optimization | No — client-side filtering works regardless |
+| 3 | Determine if `GET /archives/` supports `?status=X` or `?printer_id=Y` for future API-side pre-filtering | Could enable hybrid mode at scale | No — client-side filtering works regardless |
 | 4 | Recorder exclusion for `sensor.print_history_archives` | Large `archives_json` attribute shouldn't bloat the database | No — add to recorder config during implementation |
 | 5 | Printer ID → name mapping | `printer_id` is an integer; need friendly name for dropdown display. May require a separate API call or helper mapping. | No — can use printer_id as display initially |
 | 6 | Search: `input_text` vs API-side FTS | `GET /search?q=...` provides full-text search. Worth using for large datasets instead of Jinja2 string matching. | No — Jinja2 `in` operator is sufficient for <500 items |
@@ -909,7 +1210,7 @@ cards:
 This feature can be added incrementally within the existing print_history package:
 
 ### Phase A: Data Layer (REST command + trigger template sensor)
-- Create `bambuddy_fetch_slim_archives` REST command
+- Create `bambuddy_fetch_archives` REST command
 - Create `print_history_archives` trigger-based template sensor
 - Verify data fetch and attribute storage
 - Add recorder exclusion

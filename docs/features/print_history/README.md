@@ -25,7 +25,6 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover photo
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
-│   ├── bambuddy_add_archive_tags.yaml             # POST /archives/{id}/tags
 │   ├── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
 │   └── bambuddy_query_history_page.yaml           # GET /archives — offset-based pagination
 ├── rest_sensors/
@@ -107,7 +106,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{photo_id}` | Delete a photo from archive (photo review) |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Set cover photo for archive thumbnail (photo review) |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
-| `rest_command.bambuddy_add_archive_tags` | POST | `/api/v1/archives/{id}/tags` | Add tags to an archive |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_query_history_page` | GET | `/api/v1/archives/?limit=N&offset=N` | Offset-based history pagination |
 
@@ -175,12 +173,20 @@ For detailed design of the two major subsystems, see:
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
 - **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
+- **[filter-sort-design.md](filter-sort-design.md)** — Server-backed archive browsing with projected full-archive fields, filters, and pagination
+- **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
+- **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
+- **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only
+- **[archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)** — Design-only phased implementation plan for detection and recovery orchestration
+- **[archive-recovery-n8n-design.md](archive-recovery-n8n-design.md)** — Recommended `n8n` workflow design for manual and future automated recovery
+- **[archive-exception-ux-design.md](archive-exception-ux-design.md)** — Dashboard and interaction design for incomplete archive visibility
+- **[archive-detection-execution-checklist.md](archive-detection-execution-checklist.md)** — Task-level execution checklist before implementation
 
 ## Migration Notes
 
 ### Sources (from `bambuddy/`)
 - **REST sensor**: `bambuddy_print_history` from `bambuddy/sensors.yaml`
-- **REST commands**: `bambuddy_update_archive_status` → `bambuddy_update_archive` (generalized to support notes+tags+name), `bambuddy_add_archive_tags` kept as-is
+- **REST commands**: `bambuddy_update_archive_status` → `bambuddy_update_archive` (generalized to support notes+tags+name)
 - **Template sensors**: 4 "last print" sensors from `bambuddy/sensors.yaml` (converted to modern `template:` format)
 - **Dashboard cards**: `bambuddy/dashboards/print_history.yaml` → `dashboard_cards/`
 - **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_fetch_enabled`, `bambuddy_history_limit` from `bambuddy/helpers.yaml`
@@ -203,6 +209,15 @@ For detailed design of the two major subsystems, see:
 - Wired into main dashboard via `common/dashboards/3d_printing.yaml` views list
 
 ## Known Limitations
+
+## Near-Term Follow-Ons
+
+These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
+
+- **Filter/sort browser** — See [filter-sort-design.md](filter-sort-design.md). This is the strongest UX improvement for larger archive histories.
+- **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable, but depends on multipart upload and more media-state handling.
+- **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
+- **Reprint preflight** — See [advanced-features-design.md](advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
 
 ### Thumbnail Images Require Local Network Access
 

@@ -116,6 +116,14 @@ Displays printing statistics:
 ## Related
 
 - [printer_maintenance](../printer_maintenance/README.md) — Uses statistics data for maintenance health scoring (depends on this package for `sensor.bambuddy_statistics`)
+- [advanced-features-design.md](advanced-features-design.md) — Rolling exception windows, energy analytics, and per-printer efficiency follow-ons
+
+## Scope Decision After API Review
+
+The current stats endpoint already returns more operational value than the original core plan used.
+
+- **Promote into near-core Phase 4**: expose `total_energy_kwh`, `total_energy_cost`, `prints_by_printer`, and `time_accuracy_by_printer` in the base dashboard/templates. These are read-only and come from the same API response.
+- **Keep as advanced**: rolling-window anomaly sensors that require extra date-window REST calls and failure-analysis correlation.
 
 ## Open Items
 
@@ -124,5 +132,5 @@ Displays printing statistics:
 | 1 | **Endpoint URL must be `/api/v1/archives/stats`** — NOT `/api/v1/statistics`. No trailing slash needed. | REST sensor URL | **Yes — wrong URL will 404** |
 | 2 | **`prints_this_week` not in API** — `ArchiveStats` has no time-windowed counts. Options: drop sensor, add 2nd REST call with `date_from`, or use `/archives/slim` count. | Template sensor redesign | No — design decision |
 | 3 | **Several attributes renamed or missing** — `total_filament_used_grams` → `total_filament_grams`; `cancelled_prints` → `stopped_prints`; `success_rate_percent` must be computed; `avg_print_time_hours`, `most_used_filament`, `top_models` not in API. | Template sensor sources | No — template math |
-| 4 | **New stats available** — `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, `prints_by_printer` could enhance the dashboard significantly. | Dashboard enrichment opportunity | No — enhancement |
+| 4 | **New stats available** — `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, `prints_by_printer` should feed the base Phase 4 dashboard where practical. | Recommended scope expansion | No — same endpoint, low-risk |
 | 5 | **Date-filtered queries** — `date_from` and `date_to` (YYYY-MM-DD) are optional params on `/archives/stats`. Could power "this month" / "this week" dashboard widgets via separate REST sensors. | Future dashboard widgets | No — enhancement |

@@ -207,6 +207,17 @@ Full maintenance dashboard view assembling all 3 cards plus a link to Bambuddy's
 
 > **Note**: `view_maintenance.yaml` must be registered in `common/dashboards/_dashboards.yaml`.
 
+## Advanced Design
+
+- [advanced-features-design.md](advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
+
+## Scope Decision After API Review
+
+The live maintenance API supports a bit more low-risk value than the original base plan assumed.
+
+- **Promote into near-core Phase 5**: add read-only fleet summary data from `/maintenance/summary` or `/maintenance/overview` so the package can surface cross-printer due counts without waiting for later phases.
+- **Keep as advanced**: policy tuning writes, defaults recovery, history drilldown, and custom maintenance-type creation. Those are useful, but they add more admin surface area and confirmation requirements.
+
 ## Dependencies
 
 ### Feature Dependencies

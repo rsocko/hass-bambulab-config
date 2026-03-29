@@ -91,6 +91,17 @@ Displays the current print queue:
 - Empty state message when queue is empty
 - Link to manage queue in Bambuddy's web UI
 
+## Advanced Design
+
+- [advanced-features-design.md](advanced-features-design.md) — queue lifecycle controls, camera-gated auto-start, reprint flows, and fleet-aware queue behavior
+
+## Scope Decision After API Review
+
+The live OpenAPI review changed the recommendation for this package:
+
+- **Promote into near-core Phase 3**: queue lifecycle commands for `start`, `stop`, `cancel`, item `PATCH`, `reorder`, and `bulk` updates. The queue card is materially underpowered without them.
+- **Keep as advanced**: plate-clear verified auto-start and reprint preflight. Both are high-value, but they depend on camera calibration and print-history context.
+
 ## Dependencies
 
 ### Feature Dependencies
@@ -112,4 +123,4 @@ Displays the current print queue:
 |---|---|---|
 | 1 | Rewrite REST sensor to handle flat array response (`value_json \| count` for state) | Blocking for Phase 3 implementation |
 | 2 | Rewrite `bambuddy_queue_add` REST command body to use `PrintQueueItemCreate` schema | Blocking for queue add functionality |
-| 3 | Additional queue endpoints available: cancel, stop, start, reorder, bulk update — consider adding REST commands | Non-blocking enhancement |
+| 3 | Additional queue endpoints available: cancel, stop, start, reorder, bulk update — **recommended for Phase 3 core scope**, not long-tail enhancement | High-value scope adjustment |

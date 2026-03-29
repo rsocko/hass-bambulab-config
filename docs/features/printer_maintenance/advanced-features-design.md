@@ -3,6 +3,8 @@
 > Based on full Bambuddy maintenance API: [`maintenance.py`](https://github.com/maziggy/bambuddy/blob/main/backend/app/api/routes/maintenance.py)
 > Cross-references printer status API (`runtime_seconds`, `nozzles`, AMS humidity), archive stats API, and printer control API (calibration).
 > Builds on the core maintenance package defined in [README.md](README.md).
+>
+> **OpenAPI cross-check**: Re-validated against the live spec at `http://bambuddy.socko.us/openapi.json` on 2026-03-29.
 
 ---
 
@@ -544,6 +546,84 @@ run_post_maintenance_calibration:
                 vibration: true
                 motor_noise: true
 ```
+
+---
+
+## Phase 5.5a: Maintenance Policy Tuning & Defaults Recovery
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `PATCH` | `/maintenance/items/{item_id}` | Change interval, interval type, enabled state |
+| `DELETE` | `/maintenance/items/{item_id}` | Remove a maintenance item from a printer |
+| `PATCH` | `/maintenance/types/{type_id}` | Update a custom type |
+| `DELETE` | `/maintenance/types/{type_id}` | Delete or soft-delete a type |
+| `POST` | `/maintenance/types/restore-defaults` | Restore the built-in default task set |
+
+### Feature Scope
+
+**Maintenance admin from HA** — Allow careful tuning of maintenance policy from HA without having to open Bambuddy for every interval or enable/disable adjustment.
+
+**Use cases:**
+1. **Per-printer interval override** — Lengthen or shorten a task interval for a specific printer or nozzle setup.
+2. **Temporary disable** — Disable a task during a hardware experiment, then re-enable it later.
+3. **Defaults recovery** — Restore the stock Bambuddy maintenance types after aggressive customizations.
+
+### Implementation
+
+**Scripts**:
+- `bambuddy_update_maintenance_item`
+- `bambuddy_remove_maintenance_item`
+- `bambuddy_restore_default_maintenance_types`
+
+**Dashboard integration**:
+- Add an admin-only maintenance policy card with guarded buttons and confirmation dialogs.
+
+### Phase & Dependencies
+
+- **Phase**: 5.5a (after core maintenance status + mark-complete flow)
+- **Depends on**: printer_maintenance core, confirmation UX for writes
+- **Package**: printer_maintenance
+- **Effort**: Medium
+- **Value**: Medium — admin heavy, but valuable for evolving printer fleets
+
+---
+
+## Phase 5.5b: Wiki-Guided Exception Views
+
+### Data Sources
+
+From `MaintenanceStatus` / `PrinterMaintenanceOverview`:
+- `maintenance_type_wiki_url`
+- `due_count`, `warning_count`, overdue timing fields, and task descriptions
+
+### Feature Scope
+
+**Actionable maintenance alerts** — Make overdue tasks more self-explanatory by linking straight to remediation guidance.
+
+**Use cases:**
+1. **Help link in overdue card** — `Clean Nozzle/Hotend due` with a direct wiki link.
+2. **Exception view for repeated overdue tasks** — Highlight tasks that have remained overdue across multiple refresh cycles.
+3. **Maintenance popup drilldown** — Open a detail card with interval, last performed date, notes, and wiki link.
+
+### Implementation
+
+**Template sensor**:
+- `sensor.bambuddy_overdue_maintenance_exceptions`
+  - state: count of overdue tasks past a configured grace period
+  - attributes: task name, printer, wiki URL, hours overdue
+
+**Dashboard integration**:
+- Add clickable wiki/help buttons to the maintenance catalog card and alert section.
+
+### Phase & Dependencies
+
+- **Phase**: 5.5b
+- **Depends on**: printer_maintenance core
+- **Package**: printer_maintenance
+- **Effort**: Low
+- **Value**: Medium-High — improves follow-through on maintenance alerts
 
 ---
 

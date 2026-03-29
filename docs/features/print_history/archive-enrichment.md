@@ -355,7 +355,7 @@ The enrichment automation should be safe to run multiple times for the same arch
 - **Notes**: PATCH replaces the notes field entirely, so re-running produces identical output
 - **Lifecycle**: `input_text.bambuddy_current_archive_id` is cleared after enrichment, so the automation naturally won't re-trigger for the same print cycle
 
-> **Open Item**: Verify that `POST /archives/{id}/tags` deduplicates or appends. If it appends unconditionally, the enrichment should either check existing tags first or accept that retries may add duplicate tags.
+> **Open Item**: Verify whether Bambuddy deduplicates repeated tag values inside the PATCH `tags` string automatically. If not, enrichment should normalize/merge tags before sending the update.
 
 ## Error Path Enrichment
 

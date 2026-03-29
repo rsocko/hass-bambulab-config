@@ -134,8 +134,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover_photo_id
-│   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} for tags/notes enrichment
-│   └── bambuddy_add_archive_tags.yaml             # POST /archives/{id}/tags
+│   └── bambuddy_update_archive.yaml               # PATCH /archives/{id} for tags/notes enrichment
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/
@@ -255,6 +254,39 @@ docs/features/
     └── README.md
 ```
 
+## Additional Advanced Scenarios Worth Keeping on the Backlog
+
+These are not required for the core 5-package migration, but the live Bambuddy OpenAPI surface makes them realistic follow-on phases once the base packages are stable.
+
+### `print_history/`
+
+- **Timelapse lifecycle** — Beyond auto-scan, Bambuddy supports timelapse info, thumbnail browsing, manual select/upload, delete, and post-processing. This enables a dedicated media-review view for missing or bad timelapses.
+- **Archive repair + capability diagnostics** — `rescan`, `rescan-all`, `backfill-hashes`, and `capabilities` endpoints can power an exception dashboard for archives missing source files, previews, hashes, or timelapses.
+- **Search + saved views** — `GET /archives/search` gives proper full-text search across print name, filename, tags, notes, designer, and material. This is stronger than local filter-only history browsing.
+- **Reprint preflight** — `filament-requirements`, `plates`, `plate-thumbnail`, and `reprint` support a confirmation-driven “reprint from HA” flow when AMS mapping and plate selection are available.
+- **Project/source drilldown** — `project-page`, `source`, `f3d`, `gcode`, and `qrcode` endpoints could support an archive detail popup for richer troubleshooting and provenance.
+
+### `print_queue/`
+
+- **Queue lifecycle control** — The queue API supports `start`, `stop`, `cancel`, per-item `PATCH`, bulk updates, and reorder. HA can expose a control surface, not just a passive queue card.
+- **Plate-clear verified auto-start** — Bambuddy camera endpoints support `check-plate` plus plate-detection calibration/reference management. This could gate auto-start of the next queued job on a verified empty plate.
+- **Model-based / fleet-aware queue views** — Queue items can target a printer model instead of a specific printer. HA can surface “Any X1C” style queue intent and printer readiness.
+
+### `print_statistics/`
+
+- **Energy + efficiency analytics** — `archives/stats` includes `total_energy_kwh`, `total_energy_cost`, `prints_by_printer`, and `time_accuracy_by_printer`, which opens up operational efficiency dashboards.
+- **Rolling exception windows** — Date-filtered stats calls can power 7-day and 30-day sensors for rising failure rate, stopped-print spikes, no-output alerts, and recent energy/cost changes.
+
+### `printer_maintenance/`
+
+- **Fleet summary dashboard** — `maintenance/summary` and `maintenance/overview` support cross-printer due/warning rollups and “worst printer first” views.
+- **Maintenance policy tuning from HA** — `PATCH /maintenance/items/{item_id}` and `restore-defaults` allow per-printer interval tuning, temporary disable/enable, and recovery from experimental customizations.
+- **Wiki-guided exception views** — `maintenance_type_wiki_url` can be surfaced directly in overdue cards so the user can jump from alert to remediation steps.
+
+### `bambuddy_common/`
+
+- **Server health/version sensor** — `updates/version`, `updates/check`, and `updates/status` could provide a lightweight “Bambuddy update available” diagnostic sensor.
+
 ## Conversion Reference
 
 Same as previous plan version — see helpers (strip domain wrapper), template sensors (modern format), REST sensors (individual list-item files), REST commands (individual named files), automations (list-item format).
@@ -278,12 +310,12 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
 10. Create directory tree (automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views)
 11. Create `print_history_loader.yaml`
 12. **REST sensor**: Extract `bambuddy_print_history_sensor.yaml` (read-only, page 1)
-13. **REST commands**: Create `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), and `bambuddy_add_archive_tags.yaml` (POST tags)
+13. **REST commands**: Create `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), and `bambuddy_update_archive.yaml` (PATCH tags/notes/cost/favorite)
 14. **Archive ID capture automation** (`bambuddy_capture_archive_id.yaml`):
     - Triggers on `bambuddy_webhook_event` where event == `print_started`
     - Extracts `archive_id` from `trigger.event.data.data.archive_id`
     - Stores in `input_text.bambuddy_current_archive_id`
-    - Fallback: if archive_id not in payload, queries `GET /archives?printer_id=X&sort=-created_at&limit=1` and matches by filename vs current `sensor.*_task_name`
+    - Fallback: if archive_id not in payload, queries `GET /archives/?printer_id=X&limit=1` and matches by filename vs current `sensor.*_task_name`
 15. **Photo capture automation** (`bambuddy_capture_print_photos.yaml`):
     - Multiple triggers:
       a. Print status → `running` (after configurable delay) — "start" photo
@@ -303,7 +335,7 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
     - If `input_text.bambuddy_current_archive_id` is set → uploads to Bambuddy via `rest_command.bambuddy_upload_photo_to_archive`
     - If archive_id not yet known → calls `script.resolve_current_archive_id` first, then uploads
 18. **Archive ID fallback script** (`resolve_current_archive_id.yaml`):
-    - Queries `GET /archives?printer_id=X&sort=-created_at&limit=1`
+    - Queries `GET /archives/?printer_id=X&limit=1`
     - Compares returned archive filename with current `sensor.*_task_name`
     - If match → stores archive_id in `input_text.bambuddy_current_archive_id`
     - If no match → logs warning, skips upload (local photo still saved)
@@ -312,8 +344,7 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
     - Reads Spoolman data: `sensor.spoolman_tray_map` attributes (spool_id, filament vendor/name/color per tray)
     - Reads print cost: `sensor.print_cost`
     - Reads per-tray weight: `sensor.*_print_weight` attributes
-    - Calls `rest_command.bambuddy_add_archive_tags` with tags: `spoolman:{spool_id}`, `vendor:{name}`, `cost:${amount}`
-    - Calls `rest_command.bambuddy_update_archive` with notes: structured per-tray breakdown
+    - Calls `rest_command.bambuddy_update_archive` with merged tags (`spoolman:{spool_id}`, `vendor:{name}`, `material:{type}`, `cost:${amount}`) and structured notes
     - Clears `input_text.bambuddy_current_archive_id` (print cycle complete)
 20. **History refresh automation**: triggers on webhook print_complete/print_failed → refreshes REST sensor
 21. **Pagination scripts**: `load_history_page.yaml`, `navigate_history.yaml` (offset-based)
@@ -380,7 +411,7 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
 ### Source (to decompose/eliminate)
 - `bambuddy/helpers.yaml` — split shared helpers
 - `bambuddy/sensors.yaml` — extract REST sensors + convert template sensors
-- `bambuddy/rest_commands.yaml` — extract per-command files; ELIMINATE create_archive (Bambuddy auto-creates at completion); KEEP update_archive, add_tags
+- `bambuddy/rest_commands.yaml` — extract per-command files; ELIMINATE create_archive (Bambuddy auto-creates at completion); KEEP update_archive
 - `bambuddy/automations/sync_print_history.yaml` — ELIMINATE (Bambuddy auto-archives; HA no longer creates archives)
 - `bambuddy/automations/update_archive_on_complete.yaml` — REPLACE with enrichment automation (resolve_archive_and_upload script)
 - `bambuddy/automations/webhook_handler.yaml` — REPLACE with event-based receiver + per-package listeners
@@ -399,10 +430,11 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
 
 ## Further Considerations
 
-1. **Bambuddy maintenance API**: The wiki documents the feature fully but the REST API reference doesn't list explicit maintenance endpoints. Need to test `/api/v1/printers/{id}/maintenance` or similar. The built-in API browser can discover the actual endpoints.
+1. **Bambuddy maintenance API**: Confirmed in the live OpenAPI spec. Use `GET /api/v1/maintenance/printers/{printer_id}`, `GET /api/v1/maintenance/overview`, `GET /api/v1/maintenance/summary`, and `POST /api/v1/maintenance/items/{item_id}/perform`.
 2. **Photo upload content type**: `POST /archives/{id}/photos` likely expects `multipart/form-data` with a file upload. This may require `shell_command` (curl) rather than `rest_command` (which doesn't support file uploads natively). Design should include both paths with curl fallback.
 3. **Two webhook formats**: Bambuddy docs show two different webhook payload formats: (a) Notifications webhook (human-readable, flat, no archive_id) used by notification providers, and (b) API webhook (structured with `data` object containing `archive_id`). The webhook receiver should handle both formats gracefully. HA should be configured as a "Webhook (Custom)" provider in Bambuddy — need to confirm which format that uses. The API Reference shows `archive_id` but the Notifications > Webhook (Custom) section shows the flat format. May need to test both.
-4. **print_started webhook archive_id**: The API Reference example shows `archive_id` for `print_complete`. Need to verify `print_started` also includes `archive_id` — likely yes since archive exists from start, but should verify via the API browser or testing.
+4. **print_started webhook archive_id**: The API docs still need a live verification that `print_started` carries `archive_id` in the same way `print_complete` does. Keep the fallback lookup path even if tests confirm it.
 5. **Maintenance view registration**: `view_maintenance.yaml` and `view_print_history.yaml` must be added to `common/dashboards/_dashboards.yaml`.
 6. **Enrichment idempotency**: `bambuddy_enrich_archive_on_complete` should be idempotent — PATCHing tags/notes twice for the same archive shouldn't create duplicates.
 7. **Bambuddy webhook image field**: Bambuddy webhook payloads can include a base64-encoded JPEG `image` field for certain events (First Layer Complete, Print Started, Print Completed). This is separate from HA's own camera capture and could be decoded+saved locally as bonus data.
+8. **Timelapse/media follow-on**: The archive API now exposes a full timelapse lifecycle (`scan`, `select`, `upload`, `process`, `info`, `thumbnails`) plus archive repair endpoints (`rescan`, `rescan-all`, `backfill-hashes`). These should stay out of core migration scope but are strong Phase 2.x candidates.

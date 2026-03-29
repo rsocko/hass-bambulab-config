@@ -25,6 +25,12 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | [photo-capture-design.md](../features/print_history/photo-capture-design.md) | print_history | Multi-camera, multi-stage capture flow |
 | [archive-enrichment.md](../features/print_history/archive-enrichment.md) | print_history | Spoolman → Bambuddy tag/notes pipeline |
 | [photo-review-design.md](../features/print_history/photo-review-design.md) | print_history | Post-print photo curation (remove/replace/cover) |
+| [archive-detection-recovery-design.md](../features/print_history/archive-detection-recovery-design.md) | print_history | Detect incomplete Bambuddy archives and define no-code-change repair options |
+| [archive-detection-phase1-scope.md](../features/print_history/archive-detection-phase1-scope.md) | print_history | Collapsed recommended first build slice: detection and visibility only |
+| [archive-detection-implementation-plan.md](../features/print_history/archive-detection-implementation-plan.md) | print_history | Design-only phased plan for HA detection, exception UX, and future recovery orchestration |
+| [archive-recovery-n8n-design.md](../features/print_history/archive-recovery-n8n-design.md) | print_history | `n8n` recovery workflow contract, retry policy, and outcome model |
+| [archive-exception-ux-design.md](../features/print_history/archive-exception-ux-design.md) | print_history | UX design for row markers, exception card, and status chip |
+| [archive-detection-execution-checklist.md](../features/print_history/archive-detection-execution-checklist.md) | print_history | Design-to-build execution checklist for phased delivery |
 
 ---
 
@@ -52,12 +58,12 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 10 | Create directory tree | **Done** | automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views |
 | 11 | Create `print_history_loader.yaml` | **Done** | 9 domain includes (added input_number, input_select) |
 | 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | **Done** | Read-only, page 1 |
-| 13 | REST commands: `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), `bambuddy_add_archive_tags.yaml` (POST tags), `bambuddy_query_recent_archive.yaml` (GET fallback), `bambuddy_query_history_page.yaml` (GET pagination) | **Done** | 7 REST commands total |
+| 13 | REST commands: `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), `bambuddy_query_recent_archive.yaml` (GET fallback), `bambuddy_query_history_page.yaml` (GET pagination) | **Done** | 6 REST commands total |
 | 14 | Archive ID capture automation | **Done** | Triggers on `print_started` webhook; stores archive_id; fallback query; snapshots tray map; resets manifest |
 | 15 | Photo capture automation | **Done** | Multi-trigger: start (3min delay), mid, near-complete, finish — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → upload; manifest tracking |
-| 18 | Archive ID fallback script | **Done** | `GET /archives?printer_id=X&sort=-created_at&limit=1` + filename match |
+| 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
 | 19 | Enrichment automation | **Done** | Spoolman tags + notes via PATCH; tray map snapshot; cost data; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook print_complete/print_failed/print_stopped → 5s delay → refresh REST sensor |
 | 21 | Pagination scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml` |
@@ -78,9 +84,9 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 |------|------------|--------|-------|
 | 27 | Create directory tree + loader | Not started | |
 | 28 | Webhook listener for `queue_ready` | Not started | |
-| 29 | Extract 2 queue REST commands | Not started | |
+| 29 | Extract queue REST commands, including lifecycle controls (`add`, `remove`, `start`, `stop`, `cancel`, `update`, `reorder`, `bulk`) | Not started | Promoted into near-core scope after API review |
 | 30 | Extract queue REST sensor + `queue_count` template sensor | Not started | |
-| 31 | Move queue dashboard card | Not started | |
+| 31 | Move queue dashboard card and add actionable lifecycle affordances | Not started | Start/stop/cancel/manual-start visibility should be in the base queue UX |
 | 32 | Wire loader, create docs | Not started | |
 
 ## Phase 4: `print_statistics`
@@ -91,9 +97,9 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 |------|------------|--------|-------|
 | 33 | Create directory tree + loader | Not started | |
 | 34 | Webhook listener for stats refresh | Not started | |
-| 35 | Extract statistics REST sensor | Not started | |
-| 36 | Convert 4 template sensors | Not started | |
-| 37 | Move statistics dashboard card | Not started | |
+| 35 | Extract statistics REST sensor | Not started | `/archives/stats` is the single core source for both base KPIs and richer efficiency metrics |
+| 36 | Convert template sensors, including success rate plus energy/time-accuracy derivatives | Not started | Promoted into near-core scope after API review |
+| 37 | Move statistics dashboard card and expose richer operational metrics | Not started | Include energy and per-printer efficiency where the current payload already supports it |
 | 38 | Wire loader, create docs | Not started | |
 
 ## Phase 5: `printer_maintenance`
@@ -106,11 +112,11 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 40 | Create `printer_maintenance_loader.yaml` | Not started | | |
 | 41 | REST sensor: maintenance status per printer | Not started | | `GET /api/v1/maintenance/printers/{printer_id}` → `PrinterMaintenanceOverview` |
 | 42 | REST command: mark task complete | Not started | | `POST /api/v1/maintenance/items/{item_id}/perform` with optional `{"notes": "..."}` |
-| 43 | Template sensors: due_count, due_list, health_score | Not started | | Derived from REST sensor |
+| 43 | Template sensors: due_count, due_list, health_score, fleet summary rollups | Not started | | Include cross-printer summary from `/maintenance/summary` or `/maintenance/overview` |
 | 44 | Script: complete_maintenance_task | Not started | | Calls REST command → refresh |
 | 45 | Automations: due_alert + webhook refresh | Not started | | |
 | 46 | Helper: maintenance_alerts_enabled boolean | Not started | | |
-| 47 | Dashboard cards (3): due chip, catalog, health | Not started | | |
+| 47 | Dashboard cards (3+): due chip, catalog, health, optional fleet summary section | Not started | | Fleet rollup promoted into near-core scope after API review |
 | 48 | Dashboard view: `view_maintenance.yaml` | Not started | | Register in `_dashboards.yaml` |
 | 49 | Wire loader, create docs | Not started | | |
 
@@ -158,6 +164,30 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 8 | **Dashboard view registration** — `view_print_history.yaml` and `view_maintenance.yaml` must be added to `common/dashboards/3d_printing.yaml` views list. | No | 2, 5 | `view_print_history.yaml` **Done** (added during Phase 2 step 25). Phase 5 still pending. |
 | 9 | **Enrichment idempotency** — PATCHing tags/notes twice shouldn't create duplicates. | No | 2 | Verify Bambuddy behavior during testing |
 | 10 | **Webhook image field** — payload can include base64 JPEG for some events. Could be decoded as bonus data. | No — nice-to-have | 2 | Defer to post-MVP enhancement |
+
+## Recommended Next Backlog
+
+The API review makes the next implementation order clearer than the original tracker implied.
+
+1. **Phase 3 core with lifecycle controls** — Build `print_queue` with `start`, `stop`, `cancel`, `PATCH`, `reorder`, and `bulk` support, not just add/remove. This closes the biggest gap between Bambuddy's queue API and the planned HA surface.
+2. **Phase 4 core plus richer stats surface** — Build `print_statistics` with the current base KPIs plus energy and time-accuracy signals from the same `/archives/stats` response.
+3. **Phase 5 core plus fleet summary read path** — Build `printer_maintenance` around per-printer status and task completion, but also include cross-printer due/warning rollups from `/maintenance/summary` or `/maintenance/overview`.
+4. **Phase 2 follow-on browser work** — After Phases 3–5 are wired, return to `print_history` for filter/sort browsing and then selective advanced history/media workflows.
+
+## Scope Adjustments After API Review
+
+### Promote Into Near-Core Scope
+
+- **`print_queue` lifecycle controls** — `start`, `stop`, `cancel`, `PATCH`, `reorder`, `bulk`.
+- **`print_statistics` energy and efficiency metrics** — `total_energy_kwh`, `total_energy_cost`, `prints_by_printer`, `time_accuracy_by_printer`.
+- **`printer_maintenance` fleet summary reads** — `/maintenance/summary` and/or `/maintenance/overview`.
+
+### Keep As Advanced / Backlog
+
+- **`print_history` timelapse lifecycle, repair diagnostics, and reprint preflight** — high value, but depends on multipart media flows, admin actions, or queue context.
+- **`print_queue` plate-clear verified auto-start** — needs camera calibration/reference management.
+- **`print_statistics` rolling-window anomaly sensors** — needs additional date-window REST calls and more tuning.
+- **`printer_maintenance` policy tuning, defaults recovery, and custom type creation** — useful admin flows, but not required for the base read/surface/react package split.
 
 ## Key Design Decisions
 

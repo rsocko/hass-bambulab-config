@@ -3,6 +3,8 @@
 > Based on full archive API catalog: [bambuddy-archive-api-catalog.md](../bambuddy_common/bambuddy-archive-api-catalog.md)
 
 > **Integration point**: Advanced features add scripts/REST commands to `print_history/scripts/` and `print_history/rest_commands/`. Dashboard additions go in `print_history/dashboard_cards/` and are included from `print_history/dashboard_views/view_print_history.yaml`. Photo review scripts and popup are tracked separately in [photo-review-design.md](photo-review-design.md).
+>
+> **OpenAPI cross-check**: Re-validated against the live spec at `http://bambuddy.socko.us/openapi.json` on 2026-03-29. The scenarios below only use endpoints confirmed in the current API.
 
 ## Phase 2.1: Favorites from Home Assistant
 
@@ -86,6 +88,18 @@ REST sensor polling `GET /archives/tags` — state is total unique tag count, at
 
 ## Future Features (Unphased)
 
+### Archive Detection And Recovery
+
+Detailed design is tracked in [archive-detection-recovery-design.md](archive-detection-recovery-design.md).
+
+Summary:
+
+- Detect fallback archives created with missing `.3mf` data
+- Surface incomplete records directly in print history and exception views
+- Optionally trigger an external recovery worker that re-pulls the `.3mf` from the printer and re-uploads it to Bambuddy as a new canonical archive
+
+This is the best available path without changing Bambuddy itself, because current Bambuddy APIs can inspect, rescan, upload, and attach source files, but do not support in-place repair of a fallback archive whose main `file_path` was never created.
+
 ### Reprint from HA
 
 `POST /archives/{id}/reprint` dispatches a 3MF to the printer with AMS mapping, plate selection, bed leveling, and calibration options. Complex because it needs AMS mapping UI and unattended reprint safety considerations. Best surfaced as a dashboard button with confirmation. Blocked until `spoolman_tray_map` can auto-generate the `ams_mapping` body from current tray state.
@@ -102,6 +116,9 @@ REST sensor polling `GET /archives/tags` — state is total unique tag count, at
 |---------|-------|--------|-------|
 | Favorites toggle | 2.1 | Low | Medium — quick win, useful UX |
 | Timelapse auto-attach | 2 (enrichment) | Low | High — automates manual step |
+| Archive detection + recovery workflow | 2.05 | Medium | Very High — catches and manages broken history records |
+| Timelapse lifecycle management | 2.9 | Medium | High — exception handling + richer media review |
+| Archive repair diagnostics | 2.10 | Medium | High — repair missing assets and expose archive health |
 | Failure analysis sensor | 3.1 (statistics) | Medium | High — surfaced in dashboard |
 | Tag audit sensor | 2 (common/diagnostic) | Low | Medium — enrichment verification |
 | Compare on failure | 2.2 | Medium | Medium — debugging prints |
@@ -112,6 +129,7 @@ REST sensor polling `GET /archives/tags` — state is total unique tag count, at
 | Rich print notifications | 2.7 | Low | Medium — better notification content |
 | Spool usage provenance | 2.8 | Low | Medium — "what did this spool print?" |
 | Reprint from HA | Future | High | Medium — safety concerns |
+| Archive detail drilldown | Future | Medium | Medium — support and provenance UX |
 | Search from HA | Future | Medium | Low — Bambuddy UI is better |
 
 ---
@@ -448,3 +466,101 @@ From the Bambuddy search API:
 - **Package**: print_history (cross-feature with filament_catalog)
 - **Effort**: Low — one script, one REST call, dashboard badge
 - **Value**: Medium — bridges Spoolman↔Bambuddy data, closes the loop
+
+---
+
+## Phase 2.9: Timelapse Lifecycle Management
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/archives/{id}/timelapse` | Retrieve the archive timelapse video |
+| `DELETE` | `/archives/{id}/timelapse` | Remove the attached timelapse |
+| `POST` | `/archives/{id}/timelapse/scan` | Scan for a matching timelapse on the printer/storage |
+| `POST` | `/archives/{id}/timelapse/select` | Attach a discovered timelapse file |
+| `POST` | `/archives/{id}/timelapse/upload` | Upload a timelapse manually |
+| `GET` | `/archives/{id}/timelapse/info` | Get metadata about the attached timelapse |
+| `GET` | `/archives/{id}/timelapse/thumbnails` | Browse thumbnail frames for review |
+| `POST` | `/archives/{id}/timelapse/process` | Post-process trim/speed/overlay workflows |
+
+### Feature Scope
+
+**Timelapse review** — Extend the existing photo review concept into a timelapse workflow for post-print media quality control.
+
+**Use cases:**
+1. **Auto-scan on completion** — After `print_complete`, ask Bambuddy to locate the timelapse automatically.
+2. **Missing timelapse exception chip** — If the last print has photos but no timelapse, surface a “media incomplete” chip.
+3. **Manual recover/replace** — If auto-scan misses the file, allow a manual select/upload action from HA.
+4. **Post-process presets** — Offer a “fast timelapse” or “trim start/end” script for favorite showcase prints.
+
+### Implementation
+
+**REST commands**:
+- `bambuddy_scan_timelapse`
+- `bambuddy_get_timelapse_info`
+- `bambuddy_delete_timelapse`
+- `bambuddy_process_timelapse`
+
+**Template sensors**:
+- `sensor.bambuddy_last_print_has_timelapse`
+- `sensor.bambuddy_last_print_timelapse_status`
+
+**Dashboard integration**:
+- Add a conditional media-review section to the history view:
+  - timelapse present → show preview/thumbnail strip
+  - timelapse missing → show `scan now` / `upload manually` actions
+  - timelapse stale/bad → show `reprocess` / `delete + reattach` actions
+
+### Phase & Dependencies
+
+- **Phase**: 2.9 (after photo upload + review basics)
+- **Depends on**: print_history core, photo review design, multipart upload path
+- **Package**: print_history
+- **Effort**: Medium — multiple media endpoints, but strong UX value
+- **Value**: High — complements the photo workflow and makes Bambuddy media more complete from HA
+
+---
+
+## Phase 2.10: Archive Repair & Capability Diagnostics
+
+### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/archives/{id}/rescan` | Re-scan one archive for derived assets/metadata |
+| `POST` | `/archives/rescan-all` | Bulk rescan all archives |
+| `POST` | `/archives/backfill-hashes` | Rebuild missing content hashes |
+| `GET` | `/archives/{id}/capabilities` | Report what assets are available (`has_model`, `has_gcode`, `has_source`, etc.) |
+| `GET` | `/archives/{id}/plates` | Plate list for multi-plate 3MFs |
+| `GET` | `/archives/{id}/filament-requirements` | Filament requirements for preflight/reprint |
+
+### Feature Scope
+
+**Exception views** — Surface archive health problems as actionable diagnostics instead of leaving them buried in Bambuddy.
+
+**Use cases:**
+1. **Missing asset badge** — Flag recent archives with missing source, model preview, timelapse, or hash data.
+2. **Repair scripts** — Trigger single-archive rescan from HA when thumbnails, 3D view data, or timelapse assets are missing.
+3. **Admin maintenance panel** — One protected dashboard section for `rescan-all` and `backfill-hashes` after upgrades or storage migrations.
+4. **Reprint preflight** — Show plate count and filament requirements before allowing a reprint action.
+
+### Implementation
+
+**Scripts**:
+- `bambuddy_rescan_archive`
+- `bambuddy_backfill_archive_hashes`
+- `bambuddy_archive_preflight`
+
+**Template sensor pattern**:
+- `sensor.bambuddy_recent_archive_exceptions`
+  - state: count of recent archives missing one or more expected assets
+  - attributes: list of archive IDs and missing capabilities
+
+### Phase & Dependencies
+
+- **Phase**: 2.10 (after print_history browsing is stable)
+- **Depends on**: print_history core, optional admin dashboard section
+- **Package**: print_history
+- **Effort**: Medium
+- **Value**: High for exception handling, support, and recovery workflows
