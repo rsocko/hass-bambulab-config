@@ -1,0 +1,12 @@
+# Fetch the full archive list for client-side filtering, sorting, and paging.
+# The template sensor projects the response into a trimmed schema before storing it.
+# Docs: docs/features/print_history/filter-sort-design.md
+bambuddy_fetch_archives:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/?limit={{
+      states('input_number.print_history_max_archives') | int(500)
+    }}
+  method: GET
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  content_type: application/json

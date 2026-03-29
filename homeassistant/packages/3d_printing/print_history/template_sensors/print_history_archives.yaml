@@ -1,0 +1,84 @@
+# Trigger-based archive cache for the print history browser.
+# Fetches the full archive list, projects it to a trimmed schema, and stores the
+# result as JSON for Layer 2 filtering and paging.
+# Docs: docs/features/print_history/filter-sort-design.md
+- trigger:
+    - trigger: time_pattern
+      minutes: "/5"
+    - trigger: homeassistant
+      event: start
+    - trigger: event
+      event_type: print_history_refresh_requested
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: print_complete
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: print_failed
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: print_stopped
+  action:
+    - action: rest_command.bambuddy_fetch_archives
+      response_variable: result
+  sensor:
+    - name: Print History Archives
+      unique_id: print_history_archives
+      icon: mdi:database-outline
+      state: >-
+        {% set payload = result.get('content', []) %}
+        {% if payload is string %}
+          {% set raw = payload | from_json %}
+        {% elif payload is iterable %}
+          {% set raw = payload | list %}
+        {% else %}
+          {% set raw = [] %}
+        {% endif %}
+        {{ raw | length }}
+      attributes:
+        archives_json: >-
+          {% set payload = result.get('content', []) %}
+          {% if payload is string %}
+            {% set raw = payload | from_json %}
+          {% elif payload is iterable %}
+            {% set raw = payload | list %}
+          {% else %}
+            {% set raw = [] %}
+          {% endif %}
+          {% set ns = namespace(trimmed=[]) %}
+          {% for a in raw %}
+            {% set extra = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
+            {% set slots = extra.get('filament_slots', []) if extra is mapping else [] %}
+            {% set ns.trimmed = ns.trimmed + [dict(
+              id=a.get('id'),
+              printer_id=a.get('printer_id'),
+              print_name=a.get('print_name', ''),
+              print_time_seconds=a.get('print_time_seconds', 0) | int(0),
+              actual_time_seconds=(a.get('actual_time_seconds') if a.get('actual_time_seconds') is not none else a.get('print_time_seconds', 0)) | int(0),
+              filament_used_grams=a.get('filament_used_grams', 0) | float(0),
+              filament_type=a.get('filament_type', ''),
+              filament_color=a.get('filament_color', ''),
+              filament_slots=slots,
+              status=a.get('status', ''),
+              started_at=a.get('started_at', ''),
+              completed_at=a.get('completed_at'),
+              created_at=a.get('created_at', ''),
+              cost=a.get('cost', 0) | float(0),
+              quantity=a.get('quantity', 1) | int(1),
+              layer_height=(a.get('layer_height') if a.get('layer_height') is not none else ''),
+              total_layers=a.get('total_layers', 0) | int(0),
+              nozzle_diameter=(a.get('nozzle_diameter') if a.get('nozzle_diameter') is not none else ''),
+              designer=a.get('designer', ''),
+              is_favorite=a.get('is_favorite', false),
+              tags=a.get('tags', ''),
+              notes=a.get('notes', ''),
+              failure_reason=a.get('failure_reason', ''),
+              thumbnail_path=a.get('thumbnail_path', '')
+            )] %}
+          {% endfor %}
+          {{ ns.trimmed | tojson }}
+        last_fetch: "{{ now().isoformat() }}"
+        source_status: "{{ result.get('status', 'unknown') }}"

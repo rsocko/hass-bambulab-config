@@ -1,0 +1,6 @@
+print_history_filter_designer:
+  name: Print History Filter Designer
+  icon: mdi:account-outline
+  options:
+    - All
+  initial: All

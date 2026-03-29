@@ -1,6 +1,7 @@
 # Navigate print history: prev/next/first/last.
-# Adjusts the current page and delegates to load_history_page.
-# Docs: docs/features/print_history/README.md
+# Adjusts the current page within the Layer 2 browser bounds and delegates to
+# load_history_page.
+# Docs: docs/features/print_history/filter-sort-design.md
 navigate_history:
   alias: "Navigate History"
   description: >-
@@ -19,25 +20,20 @@ navigate_history:
             - last
   sequence:
     - variables:
-        current: "{{ states('input_number.history_current_page') | int(1) }}"
-        total: "{{ states('sensor.print_history_total_pages') | int(1) }}"
+        current_page: "{{ states('input_number.history_current_page') | int(1) }}"
+        total_pages: "{{ state_attr('sensor.print_history_filtered', 'total_pages') | int(1) }}"
         target_page: >-
           {% if direction == 'first' %}
             1
           {% elif direction == 'last' %}
-            {{ total }}
+            {{ total_pages }}
           {% elif direction == 'next' %}
-            {{ [current + 1, total] | min }}
-          {% elif direction == 'prev' %}
-            {{ [current - 1, 1] | max }}
+            {{ [current_page + 1, total_pages] | min }}
           {% else %}
-            {{ current }}
+            {{ [current_page - 1, 1] | max }}
           {% endif %}
-
-    - condition: template
-      value_template: "{{ target_page | int != current }}"
 
     - action: script.load_history_page
       data:
-        page: "{{ target_page | int }}"
+        page: "{{ target_page | int(1) }}"
   mode: single

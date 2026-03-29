@@ -1,0 +1,8 @@
+print_history_page_size:
+  name: Print History Page Size
+  min: 5
+  max: 50
+  step: 5
+  initial: 10
+  icon: mdi:table-large
+  mode: slider

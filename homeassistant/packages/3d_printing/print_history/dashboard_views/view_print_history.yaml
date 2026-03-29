@@ -1,8 +1,7 @@
 # Print History View — dedicated tab in the 3D Printing dashboard.
 #
-# Layout: 3 sections in a 2-column masonry grid.
-#   Left column:  Section 1 — hero content (review chip + history table + pagination)
-#   Right column: Section 2 — settings, Section 3 — diagnostics
+# Layout: browser-first hero surface with popup-driven controls and lightweight
+# diagnostics in a secondary column.
 #
 # See docs/features/print_history/README.md § Dashboard for the full layout spec.
 title: Print History
@@ -21,40 +20,10 @@ sections:
       # History table + last-print summary
       - !include ../dashboard_cards/print_history.yaml
 
-      # Pagination browser: ⏮ ◀ page info ▶ ⏭ + refresh
+      # Browser toolbar + page navigation + popup settings
       - !include ../dashboard_cards/print_history_browser.yaml
 
-  # ── Section 2: Settings (right column) ─────────────────────────────
-  # Configure-once options: capture stages + history fetch.
-  - type: grid
-    cards:
-      - type: entities
-        title: Photo Capture Settings
-        entities:
-          - entity: input_boolean.capture_at_start
-            name: At Print Start
-          - entity: input_boolean.capture_at_midprint
-            name: At Mid-Print
-          - entity: input_boolean.capture_near_complete
-            name: Near Completion
-          - entity: input_boolean.capture_on_error
-            name: On Error/Failure
-          - type: divider
-          - entity: input_number.midprint_capture_percent
-            name: Mid-Print Threshold
-          - entity: input_text.secondary_camera_entity
-            name: Secondary Camera
-      - type: entities
-        title: History Settings
-        entities:
-          - entity: input_boolean.bambuddy_history_fetch_enabled
-            name: Auto-Fetch History
-          - entity: input_number.bambuddy_history_limit
-            name: Items Per Page
-          - entity: input_number.photo_review_timeout_hours
-            name: Review Timeout (hrs)
-
-  # ── Section 3: Current Print Diagnostics (right column, below settings) ─
+  # ── Section 2: Current Print Diagnostics (right column) ──────────────
   - type: grid
     cards:
       - type: entities
@@ -64,6 +33,10 @@ sections:
             name: Archive ID
           - entity: input_select.bambuddy_photo_review_state
             name: Review State
+          - entity: sensor.print_history_archives
+            name: Cached Archives
+          - entity: sensor.print_history_filtered
+            name: Filtered Matches
           - entity: sensor.bambuddy_last_print_name
             name: Last Print
           - entity: sensor.bambuddy_last_print_status

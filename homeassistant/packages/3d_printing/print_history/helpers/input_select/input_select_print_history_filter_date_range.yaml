@@ -1,0 +1,11 @@
+print_history_filter_date_range:
+  name: Print History Filter Date Range
+  icon: mdi:calendar-range
+  options:
+    - All Time
+    - Today
+    - This Week
+    - This Month
+    - Last 30 Days
+    - Last 90 Days
+  initial: All Time

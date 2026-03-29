@@ -1,13 +1,13 @@
-# Refresh the print history REST sensor when relevant events occur.
-# Also loads page 1 for the dashboard table (trigger-based sensor).
+# Refresh the recent-print REST sensor and the Layer 1 browser archive cache
+# when relevant events occur.
 # Triggers on print_complete, print_failed, print_stopped webhooks
 # and on HA startup.
 # Docs: docs/features/print_history/README.md
 - alias: "Print History - Refresh on Event"
   id: bambuddy_event_history_refresh
   description: >
-    Refreshes the print history REST sensor and loads page 1 for the
-    dashboard table when a print completes, fails, stops, or on HA startup.
+    Refreshes the recent print sensor and archive cache when a print
+    completes, fails, stops, or on HA startup.
 
   triggers:
     - trigger: event
@@ -50,10 +50,12 @@
       target:
         entity_id: sensor.bambuddy_print_history
 
-    # Load page 1 to populate the dashboard table via trigger-based sensor
-    - action: script.load_history_page
+    - action: script.refresh_print_history_archives
+
+    - action: input_number.set_value
       data:
-        page: 1
+        entity_id: input_number.history_current_page
+        value: 1
 
     - action: logbook.log
       data:

@@ -1,0 +1,8 @@
+print_history_max_archives:
+  name: Print History Max Archives
+  min: 50
+  max: 2000
+  step: 50
+  initial: 500
+  icon: mdi:database-cog
+  mode: slider

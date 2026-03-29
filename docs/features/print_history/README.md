@@ -4,7 +4,7 @@
 
 ## Overview
 
-Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), uploads them to Bambuddy archives, and enriches completed archives with Spoolman spool data. Provides paginated history browsing in the HA dashboard.
+Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), uploads them to Bambuddy archives, enriches completed archives with Spoolman spool data, and exposes a popup-driven filter/sort browser in the HA dashboard.
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
@@ -18,9 +18,11 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_enrich_archive_on_complete.yaml   # webhook print_complete/failed → PATCH tags/notes
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped/HMS → immediate capture + upload
-│   ├── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor
-│   └── bambuddy_photo_review_auto_dismiss.yaml    # auto-dismiss review after timeout or next print
+│   ├── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor + archive cache
+│   ├── print_history_sync_filter_options.yaml     # populate dynamic filter options from archive cache
+│   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
+│   ├── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
 │   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover photo
@@ -30,19 +32,15 @@ homeassistant/packages/3d_printing/print_history/
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/
-│   ├── load_history_page.yaml                     # fetch specific page (offset-based)
-│   ├── navigate_history.yaml                      # prev/next/first/last
+│   ├── load_history_page.yaml                     # set current browser page
+│   ├── navigate_history.yaml                      # prev/next/first/last within Layer 2 totals
 │   ├── capture_and_upload_snapshot.yaml            # multi-camera snapshot → save + upload
 │   ├── resolve_current_archive_id.yaml            # fallback: query API → match filename
-│   ├── review_delete_photo.yaml                   # delete photo from Bambuddy + local + manifest
-│   ├── review_replace_photo.yaml                  # capture new → upload → delete old → update manifest
-│   ├── review_set_cover.yaml                      # set photo as archive cover thumbnail
-│   └── review_dismiss.yaml                        # accept all, set review state → idle
+│   ├── refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
+│   └── clear_print_history_filters.yaml           # reset browser controls to defaults
 ├── template_sensors/
-│   ├── bambuddy_last_print_name.yaml
-│   ├── bambuddy_last_print_status.yaml
-│   ├── bambuddy_last_print_duration.yaml
-│   ├── bambuddy_last_print_image_url.yaml
+│   ├── print_history_archives.yaml                # Layer 1 bulk archive cache + field projection
+│   ├── print_history_filtered.yaml                # Layer 2 filter/sort/page output
 │   ├── print_history_total_pages.yaml
 │   └── print_history_page_info.yaml
 ├── helpers/
@@ -51,6 +49,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_text_bambuddy_photo_manifest.yaml
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
 │   │   ├── input_text_history_page_data.yaml
+│   │   ├── input_text_print_history_search.yaml
 │   │   └── input_text_secondary_camera_entity.yaml
 │   ├── input_boolean/
 │   │   ├── input_boolean_bambuddy_history_fetch_enabled.yaml
@@ -62,12 +61,17 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_number_bambuddy_history_limit.yaml
 │   │   ├── input_number_history_current_page.yaml
 │   │   ├── input_number_midprint_capture_percent.yaml
+│   │   ├── input_number_print_history_page_size.yaml
+│   │   ├── input_number_print_history_max_archives.yaml
 │   │   └── input_number_photo_review_timeout_hours.yaml
 │   └── input_select/
-│       └── input_select_bambuddy_photo_review_state.yaml
+│       ├── input_select_bambuddy_photo_review_state.yaml
+│       ├── input_select_print_history_filter_*.yaml
+│       ├── input_select_print_history_sort.yaml
+│       └── input_select_print_history_card_variant.yaml
 ├── dashboard_cards/
-│   ├── print_history.yaml
-│   ├── print_history_browser.yaml
+│   ├── print_history.yaml                         # variant-aware archive renderer
+│   ├── print_history_browser.yaml                 # toolbar + popups + pagination
 │   └── photo_review_chip.yaml                     # conditional chip → opens review popup
 └── dashboard_views/
     └── view_print_history.yaml
@@ -108,17 +112,20 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_query_history_page` | GET | `/api/v1/archives/?limit=N&offset=N` | Offset-based history pagination |
+| `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
-### Template Sensors (from REST attributes)
+### Template Sensors
 
 | Entity | Source | Purpose |
 |---|---|---|
+| `sensor.print_history_archives` | Trigger-based template sensor + `rest_command.bambuddy_fetch_archives` | Layer 1 projected archive cache |
+| `sensor.print_history_filtered` | `sensor.print_history_archives` + browser helpers | Layer 2 filtered/sorted/paged browser output |
 | `sensor.bambuddy_last_print_name` | `archives[0].print_name` | Most recent print name |
 | `sensor.bambuddy_last_print_status` | `archives[0].status` | Most recent print result |
 | `sensor.bambuddy_last_print_duration` | `archives[0].actual_time_seconds` | Most recent print time (hours) |
 | `sensor.bambuddy_last_print_image_url` | `{base_url}/api/v1/archives/{id}/thumbnail` | Most recent print thumbnail (constructed URL) |
-| `sensor.print_history_total_pages` | Heuristic: if count >= limit → 2 else 1 | Total pages for pagination (no total count in flat array) |
-| `sensor.print_history_page_info` | `current_page / total_pages` | Display string for pagination UI |
+| `sensor.print_history_total_pages` | `sensor.print_history_filtered.total_pages` | Total pages for browser pagination |
+| `sensor.print_history_page_info` | `history_current_page + filtered total_pages` | Display string for pagination UI |
 
 > **OpenAPI note**: The field is `print_name` (not `name`), `actual_time_seconds` (not `duration_seconds`), and thumbnail is accessed via `GET /api/v1/archives/{id}/thumbnail` (unauthenticated). There is no `photo_url` field.
 
@@ -128,6 +135,7 @@ input_select: !include_dir_merge_named helpers/input_select
 |---|---|---|---|
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
 | `input_text.history_page_data` | input_text | JSON storage for current page results | — |
+| `input_text.print_history_search` | input_text | Browser search text | — |
 | `input_text.secondary_camera_entity` | input_text | Configurable secondary camera entity_id | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
 | `input_boolean.bambuddy_history_fetch_enabled` | input_boolean | Enable/disable history REST polling | — |
@@ -137,19 +145,26 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
 | `input_number.history_current_page` | input_number | Current pagination page | — |
+| `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
+| `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | — |
 | `input_number.midprint_capture_percent` | input_number | Progress % for mid-print capture (e.g., 50) | — |
 | `input_number.photo_review_timeout_hours` | input_number | Hours before review auto-dismisses (default: 24) | — |
 | `input_text.bambuddy_photo_manifest` | input_text | JSON manifest of captured photos for current print | No `initial:` |
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
+| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/color/printer/date/favorites/designer/layer) | — |
+| `input_select.print_history_sort` | input_select | Browser sort mode | — |
+| `input_select.print_history_card_variant` | input_select | Compact / Media / Detail renderer selection | — |
 
 ### Scripts
 
 | Script | Purpose |
 |---|---|
-| `script.load_history_page` | Fetch a specific page of archive history (offset-based) |
+| `script.load_history_page` | Set a specific browser page |
 | `script.navigate_history` | Prev/next/first/last navigation, calls `load_history_page` |
 | `script.capture_and_upload_snapshot` | Multi-camera capture + local save + Bambuddy upload |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
+| `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
+| `script.clear_print_history_filters` | Reset browser controls back to defaults |
 | `script.review_delete_photo` | Delete photo from Bambuddy + local file + update manifest |
 | `script.review_replace_photo` | Capture new snapshot, upload, delete old, update manifest |
 | `script.review_set_cover` | Set selected photo as archive cover thumbnail |
@@ -163,8 +178,9 @@ input_select: !include_dir_merge_named helpers/input_select
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed/stopped webhook, HMS error sensor | Error photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_enrich_archive_on_complete` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with Spoolman tags/notes, clear archive_id |
-| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed` | Refresh REST sensor |
-| `bambuddy_photo_review_auto_dismiss` | Timeout elapsed since `pending`, OR next `print_started` event | Set review state → `idle` |
+| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | Refresh REST sensor + Layer 1 archive cache |
+| `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
+| `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ## Key Design Details
 
@@ -214,14 +230,14 @@ For detailed design of the two major subsystems, see:
 
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
-- **Filter/sort browser** — See [filter-sort-design.md](filter-sort-design.md). This is the primary next browser increment for larger archive histories. The planned scope now includes popup-driven page settings, client-side sort/filter controls, and selectable archive card variants so the history view can shift between compact browsing and larger media previews without a separate redesign.
+- **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/detail card layouts.
 - **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable, but depends on multipart upload and more media-state handling.
 - **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
 - **Reprint preflight** — See [advanced-features-design.md](advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
 
-### Planned Browser Evolution
+### Implemented Browser Layer
 
-The next planned iteration of the Print History view extends the current table-driven Phase 2 experience into a configurable browser:
+The Print History view now includes the configurable browser described in the filter/sort design:
 
 1. **Filter and sort layer** — search, filter, sort, and page over a projected in-memory archive dataset.
 2. **Settings popup** — move capture/history/view settings out of the always-visible page layout and into a popup launched from the print history view.

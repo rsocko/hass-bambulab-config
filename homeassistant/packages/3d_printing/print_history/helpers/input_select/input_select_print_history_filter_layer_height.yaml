@@ -1,0 +1,6 @@
+print_history_filter_layer_height:
+  name: Print History Filter Layer Height
+  icon: mdi:layers-outline
+  options:
+    - All
+  initial: All

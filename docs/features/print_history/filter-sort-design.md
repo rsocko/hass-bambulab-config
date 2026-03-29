@@ -1,13 +1,13 @@
 # Print History — Filtering, Sorting & Pagination Design
 
-> **Status**: Design Draft
+> **Status**: Implemented baseline (2026-03-29)
 > **Created**: 2026-03-28
 > **Depends on**: [README.md](README.md), [bambuddy-archive-api-catalog.md](../../features/bambuddy_common/bambuddy-archive-api-catalog.md)
 > **Pattern reference**: [filament-catalog.md](../filament_catalog/filament-catalog.md) Phase 2 (Filter Architecture)
 
 ## Problem Statement
 
-The current print history view is a flat list of the N most recent archives. There is no way to search for a specific print, filter by status or material, sort by anything other than the API's default order (newest first), or browse large result sets without manually changing the limit. With a growing archive (potentially hundreds to thousands of prints), this becomes unusable.
+This document captures the implemented baseline for the print history browser: a bulk archive cache in Layer 1, a client-side filter/sort/page sensor in Layer 2, and a popup-driven toolbar with card variants in Layer 3. It also remains the place to document follow-on refinements and scaling decisions.
 
 ## Goals
 

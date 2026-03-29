@@ -1,0 +1,15 @@
+print_history_sort:
+  name: Print History Sort
+  icon: mdi:sort
+  options:
+    - Date (Newest)
+    - Date (Oldest)
+    - Duration (Longest)
+    - Duration (Shortest)
+    - Cost (Highest)
+    - Cost (Lowest)
+    - Filament (Most)
+    - Filament (Least)
+    - Name (A-Z)
+    - Name (Z-A)
+  initial: Date (Newest)

@@ -1,0 +1,6 @@
+print_history_filter_color:
+  name: Print History Filter Color
+  icon: mdi:palette-outline
+  options:
+    - All
+  initial: All

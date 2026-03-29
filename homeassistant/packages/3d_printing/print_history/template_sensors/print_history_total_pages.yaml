@@ -1,17 +1,9 @@
-# Total pages — the archives API returns a flat array without a total count,
-# so we estimate: if the first page returned a full set (count == limit),
-# there are likely more pages.  The trigger sensor has the authoritative
-# has_more flag from script.load_history_page.
-# Docs: docs/features/print_history/README.md
+# Total pages for the Layer 2 print history browser.
+# Derived from the filtered dataset and configured page size.
+# Docs: docs/features/print_history/filter-sort-design.md
 - sensor:
     - name: Print History Total Pages
       unique_id: print_history_total_pages
       icon: mdi:book-multiple
       state: >-
-        {% set current = states('input_number.history_current_page') | int(1) %}
-        {% set has_more = state_attr('sensor.print_history_page_archives', 'has_more') | default(false) %}
-        {% if has_more %}
-          {{ current + 1 }}
-        {% else %}
-          {{ current }}
-        {% endif %}
+        {{ state_attr('sensor.print_history_filtered', 'total_pages') | default(1) }}

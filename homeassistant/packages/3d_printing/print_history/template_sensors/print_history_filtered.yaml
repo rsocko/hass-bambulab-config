@@ -1,0 +1,191 @@
+# Layer 2 browser state: filters, sorts, and pages the projected archive cache.
+# Docs: docs/features/print_history/filter-sort-design.md
+- sensor:
+    - name: Print History Filtered
+      unique_id: print_history_filtered
+      icon: mdi:filter-variant
+      state: >-
+        {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+        {% if raw is string %}
+          {% set archives = raw | from_json %}
+        {% elif raw is iterable %}
+          {% set archives = raw | list %}
+        {% else %}
+          {% set archives = [] %}
+        {% endif %}
+        {%- set filter_status = states('input_select.print_history_filter_status') -%}
+        {%- set filter_material = states('input_select.print_history_filter_material') -%}
+        {%- set filter_color = states('input_select.print_history_filter_color') -%}
+        {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
+        {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
+        {%- set filter_favorites = states('input_select.print_history_filter_favorites') -%}
+        {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
+        {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
+        {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+        {%- set now_ts = as_timestamp(now()) | float(0) -%}
+        {%- set ns = namespace(matches=[]) -%}
+        {%- for a in archives -%}
+          {%- set status = a.get('status', '') | string | lower -%}
+          {%- set material = a.get('filament_type', '') | string -%}
+          {%- set colors = a.get('filament_color', '') | string -%}
+          {%- set printer = a.get('printer_id', '') | string -%}
+          {%- set name = a.get('print_name', '') | string | lower -%}
+          {%- set designer = a.get('designer', '') | string -%}
+          {%- set layer_height = a.get('layer_height', '') | string -%}
+          {%- set is_favorite = a.get('is_favorite', false) -%}
+          {%- set tags = a.get('tags', '') | string | lower -%}
+          {%- set started_raw = a.get('started_at', '') | string -%}
+          {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+          {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
+          {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
+          {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+          {%- set matches_color = filter_color == 'All' or filter_color in colors -%}
+          {%- set matches_printer = filter_printer == 'All' or printer == filter_printer -%}
+          {%- set matches_favorite = filter_favorites == 'All' or (filter_favorites == 'Favorites Only' and is_favorite) -%}
+          {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
+          {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
+          {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
+          {%- set matches_search = search_text == '' or search_text in search_blob -%}
+          {%- if filter_date == 'Today' -%}
+            {%- set matches_date = age_days < 1 -%}
+          {%- elif filter_date == 'This Week' -%}
+            {%- set matches_date = age_days < 7 -%}
+          {%- elif filter_date == 'This Month' -%}
+            {%- set matches_date = age_days < 30 -%}
+          {%- elif filter_date == 'Last 30 Days' -%}
+            {%- set matches_date = age_days < 30 -%}
+          {%- elif filter_date == 'Last 90 Days' -%}
+            {%- set matches_date = age_days < 90 -%}
+          {%- else -%}
+            {%- set matches_date = true -%}
+          {%- endif -%}
+          {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_date -%}
+            {%- set ns.matches = ns.matches + [a] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ ns.matches | length }}
+      attributes:
+        filtered_count: >-
+          {{ states('sensor.print_history_filtered') | int(0) }}
+        total_pages: >-
+          {% set total = states('sensor.print_history_filtered') | int(0) %}
+          {% set page_size = states('input_number.print_history_page_size') | int(10) %}
+          {% if total <= 0 %}
+            1
+          {% else %}
+            {{ ((total - 1) // page_size) + 1 }}
+          {% endif %}
+        page_json: >-
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {%- set filter_status = states('input_select.print_history_filter_status') -%}
+          {%- set filter_material = states('input_select.print_history_filter_material') -%}
+          {%- set filter_color = states('input_select.print_history_filter_color') -%}
+          {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
+          {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
+          {%- set filter_favorites = states('input_select.print_history_filter_favorites') -%}
+          {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
+          {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
+          {%- set sort_by = states('input_select.print_history_sort') -%}
+          {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
+          {%- set page_size = states('input_number.print_history_page_size') | int(10) -%}
+          {%- set current_page = states('input_number.history_current_page') | int(1) -%}
+          {%- set ns = namespace(matches=[]) -%}
+          {%- for a in archives -%}
+            {%- set status = a.get('status', '') | string | lower -%}
+            {%- set material = a.get('filament_type', '') | string -%}
+            {%- set colors = a.get('filament_color', '') | string -%}
+            {%- set printer = a.get('printer_id', '') | string -%}
+            {%- set name = a.get('print_name', '') | string | lower -%}
+            {%- set designer = a.get('designer', '') | string -%}
+            {%- set layer_height = a.get('layer_height', '') | string -%}
+            {%- set is_favorite = a.get('is_favorite', false) -%}
+            {%- set tags = a.get('tags', '') | string | lower -%}
+            {%- set started_raw = a.get('started_at', '') | string -%}
+            {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+            {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
+            {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
+            {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+            {%- set matches_color = filter_color == 'All' or filter_color in colors -%}
+            {%- set matches_printer = filter_printer == 'All' or printer == filter_printer -%}
+            {%- set matches_favorite = filter_favorites == 'All' or (filter_favorites == 'Favorites Only' and is_favorite) -%}
+            {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
+            {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
+            {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
+            {%- set matches_search = search_text == '' or search_text in search_blob -%}
+            {%- if filter_date == 'Today' -%}
+              {%- set matches_date = age_days < 1 -%}
+            {%- elif filter_date == 'This Week' -%}
+              {%- set matches_date = age_days < 7 -%}
+            {%- elif filter_date == 'This Month' -%}
+              {%- set matches_date = age_days < 30 -%}
+            {%- elif filter_date == 'Last 30 Days' -%}
+              {%- set matches_date = age_days < 30 -%}
+            {%- elif filter_date == 'Last 90 Days' -%}
+              {%- set matches_date = age_days < 90 -%}
+            {%- else -%}
+              {%- set matches_date = true -%}
+            {%- endif -%}
+            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_date -%}
+              {%- set ns.matches = ns.matches + [a] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- if sort_by == 'Date (Oldest)' -%}
+            {%- set sorted = ns.matches | sort(attribute='started_at') -%}
+          {%- elif sort_by == 'Duration (Longest)' -%}
+            {%- set sorted = ns.matches | sort(attribute='actual_time_seconds') | reverse -%}
+          {%- elif sort_by == 'Duration (Shortest)' -%}
+            {%- set sorted = ns.matches | sort(attribute='actual_time_seconds') -%}
+          {%- elif sort_by == 'Cost (Highest)' -%}
+            {%- set sorted = ns.matches | sort(attribute='cost') | reverse -%}
+          {%- elif sort_by == 'Cost (Lowest)' -%}
+            {%- set sorted = ns.matches | sort(attribute='cost') -%}
+          {%- elif sort_by == 'Filament (Most)' -%}
+            {%- set sorted = ns.matches | sort(attribute='filament_used_grams') | reverse -%}
+          {%- elif sort_by == 'Filament (Least)' -%}
+            {%- set sorted = ns.matches | sort(attribute='filament_used_grams') -%}
+          {%- elif sort_by == 'Name (A-Z)' -%}
+            {%- set sorted = ns.matches | sort(attribute='print_name') -%}
+          {%- elif sort_by == 'Name (Z-A)' -%}
+            {%- set sorted = ns.matches | sort(attribute='print_name') | reverse -%}
+          {%- else -%}
+            {%- set sorted = ns.matches | sort(attribute='started_at') | reverse -%}
+          {%- endif -%}
+          {%- set total_pages = (((sorted | length) - 1) // page_size) + 1 if (sorted | length) > 0 else 1 -%}
+          {%- set clamped_page = [current_page, total_pages] | min | max(1) -%}
+          {%- set start = (clamped_page - 1) * page_size -%}
+          {%- set end = start + page_size -%}
+          {{ sorted[start:end] | list | tojson }}
+        page_info: >-
+          {% set total_pages = state_attr('sensor.print_history_filtered', 'total_pages') | int(1) %}
+          {% set current_page = states('input_number.history_current_page') | int(1) %}
+          Page {{ [current_page, total_pages] | min | max(1) }} of {{ total_pages }}
+        active_filters: >-
+          {% set active = namespace(items=[]) %}
+          {% for entity_id, label in [
+            ('input_select.print_history_filter_status', 'Status'),
+            ('input_select.print_history_filter_material', 'Material'),
+            ('input_select.print_history_filter_color', 'Color'),
+            ('input_select.print_history_filter_printer', 'Printer'),
+            ('input_select.print_history_filter_date_range', 'Date'),
+            ('input_select.print_history_filter_favorites', 'Favorites'),
+            ('input_select.print_history_filter_designer', 'Designer'),
+            ('input_select.print_history_filter_layer_height', 'Layer')
+          ] %}
+            {% set value = states(entity_id) %}
+            {% if value not in ['unknown', 'unavailable', 'All', 'All Time'] %}
+              {% set active.items = active.items + [label ~ ': ' ~ value] %}
+            {% endif %}
+          {% endfor %}
+          {% set search = states('input_text.print_history_search') | trim %}
+          {% if search != '' %}
+            {% set active.items = active.items + ['Search: ' ~ search] %}
+          {% endif %}
+          {{ active.items | join(' | ') if active.items else 'No active filters' }}

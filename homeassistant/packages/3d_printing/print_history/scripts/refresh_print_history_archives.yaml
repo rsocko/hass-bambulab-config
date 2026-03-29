@@ -1,0 +1,7 @@
+# Fire the custom refresh event consumed by sensor.print_history_archives.
+# Docs: docs/features/print_history/filter-sort-design.md
+refresh_print_history_archives:
+  alias: Refresh Print History Archives
+  sequence:
+    - event: print_history_refresh_requested
+  mode: single

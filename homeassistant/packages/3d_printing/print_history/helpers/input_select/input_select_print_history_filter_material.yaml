@@ -1,0 +1,6 @@
+print_history_filter_material:
+  name: Print History Filter Material
+  icon: mdi:flask-outline
+  options:
+    - All
+  initial: All

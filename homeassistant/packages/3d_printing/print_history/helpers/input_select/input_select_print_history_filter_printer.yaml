@@ -1,0 +1,6 @@
+print_history_filter_printer:
+  name: Print History Filter Printer
+  icon: mdi:printer-3d
+  options:
+    - All
+  initial: All

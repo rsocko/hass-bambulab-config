@@ -178,6 +178,8 @@ class TestFileInventory(unittest.TestCase):
         "bambuddy_enrich_archive_on_complete.yaml",
         "bambuddy_capture_error_photos.yaml",
         "bambuddy_event_history_refresh.yaml",
+        "print_history_sync_filter_options.yaml",
+        "print_history_reset_page_on_filter_change.yaml",
     ]
 
     EXPECTED_SCRIPTS = [
@@ -185,6 +187,8 @@ class TestFileInventory(unittest.TestCase):
         "resolve_current_archive_id.yaml",
         "load_history_page.yaml",
         "navigate_history.yaml",
+        "refresh_print_history_archives.yaml",
+        "clear_print_history_filters.yaml",
     ]
 
     EXPECTED_REST_COMMANDS = [
@@ -195,9 +199,12 @@ class TestFileInventory(unittest.TestCase):
         "bambuddy_add_archive_tags.yaml",
         "bambuddy_query_recent_archive.yaml",
         "bambuddy_query_history_page.yaml",
+        "bambuddy_fetch_archives.yaml",
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
+        "print_history_archives.yaml",
+        "print_history_filtered.yaml",
         "print_history_total_pages.yaml",
         "print_history_page_info.yaml",
         "print_history_archive_data.yaml",
@@ -208,6 +215,7 @@ class TestFileInventory(unittest.TestCase):
         "input_text_bambuddy_photo_manifest.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_history_page_data.yaml",
+        "input_text_print_history_search.yaml",
         "input_text_secondary_camera_entity.yaml",
     ]
 
@@ -224,10 +232,22 @@ class TestFileInventory(unittest.TestCase):
         "input_number_history_current_page.yaml",
         "input_number_midprint_capture_percent.yaml",
         "input_number_photo_review_timeout_hours.yaml",
+        "input_number_print_history_page_size.yaml",
+        "input_number_print_history_max_archives.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_SELECT = [
         "input_select_bambuddy_photo_review_state.yaml",
+        "input_select_print_history_filter_status.yaml",
+        "input_select_print_history_filter_material.yaml",
+        "input_select_print_history_filter_color.yaml",
+        "input_select_print_history_filter_printer.yaml",
+        "input_select_print_history_filter_date_range.yaml",
+        "input_select_print_history_filter_favorites.yaml",
+        "input_select_print_history_filter_designer.yaml",
+        "input_select_print_history_filter_layer_height.yaml",
+        "input_select_print_history_sort.yaml",
+        "input_select_print_history_card_variant.yaml",
     ]
 
     EXPECTED_REST_SENSORS = [
@@ -618,7 +638,7 @@ class TestTemplateSensors(unittest.TestCase):
         # Correct field names from the Bambuddy API
         self.assertIn("print_name", content, "Must use API field 'print_name'")
         self.assertIn("print_time_seconds", content, "Must use API field 'print_time_seconds'")
-        self.assertIn("thumbnail_path", content, "Must use API field 'thumbnail_path'")
+        self.assertIn("/thumbnail", content, "Must construct a thumbnail endpoint URL")
         # Must NOT use the old wrong field names
         self.assertNotIn("duration_seconds", content, "Wrong field: use print_time_seconds")
         self.assertNotIn(".photo_url", content, "Wrong field: use thumbnail_path")
@@ -626,15 +646,12 @@ class TestTemplateSensors(unittest.TestCase):
     def test_page_info_references_page_helpers(self):
         content = (HISTORY / "template_sensors" / "print_history_page_info.yaml").read_text("utf-8")
         self.assertIn("history_current_page", content)
-        self.assertIn("print_history_total_pages", content)
+        self.assertIn("print_history_filtered", content)
 
-    def test_total_pages_uses_rest_sensor_total(self):
-        """Total pages sensor must reference the REST sensor and page limit.
-        The API returns a flat array, so total_pages estimates based on
-        count returned vs limit."""
+    def test_total_pages_uses_filtered_sensor_total(self):
+        """Total pages sensor must derive from the Layer 2 filtered browser state."""
         content = (HISTORY / "template_sensors" / "print_history_total_pages.yaml").read_text("utf-8")
-        self.assertIn("bambuddy_print_history", content, "Must reference the REST sensor for count")
-        self.assertIn("bambuddy_history_limit", content, "Must reference the page limit helper")
+        self.assertIn("print_history_filtered", content, "Must reference the filtered sensor total_pages")
 
     def test_image_url_prepends_base_url(self):
         """Image URL sensor must combine base_url + photo path for full URL."""
@@ -695,7 +712,7 @@ class TestScripts(unittest.TestCase):
     def test_load_history_page_uses_page_param(self):
         content = (HISTORY / "scripts" / "load_history_page.yaml").read_text("utf-8")
         self.assertIn("page", content)
-        self.assertIn("bambuddy_history_limit", content)
+        self.assertIn("print_history_filtered", content)
 
     def test_navigate_history_supports_all_directions(self):
         content = (HISTORY / "scripts" / "navigate_history.yaml").read_text("utf-8")
@@ -779,6 +796,7 @@ class TestCrossReferences(unittest.TestCase):
         "input_text.bambuddy_photo_manifest",
         "input_text.bambuddy_tray_map_snapshot",
         "input_text.history_page_data",
+        "input_text.print_history_search",
         "input_text.secondary_camera_entity",
         "input_boolean.bambuddy_history_fetch_enabled",
         "input_boolean.capture_at_start",
@@ -789,10 +807,24 @@ class TestCrossReferences(unittest.TestCase):
         "input_number.history_current_page",
         "input_number.midprint_capture_percent",
         "input_number.photo_review_timeout_hours",
+        "input_number.print_history_page_size",
+        "input_number.print_history_max_archives",
         "input_select.bambuddy_photo_review_state",
+        "input_select.print_history_filter_status",
+        "input_select.print_history_filter_material",
+        "input_select.print_history_filter_color",
+        "input_select.print_history_filter_printer",
+        "input_select.print_history_filter_date_range",
+        "input_select.print_history_filter_favorites",
+        "input_select.print_history_filter_designer",
+        "input_select.print_history_filter_layer_height",
+        "input_select.print_history_sort",
+        "input_select.print_history_card_variant",
         # REST sensor
         "sensor.bambuddy_print_history",
         # Template sensors
+        "sensor.print_history_archives",
+        "sensor.print_history_filtered",
         "sensor.bambuddy_last_print_name",
         "sensor.bambuddy_last_print_status",
         "sensor.bambuddy_last_print_duration",
@@ -849,10 +881,13 @@ class TestCrossReferences(unittest.TestCase):
                         "camera.snapshot", "script.capture_and_upload_snapshot",
                         "script.resolve_current_archive_id",
                         "script.load_history_page",
+                        "script.refresh_print_history_archives",
+                        "script.clear_print_history_filters",
                         "rest_command.bambuddy_update_archive",
                         "rest_command.bambuddy_upload_photo_to_archive",
                         "rest_command.bambuddy_query_recent_archive",
                         "rest_command.bambuddy_query_history_page",
+                        "rest_command.bambuddy_fetch_archives",
                     }
                     if entity in known_services:
                         continue

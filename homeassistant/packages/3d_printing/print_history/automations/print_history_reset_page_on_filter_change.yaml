@@ -1,0 +1,30 @@
+# Reset browser paging whenever filter/sort state changes.
+# Docs: docs/features/print_history/filter-sort-design.md
+- alias: Print History - Reset Page On Filter Change
+  id: print_history_reset_page_on_filter_change
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_select.print_history_filter_status
+        - input_select.print_history_filter_material
+        - input_select.print_history_filter_color
+        - input_select.print_history_filter_printer
+        - input_select.print_history_filter_date_range
+        - input_select.print_history_filter_favorites
+        - input_select.print_history_filter_designer
+        - input_select.print_history_filter_layer_height
+        - input_select.print_history_sort
+        - input_select.print_history_card_variant
+        - input_text.print_history_search
+        - input_number.print_history_page_size
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+  actions:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.history_current_page
+      data:
+        value: 1
+  mode: restart

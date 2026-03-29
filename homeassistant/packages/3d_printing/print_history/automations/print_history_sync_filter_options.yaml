@@ -1,0 +1,98 @@
+# Sync dynamic filter helper options from the archive cache.
+# Docs: docs/features/print_history/filter-sort-design.md
+- alias: Print History - Sync Filter Options
+  id: print_history_sync_filter_options
+  triggers:
+    - trigger: state
+      entity_id: sensor.print_history_archives
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+  actions:
+    - if:
+        - condition: template
+          value_template: "{{ trigger.platform == 'homeassistant' }}"
+      then:
+        - delay:
+            seconds: 10
+    - variables:
+        raw: "{{ state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) }}"
+        archives: >-
+          {% if raw is string %}
+            {{ raw | from_json }}
+          {% elif raw is iterable %}
+            {{ raw | list }}
+          {% else %}
+            []
+          {% endif %}
+        material_options: >-
+          {% set ns = namespace(values=['All']) %}
+          {% for a in archives %}
+            {% set value = a.get('filament_type', '') | string | trim %}
+            {% if value and value not in ns.values %}
+              {% set ns.values = ns.values + [value] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | sort }}
+        color_options: >-
+          {% set ns = namespace(values=['All']) %}
+          {% for a in archives %}
+            {% for color in (a.get('filament_color', '') | string).split(',') %}
+              {% set value = color | trim %}
+              {% if value and value not in ns.values %}
+                {% set ns.values = ns.values + [value] %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {{ ns.values | sort }}
+        printer_options: >-
+          {% set ns = namespace(values=['All']) %}
+          {% for a in archives %}
+            {% set value = a.get('printer_id', '') | string | trim %}
+            {% if value and value not in ns.values %}
+              {% set ns.values = ns.values + [value] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | sort }}
+        designer_options: >-
+          {% set ns = namespace(values=['All']) %}
+          {% for a in archives %}
+            {% set value = a.get('designer', '') | string | trim %}
+            {% if value and value not in ns.values %}
+              {% set ns.values = ns.values + [value] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | sort }}
+        layer_height_options: >-
+          {% set ns = namespace(values=['All']) %}
+          {% for a in archives %}
+            {% set value = a.get('layer_height', '') | string | trim %}
+            {% if value and value not in ns.values %}
+              {% set ns.values = ns.values + [value] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | sort }}
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_material
+        options: "{{ material_options }}"
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_color
+        options: "{{ color_options }}"
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_printer
+        options: "{{ printer_options }}"
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_designer
+        options: "{{ designer_options }}"
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_layer_height
+        options: "{{ layer_height_options }}"
+  mode: restart

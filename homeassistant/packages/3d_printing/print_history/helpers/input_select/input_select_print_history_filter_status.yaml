@@ -1,0 +1,10 @@
+print_history_filter_status:
+  name: Print History Filter Status
+  icon: mdi:list-status
+  options:
+    - All
+    - success
+    - failed
+    - stopped
+    - printing
+  initial: All

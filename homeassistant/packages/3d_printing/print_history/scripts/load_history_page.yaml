@@ -1,13 +1,11 @@
-# Fetch a specific page of archive history from Bambuddy.
+# Set the current Layer 2 browser page.
+# Layer 1 holds the full archive cache, and Layer 2 slices the current page.
 # Called by script.navigate_history or directly from dashboard buttons.
-# Fires a bambuddy_history_page_loaded event for the trigger-based
-# template sensor (sensor.print_history_page_archives).
-# Docs: docs/features/print_history/README.md
+# Docs: docs/features/print_history/filter-sort-design.md
 load_history_page:
   alias: "Load History Page"
   description: >-
-    Fetches a specific page of print history from Bambuddy archives API
-    using offset-based pagination.
+    Updates the current print history page for the Layer 2 browser.
   fields:
     page:
       description: "Page number to load (1-based)"
@@ -18,55 +16,20 @@ load_history_page:
           max: 100
   sequence:
     - variables:
-        limit: "{{ states('input_number.bambuddy_history_limit') | int(10) }}"
-        offset: "{{ ((page | int(1)) - 1) * (states('input_number.bambuddy_history_limit') | int(10)) }}"
+        total_pages: "{{ state_attr('sensor.print_history_filtered', 'total_pages') | int(1) }}"
+        target_page: >-
+          {% set requested = page | int(1) %}
+          {% if requested < 1 %}
+            1
+          {% elif requested > total_pages %}
+            {{ total_pages }}
+          {% else %}
+            {{ requested }}
+          {% endif %}
 
     - action: input_number.set_value
       target:
         entity_id: input_number.history_current_page
       data:
-        value: "{{ page | int(1) }}"
-
-    # Fetch the page via REST command (offset-based pagination)
-    - action: rest_command.bambuddy_query_history_page
-      data:
-        limit: "{{ limit }}"
-        offset: "{{ offset }}"
-      response_variable: api_response
-
-    - if:
-        - condition: template
-          value_template: "{{ api_response.status == 200 }}"
-      then:
-        - variables:
-            # API returns a flat array: [ {archive}, ... ]
-            # Trim to dashboard-only fields to stay under 32 KB Recorder limit
-            result_archives: >-
-              {% set ns = namespace(slim=[]) %}
-              {% for a in (api_response.content | default([])) %}
-                {% set ns.slim = ns.slim + [dict(
-                  id=a.id | default(none),
-                  created_at=a.created_at | default(''),
-                  print_time_seconds=a.print_time_seconds | default(none),
-                  status=a.status | default('unknown'),
-                  tags=a.tags | default(''),
-                  print_name=a.print_name | default('Unnamed')
-                )] %}
-              {% endfor %}
-              {{ ns.slim }}
-            result_count: "{{ result_archives | length }}"
-            result_has_more: "{{ (result_count | int) >= (limit | int) }}"
-
-        # Fire event for trigger-based template sensor
-        - event: bambuddy_history_page_loaded
-          event_data:
-            page: "{{ page | int(1) }}"
-            archives: "{{ result_archives }}"
-            count: "{{ result_count }}"
-            has_more: "{{ result_has_more }}"
-      else:
-        - action: logbook.log
-          data:
-            name: Print History
-            message: "Failed to load page {{ page }}: HTTP {{ api_response.status | default('?') }}"
+        value: "{{ target_page | int(1) }}"
   mode: single

@@ -1,0 +1,50 @@
+# Reset all print history browser controls back to their defaults.
+# Docs: docs/features/print_history/filter-sort-design.md
+clear_print_history_filters:
+  alias: Clear Print History Filters
+  sequence:
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_status
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_material
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_color
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_printer
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_date_range
+        option: All Time
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_favorites
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_designer
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_filter_layer_height
+        option: All
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_sort
+        option: Date (Newest)
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.print_history_search
+        value: ""
+    - action: input_number.set_value
+      data:
+        entity_id: input_number.history_current_page
+        value: 1
+  mode: single
