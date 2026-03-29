@@ -8,7 +8,7 @@ title: Print History
 path: print-history
 icon: mdi:history
 type: sections
-max_columns: 2
+max_columns: 1
 sections:
   # ── Section 1: Print History (hero — left column) ──────────────────
   # All three cards in one section so masonry keeps them together.
@@ -22,24 +22,3 @@ sections:
 
       # Browser toolbar + page navigation + popup settings
       - !include ../dashboard_cards/print_history_browser.yaml
-
-  # ── Section 2: Current Print Diagnostics (right column) ──────────────
-  - type: grid
-    cards:
-      - type: entities
-        title: Current Print
-        entities:
-          - entity: input_text.bambuddy_current_archive_id
-            name: Archive ID
-          - entity: input_select.bambuddy_photo_review_state
-            name: Review State
-          - entity: sensor.print_history_archives
-            name: Cached Archives
-          - entity: sensor.print_history_filtered
-            name: Filtered Matches
-          - entity: sensor.bambuddy_last_print_name
-            name: Last Print
-          - entity: sensor.bambuddy_last_print_status
-            name: Last Status
-          - entity: sensor.bambuddy_last_print_duration
-            name: Last Duration
