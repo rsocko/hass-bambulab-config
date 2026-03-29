@@ -40,7 +40,20 @@ load_history_page:
       then:
         - variables:
             # API returns a flat array: [ {archive}, ... ]
-            result_archives: "{{ api_response.content | default([]) }}"
+            # Trim to dashboard-only fields to stay under 32 KB Recorder limit
+            result_archives: >-
+              {% set ns = namespace(slim=[]) %}
+              {% for a in (api_response.content | default([])) %}
+                {% set ns.slim = ns.slim + [dict(
+                  id=a.id | default(none),
+                  created_at=a.created_at | default(''),
+                  print_time_seconds=a.print_time_seconds | default(none),
+                  status=a.status | default('unknown'),
+                  tags=a.tags | default(''),
+                  print_name=a.print_name | default('Unnamed')
+                )] %}
+              {% endfor %}
+              {{ ns.slim }}
             result_count: "{{ result_archives | length }}"
             result_has_more: "{{ (result_count | int) >= (limit | int) }}"
 
