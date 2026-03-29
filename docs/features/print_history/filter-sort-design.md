@@ -1,0 +1,933 @@
+# Print History — Filtering, Sorting & Pagination Design
+
+> **Status**: Design Draft
+> **Created**: 2026-03-28
+> **Depends on**: [README.md](README.md), [bambuddy-archive-api-catalog.md](../../features/bambuddy_common/bambuddy-archive-api-catalog.md)
+> **Pattern reference**: [filament-catalog.md](../filament_catalog/filament-catalog.md) Phase 2 (Filter Architecture)
+
+## Problem Statement
+
+The current print history view is a flat list of the N most recent archives. There is no way to search for a specific print, filter by status or material, sort by anything other than the API's default order (newest first), or browse large result sets without manually changing the limit. With a growing archive (potentially hundreds to thousands of prints), this becomes unusable.
+
+## Goals
+
+1. **Consistent UX** — Same filter bar pattern as the Filament Catalog (`bubble-card` sub-buttons)
+2. **Server-filtered + client-sorted** — Let the API pre-filter, let HA template sensors sort and page
+3. **Responsive pagination** — Navigate pages without re-polling the API
+4. **Scalable** — Work well at 50 archives, degrade gracefully at 1000+
+5. **Incremental** — Can be added to the existing print_history package without breaking current functionality
+
+---
+
+## Architecture Overview
+
+### Why This Differs from the Filament Catalog
+
+The Filament Catalog filters **HA entities** (`sensor.spoolman_spool_*`) that are already in the state machine — the template sensor iterates entity states directly. Print History data lives in an **external API** (Bambuddy). There are no per-archive HA entities.
+
+This creates a data plumbing challenge: we need to get archive data into HA's template engine in a filterable form.
+
+### Layered Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Layer 1: API Data Fetch                                         │
+│  Trigger-based template sensor + REST command action             │
+│  Calls GET /slim → stores full array in sensor attribute         │
+├──────────────────────────────────────────────────────────────────┤
+│  Layer 2: Client-Side Filter + Sort + Page                       │
+│  Template sensor reads Layer 1 attribute + input helpers          │
+│  Outputs filtered/sorted/paged subset as JSON attribute          │
+├──────────────────────────────────────────────────────────────────┤
+│  Layer 3: Dashboard UI                                           │
+│  Filter bar (bubble-card sub-buttons) + history table            │
+│  Reads from Layer 2 sensor attributes                            │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+                ┌─────────────────┐
+                │ Bambuddy API    │
+                │ GET /slim       │
+                │ ?limit=500      │
+                └────────┬────────┘
+                         │  JSON array (flat)
+                         ▼
+        ┌────────────────────────────────┐
+        │ sensor.print_history_archives  │  Layer 1
+        │ (trigger-based template)       │
+        │                                │
+        │ state: archive count           │
+        │ attr.archives_json: full array │
+        └────────────────┬───────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+          ▼              ▼              ▼
+   ┌─────────────┐ ┌──────────┐ ┌──────────────┐
+   │ input_select│ │input_text│ │ input_number  │
+   │ (status,    │ │ (search) │ │ (page, size)  │
+   │ material,   │ │          │ │               │
+   │ printer,    │ └──────────┘ └───────────────┘
+   │ date_range, │
+   │ sort)       │
+   └──────┬──────┘
+          │
+          ▼
+  ┌─────────────────────────────────┐
+  │ sensor.print_history_filtered   │  Layer 2
+  │ (standard template sensor)      │
+  │                                 │
+  │ state: filtered count           │
+  │ attr.page_json: current page    │
+  │ attr.total_pages: N             │
+  │ attr.active_filters: summary    │
+  └───────────────┬─────────────────┘
+                  │
+                  ▼
+  ┌─────────────────────────────────┐
+  │ Dashboard                       │  Layer 3
+  │ • Filter bar (bubble-card)      │
+  │ • History table (button-card)   │
+  │ • Pagination controls           │
+  └─────────────────────────────────┘
+```
+
+---
+
+## Layer 1: Data Fetch — Trigger-Based Template Sensor with Action
+
+### Why This Approach
+
+HA's `rest:` integration stores per-sensor values via `value_template`, but cannot store the full response array as an attribute (flat arrays are incompatible with `json_attributes` / `json_attributes_path`).
+
+Starting with HA 2024.11, **trigger-based template sensors** support an `action` block that can call services and store response data as variables. Combined with `rest_command` response handling (HA 2023.7+), this gives us a clean way to fetch API data and store it in sensor attributes — all within native HA YAML.
+
+### REST Command (data fetcher)
+
+```yaml
+# rest_commands/bambuddy_fetch_slim_archives.yaml
+bambuddy_fetch_slim_archives:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/slim?limit={{
+      states('input_number.print_history_max_archives') | int(500)
+    }}
+  method: GET
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  content_type: application/json
+```
+
+### Trigger-Based Template Sensor (raw data store)
+
+```yaml
+# template_sensors/print_history_archives.yaml
+- trigger:
+    # Regular polling
+    - trigger: time_pattern
+      minutes: "/5"
+    # Refresh on print events (via Bambuddy webhook)
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: print_complete
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: print_failed
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: print_stopped
+    # Refresh on HA start
+    - trigger: homeassistant
+      event: start
+  action:
+    - action: rest_command.bambuddy_fetch_slim_archives
+      response_variable: result
+  sensor:
+    - name: "Print History Archives"
+      unique_id: print_history_archives
+      icon: mdi:database-outline
+      state: >-
+        {% set content = result.get('content', '[]') %}
+        {% if content is string %}
+          {{ (content | from_json) | length }}
+        {% else %}
+          0
+        {% endif %}
+      attributes:
+        archives_json: >-
+          {{ result.get('content', '[]') }}
+        last_fetch: >-
+          {{ now().isoformat() }}
+```
+
+### Key Characteristics
+
+- **Single entity** (`sensor.print_history_archives`) holds ALL fetched archive data
+- **Triggers on events** — immediate refresh when prints complete/fail, plus 5-minute polling
+- **Archives stored as JSON string attribute** — accessible by downstream template sensors
+- **Uses `/slim` endpoint** — excludes `extra_data`, ~200 bytes per archive vs ~2KB for full archives
+
+### What About the Existing REST Sensor?
+
+The existing `bambuddy_print_history_sensor.yaml` (the `rest:` block with "last print" derived sensors) should be **kept for now**. It serves a different purpose — powering the `sensor.bambuddy_last_print_*` entities used for quick-glance tiles and automations. It polls at a low rate and is lightweight.
+
+The new `print_history_archives` sensor is specifically for the filterable table view. They can coexist. In a future cleanup, the "last print" sensors could be derived from the archives data instead.
+
+---
+
+## Layer 2: Filter + Sort + Page — Template Sensor
+
+### Filter Dimensions
+
+Derived from the slim archive data shape (`archiveSlimExample.json`):
+
+| Filter | Helper Type | Options | API Pre-Filterable? |
+|--------|-------------|---------|---------------------|
+| **Status** | `input_select` | `All`, `Completed`, `Failed`, `Stopped`, `Printing` | Yes (`?status=X`) |
+| **Material** | `input_select` | `All`, + dynamic from fetched data | No |
+| **Printer** | `input_select` | `All`, + dynamic from fetched data (printer_id → name) | Yes (`?printer_id=X`) |
+| **Date Range** | `input_select` | `All Time`, `Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days` | Partial (API has date range params) |
+| **Search** | `input_text` | Free text on `print_name` | Yes (`?search=Q` or `/search?q=Q`) |
+
+### Sort Options
+
+The Bambuddy API has **no `sort` or `order` query params** (confirmed via OpenAPI spec). All sorting is client-side in the template sensor.
+
+| Sort | Helper Value | Sort Key | Default? |
+|------|-------------|----------|----------|
+| Date (Newest) | `Date (Newest)` | `started_at` descending | ✅ Yes |
+| Date (Oldest) | `Date (Oldest)` | `started_at` ascending | |
+| Duration (Longest) | `Duration (Longest)` | `actual_time_seconds` descending | |
+| Duration (Shortest) | `Duration (Shortest)` | `actual_time_seconds` ascending | |
+| Cost (Highest) | `Cost (Highest)` | `cost` descending | |
+| Cost (Lowest) | `Cost (Lowest)` | `cost` ascending | |
+| Filament Used (Most) | `Filament (Most)` | `filament_used_grams` descending | |
+| Filament Used (Least) | `Filament (Least)` | `filament_used_grams` ascending | |
+| Name (A-Z) | `Name (A-Z)` | `print_name` ascending | |
+| Name (Z-A) | `Name (Z-A)` | `print_name` ascending reversed | |
+
+### Pagination
+
+| Helper | Type | Purpose | Default |
+|--------|------|---------|---------|
+| `input_number.print_history_page_size` | input_number | Items per page | 10 (min 5, max 50) |
+| `input_number.print_history_current_page` | input_number | Current page (1-indexed) | 1 |
+
+Pagination is computed in the template sensor: the full filtered+sorted list is sliced by `[(page-1)*size : page*size]`.
+
+**Page reset behavior**: When any filter or sort helper changes, an automation resets `print_history_current_page` to 1. This prevents showing an empty page when filters reduce the result set.
+
+### Input Helpers (New)
+
+```yaml
+# helpers/input_select/
+input_select_print_history_filter_status:
+  name: Print History Filter - Status
+  options: ["All", "Completed", "Failed", "Stopped", "Printing"]
+  initial: "All"
+  icon: mdi:list-status
+
+input_select_print_history_filter_material:
+  name: Print History Filter - Material
+  options: ["All"]  # Populated dynamically
+  initial: "All"
+  icon: mdi:flask-outline
+
+input_select_print_history_filter_printer:
+  name: Print History Filter - Printer
+  options: ["All"]  # Populated dynamically
+  initial: "All"
+  icon: mdi:printer-3d
+
+input_select_print_history_filter_date_range:
+  name: Print History Filter - Date Range
+  options:
+    - "All Time"
+    - "Today"
+    - "This Week"
+    - "This Month"
+    - "Last 30 Days"
+    - "Last 90 Days"
+  initial: "All Time"
+  icon: mdi:calendar-range
+
+input_select_print_history_sort:
+  name: Print History Sort
+  options:
+    - "Date (Newest)"
+    - "Date (Oldest)"
+    - "Duration (Longest)"
+    - "Duration (Shortest)"
+    - "Cost (Highest)"
+    - "Cost (Lowest)"
+    - "Filament (Most)"
+    - "Filament (Least)"
+    - "Name (A-Z)"
+    - "Name (Z-A)"
+  initial: "Date (Newest)"
+  icon: mdi:sort
+
+# helpers/input_text/
+input_text_print_history_search:
+  name: Print History Search
+  initial: ""
+  max: 100
+  icon: mdi:magnify
+
+# helpers/input_number/
+input_number_print_history_page_size:
+  name: Print History Page Size
+  min: 5
+  max: 50
+  step: 5
+  initial: 10
+  mode: slider
+  icon: mdi:table-large
+
+input_number_print_history_max_archives:
+  name: Print History Max Archives
+  min: 50
+  max: 2000
+  step: 50
+  initial: 500
+  mode: slider
+  icon: mdi:database-cog
+```
+
+### Template Sensor: `sensor.print_history_filtered`
+
+Jinja2 template that mirrors the Filament Catalog's `sensor.filament_catalog_filtered_spools` pattern:
+
+```yaml
+# template_sensors/print_history_filtered.yaml
+- sensor:
+    - name: "Print History Filtered"
+      unique_id: print_history_filtered
+      icon: mdi:filter-variant
+      state: >-
+        {% set fj = state_attr('sensor.print_history_filtered', 'filtered_count') | default(0) %}
+        {{ fj }}
+      attributes:
+        filtered_count: >-
+          {# Computed below — this is the total matching count before paging #}
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}{% set archives = raw | from_json %}{% else %}{% set archives = raw | default([]) %}{% endif %}
+          {%- set filter_status = states('input_select.print_history_filter_status') -%}
+          {%- set filter_material = states('input_select.print_history_filter_material') -%}
+          {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
+          {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
+          {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
+          {%- set ns = namespace(matches=[]) -%}
+          {%- for a in archives -%}
+            {%- set status = a.get('status', '') | lower -%}
+            {%- set material = a.get('filament_type', '') -%}
+            {%- set printer = a.get('printer_id', '') | string -%}
+            {%- set name = a.get('print_name', '') | lower -%}
+            {%- set started_raw = a.get('started_at', '') -%}
+            {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+            {%- set days_ago = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
+            {%- set m_status = filter_status == 'All' or status == filter_status | lower -%}
+            {%- set m_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+            {%- set m_printer = filter_printer == 'All' or printer == filter_printer -%}
+            {%- set m_search = search_text == '' or search_text in name -%}
+            {%- if filter_date == 'Today' -%}
+              {%- set m_date = days_ago < 1 -%}
+            {%- elif filter_date == 'This Week' -%}
+              {%- set m_date = days_ago < 7 -%}
+            {%- elif filter_date == 'This Month' -%}
+              {%- set m_date = days_ago < 30 -%}
+            {%- elif filter_date == 'Last 30 Days' -%}
+              {%- set m_date = days_ago < 30 -%}
+            {%- elif filter_date == 'Last 90 Days' -%}
+              {%- set m_date = days_ago < 90 -%}
+            {%- else -%}
+              {%- set m_date = true -%}
+            {%- endif -%}
+            {%- if m_status and m_material and m_printer and m_search and m_date -%}
+              {%- set ns.matches = ns.matches + [a] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ ns.matches | length }}
+        # ... (full sort + page logic shown in detailed template below)
+        page_json: >-
+          {# Full implementation in the detailed section below #}
+          ...
+        total_pages: >-
+          ...
+        page_info: >-
+          ...
+        active_filters: >-
+          ...
+```
+
+> The full Jinja2 template is lengthy. See [Detailed Template Sensor Logic](#detailed-template-sensor-logic) below for the complete implementation.
+
+### Dynamic Filter Option Sync
+
+Like the Filament Catalog, filter dropdown options should be dynamically populated from the actual data.
+
+**Automation: `print_history_sync_filter_options`**
+
+Triggers:
+1. `sensor.print_history_archives` state change — fires when new data is fetched
+2. `homeassistant.start` — with 3-minute delay (after trigger-based sensor has fetched)
+
+Behavior:
+- Reads `archives_json` attribute from `sensor.print_history_archives`
+- Collects unique `filament_type` values → updates `input_select.print_history_filter_material`
+- Collects unique `printer_id` values (mapped to names if available) → updates `input_select.print_history_filter_printer`
+- Prepends `All` to each list
+- If current selection not in new list → HA resets to `All` (first option)
+
+This mirrors the Filament Catalog's `sync_filter_options.yaml` pattern exactly.
+
+### Page Reset Automation
+
+**Automation: `print_history_reset_page_on_filter_change`**
+
+Triggers:
+- State change on any filter `input_select` or `input_text.print_history_search`
+
+Action:
+- Set `input_number.print_history_current_page` to 1
+
+---
+
+## Layer 3: Dashboard UI
+
+### Filter Bar Card
+
+Mirrors the Filament Catalog's `catalog_filter_bar.yaml` — `custom:bubble-card` with `card_type: sub-buttons`, arranged in rows:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🔽 Sort: Date (Newest)                                          │
+│ Status ▼  Material ▼  Printer ▼  Date Range ▼                  │
+│ 🔍 [___search___]              [47 of 500]  [Clear Filters]     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Row Layout
+
+| Row | Controls | Implementation |
+|-----|----------|----------------|
+| 1 | Sort dropdown | `sub_button_type: select` on `input_select.print_history_sort` |
+| 2 | Status, Material, Printer, Date Range dropdowns | `sub_button_type: select`, state-highlight when not "All" |
+| 3 | Search text + result count + Clear Filters button | `entities` card (search input) + chip buttons |
+
+#### Active Filter Highlighting
+
+Same pattern as Filament Catalog — each dropdown uses `state_background` and `state_color` with a `config-template-card` expression:
+
+```yaml
+state_background: >-
+  ${states['input_select.print_history_filter_status']?.state !== 'All'}
+state_color: >-
+  ${states['input_select.print_history_filter_status']?.state !== 'All'}
+```
+
+This highlights active (non-default) filters visually.
+
+### History Table Card
+
+The existing `print_history.yaml` button-card renders rows from JSON data. It currently reads from the REST sensor's `value_json`. **Update it to read from `sensor.print_history_filtered` attribute `page_json` instead.**
+
+The `page_json` attribute contains an array of archive objects (already filtered, sorted, and paged to the current page).
+
+### Pagination Controls
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ ⏮  ◀  │  Page 1 / 5  │  ▶  ⏭  │  [Page Size: 10 ━━━]  │ 🔄  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+| Control | Implementation |
+|---------|----------------|
+| First / Prev / Next / Last | `tap_action: call-service` → `input_number.set_value` |
+| Page info | Template: `{{ states('input_number.print_history_current_page') }} / {{ state_attr('sensor.print_history_filtered', 'total_pages') }}` |
+| Page size slider | `input_number.print_history_page_size` with `sub_button_type: slider` |
+| Refresh | `tap_action: call-service` → `homeassistant.update_entity` on `sensor.print_history_archives` |
+
+**Pagination is instant** — changing the page helper triggers the template sensor to re-evaluate, slicing a different window of the already-filtered+sorted data. No API call needed.
+
+---
+
+## Performance Analysis
+
+### The "Pull All Data" Question
+
+> *"Does this only work if we somehow pull ALL data (not paged)? Is that a concern?"*
+
+**Short answer**: You don't need ALL data. A reasonable cap (default 500) works well. Here's the detailed analysis:
+
+### Data Size Estimates
+
+| Archive Count | Slim JSON Size | Template Evaluation | Practical? |
+|---------------|---------------|---------------------|------------|
+| 50 | ~10 KB | <0.1s | ✅ Trivial |
+| 200 | ~40 KB | ~0.2s | ✅ Comfortable |
+| 500 | ~100 KB | ~0.5s | ✅ Good default cap |
+| 1,000 | ~200 KB | ~1-2s | ⚠️ Noticeable delay on filter change |
+| 2,000 | ~400 KB | ~3-5s | ⚠️ Sluggish UX |
+| 5,000+ | ~1 MB+ | 10s+ | ❌ Jinja2 not designed for this |
+
+*Estimates based on ~200 bytes/archive (slim) and Jinja2 iteration benchmarks from the Filament Catalog (165 entities with attribute lookups).*
+
+### Why 500 Is the Right Default
+
+- **2 prints/day × 250 days = 500** — covers ~8 months for active users
+- **Jinja2 overhead**: The Filament Catalog handles 165 entities with ~15 attribute lookups per entity. Print history archives are simpler (flat dict, fewer fields per item). 500 flat dicts ≈ 165 entities with rich attributes in computational cost.
+- **Attribute storage**: ~100KB JSON attribute is well within HA's state machine capacity (attributes don't have the 255-char state limit)
+- **Recorder optimization**: Exclude `archives_json` attribute from the recorder (it's a large, frequently-changing blob that has no historical value):
+  ```yaml
+  recorder:
+    exclude:
+      entity_globs:
+        - sensor.print_history_archives
+  ```
+
+### How the Architecture Mitigates Scale
+
+| Concern | Mitigation |
+|---------|------------|
+| **Too much API data** | `input_number.print_history_max_archives` caps the `?limit=` param (default 500, max 2000) |
+| **Slow template evaluation** | Date Range filter is applied FIRST, reducing the working set before material/status checks |
+| **Large attribute in recorder** | Exclude `sensor.print_history_archives` from recorder |
+| **5-minute polling for stale data** | Webhook triggers (`print_complete`, `print_failed`) refresh immediately on events that matter |
+| **Very large histories** | Users with 2000+ archives should use date range filters or the Bambuddy web UI for deep history |
+
+### Alternative: API-Side Pre-Filtering (Considered & Deferred)
+
+The Bambuddy API supports `?status=X&printer_id=Y&search=Q` server-side. We COULD push filters to the API level:
+
+```
+GET /slim?limit=500&status=completed&printer_id=1&search=benchy
+```
+
+**Pros**: Much smaller response, faster template evaluation.
+**Cons**:
+- Every filter change requires a new API call (latency + rate limits)
+- Can't do instant client-side sort or page navigation
+- Filter UX feels sluggish (API round-trip on each dropdown change)
+- More complex implementation (REST command params change dynamically)
+- The `/slim` endpoint may not support all the same query params as `GET /`
+
+**Verdict**: Start with the client-side approach (pull 500, filter in template). If users report scale issues at 1000+ archives, add an optional "server-side mode" that pushes status + date range filters to the API as query params. This is an optimization, not a requirement — identical to how the Filament Catalog handles 165 spools entirely client-side.
+
+### Alternative: Hybrid API Pre-Filter + Client Sort (Future Optimization)
+
+If scale becomes an issue, the architecture supports a middle ground:
+
+1. API pre-filters by **date range** (reduces dataset the most, e.g., "Last 30 Days" → ~60 archives)
+2. Client-side handles **status**, **material**, **search**, **sort**, **page**
+
+This would require switching from trigger-based template to a script + REST command flow where filter changes trigger an API re-fetch. The downside is that filter changes are no longer instant. This can be added later without changing the dashboard or filter helpers — only the data fetch layer changes.
+
+---
+
+## Updated Package Structure
+
+New and modified files (additions to existing `print_history/` package):
+
+```
+homeassistant/packages/3d_printing/print_history/
+├── rest_commands/
+│   ├── (existing files...)
+│   └── bambuddy_fetch_slim_archives.yaml        # NEW — GET /slim for bulk fetch
+├── template_sensors/
+│   ├── (existing files...)
+│   ├── print_history_archives.yaml               # NEW — trigger-based, raw data store
+│   └── print_history_filtered.yaml               # NEW — filter/sort/page sensor
+├── helpers/
+│   ├── input_select/
+│   │   ├── (existing files...)
+│   │   ├── input_select_print_history_filter_status.yaml      # NEW
+│   │   ├── input_select_print_history_filter_material.yaml    # NEW
+│   │   ├── input_select_print_history_filter_printer.yaml     # NEW
+│   │   ├── input_select_print_history_filter_date_range.yaml  # NEW
+│   │   └── input_select_print_history_sort.yaml               # NEW
+│   ├── input_text/
+│   │   ├── (existing files...)
+│   │   └── input_text_print_history_search.yaml               # NEW
+│   └── input_number/
+│       ├── (existing files...)
+│       ├── input_number_print_history_page_size.yaml          # NEW
+│       └── input_number_print_history_max_archives.yaml       # NEW
+├── automations/
+│   ├── (existing files...)
+│   ├── print_history_sync_filter_options.yaml    # NEW — dynamic dropdown population
+│   └── print_history_reset_page_on_filter.yaml   # NEW — reset to page 1 on filter change
+├── scripts/
+│   ├── (existing files...)
+│   └── print_history_clear_filters.yaml          # NEW — reset all filters to defaults
+├── dashboard_cards/
+│   ├── (existing files...)
+│   └── print_history_filter_bar.yaml             # NEW — bubble-card filter bar
+└── dashboard_views/
+    └── view_print_history.yaml                   # MODIFIED — add filter bar section
+```
+
+### Loader Updates
+
+The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` and `!include_dir_merge_named` for all domains. New files in existing directories are **auto-discovered** — no loader changes needed.
+
+---
+
+## Entity Reference (New Entities)
+
+### Template Sensors
+
+| Entity | Type | State | Key Attributes |
+|--------|------|-------|----------------|
+| `sensor.print_history_archives` | trigger template | Archive count (e.g., "487") | `archives_json` (full JSON array), `last_fetch` (ISO timestamp) |
+| `sensor.print_history_filtered` | template | Filtered count (e.g., "47") | `page_json` (current page array), `total_pages`, `page_info`, `active_filters` |
+
+### Helpers
+
+| Entity | Type | Default |
+|--------|------|---------|
+| `input_select.print_history_filter_status` | input_select | `All` |
+| `input_select.print_history_filter_material` | input_select | `All` (dynamic) |
+| `input_select.print_history_filter_printer` | input_select | `All` (dynamic) |
+| `input_select.print_history_filter_date_range` | input_select | `All Time` |
+| `input_select.print_history_sort` | input_select | `Date (Newest)` |
+| `input_text.print_history_search` | input_text | `""` |
+| `input_number.print_history_page_size` | input_number | 10 |
+| `input_number.print_history_max_archives` | input_number | 500 |
+
+### Automations
+
+| ID | Trigger | Action |
+|---|---|---|
+| `print_history_sync_filter_options` | `sensor.print_history_archives` state change | Populate material + printer dropdown options from data |
+| `print_history_reset_page_on_filter` | Any filter/sort/search helper state change | Set `print_history_current_page` → 1 |
+
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `script.print_history_clear_filters` | Reset all filter/sort/search helpers to defaults |
+
+---
+
+## Existing Entity Changes
+
+### Potentially Removable (Post-Migration)
+
+| Entity | Current Purpose | Replaced By |
+|--------|----------------|-------------|
+| `input_number.bambuddy_history_limit` | REST sensor `?limit=` param | `input_number.print_history_max_archives` |
+| `input_number.history_current_page` | Legacy pagination page | `input_number.print_history_current_page` (already exists) |
+| `input_text.history_page_data` | Legacy JSON page storage | `sensor.print_history_filtered` attr `page_json` |
+| `script.load_history_page` | REST command pagination | Template sensor paging (no script needed) |
+| `script.navigate_history` | Prev/next REST calls | Direct `input_number.set_value` on page helper |
+| `sensor.print_history_total_pages` | Heuristic page count | `sensor.print_history_filtered` attr `total_pages` |
+| `sensor.print_history_page_info` | Page display string | `sensor.print_history_filtered` attr `page_info` |
+| `rest_command.bambuddy_query_history_page` | Offset-based page fetch | Not needed — all data in memory |
+
+These can be removed in a cleanup phase after the new filter system is validated.
+
+### Kept As-Is
+
+| Entity | Reason |
+|--------|--------|
+| `sensor.bambuddy_print_history` (REST) | Powers `sensor.bambuddy_last_print_*` quick-glance sensors |
+| All `sensor.bambuddy_last_print_*` | Used by automations and other dashboard tiles |
+| All photo capture / enrichment entities | Independent subsystems, unaffected |
+
+---
+
+## Detailed Template Sensor Logic
+
+### `sensor.print_history_filtered` — Full Jinja2
+
+The template sensor logic follows the same pattern as `sensor.filament_catalog_filtered_spools`:
+
+1. Read raw data from Layer 1 sensor attribute
+2. Read all filter helper states
+3. Iterate archives, apply filters
+4. Sort matching archives
+5. Slice to current page
+6. Output as JSON attributes
+
+```jinja2
+{# ── Read raw data ──────────────────────────────────────────── #}
+{% set raw = state_attr('sensor.print_history_archives', 'archives_json')
+     | default('[]', true) %}
+{% if raw is string %}
+  {% set archives = raw | from_json %}
+{% elif raw is iterable %}
+  {% set archives = raw | list %}
+{% else %}
+  {% set archives = [] %}
+{% endif %}
+
+{# ── Read filter helpers ────────────────────────────────────── #}
+{% set filter_status = states('input_select.print_history_filter_status') %}
+{% set filter_material = states('input_select.print_history_filter_material') %}
+{% set filter_printer = states('input_select.print_history_filter_printer') %}
+{% set filter_date = states('input_select.print_history_filter_date_range') %}
+{% set search_text = states('input_text.print_history_search') | lower | trim %}
+{% set sort_option = states('input_select.print_history_sort')
+     | default('Date (Newest)', true) %}
+{% set page_size = states('input_number.print_history_page_size') | int(10) %}
+{% set current_page = states('input_number.print_history_current_page') | int(1) %}
+{% set now_ts = as_timestamp(now()) | float(0) %}
+
+{# ── Date range thresholds ──────────────────────────────────── #}
+{% if filter_date == 'Today' %}
+  {% set max_days = 1 %}
+{% elif filter_date in ['This Week'] %}
+  {% set max_days = 7 %}
+{% elif filter_date in ['This Month', 'Last 30 Days'] %}
+  {% set max_days = 30 %}
+{% elif filter_date == 'Last 90 Days' %}
+  {% set max_days = 90 %}
+{% else %}
+  {% set max_days = 999999 %}
+{% endif %}
+
+{# ── Filter pass ────────────────────────────────────────────── #}
+{% set ns = namespace(matches=[]) %}
+{% for a in archives %}
+  {% set a_status = a.get('status', '') | lower %}
+  {% set a_material = a.get('filament_type', '') %}
+  {% set a_printer = a.get('printer_id', '') | string %}
+  {% set a_name = a.get('print_name', '') | lower %}
+  {% set a_started = a.get('started_at', '') %}
+  {% set a_ts = as_timestamp(a_started, 0) | float(0) if a_started else 0 %}
+  {% set a_days = ((now_ts - a_ts) / 86400) | float(0) if a_ts > 0 else 999999 %}
+
+  {% set m_status = filter_status == 'All' or a_status == filter_status | lower %}
+  {% set m_material = filter_material == 'All' or a_material | lower == filter_material | lower %}
+  {% set m_printer = filter_printer == 'All' or a_printer == filter_printer %}
+  {% set m_search = search_text == '' or search_text in a_name %}
+  {% set m_date = a_days <= max_days %}
+
+  {% if m_status and m_material and m_printer and m_search and m_date %}
+    {# Build sort key based on sort_option #}
+    {% if sort_option in ['Date (Newest)', 'Date (Oldest)'] %}
+      {% set sk = a_ts %}
+    {% elif sort_option in ['Duration (Longest)', 'Duration (Shortest)'] %}
+      {% set sk = a.get('actual_time_seconds', 0) | float(0) %}
+    {% elif sort_option in ['Cost (Highest)', 'Cost (Lowest)'] %}
+      {% set sk = a.get('cost', 0) | float(0) %}
+    {% elif sort_option in ['Filament (Most)', 'Filament (Least)'] %}
+      {% set sk = a.get('filament_used_grams', 0) | float(0) %}
+    {% elif sort_option in ['Name (A-Z)', 'Name (Z-A)'] %}
+      {% set sk = a_name %}
+    {% else %}
+      {% set sk = a_ts %}
+    {% endif %}
+    {% set ns.matches = ns.matches + [dict(archive=a, sk=sk)] %}
+  {% endif %}
+{% endfor %}
+
+{# ── Sort pass ──────────────────────────────────────────────── #}
+{% set sort_desc = sort_option in [
+  'Date (Newest)', 'Duration (Longest)', 'Cost (Highest)',
+  'Filament (Most)', 'Name (Z-A)'] %}
+{% set sorted_items = ns.matches | sort(attribute='sk', reverse=sort_desc) %}
+
+{# ── Pagination ─────────────────────────────────────────────── #}
+{% set total = sorted_items | length %}
+{% set total_pages = ((total / page_size) | round(0, 'ceil')) | int %}
+{% set total_pages = [total_pages, 1] | max %}
+{% set safe_page = [[current_page, 1] | max, total_pages] | min %}
+{% set offset = (safe_page - 1) * page_size %}
+{% set page_items = sorted_items[offset:offset + page_size] %}
+
+{# ── Output ─────────────────────────────────────────────────── #}
+{# page_json: array of archive objects for current page #}
+{% set page_archives = page_items | map(attribute='archive') | list %}
+{{ page_archives | tojson }}
+```
+
+This pseudocode shows the structure. Each output attribute (`page_json`, `filtered_count`, `total_pages`, `page_info`, `active_filters`) follows this logic in separate attribute templates within the sensor definition.
+
+---
+
+## Filter Bar Wireframe
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⊞ Filter Prints                                                mdi: │
+│ ╔═══════════════════════════════════════════════════════════════════╗ │
+│ ║  Sort ▼ Date (Newest)                                           ║ │
+│ ╠═══════════════════════════════════════════════════════════════════╣ │
+│ ║  Status ▼  │  Material ▼  │  Printer ▼  │  Date Range ▼        ║ │
+│ ╠═══════════════════════════════════════════════════════════════════╣ │
+│ ║  🔍 [___________________________________]   47 matches   🗑 Clear║ │
+│ ╚═══════════════════════════════════════════════════════════════════╝ │
+│                                                                      │
+│ ┌──────────────────────── Print History Table ─────────────────────┐ │
+│ │ 📷  Hueforge BTTF          PLA   44.8g  $1.12  🖨 printing     │ │
+│ │     Mar 28 · est 4.3h                                           │ │
+│ ├─────────────────────────────────────────────────────────────────┤ │
+│ │ 📷  Darth Vader Saber P2   PLA   69.3g  $1.73  ✅ completed    │ │
+│ │     Mar 28 · 4.5h                                               │ │
+│ ├─────────────────────────────────────────────────────────────────┤ │
+│ │ 📷  Magnetic Frame P12     PLA   87.3g  $2.18  ✅ completed    │ │
+│ │     Mar 28 · 1.8h                                               │ │
+│ ├─────────────────────────────────────────────────────────────────┤ │
+│ │ ...                                                             │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│ ┌──────────── Pagination ────────────────────────────────────────┐  │
+│ │  ⏮  ◀  │  Page 1 / 5 (47 total)  │  ▶  ⏭  │  Size: 10  │ 🔄 │  │
+│ └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation Details
+
+The filter bar uses `custom:bubble-card` with `card_type: sub-buttons` following the Filament Catalog pattern:
+
+```yaml
+# dashboard_cards/print_history_filter_bar.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-card
+    card_type: separator
+    name: Filter Prints
+    icon: mdi:filter-variant
+  - type: custom:config-template-card
+    entities:
+      - input_select.print_history_sort
+      - input_select.print_history_filter_status
+      - input_select.print_history_filter_material
+      - input_select.print_history_filter_printer
+      - input_select.print_history_filter_date_range
+      - sensor.print_history_filtered
+    card:
+      type: custom:bubble-card
+      card_type: sub-buttons
+      entity: sensor.print_history_filtered
+      rows: 2.04
+      sub_button:
+        bottom_layout: rows
+        bottom:
+          - group:
+              - entity: input_select.print_history_sort
+                sub_button_type: select
+                name: Sort
+                icon: mdi:sort
+                show_name: true
+                show_state: true
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+          - group:
+              - entity: input_select.print_history_filter_status
+                sub_button_type: select
+                name: Status
+                icon: mdi:list-status
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_status']?.state !== 'All'}
+                state_color: ${states['input_select.print_history_filter_status']?.state !== 'All'}
+                fill_width: true
+              - entity: input_select.print_history_filter_material
+                sub_button_type: select
+                name: Material
+                icon: mdi:flask-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_material']?.state !== 'All'}
+                state_color: ${states['input_select.print_history_filter_material']?.state !== 'All'}
+                fill_width: true
+              - entity: input_select.print_history_filter_printer
+                sub_button_type: select
+                name: Printer
+                icon: mdi:printer-3d
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_printer']?.state !== 'All'}
+                state_color: ${states['input_select.print_history_filter_printer']?.state !== 'All'}
+                fill_width: true
+              - entity: input_select.print_history_filter_date_range
+                sub_button_type: select
+                name: Date
+                icon: mdi:calendar-range
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
+                state_color: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+```
+
+---
+
+## Comparison: Filament Catalog vs Print History Filter
+
+| Aspect | Filament Catalog | Print History |
+|--------|-----------------|---------------|
+| **Data source** | HA entity states (`sensor.spoolman_spool_*`) | External API → JSON attribute |
+| **Data volume** | ~165 entities (fixed) | 50–2000 archives (growing) |
+| **Data fetch** | Always in HA (Spoolman integration) | Trigger-based fetch with `rest_command` action |
+| **Filter sensor** | `sensor.filament_catalog_filtered_spools` | `sensor.print_history_filtered` |
+| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 5 input_selects + 1 input_text + 2 input_numbers |
+| **Grouping/tabs** | Yes (By Location, By Material, etc.) | No (flat list with sort) |
+| **Sort** | 9 options (name, weight, cost, hue, etc.) | 10 options (date, duration, cost, filament, name) |
+| **Pagination** | No (all shown, relies on auto-entities) | Yes (page_size + current_page) |
+| **Filter bar card** | `catalog_filter_bar.yaml` | `print_history_filter_bar.yaml` |
+| **Filter bar style** | `bubble-card` sub-buttons, 4 rows | `bubble-card` sub-buttons, 2-3 rows |
+| **Dynamic options** | `sync_filter_options` automation | `print_history_sync_filter_options` automation |
+| **Clear filters** | `script.filament_catalog_clear_filters` | `script.print_history_clear_filters` |
+| **Scale concern** | 165 is comfortable, >300 would need paging | 500 default cap, configurable to 2000 |
+
+---
+
+## Open Items
+
+| # | Item | Impact | Blocking? |
+|---|---|---|---|
+| 1 | Verify `GET /slim` supports `?limit=N` query param | Determines if we can cap the fetch | Yes — test against Bambuddy API |
+| 2 | Verify trigger-based template sensor `action` + `rest_command` response handling works as designed | Core architecture dependency (HA 2024.11+ feature) | Yes — test on live HA instance |
+| 3 | Determine if `GET /slim` supports `?status=X` or `?printer_id=Y` | Could enable API-side pre-filtering in future optimization | No — client-side filtering works regardless |
+| 4 | Recorder exclusion for `sensor.print_history_archives` | Large `archives_json` attribute shouldn't bloat the database | No — add to recorder config during implementation |
+| 5 | Printer ID → name mapping | `printer_id` is an integer; need friendly name for dropdown display. May require a separate API call or helper mapping. | No — can use printer_id as display initially |
+| 6 | Search: `input_text` vs API-side FTS | `GET /search?q=...` provides full-text search. Worth using for large datasets instead of Jinja2 string matching. | No — Jinja2 `in` operator is sufficient for <500 items |
+
+---
+
+## Implementation Phases
+
+This feature can be added incrementally within the existing print_history package:
+
+### Phase A: Data Layer (REST command + trigger template sensor)
+- Create `bambuddy_fetch_slim_archives` REST command
+- Create `print_history_archives` trigger-based template sensor
+- Verify data fetch and attribute storage
+- Add recorder exclusion
+
+### Phase B: Filter Helpers + Template Sensor
+- Create all `input_select`, `input_text`, `input_number` helpers
+- Create `print_history_filtered` template sensor
+- Create `sync_filter_options` automation
+- Create `reset_page_on_filter` automation
+- Create `clear_filters` script
+
+### Phase C: Dashboard Integration
+- Create `print_history_filter_bar.yaml` (bubble-card)
+- Update `view_print_history.yaml` to include filter bar
+- Update history table card to read from `sensor.print_history_filtered` `page_json`
+- Update pagination controls to use template sensor attributes
+
+### Phase D: Cleanup
+- Remove legacy pagination entities (`load_history_page`, `navigate_history`, `history_page_data`, etc.)
+- Consolidate `bambuddy_history_limit` → `print_history_max_archives`
+- Update README.md entity reference

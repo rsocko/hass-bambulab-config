@@ -1,5 +1,7 @@
 # Print Queue — Bambuddy Queue in HA
 
+> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference. Key issues: trailing slash on queue URLs, flat array response (not dict wrapper), `add` REST command uses `archive_id`/`library_file_id` (not `file_id`/`copies`), delete uses `item_id` (not `job_id`).
+
 ## Overview
 
 Surfaces Bambuddy's print queue in HA as a REST sensor and dashboard card. Provides queue management REST commands (add/remove jobs) and auto-refreshes on webhook events.
@@ -40,7 +42,9 @@ template: !include_dir_merge_list template_sensors
 
 | Entity | Endpoint | Interval | Attributes |
 |---|---|---|---|
-| `sensor.bambuddy_print_queue` | `GET /api/v1/queue` | 60s | `jobs`, `total` |
+| `sensor.bambuddy_print_queue` | `GET /api/v1/queue/` | 60s | Flat array — count via `value_json \| count` |
+
+> **OpenAPI note**: Queue returns `PrintQueueItemResponse[]` flat array (NOT `{jobs, total}` wrapper). Trailing slash required. State value: `value_json | count`. Filter params: `printer_id`, `status`.
 
 State value: number of jobs in queue.
 
@@ -48,8 +52,10 @@ State value: number of jobs in queue.
 
 | Service | Method | Endpoint | Fields |
 |---|---|---|---|
-| `rest_command.bambuddy_queue_add` | POST | `/api/v1/queue` | `file_id`, `printer_id` (default from helper), `copies` (default 1) |
-| `rest_command.bambuddy_queue_remove` | DELETE | `/api/v1/queue/{job_id}` | `job_id` |
+| `rest_command.bambuddy_queue_add` | POST | `/api/v1/queue/` | `archive_id` OR `library_file_id`, `printer_id`, `ams_mapping`, `plate_id`, `bed_levelling`, `use_ams`, etc. |
+| `rest_command.bambuddy_queue_remove` | DELETE | `/api/v1/queue/{item_id}` | `item_id` |
+
+> **OpenAPI note**: `POST /api/v1/queue/` uses `PrintQueueItemCreate` schema — **no `file_id` or `copies` fields**. Use `archive_id` (for archived prints) or `library_file_id` (for library files). For multiple copies, add the same item multiple times. DELETE uses `item_id` not `job_id`.
 
 ### Template Sensors
 
@@ -102,4 +108,8 @@ Displays the current print queue:
 
 ## Open Items
 
-None — this is a straightforward extraction with no design gaps.
+| # | Item | Impact |
+|---|---|---|
+| 1 | Rewrite REST sensor to handle flat array response (`value_json \| count` for state) | Blocking for Phase 3 implementation |
+| 2 | Rewrite `bambuddy_queue_add` REST command body to use `PrintQueueItemCreate` schema | Blocking for queue add functionality |
+| 3 | Additional queue endpoints available: cancel, stop, start, reorder, bulk update — consider adding REST commands | Non-blocking enhancement |

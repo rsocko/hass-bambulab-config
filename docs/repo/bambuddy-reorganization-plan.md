@@ -3,6 +3,8 @@
 > **Source design document**: [`.github/prompts/plan-bambuddyReorganization.prompt.md`](../../.github/prompts/plan-bambuddyReorganization.prompt.md)
 >
 > This file tracks execution status. The prompt file is the **source of truth** for all design decisions, architecture, schema, enrichment strategies, and file-level specifications. Refer to it for implementation details.
+>
+> **API Reference**: All design docs have been cross-referenced against the live OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](openapi-correction-notes.md) for per-phase corrections and [api-vs-design-guidance.md](api-vs-design-guidance.md) for development guidance covering all 280+ API endpoints.
 
 ## Overview
 
@@ -14,7 +16,7 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | `print_history` | Phase 1 | [docs/features/print_history/README.md](../features/print_history/README.md) | **Core complete** — advanced (photo review scripts/popup) pending |
 | `print_queue` | Phase 1 | [docs/features/print_queue/README.md](../features/print_queue/README.md) | Not started |
 | `print_statistics` | Phase 1 | [docs/features/print_statistics/README.md](../features/print_statistics/README.md) | Not started |
-| `printer_maintenance` | Phase 1 + 4 | [docs/features/printer_maintenance/README.md](../features/printer_maintenance/README.md) | **Blocked** |
+| `printer_maintenance` | Phase 1 + 4 | [docs/features/printer_maintenance/README.md](../features/printer_maintenance/README.md) | **Unblocked** — API endpoints confirmed via OpenAPI spec |
 
 ### Additional Design Docs
 
@@ -96,14 +98,14 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 
 ## Phase 5: `printer_maintenance`
 
-*Depends on Phase 1 + Phase 4. **Currently blocked** — see [Open Items](#open-items).*
+*Depends on Phase 1 + Phase 4. **UNBLOCKED** — all maintenance API endpoints confirmed via OpenAPI spec v0.2.2.2. See [openapi-correction-notes.md](openapi-correction-notes.md#phase-5-printer_maintenance--unblocked).*
 
 | Step | Description | Status | Blocked? | Notes |
 |------|------------|--------|----------|-------|
 | 39 | Create directory tree | Not started | | |
 | 40 | Create `printer_maintenance_loader.yaml` | Not started | | |
-| 41 | REST sensor: maintenance status per printer | Not started | **Yes** | Need endpoint discovery |
-| 42 | REST command: mark task complete | Not started | **Yes** | Need endpoint discovery |
+| 41 | REST sensor: maintenance status per printer | Not started | | `GET /api/v1/maintenance/printers/{printer_id}` → `PrinterMaintenanceOverview` |
+| 42 | REST command: mark task complete | Not started | | `POST /api/v1/maintenance/items/{item_id}/perform` with optional `{"notes": "..."}` |
 | 43 | Template sensors: due_count, due_list, health_score | Not started | | Derived from REST sensor |
 | 44 | Script: complete_maintenance_task | Not started | | Calls REST command → refresh |
 | 45 | Automations: due_alert + webhook refresh | Not started | | |
@@ -146,13 +148,13 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 
 | # | Item | Blocking? | Phase | Resolution Path |
 |---|------|-----------|-------|-----------------|
-| 1 | **Maintenance API endpoints** — wiki documents the feature but REST API reference doesn't list explicit endpoints. Need to discover `/api/v1/printers/{id}/maintenance` or similar. | **Yes** — blocks Phase 5 steps 41–42 | 5 | Test via Bambuddy's built-in API browser |
-| 2 | **Maintenance task schema** — field names, task types, intervals, completion payload unknown. | **Yes** — blocks Phase 5 | 5 | Discover via API browser alongside #1 |
+| 1 | ~~**Maintenance API endpoints**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `GET /api/v1/maintenance/printers/{printer_id}`, `POST /items/{item_id}/perform`, etc. Full list in [openapi-correction-notes.md](openapi-correction-notes.md#phase-5-printer_maintenance--unblocked) |
+| 2 | ~~**Maintenance task schema**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `MaintenanceStatus` and `PrinterMaintenanceOverview` schemas fully documented. Hours-based tracking (not print count). |
 | 3 | **Photo upload content type** — `POST /archives/{id}/photos` likely expects `multipart/form-data`. HA `rest_command` doesn't natively support file uploads. | No — design includes `shell_command` (curl) fallback | 1, 2 | Implement both paths; test during Phase 2 step 17 |
 | 4 | **Webhook format for HA** — "Webhook (Custom)" provider: does it send flat notifications format or structured API format with `archive_id`? | No — receiver normalizes both | 1 | Test during Phase 1 step 7 |
 | 5 | **`print_started` includes `archive_id`?** — API docs confirm it for `print_complete`. Likely yes for `print_started` since archive exists from start. | No — fallback script handles missing ID | 2 | Verify during Phase 2 step 14 |
-| 6 | **Photo delete endpoint** — `DELETE /archives/{id}/photos/{photo_id}` assumed but not confirmed in API docs. | No — blocks photo review only | 2 | Verify via API browser; needed for photo review feature |
-| 7 | **Set-cover-photo endpoint** — assumed PATCH or dedicated endpoint for setting archive cover image. | No — blocks photo review only | 2 | Verify via API browser |
+| 6 | ~~**Photo delete endpoint**~~ | No | 2 | **RESOLVED** — `DELETE /api/v1/archives/{id}/photos/{filename}` confirmed in OpenAPI spec. Uses filename, not photo_id. |
+| 7 | **Set-cover-photo endpoint** — assumed PATCH or dedicated endpoint for setting archive cover image. | No — blocks photo review only | 2 | Not found in OpenAPI spec — may need to use `PATCH /{id}` with a cover field or check Bambuddy source |
 | 8 | **Dashboard view registration** — `view_print_history.yaml` and `view_maintenance.yaml` must be added to `common/dashboards/3d_printing.yaml` views list. | No | 2, 5 | `view_print_history.yaml` **Done** (added during Phase 2 step 25). Phase 5 still pending. |
 | 9 | **Enrichment idempotency** — PATCHing tags/notes twice shouldn't create duplicates. | No | 2 | Verify Bambuddy behavior during testing |
 | 10 | **Webhook image field** — payload can include base64 JPEG for some events. Could be decoded as bonus data. | No — nice-to-have | 2 | Defer to post-MVP enhancement |
@@ -179,8 +181,8 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 | 2 — print_history | **Core complete** | Photo review scripts/popup (steps 26a–26c) deferred to advanced phase |
 | 3 — print_queue | **Yes** | None |
 | 4 — print_statistics | **Yes** | None |
-| 5 — printer_maintenance | **No** | Maintenance API endpoints unknown |
+| 5 — printer_maintenance | **Yes** | API endpoints confirmed via OpenAPI spec |
 | 6 — Cleanup | N/A | Depends on 1–5 |
 | 7 — Verification | N/A | Depends on 6 |
 
-**Recommendation**: Begin Phase 1. Run Phases 2–4 in parallel after Phase 1 completes. Discover maintenance API endpoints during Phases 2–4 to unblock Phase 5.
+**Recommendation**: Phase 1 complete. Phase 2 core complete (code fixed for OpenAPI corrections). Run Phases 3–5 in parallel. See [api-vs-design-guidance.md](api-vs-design-guidance.md) for per-phase implementation notes and priority order.

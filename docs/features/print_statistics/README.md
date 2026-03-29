@@ -1,5 +1,7 @@
 # Print Statistics — Bambuddy Stats in HA
 
+> **⚠️ OpenAPI Corrections Needed**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference. Key issues: endpoint is `/api/v1/archives/stats` (NOT `/api/v1/statistics`), several assumed attributes don't exist in `ArchiveStats` schema and must be computed in templates.
+
 ## Overview
 
 Surfaces Bambuddy's aggregate printing statistics in HA as a REST sensor with derived template sensors and a dashboard card. Auto-refreshes on print completion webhook events.
@@ -39,18 +41,34 @@ template: !include_dir_merge_list template_sensors
 
 | Entity | Endpoint | Interval | State |
 |---|---|---|---|
-| `sensor.bambuddy_statistics` | `GET /api/v1/statistics` | 10 min | `total_prints` |
+| `sensor.bambuddy_statistics` | `GET /api/v1/archives/stats` | 10 min | `total_prints` |
 
-Attributes: `total_prints`, `successful_prints`, `failed_prints`, `cancelled_prints`, `total_print_time_hours`, `total_filament_used_grams`, `success_rate_percent`, `prints_this_month`, `prints_this_week`, `avg_print_time_hours`, `most_used_filament`, `top_models`
+> **OpenAPI note**: The endpoint is `/api/v1/archives/stats` (NOT `/api/v1/statistics`). No trailing slash needed (not a collection). Optional query params: `date_from`, `date_to` (YYYY-MM-DD format).
+
+Attributes from `ArchiveStats` schema:
+- `total_prints`, `successful_prints`, `failed_prints`, `stopped_prints`
+- `total_print_time_hours`, `total_filament_grams`, `total_cost`
+- `prints_by_filament_type` (dict: `{"PLA": 800, "PETG": 300}`)
+- `prints_by_printer` (dict: `{"1": 700, "2": 534}`)
+- `average_time_accuracy`, `time_accuracy_by_printer`
+- `total_energy_kwh`, `total_energy_cost`
+
+> **NOT in API** (must be computed in templates): `success_rate_percent`, `cancelled_prints`, `prints_this_month`, `prints_this_week`, `avg_print_time_hours`, `most_used_filament`, `top_models`
 
 ### Template Sensors
 
-| Entity | Source Attribute | Unit | Purpose |
+| Entity | Source | Unit | Purpose |
 |---|---|---|---|
-| `sensor.bambuddy_success_rate` | `success_rate_percent` | % | Overall print success rate |
+| `sensor.bambuddy_success_rate` | **Computed**: `(successful_prints / total_prints * 100)` | % | Overall print success rate |
 | `sensor.bambuddy_total_print_time` | `total_print_time_hours` | h | All-time print hours |
-| `sensor.bambuddy_total_filament_used` | `total_filament_used_grams` | g | All-time filament usage |
-| `sensor.bambuddy_prints_this_week` | `prints_this_week` | prints | Prints completed this week |
+| `sensor.bambuddy_total_filament_used` | `total_filament_grams` | g | All-time filament usage |
+| `sensor.bambuddy_prints_this_week` | **Not in API** — see open items | prints | Prints completed this week |
+
+> **OpenAPI note — template sensor source corrections**:
+> - `success_rate_percent` does NOT exist in `ArchiveStats`. Compute via Jinja: `{{ (attr.successful_prints / attr.total_prints * 100) | round(1) }}`
+> - `total_filament_used_grams` → actual field is `total_filament_grams` (no `_used_`)
+> - `prints_this_week` does NOT exist. Options: (a) drop sensor, (b) make a 2nd REST sensor calling `/api/v1/archives/stats?date_from=YYYY-MM-DD` with Monday's date, or (c) count from `/api/v1/archives/slim?date_from=...&limit=50000`
+> - **New fields available**: `stopped_prints`, `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, `prints_by_printer` — consider exposing these as template sensors or dashboard attributes
 
 ### Automations
 
@@ -101,4 +119,10 @@ Displays printing statistics:
 
 ## Open Items
 
-None — this is a straightforward extraction with no design gaps.
+| # | Item | Impact | Blocking? |
+|---|---|---|---|
+| 1 | **Endpoint URL must be `/api/v1/archives/stats`** — NOT `/api/v1/statistics`. No trailing slash needed. | REST sensor URL | **Yes — wrong URL will 404** |
+| 2 | **`prints_this_week` not in API** — `ArchiveStats` has no time-windowed counts. Options: drop sensor, add 2nd REST call with `date_from`, or use `/archives/slim` count. | Template sensor redesign | No — design decision |
+| 3 | **Several attributes renamed or missing** — `total_filament_used_grams` → `total_filament_grams`; `cancelled_prints` → `stopped_prints`; `success_rate_percent` must be computed; `avg_print_time_hours`, `most_used_filament`, `top_models` not in API. | Template sensor sources | No — template math |
+| 4 | **New stats available** — `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, `prints_by_printer` could enhance the dashboard significantly. | Dashboard enrichment opportunity | No — enhancement |
+| 5 | **Date-filtered queries** — `date_from` and `date_to` (YYYY-MM-DD) are optional params on `/archives/stats`. Could power "this month" / "this week" dashboard widgets via separate REST sensors. | Future dashboard widgets | No — enhancement |

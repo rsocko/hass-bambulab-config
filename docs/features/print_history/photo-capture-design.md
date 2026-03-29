@@ -1,5 +1,7 @@
 # Photo Capture Design — Multi-Camera, Multi-Stage
 
+> **OpenAPI Cross-Reference**: Photo upload (`POST /archives/{id}/photos`) confirmed as multipart/form-data in OpenAPI spec. Photo GET/DELETE endpoints confirmed unauthenticated. Bambuddy also offers a direct camera snapshot API (`GET /printers/{id}/camera/snapshot`) as an alternative to HA camera entities — see [api-vs-design-guidance.md](../../repo/api-vs-design-guidance.md#5-camera-endpoints--direct-snapshot-alternative). Full API corrections in [openapi-correction-notes.md](../../repo/openapi-correction-notes.md).
+
 ## Overview
 
 HA owns multi-camera, multi-stage photo capture during print jobs. Photos are saved locally for HA dashboard use and uploaded to the corresponding Bambuddy archive. Error/failure photos are included.
@@ -138,11 +140,13 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 **`script.resolve_current_archive_id`** is called when archive_id is empty (webhook missed, or flat webhook format without archive_id):
 
 ```
-1. Query GET /archives?printer_id={id}&sort=-created_at&limit=1
+1. Query GET /api/v1/archives/?printer_id={id}&limit=1  (trailing slash required, no sort param)
 2. Compare returned archive filename with current sensor.*_task_name
 3. If match → store archive_id in input_text.bambuddy_current_archive_id
 4. If no match → log warning, skip upload (local photo still saved)
 ```
+
+> **OpenAPI note**: The `sort` param does not exist on `GET /archives/`. Default ordering appears newest-first. The endpoint requires a trailing slash. Response is a flat `ArchiveResponse[]` array.
 
 > **Note**: Archives exist from print START (confirmed by user observation: archive appears with 3MF, 3D viewer, filament data while print is in progress). This means mid-print uploads work immediately — there is no window where the archive doesn't yet exist.
 

@@ -1,5 +1,7 @@
 # Archive Enrichment — Spoolman Data Pipeline
 
+> **OpenAPI Cross-Reference**: `PATCH /api/v1/archives/{id}` confirmed — accepts `tags` (comma-separated string), `notes`, `cost`, `is_favorite`, `project_id`, plus `print_name`, `failure_reason`, `quantity`, `external_url`, `printer_id`. Tags are strings, NOT JSON arrays. See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full API patterns.
+
 ## Overview
 
 When a print completes (or fails/is stopped), HA reads Spoolman spool data from existing sensors and PATCHes the Bambuddy archive with tags and notes. This enriches Bambuddy's archive with filament identity, cost, and per-tray usage data that only HA has, since HA bridges both Spoolman and the printer.
