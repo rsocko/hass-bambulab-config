@@ -1,4 +1,5 @@
 print_history_search:
   name: Print History Search
+  initial: ""
   max: 100
   icon: mdi:magnify

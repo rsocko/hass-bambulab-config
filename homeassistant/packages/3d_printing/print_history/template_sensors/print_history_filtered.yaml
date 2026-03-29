@@ -159,14 +159,14 @@
             {%- set sorted = ns.matches | sort(attribute='started_at') | reverse -%}
           {%- endif -%}
           {%- set total_pages = (((sorted | length) - 1) // page_size) + 1 if (sorted | length) > 0 else 1 -%}
-          {%- set clamped_page = [current_page, total_pages] | min | max(1) -%}
+          {%- set clamped_page = [1, [current_page, total_pages] | min] | max -%}
           {%- set start = (clamped_page - 1) * page_size -%}
           {%- set end = start + page_size -%}
           {{ sorted[start:end] | list | tojson }}
         page_info: >-
           {% set total_pages = state_attr('sensor.print_history_filtered', 'total_pages') | int(1) %}
           {% set current_page = states('input_number.history_current_page') | int(1) %}
-          Page {{ [current_page, total_pages] | min | max(1) }} of {{ total_pages }}
+          Page {{ [1, [current_page, total_pages] | min] | max }} of {{ total_pages }}
         active_filters: >-
           {% set active = namespace(items=[]) %}
           {% for entity_id, label in [
@@ -185,7 +185,7 @@
             {% endif %}
           {% endfor %}
           {% set search = states('input_text.print_history_search') | trim %}
-          {% if search != '' %}
+          {% if search not in ['', 'unknown', 'unavailable'] %}
             {% set active.items = active.items + ['Search: ' ~ search] %}
           {% endif %}
           {{ active.items | join(' | ') if active.items else 'No active filters' }}

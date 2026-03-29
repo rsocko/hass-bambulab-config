@@ -8,4 +8,4 @@
       state: >
         {% set current = states('input_number.history_current_page') | int(1) %}
         {% set total = state_attr('sensor.print_history_filtered', 'total_pages') | int(1) %}
-        Page {{ [current, total] | min | max(1) }} of {{ total }}
+        Page {{ [1, [current, total] | min] | max }} of {{ total }}
