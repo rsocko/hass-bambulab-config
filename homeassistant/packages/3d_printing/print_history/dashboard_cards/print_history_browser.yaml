@@ -686,36 +686,35 @@ cards:
         {% else %}
           {% set colors = [] %}
         {% endif %}
+        {% set selected = states('input_text.print_history_filter_colors').split(',') | map('trim') | reject('eq', '') | map('lower') | list %}
         {% set cards = namespace(items=[]) %}
         {% for color in colors %}
+          {% set is_active = (color | lower) in selected %}
           {% set cards.items = cards.items + [{
             'type': 'custom:button-card',
             'entity': 'input_text.print_history_filter_colors',
-            'name': color,
             'show_name': false,
+            'show_icon': true,
             'show_state': false,
+            'icon': 'mdi:circle',
             'tap_action': {
-              'action': 'perform-action',
-              'perform_action': 'script.toggle_print_history_color_filter',
-              'data': { 'color': color }
+              'action': 'call-service',
+              'service': 'script.toggle_print_history_color_filter',
+              'service_data': {'color': color}
             },
+            'hold_action': {'action': 'none'},
             'styles': {
               'card': [
                 {'height': '42px'},
                 {'border-radius': '999px'},
                 {'padding': '0'},
                 {'background': 'var(--ha-card-background)'},
-                {'box-shadow': 'none'}
+                {'box-shadow': '0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.14)'}
               ],
-              'custom_fields': {
-                'swatch': [
-                  {'justify-self': 'center'},
-                  {'align-self': 'center'}
-                ]
-              }
-            },
-            'custom_fields': {
-              'swatch': "[[[\n  const selected = (states['input_text.print_history_filter_colors']?.state || '').toLowerCase().split(',').map((value) => value.trim()).filter(Boolean);\n  const active = selected.includes('" ~ color ~ "');\n  const ring = active ? '0 0 0 3px var(--accent-color), inset 0 0 0 2px rgba(255,255,255,0.35)' : 'inset 0 0 0 1px rgba(255,255,255,0.2)';\n  return `<div style=\"width:20px;height:20px;border-radius:999px;background:" ~ color ~ ";box-shadow:${ring};\"></div>`;\n]]]"
+              'icon': [
+                {'width': '22px'},
+                {'color': color}
+              ]
             }
           }] %}
         {% endfor %}
