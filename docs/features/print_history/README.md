@@ -48,8 +48,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
 │   │   ├── input_text_bambuddy_photo_manifest.yaml
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
-│   │   ├── input_text_print_history_search.yaml
-│   │   └── input_text_secondary_camera_entity.yaml
+│   │   └── input_text_print_history_search.yaml
 │   ├── input_boolean/
 │   │   ├── input_boolean_bambuddy_history_fetch_enabled.yaml
 │   │   ├── input_boolean_capture_at_start.yaml
@@ -65,6 +64,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   └── input_number_photo_review_timeout_hours.yaml
 │   └── input_select/
 │       ├── input_select_bambuddy_photo_review_state.yaml
+│       ├── input_select_secondary_camera_entity.yaml
 │       ├── input_select_print_history_filter_*.yaml
 │       ├── input_select_print_history_sort.yaml
 │       └── input_select_print_history_card_variant.yaml
@@ -133,7 +133,7 @@ input_select: !include_dir_merge_named helpers/input_select
 |---|---|---|---|
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
 | `input_text.print_history_search` | input_text | Browser search text | — |
-| `input_text.secondary_camera_entity` | input_text | Configurable secondary camera entity_id | — |
+| `input_select.secondary_camera_entity` | input_select | Configurable secondary camera choice from the known auxiliary cameras, or `None` | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
 | `input_boolean.bambuddy_history_fetch_enabled` | input_boolean | Enable/disable history REST polling | — |
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
@@ -265,69 +265,63 @@ The Print History view is registered as a tab in the 3D Printing dashboard.
 
 - **View**: `dashboard_views/view_print_history.yaml` — `path: print-history`, `icon: mdi:history`
 - **Registration**: `!include ../../print_history/dashboard_views/view_print_history.yaml` in `common/dashboards/3d_printing.yaml`
-- **View type**: `type: sections`, `max_columns: 2`
+- **View type**: `type: sections`, `max_columns: 1`
 
 ### Layout Design
 
-The dashboard is organized around **a primary browser surface plus lightweight secondary diagnostics**. Settings remain part of the feature, but they should no longer permanently occupy dashboard real estate. Instead, the print history page should expose them through a popup launched from an in-page button.
+The dashboard is organized around **a single browser-first surface**. Settings remain part of the feature, but they no longer permanently occupy dashboard real estate. Instead, the print history page exposes them through a popup launched from an in-page button.
 
-#### Visual Layout (Desktop — 2 columns)
+#### Visual Layout (Desktop)
 
 ```
-┌─────────────────────────────────────────────┬──────────────────────────────────┐
-│  Section 1: Print History Browser           │  Section 2: Diagnostics          │
-│                                             │                                  │
-│  ┌─ Photo Review Chip (conditional) ──────┐ │  ┌─ Active Session ────────────┐ │
-│  │ 📸 Photos to Review                    │ │  │ Archive ID    abc-123       │ │
-│  └────────────────────────────────────────┘ │  │ Review State  idle          │ │
-│                                             │  │ Last Print    Benchy        │ │
-│  ┌─ Browser Toolbar ──────────────────────┐ │  │ Last Status   success       │ │
-│  │ Filter/Sort Summary   47 matches       │ │  │ Last Duration 2.3h          │ │
-│  │ [Filter] [Sort] [Layout] [Settings]    │ │  └──────────────────────────────┘ │
-│  └────────────────────────────────────────┘ │                                  │
-│                                             │  ┌─ Archive Exceptions ────────┐ │
-│  ┌─ Print Records ────────────────────────┐ │  │ 1 incomplete archive        │ │
-│  │ Compact / Media / Detail card mode     │ │  │ Missing core 3MF            │ │
-│  │ ┌─────────────────────────────────────┐ │ │  │ [Inspect] [Recover later]  │ │
-│  │ │ [thumb] Benchy              ✅      │ │ │  └──────────────────────────────┘ │
-│  │ │ Mar 27 · 2.3h · PLA · 44.8g        │ │ │                                  │
-│  │ ├─────────────────────────────────────┤ │ │                                  │
-│  │ │ [larger cover/photo when enabled]   │ │ │                                  │
-│  │ │ Phone Case · PETG · failure detail  │ │ │                                  │
-│  │ ├─────────────────────────────────────┤ │ │                                  │
-│  │ │ ...                                 │ │ │                                  │
-│  │ └─────────────────────────────────────┘ │ │                                  │
-│  └────────────────────────────────────────┘ │                                  │
-│                                             │                                  │
-│  ┌─ Pagination ───────────────────────────┐ │                                  │
-│  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭        │ │                                  │
-│  │ [🔄 Refresh]          [Page Size: 10]  │ │                                  │
-│  └────────────────────────────────────────┘ │                                  │
-└─────────────────────────────────────────────┴──────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Section 1: Print History Browser                                         │
+│                                                                             │
+│  ┌─ Photo Review Chip (conditional) ─────────────────────────────────────┐ │
+│  │ 📸 Photos to Review                                                    │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─ Browser Toolbar ─────────────────────────────────────────────────────┐ │
+│  │ Filter/Sort Summary   47 matches                                      │ │
+│  │ [Filter] [Sort] [Layout] [Settings]                                   │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─ Print Records ───────────────────────────────────────────────────────┐ │
+│  │ Compact / Media / Detail card mode                                   │ │
+│  │ ┌───────────────────────────────────────────────────────────────────┐ │ │
+│  │ │ [thumb] Benchy                                            ✅      │ │ │
+│  │ │ Mar 27 · 2.3h · PLA · 44.8g                                      │ │ │
+│  │ ├───────────────────────────────────────────────────────────────────┤ │ │
+│  │ │ [larger cover/photo when enabled]                                 │ │ │
+│  │ │ Phone Case · PETG · failure detail                                │ │ │
+│  │ ├───────────────────────────────────────────────────────────────────┤ │ │
+│  │ │ ...                                                               │ │ │
+│  │ └───────────────────────────────────────────────────────────────────┘ │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─ Pagination ──────────────────────────────────────────────────────────┐ │
+│  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭                                        │ │
+│  │ [🔄 Refresh]          [Page Size: 10]                                 │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 Popup launched from `Settings` button:
 
+```
 ┌─────────────────────────────────────────────┐
 │  Print History Settings                     │
-│  Photo Capture                              │
 │  At Start [✓]  Mid-Print [✓]  Near End [✓] │
 │  On Error [✓]  Mid-Print Threshold   50%   │
-│  Secondary Camera                    [cam] │
-│                                             │
-│  Browser Settings                           │
+│  Secondary Camera               [dropdown] │
 │  Auto-Fetch History                  [✓]   │
+│  Max Cached Archives                175    │
 │  Review Timeout (hrs)                24    │
-│  Default Card Variant                Media │
-│  Default Page Size                   10    │
 └─────────────────────────────────────────────┘
 ```
 
 #### Visual Layout (Mobile — 1 column)
 
-On narrow screens (`max_columns` collapses to 1), all sections stack vertically in order:
-
-1. **Print History Browser** — review chip + toolbar + archive cards + pagination
-2. **Diagnostics** — current-print state and archive exception summary
+On narrow screens, the browser remains a single stacked flow: review chip, toolbar, archive cards, then pagination.
 
 The settings popup remains off-canvas on both desktop and mobile so the primary browsing surface stays dominant.
 
@@ -335,8 +329,7 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 | # | Section | Cards | Column | Purpose |
 |---|---------|-------|--------|---------|
-| 1 | Print History Browser | `photo_review_chip.yaml` (conditional), browser toolbar card, archive-record card, `print_history_browser.yaml` (pagination + refresh) | Left | **Hero content** — filter/sort entry points, layout switching, and the main archive browsing experience stay together as one cohesive unit. |
-| 2 | Diagnostics | Entities/status cards for archive ID, review state, last print name/status/duration, archive exception summary | Right | Secondary context — useful for troubleshooting and exception visibility without displacing the main browsing workflow. |
+| 1 | Print History Browser | `photo_review_chip.yaml` (conditional), browser toolbar card, archive-record card, `print_history_browser.yaml` (pagination + refresh) | Full width | **Hero content** — filter/sort entry points, layout switching, and the main archive browsing experience stay together as one cohesive unit. |
 
 #### Key Design Decisions
 
@@ -346,7 +339,7 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 3. **Archive card variants are a first-class view choice** — The page should support at least three presentation modes: compact list, media-first card, and detail card. This allows the same data layer to support quick scanning and richer visual review.
 
-4. **Diagnostics stay secondary** — Archive ID, review state, and archive health details remain available, but they belong beside or below the browser rather than inside it.
+4. **Workflow state stays out of settings UI** — Archive ID, review state, and similar runtime internals should support automations and review flows, but they should not appear as editable settings.
 
 5. **Photo review chip stays with the browser** — The chip is contextual to the history workflow (you see it → review → it disappears). It belongs in the same section as the archive browser, not floating in its own section.
 

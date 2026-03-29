@@ -1,7 +1,6 @@
 # Print History View — dedicated tab in the 3D Printing dashboard.
 #
-# Layout: browser-first hero surface with popup-driven controls and lightweight
-# diagnostics in a secondary column.
+# Layout: browser-first hero surface with popup-driven controls.
 #
 # See docs/features/print_history/README.md § Dashboard for the full layout spec.
 title: Print History
@@ -10,7 +9,7 @@ icon: mdi:history
 type: sections
 max_columns: 1
 sections:
-  # ── Section 1: Print History (hero — left column) ──────────────────
+  # ── Section 1: Print History (hero) ─────────────────────────────────
   # All three cards in one section so masonry keeps them together.
   - type: grid
     cards:

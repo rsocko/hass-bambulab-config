@@ -22,7 +22,7 @@ capture_and_upload_snapshot:
              | default('unknown') | replace(' ', '_') | replace('/', '_') }}
         timestamp: "{{ now().strftime('%Y%m%d_%H%M%S') }}"
         primary_camera: "camera.ntk_ryansoffice_3dprinter_camera"
-        secondary_camera: "{{ states('input_text.secondary_camera_entity') }}"
+        secondary_camera: "{{ states('input_select.secondary_camera_entity') }}"
         has_secondary: >-
           {{ secondary_camera not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
         primary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"

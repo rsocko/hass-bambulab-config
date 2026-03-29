@@ -152,7 +152,7 @@
 #       VERIFY: Error capture uses queued mode (send multiple rapid errors)
 #
 # B2.7  Secondary Camera Test
-#       Set input_text.secondary_camera_entity to a valid camera entity
+#       Set input_select.secondary_camera_entity to a valid secondary camera
 #       Trigger a capture event
 #       VERIFY: Two photos saved: <task>_<stage>_<ts>.jpg and <task>_<stage>_<ts>_cam2.jpg
 #

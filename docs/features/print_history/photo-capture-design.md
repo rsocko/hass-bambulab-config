@@ -15,9 +15,9 @@ Bambuddy also captures its own completion photo natively (when "Capture finish p
 - Always used for all capture stages
 
 ### Secondary Camera (Optional)
-- Entity stored in `input_text.secondary_camera_entity`
-- Can be any HA camera entity (USB cam, IP cam, etc.)
-- If empty/unavailable, only primary camera captures
+- Entity stored in `input_select.secondary_camera_entity`
+- Single optional camera selection from the known secondary camera list
+- `None` disables the secondary capture path
 
 ## Capture Stages
 

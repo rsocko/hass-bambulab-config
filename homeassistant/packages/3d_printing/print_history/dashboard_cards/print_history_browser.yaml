@@ -108,56 +108,29 @@ cards:
               title: Print History Settings
               size: normal
               content:
-                type: vertical-stack
-                cards:
-                  - type: entities
-                    title: Capture & Sync
-                    show_header_toggle: false
-                    entities:
-                      - entity: input_boolean.capture_at_start
-                        name: At Start
-                      - entity: input_boolean.capture_at_midprint
-                        name: Mid-Print
-                      - entity: input_boolean.capture_near_complete
-                        name: Near Complete
-                      - entity: input_boolean.capture_on_error
-                        name: On Error
-                      - type: divider
-                      - entity: input_number.midprint_capture_percent
-                        name: Mid-Print %
-                      - entity: input_text.secondary_camera_entity
-                        name: Secondary Camera
-                      - type: divider
-                      - entity: input_boolean.bambuddy_history_fetch_enabled
-                        name: Auto-Fetch History
-                      - entity: input_number.print_history_max_archives
-                        name: Max Cached
-                      - entity: input_number.photo_review_timeout_hours
-                        name: Review Timeout (hrs)
-                  - type: entities
-                    title: Current Print
-                    show_header_toggle: false
-                    entities:
-                      - entity: input_text.bambuddy_current_archive_id
-                        name: Archive
-                      - entity: input_select.bambuddy_photo_review_state
-                        name: Review
-                      - entity: sensor.bambuddy_last_print_name
-                        name: Last Print
-                  - type: glance
-                    title: Browser Snapshot
-                    show_state: true
-                    state_color: false
-                    columns: 4
-                    entities:
-                      - entity: sensor.print_history_archives
-                        name: Cached
-                      - entity: sensor.print_history_filtered
-                        name: Matches
-                      - entity: sensor.bambuddy_last_print_status
-                        name: Status
-                      - entity: sensor.bambuddy_last_print_duration
-                        name: Duration
+                type: entities
+                show_header_toggle: false
+                entities:
+                  - entity: input_boolean.capture_at_start
+                    name: At Start
+                  - entity: input_boolean.capture_at_midprint
+                    name: Mid-Print
+                  - entity: input_boolean.capture_near_complete
+                    name: Near Complete
+                  - entity: input_boolean.capture_on_error
+                    name: On Error
+                  - type: divider
+                  - entity: input_number.midprint_capture_percent
+                    name: Mid-Print %
+                  - entity: input_select.secondary_camera_entity
+                    name: Secondary Camera
+                  - type: divider
+                  - entity: input_boolean.bambuddy_history_fetch_enabled
+                    name: Auto-Fetch History
+                  - entity: input_number.print_history_max_archives
+                    name: Max Cached
+                  - entity: input_number.photo_review_timeout_hours
+                    name: Review Timeout (hrs)
         styles:
           card:
             - height: 40px

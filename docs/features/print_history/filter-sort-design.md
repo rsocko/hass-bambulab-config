@@ -713,7 +713,7 @@ The toolbar should launch two popup surfaces:
 1. **Browse Controls popup**
    Includes filter dropdowns, search input, and sort options. This keeps high-control browsing available without consuming the first screen of the page.
 2. **Settings popup**
-   Includes capture-stage toggles, history-fetch defaults, review timeout, default page size, and the default archive card variant.
+  Includes only user-configurable capture/history settings such as capture-stage toggles, optional secondary camera selection, history-fetch defaults, and review timeout. Runtime workflow state like archive ID or photo-review state should not be exposed here.
 
 The implementation can use the repo's preferred popup mechanism (`browser_mod` if available, or another consistent popup interaction), but the design requirement is the same: controls are on-demand rather than permanently pinned.
 
