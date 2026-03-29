@@ -1,6 +1,7 @@
 # Print History Card — recent-prints summary + variant-aware archive browser.
 # Summary row uses individual rest: sensors (always works).
-# Browser rows read from sensor.print_history_filtered page_json.
+# Browser rows are derived client-side from sensor.print_history_archives so the
+# UI still works even when the Layer 2 page_json attribute is unavailable.
 
 type: vertical-stack
 cards:
@@ -27,7 +28,7 @@ cards:
         - width: 24px
         - color: "#2196F3"
 
-  # History browser rendered from the Layer 2 filtered page JSON
+  # History browser rendered from the archive cache plus current helper state
   - type: custom:button-card
     entity: sensor.print_history_filtered
     show_name: false
@@ -36,24 +37,94 @@ cards:
     custom_fields:
       history_table: |
         [[[
-          const pageJson = entity && entity.attributes ? entity.attributes.page_json : '[]';
+          const rawArchives = states['sensor.print_history_archives']?.attributes?.archives_json ?? '[]';
           const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
+          const pageSize = Number(states['input_number.print_history_page_size']?.state || 10);
+          const currentPage = Number(states['input_number.history_current_page']?.state || 1);
+          const filterStatus = states['input_select.print_history_filter_status']?.state || 'All';
+          const filterMaterial = states['input_select.print_history_filter_material']?.state || 'All';
+          const filterColor = states['input_select.print_history_filter_color']?.state || 'All';
+          const filterPrinter = states['input_select.print_history_filter_printer']?.state || 'All';
+          const filterDate = states['input_select.print_history_filter_date_range']?.state || 'All Time';
+          const filterFavorites = states['input_select.print_history_filter_favorites']?.state || 'All';
+          const filterDesigner = states['input_select.print_history_filter_designer']?.state || 'All';
+          const filterLayerHeight = states['input_select.print_history_filter_layer_height']?.state || 'All';
+          const sortBy = states['input_select.print_history_sort']?.state || 'Date (Newest)';
+          const searchText = (states['input_text.print_history_search']?.state || '').trim().toLowerCase();
           let archives = [];
-          if (Array.isArray(pageJson)) {
-            archives = pageJson;
-          } else if (typeof pageJson === 'string') {
+          if (Array.isArray(rawArchives)) {
+            archives = rawArchives;
+          } else if (typeof rawArchives === 'string') {
             try {
-              archives = JSON.parse(pageJson);
+              archives = JSON.parse(rawArchives);
             } catch (error) {
               archives = [];
             }
           }
-          if (archives.length === 0) {
+          const normalizeStatus = (status) => {
+            const raw = String(status || '').toLowerCase();
+            if (raw === 'completed') return 'success';
+            if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+            return raw;
+          };
+          const matchesDateRange = (archive) => {
+            if (filterDate === 'All Time') return true;
+            const started = archive.started_at || archive.created_at;
+            if (!started) return false;
+            const startedTime = new Date(started).getTime();
+            if (Number.isNaN(startedTime)) return false;
+            const ageDays = (Date.now() - startedTime) / 86400000;
+            if (filterDate === 'Today') return ageDays < 1;
+            if (filterDate === 'This Week') return ageDays < 7;
+            if (filterDate === 'This Month') return ageDays < 30;
+            if (filterDate === 'Last 30 Days') return ageDays < 30;
+            if (filterDate === 'Last 90 Days') return ageDays < 90;
+            return true;
+          };
+          const filteredArchives = archives.filter((archive) => {
+            const normalizedStatus = normalizeStatus(archive.status);
+            const material = String(archive.filament_type || '');
+            const color = String(archive.filament_color || '');
+            const printer = String(archive.printer_id ?? '');
+            const designer = String(archive.designer || '');
+            const layerHeight = String(archive.layer_height ?? '');
+            const tags = String(archive.tags || '');
+            const name = String(archive.print_name || '');
+            const searchBlob = `${name} ${designer} ${tags}`.toLowerCase();
+            const matchesStatus = filterStatus === 'All' || normalizedStatus === filterStatus.toLowerCase();
+            const matchesMaterial = filterMaterial === 'All' || material.toLowerCase() === filterMaterial.toLowerCase();
+            const matchesColor = filterColor === 'All' || color.toLowerCase().includes(filterColor.toLowerCase());
+            const matchesPrinter = filterPrinter === 'All' || printer === filterPrinter;
+            const matchesFavorites = filterFavorites === 'All' || (filterFavorites === 'Favorites Only' && !!archive.is_favorite);
+            const matchesDesigner = filterDesigner === 'All' || designer.toLowerCase() === filterDesigner.toLowerCase();
+            const matchesLayerHeight = filterLayerHeight === 'All' || layerHeight === filterLayerHeight;
+            const matchesSearch = searchText === '' || searchBlob.includes(searchText);
+            return matchesStatus && matchesMaterial && matchesColor && matchesPrinter && matchesFavorites && matchesDesigner && matchesLayerHeight && matchesSearch && matchesDateRange(archive);
+          });
+          const compareStrings = (left, right) => String(left || '').localeCompare(String(right || ''));
+          const compareNumbers = (left, right) => Number(left || 0) - Number(right || 0);
+          const sortedArchives = [...filteredArchives].sort((left, right) => {
+            if (sortBy === 'Date (Oldest)') return compareStrings(left.started_at || left.created_at, right.started_at || right.created_at);
+            if (sortBy === 'Duration (Longest)') return compareNumbers(right.actual_time_seconds || right.print_time_seconds, left.actual_time_seconds || left.print_time_seconds);
+            if (sortBy === 'Duration (Shortest)') return compareNumbers(left.actual_time_seconds || left.print_time_seconds, right.actual_time_seconds || right.print_time_seconds);
+            if (sortBy === 'Cost (Highest)') return compareNumbers(right.cost, left.cost);
+            if (sortBy === 'Cost (Lowest)') return compareNumbers(left.cost, right.cost);
+            if (sortBy === 'Filament (Most)') return compareNumbers(right.filament_used_grams, left.filament_used_grams);
+            if (sortBy === 'Filament (Least)') return compareNumbers(left.filament_used_grams, right.filament_used_grams);
+            if (sortBy === 'Name (A-Z)') return compareStrings(left.print_name, right.print_name);
+            if (sortBy === 'Name (Z-A)') return compareStrings(right.print_name, left.print_name);
+            return compareStrings(right.started_at || right.created_at, left.started_at || left.created_at);
+          });
+          const totalPages = Math.max(1, Math.ceil(sortedArchives.length / Math.max(1, pageSize)));
+          const clampedPage = Math.max(1, Math.min(currentPage, totalPages));
+          const startIndex = (clampedPage - 1) * Math.max(1, pageSize);
+          const archivesPage = sortedArchives.slice(startIndex, startIndex + Math.max(1, pageSize));
+          if (archivesPage.length === 0) {
             return '<div style="padding:16px;color:var(--secondary-text-color);text-align:center">No matching archives. Adjust filters or refresh the archive cache.</div>';
           }
           const baseUrl = states['input_text.bambuddy_api_base_url']?.state || '';
           const statusLabel = (status) => {
-            const raw = String(status || '').toLowerCase();
+            const raw = normalizeStatus(status);
             if (raw === 'success') return 'Completed';
             if (raw === 'failed') return 'Failed';
             if (raw === 'stopped') return 'Stopped';
@@ -61,14 +132,14 @@ cards:
             return raw || 'Unknown';
           };
           const statusIcon = (status) => {
-            const raw = String(status || '').toLowerCase();
+            const raw = normalizeStatus(status);
             if (raw === 'success') return '✅';
             if (raw === 'failed') return '❌';
             if (raw === 'stopped') return '⛔';
             if (raw === 'printing') return '🖨️';
             return '⏳';
           };
-          const rows = archives.map((a) => {
+          const rows = archivesPage.map((a) => {
             const dateSource = a.started_at || a.created_at;
             const date = dateSource ? new Date(dateSource).toLocaleDateString('en-US', {
               month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
