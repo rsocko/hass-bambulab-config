@@ -1,41 +1,16 @@
-# Print History Card — recent-prints summary + variant-aware archive browser.
-# Summary row uses individual rest: sensors (always works).
-# Browser rows render from sensor.print_history_page_archives so filter/sort/page
-# logic stays server-side and the card only handles presentation.
+# Print History Card — full-width responsive archive grid.
+# Archive cards render from the current page slice so filtering/paging stays
+# server-side and the dashboard focuses on presentation.
 
 type: vertical-stack
 cards:
-  # Header: title + link to Bambuddy archives UI
-  - type: custom:button-card
-    name: Recent Prints
-    icon: mdi:history
-    tap_action:
-      action: url
-      url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/archives'; ]]]"
-    styles:
-      card:
-        - background: var(--ha-card-background)
-        - border-radius: 12px 12px 0 0
-        - padding: 8px 16px
-      grid:
-        - grid-template-areas: '"i n"'
-        - grid-template-columns: 40px 1fr
-      name:
-        - font-size: 16px
-        - font-weight: 600
-        - text-align: left
-      icon:
-        - width: 24px
-        - color: "#2196F3"
-
-  # History browser rendered from the archive cache plus current helper state
   - type: custom:button-card
     entity: sensor.print_history_page_archives
     show_name: false
     show_icon: false
     show_state: false
     custom_fields:
-      history_table: |
+      history_grid: |
         [[[
           const rawArchives = entity?.attributes?.archives ?? [];
           const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
@@ -75,6 +50,24 @@ cards:
             if (raw === 'printing') return '🖨️';
             return '⏳';
           };
+          const statusPill = (status) => {
+            const raw = normalizeStatus(status);
+            const color = raw === 'success'
+              ? '#2E7D32'
+              : raw === 'failed'
+                ? '#C62828'
+                : raw === 'stopped'
+                  ? '#EF6C00'
+                  : raw === 'printing'
+                    ? '#1565C0'
+                    : '#546E7A';
+            return `<span style="background:${color};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px">${statusIcon(status)} ${statusLabel(status)}</span>`;
+          };
+          const colorDots = (archive) => {
+            const colors = String(archive.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
+            if (!colors.length) return '';
+            return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${colors.slice(0, 6).map((hex) => `<span style="width:14px;height:14px;border-radius:999px;background:${hex};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25)"></span>`).join('')}</div>`;
+          };
           const rows = archives.map((a) => {
             const dateSource = a.started_at || a.created_at;
             const date = dateSource ? new Date(dateSource).toLocaleDateString('en-US', {
@@ -86,7 +79,7 @@ cards:
             const grams = a.filament_used_grams ? `${Math.round(Number(a.filament_used_grams) * 10) / 10}g` : '-';
             const cost = a.cost ? `$${Number(a.cost).toFixed(2)}` : '-';
             const tagsRaw = typeof a.tags === 'string' ? a.tags : '';
-            const tagChips = tagsRaw.split(',').filter(t => t.trim()).slice(0, variant === 'Compact' ? 2 : 5).map(t => {
+            const tagChips = tagsRaw.split(',').filter(t => t.trim()).slice(0, variant === 'Compact' ? 2 : 4).map(t => {
               const tag = t.trim();
               let bg = '#1565C0';
               if (tag.startsWith('status:')) bg = tag.includes('success') ? '#2E7D32' : '#C62828';
@@ -94,74 +87,88 @@ cards:
               else if (tag.startsWith('material:')) bg = '#00695C';
               else if (tag.startsWith('cost:')) bg = '#E65100';
               else if (tag.startsWith('spoolman:')) bg = '#0277BD';
-              return `<span style="background:${bg};color:#fff;border-radius:999px;padding:2px 6px;font-size:10px;margin-right:4px;display:inline-block;margin-top:4px">${tag}</span>`;
+              return `<span style="background:${bg};color:#fff;border-radius:999px;padding:3px 8px;font-size:10px;margin-right:4px;display:inline-block;margin-top:4px">${tag}</span>`;
             });
+            const favorite = a.is_favorite ? '<span style="font-size:18px;color:#f5c242">★</span>' : '';
             const thumb = a.id
-              ? `<img src="${baseUrl}/api/v1/archives/${a.id}/thumbnail" style="width:${variant === 'Media' ? '100%' : variant === 'Detail' ? '88px' : '44px'};height:${variant === 'Media' ? '176px' : variant === 'Detail' ? '88px' : '44px'};object-fit:cover;border-radius:${variant === 'Media' ? '10px 10px 0 0' : '8px'};display:block" loading="lazy" onerror="this.style.display='none'">`
-              : `<div style="width:${variant === 'Media' ? '100%' : variant === 'Detail' ? '88px' : '44px'};height:${variant === 'Media' ? '176px' : variant === 'Detail' ? '88px' : '44px'};background:#37474F;border-radius:${variant === 'Media' ? '10px 10px 0 0' : '8px'};display:flex;align-items:center;justify-content:center;font-size:20px">🖨️</div>`;
+              ? `<img src="${baseUrl}/api/v1/archives/${a.id}/thumbnail" style="width:100%;height:${variant === 'Media' ? '220px' : '180px'};object-fit:cover;border-radius:16px;display:block" loading="lazy" onerror="this.style.display='none'">`
+              : `<div style="width:100%;height:${variant === 'Media' ? '220px' : '180px'};background:#37474F;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:34px">🖨️</div>`;
+            const metadata = [
+              a.filament_type || 'Unknown material',
+              a.layer_height ? `${a.layer_height}mm` : '',
+              a.designer || ''
+            ].filter(Boolean).join(' · ');
+            const failure = a.failure_reason
+              ? `<div style="margin-top:8px;font-size:12px;color:#ffb4ab;line-height:1.4">${a.failure_reason}</div>`
+              : '';
             if (variant === 'Media') {
-              return `<div style="border:1px solid var(--divider-color);border-radius:12px;overflow:hidden;margin-bottom:12px;background:var(--ha-card-background)">
+              return `<article style="border:1px solid var(--divider-color);border-radius:22px;overflow:hidden;background:var(--ha-card-background);display:flex;flex-direction:column;gap:0">
                 ${thumb}
-                <div style="padding:12px 14px">
+                <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px">
                   <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
                     <div>
-                      <div style="font-weight:600;font-size:14px">${a.print_name || 'Unnamed'}</div>
+                      <div style="font-weight:700;font-size:18px;line-height:1.2">${a.print_name || 'Unnamed'}</div>
                       <div style="font-size:12px;color:var(--secondary-text-color)">${date}</div>
                     </div>
-                    <div style="font-size:22px">${statusIcon(a.status)}</div>
+                    <div style="display:flex;align-items:center;gap:8px">${favorite}${statusPill(a.status)}</div>
                   </div>
-                  <div style="margin-top:8px;font-size:12px;color:var(--secondary-text-color)">${statusLabel(a.status)} · ${duration} · ${grams} · ${cost}</div>
+                  <div style="font-size:13px;color:var(--secondary-text-color)">${metadata || 'No additional metadata'}</div>
+                  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px">
+                    <span>Duration: <strong>${duration}</strong></span>
+                    <span>Filament: <strong>${grams}</strong></span>
+                    <span>Cost: <strong>${cost}</strong></span>
+                  </div>
+                  ${colorDots(a)}
                   ${tagChips.length ? `<div style="margin-top:6px">${tagChips.join('')}</div>` : ''}
+                  ${failure}
                 </div>
-              </div>`;
+              </article>`;
             }
-            if (variant === 'Detail') {
-              return `<div style="display:grid;grid-template-columns:88px 1fr auto;gap:12px;border-bottom:1px solid var(--divider-color);padding:10px 2px;align-items:start">
-                <div>${thumb}</div>
-                <div>
-                  <div style="font-weight:600;font-size:14px">${a.print_name || 'Unnamed'}</div>
-                  <div style="font-size:12px;color:var(--secondary-text-color)">${date}</div>
-                  <div style="font-size:12px;margin-top:6px">${statusLabel(a.status)} · ${duration} · ${grams} · ${cost}</div>
-                  <div style="font-size:12px;color:var(--secondary-text-color);margin-top:4px">${a.filament_type || 'Unknown material'}${a.designer ? ` · ${a.designer}` : ''}${a.layer_height ? ` · ${a.layer_height}mm` : ''}</div>
-                  ${tagChips.length ? `<div style="margin-top:6px">${tagChips.join('')}</div>` : ''}
+            if (variant === 'Detail' || variant === 'Compact') {
+              return `<article style="border:1px solid var(--divider-color);border-radius:22px;background:var(--ha-card-background);padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+                <div style="display:grid;grid-template-columns:${variant === 'Compact' ? '120px 1fr' : '160px 1fr'};gap:14px;align-items:start">
+                  <div>${thumb}</div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                      <div>
+                        <div style="font-weight:700;font-size:${variant === 'Compact' ? '16px' : '18px'};line-height:1.2">${a.print_name || 'Unnamed'}</div>
+                        <div style="font-size:12px;color:var(--secondary-text-color)">${date}</div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px">${favorite}${statusPill(a.status)}</div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;font-size:12px">
+                      <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04)"><div style="color:var(--secondary-text-color)">Duration</div><div style="font-weight:700">${duration}</div></div>
+                      <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04)"><div style="color:var(--secondary-text-color)">Filament</div><div style="font-weight:700">${grams}</div></div>
+                      <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04)"><div style="color:var(--secondary-text-color)">Cost</div><div style="font-weight:700">${cost}</div></div>
+                    </div>
+                    <div style="font-size:13px;color:var(--secondary-text-color)">${metadata || 'No additional metadata'}</div>
+                    ${colorDots(a)}
+                    ${tagChips.length ? `<div>${tagChips.join('')}</div>` : ''}
+                    ${failure}
+                  </div>
                 </div>
-                <div style="font-size:22px;padding-top:6px">${statusIcon(a.status)}</div>
-              </div>`;
+              </article>`;
             }
-            return `<tr style="border-bottom:1px solid var(--divider-color)">
-              <td style="padding:8px 4px;vertical-align:middle">${thumb}</td>
-              <td style="padding:8px;vertical-align:middle">
-                <div style="font-weight:500;font-size:13px">${a.print_name || 'Unnamed'}</div>
-                <div style="font-size:11px;color:var(--secondary-text-color)">${date} · ${duration}</div>
-              </td>
-              <td style="padding:8px 4px;text-align:right;vertical-align:middle;font-size:20px">${statusIcon(a.status)}</td>
-            </tr>`;
+            return '';
           }).join('');
-          if (variant === 'Media' || variant === 'Detail') {
-            return `<div style="padding:8px 0">${rows}</div>`;
-          }
-          return `<table style="width:100%;border-collapse:collapse">${rows}</table>`;
+          return `
+            <style>
+              .print-history-grid {
+                display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(min(100%, ${variant === 'Compact' ? '280px' : variant === 'Media' ? '360px' : '440px'}), 1fr));
+                gap: 16px;
+              }
+            </style>
+            <div class="print-history-grid">${rows}</div>
+          `;
         ]]]
     styles:
       card:
-        - border-radius: 0 0 12px 12px
-        - padding: 0
+        - border-radius: 24px
+        - padding: 16px
         - overflow: hidden
+        - background: transparent
       custom_fields:
-        history_table:
+        history_grid:
           - width: 100%
           - display: block
-
-  # Summary: last print quick stats
-  - type: horizontal-stack
-    cards:
-      - type: entity
-        entity: sensor.bambuddy_last_print_name
-        name: Last Print
-        icon: mdi:printer-3d-nozzle
-      - type: entity
-        entity: sensor.bambuddy_last_print_status
-        name: Result
-      - type: entity
-        entity: sensor.bambuddy_last_print_duration
-        name: Duration

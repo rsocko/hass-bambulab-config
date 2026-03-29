@@ -1,0 +1,32 @@
+# Toggle a color in the multi-select print history color filter.
+# Colors are stored as a lowercase comma-separated list in input_text.
+toggle_print_history_color_filter:
+  alias: Toggle Print History Color Filter
+  fields:
+    color:
+      description: Color hex value to toggle.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        target_color: "{{ color | string | lower | trim }}"
+        existing_raw: "{{ states('input_text.print_history_filter_colors') | lower | trim }}"
+        existing_list: >-
+          {% if existing_raw in ['', 'unknown', 'unavailable'] %}
+            []
+          {% else %}
+            {{ existing_raw.split(',') | map('trim') | reject('equalto', '') | list }}
+          {% endif %}
+        updated_list: >-
+          {% if target_color in existing_list %}
+            {{ existing_list | reject('equalto', target_color) | list }}
+          {% else %}
+            {{ (existing_list + [target_color]) | unique | list }}
+          {% endif %}
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.print_history_filter_colors
+      data:
+        value: "{{ updated_list | join(',') }}"
+  mode: single

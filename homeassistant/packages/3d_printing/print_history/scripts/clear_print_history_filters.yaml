@@ -23,10 +23,9 @@ clear_print_history_filters:
       data:
         entity_id: input_select.print_history_filter_date_range
         option: All Time
-    - action: input_select.select_option
+    - action: input_boolean.turn_off
       data:
-        entity_id: input_select.print_history_filter_favorites
-        option: All
+        entity_id: input_boolean.print_history_filter_favorites_only
     - action: input_select.select_option
       data:
         entity_id: input_select.print_history_filter_designer
@@ -42,6 +41,10 @@ clear_print_history_filters:
     - action: input_text.set_value
       data:
         entity_id: input_text.print_history_search
+        value: ""
+    - action: input_text.set_value
+      data:
+        entity_id: input_text.print_history_filter_colors
         value: ""
     - action: input_number.set_value
       data:

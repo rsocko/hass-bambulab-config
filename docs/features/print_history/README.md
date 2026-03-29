@@ -4,7 +4,7 @@
 
 ## Overview
 
-Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), uploads them to Bambuddy archives, enriches completed archives with Spoolman spool data, and exposes a popup-driven filter/sort browser in the HA dashboard.
+Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), uploads them to Bambuddy archives, enriches completed archives with Spoolman spool data, and exposes a full-width dashboard browser with an always-visible control bar in Home Assistant.
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
@@ -37,7 +37,8 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── capture_and_upload_snapshot.yaml            # multi-camera snapshot → save + upload
 │   ├── resolve_current_archive_id.yaml            # fallback: query API → match filename
 │   ├── refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
-│   └── clear_print_history_filters.yaml           # reset browser controls to defaults
+│   ├── clear_print_history_filters.yaml           # reset browser controls to defaults
+│   └── toggle_print_history_color_filter.yaml     # toggle a color in the multi-select chip row
 ├── template_sensors/
 │   ├── print_history_archives.yaml                # Layer 1 bulk archive cache + field projection
 │   ├── print_history_filtered.yaml                # Layer 2 filter/sort/page metadata
@@ -48,13 +49,15 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
 │   │   ├── input_text_bambuddy_photo_manifest.yaml
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
+│   │   ├── input_text_print_history_filter_colors.yaml
 │   │   └── input_text_print_history_search.yaml
 │   ├── input_boolean/
 │   │   ├── input_boolean_bambuddy_history_fetch_enabled.yaml
 │   │   ├── input_boolean_capture_at_start.yaml
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
-│   │   └── input_boolean_capture_on_error.yaml
+│   │   ├── input_boolean_capture_on_error.yaml
+│   │   └── input_boolean_print_history_filter_favorites_only.yaml
 │   ├── input_number/
 │   │   ├── input_number_bambuddy_history_limit.yaml
 │   │   ├── input_number_history_current_page.yaml
@@ -69,8 +72,9 @@ homeassistant/packages/3d_printing/print_history/
 │       ├── input_select_print_history_sort.yaml
 │       └── input_select_print_history_card_variant.yaml
 ├── dashboard_cards/
-│   ├── print_history.yaml                         # variant-aware archive renderer
-│   ├── print_history_browser.yaml                 # toolbar + popups + pagination
+│   ├── print_history.yaml                         # responsive two-column archive renderer
+│   ├── print_history_browser.yaml                 # search + filters + layout/settings controls
+│   ├── print_history_pagination.yaml              # top/bottom page navigation strip
 │   └── photo_review_chip.yaml                     # conditional chip → opens review popup
 └── dashboard_views/
     └── view_print_history.yaml
@@ -133,6 +137,7 @@ input_select: !include_dir_merge_named helpers/input_select
 |---|---|---|---|
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
 | `input_text.print_history_search` | input_text | Browser search text | — |
+| `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | — |
 | `input_select.secondary_camera_entity` | input_select | Configurable secondary camera choice from the known auxiliary cameras, or `None` | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
 | `input_boolean.bambuddy_history_fetch_enabled` | input_boolean | Enable/disable history REST polling | — |
@@ -148,7 +153,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_number.photo_review_timeout_hours` | input_number | Hours before review auto-dismisses (default: 24) | — |
 | `input_text.bambuddy_photo_manifest` | input_text | JSON manifest of captured photos for current print | No `initial:` |
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
-| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/color/printer/date/favorites/designer/layer) | — |
+| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/layer) | — |
+| `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | — |
 | `input_select.print_history_sort` | input_select | Browser sort mode | — |
 | `input_select.print_history_card_variant` | input_select | Compact / Media / Detail renderer selection | — |
 
@@ -162,6 +168,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
 | `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
+| `script.toggle_print_history_color_filter` | Add/remove a color from the active color-chip filter |
 | `script.review_delete_photo` | Delete photo from Bambuddy + local file + update manifest |
 | `script.review_replace_photo` | Capture new snapshot, upload, delete old, update manifest |
 | `script.review_set_cover` | Set selected photo as archive cover thumbnail |
@@ -237,8 +244,9 @@ These are worth planning immediately after the core package is stable, but they 
 The Print History view now includes the configurable browser described in the filter/sort design:
 
 1. **Filter and sort layer** — search, filter, sort, and page over a projected in-memory archive dataset.
-2. **Settings popup** — move capture/history/view settings out of the always-visible page layout and into a popup launched from the print history view.
-3. **Archive card variants** — allow the history record renderer to switch between a compact list, a media-first card with larger thumbnail/cover-photo emphasis, and a richer detail card for desktop browsing.
+2. **Always-visible browser bar** — search, matches, settings, sort, filter pills, layout toggles, page-size slider, clear/refresh, and multi-select color chips all stay pinned above the archive grid.
+3. **Archive card variants** — the history renderer switches between compact, media, and detail cards while keeping a two-column desktop layout and a single-column mobile fallback.
+4. **Archive detail popup is designed, not yet implemented** — archive cards are now structured for a future tap-through popup, but the popup content remains design-only for now.
 
 ### Thumbnail Images Require Local Network Access
 

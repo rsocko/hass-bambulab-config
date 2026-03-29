@@ -1,0 +1,3 @@
+print_history_filter_favorites_only:
+  name: Print History Favorites Only
+  icon: mdi:star

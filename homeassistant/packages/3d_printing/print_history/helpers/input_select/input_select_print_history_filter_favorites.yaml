@@ -1,7 +1,0 @@
-print_history_filter_favorites:
-  name: Print History Filter Favorites
-  icon: mdi:star-outline
-  options:
-    - All
-    - Favorites Only
-  initial: All

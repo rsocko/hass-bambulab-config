@@ -10,14 +10,14 @@
         - sensor.print_history_filtered
         - input_select.print_history_filter_status
         - input_select.print_history_filter_material
-        - input_select.print_history_filter_color
         - input_select.print_history_filter_printer
         - input_select.print_history_filter_date_range
-        - input_select.print_history_filter_favorites
+        - input_boolean.print_history_filter_favorites_only
         - input_select.print_history_filter_designer
         - input_select.print_history_filter_layer_height
         - input_select.print_history_sort
         - input_text.print_history_search
+        - input_text.print_history_filter_colors
         - input_number.print_history_page_size
         - input_number.history_current_page
   sensor:
@@ -38,14 +38,15 @@
           {% endif %}
           {%- set filter_status = states('input_select.print_history_filter_status') -%}
           {%- set filter_material = states('input_select.print_history_filter_material') -%}
-          {%- set filter_color = states('input_select.print_history_filter_color') -%}
           {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
           {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
-          {%- set filter_favorites = states('input_select.print_history_filter_favorites') -%}
+          {%- set favorites_only = is_state('input_boolean.print_history_filter_favorites_only', 'on') -%}
           {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
           {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
           {%- set sort_by = states('input_select.print_history_sort') -%}
           {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+          {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
+          {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set page_size = states('input_number.print_history_page_size') | int(10) -%}
           {%- set current_page = states('input_number.history_current_page') | int(1) -%}
@@ -54,7 +55,7 @@
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- set status = 'success' if raw_status == 'completed' else 'failed' if raw_status in ['cancelled', 'aborted'] else raw_status -%}
             {%- set material = a.get('filament_type', '') | string -%}
-            {%- set colors = a.get('filament_color', '') | string -%}
+            {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}
             {%- set name = a.get('print_name', '') | string | lower -%}
             {%- set designer = a.get('designer', '') | string -%}
@@ -66,9 +67,17 @@
             {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
             {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
             {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
-            {%- set matches_color = filter_color == 'All' or filter_color | lower in colors | lower -%}
+            {%- set color_match = namespace(value=(selected_colors | length == 0)) -%}
+            {%- if not color_match.value -%}
+              {%- for selected in selected_colors -%}
+                {%- if selected in archive_colors -%}
+                  {%- set color_match.value = true -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- set matches_color = color_match.value -%}
             {%- set matches_printer = filter_printer == 'All' or printer == filter_printer -%}
-            {%- set matches_favorite = filter_favorites == 'All' or (filter_favorites == 'Favorites Only' and is_favorite) -%}
+            {%- set matches_favorite = (not favorites_only) or is_favorite -%}
             {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
             {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
             {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}

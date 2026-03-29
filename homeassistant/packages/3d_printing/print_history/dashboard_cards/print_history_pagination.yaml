@@ -1,0 +1,88 @@
+type: horizontal-stack
+cards:
+  - type: custom:button-card
+    name: "⏮"
+    tap_action:
+      action: perform-action
+      perform_action: script.navigate_history
+      data:
+        direction: first
+    styles:
+      card:
+        - height: 46px
+        - border-radius: 999px
+        - background: var(--ha-card-background)
+      name:
+        - font-size: 18px
+  - type: custom:button-card
+    name: "◀"
+    tap_action:
+      action: perform-action
+      perform_action: script.navigate_history
+      data:
+        direction: prev
+    styles:
+      card:
+        - height: 46px
+        - border-radius: 999px
+        - background: var(--ha-card-background)
+      name:
+        - font-size: 18px
+  - type: custom:button-card
+    entity: sensor.print_history_page_info
+    name: Page
+    show_icon: true
+    show_state: true
+    icon: mdi:book-open-page-variant-outline
+    tap_action:
+      action: none
+    styles:
+      card:
+        - height: 46px
+        - border-radius: 999px
+        - background: var(--ha-card-background)
+      grid:
+        - grid-template-areas: '"i n" "i s"'
+        - grid-template-columns: 28px 1fr
+        - grid-template-rows: min-content min-content
+      name:
+        - justify-self: start
+        - align-self: end
+        - font-size: 12px
+        - color: var(--secondary-text-color)
+      state:
+        - justify-self: start
+        - align-self: start
+        - font-size: 14px
+        - font-weight: 600
+      icon:
+        - width: 18px
+        - color: var(--accent-color)
+  - type: custom:button-card
+    name: "▶"
+    tap_action:
+      action: perform-action
+      perform_action: script.navigate_history
+      data:
+        direction: next
+    styles:
+      card:
+        - height: 46px
+        - border-radius: 999px
+        - background: var(--ha-card-background)
+      name:
+        - font-size: 18px
+  - type: custom:button-card
+    name: "⏭"
+    tap_action:
+      action: perform-action
+      perform_action: script.navigate_history
+      data:
+        direction: last
+    styles:
+      card:
+        - height: 46px
+        - border-radius: 999px
+        - background: var(--ha-card-background)
+      name:
+        - font-size: 18px

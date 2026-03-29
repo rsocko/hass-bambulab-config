@@ -1,0 +1,5 @@
+print_history_filter_colors:
+  name: Print History Filter Colors
+  initial: ""
+  max: 255
+  icon: mdi:palette

@@ -1,102 +1,100 @@
-# Print History Browser — toolbar, popup controls, and Layer 2 pagination.
-# Uses browser_mod popups for browse/settings controls and the Layer 2 browser
-# state for page navigation.
+# Print History Browser — always-visible search, filter, layout, and settings
+# controls styled to align with the Filament Catalog control bar.
 
 type: vertical-stack
 cards:
-  - type: markdown
-    content: >-
-      **{{ states('sensor.print_history_filtered') | int(0) }} matches**
-      · Sort: {{ states('input_select.print_history_sort') }}
-      · Layout: {{ states('input_select.print_history_card_variant') }}
+  - type: custom:bubble-card
+    card_type: separator
+    name: Print History Browser
+    icon: mdi:history
 
-      {{ state_attr('sensor.print_history_filtered', 'active_filters') }}
   - type: horizontal-stack
     cards:
+      - type: entities
+        show_header_toggle: false
+        card_mod:
+          style:
+            .: |
+              ha-card {
+                border-radius: 999px !important;
+                overflow: hidden !important;
+                padding: 6px 10px !important;
+              }
+              #states {
+                padding: 0 !important;
+              }
+            hui-input-text-entity-row $ ha-textfield $: |
+              .mdc-text-field {
+                width: 95% !important;
+              }
+              .mdc-text-field--filled {
+                height: 45px !important;
+                --mdc-filled-text-field-container-height: 45px;
+                display: flex !important;
+                align-items: center !important;
+              }
+              .mdc-text-field__input {
+                padding-top: 12px !important;
+                padding-bottom: 2px !important;
+                margin-top: 0 !important;
+                align-self: center !important;
+              }
+              .mdc-floating-label {
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+              }
+              .mdc-floating-label--float-above {
+                top: 5px !important;
+                transform: translateY(0) scale(0.75) !important;
+              }
+        entities:
+          - entity: input_text.print_history_search
+            name: Search Prints
+            secondary_info: none
       - type: custom:button-card
-        name: Filter
-        icon: mdi:filter-variant
+        entity: sensor.print_history_filtered
+        name: Matches
+        icon: mdi:counter
+        show_state: true
         tap_action:
-          action: fire-dom-event
-          browser_mod:
-            service: browser_mod.popup
-            data:
-              title: Print History Filters
-              size: normal
-              content:
-                type: entities
-                show_header_toggle: false
-                entities:
-                  - entity: input_text.print_history_search
-                    name: Search
-                  - entity: input_select.print_history_filter_status
-                    name: Status
-                  - entity: input_select.print_history_filter_material
-                    name: Material
-                  - entity: input_select.print_history_filter_color
-                    name: Color
-                  - entity: input_select.print_history_filter_printer
-                    name: Printer
-                  - entity: input_select.print_history_filter_date_range
-                    name: Date Range
-                  - entity: input_select.print_history_filter_favorites
-                    name: Favorites
-                  - entity: input_select.print_history_filter_designer
-                    name: Designer
-                  - entity: input_select.print_history_filter_layer_height
-                    name: Layer Height
+          action: none
         styles:
           card:
-            - height: 40px
+            - height: 58px
+            - border-radius: 999px
+            - padding: 0 16px
+            - background: var(--ha-card-background)
+          grid:
+            - grid-template-areas: '"i n" "i s"'
+            - grid-template-columns: 28px 1fr
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 16px
+            - font-weight: 700
+          icon:
+            - width: 18px
+            - color: var(--accent-color)
+      - type: custom:button-card
+        name: Open Bambuddy
+        icon: mdi:open-in-new
+        tap_action:
+          action: url
+          url_path: "[[[ return states['input_text.bambuddy_api_base_url']?.state + '/archives'; ]]]"
+        styles:
+          card:
+            - height: 58px
+            - border-radius: 999px
+            - padding: 0 16px
             - background: var(--ha-card-background)
           name:
             - font-size: 13px
-      - type: custom:button-card
-        name: Sort
-        icon: mdi:sort
-        tap_action:
-          action: fire-dom-event
-          browser_mod:
-            service: browser_mod.popup
-            data:
-              title: Print History Sort
-              size: normal
-              content:
-                type: entities
-                show_header_toggle: false
-                entities:
-                  - entity: input_select.print_history_sort
-                    name: Sort Order
-                  - entity: input_number.print_history_page_size
-                    name: Page Size
-        styles:
-          card:
-            - height: 40px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 13px
-      - type: custom:button-card
-        name: Layout
-        icon: mdi:view-grid-outline
-        tap_action:
-          action: fire-dom-event
-          browser_mod:
-            service: browser_mod.popup
-            data:
-              title: Print History Layout
-              size: normal
-              content:
-                type: entities
-                show_header_toggle: false
-                entities:
-                  - entity: input_select.print_history_card_variant
-                    name: Card Variant
-        styles:
-          card:
-            - height: 40px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 13px
+            - font-weight: 600
       - type: custom:button-card
         name: Settings
         icon: mdi:cog-outline
@@ -133,26 +131,497 @@ cards:
                     name: Review Timeout (hrs)
         styles:
           card:
-            - height: 40px
+            - height: 58px
+            - border-radius: 999px
+            - padding: 0 16px
             - background: var(--ha-card-background)
           name:
             - font-size: 13px
+            - font-weight: 600
+
+  - type: grid
+    columns: 4
+    square: false
+    cards:
+      - type: custom:button-card
+        entity: input_select.print_history_filter_status
+        name: Status
+        icon: mdi:list-status
+        show_state: true
+        tap_action:
+          action: more-info
+        custom_fields:
+          indicator: >
+            [[[
+              return entity?.state && entity.state !== 'All'
+                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
+                : '';
+            ]]]
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state !== 'All'
+                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
+            - grid-template-columns: 22px 16px
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+          custom_fields:
+            indicator:
+              - justify-self: end
+              - align-self: end
+      - type: custom:button-card
+        entity: input_select.print_history_filter_material
+        name: Material
+        icon: mdi:flask-outline
+        show_state: true
+        tap_action:
+          action: more-info
+        custom_fields:
+          indicator: >
+            [[[
+              return entity?.state && entity.state !== 'All'
+                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
+                : '';
+            ]]]
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state !== 'All'
+                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
+            - grid-template-columns: 22px 16px
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+          custom_fields:
+            indicator:
+              - justify-self: end
+              - align-self: end
+      - type: custom:button-card
+        entity: input_select.print_history_filter_printer
+        name: Printer
+        icon: mdi:printer-3d-nozzle
+        show_state: true
+        tap_action:
+          action: more-info
+        custom_fields:
+          indicator: >
+            [[[
+              return entity?.state && entity.state !== 'All'
+                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
+                : '';
+            ]]]
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state !== 'All'
+                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
+            - grid-template-columns: 22px 16px
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+          custom_fields:
+            indicator:
+              - justify-self: end
+              - align-self: end
+      - type: custom:button-card
+        entity: input_select.print_history_filter_date_range
+        name: Date
+        icon: mdi:calendar-range
+        show_state: true
+        tap_action:
+          action: more-info
+        custom_fields:
+          indicator: >
+            [[[
+              return entity?.state && entity.state !== 'All Time'
+                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
+                : '';
+            ]]]
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state !== 'All Time'
+                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
+            - grid-template-columns: 22px 16px
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+          custom_fields:
+            indicator:
+              - justify-self: end
+              - align-self: end
+
+  - type: grid
+    columns: 4
+    square: false
+    cards:
+      - type: custom:button-card
+        entity: input_select.print_history_filter_designer
+        name: Designer
+        icon: mdi:palette-swatch-outline
+        show_state: true
+        tap_action:
+          action: more-info
+        custom_fields:
+          indicator: >
+            [[[
+              return entity?.state && entity.state !== 'All'
+                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
+                : '';
+            ]]]
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state !== 'All'
+                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
+            - grid-template-columns: 22px 16px
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+          custom_fields:
+            indicator:
+              - justify-self: end
+              - align-self: end
+      - type: custom:button-card
+        entity: input_select.print_history_filter_layer_height
+        name: Layer Height
+        icon: mdi:layers-outline
+        show_state: true
+        tap_action:
+          action: more-info
+        custom_fields:
+          indicator: >
+            [[[
+              return entity?.state && entity.state !== 'All'
+                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
+                : '';
+            ]]]
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state !== 'All'
+                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
+            - grid-template-columns: 22px 16px
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+          custom_fields:
+            indicator:
+              - justify-self: end
+              - align-self: end
+      - type: custom:button-card
+        entity: input_select.print_history_sort
+        name: Sort
+        icon: mdi:sort
+        show_state: true
+        tap_action:
+          action: more-info
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: var(--ha-card-background)
+          grid:
+            - grid-template-areas: '"i i" "n n" "s s"'
+            - grid-template-columns: 22px 1fr
+            - grid-template-rows: min-content min-content 1fr
+          icon:
+            - width: 18px
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          state:
+            - justify-self: start
+            - align-self: start
+            - font-size: 14px
+            - font-weight: 600
+      - type: custom:button-card
+        entity: input_boolean.print_history_filter_favorites_only
+        name: Favorites Only
+        icon: mdi:star
+        show_state: false
+        tap_action:
+          action: toggle
+        styles:
+          card:
+            - height: 72px
+            - border-radius: 28px
+            - padding: 10px 14px
+            - background: >
+                [[[
+                  return entity?.state === 'on'
+                    ? 'color-mix(in srgb, #f5c242 18%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          grid:
+            - grid-template-areas: '"i i" "n n"'
+            - grid-template-columns: 22px 1fr
+          icon:
+            - width: 18px
+            - color: >
+                [[[
+                  return entity?.state === 'on' ? '#f5c242' : 'var(--primary-text-color)';
+                ]]]
+          name:
+            - justify-self: start
+            - align-self: end
+            - font-size: 14px
+            - font-weight: 600
 
   - type: horizontal-stack
     cards:
       - type: custom:button-card
+        name: Compact
+        icon: mdi:view-grid-outline
+        tap_action:
+          action: call-service
+          service: input_select.select_option
+          target:
+            entity_id: input_select.print_history_card_variant
+          data:
+            option: Compact
+        styles:
+          card:
+            - height: 52px
+            - border-radius: 999px
+            - background: >
+                [[[
+                  return states['input_select.print_history_card_variant']?.state === 'Compact'
+                    ? 'color-mix(in srgb, var(--accent-color) 16%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          icon:
+            - width: 18px
+            - color: >
+                [[[
+                  return states['input_select.print_history_card_variant']?.state === 'Compact'
+                    ? 'var(--accent-color)'
+                    : 'var(--primary-text-color)';
+                ]]]
+          name:
+            - font-size: 13px
+            - font-weight: 600
+      - type: custom:button-card
+        name: Media
+        icon: mdi:image-multiple-outline
+        tap_action:
+          action: call-service
+          service: input_select.select_option
+          target:
+            entity_id: input_select.print_history_card_variant
+          data:
+            option: Media
+        styles:
+          card:
+            - height: 52px
+            - border-radius: 999px
+            - background: >
+                [[[
+                  return states['input_select.print_history_card_variant']?.state === 'Media'
+                    ? 'color-mix(in srgb, var(--accent-color) 16%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          icon:
+            - width: 18px
+            - color: >
+                [[[
+                  return states['input_select.print_history_card_variant']?.state === 'Media'
+                    ? 'var(--accent-color)'
+                    : 'var(--primary-text-color)';
+                ]]]
+          name:
+            - font-size: 13px
+            - font-weight: 600
+      - type: custom:button-card
+        name: Detail
+        icon: mdi:format-list-bulleted
+        tap_action:
+          action: call-service
+          service: input_select.select_option
+          target:
+            entity_id: input_select.print_history_card_variant
+          data:
+            option: Detail
+        styles:
+          card:
+            - height: 52px
+            - border-radius: 999px
+            - background: >
+                [[[
+                  return states['input_select.print_history_card_variant']?.state === 'Detail'
+                    ? 'color-mix(in srgb, var(--accent-color) 16%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
+          icon:
+            - width: 18px
+            - color: >
+                [[[
+                  return states['input_select.print_history_card_variant']?.state === 'Detail'
+                    ? 'var(--accent-color)'
+                    : 'var(--primary-text-color)';
+                ]]]
+          name:
+            - font-size: 13px
+            - font-weight: 600
+      - type: entities
+        show_header_toggle: false
+        card_mod:
+          style: |
+            ha-card {
+              border-radius: 28px !important;
+              padding: 2px 10px !important;
+            }
+            #states {
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+        entities:
+          - entity: input_number.print_history_page_size
+            name: Items Per Page
+
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.print_history_filtered
         name: Clear
         icon: mdi:filter-remove-outline
+        show_state: false
         tap_action:
           action: perform-action
           perform_action: script.clear_print_history_filters
         styles:
           card:
-            - height: 36px
-            - background: var(--ha-card-background)
-            - font-size: 12px
+            - height: 46px
+            - border-radius: 999px
+            - background: >
+                [[[
+                  return entity?.attributes?.has_active_filters === true || entity?.attributes?.has_active_filters === 'True'
+                    ? 'color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color))'
+                    : 'var(--ha-card-background)';
+                ]]]
           icon:
             - width: 18px
+            - color: >
+                [[[
+                  return entity?.attributes?.has_active_filters === true || entity?.attributes?.has_active_filters === 'True'
+                    ? 'var(--accent-color)'
+                    : 'var(--primary-text-color)';
+                ]]]
+          name:
+            - font-size: 13px
+            - font-weight: 600
       - type: custom:button-card
         name: Refresh
         icon: mdi:refresh
@@ -161,69 +630,93 @@ cards:
           perform_action: script.refresh_print_history_archives
         styles:
           card:
-            - height: 36px
+            - height: 46px
+            - border-radius: 999px
             - background: var(--ha-card-background)
-            - font-size: 12px
-          icon:
-            - width: 18px
-      - type: entity
-        entity: sensor.print_history_page_info
-        name: Browser
-      - type: entity
-        entity: input_number.print_history_page_size
-        name: Page Size
+          name:
+            - font-size: 13px
+            - font-weight: 600
 
-  - type: horizontal-stack
-    cards:
-      - type: custom:button-card
-        name: "⏮"
-        tap_action:
-          action: perform-action
-          perform_action: script.navigate_history
-          data:
-            direction: first
-        styles:
-          card:
-            - height: 40px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 18px
-      - type: custom:button-card
-        name: "◀"
-        tap_action:
-          action: perform-action
-          perform_action: script.navigate_history
-          data:
-            direction: prev
-        styles:
-          card:
-            - height: 40px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 18px
-      - type: custom:button-card
-        name: "▶"
-        tap_action:
-          action: perform-action
-          perform_action: script.navigate_history
-          data:
-            direction: next
-        styles:
-          card:
-            - height: 40px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 18px
-      - type: custom:button-card
-        name: "⏭"
-        tap_action:
-          action: perform-action
-          perform_action: script.navigate_history
-          data:
-            direction: last
-        styles:
-          card:
-            - height: 40px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 18px
+  - type: custom:button-card
+    entity: sensor.print_history_filtered
+    name: Active Filters
+    show_icon: false
+    show_state: false
+    custom_fields:
+      summary: >
+        [[[
+          return entity?.attributes?.active_filters || 'No active filters';
+        ]]]
+    styles:
+      card:
+        - border-radius: 28px
+        - padding: 12px 16px
+        - background: var(--ha-card-background)
+      name:
+        - justify-self: start
+        - font-size: 12px
+        - color: var(--secondary-text-color)
+      custom_fields:
+        summary:
+          - justify-self: start
+          - font-size: 14px
+          - font-weight: 600
+
+  - type: custom:auto-entities
+    show_empty: false
+    card:
+      type: grid
+      columns: 8
+      square: false
+      card_mod:
+        style: |
+          @media (max-width: 768px) {
+            #root {
+              grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+            }
+          }
+    card_param: cards
+    filter:
+      template: >
+        {% set raw = state_attr('sensor.print_history_filtered', 'available_colors_json') | default('[]', true) %}
+        {% if raw is string %}
+          {% set colors = raw | from_json %}
+        {% elif raw is iterable %}
+          {% set colors = raw | list %}
+        {% else %}
+          {% set colors = [] %}
+        {% endif %}
+        {% set cards = namespace(items=[]) %}
+        {% for color in colors %}
+          {% set cards.items = cards.items + [{
+            'type': 'custom:button-card',
+            'entity': 'input_text.print_history_filter_colors',
+            'name': color,
+            'show_name': false,
+            'show_state': false,
+            'tap_action': {
+              'action': 'perform-action',
+              'perform_action': 'script.toggle_print_history_color_filter',
+              'data': { 'color': color }
+            },
+            'styles': {
+              'card': [
+                {'height': '42px'},
+                {'border-radius': '999px'},
+                {'padding': '0'},
+                {'background': 'var(--ha-card-background)'},
+                {'box-shadow': 'none'}
+              ],
+              'custom_fields': {
+                'swatch': [
+                  {'justify-self': 'center'},
+                  {'align-self': 'center'}
+                ]
+              }
+            },
+            'custom_fields': {
+              'swatch': "[[[\n  const selected = (states['input_text.print_history_filter_colors']?.state || '').toLowerCase().split(',').map((value) => value.trim()).filter(Boolean);\n  const active = selected.includes('" ~ color ~ "');\n  const ring = active ? '0 0 0 3px var(--accent-color), inset 0 0 0 2px rgba(255,255,255,0.35)' : 'inset 0 0 0 1px rgba(255,255,255,0.2)';\n  return `<div style=\"width:20px;height:20px;border-radius:999px;background:" ~ color ~ ";box-shadow:${ring};\"></div>`;\n]]]"
+            }
+          }] %}
+        {% endfor %}
+        {{ cards.items | tojson }}

@@ -6,18 +6,21 @@
 title: Print History
 path: print-history
 icon: mdi:history
-type: sections
-max_columns: 1
-sections:
-  # ── Section 1: Print History (hero) ─────────────────────────────────
-  # All three cards in one section so masonry keeps them together.
-  - type: grid
+panel: true
+cards:
+  - type: vertical-stack
     cards:
       # Conditional photo review chip (hidden when idle)
       - !include ../dashboard_cards/photo_review_chip.yaml
 
-      # History table + last-print summary
+      # Browser toolbar + always-visible filters/settings
+      - !include ../dashboard_cards/print_history_browser.yaml
+
+      # Page navigation above the archive grid
+      - !include ../dashboard_cards/print_history_pagination.yaml
+
+      # Archive browser rendered from the current server-side page slice
       - !include ../dashboard_cards/print_history.yaml
 
-      # Browser toolbar + page navigation + popup settings
-      - !include ../dashboard_cards/print_history_browser.yaml
+      # Duplicate pager below the archive grid
+      - !include ../dashboard_cards/print_history_pagination.yaml
