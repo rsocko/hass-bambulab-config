@@ -140,23 +140,23 @@
           {%- if sort_by == 'Date (Oldest)' -%}
             {%- set sorted = ns.matches | sort(attribute='started_at') -%}
           {%- elif sort_by == 'Duration (Longest)' -%}
-            {%- set sorted = ns.matches | sort(attribute='actual_time_seconds') | reverse -%}
+            {%- set sorted = ns.matches | sort(attribute='actual_time_seconds', reverse=true) -%}
           {%- elif sort_by == 'Duration (Shortest)' -%}
             {%- set sorted = ns.matches | sort(attribute='actual_time_seconds') -%}
           {%- elif sort_by == 'Cost (Highest)' -%}
-            {%- set sorted = ns.matches | sort(attribute='cost') | reverse -%}
+            {%- set sorted = ns.matches | sort(attribute='cost', reverse=true) -%}
           {%- elif sort_by == 'Cost (Lowest)' -%}
             {%- set sorted = ns.matches | sort(attribute='cost') -%}
           {%- elif sort_by == 'Filament (Most)' -%}
-            {%- set sorted = ns.matches | sort(attribute='filament_used_grams') | reverse -%}
+            {%- set sorted = ns.matches | sort(attribute='filament_used_grams', reverse=true) -%}
           {%- elif sort_by == 'Filament (Least)' -%}
             {%- set sorted = ns.matches | sort(attribute='filament_used_grams') -%}
           {%- elif sort_by == 'Name (A-Z)' -%}
             {%- set sorted = ns.matches | sort(attribute='print_name') -%}
           {%- elif sort_by == 'Name (Z-A)' -%}
-            {%- set sorted = ns.matches | sort(attribute='print_name') | reverse -%}
+            {%- set sorted = ns.matches | sort(attribute='print_name', reverse=true) -%}
           {%- else -%}
-            {%- set sorted = ns.matches | sort(attribute='started_at') | reverse -%}
+            {%- set sorted = ns.matches | sort(attribute='started_at', reverse=true) -%}
           {%- endif -%}
           {%- set total_pages = (((sorted | length) - 1) // page_size) + 1 if (sorted | length) > 0 else 1 -%}
           {%- set clamped_page = [1, [current_page, total_pages] | min] | max -%}
