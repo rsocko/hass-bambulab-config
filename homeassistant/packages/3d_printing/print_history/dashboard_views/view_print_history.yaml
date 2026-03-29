@@ -1,32 +1,35 @@
 # Print History View — dedicated tab in the 3D Printing dashboard.
-# Combines: photo review chip, history table, pagination browser, capture settings.
+#
+# Layout: 3 sections in a 2-column masonry grid.
+#   Left column:  Section 1 — hero content (review chip + history table + pagination)
+#   Right column: Section 2 — settings, Section 3 — diagnostics
+#
+# See docs/features/print_history/README.md § Dashboard for the full layout spec.
 title: Print History
 path: print-history
 icon: mdi:history
 type: sections
 max_columns: 2
 sections:
-  # Photo review notification (conditional — only shows when photos pending)
+  # ── Section 1: Print History (hero — left column) ──────────────────
+  # All three cards in one section so masonry keeps them together.
   - type: grid
     cards:
+      # Conditional photo review chip (hidden when idle)
       - !include ../dashboard_cards/photo_review_chip.yaml
 
-  # Main history table: recent prints from REST sensor
-  - type: grid
-    cards:
+      # History table + last-print summary
       - !include ../dashboard_cards/print_history.yaml
 
-  # Pagination browser: prev/next/first/last + page info
-  - type: grid
-    cards:
+      # Pagination browser: ⏮ ◀ page info ▶ ⏭ + refresh
       - !include ../dashboard_cards/print_history_browser.yaml
 
-  # Capture settings section
+  # ── Section 2: Settings (right column) ─────────────────────────────
+  # Configure-once options: capture stages + history fetch.
   - type: grid
-    title: Photo Capture Settings
     cards:
       - type: entities
-        title: Capture Stages
+        title: Photo Capture Settings
         entities:
           - entity: input_boolean.capture_at_start
             name: At Print Start
@@ -41,13 +44,8 @@ sections:
             name: Mid-Print Threshold
           - entity: input_text.secondary_camera_entity
             name: Secondary Camera
-
-  # History fetch settings
-  - type: grid
-    title: History Settings
-    cards:
       - type: entities
-        title: Data Fetch
+        title: History Settings
         entities:
           - entity: input_boolean.bambuddy_history_fetch_enabled
             name: Auto-Fetch History
@@ -56,12 +54,11 @@ sections:
           - entity: input_number.photo_review_timeout_hours
             name: Review Timeout (hrs)
 
-  # Current print info (diagnostic)
+  # ── Section 3: Current Print Diagnostics (right column, below settings) ─
   - type: grid
-    title: Current Print
     cards:
       - type: entities
-        title: Active Session
+        title: Current Print
         entities:
           - entity: input_text.bambuddy_current_archive_id
             name: Archive ID

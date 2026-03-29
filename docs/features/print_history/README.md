@@ -1,5 +1,7 @@
 # Print History — Archive Reading, Photo Capture & Enrichment
 
+> **⚠️ OpenAPI Corrections Applied**: See [openapi-correction-notes.md](../../repo/openapi-correction-notes.md) for full cross-reference against Bambuddy v0.2.2.2 OpenAPI spec. Key fixes already in code: trailing slash URLs, flat array responses (not dict wrapper), offset-based pagination (not page-based), no `sort`/`order` query params.
+
 ## Overview
 
 Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), uploads them to Bambuddy archives, and enriches completed archives with Spoolman spool data. Provides paginated history browsing in the HA dashboard.
@@ -93,7 +95,9 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Entity | Endpoint | Interval | Attributes |
 |---|---|---|---|
-| `sensor.bambuddy_print_history` | `GET /archives?limit=N&sort=created_at&order=desc` | 5 min | `archives`, `total`, `page` |
+| `sensor.bambuddy_print_history` | `GET /api/v1/archives/?limit=N` | 5 min | Flat array — count via `value_json \| count`, first item via `value_json[0]` |
+
+> **OpenAPI note**: No `sort` or `order` query params exist. Default ordering is assumed newest-first. No `total` or `page` attributes — response is a flat `ArchiveResponse[]` array.
 
 ### REST Commands
 
@@ -104,19 +108,21 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Set cover photo for archive thumbnail (photo review) |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_add_archive_tags` | POST | `/api/v1/archives/{id}/tags` | Add tags to an archive |
-| `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives?printer_id=...&sort=-created_at&limit=1` | Fallback archive_id resolution |
-| `rest_command.bambuddy_query_history_page` | GET | `/api/v1/archives?limit=N&offset=N` | Offset-based history pagination |
+| `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
+| `rest_command.bambuddy_query_history_page` | GET | `/api/v1/archives/?limit=N&offset=N` | Offset-based history pagination |
 
 ### Template Sensors (from REST attributes)
 
 | Entity | Source | Purpose |
 |---|---|---|
-| `sensor.bambuddy_last_print_name` | `archives[0].name` | Most recent print name |
+| `sensor.bambuddy_last_print_name` | `archives[0].print_name` | Most recent print name |
 | `sensor.bambuddy_last_print_status` | `archives[0].status` | Most recent print result |
-| `sensor.bambuddy_last_print_duration` | `archives[0].duration_seconds` | Most recent print time (hours) |
-| `sensor.bambuddy_last_print_image_url` | `archives[0].photo_url` | Most recent print photo (full URL) |
-| `sensor.print_history_total_pages` | `total / limit` | Total pages for pagination |
+| `sensor.bambuddy_last_print_duration` | `archives[0].actual_time_seconds` | Most recent print time (hours) |
+| `sensor.bambuddy_last_print_image_url` | `{base_url}/api/v1/archives/{id}/thumbnail` | Most recent print thumbnail (constructed URL) |
+| `sensor.print_history_total_pages` | Heuristic: if count >= limit → 2 else 1 | Total pages for pagination (no total count in flat array) |
 | `sensor.print_history_page_info` | `current_page / total_pages` | Display string for pagination UI |
+
+> **OpenAPI note**: The field is `print_name` (not `name`), `actual_time_seconds` (not `duration_seconds`), and thumbnail is accessed via `GET /api/v1/archives/{id}/thumbnail` (unauthenticated). There is no `photo_url` field.
 
 ### Helpers
 
@@ -196,19 +202,119 @@ For detailed design of the two major subsystems, see:
 - Dashboard cards: `print_history.yaml` (history table), `print_history_browser.yaml` (pagination), `photo_review_chip.yaml` (conditional review chip)
 - Wired into main dashboard via `common/dashboards/3d_printing.yaml` views list
 
+## Known Limitations
+
+### Thumbnail Images Require Local Network Access
+
+The print history table renders thumbnail images directly from the Bambuddy API (`/api/v1/archives/{id}/thumbnail`). These `<img>` tags execute in the **browser**, not on the HA server. This means:
+
+- **Local access (LAN)**: Thumbnails load correctly, provided the browser can resolve `bambuddy.socko.us` and the connection uses HTTPS (to avoid mixed-content blocking if HA itself is served over HTTPS).
+- **Remote access (Nabu Casa / VPN)**: Thumbnails will **not load** because the browser cannot reach the local Bambuddy instance. A broken-image icon or empty space will appear.
+
+The dashboard code includes an `onerror` handler that hides failed images gracefully.
+
+#### Potential Future Workarounds
+
+1. **Server-side relay through HA** — Build an HA automation or proxy endpoint that fetches thumbnails from Bambuddy server-side and streams them back to the browser. No duplicate storage; images work from any access method. HA does not currently offer a built-in generic HTTP proxy, so this would require a custom component or add-on.
+
+2. **Selective reverse proxy exposure** — Use Traefik (or similar) to expose only the read-only thumbnail path (`/api/v1/archives/*/thumbnail`) to the internet over HTTPS, keeping the rest of the Bambuddy API local-only. Minimal attack surface since the thumbnail endpoint is already unauthenticated.
+
+3. **Accept local-only thumbnails** (current approach) — Images work on LAN; a fallback is shown when accessed remotely. Simplest, no infrastructure changes, matches the "Bambuddy stays local" stance.
+
+---
+
 ## Dashboard
 
-The Print History view is registered as a tab in the 3D Printing dashboard:
+The Print History view is registered as a tab in the 3D Printing dashboard.
 
 - **View**: `dashboard_views/view_print_history.yaml` — `path: print-history`, `icon: mdi:history`
 - **Registration**: `!include ../../print_history/dashboard_views/view_print_history.yaml` in `common/dashboards/3d_printing.yaml`
-- **Cards included**:
-  - `dashboard_cards/photo_review_chip.yaml` — conditional chip (visible when photos pending review)
-  - `dashboard_cards/print_history.yaml` — recent prints table with thumbnails, tags, status
-  - `dashboard_cards/print_history_browser.yaml` — pagination controls (⏮ ◀ ▶ ⏭) + page size
-  - Capture settings (entities card with stage toggles)
-  - History settings (fetch toggle, page size, review timeout)
-  - Current session diagnostics (archive ID, review state, last print info)
+- **View type**: `type: sections`, `max_columns: 2`
+
+### Layout Design
+
+The dashboard is organized into **3 logical zones**: hero content (history table), configuration, and diagnostics. Sections are structured so HA's masonry grid places them predictably into two columns: the **left column holds the primary print history experience**; the **right column holds settings and secondary info**.
+
+#### Visual Layout (Desktop — 2 columns)
+
+```
+┌─────────────────────────────────────────────┬──────────────────────────────────┐
+│  Section 1: Print History  (hero)           │  Section 2: Settings             │
+│                                             │                                  │
+│  ┌─ Photo Review Chip (conditional) ──────┐ │  ┌─ Photo Capture Settings ────┐ │
+│  │ 📸 Photos to Review                    │ │  │ At Print Start         [✓]  │ │
+│  └────────────────────────────────────────┘ │  │ At Mid-Print           [✓]  │ │
+│                                             │  │ Near Completion        [✓]  │ │
+│  ┌─ Recent Prints ────────────────────────┐ │  │ On Error/Failure       [✓]  │ │
+│  │ 🕐  Print History           → Bambuddy │ │  │ ────────────────────────    │ │
+│  │ ┌──────┬─────────────────────┬────┐    │ │  │ Mid-Print Threshold   50%   │ │
+│  │ │ 📷   │ Benchy              │ ✅ │    │ │  │ Secondary Camera    [cam]   │ │
+│  │ │      │ Mar 27 · 2.3h      │    │    │ │  └──────────────────────────────┘ │
+│  │ │      │ material:PLA vendor │    │    │ │                                  │
+│  │ ├──────┼─────────────────────┼────┤    │ │  ┌─ History Settings ──────────┐ │
+│  │ │ 📷   │ Phone Case          │ ✅ │    │ │  │ Auto-Fetch History     [✓]  │ │
+│  │ │      │ Mar 26 · 4.1h      │    │    │ │  │ Items Per Page          10   │ │
+│  │ │      │ material:PETG       │    │    │ │  │ Review Timeout (hrs)    24   │ │
+│  │ ├──────┼─────────────────────┼────┤    │ │  └──────────────────────────────┘ │
+│  │ │ ...  │ ...                 │    │    │ │                                  │
+│  │ └──────┴─────────────────────┴────┘    │ │                                  │
+│  │                                        │ ├──────────────────────────────────┤
+│  │  🖨️ Last Print  │ ✅ Result │ 2.3h   │ │  Section 3: Current Print        │
+│  └────────────────────────────────────────┘ │                                  │
+│                                             │  ┌─ Active Session ────────────┐ │
+│  ┌─ Pagination ───────────────────────────┐ │  │ Archive ID    abc-123       │ │
+│  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭        │ │  │ Review State  idle          │ │
+│  │ [🔄 Refresh]          [Page Size: 10]  │ │  │ Last Print    Benchy        │ │
+│  └────────────────────────────────────────┘ │  │ Last Status   success       │ │
+│                                             │  │ Last Duration 2.3h          │ │
+└─────────────────────────────────────────────┘  └──────────────────────────────┘ │
+                                              └──────────────────────────────────┘
+```
+
+#### Visual Layout (Mobile — 1 column)
+
+On narrow screens (`max_columns` collapses to 1), all sections stack vertically in order:
+
+1. **Print History** — review chip + history table + pagination (the primary experience)
+2. **Settings** — capture stages + history fetch options
+3. **Current Print** — diagnostic info (usually not needed, fine to scroll for)
+
+#### Section Breakdown
+
+| # | Section | Cards | Column | Purpose |
+|---|---------|-------|--------|---------|
+| 1 | Print History | `photo_review_chip.yaml` (conditional), `print_history.yaml` (table + last-print summary), `print_history_browser.yaml` (pagination + refresh) | Left | **Hero content** — the primary reason users visit this tab. All three cards in one section so they always stay together as a cohesive unit. |
+| 2 | Settings | Entities card: capture stage toggles (4 booleans + threshold + camera), entities card: history fetch settings (3 items) | Right | Configuration — users set these once, rarely touch again. Grouped together to avoid splitting across columns. |
+| 3 | Current Print | Entities card: archive ID, review state, last print name/status/duration | Right | Diagnostic info — useful for troubleshooting, not day-to-day. Stays below settings in the right column. |
+
+#### Key Design Decisions
+
+1. **One section for all history cards** — The photo review chip, history table, and pagination browser are combined into a **single section** so HA's masonry grid treats them as one tall block. This prevents pagination from jumping to the right column while the table stays on the left.
+
+2. **Settings grouped, not interleaved** — All configuration (capture toggles + history fetch) lives in one section, separate from the main table. Users configure once and rarely return — it shouldn't compete for visual attention with the history.
+
+3. **Diagnostics at the bottom-right** — Archive ID, review state, and last-print sensors are debugging/diagnostic info. They belong below settings, not alongside the history table.
+
+4. **Photo review chip stays with the table** — The chip is contextual to the history workflow (you see it → review → it disappears). It belongs in the same section as the table, not floating in its own section.
+
+5. **Last-print summary row inside the table card** — The 3-entity horizontal summary (last print name, result, duration) is part of `print_history.yaml` as the table's footer, not a separate section. This gives context without adding another standalone card.
+
+#### Previous Layout (v1) — Issues
+
+The original layout used **6 separate sections**, each with a single card:
+
+```
+Section 1: photo_review_chip     Section 4: capture_settings
+Section 2: print_history_table   Section 5: history_settings
+Section 3: pagination_browser    Section 6: current_print_diagnostics
+```
+
+**Problems:**
+- HA's `sections` masonry distributes sections into the shortest column. With 6 small sections, the grid interleaved history and settings cards unpredictably.
+- The pagination browser often landed in the right column, visually disconnected from the table it controls.
+- The photo review chip floated alone as a tiny section, wasting vertical space.
+- Settings had equal visual weight to the history table, making the page feel cluttered.
+- On mobile, 6 sections stacked in declaration order, putting capture settings between the table and diagnostics.
 
 ## Dependencies
 
