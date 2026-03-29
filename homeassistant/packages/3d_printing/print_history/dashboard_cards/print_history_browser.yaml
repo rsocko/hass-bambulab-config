@@ -694,11 +694,11 @@ cards:
             {% set cards.items = cards.items + [{
               'type': 'button',
               'entity': 'input_text.print_history_filter_colors',
+              'show_icon': true,
               'show_name': false,
               'show_state': false,
               'icon': 'mdi:circle',
               'icon_height': '22px',
-              'icon_color': color,
               'tap_action': {
                 'action': 'call-service',
                 'service': 'script.toggle_print_history_color_filter',
@@ -706,7 +706,7 @@ cards:
               },
               'hold_action': {'action': 'none'},
               'card_mod': {
-                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.14)') ~ '; }'
+                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.14)') ~ '; } ha-state-icon { color: ' ~ color ~ '; }'
               }
             }] %}
           {% endif %}
