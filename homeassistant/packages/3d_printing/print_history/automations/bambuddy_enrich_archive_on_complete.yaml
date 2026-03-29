@@ -69,30 +69,24 @@
           {% endif %}
           {{ ns.tags | join(',') }}
 
-        # Collect unique vendors
+        # Collect unique vendors from Spoolman spool entities via tray_map
         vendor_tags: >-
-          {% set ns = namespace(vendors=[]) %}
-          {% if cost_breakdown is mapping %}
-            {% for tray_name, tray in cost_breakdown.items() %}
-              {% set vendor = tray.vendor | default('') %}
-              {% if vendor and vendor not in ns.vendors %}
-                {% set ns.vendors = ns.vendors + [vendor] %}
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-          {% if tray_map is mapping and ns.vendors | length == 0 %}
+          {% set ns = namespace(vendors=[], result=[]) %}
+          {% if tray_map is mapping %}
             {% for tray_name, tray in tray_map.items() %}
-              {% set vendor = tray.vendor | default('') %}
-              {% if vendor and vendor not in ns.vendors %}
-                {% set ns.vendors = ns.vendors + [vendor] %}
+              {% set eid = tray.spool_entity_id | default('') %}
+              {% if eid %}
+                {% set vendor = state_attr(eid, 'filament_vendor_name') | default('') %}
+                {% if vendor and vendor not in ns.vendors %}
+                  {% set ns.vendors = ns.vendors + [vendor] %}
+                {% endif %}
               {% endif %}
             {% endfor %}
           {% endif %}
-          {% set result = [] %}
           {% for v in ns.vendors %}
-            {% set result = result + ['vendor:' ~ v] %}
+            {% set ns.result = ns.result + ['vendor:' ~ v] %}
           {% endfor %}
-          {{ result | join(',') }}
+          {{ ns.result | join(',') }}
 
         # Collect unique materials
         material_tags: >-
@@ -105,11 +99,11 @@
               {% endif %}
             {% endfor %}
           {% endif %}
-          {% set result = [] %}
+          {% set ns.result = [] %}
           {% for m in ns.materials %}
-            {% set result = result + ['material:' ~ m] %}
+            {% set ns.result = ns.result + ['material:' ~ m] %}
           {% endfor %}
-          {{ result | join(',') }}
+          {{ ns.result | join(',') }}
 
         # Assemble all tags
         all_tags: >-

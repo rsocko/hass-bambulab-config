@@ -8,10 +8,10 @@
       unique_id: print_history_total_pages
       icon: mdi:book-multiple
       state: >-
-        {% set count = states('sensor.bambuddy_print_history') | int(0) %}
-        {% set limit = states('input_number.bambuddy_history_limit') | int(10) %}
-        {% if count >= limit %}
-          2
+        {% set current = states('input_number.history_current_page') | int(1) %}
+        {% set has_more = state_attr('sensor.print_history_page_archives', 'has_more') | default(false) %}
+        {% if has_more %}
+          {{ current + 1 }}
         {% else %}
-          1
+          {{ current }}
         {% endif %}
