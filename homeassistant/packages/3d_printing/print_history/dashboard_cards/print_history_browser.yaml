@@ -700,7 +700,7 @@ cards:
             'tap_action': {
               'action': 'call-service',
               'service': 'script.toggle_print_history_color_filter',
-              'service_data': {'color': color}
+              'data': {'color': color}
             },
             'hold_action': {'action': 'none'},
             'styles': {
