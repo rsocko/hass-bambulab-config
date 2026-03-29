@@ -700,7 +700,7 @@ cards:
                 'data': {'color': color}
               },
               'card_mod': {
-                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.18)') ~ '; } ha-state-icon { color: ' ~ color ~ '; }'
+                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.18)') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; }'
               }
             }] %}
           {% endif %}
