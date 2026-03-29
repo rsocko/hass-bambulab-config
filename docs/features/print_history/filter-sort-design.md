@@ -199,7 +199,7 @@ The projected schema is roughly **2.2x** the size of slim but gives us every fie
 
 | Filter | Field | Helper Type |
 |--------|-------|-------------|
-| **Filament Color** | `filament_color` (also in slim) | `input_select` — dynamic, values extracted from comma-separated colors across all archives |
+| **Filament Color** | `filament_color` (also in slim) | `input_text` backing store + clickable color-chip row generated from unique colors across all archives |
 | **Favorites** | `is_favorite` | `input_boolean` (`on` = favorites only) |
 | **Has Tags** | `tags` (non-empty) | `input_boolean` |
 | **Designer** | `designer` | `input_select` — dynamic |
@@ -228,7 +228,7 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
 │  Output metadata plus the current visible archive slice          │
 ├──────────────────────────────────────────────────────────────────┤
 │  Layer 3: Dashboard UI                                           │
-│  Toolbar + popups + variant-aware archive records                │
+│  Always-visible browser header + variant-aware archive records   │
 │  Reads from Layer 2 sensor attributes                            │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -427,10 +427,10 @@ Derived from the projected archive schema (full endpoint, trimmed fields):
 |--------|-------------|---------|--------------|
 | **Status** | `input_select` | `All`, `Completed`, `Failed`, `Stopped`, `Printing` | `status` |
 | **Material** | `input_select` | `All`, + dynamic from fetched data | `filament_type` |
-| **Color** | `input_select` | `All`, + dynamic unique colors from `filament_color` | `filament_color` (comma-sep hex) |
+| **Color** | `input_text` + generated buttons | Multi-select color swatches derived from unique `filament_color` values; matches any selected color | `filament_color` (comma-sep hex) |
 | **Printer** | `input_select` | `All`, + dynamic from fetched data (printer_id → name) | `printer_id` |
 | **Date Range** | `input_select` | `All Time`, `Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days` | `started_at` |
-| **Favorites** | `input_select` | `All`, `Favorites Only` | `is_favorite` |
+| **Favorites** | `input_boolean` | `off` = all archives, `on` = favorites only | `is_favorite` |
 | **Designer** | `input_select` | `All`, + dynamic unique designers | `designer` |
 | **Layer Height** | `input_select` | `All`, + dynamic (e.g., 0.04, 0.08, 0.12, 0.16, 0.20) | `layer_height` |
 | **Search** | `input_text` | Free text on `print_name`, `designer`, `tags` | Multiple fields |
@@ -464,6 +464,18 @@ The Bambuddy API has **no `sort` or `order` query params** (confirmed via OpenAP
 Pagination is computed in the template sensor: the full filtered+sorted list is sliced by `[(page-1)*size : page*size]`.
 
 **Page reset behavior**: When any filter or sort helper changes, an automation resets `print_history_current_page` to 1. This prevents showing an empty page when filters reduce the result set.
+
+### Implemented Color Chip Row
+
+The final working color filter uses a deliberately minimal generated-card structure:
+
+- `custom:auto-entities` generates one built-in `button` card per unique hex color
+- the chip action uses `perform-action` to call `script.toggle_print_history_color_filter`
+- the active state is rendered with an accent ring in `card_mod`
+- the visible chip color is applied through `ha-state-icon { color: <hex> !important; }`
+- invalid non-hex values are ignored so placeholder values like `none` do not render as broken cards
+
+This ended up being more reliable than earlier generated `custom:button-card` variants and is now the documented baseline.
 
 ### Input Helpers (New)
 

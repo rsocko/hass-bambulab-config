@@ -273,7 +273,7 @@ The Print History view is registered as a tab in the 3D Printing dashboard.
 
 - **View**: `dashboard_views/view_print_history.yaml` — `path: print-history`, `icon: mdi:history`
 - **Registration**: `!include ../../print_history/dashboard_views/view_print_history.yaml` in `common/dashboards/3d_printing.yaml`
-- **View type**: `type: sections`, `max_columns: 1`
+- **View type**: `panel: true` with a single `vertical-stack` so the browser header, archive grid, and both pagination rows stay in one full-width flow
 
 ### Layout Design
 
@@ -289,9 +289,15 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │  │ 📸 Photos to Review                                                    │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
-│  ┌─ Browser Toolbar ─────────────────────────────────────────────────────┐ │
-│  │ Filter/Sort Summary   47 matches                                      │ │
-│  │ [Filter] [Sort] [Layout] [Settings]                                   │ │
+│  ┌─ Browser Header ──────────────────────────────────────────────────────┐ │
+│  │ Search  Matches  Open Bambuddy  Settings                             │ │
+│  │ Filter pills  Favorites toggle  Layout toggle  Items/page slider     │ │
+│  │ Active filter summary                                                │ │
+│  │ Multi-select color chips (one chip per archive color)                │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─ Pagination ──────────────────────────────────────────────────────────┐ │
+│  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭                                        │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌─ Print Records ───────────────────────────────────────────────────────┐ │
@@ -309,7 +315,6 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │                                                                             │
 │  ┌─ Pagination ──────────────────────────────────────────────────────────┐ │
 │  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭                                        │ │
-│  │ [🔄 Refresh]          [Page Size: 10]                                 │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -329,19 +334,13 @@ Popup launched from `Settings` button:
 
 #### Visual Layout (Mobile — 1 column)
 
-On narrow screens, the browser remains a single stacked flow: review chip, toolbar, archive cards, then pagination.
+On narrow screens, the browser remains a single stacked flow: review chip, browser header, top pagination, archive cards, then bottom pagination. The color chips wrap naturally into additional rows.
 
 The settings popup remains off-canvas on both desktop and mobile so the primary browsing surface stays dominant.
 
-#### Section Breakdown
-
-| # | Section | Cards | Column | Purpose |
-|---|---------|-------|--------|---------|
-| 1 | Print History Browser | `photo_review_chip.yaml` (conditional), browser toolbar card, archive-record card, `print_history_browser.yaml` (pagination + refresh) | Full width | **Hero content** — filter/sort entry points, layout switching, and the main archive browsing experience stay together as one cohesive unit. |
-
 #### Key Design Decisions
 
-1. **One section for the entire browsing workflow** — The photo review chip, browser toolbar, archive records, and pagination browser are combined into a **single section** so HA's masonry grid treats them as one tall block. This prevents layout controls or pagination from jumping into a secondary column.
+1. **One full-width browser flow** — The photo review chip, browser header, archive cards, and both pagination rows live inside one `panel: true` vertical stack. This prevents layout controls or pagination from jumping into a secondary column.
 
 2. **Settings move to popup, not a permanent column** — Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused and also scales better on mobile.
 
@@ -349,7 +348,9 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 4. **Workflow state stays out of settings UI** — Archive ID, review state, and similar runtime internals should support automations and review flows, but they should not appear as editable settings.
 
-5. **Photo review chip stays with the browser** — The chip is contextual to the history workflow (you see it → review → it disappears). It belongs in the same section as the archive browser, not floating in its own section.
+5. **Color filter chips are generated from live archive data** — The browser header exposes one clickable swatch per discovered filament color. The chips use `custom:auto-entities` to build simple built-in `button` cards, and the selected state is stored as a comma-separated hex list in `input_text.print_history_filter_colors`.
+
+6. **Photo review chip stays with the browser** — The chip is contextual to the history workflow (you see it → review → it disappears). It belongs in the same full-width browsing flow as the archive browser.
 
 #### Previous Layout (v1) — Issues
 
