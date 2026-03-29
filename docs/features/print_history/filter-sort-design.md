@@ -11,11 +11,13 @@ The current print history view is a flat list of the N most recent archives. The
 
 ## Goals
 
-1. **Consistent UX** — Same filter bar pattern as the Filament Catalog (`bubble-card` sub-buttons)
+1. **Consistent UX** — Reuse the repository's existing filter/sort language, but adapt it to a print-history-specific toolbar + popup pattern instead of a permanently expanded control bar
 2. **Server-filtered + client-sorted** — Let the API pre-filter, let HA template sensors sort and page
 3. **Responsive pagination** — Navigate pages without re-polling the API
 4. **Scalable** — Work well at 50 archives, degrade gracefully at 1000+
-5. **Incremental** — Can be added to the existing print_history package without breaking current functionality
+5. **Focused page layout** — Keep the archive browser as the hero surface by moving page settings into an on-demand popup
+6. **Visual flexibility** — Support 2-3 archive record card variants so users can switch between dense browsing and larger media previews
+7. **Incremental** — Can be added to the existing print_history package without breaking current functionality
 
 ---
 
@@ -226,7 +228,7 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
 │  Outputs filtered/sorted/paged subset as JSON attribute          │
 ├──────────────────────────────────────────────────────────────────┤
 │  Layer 3: Dashboard UI                                           │
-│  Filter bar (bubble-card sub-buttons) + history table            │
+│  Toolbar + popups + variant-aware archive records                │
 │  Reads from Layer 2 sensor attributes                            │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -281,8 +283,8 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
                   ▼
   ┌─────────────────────────────────┐
   │ Dashboard                       │  Layer 3
-  │ • Filter bar (bubble-card)      │
-  │ • History table (button-card)   │
+  │ • Browser toolbar + popups      │
+  │ • Variant-aware archive cards   │
   │   w/ thumbnails from /archives  │
   │   /{id}/thumbnail               │
   │ • Pagination controls           │
@@ -683,46 +685,66 @@ Action:
 
 ## Layer 3: Dashboard UI
 
-### Filter Bar Card
+### Browser Toolbar
 
-Mirrors the Filament Catalog's `catalog_filter_bar.yaml` — `custom:bubble-card` with `card_type: sub-buttons`, arranged in rows:
+Instead of a permanently expanded filter bar, the view should use a compact browser toolbar that surfaces the current browsing state and launches focused controls on demand.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ 🔽 Sort: Date (Newest)                                          │
-│ Status ▼  Material ▼  Color ▼  Printer ▼                       │
-│ Date Range ▼  Favorites ▼  Designer ▼  Layer Height ▼          │
-│ 🔍 [___search___]              [47 of 500]  [Clear Filters]     │
+│ 47 matches  ·  Sort: Date (Newest)  ·  Media cards              │
+│ [Filter] [Sort] [Layout] [Settings] [Clear]                     │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-#### Row Layout
+#### Toolbar Responsibilities
 
-| Row | Controls | Implementation |
-|-----|----------|----------------|
-| 1 | Sort dropdown | `sub_button_type: select` on `input_select.print_history_sort` |
-| 2 | Status, Material, Color, Printer dropdowns | `sub_button_type: select`, state-highlight when not "All" |
-| 3 | Date Range, Favorites, Designer, Layer Height dropdowns | `sub_button_type: select`, state-highlight when not default |
-| 4 | Search text + result count + Clear Filters button | `entities` card (search input) + chip buttons |
+| Control | Purpose | Notes |
+|---------|---------|-------|
+| `Filter` | Open popup for status/material/color/printer/date/favorites/designer/layer-height/search | Can also show active-filter count in the button label or badge |
+| `Sort` | Open sort selector or compact dropdown | Keep the current sort visible in the toolbar summary |
+| `Layout` | Switch archive record variant | Backed by a helper so the choice persists |
+| `Settings` | Open page settings popup | Replaces the always-visible settings column |
+| `Clear` | Reset filters to defaults | Existing clear-filters script still applies |
 
-#### Active Filter Highlighting
+#### Popup Model
 
-Same pattern as Filament Catalog — each dropdown uses `state_background` and `state_color` with a `config-template-card` expression:
+The toolbar should launch two popup surfaces:
 
-```yaml
-state_background: >-
-  ${states['input_select.print_history_filter_status']?.state !== 'All'}
-state_color: >-
-  ${states['input_select.print_history_filter_status']?.state !== 'All'}
-```
+1. **Browse Controls popup**
+   Includes filter dropdowns, search input, and sort options. This keeps high-control browsing available without consuming the first screen of the page.
+2. **Settings popup**
+   Includes capture-stage toggles, history-fetch defaults, review timeout, default page size, and the default archive card variant.
 
-This highlights active (non-default) filters visually.
+The implementation can use the repo's preferred popup mechanism (`browser_mod` if available, or another consistent popup interaction), but the design requirement is the same: controls are on-demand rather than permanently pinned.
+
+### Archive Record Card Variants
+
+The same filtered dataset should be renderable in at least three presentation modes.
+
+| Variant | Best Use | Visual Characteristics |
+|---------|----------|------------------------|
+| `Compact` | Fast scanning, mobile, long histories | Dense list rows, small thumbnail/status, minimal metadata |
+| `Media` | Visual browsing, choosing best print/photo | Larger thumbnail or cover-photo area, slightly reduced metadata density |
+| `Detail` | Desktop inspection, troubleshooting, comparing runs | More metadata chips/secondary text, failure/tag/designer details surfaced inline |
+
+#### Variant Rules
+
+- Prefer archive cover photo when available; fall back to the Bambuddy thumbnail endpoint.
+- Keep action affordances consistent across variants so changing layout does not change behavior.
+- The `Media` card should be allowed to use a noticeably larger image region than the compact row.
+- The `Detail` card should remain one-record-per-card rather than reverting to a dense table.
 
 ### History Table Card
 
 The existing `print_history.yaml` button-card renders rows from JSON data. It currently reads from the REST sensor's `value_json`. **Update it to read from `sensor.print_history_filtered` attribute `page_json` instead.**
 
 The `page_json` attribute contains an array of archive objects (already filtered, sorted, and paged to the current page).
+
+Rather than a single hard-coded row layout, the renderer should branch on a card-variant helper:
+
+- `Compact` → condensed list row template
+- `Media` → larger thumbnail / photo-first card template
+- `Detail` → expanded metadata card template
 
 ### Pagination Controls
 
@@ -843,7 +865,8 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_select_print_history_filter_favorites.yaml     # NEW
 │   │   ├── input_select_print_history_filter_designer.yaml      # NEW
 │   │   ├── input_select_print_history_filter_layer_height.yaml  # NEW
-│   │   └── input_select_print_history_sort.yaml                 # NEW
+│   │   ├── input_select_print_history_sort.yaml                 # NEW
+│   │   └── input_select_print_history_card_variant.yaml         # NEW
 │   ├── input_text/
 │   │   ├── (existing files...)
 │   │   └── input_text_print_history_search.yaml                 # NEW
@@ -860,9 +883,11 @@ homeassistant/packages/3d_printing/print_history/
 │   └── print_history_clear_filters.yaml          # NEW — reset all filters to defaults
 ├── dashboard_cards/
 │   ├── (existing files...)
-│   └── print_history_filter_bar.yaml             # NEW — bubble-card filter bar
+│   ├── print_history_toolbar.yaml                # NEW — compact toolbar / launch buttons
+│   ├── print_history_settings_popup.yaml         # NEW — on-demand settings surface
+│   └── print_history_archive_records.yaml        # NEW — variant-aware archive record renderer
 └── dashboard_views/
-    └── view_print_history.yaml                   # MODIFIED — add filter bar section
+    └── view_print_history.yaml                   # MODIFIED — add toolbar section and popup launcher hooks
 ```
 
 ### Loader Updates
@@ -893,6 +918,7 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | `input_select.print_history_filter_designer` | input_select | `All` (dynamic) |
 | `input_select.print_history_filter_layer_height` | input_select | `All` (dynamic) |
 | `input_select.print_history_sort` | input_select | `Date (Newest)` |
+| `input_select.print_history_card_variant` | input_select | `Media` |
 | `input_text.print_history_search` | input_text | `""` |
 | `input_number.print_history_page_size` | input_number | 10 |
 | `input_number.print_history_max_archives` | input_number | 500 |
@@ -1053,30 +1079,22 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 
 ---
 
-## Filter Bar Wireframe
+## Browser Layout Wireframe
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ ⊞ Filter Prints                                                mdi: │
-│ ╔═══════════════════════════════════════════════════════════════════╗ │
-│ ║  Sort ▼ Date (Newest)                                           ║ │
-│ ╠═══════════════════════════════════════════════════════════════════╣ │
-│ ║  Status ▼  │  Material ▼  │  Color ▼  │  Printer ▼             ║ │
-│ ╠═══════════════════════════════════════════════════════════════════╣ │
-│ ║  Date Range ▼  │  Favorites ▼  │  Designer ▼  │  Layer Ht ▼    ║ │
-│ ╠═══════════════════════════════════════════════════════════════════╣ │
-│ ║  🔍 [___________________________________]   47 matches   🗑 Clear║ │
-│ ╚═══════════════════════════════════════════════════════════════════╝ │
+│  47 matches · Date (Newest) · Media cards                          │
+│  [Filter] [Sort] [Layout] [Settings] [Clear]                       │
 │                                                                      │
-│ ┌──────────────────────── Print History Table ─────────────────────┐ │
-│ │ 📷  Hueforge BTTF          PLA  ⬛⬜🟥🟨  44.8g  $1.12  🖨    │ │
-│ │     Mar 28 · est 4.3h · 0.08mm           ★  printing            │ │
+│ ┌─────────────────────── Print History Browser ───────────────────┐ │
+│ │ [Media card] Hueforge BTTF                                     │ │
+│ │ [larger image / cover photo]                                   │ │
+│ │ Mar 28 · est 4.3h · 0.08mm · PLA · 44.8g · ★ printing         │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
-│ │ 📷  Darth Vader Saber P2   PLA  ⬛🟥⬜    69.3g  $1.73         │ │
-│ │     Mar 28 · 4.5h · 0.04mm                  ✅ completed        │ │
+│ │ [Compact row] Darth Vader Saber P2 · PLA · 69.3g · ✅         │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
-│ │ 📷  Magnetic Frame P12     PLA  ⬛         87.3g  $2.18         │ │
-│ │     Mar 28 · 1.8h · 0.08mm                  ✅ completed        │ │
+│ │ [Detail card] Magnetic Frame P12                               │ │
+│ │ Mar 28 · 1.8h · 0.08mm · tags · designer · source links        │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
 │ │ ...                                                             │ │
 │ └─────────────────────────────────────────────────────────────────┘ │
@@ -1089,85 +1107,19 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 
 ### Implementation Details
 
-The filter bar uses `custom:bubble-card` with `card_type: sub-buttons` following the Filament Catalog pattern:
+The browser entry surface should use a compact toolbar card instead of an always-expanded control stack. One implementation option is a small `button-card`/`bubble-card` toolbar that opens popup cards for filter and settings content while keeping the current sort, result count, and active layout visible inline.
 
 ```yaml
-# dashboard_cards/print_history_filter_bar.yaml
-type: vertical-stack
-cards:
-  - type: custom:bubble-card
-    card_type: separator
-    name: Filter Prints
-    icon: mdi:filter-variant
-  - type: custom:config-template-card
-    entities:
-      - input_select.print_history_sort
-      - input_select.print_history_filter_status
-      - input_select.print_history_filter_material
-      - input_select.print_history_filter_printer
-      - input_select.print_history_filter_date_range
-      - sensor.print_history_filtered
-    card:
-      type: custom:bubble-card
-      card_type: sub-buttons
-      entity: sensor.print_history_filtered
-      rows: 2.04
-      sub_button:
-        bottom_layout: rows
-        bottom:
-          - group:
-              - entity: input_select.print_history_sort
-                sub_button_type: select
-                name: Sort
-                icon: mdi:sort
-                show_name: true
-                show_state: true
-                fill_width: true
-            buttons_layout: inline
-            justify_content: fill
-          - group:
-              - entity: input_select.print_history_filter_status
-                sub_button_type: select
-                name: Status
-                icon: mdi:list-status
-                show_name: true
-                show_state: true
-                show_background: true
-                state_background: ${states['input_select.print_history_filter_status']?.state !== 'All'}
-                state_color: ${states['input_select.print_history_filter_status']?.state !== 'All'}
-                fill_width: true
-              - entity: input_select.print_history_filter_material
-                sub_button_type: select
-                name: Material
-                icon: mdi:flask-outline
-                show_name: true
-                show_state: true
-                show_background: true
-                state_background: ${states['input_select.print_history_filter_material']?.state !== 'All'}
-                state_color: ${states['input_select.print_history_filter_material']?.state !== 'All'}
-                fill_width: true
-              - entity: input_select.print_history_filter_printer
-                sub_button_type: select
-                name: Printer
-                icon: mdi:printer-3d
-                show_name: true
-                show_state: true
-                show_background: true
-                state_background: ${states['input_select.print_history_filter_printer']?.state !== 'All'}
-                state_color: ${states['input_select.print_history_filter_printer']?.state !== 'All'}
-                fill_width: true
-              - entity: input_select.print_history_filter_date_range
-                sub_button_type: select
-                name: Date
-                icon: mdi:calendar-range
-                show_name: true
-                show_state: true
-                show_background: true
-                state_background: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
-                state_color: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
-                fill_width: true
-            buttons_layout: inline
-            justify_content: fill
+# dashboard_cards/print_history_toolbar.yaml
+type: custom:button-card
+entity: sensor.print_history_filtered
+name: Print History Browser
+show_state: false
+custom_fields:
+  summary: >-
+    [[[ return `${entity.state} matches · ${states['input_select.print_history_sort']?.state || 'Date (Newest)'} · ${states['input_select.print_history_card_variant']?.state || 'Media'} cards`; ]]]
+  controls: >-
+    [[[ return 'Filter  Sort  Layout  Settings  Clear'; ]]]
 ```
 
 ---
@@ -1180,12 +1132,12 @@ cards:
 | **Data volume** | ~165 entities (fixed) | 50–2000 archives (growing) |
 | **Data fetch** | Always in HA (Spoolman integration) | Trigger-based fetch with `rest_command` action + Jinja2 field projection |
 | **Filter sensor** | `sensor.filament_catalog_filtered_spools` | `sensor.print_history_filtered` |
-| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 8 input_selects + 1 input_text + 2 input_numbers |
+| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 9 input_selects + 1 input_text + 2 input_numbers |
 | **Grouping/tabs** | Yes (By Location, By Material, etc.) | No (flat list with sort) |
 | **Sort** | 9 options (name, weight, cost, hue, etc.) | 10 options (date, duration, cost, filament, name) |
 | **Pagination** | No (all shown, relies on auto-entities) | Yes (page_size + current_page) |
-| **Filter bar card** | `catalog_filter_bar.yaml` | `print_history_filter_bar.yaml` |
-| **Filter bar style** | `bubble-card` sub-buttons, 4 rows | `bubble-card` sub-buttons, 4 rows |
+| **Primary browser controls** | `catalog_filter_bar.yaml` | `print_history_toolbar.yaml` + popup surfaces |
+| **Controls style** | expanded `bubble-card` sub-buttons | compact toolbar with on-demand popups |
 | **Dynamic options** | `sync_filter_options` automation | `print_history_sync_filter_options` automation |
 | **Clear filters** | `script.filament_catalog_clear_filters` | `script.print_history_clear_filters` |
 | **Scale concern** | 165 is comfortable, >300 would need paging | 500 default cap, configurable to 2000 |
@@ -1202,6 +1154,7 @@ cards:
 | 4 | Recorder exclusion for `sensor.print_history_archives` | Large `archives_json` attribute shouldn't bloat the database | No — add to recorder config during implementation |
 | 5 | Printer ID → name mapping | `printer_id` is an integer; need friendly name for dropdown display. May require a separate API call or helper mapping. | No — can use printer_id as display initially |
 | 6 | Search: `input_text` vs API-side FTS | `GET /search?q=...` provides full-text search. Worth using for large datasets instead of Jinja2 string matching. | No — Jinja2 `in` operator is sufficient for <500 items |
+| 7 | Confirm popup interaction primitive for this dashboard | Needed so the toolbar launches filter/settings reliably on mobile and desktop | No — design is independent of the exact popup implementation |
 
 ---
 
@@ -1221,11 +1174,12 @@ This feature can be added incrementally within the existing print_history packag
 - Create `sync_filter_options` automation
 - Create `reset_page_on_filter` automation
 - Create `clear_filters` script
+- Add `input_select.print_history_card_variant` for persisted layout choice
 
 ### Phase C: Dashboard Integration
-- Create `print_history_filter_bar.yaml` (bubble-card)
-- Update `view_print_history.yaml` to include filter bar
-- Update history table card to read from `sensor.print_history_filtered` `page_json`
+- Create `print_history_toolbar.yaml` and popup surfaces for browse controls + settings
+- Update `view_print_history.yaml` to include the toolbar instead of a permanently expanded settings area
+- Update history record rendering to read from `sensor.print_history_filtered` `page_json` and branch by card variant
 - Update pagination controls to use template sensor attributes
 
 ### Phase D: Cleanup
