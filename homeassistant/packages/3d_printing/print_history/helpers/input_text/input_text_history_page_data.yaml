@@ -1,8 +1,0 @@
-# DEPRECATED: Pagination data now flows through events to
-# sensor.print_history_page_archives (trigger-based template sensor).
-# input_text max of 255 chars cannot hold archive JSON payloads.
-# Kept for backward compatibility; not actively written.
-history_page_data:
-  name: Print History Page Data
-  max: 255
-  icon: mdi:database-outline

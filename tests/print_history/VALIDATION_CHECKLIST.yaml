@@ -5,7 +5,7 @@
 #   B. Manual tests requiring human interaction
 #   C. End-to-end smoke tests for the full print lifecycle
 #
-# Automated pytest tests: tests/print_history/test_phase2_print_history.py (82 tests)
+# Automated pytest tests: tests/print_history/test_phase2_print_history.py (83 tests)
 # Run: pytest tests/print_history/ -v
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -209,10 +209,10 @@
 #       VERIFY: Template sensors reflect the newly completed print
 #
 # B4.3  Pagination — Navigate Forward
-#       Set input_number.bambuddy_history_limit to 5 (small page size)
+#       Set input_number.print_history_page_size to 5 (small page size)
 #       Call script.load_history_page with page=2
 #       VERIFY: input_number.history_current_page = 2
-#       VERIFY: input_text.history_page_data contains JSON response
+#       VERIFY: sensor.print_history_page_archives.attributes.archives contains page 2 rows
 #       VERIFY: sensor.print_history_page_info = "Page 2 of N"
 #
 # B4.4  Pagination — Navigate with Script

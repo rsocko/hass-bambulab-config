@@ -196,16 +196,13 @@ class TestFileInventory(unittest.TestCase):
         "bambuddy_delete_archive_photo.yaml",
         "bambuddy_set_archive_cover.yaml",
         "bambuddy_update_archive.yaml",
-        "bambuddy_add_archive_tags.yaml",
         "bambuddy_query_recent_archive.yaml",
-        "bambuddy_query_history_page.yaml",
         "bambuddy_fetch_archives.yaml",
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
         "print_history_archives.yaml",
         "print_history_filtered.yaml",
-        "print_history_total_pages.yaml",
         "print_history_page_info.yaml",
         "print_history_archive_data.yaml",
     ]
@@ -214,7 +211,6 @@ class TestFileInventory(unittest.TestCase):
         "input_text_bambuddy_current_archive_id.yaml",
         "input_text_bambuddy_photo_manifest.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
-        "input_text_history_page_data.yaml",
         "input_text_print_history_search.yaml",
         "input_text_secondary_camera_entity.yaml",
     ]
@@ -648,11 +644,6 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("history_current_page", content)
         self.assertIn("print_history_filtered", content)
 
-    def test_total_pages_uses_filtered_sensor_total(self):
-        """Total pages sensor must derive from the Layer 2 filtered browser state."""
-        content = (HISTORY / "template_sensors" / "print_history_total_pages.yaml").read_text("utf-8")
-        self.assertIn("print_history_filtered", content, "Must reference the filtered sensor total_pages")
-
     def test_image_url_prepends_base_url(self):
         """Image URL sensor must combine base_url + photo path for full URL."""
         sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"
@@ -740,7 +731,6 @@ class TestHelpers(unittest.TestCase):
         "input_text_bambuddy_current_archive_id.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_bambuddy_photo_manifest.yaml",
-        "input_text_history_page_data.yaml",
     }
 
     def test_state_persistence_helpers_have_no_initial(self):
@@ -795,7 +785,6 @@ class TestCrossReferences(unittest.TestCase):
         "input_text.bambuddy_current_archive_id",
         "input_text.bambuddy_photo_manifest",
         "input_text.bambuddy_tray_map_snapshot",
-        "input_text.history_page_data",
         "input_text.print_history_search",
         "input_text.secondary_camera_entity",
         "input_boolean.bambuddy_history_fetch_enabled",
@@ -829,7 +818,6 @@ class TestCrossReferences(unittest.TestCase):
         "sensor.bambuddy_last_print_status",
         "sensor.bambuddy_last_print_duration",
         "sensor.bambuddy_last_print_image_url",
-        "sensor.print_history_total_pages",
         "sensor.print_history_page_info",
         "sensor.print_history_page_archives",
     }
@@ -886,7 +874,6 @@ class TestCrossReferences(unittest.TestCase):
                         "rest_command.bambuddy_update_archive",
                         "rest_command.bambuddy_upload_photo_to_archive",
                         "rest_command.bambuddy_query_recent_archive",
-                        "rest_command.bambuddy_query_history_page",
                         "rest_command.bambuddy_fetch_archives",
                     }
                     if entity in known_services:

@@ -7,12 +7,12 @@
 
 ## Problem Statement
 
-This document captures the implemented baseline for the print history browser: a bulk archive cache in Layer 1, a client-side filter/sort/page sensor in Layer 2, and a popup-driven toolbar with card variants in Layer 3. It also remains the place to document follow-on refinements and scaling decisions.
+This document captures the implemented baseline for the print history browser: a bulk archive cache in Layer 1, a server-side filter/sort/page layer in Layer 2, and a popup-driven toolbar with card variants in Layer 3. It also remains the place to document follow-on refinements and scaling decisions.
 
 ## Goals
 
 1. **Consistent UX** — Reuse the repository's existing filter/sort language, but adapt it to a print-history-specific toolbar + popup pattern instead of a permanently expanded control bar
-2. **Server-filtered + client-sorted** — Let the API pre-filter, let HA template sensors sort and page
+2. **Server-side browser state** — Keep filter, sort, and page logic in HA template sensors so the dashboard only renders the current slice
 3. **Responsive pagination** — Navigate pages without re-polling the API
 4. **Scalable** — Work well at 50 archives, degrade gracefully at 1000+
 5. **Focused page layout** — Keep the archive browser as the hero surface by moving page settings into an on-demand popup
@@ -223,9 +223,9 @@ This creates a data plumbing challenge: we need to get archive data into HA's te
 │  Trigger-based template sensor + REST command action              │
 │  Calls GET /archives → projects to trimmed schema (~450B/item)   │
 ├──────────────────────────────────────────────────────────────────┤
-│  Layer 2: Client-Side Filter + Sort + Page                       │
-│  Template sensor reads Layer 1 attribute + input helpers          │
-│  Outputs filtered/sorted/paged subset as JSON attribute          │
+│  Layer 2: Server-Side Filter + Sort + Page                        │
+│  Template sensors read Layer 1 attribute + input helpers          │
+│  Output metadata plus the current visible archive slice          │
 ├──────────────────────────────────────────────────────────────────┤
 │  Layer 3: Dashboard UI                                           │
 │  Toolbar + popups + variant-aware archive records                │
@@ -946,12 +946,10 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 |--------|----------------|-------------|
 | `input_number.bambuddy_history_limit` | REST sensor `?limit=` param | `input_number.print_history_max_archives` |
 | `input_number.history_current_page` | Legacy pagination page | `input_number.print_history_current_page` (already exists) |
-| `input_text.history_page_data` | Legacy JSON page storage | `sensor.print_history_filtered` attr `page_json` |
+| `sensor.print_history_page_archives` | Current visible page slice | Dashboard card entity |
 | `script.load_history_page` | REST command pagination | Template sensor paging (no script needed) |
 | `script.navigate_history` | Prev/next REST calls | Direct `input_number.set_value` on page helper |
-| `sensor.print_history_total_pages` | Heuristic page count | `sensor.print_history_filtered` attr `total_pages` |
 | `sensor.print_history_page_info` | Page display string | `sensor.print_history_filtered` attr `page_info` |
-| `rest_command.bambuddy_query_history_page` | Offset-based page fetch | Not needed — all data in memory |
 
 These can be removed in a cleanup phase after the new filter system is validated.
 
@@ -1183,6 +1181,6 @@ This feature can be added incrementally within the existing print_history packag
 - Update pagination controls to use template sensor attributes
 
 ### Phase D: Cleanup
-- Remove legacy pagination entities (`load_history_page`, `navigate_history`, `history_page_data`, etc.)
+- Remove dead compatibility artifacts only after confirming no external dashboards or scripts depend on them
 - Consolidate `bambuddy_history_limit` → `print_history_max_archives`
 - Update README.md entity reference

@@ -1,9 +1,0 @@
-# Total pages for the Layer 2 print history browser.
-# Derived from the filtered dataset and configured page size.
-# Docs: docs/features/print_history/filter-sort-design.md
-- sensor:
-    - name: Print History Total Pages
-      unique_id: print_history_total_pages
-      icon: mdi:book-multiple
-      state: >-
-        {{ state_attr('sensor.print_history_filtered', 'total_pages') | default(1) }}

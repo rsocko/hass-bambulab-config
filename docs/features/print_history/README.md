@@ -28,7 +28,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover photo
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
 │   ├── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
-│   └── bambuddy_query_history_page.yaml           # GET /archives — offset-based pagination
+│   └── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/
@@ -40,15 +40,14 @@ homeassistant/packages/3d_printing/print_history/
 │   └── clear_print_history_filters.yaml           # reset browser controls to defaults
 ├── template_sensors/
 │   ├── print_history_archives.yaml                # Layer 1 bulk archive cache + field projection
-│   ├── print_history_filtered.yaml                # Layer 2 filter/sort/page output
-│   ├── print_history_total_pages.yaml
-│   └── print_history_page_info.yaml
+│   ├── print_history_filtered.yaml                # Layer 2 filter/sort/page metadata
+│   ├── print_history_page_info.yaml               # human-readable page label
+│   └── print_history_archive_data.yaml            # current page slice for dashboard rendering
 ├── helpers/
 │   ├── input_text/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
 │   │   ├── input_text_bambuddy_photo_manifest.yaml
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
-│   │   ├── input_text_history_page_data.yaml
 │   │   ├── input_text_print_history_search.yaml
 │   │   └── input_text_secondary_camera_entity.yaml
 │   ├── input_boolean/
@@ -111,7 +110,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Set cover photo for archive thumbnail (photo review) |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
-| `rest_command.bambuddy_query_history_page` | GET | `/api/v1/archives/?limit=N&offset=N` | Offset-based history pagination |
 | `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
 ### Template Sensors
@@ -124,8 +122,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `sensor.bambuddy_last_print_status` | `archives[0].status` | Most recent print result |
 | `sensor.bambuddy_last_print_duration` | `archives[0].actual_time_seconds` | Most recent print time (hours) |
 | `sensor.bambuddy_last_print_image_url` | `{base_url}/api/v1/archives/{id}/thumbnail` | Most recent print thumbnail (constructed URL) |
-| `sensor.print_history_total_pages` | `sensor.print_history_filtered.total_pages` | Total pages for browser pagination |
 | `sensor.print_history_page_info` | `history_current_page + filtered total_pages` | Display string for pagination UI |
+| `sensor.print_history_page_archives` | `sensor.print_history_archives` + helpers | Current visible archive slice for dashboard rendering |
 
 > **OpenAPI note**: The field is `print_name` (not `name`), `actual_time_seconds` (not `duration_seconds`), and thumbnail is accessed via `GET /api/v1/archives/{id}/thumbnail` (unauthenticated). There is no `photo_url` field.
 
@@ -134,7 +132,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | Entity | Type | Purpose | Persists? |
 |---|---|---|---|
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
-| `input_text.history_page_data` | input_text | JSON storage for current page results | — |
 | `input_text.print_history_search` | input_text | Browser search text | — |
 | `input_text.secondary_camera_entity` | input_text | Configurable secondary camera entity_id | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
@@ -189,7 +186,7 @@ For detailed design of the two major subsystems, see:
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
 - **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
-- **[filter-sort-design.md](filter-sort-design.md)** — Server-backed archive browsing with projected full-archive fields, filters, and pagination
+- **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
 - **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only
