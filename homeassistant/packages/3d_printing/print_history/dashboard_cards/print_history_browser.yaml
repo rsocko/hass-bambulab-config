@@ -110,15 +110,16 @@ cards:
       card_type: sub-buttons
       entity: sensor.print_history_filtered
       hide_main_background: false
-      rows: 1.9
+      rows: 1.84
       styles: |
         ha-card {
-          padding-top: 2px !important;
+          padding-top: 0 !important;
           padding-bottom: 8px !important;
         }
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
           gap: 6px !important;
+          margin-top: -4px !important;
         }
       sub_button:
         main: []
@@ -193,7 +194,8 @@ cards:
                 icon: mdi:star
                 show_name: true
                 show_state: false
-                show_background: ${states['input_boolean.print_history_filter_favorites_only']?.state === 'on'}
+                show_background: true
+                state_background: ${states['input_boolean.print_history_filter_favorites_only']?.state === 'on'}
                 state_color: ${states['input_boolean.print_history_filter_favorites_only']?.state === 'on'}
                 tap_action:
                   action: toggle
@@ -286,8 +288,7 @@ cards:
             .bubble-sub-button.clear-layer-filter,
             .bubble-sub-button.clear-favorites-filter,
             .bubble-sub-button.clear-search-filter,
-            .bubble-sub-button.clear-colors-filter,
-            .bubble-sub-button.clear-filters {
+            .bubble-sub-button.clear-colors-filter {
               background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
               color: var(--accent-color) !important;
               box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
@@ -300,8 +301,7 @@ cards:
             .bubble-sub-button.clear-layer-filter ha-icon,
             .bubble-sub-button.clear-favorites-filter ha-icon,
             .bubble-sub-button.clear-search-filter ha-icon,
-            .bubble-sub-button.clear-colors-filter ha-icon,
-            .bubble-sub-button.clear-filters ha-icon {
+            .bubble-sub-button.clear-colors-filter ha-icon {
               color: var(--accent-color) !important;
             }
           tap_action:
