@@ -517,11 +517,17 @@ cards:
       square: false
       card_mod:
         style: |
-          @media (max-width: 768px) {
             #root {
-              grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+              grid-template-columns: repeat(auto-fill, minmax(34px, 34px)) !important;
+              justify-content: start !important;
+              gap: 4px !important;
             }
-          }
+            @media (max-width: 768px) {
+              #root {
+                grid-template-columns: repeat(auto-fill, minmax(32px, 32px)) !important;
+                gap: 3px !important;
+              }
+            }
     card_param: cards
     filter:
       template: >
@@ -547,7 +553,7 @@ cards:
                 'data': {'color': color}
               },
               'card_mod': {
-                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.18)') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; }'
+                'style': 'ha-card { width: 32px; height: 32px; min-height: 32px; border-radius: 50%; padding: 0; background: transparent; border: none; box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.32)' if is_active else '0 0 0 1px rgba(255,255,255,0.20)') ~ '; display: flex; align-items: center; justify-content: center; margin: 0 auto !important; } ha-icon, ha-state-icon { --mdc-icon-size: 20px; width: 20px; height: 20px; color: ' ~ color ~ ' !important; display: flex; align-items: center; justify-content: center; }'
               }
             }] %}
           {% endif %}
