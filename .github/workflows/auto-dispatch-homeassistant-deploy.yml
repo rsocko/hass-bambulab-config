@@ -152,23 +152,23 @@ jobs:
             --method POST \
             "/repos/$REPOSITORY/actions/workflows/deploy-homeassistant-template.yml/dispatches" \
             -f ref="$REF_NAME" \
-            -F inputs[dry_run]="${{ steps.config.outputs.dry_run }}" \
-            -F inputs[delete_mode]="${{ steps.config.outputs.delete_mode }}" \
-            -F inputs[allowlist_profile]="${{ steps.config.outputs.allowlist_profile }}" \
-            -F inputs[allowlist_file]="${{ steps.config.outputs.allowlist_file }}" \
-            -F inputs[package_scope]="${{ steps.config.outputs.package_scope }}" \
-            -F inputs[selected_packages]="${{ steps.config.outputs.selected_packages }}" \
-            -F inputs[package_preset]="${{ steps.config.outputs.package_preset }}" \
-            -F inputs[include_www_for_selected]="${{ steps.config.outputs.include_www_for_selected }}" \
-            -F inputs[check_ui_name_conflicts]="${{ steps.config.outputs.check_ui_name_conflicts }}" \
-            -F inputs[debug_deploy_sync]="${{ steps.config.outputs.debug_deploy_sync }}" \
-            -F inputs[fail_on_ui_conflict]="${{ steps.config.outputs.fail_on_ui_conflict }}" \
-            -F inputs[post_deploy_action]="${{ steps.config.outputs.post_deploy_action }}" \
-            -F inputs[reload_domains_strict]="${{ steps.config.outputs.reload_domains_strict }}" \
-            -F inputs[resource_safety_mode]="${{ steps.config.outputs.resource_safety_mode }}" \
-            -F inputs[feature_include_mode]="${{ steps.config.outputs.feature_include_mode }}" \
-            -F inputs[ha_configuration_yaml_path]="${{ steps.config.outputs.ha_configuration_yaml_path }}" \
-            -F inputs[ha_feature_include_file_path]="${{ steps.config.outputs.ha_feature_include_file_path }}" \
-            -F inputs[config_validation_mode]="${{ steps.config.outputs.config_validation_mode }}"
+            -f inputs[dry_run]="${{ steps.config.outputs.dry_run }}" \
+            -f inputs[delete_mode]="${{ steps.config.outputs.delete_mode }}" \
+            -f inputs[allowlist_profile]="${{ steps.config.outputs.allowlist_profile }}" \
+            -f inputs[allowlist_file]="${{ steps.config.outputs.allowlist_file }}" \
+            -f inputs[package_scope]="${{ steps.config.outputs.package_scope }}" \
+            -f inputs[selected_packages]="${{ steps.config.outputs.selected_packages }}" \
+            -f inputs[package_preset]="${{ steps.config.outputs.package_preset }}" \
+            -f inputs[include_www_for_selected]="${{ steps.config.outputs.include_www_for_selected }}" \
+            -f inputs[check_ui_name_conflicts]="${{ steps.config.outputs.check_ui_name_conflicts }}" \
+            -f inputs[debug_deploy_sync]="${{ steps.config.outputs.debug_deploy_sync }}" \
+            -f inputs[fail_on_ui_conflict]="${{ steps.config.outputs.fail_on_ui_conflict }}" \
+            -f inputs[post_deploy_action]="${{ steps.config.outputs.post_deploy_action }}" \
+            -f inputs[reload_domains_strict]="${{ steps.config.outputs.reload_domains_strict }}" \
+            -f inputs[resource_safety_mode]="${{ steps.config.outputs.resource_safety_mode }}" \
+            -f inputs[feature_include_mode]="${{ steps.config.outputs.feature_include_mode }}" \
+            -f inputs[ha_configuration_yaml_path]="${{ steps.config.outputs.ha_configuration_yaml_path }}" \
+            -f inputs[ha_feature_include_file_path]="${{ steps.config.outputs.ha_feature_include_file_path }}" \
+            -f inputs[config_validation_mode]="${{ steps.config.outputs.config_validation_mode }}"
 
           echo "Workflow dispatch requested successfully."
