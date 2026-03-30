@@ -274,36 +274,51 @@ cards:
           icon: mdi:counter
           show_name: true
           show_state: true
-          styles: |
-            .bubble-sub-button-container,
-            .bubble-sub-buttons-container {
-              justify-content: flex-start !important;
-              gap: 6px !important;
-            }
-            .bubble-sub-button.clear-status-filter,
-            .bubble-sub-button.clear-material-filter,
-            .bubble-sub-button.clear-printer-filter,
-            .bubble-sub-button.clear-date-filter,
-            .bubble-sub-button.clear-designer-filter,
-            .bubble-sub-button.clear-layer-filter,
-            .bubble-sub-button.clear-favorites-filter,
-            .bubble-sub-button.clear-search-filter,
-            .bubble-sub-button.clear-colors-filter {
-              background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
-              color: var(--accent-color) !important;
-              box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
-            }
-            .bubble-sub-button.clear-status-filter ha-icon,
-            .bubble-sub-button.clear-material-filter ha-icon,
-            .bubble-sub-button.clear-printer-filter ha-icon,
-            .bubble-sub-button.clear-date-filter ha-icon,
-            .bubble-sub-button.clear-designer-filter ha-icon,
-            .bubble-sub-button.clear-layer-filter ha-icon,
-            .bubble-sub-button.clear-favorites-filter ha-icon,
-            .bubble-sub-button.clear-search-filter ha-icon,
-            .bubble-sub-button.clear-colors-filter ha-icon {
-              color: var(--accent-color) !important;
-            }
+          styles: >-
+            ${(() => {
+              const active = states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True';
+              return `
+                .bubble-sub-button-container,
+                .bubble-sub-buttons-container {
+                  justify-content: flex-start !important;
+                  gap: 6px !important;
+                }
+                .bubble-sub-button.clear-status-filter,
+                .bubble-sub-button.clear-material-filter,
+                .bubble-sub-button.clear-printer-filter,
+                .bubble-sub-button.clear-date-filter,
+                .bubble-sub-button.clear-designer-filter,
+                .bubble-sub-button.clear-layer-filter,
+                .bubble-sub-button.clear-favorites-filter,
+                .bubble-sub-button.clear-search-filter,
+                .bubble-sub-button.clear-colors-filter {
+                  background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
+                  color: var(--accent-color) !important;
+                  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
+                }
+                .bubble-sub-button.clear-status-filter ha-icon,
+                .bubble-sub-button.clear-material-filter ha-icon,
+                .bubble-sub-button.clear-printer-filter ha-icon,
+                .bubble-sub-button.clear-date-filter ha-icon,
+                .bubble-sub-button.clear-designer-filter ha-icon,
+                .bubble-sub-button.clear-layer-filter ha-icon,
+                .bubble-sub-button.clear-favorites-filter ha-icon,
+                .bubble-sub-button.clear-search-filter ha-icon,
+                .bubble-sub-button.clear-colors-filter ha-icon {
+                  color: var(--accent-color) !important;
+                }
+                ${active ? `
+                .bubble-sub-button:last-child {
+                  background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
+                  color: var(--accent-color) !important;
+                  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
+                }
+                .bubble-sub-button:last-child ha-icon {
+                  color: var(--accent-color) !important;
+                }
+                ` : ''}
+              `;
+            })()}
           tap_action:
             action: none
           sub_button:
