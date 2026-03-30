@@ -13,7 +13,7 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | Package | Depends On | Design Doc | Status |
 |---------|-----------|------------|--------|
 | `bambuddy_common` | — | [docs/features/bambuddy_common/README.md](../features/bambuddy_common/README.md) | **Complete** |
-| `print_history` | Phase 1 | [docs/features/print_history/README.md](../features/print_history/README.md) | **Core complete** — advanced (photo review scripts/popup) pending |
+| `print_history` | Phase 1 | [docs/features/print_history/README.md](../features/print_history/README.md) | **Core shipped and active** — browser/dashboard complete; advanced review/detail flows pending |
 | `print_queue` | Phase 1 | [docs/features/print_queue/README.md](../features/print_queue/README.md) | Not started |
 | `print_statistics` | Phase 1 | [docs/features/print_statistics/README.md](../features/print_statistics/README.md) | Not started |
 | `printer_maintenance` | Phase 1 + 4 | [docs/features/printer_maintenance/README.md](../features/printer_maintenance/README.md) | **Unblocked** — API endpoints confirmed via OpenAPI spec |
@@ -58,23 +58,39 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 10 | Create directory tree | **Done** | automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views |
 | 11 | Create `print_history_loader.yaml` | **Done** | 9 domain includes (added input_number, input_select) |
 | 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | **Done** | Read-only, page 1 |
-| 13 | REST commands: `bambuddy_upload_photo_to_archive.yaml` (POST photos), `bambuddy_delete_archive_photo.yaml` (DELETE photo), `bambuddy_set_archive_cover.yaml` (PATCH cover), `bambuddy_update_archive.yaml` (PATCH tags/notes), `bambuddy_query_recent_archive.yaml` (GET fallback), `bambuddy_query_history_page.yaml` (GET pagination) | **Done** | 6 REST commands total |
+| 13 | REST commands: upload photo, delete photo, set cover, update archive, fetch archives, query recent archive | **Done** | 6 REST commands created; upload still uses a JSON hint because true multipart upload needs a `shell_command` path |
 | 14 | Archive ID capture automation | **Done** | Triggers on `print_started` webhook; stores archive_id; fallback query; snapshots tray map; resets manifest |
-| 15 | Photo capture automation | **Done** | Multi-trigger: start (3min delay), mid, near-complete, finish — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
+| 15 | Photo capture automation | **Done** | Multi-trigger capture for start, mid-print, near-complete, and finish/error-adjacent flows — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → upload; manifest tracking |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
 | 19 | Enrichment automation | **Done** | Spoolman tags + notes via PATCH; tray map snapshot; cost data; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
-| 20 | History refresh automation | **Done** | Webhook print_complete/print_failed/print_stopped → 5s delay → refresh REST sensor |
-| 21 | Pagination scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml` |
-| 22 | Template sensors (modern format) | **Done** | 4 last-print + 2 pagination |
-| 23 | Helpers | **Done** | 15 helpers: archive_id, page_data, camera, tray_map_snapshot, photo_manifest, fetch_enabled, capture booleans (4), mid-capture %, limit, current_page, review_timeout, review_state |
-| 24 | Dashboard cards | **Done** | `print_history.yaml` (table), `print_history_browser.yaml` (pagination), `photo_review_chip.yaml` (conditional chip) |
+| 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
+| 21 | Browser paging scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml`, `refresh_print_history_archives.yaml`, `clear_print_history_filters.yaml`, `toggle_print_history_color_filter.yaml` |
+| 22 | Template sensors (modern format) | **Done** | Layer 1 cache (`print_history_archives`), Layer 2 filter metadata (`print_history_filtered`), page label, and current page slice |
+| 23 | Helpers | **Done** | 28 helpers across `input_text`, `input_boolean`, `input_number`, and `input_select` |
+| 24 | Dashboard cards | **Done** | `print_history_browser.yaml` (header + filter surface), `print_history_top_controls.yaml` (nav/page size/layout/refresh), `print_history.yaml` (archive grid), `photo_review_chip.yaml` (conditional status chip) |
 | 25 | Dashboard view: `view_print_history.yaml` | **Done** | Registered in `common/dashboards/3d_printing.yaml` views list |
-| 26 | Wire loader, finalize docs | **Done** | Uncommented in `_feature_loaders.yaml`; docs updated |
+| 26 | Wire loader, finalize docs | **Done** | `print_history_loader` is active in `_feature_loaders.yaml`; docs track the shipped browser-first panel layout |
 | 26a | Photo review scripts (advanced) | Not started | `review_delete_photo`, `review_replace_photo`, `review_set_cover`, `review_dismiss` |
 | 26b | Photo review auto-dismiss automation (advanced) | Not started | `bambuddy_photo_review_auto_dismiss.yaml` |
 | 26c | Photo review popup card (advanced) | Not started | browser_mod popup with per-photo actions | |
+
+### Phase 2 Current State Snapshot
+
+Implemented now:
+
+- `print_history` is loaded by default via [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../homeassistant/packages/3d_printing/_feature_loaders.yaml).
+- The dashboard is a browser-first `panel: true` view with this flow: review chip, browser header, top control strip, archive grid, repeated bottom control strip.
+- Filter/sort/page state is handled server-side by `sensor.print_history_archives`, `sensor.print_history_filtered`, `sensor.print_history_page_info`, and `sensor.print_history_page_archives`.
+- The renderer supports `Compact`, `Media`, and `Detail` card variants plus live multi-select color chips.
+
+Still to do:
+
+- Replace the placeholder JSON photo upload path with a real multipart upload implementation.
+- Build the actual photo-review actions and popup flow; today the chip is only a status entry point.
+- Add archive-detail drilldown actions such as favorite toggle, compare, and richer Bambuddy deep links.
+- Reconcile the advanced photo-review API contracts before enabling delete/set-cover in the shipped UI.
 
 ## Phase 3: `print_queue`
 
@@ -156,11 +172,11 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 |---|------|-----------|-------|-----------------|
 | 1 | ~~**Maintenance API endpoints**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `GET /api/v1/maintenance/printers/{printer_id}`, `POST /items/{item_id}/perform`, etc. Full list in [openapi-correction-notes.md](openapi-correction-notes.md#phase-5-printer_maintenance--unblocked) |
 | 2 | ~~**Maintenance task schema**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `MaintenanceStatus` and `PrinterMaintenanceOverview` schemas fully documented. Hours-based tracking (not print count). |
-| 3 | **Photo upload content type** — `POST /archives/{id}/photos` likely expects `multipart/form-data`. HA `rest_command` doesn't natively support file uploads. | No — design includes `shell_command` (curl) fallback | 1, 2 | Implement both paths; test during Phase 2 step 17 |
+| 3 | **Photo upload content type** — `POST /archives/{id}/photos` expects `multipart/form-data`. HA `rest_command` doesn't natively support file uploads. | No — browser core works without it | 1, 2 | Current YAML still uses a JSON hint payload; implement the production `shell_command`/curl upload path before relying on photo capture end-to-end |
 | 4 | **Webhook format for HA** — "Webhook (Custom)" provider: does it send flat notifications format or structured API format with `archive_id`? | No — receiver normalizes both | 1 | Test during Phase 1 step 7 |
 | 5 | **`print_started` includes `archive_id`?** — API docs confirm it for `print_complete`. Likely yes for `print_started` since archive exists from start. | No — fallback script handles missing ID | 2 | Verify during Phase 2 step 14 |
-| 6 | ~~**Photo delete endpoint**~~ | No | 2 | **RESOLVED** — `DELETE /api/v1/archives/{id}/photos/{filename}` confirmed in OpenAPI spec. Uses filename, not photo_id. |
-| 7 | **Set-cover-photo endpoint** — assumed PATCH or dedicated endpoint for setting archive cover image. | No — blocks photo review only | 2 | Not found in OpenAPI spec — may need to use `PATCH /{id}` with a cover field or check Bambuddy source |
+| 6 | **Photo delete contract mismatch** — current YAML uses `/photos/{photo_id}`, while earlier API review suggested filename-based deletes. | No — advanced review only | 2 | Reconcile OpenAPI/source review with the shipped `rest_command` before enabling review delete actions |
+| 7 | **Set-cover-photo endpoint** — current YAML assumes `PATCH /archives/{id}` with `cover_photo_id`, but this still needs live confirmation. | No — blocks photo review only | 2 | Verify against Bambuddy source/live API before wiring cover selection into the dashboard |
 | 8 | **Dashboard view registration** — `view_print_history.yaml` and `view_maintenance.yaml` must be added to `common/dashboards/3d_printing.yaml` views list. | No | 2, 5 | `view_print_history.yaml` **Done** (added during Phase 2 step 25). Phase 5 still pending. |
 | 9 | **Enrichment idempotency** — PATCHing tags/notes twice shouldn't create duplicates. | No | 2 | Verify Bambuddy behavior during testing |
 | 10 | **Webhook image field** — payload can include base64 JPEG for some events. Could be decoded as bonus data. | No — nice-to-have | 2 | Defer to post-MVP enhancement |
@@ -172,7 +188,7 @@ The API review makes the next implementation order clearer than the original tra
 1. **Phase 3 core with lifecycle controls** — Build `print_queue` with `start`, `stop`, `cancel`, `PATCH`, `reorder`, and `bulk` support, not just add/remove. This closes the biggest gap between Bambuddy's queue API and the planned HA surface.
 2. **Phase 4 core plus richer stats surface** — Build `print_statistics` with the current base KPIs plus energy and time-accuracy signals from the same `/archives/stats` response.
 3. **Phase 5 core plus fleet summary read path** — Build `printer_maintenance` around per-printer status and task completion, but also include cross-printer due/warning rollups from `/maintenance/summary` or `/maintenance/overview`.
-4. **Phase 2 follow-on browser work** — After Phases 3–5 are wired, return to `print_history` for filter/sort browsing and then selective advanced history/media workflows.
+4. **Phase 2 follow-on history work** — After Phases 3–5 are wired, return to `print_history` for multipart photo upload, archive-detail drilldown, favorites, and selective advanced history/media workflows.
 
 ## Scope Adjustments After API Review
 
@@ -201,18 +217,18 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 - **Maintenance**: Bambuddy is source of truth; HA reads + surfaces + allows mark-complete
 - **Print Log**: Skipped (subset of archives)
 - **AMS History**: Skipped (HA already records via ha-bambulab sensors)
-- **Photo Review**: Post-print curation popup — delete, replace, set cover (see [design](../features/print_history/photo-review-design.md))
+- **Photo Review**: Current UI ships a status chip only; full post-print curation popup remains advanced follow-on work (see [design](../features/print_history/photo-review-design.md))
 
 ## Readiness Summary
 
 | Phase | Ready? | Blockers |
 |-------|--------|----------|
 | 1 — bambuddy_common | **Yes** | None |
-| 2 — print_history | **Core complete** | Photo review scripts/popup (steps 26a–26c) deferred to advanced phase |
+| 2 — print_history | **Core shipped and active** | Multipart photo upload, photo-review actions/popup, and archive-detail actions remain deferred |
 | 3 — print_queue | **Yes** | None |
 | 4 — print_statistics | **Yes** | None |
 | 5 — printer_maintenance | **Yes** | API endpoints confirmed via OpenAPI spec |
 | 6 — Cleanup | N/A | Depends on 1–5 |
 | 7 — Verification | N/A | Depends on 6 |
 
-**Recommendation**: Phase 1 complete. Phase 2 core complete (code fixed for OpenAPI corrections). Run Phases 3–5 in parallel. See [api-vs-design-guidance.md](api-vs-design-guidance.md) for per-phase implementation notes and priority order.
+**Recommendation**: Phase 1 is complete and Phase 2 is live as a browser-first history surface. Run Phases 3–5 in parallel, then return to Phase 2 advanced work for multipart media upload, review actions, and archive-detail workflows. See [api-vs-design-guidance.md](api-vs-design-guidance.md) for per-phase implementation notes and priority order.

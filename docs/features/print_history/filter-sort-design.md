@@ -1114,8 +1114,17 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  47 matches · Date (Newest) · Media cards                          │
-│  [Filter] [Sort] [Layout] [Settings] [Clear]                       │
+│ ┌──────────── Browser Header ──────────────────────────────────────┐ │
+│ │ Open Bambuddy  Settings                                          │ │
+│ │ Status  Material  Printer  Date                                  │ │
+│ │ Designer  Layer Height  Favorites  Sort                          │ │
+│ │ Search  47 matches  Clear actions                                │ │
+│ │ Multi-select color chips                                         │ │
+│ └───────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│ ┌──────────── Top Control Strip ───────────────────────────────────┐ │
+│ │ ⏮ ◀  1 of 5  Prints / Page  Compact  Media  Detail  🔄  ▶ ⏭     │ │
+│ └───────────────────────────────────────────────────────────────────┘ │
 │                                                                      │
 │ ┌─────────────────────── Print History Browser ───────────────────┐ │
 │ │ [Media card] Hueforge BTTF                                     │ │
@@ -1125,31 +1134,37 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 │ │ [Compact row] Darth Vader Saber P2 · PLA · 69.3g · ✅         │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
 │ │ [Detail card] Magnetic Frame P12                               │ │
-│ │ Mar 28 · 1.8h · 0.08mm · tags · designer · source links        │ │
+│ │ Mar 28 · 1.8h · 0.08mm · tags · designer · failure detail      │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
 │ │ ...                                                             │ │
 │ └─────────────────────────────────────────────────────────────────┘ │
 │                                                                      │
-│ ┌──────────── Pagination ────────────────────────────────────────┐  │
-│ │  ⏮  ◀  │  Page 1 / 5 (47 total)  │  ▶  ⏭  │  Size: 10  │ 🔄 │  │
-│ └────────────────────────────────────────────────────────────────┘  │
+│ ┌─────────── Repeated Bottom Control Strip ───────────────────────┐ │
+│ │ ⏮ ◀  1 of 5  Prints / Page  Compact  Media  Detail  🔄  ▶ ⏭     │ │
+│ └───────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Implementation Details
 
-The browser entry surface now uses a permanently visible control header rather than a popup-launch toolbar. Search, matches, settings, filter pills, layout toggles, the items-per-page slider, clear/refresh actions, and the multi-select color chips all live above the archive grid.
+The browser entry surface now uses a permanently visible browser header plus a separate reusable control strip. Search, matches, settings, filter pills, clear actions, and the multi-select color chips live in the header; page navigation, page-size, layout toggles, and refresh live in `print_history_top_controls.yaml` and are rendered above and below the archive grid.
 
 ```yaml
 # dashboard_cards/print_history_browser.yaml
 type: vertical-stack
 cards:
-  - search + matches + Open Bambuddy + settings
+  - Open Bambuddy + settings
   - rounded filter pills
-  - layout toggle row + page-size slider
-  - clear / refresh row
-  - active-filter summary
+  - search + matches + clear actions
   - multi-select color chips
+
+# dashboard_cards/print_history_top_controls.yaml
+type: custom:config-template-card
+card:
+  - page navigation
+  - page-size slider
+  - Compact / Media / Detail toggles
+  - refresh action
 ```
 
 ---
@@ -1169,7 +1184,7 @@ cards:
 | **Primary browser controls** | `catalog_filter_bar.yaml` | `print_history_browser.yaml` |
 | **Controls style** | expanded `bubble-card` sub-buttons | always-visible rounded control header with search, pills, and color chips |
 | **Dynamic options** | `sync_filter_options` automation | `print_history_sync_filter_options` automation |
-| **Clear filters** | `script.filament_catalog_clear_filters` | `script.print_history_clear_filters` |
+| **Clear filters** | `script.filament_catalog_clear_filters` | `script.clear_print_history_filters` |
 | **Scale concern** | 165 is comfortable, >300 would need paging | 500 default cap, configurable to 2000 |
 
 ---
@@ -1184,7 +1199,7 @@ cards:
 | 4 | Recorder exclusion for `sensor.print_history_archives` | Large `archives_json` attribute shouldn't bloat the database | No — add to recorder config during implementation |
 | 5 | Printer ID → name mapping | `printer_id` is an integer; need friendly name for dropdown display. May require a separate API call or helper mapping. | No — can use printer_id as display initially |
 | 6 | Search: `input_text` vs API-side FTS | `GET /search?q=...` provides full-text search. Worth using for large datasets instead of Jinja2 string matching. | No — Jinja2 `in` operator is sufficient for <500 items |
-| 7 | Confirm popup interaction primitive for this dashboard | Needed so the toolbar launches filter/settings reliably on mobile and desktop | No — design is independent of the exact popup implementation |
+| 7 | Decide whether archive cards stay display-only or gain a detail popup | Governs how favorites/compare/actions land without overloading the card surface | No — current browser already works without it |
 
 ---
 
@@ -1208,9 +1223,12 @@ This feature can be added incrementally within the existing print_history packag
 
 ### Phase C: Dashboard Integration
 - Create `print_history_browser.yaml` as the always-visible header surface
-- Update `view_print_history.yaml` to use a full-width panel layout with top and bottom pagers
+- Create `print_history_top_controls.yaml` as the reusable top/bottom control strip
+- Update `view_print_history.yaml` to use a full-width panel layout with the header, control strip, archive grid, and repeated bottom controls
 - Update history record rendering to read from `sensor.print_history_page_archives` and branch by card variant
 - Add the multi-select color-chip row and layout toggle controls
+
+Status: implemented baseline. Remaining dashboard work is mostly archive-detail drilldown and visual refinements rather than core browser plumbing.
 
 ### Phase D: Cleanup
 - Remove dead compatibility artifacts only after confirming no external dashboards or scripts depend on them

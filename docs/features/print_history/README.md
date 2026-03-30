@@ -8,6 +8,8 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
+
 ## Package Structure
 
 ```
@@ -23,12 +25,11 @@ homeassistant/packages/3d_printing/print_history/
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
 │   ├── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
-│   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos
-│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
-│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover photo
+│   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos (JSON hint; multipart path still pending)
+│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id} (advanced review flow)
+│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
-│   ├── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
-│   └── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
+│   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/
@@ -72,10 +73,10 @@ homeassistant/packages/3d_printing/print_history/
 │       ├── input_select_print_history_sort.yaml
 │       └── input_select_print_history_card_variant.yaml
 ├── dashboard_cards/
-│   ├── print_history.yaml                         # responsive two-column archive renderer
-│   ├── print_history_browser.yaml                 # search + filters + layout/settings controls
-│   ├── print_history_pagination.yaml              # top/bottom page navigation strip
-│   └── photo_review_chip.yaml                     # conditional chip → opens review popup
+│   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / Detail)
+│   ├── print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
+│   ├── print_history_top_controls.yaml            # top/bottom control strip: page nav, page size, layout, refresh
+│   └── photo_review_chip.yaml                     # conditional review-status chip; full popup flow still deferred
 └── dashboard_views/
     └── view_print_history.yaml
 ```
@@ -85,7 +86,7 @@ homeassistant/packages/3d_printing/print_history/
 ```yaml
 # print_history_loader.yaml
 automation: !include_dir_merge_list automations
-sensor: !include_dir_merge_list rest_sensors
+rest: !include_dir_merge_list rest_sensors
 rest_command: !include_dir_merge_named rest_commands
 script: !include_dir_merge_named scripts
 template: !include_dir_merge_list template_sensors
@@ -109,9 +110,9 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Service | Method | Endpoint | Purpose |
 |---|---|---|---|
-| `rest_command.bambuddy_upload_photo_to_archive` | POST | `/api/v1/archives/{id}/photos` | Upload photo to archive |
-| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{photo_id}` | Delete a photo from archive (photo review) |
-| `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Set cover photo for archive thumbnail (photo review) |
+| `rest_command.bambuddy_upload_photo_to_archive` | POST | `/api/v1/archives/{id}/photos` | Placeholder upload command; production multipart upload still needs a `shell_command` path |
+| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{photo_id}` | Advanced review placeholder; endpoint contract still needs live verification |
+| `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
@@ -169,10 +170,13 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
 | `script.toggle_print_history_color_filter` | Add/remove a color from the active color-chip filter |
-| `script.review_delete_photo` | Delete photo from Bambuddy + local file + update manifest |
-| `script.review_replace_photo` | Capture new snapshot, upload, delete old, update manifest |
-| `script.review_set_cover` | Set selected photo as archive cover thumbnail |
-| `script.review_dismiss` | Accept all photos, set review state → `idle` |
+
+Deferred advanced scripts:
+
+- `script.review_delete_photo`
+- `script.review_replace_photo`
+- `script.review_set_cover`
+- `script.review_dismiss`
 
 ### Automations
 
@@ -187,6 +191,22 @@ input_select: !include_dir_merge_named helpers/input_select
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ## Key Design Details
+
+### Implemented vs Deferred
+
+Implemented now:
+
+- Layer 1 archive fetch + projection via `sensor.print_history_archives`
+- Layer 2 filtering, sorting, page metadata, and page slice sensors
+- Browser header with search, matches, filter pills, settings popup, clear actions, and color chips
+- Repeated top/bottom control strip with page navigation, page-size slider, layout toggles, and refresh
+- Archive grid renderer with `Compact`, `Media`, and `Detail` variants
+
+Still deferred:
+
+- Production multipart photo upload path for `capture_and_upload_snapshot`
+- Photo review popup plus delete/replace/set-cover/dismiss actions
+- Archive detail popup and card-level actions such as favorites/compare
 
 For detailed design of the two major subsystems, see:
 
@@ -225,7 +245,7 @@ For detailed design of the two major subsystems, see:
 - Pagination scripts and template sensors
 - Configurable capture stage toggles and secondary camera helper
 - Dedicated history view (`view_print_history.yaml`)
-- Dashboard cards: `print_history.yaml` (history table), `print_history_browser.yaml` (pagination), `photo_review_chip.yaml` (conditional review chip)
+- Dashboard cards: `print_history_browser.yaml` (browser header), `print_history_top_controls.yaml` (control strip), `print_history.yaml` (archive grid), `photo_review_chip.yaml` (conditional review chip)
 - Wired into main dashboard via `common/dashboards/3d_printing.yaml` views list
 
 ## Known Limitations
@@ -244,9 +264,10 @@ These are worth planning immediately after the core package is stable, but they 
 The Print History view now includes the configurable browser described in the filter/sort design:
 
 1. **Filter and sort layer** — search, filter, sort, and page over a projected in-memory archive dataset.
-2. **Always-visible browser bar** — search, matches, settings, sort, filter pills, layout toggles, page-size slider, clear/refresh, and multi-select color chips all stay pinned above the archive grid.
-3. **Archive card variants** — the history renderer switches between compact, media, and detail cards while keeping a two-column desktop layout and a single-column mobile fallback.
-4. **Archive detail popup is designed, not yet implemented** — archive cards are now structured for a future tap-through popup, but the popup content remains design-only for now.
+2. **Always-visible browser header** — Open Bambuddy, settings, filter pills, search, matches, clear actions, and multi-select color chips stay pinned above the archive grid.
+3. **Repeated control strip** — page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
+4. **Archive card variants** — the history renderer switches between compact, media, and detail cards while keeping a two-column desktop layout and a single-column mobile fallback.
+5. **Archive detail popup is designed, not yet implemented** — archive cards are display-only today; the future tap-through popup remains design-only.
 
 ### Thumbnail Images Require Local Network Access
 
@@ -273,7 +294,7 @@ The Print History view is registered as a tab in the 3D Printing dashboard.
 
 - **View**: `dashboard_views/view_print_history.yaml` — `path: print-history`, `icon: mdi:history`
 - **Registration**: `!include ../../print_history/dashboard_views/view_print_history.yaml` in `common/dashboards/3d_printing.yaml`
-- **View type**: `panel: true` with a single `vertical-stack` so the browser header, archive grid, and both pagination rows stay in one full-width flow
+- **View type**: `panel: true` with a single `vertical-stack` so the review chip, browser header, both control strips, and archive grid stay in one full-width flow
 
 ### Layout Design
 
@@ -286,18 +307,19 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │  Section 1: Print History Browser                                         │
 │                                                                             │
 │  ┌─ Photo Review Chip (conditional) ─────────────────────────────────────┐ │
-│  │ 📸 Photos to Review                                                    │ │
+│  │ 📸 Photos to Review  (status-only chip; opens more-info today)         │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌─ Browser Header ──────────────────────────────────────────────────────┐ │
-│  │ Search  Matches  Open Bambuddy  Settings                             │ │
-│  │ Filter pills  Favorites toggle  Sort  Layout toggle  Items/page      │ │
-│  │ Color filter summary + swatches                                      │ │
+│  │ Open Bambuddy  Settings                                               │ │
+│  │ Status  Material  Printer  Date                                       │ │
+│  │ Designer  Layer Height  Favorites  Sort                              │ │
+│  │ Search  Matches  Clear actions                                        │ │
 │  │ Multi-select color chips (one chip per archive color)                │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
-│  ┌─ Pagination ──────────────────────────────────────────────────────────┐ │
-│  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭                                        │ │
+│  ┌─ Control Strip ───────────────────────────────────────────────────────┐ │
+│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  Detail  🔄  ▶ ⏭            │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌─ Print Records ───────────────────────────────────────────────────────┐ │
@@ -313,8 +335,8 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │  │ └───────────────────────────────────────────────────────────────────┘ │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
-│  ┌─ Pagination ──────────────────────────────────────────────────────────┐ │
-│  │ ⏮  ◀  │  Page 1 / 3  │  ▶  ⏭                                        │ │
+│  ┌─ Control Strip ───────────────────────────────────────────────────────┐ │
+│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  Detail  🔄  ▶ ⏭            │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -334,13 +356,13 @@ Popup launched from `Settings` button:
 
 #### Visual Layout (Mobile — 1 column)
 
-On narrow screens, the browser remains a single stacked flow: review chip, browser header, top pagination, archive cards, then bottom pagination. The color chips wrap naturally into additional rows.
+On narrow screens, the browser remains a single stacked flow: review chip, browser header, top control strip, archive cards, then bottom control strip. The color chips wrap naturally into additional rows.
 
 The settings popup remains off-canvas on both desktop and mobile so the primary browsing surface stays dominant.
 
 #### Key Design Decisions
 
-1. **One full-width browser flow** — The photo review chip, browser header, archive cards, and both pagination rows live inside one `panel: true` vertical stack. This prevents layout controls or pagination from jumping into a secondary column.
+1. **One full-width browser flow** — The photo review chip, browser header, archive cards, and both control strips live inside one `panel: true` vertical stack. This prevents navigation or layout controls from jumping into a secondary column.
 
 2. **Settings move to popup, not a permanent column** — Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused and also scales better on mobile.
 
@@ -350,7 +372,7 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 5. **Color filter chips are generated from live archive data** — The browser header exposes one clickable swatch per discovered filament color. The chips use `custom:auto-entities` to build simple built-in `button` cards, and the selected state is stored as a comma-separated hex list in `input_text.print_history_filter_colors`.
 
-6. **Photo review chip stays with the browser** — The chip is contextual to the history workflow (you see it → review → it disappears). It belongs in the same full-width browsing flow as the archive browser.
+6. **Photo review chip stays with the browser** — The chip is contextual to the history workflow and currently acts as a lightweight status surface. It belongs in the same full-width browsing flow as the archive browser.
 
 #### Previous Layout (v1) — Issues
 

@@ -1,5 +1,7 @@
 # Post-Print Photo Review Design
 
+> **Current status**: Only the lightweight review-status chip is shipped today. The popup, review actions, and auto-dismiss automation remain design-only follow-on work.
+
 ## Overview
 
 After a print completes, HA may have captured 3–6+ photos across multiple stages and cameras. Not all photos are keepers — a first-layer capture might be blurry, an error photo might be redundant, or the secondary camera angle might be uninteresting. The post-print review feature gives the user a quick way to curate the photos attached to a Bambuddy archive directly from the HA dashboard.
@@ -19,14 +21,20 @@ The review is **opt-in** and surfaces as a conditional card after print completi
 1. Print completes (success, failed, or stopped)
 2. Enrichment automation runs (tags/notes PATCH)
 3. Enrichment automation sets `input_select.bambuddy_photo_review_state` → `pending`
-4. The review card appears on the main 3D printing view (conditional on state = `pending`)
+4. The review chip appears on the print history view (conditional on state = `pending`)
 
-The user can:
-- **Review now** — expand the review popup, curate photos
-- **Dismiss** — accept all, sets state → `idle` (card disappears)
-- **Ignore** — card auto-dismisses after a configurable timeout (default: 24h), or on next print start
+Current shipped behavior:
+- **See status** — the chip advertises that reviewable photos exist
+- **Open entity more-info** — tapping the chip opens the helper entity, not the planned popup yet
+
+Planned advanced behavior:
+- **Review now** — open the review popup and curate photos
+- **Dismiss** — accept all, set state → `idle`, and close the review cycle
+- **Ignore** — let the future auto-dismiss automation close the review window after timeout or next print start
 
 ### Auto-Dismiss
+
+Status: not implemented yet.
 
 An automation clears the review state:
 - On next `print_started` webhook event (previous print's review window closes)
@@ -99,22 +107,22 @@ Cleared at two points:
 | Operation | Likely Endpoint | Purpose |
 |---|---|---|
 | List photos | `GET /archives/{id}/photos` | Get current photos with IDs for the review card |
-| Delete photo | `DELETE /archives/{id}/photos/{photo_id}` | Remove a photo from Bambuddy |
+| Delete photo | `DELETE /archives/{id}/photos/{photo_id}` or filename-based variant | Remove a photo from Bambuddy |
 | Set cover photo | `PATCH /archives/{id}` with `cover_photo_id` | Designate cover thumbnail |
 | Reorder photos | `PATCH /archives/{id}/photos/order` or similar | Change photo display order |
 
-> **Open Item**: The archive photos API likely supports GET and DELETE but these need confirmation via the API browser. Reorder may not be available — if not, the "rearrange" goal is achieved by delete + re-upload in the desired order, or simply by setting the preferred photo as cover.
+> **Open Item**: The shipped YAML currently uses `photo_id`, while earlier API review suggested delete may be filename-based. Reconcile that contract before enabling review delete actions. Reorder may not be available — if not, the "rearrange" goal is achieved by delete + re-upload in the desired order, or simply by setting the preferred photo as cover.
 
 ## New Entities
 
-> **Implementation Status**: Helpers and REST commands below are **implemented** as part of Phase 2 core. Review scripts (delete, replace, set cover, dismiss) and the review popup card are **deferred to the advanced phase**. The `photo_review_chip.yaml` conditional card is implemented and wired into `view_print_history.yaml`.
+> **Implementation Status**: Helpers and placeholder REST commands below are **implemented** as part of Phase 2 core. Review scripts (delete, replace, set cover, dismiss), the review popup card, and auto-dismiss automation are **deferred to the advanced phase**. The `photo_review_chip.yaml` conditional card is implemented and wired into `view_print_history.yaml`.
 
 ### REST Commands (in `print_history/rest_commands/`)
 
 | Service | Method | Endpoint | Fields |
 |---|---|---|---|
-| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{archive_id}/photos/{photo_id}` | `archive_id`, `photo_id` |
-| `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{archive_id}` | `archive_id`, `cover_photo_id` |
+| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{archive_id}/photos/{photo_id}` | `archive_id`, `photo_id` — contract still needs live verification |
+| `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{archive_id}` | `archive_id`, `cover_photo_id` — cover contract still needs live verification |
 
 ### Scripts (in `print_history/scripts/` — **advanced phase, not yet implemented**)
 
@@ -145,7 +153,7 @@ Cleared at two points:
 
 A conditional chip that appears in `view_print_history.yaml` when `input_select.bambuddy_photo_review_state` != `idle`.
 
-**Implemented**: `dashboard_cards/photo_review_chip.yaml` — shows "📸 Photos to Review" with blue background. Tapping opens more-info for now; advanced phase will wire to a browser_mod popup.
+**Implemented**: `dashboard_cards/photo_review_chip.yaml` — shows "📸 Photos to Review" with blue background. Tapping opens more-info for now; advanced phase will replace that with a browser_mod popup and review actions.
 
 ### Review Popup (**Advanced Phase**)
 
@@ -198,6 +206,21 @@ The popup uses `custom:button-card` with JavaScript templates to:
 ### Fallback: No Photos Captured
 
 If the manifest is empty (all capture stages were disabled, or print was too short), the review chip doesn't appear. The `pending` state is only set if the manifest contains at least one entry.
+
+## Current Gap Summary
+
+Implemented now:
+
+- Review-state helper entities
+- Manifest persistence helper
+- Conditional review chip on the print history dashboard
+
+Still deferred:
+
+- Review popup UI
+- Delete / replace / set-cover / dismiss scripts
+- Auto-dismiss automation
+- Confirmed delete and cover API contracts
 
 ## Local File Cleanup
 
