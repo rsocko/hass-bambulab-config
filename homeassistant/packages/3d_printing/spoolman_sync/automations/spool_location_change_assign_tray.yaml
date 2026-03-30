@@ -123,7 +123,7 @@
                           {% else %}0{% endif %}
                         new_deferred_queue: >-
                           {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-                          {% set current = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                          {% set current = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                           {% if current is not iterable or current is string %}{% set current = [] %}{% endif %}
                           {% set ns = namespace(items=[]) %}
                           {% for item in current %}
@@ -247,7 +247,7 @@
             - variables:
                 new_pending_queue: >-
                   {% set raw = states('input_text.pending_tray_selections_queue') %}
-                  {% set current = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                  {% set current = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                   {% if current is not iterable or current is string %}{% set current = [] %}{% endif %}
                   {% set ns = namespace(items=[]) %}
                   {% for item in current %}

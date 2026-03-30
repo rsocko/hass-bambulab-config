@@ -45,7 +45,7 @@ cards:
           content: >-
             {% set count = states('sensor.pending_tray_selection_queue') | int(0) %}
             {% set raw = states('input_text.pending_tray_selections_queue') %}
-            {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+            {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
             {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
             {% if queue | count > 0 %}
               {% set first = queue[0] %}
@@ -68,13 +68,13 @@ cards:
                     - type: custom:mushroom-template-card
                       entity: >-
                         {% set raw = states('input_text.pending_tray_selections_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is iterable and queue is not string and queue | count > 0 %}
                         sensor.spoolman_spool_{{ queue[0].s }}
                         {% else %}sensor.pending_tray_selection_queue{% endif %}
                       primary: >-
                         {% set raw = states('input_text.pending_tray_selections_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
                         {% if queue | count > 0 %}
                         {% set spool_eid = 'sensor.spoolman_spool_' ~ (queue[0].s | string) %}
@@ -83,7 +83,7 @@ cards:
                         {% else %}No pending tray assignment{% endif %}
                       secondary: >-
                         {% set raw = states('input_text.pending_tray_selections_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
                         {% if queue | count > 1 %}
                         Spool 1 of {{ queue | count }} — which tray was it loaded into?
@@ -92,7 +92,7 @@ cards:
                         {% endif %}
                       picture: >-
                         {% set raw = states('input_text.pending_tray_selections_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is iterable and queue is not string and queue | count > 0 %}
                         {{ state_attr('sensor.spoolman_spool_' ~ (queue[0].s | string), 'entity_picture') | default('', true) }}
                         {% endif %}
@@ -113,7 +113,7 @@ cards:
                         type: markdown
                         content: >-
                           {% set raw = states('input_text.pending_tray_selections_queue') %}
-                          {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                          {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                           {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
                           **Waiting:** {% for item in queue[1:] %}{% set spool_eid = 'sensor.spoolman_spool_' ~ (item.s | string) %}{{ state_attr(spool_eid, 'friendly_name') | default('Spool #' ~ item.s, true) }}{{ ', ' if not loop.last }}{% endfor %}
                         card_mod:
@@ -292,7 +292,7 @@ cards:
           content: >-
             {% set count = states('sensor.deferred_tray_assignment_queue') | int(0) %}
             {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-            {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+            {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
             {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
             {% set rfid_count = queue | selectattr('r', 'defined') | selectattr('r', 'equalto', 1) | list | count %}
             {% if rfid_count == count %}{{ count }} RFID spool{{ 's' if count != 1 }} — AMS reads after print
@@ -312,7 +312,7 @@ cards:
                     - type: markdown
                       content: >-
                         {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
                         {% for item in queue %}
                         {% set spool_eid = 'sensor.spoolman_spool_' ~ (item.s | string) %}
@@ -329,7 +329,7 @@ cards:
                     - type: custom:mushroom-template-card
                       primary: >-
                         {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is iterable and queue is not string and queue | count > 0 %}
                           {% set first = queue[0] %}
                           {% set spool_eid = 'sensor.spoolman_spool_' ~ (first.s | string) %}
@@ -344,7 +344,7 @@ cards:
                         {% else %}Queue empty{% endif %}
                       secondary: >-
                         {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-                        {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+                        {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                         {% if queue is iterable and queue is not string and queue | count > 0 and (queue[0].r | default(0) | int) == 1 %}
                         Tap to acknowledge — AMS will read RFID now
                         {% else %}Tap to retry next assignment{% endif %}

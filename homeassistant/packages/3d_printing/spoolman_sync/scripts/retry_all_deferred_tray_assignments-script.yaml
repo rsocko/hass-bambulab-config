@@ -14,7 +14,7 @@ retry_all_deferred_tray_assignments:
           - condition: template
             value_template: >-
               {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-              {% set queue = (raw | from_json | default([], true)) if raw not in ['', 'unknown', 'unavailable'] else [] %}
+              {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
               {% if queue is not iterable or queue is string %}{% set queue = [] %}{% endif %}
               {{ queue | count > 0 }}
           # Stop if printer becomes busy (a prior retry was deferred again)
@@ -26,10 +26,12 @@ retry_all_deferred_tray_assignments:
                  and ss not in ['printing', 'preparing', 'heating', 'leveling'] }}
         sequence:
           - variables:
-              raw_queue: "{{ states('input_text.deferred_tray_assignments_queue') }}"
               queue_parsed: >-
-                {% set parsed = (raw_queue | from_json | default([], true)) if raw_queue not in ['', 'unknown', 'unavailable'] else [] %}
+                {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+                {% set parsed = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
                 {% if parsed is iterable and parsed is not string %}{{ parsed | to_json }}{% else %}[]{% endif %}
+
+          - variables:
               first: "{{ (queue_parsed | from_json)[0] | default(none) }}"
               spool_id: "{{ first.s | default('') | string }}"
               tray_code: "{{ first.t | default(0) | int }}"
@@ -41,7 +43,7 @@ retry_all_deferred_tray_assignments:
                   sensor.p1s_01p00c460102350_ams_{{ (tray_code | int / 10) | int }}_tray_{{ tray_code | int % 10 }}
                 {% endif %}
               remaining_json: >-
-                {% set parsed = (raw_queue | from_json | default([], true)) if raw_queue not in ['', 'unknown', 'unavailable'] else [] %}
+                {% set parsed = queue_parsed | from_json([]) %}
                 {% if parsed is iterable and parsed is not string %}{{ parsed[1:] | to_json }}{% else %}[]{% endif %}
 
           - condition: template
