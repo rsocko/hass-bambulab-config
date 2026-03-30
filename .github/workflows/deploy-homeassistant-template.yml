@@ -142,6 +142,10 @@ on:
           - strict
           - off
 
+concurrency:
+  group: deploy-homeassistant-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: [self-hosted, linux, docker, ha, homelab, dockhand]

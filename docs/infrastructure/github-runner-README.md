@@ -88,6 +88,17 @@ Use labels in workflows:
 runs-on: [self-hosted, linux, docker, ha, homelab, dockhand]
 ```
 
+## Optional auto-dispatch on push
+
+If you want commit-driven deploys while working on a branch, this repo also includes:
+
+- `.github/workflows/auto-dispatch-homeassistant-deploy.yml`
+- `.github/deploy/auto-deploy.env`
+
+Set `AUTO_DEPLOY_ENABLED=true` in `.github/deploy/auto-deploy.env`, commit it to your branch, and each push on matching branches will dispatch the existing deploy workflow with those preset inputs.
+
+Set `AUTO_DEPLOY_ENABLED=false` when you want that behavior off again.
+
 ## Notes
 
 - Runner tokens are short-lived; this image uses your PAT to self-register on startup.

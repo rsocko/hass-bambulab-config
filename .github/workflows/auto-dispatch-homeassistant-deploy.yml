@@ -1,0 +1,174 @@
+name: Auto-Dispatch Home Assistant Deploy
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: auto-dispatch-homeassistant-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  auto-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Resolve auto-deploy configuration
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CONFIG_FILE=".github/deploy/auto-deploy.env"
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          trim() {
+            printf '%s' "$1" | xargs
+          }
+
+          normalize_bool() {
+            case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+              1|true|yes|on)
+                echo "true"
+                ;;
+              *)
+                echo "false"
+                ;;
+            esac
+          }
+
+          matches_branch() {
+            local branch="$1"
+            local patterns_csv="$2"
+            local raw_pattern
+            local pattern
+
+            IFS=',' read -r -a raw_patterns <<< "$patterns_csv"
+            for raw_pattern in "${raw_patterns[@]}"; do
+              pattern="$(trim "$raw_pattern")"
+              [ -z "$pattern" ] && continue
+              if [[ "$branch" == $pattern ]]; then
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
+          echo "config_file=$CONFIG_FILE" >> "$GITHUB_OUTPUT"
+          echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=missing $CONFIG_FILE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          set -a
+          # shellcheck disable=SC1090
+          . "$CONFIG_FILE"
+          set +a
+
+          AUTO_DEPLOY_ENABLED="$(normalize_bool "${AUTO_DEPLOY_ENABLED:-false}")"
+          AUTO_DEPLOY_DRY_RUN="$(normalize_bool "${AUTO_DEPLOY_DRY_RUN:-true}")"
+          AUTO_DEPLOY_INCLUDE_WWW_FOR_SELECTED="$(normalize_bool "${AUTO_DEPLOY_INCLUDE_WWW_FOR_SELECTED:-false}")"
+          AUTO_DEPLOY_CHECK_UI_NAME_CONFLICTS="$(normalize_bool "${AUTO_DEPLOY_CHECK_UI_NAME_CONFLICTS:-true}")"
+          AUTO_DEPLOY_DEBUG_DEPLOY_SYNC="$(normalize_bool "${AUTO_DEPLOY_DEBUG_DEPLOY_SYNC:-false}")"
+          AUTO_DEPLOY_FAIL_ON_UI_CONFLICT="$(normalize_bool "${AUTO_DEPLOY_FAIL_ON_UI_CONFLICT:-false}")"
+          AUTO_DEPLOY_RELOAD_DOMAINS_STRICT="$(normalize_bool "${AUTO_DEPLOY_RELOAD_DOMAINS_STRICT:-false}")"
+
+          AUTO_DEPLOY_BRANCHES="$(trim "${AUTO_DEPLOY_BRANCHES:-}")"
+
+          if [ "$AUTO_DEPLOY_ENABLED" != "true" ]; then
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=auto deploy disabled" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "$AUTO_DEPLOY_BRANCHES" ] && ! matches_branch "$BRANCH_NAME" "$AUTO_DEPLOY_BRANCHES"; then
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=branch '$BRANCH_NAME' does not match AUTO_DEPLOY_BRANCHES=$AUTO_DEPLOY_BRANCHES" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_dispatch=true" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$AUTO_DEPLOY_DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "delete_mode=$(trim "${AUTO_DEPLOY_DELETE_MODE:-safe}")" >> "$GITHUB_OUTPUT"
+          echo "allowlist_profile=$(trim "${AUTO_DEPLOY_ALLOWLIST_PROFILE:-packages_www}")" >> "$GITHUB_OUTPUT"
+          echo "allowlist_file=$(trim "${AUTO_DEPLOY_ALLOWLIST_FILE:-}")" >> "$GITHUB_OUTPUT"
+          echo "package_scope=$(trim "${AUTO_DEPLOY_PACKAGE_SCOPE:-selected}")" >> "$GITHUB_OUTPUT"
+          echo "selected_packages=$(trim "${AUTO_DEPLOY_SELECTED_PACKAGES:-}")" >> "$GITHUB_OUTPUT"
+          echo "package_preset=$(trim "${AUTO_DEPLOY_PACKAGE_PRESET:-none}")" >> "$GITHUB_OUTPUT"
+          echo "include_www_for_selected=$AUTO_DEPLOY_INCLUDE_WWW_FOR_SELECTED" >> "$GITHUB_OUTPUT"
+          echo "check_ui_name_conflicts=$AUTO_DEPLOY_CHECK_UI_NAME_CONFLICTS" >> "$GITHUB_OUTPUT"
+          echo "debug_deploy_sync=$AUTO_DEPLOY_DEBUG_DEPLOY_SYNC" >> "$GITHUB_OUTPUT"
+          echo "fail_on_ui_conflict=$AUTO_DEPLOY_FAIL_ON_UI_CONFLICT" >> "$GITHUB_OUTPUT"
+          echo "post_deploy_action=$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")" >> "$GITHUB_OUTPUT"
+          echo "reload_domains_strict=$AUTO_DEPLOY_RELOAD_DOMAINS_STRICT" >> "$GITHUB_OUTPUT"
+          echo "resource_safety_mode=$(trim "${AUTO_DEPLOY_RESOURCE_SAFETY_MODE:-warn}")" >> "$GITHUB_OUTPUT"
+          echo "feature_include_mode=$(trim "${AUTO_DEPLOY_FEATURE_INCLUDE_MODE:-auto_update_include_file}")" >> "$GITHUB_OUTPUT"
+          echo "ha_configuration_yaml_path=$(trim "${AUTO_DEPLOY_HA_CONFIGURATION_YAML_PATH:-/config/configuration.yaml}")" >> "$GITHUB_OUTPUT"
+          echo "ha_feature_include_file_path=$(trim "${AUTO_DEPLOY_HA_FEATURE_INCLUDE_FILE_PATH:-/config/packages/3d_printing/_feature_loaders.yaml}")" >> "$GITHUB_OUTPUT"
+          echo "config_validation_mode=$(trim "${AUTO_DEPLOY_CONFIG_VALIDATION_MODE:-smart}")" >> "$GITHUB_OUTPUT"
+
+      - name: Explain skip
+        if: ${{ steps.config.outputs.should_dispatch != 'true' }}
+        run: |
+          echo "Auto-dispatch skipped: ${{ steps.config.outputs.skip_reason }}"
+
+      - name: Show dispatch inputs
+        if: ${{ steps.config.outputs.should_dispatch == 'true' }}
+        run: |
+          echo "Dispatching deploy-homeassistant-template.yml for ref ${{ github.ref_name }}"
+          echo "  dry_run=${{ steps.config.outputs.dry_run }}"
+          echo "  delete_mode=${{ steps.config.outputs.delete_mode }}"
+          echo "  allowlist_profile=${{ steps.config.outputs.allowlist_profile }}"
+          echo "  package_scope=${{ steps.config.outputs.package_scope }}"
+          echo "  selected_packages=${{ steps.config.outputs.selected_packages }}"
+          echo "  package_preset=${{ steps.config.outputs.package_preset }}"
+          echo "  include_www_for_selected=${{ steps.config.outputs.include_www_for_selected }}"
+          echo "  post_deploy_action=${{ steps.config.outputs.post_deploy_action }}"
+          echo "  config_validation_mode=${{ steps.config.outputs.config_validation_mode }}"
+
+      - name: Dispatch deploy workflow
+        if: ${{ steps.config.outputs.should_dispatch == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api \
+            --method POST \
+            "/repos/$REPOSITORY/actions/workflows/deploy-homeassistant-template.yml/dispatches" \
+            -f ref="$REF_NAME" \
+            -F inputs[dry_run]="${{ steps.config.outputs.dry_run }}" \
+            -F inputs[delete_mode]="${{ steps.config.outputs.delete_mode }}" \
+            -F inputs[allowlist_profile]="${{ steps.config.outputs.allowlist_profile }}" \
+            -F inputs[allowlist_file]="${{ steps.config.outputs.allowlist_file }}" \
+            -F inputs[package_scope]="${{ steps.config.outputs.package_scope }}" \
+            -F inputs[selected_packages]="${{ steps.config.outputs.selected_packages }}" \
+            -F inputs[package_preset]="${{ steps.config.outputs.package_preset }}" \
+            -F inputs[include_www_for_selected]="${{ steps.config.outputs.include_www_for_selected }}" \
+            -F inputs[check_ui_name_conflicts]="${{ steps.config.outputs.check_ui_name_conflicts }}" \
+            -F inputs[debug_deploy_sync]="${{ steps.config.outputs.debug_deploy_sync }}" \
+            -F inputs[fail_on_ui_conflict]="${{ steps.config.outputs.fail_on_ui_conflict }}" \
+            -F inputs[post_deploy_action]="${{ steps.config.outputs.post_deploy_action }}" \
+            -F inputs[reload_domains_strict]="${{ steps.config.outputs.reload_domains_strict }}" \
+            -F inputs[resource_safety_mode]="${{ steps.config.outputs.resource_safety_mode }}" \
+            -F inputs[feature_include_mode]="${{ steps.config.outputs.feature_include_mode }}" \
+            -F inputs[ha_configuration_yaml_path]="${{ steps.config.outputs.ha_configuration_yaml_path }}" \
+            -F inputs[ha_feature_include_file_path]="${{ steps.config.outputs.ha_feature_include_file_path }}" \
+            -F inputs[config_validation_mode]="${{ steps.config.outputs.config_validation_mode }}"
+
+          echo "Workflow dispatch requested successfully."

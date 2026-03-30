@@ -238,9 +238,41 @@ Notes:
 - `allowlist_profile=yaml_only`
 
 #### D) Packages + frontend assets rollout
-
 - `package_scope=all`
 - `allowlist_profile=packages_www`
+
+## Auto-Run On Commit
+
+If you want the same deploy workflow to run automatically on each push while you work on a feature branch, use:
+
+- [.github/workflows/auto-dispatch-homeassistant-deploy.yml](../../.github/workflows/auto-dispatch-homeassistant-deploy.yml)
+- [.github/deploy/auto-deploy.env](../../.github/deploy/auto-deploy.env)
+
+How it works:
+
+- Every push can trigger the lightweight auto-dispatch workflow.
+- That workflow reads `.github/deploy/auto-deploy.env` from the branch you pushed.
+- If `AUTO_DEPLOY_ENABLED=true` and the branch matches `AUTO_DEPLOY_BRANCHES`, it dispatches the existing manual deploy workflow with the configured input values.
+- If disabled or the branch does not match, it exits without dispatching a deploy.
+
+Recommended usage while iterating on a feature:
+
+- Set `AUTO_DEPLOY_ENABLED=true`
+- Set `AUTO_DEPLOY_BRANCHES=feature/your-branch` or a broader pattern such as `feature/*`
+- Start with `AUTO_DEPLOY_DRY_RUN=true`
+- Set `AUTO_DEPLOY_PACKAGE_SCOPE=selected`
+- Use `AUTO_DEPLOY_SELECTED_PACKAGES=common,print_history` or a preset such as `AUTO_DEPLOY_PACKAGE_PRESET=core_common`
+- Turn on `AUTO_DEPLOY_INCLUDE_WWW_FOR_SELECTED=true` only when you need matching `/www` assets
+
+Turn it off:
+
+- Set `AUTO_DEPLOY_ENABLED=false` and commit that change
+
+Notes:
+
+- This reuses the same deployment logic and inputs as the manual workflow; there is no second deploy implementation to keep in sync.
+- The real deploy workflow now uses workflow concurrency, so deploy runs are serialized per ref instead of overlapping.
+- The push wrapper only dispatches. The actual deploy still runs on your self-hosted runner.
 
 ### 3) Optional strict safety mode
 
