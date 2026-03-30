@@ -112,6 +112,10 @@ cards:
       hide_main_background: false
       rows: 1.9
       styles: |
+        ha-card {
+          padding-top: 2px !important;
+          padding-bottom: 8px !important;
+        }
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
           gap: 6px !important;
@@ -464,7 +468,7 @@ cards:
             - entity: input_text.print_history_filter_colors
               sub_button_type: default
               name: Clear Colors Filter
-              icon: mdi:palette-remove-outline
+              icon: mdi:palette
               show_icon: true
               show_name: false
               show_state: false
@@ -578,51 +582,6 @@ cards:
             buttons_layout: inline
             justify_content: start
 
-  - type: custom:button-card
-    entity: input_text.print_history_filter_colors
-    name: Color Filters
-    icon: >-
-      [[[
-        const raw = (entity?.state || '').trim();
-        return raw && raw !== 'unknown' && raw !== 'unavailable'
-          ? 'mdi:palette'
-          : 'mdi:palette-outline';
-      ]]]
-    show_icon: true
-    show_state: false
-    custom_fields:
-      summary: >
-        [[[ 
-          const raw = (entity?.state || '').trim();
-          if (!raw || raw === 'unknown' || raw === 'unavailable') {
-            return 'All Colors';
-          }
-          const colors = raw.split(',').map((value) => value.trim()).filter(Boolean);
-          return colors.map((value) => value.toUpperCase()).join(' • ');
-        ]]]
-    styles:
-      card:
-        - border-radius: 28px
-        - padding: 12px 16px
-        - background: var(--ha-card-background)
-      icon:
-        - color: >-
-            [[[ 
-              const raw = (entity?.state || '').trim();
-              return raw && raw !== 'unknown' && raw !== 'unavailable'
-                ? 'var(--accent-color)'
-                : 'var(--secondary-text-color)';
-            ]]]
-      name:
-        - justify-self: start
-        - font-size: 12px
-        - color: var(--secondary-text-color)
-      custom_fields:
-        summary:
-          - justify-self: start
-          - font-size: 14px
-          - font-weight: 600
-
   - type: custom:auto-entities
     show_empty: false
     card:
@@ -656,40 +615,28 @@ cards:
           {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
             {% set is_active = (color | lower) in selected %}
             {% set ring = '0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.34)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.26)' %}
-            {% set swatch = '<div style="width:20px;height:20px;border-radius:50%;background:' ~ color ~ ';box-shadow:' ~ ring ~ ';"></div>' %}
             {% set cards.items = cards.items + [{
               'type': 'custom:button-card',
               'show_name': false,
               'show_icon': false,
               'show_state': false,
+              'entity': 'input_text.print_history_filter_colors',
               'tap_action': {
                 'action': 'perform-action',
                 'perform_action': 'script.toggle_print_history_color_filter',
                 'data': {'color': color}
               },
-              'custom_fields': {
-                'swatch': swatch
-              },
               'styles': {
                 'card': [
-                  'background: transparent',
-                  'box-shadow: none',
-                  'border-radius: 0',
+                  'background: ' ~ color,
+                  'box-shadow: ' ~ ring,
+                  'border-radius: 50%',
                   'padding: 0',
-                  'height: 28px',
-                  'min-height: 28px'
-                ],
-                'grid': [
-                  'grid-template-areas: "swatch"',
-                  'grid-template-columns: 1fr',
-                  'grid-template-rows: 1fr'
-                ],
-                'custom_fields': {
-                  'swatch': [
-                    'justify-self: center',
-                    'align-self: center'
-                  ]
-                }
+                  'width: 24px',
+                  'height: 24px',
+                  'min-width: 24px',
+                  'min-height: 24px'
+                ]
               }
             }] %}
           {% endif %}
