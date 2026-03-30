@@ -211,6 +211,7 @@ class TestFileInventory(unittest.TestCase):
         "input_text_bambuddy_current_archive_id.yaml",
         "input_text_bambuddy_photo_manifest.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
+        "input_text_print_history_activity_selected_date.yaml",
         "input_text_print_history_search.yaml",
         "input_text_secondary_camera_entity.yaml",
     ]
@@ -221,6 +222,7 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
+        "input_boolean_print_history_activity_use_filters.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_NUMBER = [
@@ -234,6 +236,7 @@ class TestFileInventory(unittest.TestCase):
 
     EXPECTED_HELPERS_INPUT_SELECT = [
         "input_select_bambuddy_photo_review_state.yaml",
+        "input_select_print_history_activity_metric.yaml",
         "input_select_print_history_filter_status.yaml",
         "input_select_print_history_filter_material.yaml",
         "input_select_print_history_filter_color.yaml",
@@ -251,6 +254,9 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_DASHBOARD_CARDS = [
+        "print_history_activity_controls.yaml",
+        "print_history_activity_heatmap.yaml",
+        "print_history_activity_panel.yaml",
         "print_history.yaml",
         "print_history_browser.yaml",
         "photo_review_chip.yaml",

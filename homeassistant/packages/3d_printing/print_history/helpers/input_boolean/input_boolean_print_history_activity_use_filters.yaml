@@ -1,0 +1,4 @@
+print_history_activity_use_filters:
+  name: Print History Activity Uses Filters
+  icon: mdi:filter-check-outline
+  initial: true

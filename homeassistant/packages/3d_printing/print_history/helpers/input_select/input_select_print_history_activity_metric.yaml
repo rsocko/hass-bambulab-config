@@ -1,0 +1,9 @@
+print_history_activity_metric:
+  name: Print History Activity Metric
+  icon: mdi:calendar-heatmap
+  options:
+    - Print Count
+    - Filament Weight
+    - Dominant Color
+    - Outcome Mix
+  initial: Print Count

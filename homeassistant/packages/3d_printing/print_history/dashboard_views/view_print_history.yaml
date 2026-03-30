@@ -16,6 +16,9 @@ cards:
       # Browser toolbar + always-visible filters/settings
       - !include ../dashboard_cards/print_history_browser.yaml
 
+      # Daily activity heatmap with drill-in and optional filter scoping
+      - !include ../dashboard_cards/print_history_activity_panel.yaml
+
       # Unified controls: navigation, page size, layout mode, refresh
       - !include ../dashboard_cards/print_history_top_controls.yaml
 

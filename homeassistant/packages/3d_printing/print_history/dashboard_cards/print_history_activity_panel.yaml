@@ -1,0 +1,8 @@
+type: vertical-stack
+cards:
+  - type: custom:bubble-card
+    card_type: separator
+    name: Print Activity Heatmap
+    icon: mdi:calendar-heatmap
+  - !include ../dashboard_cards/print_history_activity_controls.yaml
+  - !include ../dashboard_cards/print_history_activity_heatmap.yaml

@@ -1,0 +1,5 @@
+print_history_activity_selected_date:
+  name: Print History Activity Selected Date
+  initial: ""
+  max: 10
+  icon: mdi:calendar-cursor

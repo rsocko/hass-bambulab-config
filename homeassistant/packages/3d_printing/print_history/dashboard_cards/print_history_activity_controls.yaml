@@ -1,0 +1,21 @@
+type: vertical-stack
+cards:
+  - type: entities
+    show_header_toggle: false
+    entities:
+      - entity: input_select.print_history_activity_metric
+        name: Heatmap Mode
+      - entity: input_boolean.print_history_activity_use_filters
+        name: Follow Print History Filters
+      - entity: input_text.print_history_activity_selected_date
+        name: Selected Day (tap chart or type YYYY-MM-DD)
+  - type: button
+    name: Clear Selected Day
+    icon: mdi:calendar-remove-outline
+    tap_action:
+      action: call-service
+      service: input_text.set_value
+      target:
+        entity_id: input_text.print_history_activity_selected_date
+      data:
+        value: ""
