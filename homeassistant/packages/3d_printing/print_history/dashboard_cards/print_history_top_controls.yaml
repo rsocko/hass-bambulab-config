@@ -9,12 +9,28 @@ card:
   entity: sensor.print_history_page_info
   hide_main_background: false
   rows: 1.06
-  styles: |
-    .bubble-sub-button-container,
-    .bubble-sub-buttons-container {
-      gap: 8px !important;
-      justify-content: center !important;
-    }
+  styles: >-
+    ${(() => {
+      const variant = states['input_select.print_history_card_variant']?.state || '';
+      const selectedIndex = ({ Compact: 5, Media: 6, Detail: 7 })[variant];
+      return `
+        .bubble-sub-button-container,
+        .bubble-sub-buttons-container {
+          gap: 8px !important;
+          justify-content: center !important;
+        }
+        ${selectedIndex ? `
+        .bubble-sub-button:nth-child(${selectedIndex}) {
+          background-color: var(--accent-color) !important;
+          color: var(--primary-text-color) !important;
+          box-shadow: none !important;
+        }
+        .bubble-sub-button:nth-child(${selectedIndex}) ha-icon {
+          color: var(--primary-text-color) !important;
+        }
+        ` : ''}
+      `;
+    })()}
   sub_button:
     main: []
     bottom_layout: rows
@@ -61,7 +77,8 @@ card:
             icon: mdi:format-list-numbered
             show_name: true
             show_state: true
-            show_background: false
+            show_background: true
+            state_background: false
             tap_to_slide: true
             fill_width: false
           - name: Compact
@@ -70,8 +87,8 @@ card:
             show_name: false
             show_state: false
             show_background: true
-            state_background: ${states['input_select.print_history_card_variant']?.state === 'Compact'}
-            state_color: ${states['input_select.print_history_card_variant']?.state === 'Compact'}
+            state_background: false
+            state_color: false
             fill_width: false
             tap_action:
               action: call-service
@@ -86,8 +103,8 @@ card:
             show_name: false
             show_state: false
             show_background: true
-            state_background: ${states['input_select.print_history_card_variant']?.state === 'Media'}
-            state_color: ${states['input_select.print_history_card_variant']?.state === 'Media'}
+            state_background: false
+            state_color: false
             fill_width: false
             tap_action:
               action: call-service
@@ -102,8 +119,8 @@ card:
             show_name: false
             show_state: false
             show_background: true
-            state_background: ${states['input_select.print_history_card_variant']?.state === 'Detail'}
-            state_color: ${states['input_select.print_history_card_variant']?.state === 'Detail'}
+            state_background: false
+            state_color: false
             fill_width: false
             tap_action:
               action: call-service
