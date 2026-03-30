@@ -489,6 +489,7 @@ cards:
               icon: mdi:filter-remove
               show_name: true
               show_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              state_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
               state_color: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
               tap_action:
                 action: call-service
