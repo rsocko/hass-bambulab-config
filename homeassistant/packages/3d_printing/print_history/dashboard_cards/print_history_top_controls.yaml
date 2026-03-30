@@ -62,11 +62,11 @@ card:
                 direction: prev
           - entity: sensor.print_history_page_info
             sub_button_type: default
-            name: Page
+            name: ${`Page · ${(states['sensor.print_history_page_info']?.state || '').replace(/^Page\s+/, '')}`}
             icon: mdi:book-open-page-variant-outline
             show_icon: true
             show_name: true
-            show_state: true
+            show_state: false
             show_background: true
             fill_width: false
             tap_action:
