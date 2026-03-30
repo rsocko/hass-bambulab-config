@@ -546,17 +546,14 @@ cards:
             {% set is_active = (color | lower) in selected %}
             {% set cards.items = cards.items + [{
               'type': 'button',
-              'entity': 'input_text.print_history_filter_colors',
-              'show_icon': false,
-              'show_name': false,
-              'show_state': false,
+              'icon': 'mdi:circle',
               'tap_action': {
-                'action': 'call-service',
-                'service': 'script.toggle_print_history_color_filter',
-                'service_data': {'color': color}
+                'action': 'perform-action',
+                'perform_action': 'script.toggle_print_history_color_filter',
+                'data': {'color': color}
               },
               'card_mod': {
-                'style': 'ha-card { width: 30px; height: 30px; min-height: 30px; padding: 0; margin: 0 auto !important; border-radius: 50%; border: none; background: ' ~ color ~ '; box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(0,0,0,0.18)' if is_active else 'inset 0 0 0 1px rgba(0,0,0,0.18)') ~ '; }'
+                'style': 'ha-card { width: 32px; height: 32px; min-height: 32px; padding: 0; margin: 0 auto !important; border-radius: 50%; background: transparent; border: none; box-shadow: ' ~ ('0 0 0 2px var(--accent-color)' if is_active else 'none') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; --mdc-icon-size: 28px; width: 28px; height: 28px; }'
               }
             }] %}
           {% endif %}
