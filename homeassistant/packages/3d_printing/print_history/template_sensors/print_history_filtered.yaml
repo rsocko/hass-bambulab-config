@@ -90,31 +90,6 @@
             or search not in ['', 'unknown', 'unavailable']
             or color_values not in ['', 'unknown', 'unavailable']
           }}
-        active_filter_count: >-
-          {% set count = namespace(value=0) %}
-          {% for entity_id, default_value in [
-            ('input_select.print_history_filter_status', 'All'),
-            ('input_select.print_history_filter_material', 'All'),
-            ('input_select.print_history_filter_printer', 'All'),
-            ('input_select.print_history_filter_date_range', 'All Time'),
-            ('input_select.print_history_filter_designer', 'All'),
-            ('input_select.print_history_filter_layer_height', 'All')
-          ] %}
-            {% if states(entity_id) != default_value %}
-              {% set count.value = count.value + 1 %}
-            {% endif %}
-          {% endfor %}
-          {% if is_state('input_boolean.print_history_filter_favorites_only', 'on') %}
-            {% set count.value = count.value + 1 %}
-          {% endif %}
-          {% if states('input_text.print_history_search') | trim not in ['', 'unknown', 'unavailable'] %}
-            {% set count.value = count.value + 1 %}
-          {% endif %}
-          {% set selected_colors = states('input_text.print_history_filter_colors') | trim %}
-          {% if selected_colors not in ['', 'unknown', 'unavailable'] %}
-            {% set count.value = count.value + (selected_colors.split(',') | map('trim') | reject('equalto', '') | list | length) %}
-          {% endif %}
-          {{ count.value }}
         total_pages: >-
           {% set total = states('sensor.print_history_filtered') | int(0) %}
           {% set page_size = states('input_number.print_history_page_size') | int(10) %}
@@ -250,30 +225,3 @@
             {% endfor %}
           {% endfor %}
           {{ ns.colors | sort | tojson }}
-        active_filters: >-
-          {% set active = namespace(items=[]) %}
-          {% for entity_id, label in [
-            ('input_select.print_history_filter_status', 'Status'),
-            ('input_select.print_history_filter_material', 'Material'),
-            ('input_select.print_history_filter_printer', 'Printer'),
-            ('input_select.print_history_filter_date_range', 'Date'),
-            ('input_select.print_history_filter_designer', 'Designer'),
-            ('input_select.print_history_filter_layer_height', 'Layer')
-          ] %}
-            {% set value = states(entity_id) %}
-            {% if value not in ['unknown', 'unavailable', 'All', 'All Time'] %}
-              {% set active.items = active.items + [label ~ ': ' ~ value] %}
-            {% endif %}
-          {% endfor %}
-          {% if is_state('input_boolean.print_history_filter_favorites_only', 'on') %}
-            {% set active.items = active.items + ['Favorites only'] %}
-          {% endif %}
-          {% set selected_colors = states('input_text.print_history_filter_colors') | lower | trim %}
-          {% if selected_colors not in ['', 'unknown', 'unavailable'] %}
-            {% set active.items = active.items + ['Colors: ' ~ selected_colors.split(',') | map('trim') | reject('equalto', '') | list | join(', ')] %}
-          {% endif %}
-          {% set search = states('input_text.print_history_search') | trim %}
-          {% if search not in ['', 'unknown', 'unavailable'] %}
-            {% set active.items = active.items + ['Search: ' ~ search] %}
-          {% endif %}
-          {{ active.items | join(' | ') if active.items else 'No active filters' }}

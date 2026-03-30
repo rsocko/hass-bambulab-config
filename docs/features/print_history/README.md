@@ -291,8 +291,8 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │                                                                             │
 │  ┌─ Browser Header ──────────────────────────────────────────────────────┐ │
 │  │ Search  Matches  Open Bambuddy  Settings                             │ │
-│  │ Filter pills  Favorites toggle  Layout toggle  Items/page slider     │ │
-│  │ Active filter summary                                                │ │
+│  │ Filter pills  Favorites toggle  Sort  Layout toggle  Items/page      │ │
+│  │ Color filter summary + swatches                                      │ │
 │  │ Multi-select color chips (one chip per archive color)                │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │

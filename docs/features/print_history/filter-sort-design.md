@@ -709,10 +709,10 @@ The Print History view now uses an always-visible header modeled after the Filam
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [ Search Prints........................ ] [Matches] [Open Bambuddy] [⚙]     │
 │ [Status] [Material] [Printer] [Date]                                      │
-│ [Designer] [Layer Height] [Sort] [Favorites Only]                          │
-│ [Compact] [Media] [Detail] [Items Per Page Slider]                         │
+│ [Designer] [Layer Height] [Favorites Only] [Sort]                          │
+│ [Items Per Page Slider] [Compact] [Media] [Detail] [Refresh]               │
 │ [Clear] [Refresh]                                                          │
-│ Active Filters: Status: success | Favorites only | Colors: #ffffff, #000000│
+│ Color Filters: All Colors or #FFFFFF • #000000                             │
 │ [●] [●] [●] [●] [●] ... multi-select color chips                           │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```

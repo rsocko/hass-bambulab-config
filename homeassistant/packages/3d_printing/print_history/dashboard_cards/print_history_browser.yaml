@@ -1,5 +1,5 @@
 # Print History Browser — bubble-card filter controls aligned to the
-# Filament Catalog bar, with compact layout toggles for the non-color controls.
+# Filament Catalog bar, with compact layout toggles and tighter color chips.
 
 type: vertical-stack
 cards:
@@ -77,6 +77,9 @@ cards:
                   - entity: input_number.photo_review_timeout_hours
                     name: Review Timeout (hrs)
     styles: |
+      ha-card {
+        margin-top: 8px !important;
+      }
       .bubble-sub-button-container,
       .bubble-sub-buttons-container {
         gap: 8px !important;
@@ -107,7 +110,12 @@ cards:
       card_type: sub-buttons
       entity: sensor.print_history_filtered
       hide_main_background: false
-      rows: 2.08
+      rows: 1.9
+      styles: |
+        .bubble-sub-button-container,
+        .bubble-sub-buttons-container {
+          gap: 6px !important;
+        }
       sub_button:
         main: []
         bottom_layout: rows
@@ -176,13 +184,6 @@ cards:
                 state_background: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
-              - entity: input_select.print_history_sort
-                sub_button_type: select
-                name: Sort
-                icon: mdi:sort
-                show_name: true
-                show_state: true
-                fill_width: true
               - entity: input_boolean.print_history_filter_favorites_only
                 name: Favorites
                 icon: mdi:star
@@ -192,6 +193,13 @@ cards:
                 state_color: ${states['input_boolean.print_history_filter_favorites_only']?.state === 'on'}
                 tap_action:
                   action: toggle
+                fill_width: true
+              - entity: input_select.print_history_sort
+                sub_button_type: select
+                name: Sort
+                icon: mdi:sort
+                show_name: true
+                show_state: true
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -274,7 +282,8 @@ cards:
             .bubble-sub-button.clear-layer-filter,
             .bubble-sub-button.clear-favorites-filter,
             .bubble-sub-button.clear-search-filter,
-            .bubble-sub-button.clear-colors-filter {
+            .bubble-sub-button.clear-colors-filter,
+            .bubble-sub-button.clear-filters {
               background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
               color: var(--accent-color) !important;
               box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
@@ -287,7 +296,8 @@ cards:
             .bubble-sub-button.clear-layer-filter ha-icon,
             .bubble-sub-button.clear-favorites-filter ha-icon,
             .bubble-sub-button.clear-search-filter ha-icon,
-            .bubble-sub-button.clear-colors-filter ha-icon {
+            .bubble-sub-button.clear-colors-filter ha-icon,
+            .bubble-sub-button.clear-filters ha-icon {
               color: var(--accent-color) !important;
             }
           tap_action:
@@ -474,8 +484,10 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              show_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
-              state_color: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              show_background: >-
+                ${(states['input_select.print_history_filter_status']?.state !== 'All' || states['input_select.print_history_filter_material']?.state !== 'All' || states['input_select.print_history_filter_printer']?.state !== 'All' || states['input_select.print_history_filter_date_range']?.state !== 'All Time' || states['input_select.print_history_filter_designer']?.state !== 'All' || states['input_select.print_history_filter_layer_height']?.state !== 'All' || states['input_boolean.print_history_filter_favorites_only']?.state === 'on' || !!(states['input_text.print_history_search']?.state || '').trim() || !!(states['input_text.print_history_filter_colors']?.state || '').trim())}
+              state_color: >-
+                ${(states['input_select.print_history_filter_status']?.state !== 'All' || states['input_select.print_history_filter_material']?.state !== 'All' || states['input_select.print_history_filter_printer']?.state !== 'All' || states['input_select.print_history_filter_date_range']?.state !== 'All Time' || states['input_select.print_history_filter_designer']?.state !== 'All' || states['input_select.print_history_filter_layer_height']?.state !== 'All' || states['input_boolean.print_history_filter_favorites_only']?.state === 'on' || !!(states['input_text.print_history_search']?.state || '').trim() || !!(states['input_text.print_history_filter_colors']?.state || '').trim())}
               tap_action:
                 action: call-service
                 service: script.clear_print_history_filters
@@ -507,7 +519,7 @@ cards:
                 show_name: true
                 show_state: true
                 tap_to_slide: true
-                fill_width: true
+                fill_width: false
               - name: Compact
                 icon: mdi:view-grid-outline
                 show_icon: true
@@ -564,23 +576,43 @@ cards:
                   action: perform-action
                   perform_action: script.refresh_print_history_archives
             buttons_layout: inline
-            justify_content: fill
+            justify_content: start
 
   - type: custom:button-card
-    entity: sensor.print_history_filtered
-    name: Active Filters
-    show_icon: false
+    entity: input_text.print_history_filter_colors
+    name: Color Filters
+    icon: >-
+      [[[
+        const raw = (entity?.state || '').trim();
+        return raw && raw !== 'unknown' && raw !== 'unavailable'
+          ? 'mdi:palette'
+          : 'mdi:palette-outline';
+      ]]]
+    show_icon: true
     show_state: false
     custom_fields:
       summary: >
         [[[ 
-          return entity?.attributes?.active_filters || 'No active filters';
+          const raw = (entity?.state || '').trim();
+          if (!raw || raw === 'unknown' || raw === 'unavailable') {
+            return 'All Colors';
+          }
+          const colors = raw.split(',').map((value) => value.trim()).filter(Boolean);
+          return colors.map((value) => value.toUpperCase()).join(' • ');
         ]]]
     styles:
       card:
         - border-radius: 28px
         - padding: 12px 16px
         - background: var(--ha-card-background)
+      icon:
+        - color: >-
+            [[[ 
+              const raw = (entity?.state || '').trim();
+              return raw && raw !== 'unknown' && raw !== 'unavailable'
+                ? 'var(--accent-color)'
+                : 'var(--secondary-text-color)';
+            ]]]
       name:
         - justify-self: start
         - font-size: 12px
@@ -595,13 +627,16 @@ cards:
     show_empty: false
     card:
       type: grid
-      columns: 8
+      columns: 12
       square: false
       card_mod:
         style: |
+          #root {
+            gap: 4px !important;
+          }
           @media (max-width: 768px) {
             #root {
-              grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+              grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
             }
           }
     card_param: cards
@@ -620,16 +655,41 @@ cards:
         {% for color in colors %}
           {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
             {% set is_active = (color | lower) in selected %}
+            {% set ring = '0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.34)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.26)' %}
+            {% set swatch = '<div style="width:20px;height:20px;border-radius:50%;background:' ~ color ~ ';box-shadow:' ~ ring ~ ';"></div>' %}
             {% set cards.items = cards.items + [{
-              'type': 'button',
-              'icon': 'mdi:circle',
+              'type': 'custom:button-card',
+              'show_name': false,
+              'show_icon': false,
+              'show_state': false,
               'tap_action': {
                 'action': 'perform-action',
                 'perform_action': 'script.toggle_print_history_color_filter',
                 'data': {'color': color}
               },
-              'card_mod': {
-                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.18)') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; }'
+              'custom_fields': {
+                'swatch': swatch
+              },
+              'styles': {
+                'card': [
+                  'background: transparent',
+                  'box-shadow: none',
+                  'border-radius: 0',
+                  'padding: 0',
+                  'height: 28px',
+                  'min-height: 28px'
+                ],
+                'grid': [
+                  'grid-template-areas: "swatch"',
+                  'grid-template-columns: 1fr',
+                  'grid-template-rows: 1fr'
+                ],
+                'custom_fields': {
+                  'swatch': [
+                    'justify-self: center',
+                    'align-self: center'
+                  ]
+                }
               }
             }] %}
           {% endif %}
