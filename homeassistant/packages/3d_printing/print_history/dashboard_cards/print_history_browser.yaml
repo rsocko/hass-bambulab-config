@@ -30,12 +30,19 @@ cards:
         header:
           - padding: 0
           - margin: 0
+          - min-width: 0
         hpill:
+          - display: block
           - padding: 0
           - margin: 0
+          - justify-self: end
+          - align-self: center
         tpill:
+          - display: block
           - padding: 0
           - margin: 0
+          - justify-self: end
+          - align-self: center
     custom_fields:
       header: |
         [[[
@@ -59,13 +66,16 @@ cards:
             url_path: "[[[ return states['input_text.bambuddy_api_base_url']?.state + '/archives'; ]]]"
           styles:
             card:
+              - background: none
+              - border: none
+              - box-shadow: none
               - height: 36px
               - width: 36px
               - border-radius: 999px
-              - background: var(--ha-card-background)
-              - box-shadow: none
               - padding: 0
               - margin: 0
+            grid:
+              - display: contents
             icon:
               - width: 18px
       tpill:
@@ -108,13 +118,16 @@ cards:
                       name: Review Timeout (hrs)
           styles:
             card:
+              - background: none
+              - border: none
+              - box-shadow: none
               - height: 36px
               - width: 36px
               - border-radius: 999px
-              - background: var(--ha-card-background)
-              - box-shadow: none
               - padding: 0
               - margin: 0
+            grid:
+              - display: contents
             icon:
               - width: 18px
 
