@@ -8,6 +8,15 @@ cards:
     show_icon: false
     show_name: false
     show_state: false
+    card_mod:
+      style: |
+        :host {
+          display: block !important;
+          width: 100% !important;
+        }
+        ha-card {
+          width: 100% !important;
+        }
     tap_action:
       action: none
     styles:
@@ -17,11 +26,13 @@ cards:
         - box-shadow: none
         - padding: 6px 0
         - margin: 0
+        - width: 100%
       grid:
         - grid-template-areas: 'header hpill tpill'
         - grid-template-columns: 1fr auto auto
         - grid-template-rows: auto
         - width: 100%
+        - min-width: 0
         - align-items: center
         - column-gap: 8px
         - padding: 0 12px
