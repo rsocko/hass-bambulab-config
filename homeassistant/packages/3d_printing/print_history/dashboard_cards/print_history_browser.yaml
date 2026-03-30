@@ -545,7 +545,8 @@ cards:
           {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
             {% set is_active = (color | lower) in selected %}
             {% set cards.items = cards.items + [{
-              'type': 'custom:button-card',
+              'type': 'button',
+              'entity': 'input_text.print_history_filter_colors',
               'show_icon': false,
               'show_name': false,
               'show_state': false,
@@ -554,17 +555,8 @@ cards:
                 'service': 'script.toggle_print_history_color_filter',
                 'service_data': {'color': color}
               },
-              'styles': {
-                'card': [
-                  'width: 28px',
-                  'height: 28px',
-                  'padding: 0',
-                  'margin: 0 auto',
-                  'border-radius: 50%',
-                  'border: none',
-                  'box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(0,0,0,0.22)' if is_active else 'inset 0 0 0 1px rgba(0,0,0,0.22)'),
-                  'background: ' ~ color
-                ]
+              'card_mod': {
+                'style': 'ha-card { width: 30px; height: 30px; min-height: 30px; padding: 0; margin: 0 auto !important; border-radius: 50%; border: none; background: ' ~ color ~ '; box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(0,0,0,0.18)' if is_active else 'inset 0 0 0 1px rgba(0,0,0,0.18)') ~ '; }'
               }
             }] %}
           {% endif %}
