@@ -1,5 +1,5 @@
-# Print History Browser — always-visible search, filter, layout, and settings
-# controls styled to align with the Filament Catalog control bar.
+# Print History Browser — bubble-card filter controls aligned to the
+# Filament Catalog bar, with compact layout toggles and tighter color chips.
 
 type: vertical-stack
 cards:
@@ -91,6 +91,111 @@ cards:
         --mdc-icon-size: 18px !important;
       }
 
+  - type: custom:config-template-card
+    entities:
+      - input_select.print_history_filter_status
+      - input_select.print_history_filter_material
+      - input_select.print_history_filter_printer
+      - input_select.print_history_filter_date_range
+      - input_select.print_history_filter_designer
+      - input_select.print_history_filter_layer_height
+      - input_select.print_history_sort
+      - input_boolean.print_history_filter_favorites_only
+      - sensor.print_history_filtered
+    card:
+      type: custom:bubble-card
+      card_type: sub-buttons
+      entity: sensor.print_history_filtered
+      hide_main_background: false
+      rows: 2.08
+      sub_button:
+        main: []
+        bottom_layout: rows
+        bottom:
+          - group:
+              - entity: input_select.print_history_filter_status
+                sub_button_type: select
+                name: Status
+                icon: mdi:list-status
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_status']?.state !== (states['input_select.print_history_filter_status']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_status']?.state !== (states['input_select.print_history_filter_status']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_material
+                sub_button_type: select
+                name: Material
+                icon: mdi:flask-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_material']?.state !== (states['input_select.print_history_filter_material']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_material']?.state !== (states['input_select.print_history_filter_material']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_printer
+                sub_button_type: select
+                name: Printer
+                icon: mdi:printer-3d-nozzle
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_printer']?.state !== (states['input_select.print_history_filter_printer']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_printer']?.state !== (states['input_select.print_history_filter_printer']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_date_range
+                sub_button_type: select
+                name: Date
+                icon: mdi:calendar-range
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
+                state_color: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+          - group:
+              - entity: input_select.print_history_filter_designer
+                sub_button_type: select
+                name: Designer
+                icon: mdi:palette-swatch-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_designer']?.state !== (states['input_select.print_history_filter_designer']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_designer']?.state !== (states['input_select.print_history_filter_designer']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_layer_height
+                sub_button_type: select
+                name: Layer Height
+                icon: mdi:layers-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_sort
+                sub_button_type: select
+                name: Sort
+                icon: mdi:sort
+                show_name: true
+                show_state: true
+                fill_width: true
+              - entity: input_boolean.print_history_filter_favorites_only
+                name: Favorites
+                icon: mdi:star
+                show_name: true
+                show_state: false
+                show_background: ${states['input_boolean.print_history_filter_favorites_only']?.state === 'on'}
+                state_color: ${states['input_boolean.print_history_filter_favorites_only']?.state === 'on'}
+                tap_action:
+                  action: toggle
+                fill_width: true
+            buttons_layout: inline
+            justify_content: fill
+
   - type: horizontal-stack
     cards:
       - type: entities
@@ -134,543 +239,347 @@ cards:
           - entity: input_text.print_history_search
             name: Search Prints
             secondary_info: none
-      - type: custom:button-card
-        entity: sensor.print_history_filtered
-        name: Matches
-        icon: mdi:counter
-        show_state: true
-        tap_action:
-          action: none
-        styles:
-          card:
-            - height: 58px
-            - border-radius: 999px
-            - padding: 0 16px
-            - background: var(--ha-card-background)
-          grid:
-            - grid-template-areas: '"i n" "i s"'
-            - grid-template-columns: 28px 1fr
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 16px
-            - font-weight: 700
-          icon:
-            - width: 18px
-            - color: var(--accent-color)
-
-  - type: grid
-    columns: 4
-    square: false
-    cards:
-      - type: custom:button-card
-        entity: input_select.print_history_filter_status
-        name: Status
-        icon: mdi:list-status
-        show_state: true
-        tap_action:
-          action: more-info
-        custom_fields:
-          indicator: >
-            [[[
-              return entity?.state && entity.state !== 'All'
-                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
-                : '';
-            ]]]
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state !== 'All'
-                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
-            - grid-template-columns: 22px 16px
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-          custom_fields:
-            indicator:
-              - justify-self: end
-              - align-self: end
-      - type: custom:button-card
-        entity: input_select.print_history_filter_material
-        name: Material
-        icon: mdi:flask-outline
-        show_state: true
-        tap_action:
-          action: more-info
-        custom_fields:
-          indicator: >
-            [[[
-              return entity?.state && entity.state !== 'All'
-                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
-                : '';
-            ]]]
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state !== 'All'
-                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
-            - grid-template-columns: 22px 16px
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-          custom_fields:
-            indicator:
-              - justify-self: end
-              - align-self: end
-      - type: custom:button-card
-        entity: input_select.print_history_filter_printer
-        name: Printer
-        icon: mdi:printer-3d-nozzle
-        show_state: true
-        tap_action:
-          action: more-info
-        custom_fields:
-          indicator: >
-            [[[
-              return entity?.state && entity.state !== 'All'
-                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
-                : '';
-            ]]]
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state !== 'All'
-                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
-            - grid-template-columns: 22px 16px
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-          custom_fields:
-            indicator:
-              - justify-self: end
-              - align-self: end
-      - type: custom:button-card
-        entity: input_select.print_history_filter_date_range
-        name: Date
-        icon: mdi:calendar-range
-        show_state: true
-        tap_action:
-          action: more-info
-        custom_fields:
-          indicator: >
-            [[[
-              return entity?.state && entity.state !== 'All Time'
-                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
-                : '';
-            ]]]
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state !== 'All Time'
-                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
-            - grid-template-columns: 22px 16px
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-          custom_fields:
-            indicator:
-              - justify-self: end
-              - align-self: end
-
-  - type: grid
-    columns: 4
-    square: false
-    cards:
-      - type: custom:button-card
-        entity: input_select.print_history_filter_designer
-        name: Designer
-        icon: mdi:palette-swatch-outline
-        show_state: true
-        tap_action:
-          action: more-info
-        custom_fields:
-          indicator: >
-            [[[
-              return entity?.state && entity.state !== 'All'
-                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
-                : '';
-            ]]]
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state !== 'All'
-                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
-            - grid-template-columns: 22px 16px
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-          custom_fields:
-            indicator:
-              - justify-self: end
-              - align-self: end
-      - type: custom:button-card
-        entity: input_select.print_history_filter_layer_height
-        name: Layer Height
-        icon: mdi:layers-outline
-        show_state: true
-        tap_action:
-          action: more-info
-        custom_fields:
-          indicator: >
-            [[[
-              return entity?.state && entity.state !== 'All'
-                ? '<ha-icon icon="mdi:filter-check" style="width:14px;height:14px;color:var(--accent-color)"></ha-icon>'
-                : '';
-            ]]]
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state !== 'All'
-                    ? 'color-mix(in srgb, var(--accent-color) 12%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i indicator" "n indicator" "s indicator"'
-            - grid-template-columns: 22px 16px
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-          custom_fields:
-            indicator:
-              - justify-self: end
-              - align-self: end
-      - type: custom:button-card
-        entity: input_select.print_history_sort
-        name: Sort
-        icon: mdi:sort
-        show_state: true
-        tap_action:
-          action: more-info
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: var(--ha-card-background)
-          grid:
-            - grid-template-areas: '"i i" "n n" "s s"'
-            - grid-template-columns: 22px 1fr
-            - grid-template-rows: min-content min-content 1fr
-          icon:
-            - width: 18px
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 12px
-            - color: var(--secondary-text-color)
-          state:
-            - justify-self: start
-            - align-self: start
-            - font-size: 14px
-            - font-weight: 600
-      - type: custom:button-card
-        entity: input_boolean.print_history_filter_favorites_only
-        name: Favorites Only
-        icon: mdi:star
-        show_state: false
-        tap_action:
-          action: toggle
-        styles:
-          card:
-            - height: 72px
-            - border-radius: 28px
-            - padding: 10px 14px
-            - background: >
-                [[[
-                  return entity?.state === 'on'
-                    ? 'color-mix(in srgb, #f5c242 18%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          grid:
-            - grid-template-areas: '"i i" "n n"'
-            - grid-template-columns: 22px 1fr
-          icon:
-            - width: 18px
-            - color: >
-                [[[
-                  return entity?.state === 'on' ? '#f5c242' : 'var(--primary-text-color)';
-                ]]]
-          name:
-            - justify-self: start
-            - align-self: end
-            - font-size: 14px
-            - font-weight: 600
-
-  - type: horizontal-stack
-    cards:
-      - type: custom:button-card
-        name: Compact
-        icon: mdi:view-grid-outline
-        tap_action:
-          action: call-service
-          service: input_select.select_option
-          target:
-            entity_id: input_select.print_history_card_variant
-          data:
-            option: Compact
-        styles:
-          card:
-            - height: 52px
-            - border-radius: 999px
-            - background: >
-                [[[
-                  return states['input_select.print_history_card_variant']?.state === 'Compact'
-                    ? 'color-mix(in srgb, var(--accent-color) 16%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          icon:
-            - width: 18px
-            - color: >
-                [[[
-                  return states['input_select.print_history_card_variant']?.state === 'Compact'
-                    ? 'var(--accent-color)'
-                    : 'var(--primary-text-color)';
-                ]]]
-          name:
-            - font-size: 13px
-            - font-weight: 600
-      - type: custom:button-card
-        name: Media
-        icon: mdi:image-multiple-outline
-        tap_action:
-          action: call-service
-          service: input_select.select_option
-          target:
-            entity_id: input_select.print_history_card_variant
-          data:
-            option: Media
-        styles:
-          card:
-            - height: 52px
-            - border-radius: 999px
-            - background: >
-                [[[
-                  return states['input_select.print_history_card_variant']?.state === 'Media'
-                    ? 'color-mix(in srgb, var(--accent-color) 16%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          icon:
-            - width: 18px
-            - color: >
-                [[[
-                  return states['input_select.print_history_card_variant']?.state === 'Media'
-                    ? 'var(--accent-color)'
-                    : 'var(--primary-text-color)';
-                ]]]
-          name:
-            - font-size: 13px
-            - font-weight: 600
-      - type: custom:button-card
-        name: Detail
-        icon: mdi:format-list-bulleted
-        tap_action:
-          action: call-service
-          service: input_select.select_option
-          target:
-            entity_id: input_select.print_history_card_variant
-          data:
-            option: Detail
-        styles:
-          card:
-            - height: 52px
-            - border-radius: 999px
-            - background: >
-                [[[
-                  return states['input_select.print_history_card_variant']?.state === 'Detail'
-                    ? 'color-mix(in srgb, var(--accent-color) 16%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          icon:
-            - width: 18px
-            - color: >
-                [[[
-                  return states['input_select.print_history_card_variant']?.state === 'Detail'
-                    ? 'var(--accent-color)'
-                    : 'var(--primary-text-color)';
-                ]]]
-          name:
-            - font-size: 13px
-            - font-weight: 600
-      - type: entities
-        show_header_toggle: false
-        card_mod:
-          style: |
-            ha-card {
-              border-radius: 28px !important;
-              padding: 2px 10px !important;
-            }
-            #states {
-              padding-top: 0 !important;
-              padding-bottom: 0 !important;
-            }
+      - type: custom:config-template-card
         entities:
-          - entity: input_number.print_history_page_size
-            name: Items Per Page
+          - input_select.print_history_filter_status
+          - input_select.print_history_filter_material
+          - input_select.print_history_filter_printer
+          - input_select.print_history_filter_date_range
+          - input_select.print_history_filter_designer
+          - input_select.print_history_filter_layer_height
+          - input_boolean.print_history_filter_favorites_only
+          - input_text.print_history_search
+          - input_text.print_history_filter_colors
+          - sensor.print_history_filtered
+        card:
+          type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.print_history_filtered
+          name: Matches
+          icon: mdi:counter
+          show_name: true
+          show_state: true
+          styles: |
+            .bubble-sub-button-container,
+            .bubble-sub-buttons-container {
+              justify-content: flex-start !important;
+              gap: 6px !important;
+            }
+            .bubble-sub-button.clear-status-filter,
+            .bubble-sub-button.clear-material-filter,
+            .bubble-sub-button.clear-printer-filter,
+            .bubble-sub-button.clear-date-filter,
+            .bubble-sub-button.clear-designer-filter,
+            .bubble-sub-button.clear-layer-filter,
+            .bubble-sub-button.clear-favorites-filter,
+            .bubble-sub-button.clear-search-filter,
+            .bubble-sub-button.clear-colors-filter {
+              background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
+              color: var(--accent-color) !important;
+              box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
+            }
+            .bubble-sub-button.clear-status-filter ha-icon,
+            .bubble-sub-button.clear-material-filter ha-icon,
+            .bubble-sub-button.clear-printer-filter ha-icon,
+            .bubble-sub-button.clear-date-filter ha-icon,
+            .bubble-sub-button.clear-designer-filter ha-icon,
+            .bubble-sub-button.clear-layer-filter ha-icon,
+            .bubble-sub-button.clear-favorites-filter ha-icon,
+            .bubble-sub-button.clear-search-filter ha-icon,
+            .bubble-sub-button.clear-colors-filter ha-icon {
+              color: var(--accent-color) !important;
+            }
+          tap_action:
+            action: none
+          sub_button:
+            - entity: input_select.print_history_filter_status
+              sub_button_type: default
+              name: Clear Status Filter
+              icon: mdi:list-status
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_status
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_status
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_material
+              sub_button_type: default
+              name: Clear Material Filter
+              icon: mdi:flask-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_material
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_material
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_printer
+              sub_button_type: default
+              name: Clear Printer Filter
+              icon: mdi:printer-3d-nozzle
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_printer
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_printer
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_date_range
+              sub_button_type: default
+              name: Clear Date Filter
+              icon: mdi:calendar-range
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_date_range
+                  state_not: "All Time"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_date_range
+                data:
+                  option: "All Time"
+            - entity: input_select.print_history_filter_designer
+              sub_button_type: default
+              name: Clear Designer Filter
+              icon: mdi:palette-swatch-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_designer
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_designer
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_layer_height
+              sub_button_type: default
+              name: Clear Layer Filter
+              icon: mdi:layers-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_layer_height
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_layer_height
+                data:
+                  option: "All"
+            - entity: input_boolean.print_history_filter_favorites_only
+              sub_button_type: default
+              name: Clear Favorites Filter
+              icon: mdi:star-off-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_boolean.print_history_filter_favorites_only
+                  state: "on"
+              tap_action:
+                action: call-service
+                service: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.print_history_filter_favorites_only
+            - entity: input_text.print_history_search
+              sub_button_type: default
+              name: Clear Search Filter
+              icon: mdi:magnify-remove-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_text.print_history_search
+                  state_not: ""
+              tap_action:
+                action: call-service
+                service: input_text.set_value
+                target:
+                  entity_id: input_text.print_history_search
+                data:
+                  value: ""
+            - entity: input_text.print_history_filter_colors
+              sub_button_type: default
+              name: Clear Colors Filter
+              icon: mdi:palette-remove-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_text.print_history_filter_colors
+                  state_not: ""
+              tap_action:
+                action: call-service
+                service: input_text.set_value
+                target:
+                  entity_id: input_text.print_history_filter_colors
+                data:
+                  value: ""
+            - name: Clear Filters
+              icon: mdi:filter-remove
+              show_name: true
+              show_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              state_color: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              tap_action:
+                action: call-service
+                service: script.clear_print_history_filters
 
-  - type: horizontal-stack
-    cards:
-      - type: custom:button-card
-        entity: sensor.print_history_filtered
-        name: Clear
-        icon: mdi:filter-remove-outline
-        show_state: false
-        tap_action:
-          action: perform-action
-          perform_action: script.clear_print_history_filters
-        styles:
-          card:
-            - height: 46px
-            - border-radius: 999px
-            - background: >
-                [[[
-                  return entity?.attributes?.has_active_filters === true || entity?.attributes?.has_active_filters === 'True'
-                    ? 'color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color))'
-                    : 'var(--ha-card-background)';
-                ]]]
-          icon:
-            - width: 18px
-            - color: >
-                [[[
-                  return entity?.attributes?.has_active_filters === true || entity?.attributes?.has_active_filters === 'True'
-                    ? 'var(--accent-color)'
-                    : 'var(--primary-text-color)';
-                ]]]
-          name:
-            - font-size: 13px
-            - font-weight: 600
-      - type: custom:button-card
-        name: Refresh
-        icon: mdi:refresh
-        tap_action:
-          action: perform-action
-          perform_action: script.refresh_print_history_archives
-        styles:
-          card:
-            - height: 46px
-            - border-radius: 999px
-            - background: var(--ha-card-background)
-          name:
-            - font-size: 13px
-            - font-weight: 600
+  - type: custom:config-template-card
+    entities:
+      - input_number.print_history_page_size
+      - input_select.print_history_card_variant
+    card:
+      type: custom:bubble-card
+      card_type: sub-buttons
+      entity: input_number.print_history_page_size
+      hide_main_background: false
+      rows: 1.06
+      styles: |
+        .bubble-sub-button-container,
+        .bubble-sub-buttons-container {
+          gap: 6px !important;
+        }
+      sub_button:
+        main: []
+        bottom_layout: rows
+        bottom:
+          - group:
+              - entity: input_number.print_history_page_size
+                sub_button_type: slider
+                name: Prints / Page
+                icon: mdi:format-list-numbered
+                show_name: true
+                show_state: true
+                tap_to_slide: true
+                fill_width: true
+              - name: Compact
+                icon: mdi:view-grid-outline
+                show_icon: true
+                show_name: false
+                show_state: false
+                show_background: ${states['input_select.print_history_card_variant']?.state === 'Compact'}
+                state_color: ${states['input_select.print_history_card_variant']?.state === 'Compact'}
+                fill_width: false
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  target:
+                    entity_id: input_select.print_history_card_variant
+                  data:
+                    option: Compact
+              - name: Media
+                icon: mdi:image-multiple-outline
+                show_icon: true
+                show_name: false
+                show_state: false
+                show_background: ${states['input_select.print_history_card_variant']?.state === 'Media'}
+                state_color: ${states['input_select.print_history_card_variant']?.state === 'Media'}
+                fill_width: false
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  target:
+                    entity_id: input_select.print_history_card_variant
+                  data:
+                    option: Media
+              - name: Detail
+                icon: mdi:format-list-bulleted
+                show_icon: true
+                show_name: false
+                show_state: false
+                show_background: ${states['input_select.print_history_card_variant']?.state === 'Detail'}
+                state_color: ${states['input_select.print_history_card_variant']?.state === 'Detail'}
+                fill_width: false
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  target:
+                    entity_id: input_select.print_history_card_variant
+                  data:
+                    option: Detail
+              - name: Refresh
+                icon: mdi:refresh
+                show_icon: true
+                show_name: false
+                show_state: false
+                show_background: true
+                fill_width: false
+                tap_action:
+                  action: perform-action
+                  perform_action: script.refresh_print_history_archives
+            buttons_layout: inline
+            justify_content: fill
 
   - type: custom:button-card
-    entity: sensor.print_history_filtered
-    name: Active Filters
+    entity: input_text.print_history_filter_colors
+    name: Color Filters
     show_icon: false
     show_state: false
     custom_fields:
       summary: >
-        [[[
-          return entity?.attributes?.active_filters || 'No active filters';
+        [[[ 
+          const raw = (entity?.state || '').trim();
+          if (!raw || raw === 'unknown' || raw === 'unavailable') {
+            return 'All Colors';
+          }
+          const colors = raw.split(',').map((value) => value.trim()).filter(Boolean);
+          return colors.map((value) => value.toUpperCase()).join(' • ');
         ]]]
     styles:
       card:
@@ -691,13 +600,16 @@ cards:
     show_empty: false
     card:
       type: grid
-      columns: 8
+      columns: 12
       square: false
       card_mod:
         style: |
+          #root {
+            gap: 4px !important;
+          }
           @media (max-width: 768px) {
             #root {
-              grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+              grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
             }
           }
     card_param: cards
@@ -716,16 +628,41 @@ cards:
         {% for color in colors %}
           {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
             {% set is_active = (color | lower) in selected %}
+            {% set ring = '0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.34)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.26)' %}
+            {% set swatch = '<div style="width:20px;height:20px;border-radius:50%;background:' ~ color ~ ';box-shadow:' ~ ring ~ ';"></div>' %}
             {% set cards.items = cards.items + [{
-              'type': 'button',
-              'icon': 'mdi:circle',
+              'type': 'custom:button-card',
+              'show_name': false,
+              'show_icon': false,
+              'show_state': false,
               'tap_action': {
                 'action': 'perform-action',
                 'perform_action': 'script.toggle_print_history_color_filter',
                 'data': {'color': color}
               },
-              'card_mod': {
-                'style': 'ha-card { min-height: 42px; border-radius: 999px; padding: 0; background: var(--ha-card-background); box-shadow: ' ~ ('0 0 0 3px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.28)' if is_active else 'inset 0 0 0 1px rgba(255,255,255,0.18)') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; }'
+              'custom_fields': {
+                'swatch': swatch
+              },
+              'styles': {
+                'card': [
+                  'background: transparent',
+                  'box-shadow: none',
+                  'border-radius: 0',
+                  'padding: 0',
+                  'height: 28px',
+                  'min-height: 28px'
+                ],
+                'grid': [
+                  'grid-template-areas: "swatch"',
+                  'grid-template-columns: 1fr',
+                  'grid-template-rows: 1fr'
+                ],
+                'custom_fields': {
+                  'swatch': [
+                    'justify-self: center',
+                    'align-self: center'
+                  ]
+                }
               }
             }] %}
           {% endif %}
