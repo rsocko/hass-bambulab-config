@@ -545,15 +545,26 @@ cards:
           {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
             {% set is_active = (color | lower) in selected %}
             {% set cards.items = cards.items + [{
-              'type': 'button',
-              'icon': 'mdi:circle',
+              'type': 'custom:button-card',
+              'show_icon': false,
+              'show_name': false,
+              'show_state': false,
               'tap_action': {
-                'action': 'perform-action',
-                'perform_action': 'script.toggle_print_history_color_filter',
-                'data': {'color': color}
+                'action': 'call-service',
+                'service': 'script.toggle_print_history_color_filter',
+                'service_data': {'color': color}
               },
-              'card_mod': {
-                'style': 'ha-card { width: 32px; height: 32px; min-height: 32px; border-radius: 50%; padding: 0; background: transparent; border: none; box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.32)' if is_active else '0 0 0 1px rgba(255,255,255,0.20)') ~ '; display: flex; align-items: center; justify-content: center; margin: 0 auto !important; } ha-icon, ha-state-icon { --mdc-icon-size: 24px; width: 24px; height: 24px; color: ' ~ color ~ ' !important; display: flex; align-items: center; justify-content: center; transform: scale(1.18); }'
+              'styles': {
+                'card': [
+                  'width: 28px',
+                  'height: 28px',
+                  'padding: 0',
+                  'margin: 0 auto',
+                  'border-radius: 50%',
+                  'border: none',
+                  'box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(0,0,0,0.22)' if is_active else 'inset 0 0 0 1px rgba(0,0,0,0.22)'),
+                  'background: ' ~ color
+                ]
               }
             }] %}
           {% endif %}
