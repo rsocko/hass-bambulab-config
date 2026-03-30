@@ -12,7 +12,7 @@ card:
   styles: >-
     ${(() => {
       const variant = states['input_select.print_history_card_variant']?.state || '';
-      const selectedIndex = ({ Compact: 5, Media: 6, Detail: 7 })[variant];
+      const selectedIndex = ({ Compact: 6, Media: 7, Detail: 8 })[variant];
       return `
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
@@ -21,12 +21,12 @@ card:
         }
         ${selectedIndex ? `
         .bubble-sub-button:nth-child(${selectedIndex}) {
-          background-color: var(--accent-color) !important;
-          color: var(--primary-text-color) !important;
+          background-color: var(--primary-color) !important;
+          color: white !important;
           box-shadow: none !important;
         }
         .bubble-sub-button:nth-child(${selectedIndex}) ha-icon {
-          color: var(--primary-text-color) !important;
+          color: white !important;
         }
         ` : ''}
       `;
