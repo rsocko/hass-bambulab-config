@@ -509,53 +509,15 @@ cards:
                 action: call-service
                 service: script.clear_print_history_filters
 
-  - type: custom:auto-entities
-    show_empty: false
-    card:
-      type: grid
-      columns: 12
-      square: false
-      card_mod:
-        style: |
-            #root {
-              grid-template-columns: repeat(auto-fill, minmax(34px, 34px)) !important;
-              justify-content: start !important;
-              gap: 4px !important;
-            }
-            @media (max-width: 768px) {
-              #root {
-                grid-template-columns: repeat(auto-fill, minmax(32px, 32px)) !important;
-                gap: 3px !important;
-              }
-            }
-    card_param: cards
-    filter:
-      template: >
-        {% set raw = state_attr('sensor.print_history_filtered', 'available_colors_json') | default([], true) %}
-        {% if raw is string %}
-          {% set colors = raw | from_json %}
-        {% elif raw is iterable %}
-          {% set colors = raw | list %}
-        {% else %}
-          {% set colors = [] %}
-        {% endif %}
-        {% set selected = states('input_text.print_history_filter_colors').split(',') | map('trim') | reject('eq', '') | map('lower') | list %}
-        {% set cards = namespace(items=[]) %}
-        {% for color in colors %}
-          {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
-            {% set is_active = (color | lower) in selected %}
-            {% set cards.items = cards.items + [{
-              'type': 'button',
-              'icon': 'mdi:circle',
-              'tap_action': {
-                'action': 'perform-action',
-                'perform_action': 'script.toggle_print_history_color_filter',
-                'data': {'color': color}
-              },
-              'card_mod': {
-                'style': 'ha-card { width: 32px; height: 32px; min-height: 32px; padding: 0; margin: 0 auto !important; border-radius: 50%; background: transparent; border: none; box-shadow: ' ~ ('0 0 0 2px var(--accent-color)' if is_active else '0 0 0 1px rgba(255,255,255,0.24)') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; --mdc-icon-size: 30px; width: 30px; height: 30px; transform: scale(1.08); transform-origin: center; }'
-              }
-            }] %}
-          {% endif %}
-        {% endfor %}
-        {{ cards.items | tojson }}
+  - type: custom:print-history-color-filter-card
+    colors_entity: sensor.print_history_filtered
+    colors_attribute: available_colors_json
+    selected_entity: input_text.print_history_filter_colors
+    toggle_script: script.toggle_print_history_color_filter
+    slot_size: 38
+    ring_size: 30
+    fill_size: 22
+    selected_border_width: 3
+    unselected_border_width: 1
+    gap: 2
+    mobile_gap: 2
