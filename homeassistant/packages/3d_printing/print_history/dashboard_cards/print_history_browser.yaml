@@ -110,7 +110,7 @@ cards:
       card_type: sub-buttons
       entity: sensor.print_history_filtered
       hide_main_background: false
-      rows: 1.84
+      rows: 1.78
       styles: |
         ha-card {
           padding-top: 0 !important;
@@ -119,7 +119,7 @@ cards:
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
           gap: 6px !important;
-          margin-top: -4px !important;
+          margin-top: -8px !important;
         }
       sub_button:
         main: []
