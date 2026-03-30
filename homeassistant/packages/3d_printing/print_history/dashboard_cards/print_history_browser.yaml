@@ -518,14 +518,14 @@ cards:
       card_mod:
         style: |
             #root {
-              grid-template-columns: repeat(auto-fill, minmax(34px, 34px)) !important;
+              grid-template-columns: repeat(auto-fill, minmax(38px, 38px)) !important;
               justify-content: start !important;
-              gap: 4px !important;
+              gap: 2px !important;
             }
             @media (max-width: 768px) {
               #root {
-                grid-template-columns: repeat(auto-fill, minmax(32px, 32px)) !important;
-                gap: 3px !important;
+                grid-template-columns: repeat(auto-fill, minmax(38px, 38px)) !important;
+                gap: 2px !important;
               }
             }
     card_param: cards
@@ -543,17 +543,53 @@ cards:
         {% set cards = namespace(items=[]) %}
         {% for color in colors %}
           {% if color is string and color is match('^#[0-9A-Fa-f]{6}$') %}
-            {% set is_active = (color | lower) in selected %}
             {% set cards.items = cards.items + [{
-              'type': 'button',
-              'icon': 'mdi:circle',
+              'type': 'custom:button-card',
+              'entity': 'input_text.print_history_filter_colors',
+              'show_icon': false,
+              'show_name': false,
+              'show_state': false,
               'tap_action': {
-                'action': 'perform-action',
-                'perform_action': 'script.toggle_print_history_color_filter',
+                'action': 'call-service',
+                'service': 'script.toggle_print_history_color_filter',
                 'data': {'color': color}
               },
-              'card_mod': {
-                'style': 'ha-card { width: 32px; height: 32px; min-height: 32px; padding: 0; margin: 0 auto !important; border-radius: 50%; background: transparent; border: none; box-shadow: ' ~ ('0 0 0 2px var(--accent-color)' if is_active else '0 0 0 1px rgba(255,255,255,0.24)') ~ '; } ha-state-icon { color: ' ~ color ~ ' !important; --mdc-icon-size: 30px; width: 30px; height: 30px; transform: scale(1.08); transform-origin: center; }'
+              'styles': {
+                'card': [
+                  'width: 38px',
+                  'height: 38px',
+                  'padding: 0',
+                  'margin: 0 auto',
+                  'border: none',
+                  'border-radius: 999px',
+                  'background: transparent',
+                  'box-shadow: none',
+                  'display: grid',
+                  'place-items: center',
+                  'overflow: visible'
+                ],
+                'grid': [
+                  'grid-template-areas: "ring"',
+                  'grid-template-columns: 1fr',
+                  'grid-template-rows: 1fr'
+                ],
+                'custom_fields': {
+                  'ring': [
+                    'width: 30px',
+                    'height: 30px',
+                    'border-radius: 999px',
+                    'align-self: center',
+                    'justify-self: center',
+                    'display: flex',
+                    'align-items: center',
+                    'justify-content: center',
+                    'box-sizing: border-box',
+                    'border: ' ~ ('3px solid var(--accent-color)' if (color | lower) in selected else '1px solid rgba(255,255,255,0.24)')
+                  ]
+                }
+              },
+              'custom_fields': {
+                'ring': '[[[ return `<div style="width: 22px; height: 22px; border-radius: 999px; background: ' ~ color ~ ';"></div>`; ]]]'
               }
             }] %}
           {% endif %}
