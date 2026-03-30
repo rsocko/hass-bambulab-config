@@ -195,6 +195,15 @@
                   → {{ target_tray_entity_id }} for location '{{ to_location }}'.
                 entity_id: automation.3d_printer_spoolman_location_changed_assign_tray_metadata
                 domain: automation
+            # Brief hold — Spoolman integration may briefly mark the spool
+            # sensor unavailable while refreshing after a location change.
+            # Without this, the assign script can hit a validation failure
+            # race condition (~10 ms exit) when the entity is mid-refresh.
+            - wait_template: >-
+                {{ states('sensor.spoolman_spool_' ~ spool_id) not in
+                   ['unknown', 'unavailable'] }}
+              timeout: "00:00:05"
+              continue_on_timeout: true
             - action: script.assign_spool_to_printer_tray
               data:
                 spool_id: "{{ spool_id }}"
