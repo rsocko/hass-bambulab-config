@@ -14,6 +14,8 @@ spool_replace_execute:
         tgt_id: "{{ states('input_text.spool_replace_target_spool_id') | int(0) }}"
         src_entity: "{{ 'sensor.spoolman_spool_' ~ src_id }}"
         tgt_entity: "{{ 'sensor.spoolman_spool_' ~ tgt_id }}"
+        src_location_entity: "{{ 'select.spoolman_spool_' ~ src_id ~ '_location' }}"
+        tgt_location_entity: "{{ 'select.spoolman_spool_' ~ tgt_id ~ '_location' }}"
         copy_spool_type: "{{ is_state('input_boolean.spool_replace_copy_spool_type', 'on') }}"
         copy_clip_type: "{{ is_state('input_boolean.spool_replace_copy_clip_type', 'on') }}"
         copy_desiccant_present: "{{ is_state('input_boolean.spool_replace_copy_desiccant_present', 'on') }}"
@@ -26,7 +28,13 @@ spool_replace_execute:
         source_clip_type: "{{ state_attr(src_entity, 'extra_clip_type') | default('', true) }}"
         source_desiccant_filled: "{{ state_attr(src_entity, 'extra_desiccant_filled') | default('', true) }}"
         source_desiccant_in_spool: "{{ state_attr(src_entity, 'extra_desiccant_in_spool') | default('', true) }}"
-        source_location: "{{ state_attr(src_entity, 'location') | default('', true) }}"
+        source_location: >-
+          {% set select_state = states(src_location_entity) %}
+          {% if select_state not in ['unknown', 'unavailable', 'none', ''] %}
+            {{ select_state }}
+          {% else %}
+            {{ state_attr(src_entity, 'location') | default('', true) }}
+          {% endif %}
 
     # --- Validate ---
     - if:
@@ -101,10 +109,22 @@ spool_replace_execute:
         - condition: template
           value_template: "{{ copy_location and source_location }}"
       then:
-        - action: spoolman.patch_spool
-          data:
-            id: "{{ tgt_id }}"
-            location: "{{ source_location }}"
+        - if:
+            - condition: template
+              value_template: >-
+                {{ states(tgt_location_entity) not in ['unknown', 'unavailable']
+                   and source_location in (state_attr(tgt_location_entity, 'options') | default([], true)) }}
+          then:
+            - action: select.select_option
+              target:
+                entity_id: "{{ tgt_location_entity }}"
+              data:
+                option: "{{ source_location }}"
+          else:
+            - action: spoolman.patch_spool
+              data:
+                id: "{{ tgt_id }}"
+                location: "{{ source_location }}"
 
     # --- Step 4b: Mark as used in current print (if checked) ---
     - if:

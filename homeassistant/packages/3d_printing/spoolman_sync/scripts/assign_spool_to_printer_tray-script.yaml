@@ -412,12 +412,10 @@ assign_spool_to_printer_tray:
 
   # Pop the completed spool from pending tray selections queue
   - variables:
-      pending_raw: "{{ states('input_text.pending_tray_selections_queue') }}"
-      pending_current: >-
-        {% set parsed = (pending_raw | from_json | default([], true)) if pending_raw not in ['', 'unknown', 'unavailable'] else [] %}
-        {% if parsed is not iterable or parsed is string %}[]{% else %}{{ parsed | to_json }}{% endif %}
       pending_after_pop: >-
-        {% set items = pending_current | from_json %}
+        {% set raw = states('input_text.pending_tray_selections_queue') %}
+        {% set items = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
+        {% if items is not iterable or items is string %}{% set items = [] %}{% endif %}
         {% set ns = namespace(result=[]) %}
         {% for item in items %}
           {% if (item.s | int(-1)) != (spool_id_clean | int(-1)) %}
