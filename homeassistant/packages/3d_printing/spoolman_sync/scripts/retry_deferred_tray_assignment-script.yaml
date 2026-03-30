@@ -9,13 +9,10 @@ retry_deferred_tray_assignment:
   mode: single
   sequence:
     - variables:
-        queue_parsed: >-
+        first: >-
           {% set raw = states('input_text.deferred_tray_assignments_queue') %}
-          {% set parsed = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
-          {% if parsed is not iterable or parsed is string %}[]{% else %}{{ parsed | to_json }}{% endif %}
-
-    - variables:
-        first: "{{ (queue_parsed | from_json)[0] | default(none) }}"
+          {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
+          {% if queue is iterable and queue is not string and queue | count > 0 %}{{ queue[0] }}{% else %}{{ none }}{% endif %}
         has_item: "{{ first is mapping }}"
         spool_id: "{{ first.s | default('') | string if has_item else '' }}"
         tray_code: "{{ first.t | default(0) | int if has_item else 0 }}"
@@ -25,8 +22,9 @@ retry_deferred_tray_assignment:
           {% elif tray_code | int == 0 %}sensor.ntk_ryansoffice_3dprinter_external_spool
           {% else %}sensor.p1s_01p00c460102350_ams_{{ (tray_code | int / 10) | int }}_tray_{{ tray_code | int % 10 }}{% endif %}
         remaining_json: >-
-          {% set parsed = queue_parsed | from_json([]) %}
-          {% if parsed is iterable and parsed is not string %}{{ parsed[1:] | to_json }}{% else %}[]{% endif %}
+          {% set raw = states('input_text.deferred_tray_assignments_queue') %}
+          {% set queue = raw | from_json([]) if raw is string and raw not in ['', 'unknown', 'unavailable'] else (raw if raw is list else []) %}
+          {% if queue is iterable and queue is not string %}{{ queue[1:] | to_json }}{% else %}[]{% endif %}
 
     - condition: template
       value_template: "{{ has_item and spool_id | regex_match('^\\d+$') }}"
