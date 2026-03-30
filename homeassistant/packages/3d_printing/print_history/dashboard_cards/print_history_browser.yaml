@@ -6,6 +6,14 @@ cards:
   - type: custom:config-template-card
     entities:
       - input_text.bambuddy_api_base_url
+    variables:
+      _bambuddyArchivesUrl: >-
+        ${(() => {
+          const entity = states['input_text.bambuddy_api_base_url'];
+          const base = entity && entity.state ? entity.state : '';
+          if (!base) return '#';
+          return (base.endsWith('/') ? base.slice(0, -1) : base) + '/archives';
+        })()}
     card:
       type: custom:bubble-card
       card_type: separator
@@ -21,7 +29,7 @@ cards:
           fill_width: false
           tap_action:
             action: url
-            url_path: "${((states['input_text.bambuddy_api_base_url']?.state || '').replace(/\/$/, '')) + '/archives'}"
+            url_path: "${_bambuddyArchivesUrl}"
         - name: Print History Settings
           icon: mdi:cog-outline
           show_icon: true
