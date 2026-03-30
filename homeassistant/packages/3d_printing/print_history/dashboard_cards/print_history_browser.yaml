@@ -3,69 +3,28 @@
 
 type: vertical-stack
 cards:
-  - type: grid
-    columns: 3
-    square: false
-    cards:
-      - type: custom:button-card
-        entity: sensor.print_history_filtered
-        name: Print History Browser
-        icon: mdi:history
-        show_state: false
-        tap_action:
-          action: none
-        card_mod:
-          style: |
-            :host {
-              grid-column: 1 / span 1;
-            }
-        styles:
-          card:
-            - background: none
-            - border: none
-            - box-shadow: none
-            - padding: 6px 0
-            - margin: 0
-            - height: 42px
-          grid:
-            - grid-template-areas: 'i n'
-            - grid-template-columns: auto 1fr
-            - column-gap: 6px
-          icon:
-            - width: 18px
-            - color: var(--primary-text-color)
-          name:
-            - justify-self: start
-            - align-self: center
-            - font-size: 14px
-            - font-weight: 600
-            - color: var(--primary-text-color)
-          custom_fields:
-            line:
-              - display: none
-      - type: custom:button-card
+  - type: custom:bubble-card
+    card_type: separator
+    name: Print History Browser
+    icon: mdi:history
+    sub_button:
+      - name: Open Bambuddy
         icon: mdi:open-in-new
         show_icon: true
         show_name: false
         show_state: false
+        show_background: true
+        fill_width: false
         tap_action:
           action: url
           url_path: "[[[ return states['input_text.bambuddy_api_base_url']?.state + '/archives'; ]]]"
-        styles:
-          card:
-            - height: 36px
-            - width: 36px
-            - border-radius: 999px
-            - background: var(--ha-card-background)
-            - box-shadow: none
-            - justify-self: end
-          icon:
-            - width: 18px
-      - type: custom:button-card
+      - name: Print History Settings
         icon: mdi:cog-outline
         show_icon: true
         show_name: false
         show_state: false
+        show_background: true
+        fill_width: false
         tap_action:
           action: fire-dom-event
           browser_mod:
@@ -97,16 +56,20 @@ cards:
                     name: Max Cached
                   - entity: input_number.photo_review_timeout_hours
                     name: Review Timeout (hrs)
-        styles:
-          card:
-            - height: 36px
-            - width: 36px
-            - border-radius: 999px
-            - background: var(--ha-card-background)
-            - box-shadow: none
-            - justify-self: end
-          icon:
-            - width: 18px
+    styles: |
+      .bubble-sub-button-container,
+      .bubble-sub-buttons-container {
+        gap: 8px !important;
+      }
+      .bubble-sub-button {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+      }
+      .bubble-sub-button-icon {
+        --mdc-icon-size: 18px !important;
+      }
 
   - type: horizontal-stack
     cards:
