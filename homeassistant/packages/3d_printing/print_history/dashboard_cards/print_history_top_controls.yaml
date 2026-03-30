@@ -1,0 +1,146 @@
+type: custom:config-template-card
+entities:
+  - input_number.print_history_page_size
+  - input_select.print_history_card_variant
+  - sensor.print_history_page_info
+card:
+  type: custom:bubble-card
+  card_type: sub-buttons
+  entity: sensor.print_history_page_info
+  hide_main_background: false
+  rows: 1.06
+  styles: |
+    .bubble-sub-button-container,
+    .bubble-sub-buttons-container {
+      gap: 8px !important;
+      justify-content: center !important;
+    }
+  sub_button:
+    main: []
+    bottom_layout: rows
+    bottom:
+      - group:
+          - name: First Page
+            icon: mdi:page-first
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.navigate_history
+              data:
+                direction: first
+          - name: Previous Page
+            icon: mdi:chevron-left
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.navigate_history
+              data:
+                direction: prev
+          - entity: sensor.print_history_page_info
+            sub_button_type: default
+            name: Page
+            icon: mdi:book-open-page-variant-outline
+            show_icon: true
+            show_name: true
+            show_state: true
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: none
+          - entity: input_number.print_history_page_size
+            sub_button_type: slider
+            name: Prints / Page
+            icon: mdi:format-list-numbered
+            show_name: true
+            show_state: true
+            tap_to_slide: true
+            fill_width: false
+          - name: Compact
+            icon: mdi:view-grid-outline
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: ${states['input_select.print_history_card_variant']?.state === 'Compact'}
+            state_color: ${states['input_select.print_history_card_variant']?.state === 'Compact'}
+            fill_width: false
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              target:
+                entity_id: input_select.print_history_card_variant
+              data:
+                option: Compact
+          - name: Media
+            icon: mdi:image-multiple-outline
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: ${states['input_select.print_history_card_variant']?.state === 'Media'}
+            state_color: ${states['input_select.print_history_card_variant']?.state === 'Media'}
+            fill_width: false
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              target:
+                entity_id: input_select.print_history_card_variant
+              data:
+                option: Media
+          - name: Detail
+            icon: mdi:format-list-bulleted
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: ${states['input_select.print_history_card_variant']?.state === 'Detail'}
+            state_color: ${states['input_select.print_history_card_variant']?.state === 'Detail'}
+            fill_width: false
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              target:
+                entity_id: input_select.print_history_card_variant
+              data:
+                option: Detail
+          - name: Refresh
+            icon: mdi:refresh
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.refresh_print_history_archives
+          - name: Next Page
+            icon: mdi:chevron-right
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.navigate_history
+              data:
+                direction: next
+          - name: Last Page
+            icon: mdi:page-last
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.navigate_history
+              data:
+                direction: last
+        buttons_layout: inline
+        justify_content: center

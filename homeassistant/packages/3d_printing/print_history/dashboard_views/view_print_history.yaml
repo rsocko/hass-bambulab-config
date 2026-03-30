@@ -16,8 +16,8 @@ cards:
       # Browser toolbar + always-visible filters/settings
       - !include ../dashboard_cards/print_history_browser.yaml
 
-      # Page navigation above the archive grid
-      - !include ../dashboard_cards/print_history_pagination.yaml
+      # Unified top controls: navigation, page size, layout mode, refresh
+      - !include ../dashboard_cards/print_history_top_controls.yaml
 
       # Archive browser rendered from the current server-side page slice
       - !include ../dashboard_cards/print_history.yaml
