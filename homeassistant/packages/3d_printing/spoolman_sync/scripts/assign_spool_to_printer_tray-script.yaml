@@ -399,8 +399,95 @@ assign_spool_to_printer_tray:
       nozzle_temp_min: "{{ mapping_result.params.nozzle_temp_min | int(0) }}"
       nozzle_temp_max: "{{ mapping_result.params.nozzle_temp_max | int(0) }}"
 
+  - wait_template: >-
+      {% set current_type = state_attr(tray_entity_id, 'type') | default('', true) | string | upper %}
+      {% set current_color_raw = state_attr(tray_entity_id, 'color') | default('', true) | string | trim | replace('#', '') | upper %}
+      {% if current_color_raw | regex_match('^[0-9A-F]{8}$') %}
+        {% set current_color_hex = current_color_raw[:6] %}
+      {% elif current_color_raw | regex_match('^[0-9A-F]{6}$') %}
+        {% set current_color_hex = current_color_raw %}
+      {% else %}
+        {% set current_color_hex = '' %}
+      {% endif %}
+      {% set target_color_raw = mapping_result.params.tray_color | default('', true) | string | trim | replace('#', '') | upper %}
+      {% if target_color_raw | regex_match('^[0-9A-F]{8}$') %}
+        {% set target_color_hex = target_color_raw[:6] %}
+      {% elif target_color_raw | regex_match('^[0-9A-F]{6}$') %}
+        {% set target_color_hex = target_color_raw %}
+      {% else %}
+        {% set target_color_hex = '' %}
+      {% endif %}
+      {{ current_type == (mapping_result.params.tray_type | default('', true) | string | upper)
+         and current_color_hex == target_color_hex
+         and current_type not in ['', 'EMPTY'] }}
+    timeout: "00:00:10"
+    continue_on_timeout: true
+
   - variables:
+      tray_type_after_write: "{{ state_attr(tray_entity_id, 'type') | default('', true) | string | trim }}"
+      tray_name_after_write: >-
+        {{ state_attr(tray_entity_id, 'name') | default('', true) | string | replace('"', '') | trim }}
+      tray_color_after_write: "{{ state_attr(tray_entity_id, 'color') | default('', true) | string | trim }}"
+      tray_write_verified: >-
+        {% set current_type = state_attr(tray_entity_id, 'type') | default('', true) | string | upper %}
+        {% set current_color_raw = state_attr(tray_entity_id, 'color') | default('', true) | string | trim | replace('#', '') | upper %}
+        {% if current_color_raw | regex_match('^[0-9A-F]{8}$') %}
+          {% set current_color_hex = current_color_raw[:6] %}
+        {% elif current_color_raw | regex_match('^[0-9A-F]{6}$') %}
+          {% set current_color_hex = current_color_raw %}
+        {% else %}
+          {% set current_color_hex = '' %}
+        {% endif %}
+        {% set target_color_raw = mapping_result.params.tray_color | default('', true) | string | trim | replace('#', '') | upper %}
+        {% if target_color_raw | regex_match('^[0-9A-F]{8}$') %}
+          {% set target_color_hex = target_color_raw[:6] %}
+        {% elif target_color_raw | regex_match('^[0-9A-F]{6}$') %}
+          {% set target_color_hex = target_color_raw %}
+        {% else %}
+          {% set target_color_hex = '' %}
+        {% endif %}
+        {{ current_type == (mapping_result.params.tray_type | default('', true) | string | upper)
+           and current_color_hex == target_color_hex
+           and current_type not in ['', 'EMPTY'] }}
       tray_uuid_after: "{{ state_attr(tray_entity_id, 'tray_uuid') | default('', true) | string | trim }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not (tray_write_verified | bool) }}"
+        sequence:
+          - variables:
+              failure_message: >-
+                Requested {{ mapping_result.params.tray_type }} on {{ tray_friendly_name }}
+                using {{ mapping_result.params.profile_name | default(mapping_result.params.tray_info_idx, true) }},
+                but the tray still reports {{ tray_type_after_write | default('unknown', true) }}
+                {{ '— ' ~ tray_name_after_write if tray_name_after_write | length > 0 else '' }}
+                (color {{ tray_color_after_write | default('unknown', true) }}).
+          - action: persistent_notification.create
+            data:
+              title: Tray Assignment Failed
+              message: "{{ failure_message }}"
+              notification_id: tray_assignment_failed_{{ spool_id_clean | default('unknown', true) }}
+          - event: spoolman_tray_assignment_result
+            event_data:
+              status: failed
+              message: "{{ failure_message }}"
+              spool_entity_id: "{{ resolved_spool_entity_id }}"
+              tray_entity_id: "{{ tray_entity_id }}"
+              tray_info_idx: "{{ mapping_result.params.tray_info_idx }}"
+              tray_type: "{{ mapping_result.params.tray_type }}"
+              tray_color: "{{ mapping_result.params.tray_color }}"
+          - variables:
+              response_object:
+                success: false
+                status: failed
+                message: "{{ failure_message }}"
+                spool_entity_id: "{{ resolved_spool_entity_id }}"
+                tray_entity_id: "{{ tray_entity_id }}"
+          - stop: Tray assignment service call did not update tray state
+            response_variable: response_object
+
+  - variables:
       tray_uuid_matches: >-
         {{ tray_uuid_after | upper not in ['', 'NONE', 'UNKNOWN', 'UNAVAILABLE']
            and not (tray_uuid_after | regex_match('^0+$'))
