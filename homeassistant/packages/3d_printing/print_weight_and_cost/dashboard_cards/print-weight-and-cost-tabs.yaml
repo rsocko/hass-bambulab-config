@@ -8,13 +8,13 @@ tabs:
         - !include print-weight.yaml
     attributes:
       label: Print Weight
-      icon: mdi:scale
+      icon: mdi:weight-gram
   - card:
       type: vertical-stack
       cards:
         - !include print-cost.yaml
     attributes:
       label: Print Cost
-      icon: mdi:cash
+      icon: mdi:cash-multiple
 grid_options:
   columns: full
