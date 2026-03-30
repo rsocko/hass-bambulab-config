@@ -16,11 +16,11 @@ cards:
       # Browser toolbar + always-visible filters/settings
       - !include ../dashboard_cards/print_history_browser.yaml
 
-      # Unified top controls: navigation, page size, layout mode, refresh
+      # Unified controls: navigation, page size, layout mode, refresh
       - !include ../dashboard_cards/print_history_top_controls.yaml
 
       # Archive browser rendered from the current server-side page slice
       - !include ../dashboard_cards/print_history.yaml
 
-      # Duplicate pager below the archive grid
-      - !include ../dashboard_cards/print_history_pagination.yaml
+      # Reuse the same unified controls below the archive grid
+      - !include ../dashboard_cards/print_history_top_controls.yaml
