@@ -513,19 +513,22 @@ cards:
     show_empty: false
     card:
       type: grid
-      columns: 12
+      columns: 24
       square: false
       card_mod:
         style: |
             #root {
-              grid-template-columns: repeat(auto-fill, minmax(34px, 34px)) !important;
+              grid-template-columns: repeat(auto-fit, minmax(32px, max-content)) !important;
+              grid-auto-flow: row dense !important;
               justify-content: start !important;
-              gap: 4px !important;
+              column-gap: 2px !important;
+              row-gap: 6px !important;
             }
             @media (max-width: 768px) {
               #root {
-                grid-template-columns: repeat(auto-fill, minmax(32px, 32px)) !important;
-                gap: 3px !important;
+                grid-template-columns: repeat(auto-fit, minmax(30px, max-content)) !important;
+                column-gap: 2px !important;
+                row-gap: 5px !important;
               }
             }
     card_param: cards
@@ -547,13 +550,15 @@ cards:
             {% set cards.items = cards.items + [{
               'type': 'button',
               'icon': 'mdi:circle',
+              'state_color': false,
+              'icon_height': '26px',
               'tap_action': {
                 'action': 'perform-action',
                 'perform_action': 'script.toggle_print_history_color_filter',
                 'data': {'color': color}
               },
               'card_mod': {
-                'style': 'ha-card { width: 32px; height: 32px; min-height: 32px; border-radius: 50%; padding: 0; background: transparent; border: none; box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.32)' if is_active else '0 0 0 1px rgba(255,255,255,0.20)') ~ '; display: flex; align-items: center; justify-content: center; margin: 0 auto !important; } ha-icon, ha-state-icon { --mdc-icon-size: 20px; width: 20px; height: 20px; color: ' ~ color ~ ' !important; display: flex; align-items: center; justify-content: center; }'
+                'style': 'ha-card { width: 30px; height: 30px; min-height: 30px; border-radius: 50%; padding: 0; background: transparent; border: none; color: ' ~ color ~ ' !important; --paper-item-icon-color: ' ~ color ~ '; --state-icon-color: ' ~ color ~ '; --mdc-icon-button-icon-color: ' ~ color ~ '; --mdc-ripple-color: transparent; --mdc-ripple-hover-opacity: 0; box-shadow: ' ~ ('0 0 0 2px var(--accent-color), inset 0 0 0 1px rgba(255,255,255,0.36)' if is_active else '0 0 0 1px rgba(255,255,255,0.22)') ~ '; display: flex; align-items: center; justify-content: center; margin: 0 auto !important; transition: none !important; } ha-icon, ha-state-icon { --mdc-icon-size: 26px; width: 26px; height: 26px; color: ' ~ color ~ ' !important; display: flex; align-items: center; justify-content: center; transition: none !important; } mwc-ripple, ha-ripple { display: none !important; }'
               }
             }] %}
           {% endif %}
