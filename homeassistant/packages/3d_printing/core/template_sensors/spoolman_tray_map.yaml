@@ -75,7 +75,9 @@
         {% set match_state = 'unmatched' %}
 
         {# --- EMPTY TRAY HANDLING --- #}
-        {% if tray_type == 'Empty' %}
+        {# If the tray is Empty but has an active pin, fall through to matching #}
+        {# so the pinned spool is resolved and shown in the popup.            #}
+        {% if tray_type == 'Empty' and not pin_active %}
           {% set ns.result = ns.result | combine({
             tray_name: {
               'spool_entity_id': none,
@@ -91,8 +93,8 @@
               'match_state': 'empty',
               'candidate_count': 0,
               'candidate_spool_ids': [],
-              'pin_active': pin_active,
-              'pin_spool_id': pin_spool_id,
+              'pin_active': false,
+              'pin_spool_id': none,
               'pin_applied': false
             }
           }) %}
@@ -108,7 +110,7 @@
                 or (tray_color | replace('#','') | length == 8 and tray_color[-2:] == '00') %}
           {% set is_uuid_empty = (not tray_uuid_normalized or tray_uuid_normalized == '' or tray_uuid_normalized == EMPTY_UUID) %}
           {% set is_color_empty = (not tray_color or tray_color == '' or tray_color == EMPTY_COLOR or has_zero_alpha) %}
-          {% if ext_name == 'Empty' or (is_uuid_empty and is_color_empty) %}
+          {% if (ext_name == 'Empty' or (is_uuid_empty and is_color_empty)) and not pin_active %}
             {% set ns.result = ns.result | combine({
               tray_name: {
                 'spool_entity_id': none,
@@ -124,8 +126,8 @@
                 'match_state': 'empty',
                 'candidate_count': 0,
                 'candidate_spool_ids': [],
-                'pin_active': pin_active,
-                'pin_spool_id': pin_spool_id,
+                'pin_active': false,
+                'pin_spool_id': none,
                 'pin_applied': false
               }
             }) %}

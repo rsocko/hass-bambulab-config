@@ -583,30 +583,7 @@ ams_tray_popup:
             icon_color: 'blue',
             fill_container: true
           });
-          if (pinActive && matchStrategy !== 'uuid') {
-            cards.push({
-              type: 'custom:button-card',
-              name: 'Unpin Current Spool',
-              icon: 'mdi:pin-off',
-              tap_action: clearPinAction,
-              styles: {
-                grid: [
-                  { 'grid-template-areas': '"i" "n"' },
-                  { 'grid-template-rows': 'min-content min-content' },
-                  { 'justify-items': 'center' },
-                  { 'align-items': 'center' }
-                ],
-                card: [
-                  { background: '#7a2e2e' },
-                  { 'box-shadow': 'none' },
-                  { 'border-radius': '6px' },
-                  { padding: '6px' }
-                ],
-                name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
-                icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
-              }
-            });
-          }
+          // Unpin button is rendered by pinControlCardsForNoMatch — not duplicated here
         } else if (pinHelperAvailable) {
           cards.push({
             type: 'custom:button-card',
