@@ -3,6 +3,7 @@ entities:
   - input_number.print_history_page_size
   - input_select.print_history_card_variant
   - sensor.print_history_page_info
+  - sensor.print_history_filtered
 card:
   type: custom:bubble-card
   card_type: sub-buttons
@@ -64,6 +65,17 @@ card:
             sub_button_type: default
             name: ${`Page · ${(states['sensor.print_history_page_info']?.state || '').replace(/^Page\s+/, '')}`}
             icon: mdi:book-open-page-variant-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: none
+          - entity: sensor.print_history_filtered
+            sub_button_type: default
+            name: ${`Prints · ${states['sensor.print_history_filtered']?.state || '0'}`}
+            icon: mdi:counter
             show_icon: true
             show_name: true
             show_state: false
