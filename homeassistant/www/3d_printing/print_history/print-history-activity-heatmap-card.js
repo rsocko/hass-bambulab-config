@@ -106,6 +106,19 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "ha-card{padding:16px 16px 14px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 10px 0;}" +
       ".chart-wrap{min-height:300px;}" +
+      ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;}" +
+      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(10px,1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
+      ".month-spacer{height:16px;}" +
+      ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:16px;white-space:nowrap;overflow:hidden;}" +
+      ".day-labels{display:grid;grid-template-rows:repeat(7,18px);row-gap:4px;padding-top:24px;}" +
+      ".day-label{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--secondary-text-color);padding-right:4px;}" +
+      ".cells{display:grid;grid-template-rows:repeat(7,18px);row-gap:4px;}" +
+      ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(10px,1fr));column-gap:4px;}" +
+      ".cell{appearance:none;border:none;border-radius:5px;height:18px;min-width:10px;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(148,163,184,0.18);transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:rgba(148,163,184,0.14);}" +
+      ".cell:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px rgba(148,163,184,0.26),0 2px 6px rgba(15,23,42,0.18);}" +
+      ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
+      ".cell.future{cursor:default;opacity:.72;}" +
+      ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
       ".summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(148,163,184,0.16);color:var(--primary-text-color);}" +
       ".details{margin-top:14px;}" +
@@ -175,21 +188,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    var ApexChartsCtor = await this._ensureApexCharts();
-    if (!ApexChartsCtor) {
-      throw new Error("ApexCharts runtime unavailable. Ensure apexcharts-card is installed.");
-    }
-
-    var options = this._buildChartOptions(dataset);
-
-    if (!this._chart) {
-        this._chartContainer.innerHTML = "";
-      this._chart = new ApexChartsCtor(this._chartContainer, options);
-      await this._chart.render();
-      return;
-    }
-
-    await this._chart.updateOptions(options, false, false, false);
+    this._destroyChart();
+    this._renderHeatmap(dataset);
   }
 
   _destroyChart() {
@@ -600,6 +600,109 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     };
   }
 
+  _renderHeatmap(dataset) {
+    if (!this._chartContainer) {
+      return;
+    }
+
+    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
+    var monthLabels = this._buildMonthLabels(dataset.weekKeys);
+    var dayLabels = Array.isArray(this._config.day_labels) ? this._config.day_labels : [];
+    var rowsHtml = dataset.series.map(function (series, rowIndex) {
+      var label = dayLabels[rowIndex] || "";
+      return {
+        label: '<div class="day-label">' + this._escapeHtml(label) + '</div>',
+        cells: '<div class="heatmap-row">' + series.data.map(function (point) {
+          return this._buildHeatmapCell(point, selectedDate, dataset.mode);
+        }.bind(this)).join("") + '</div>',
+      };
+    }.bind(this));
+
+    this._chartContainer.innerHTML =
+      '<div class="heatmap" style="--week-count:' + this._escapeHtml(String(dataset.weekKeys.length || 53)) + '">' +
+      '<div class="month-spacer"></div>' +
+      '<div class="month-row">' + monthLabels + '</div>' +
+      '<div class="day-labels">' + rowsHtml.map(function (row) { return row.label; }).join("") + '</div>' +
+      '<div class="cells">' + rowsHtml.map(function (row) { return row.cells; }).join("") + '</div>' +
+      '</div>';
+
+    Array.from(this._chartContainer.querySelectorAll(".cell[data-date-key]")).forEach(function (button) {
+      button.addEventListener("click", function (event) {
+        if (button.disabled) {
+          event.preventDefault();
+          return;
+        }
+        this._handleDateSelection(button.getAttribute("data-date-key"));
+      }.bind(this));
+    }.bind(this));
+  }
+
+  _buildMonthLabels(weekKeys) {
+    var lastMonth = "";
+    return weekKeys.map(function (weekKey) {
+      var date = this._parseDate(weekKey + "T00:00:00");
+      var month = date
+        ? date.toLocaleDateString(undefined, { month: "short" })
+        : "";
+      var showLabel = month && month !== lastMonth;
+      lastMonth = month || lastMonth;
+      return '<div class="month-label">' + this._escapeHtml(showLabel ? month : "") + '</div>';
+    }.bind(this)).join("");
+  }
+
+  _buildHeatmapCell(point, selectedDate, mode) {
+    var meta = point && point.meta ? point.meta : null;
+    var dateKey = meta && meta.dateKey ? meta.dateKey : "";
+    var classes = ["cell"];
+    if (meta && meta.isFuture) {
+      classes.push("future");
+    }
+    if (dateKey && selectedDate === dateKey) {
+      classes.push("selected");
+    }
+
+    var title = meta ? this._buildHeatmapTitle(meta, mode) : "";
+    var style = point && point.fillColor ? ' style="background:' + this._escapeHtml(point.fillColor) + ';"' : "";
+    var disabled = meta && meta.isFuture ? " disabled" : "";
+
+    return '<button class="' + this._escapeHtml(classes.join(" ")) + '" type="button"' +
+      (dateKey ? ' data-date-key="' + this._escapeHtml(dateKey) + '"' : "") +
+      (title ? ' title="' + this._escapeHtml(title) + '" aria-label="' + this._escapeHtml(title) + '"' : "") +
+      style +
+      disabled +
+      '></button>';
+  }
+
+  _buildHeatmapTitle(meta, mode) {
+    var title = [
+      meta.label,
+      'Prints: ' + String(meta.count || 0),
+      'Weight: ' + this._formatWeight(meta.weight || 0),
+      'Status: ' + String(meta.successCount || 0) + ' success, ' + String((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
+    ];
+
+    if (mode === 'Dominant Color' && meta.dominantColor) {
+      title.push('Dominant color: ' + meta.dominantColor.toUpperCase());
+    }
+
+    return title.join(' | ');
+  }
+
+  _handleDateSelection(dateKey) {
+    if (!dateKey || !this._hass) {
+      return;
+    }
+
+    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
+    var nextDate = selectedDate === dateKey ? "" : dateKey;
+
+    this._hass.callService("input_text", "set_value", {
+      value: nextDate,
+    }, {
+      entity_id: this._config.selected_date_entity,
+    });
+  }
+
   _handlePointSelection(opts, dataset) {
     if (!opts || typeof opts.seriesIndex !== "number" || typeof opts.dataPointIndex !== "number") {
       return;
@@ -613,14 +716,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
-    var nextDate = selectedDate === meta.dateKey ? "" : meta.dateKey;
-
-    this._hass.callService("input_text", "set_value", {
-      value: nextDate,
-    }, {
-      entity_id: this._config.selected_date_entity,
-    });
+    this._handleDateSelection(meta.dateKey);
   }
 
   _renderSummary(archives, grouped, dataset) {
