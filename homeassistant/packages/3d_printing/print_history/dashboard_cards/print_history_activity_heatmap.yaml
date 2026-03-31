@@ -8,3 +8,19 @@ hide_title: true
 hide_summary: true
 weeks: 52
 max_detail_items: 14
+card_mod:
+  style: |
+    ha-card {
+      transition: max-height 0.2s ease, opacity 0.2s ease, margin 0.2s ease, padding 0.2s ease;
+      {% if is_state('input_boolean.print_history_show_activity_heatmap', 'off') %}
+      max-height: 0 !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-width: 0 !important;
+      overflow: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      {% endif %}
+    }

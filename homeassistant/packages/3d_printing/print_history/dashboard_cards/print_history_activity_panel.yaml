@@ -119,9 +119,4 @@ cards:
         .bubble-sub-buttons-container {
           gap: 6px !important;
         }
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: input_boolean.print_history_show_activity_heatmap
-        state: "on"
-    card: !include ../dashboard_cards/print_history_activity_heatmap.yaml
+  - !include ../dashboard_cards/print_history_activity_heatmap.yaml
