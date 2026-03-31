@@ -332,7 +332,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       timestamp: date,
       dateKey: date ? this._formatLocalDate(date) : "",
       formattedDate: date ? this._formatDateTime(date) : "Unknown date",
+      objectCount: Math.max(1, this._toNumber(archive && archive.object_count) || this._countPrintableObjects(archive)),
       filamentWeight: this._toNumber(archive && archive.filament_used_grams),
+      filamentCount: this._countDistinctFilaments(archive),
       durationHours: this._secondsToHours(archive && (archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds)),
       cost: this._toNumber(archive && archive.cost),
       layerHeight: archive && archive.layer_height != null && archive.layer_height !== "" ? String(archive.layer_height) : "",
@@ -420,7 +422,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
             dateKey: key,
             archives: [],
             count: 0,
+            objectCount: 0,
             weight: 0,
+            cost: 0,
+            filamentCount: 0,
+            durationHours: 0,
             successCount: 0,
             failedCount: 0,
             stoppedCount: 0,
@@ -433,7 +439,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         var day = accumulator[key];
         day.archives.push(archive);
         day.count += 1;
+        day.objectCount += archive.objectCount;
         day.weight += archive.filamentWeight;
+        day.cost += archive.cost;
+        day.durationHours += archive.durationHours;
+        day.filamentCount += archive.filamentCount;
 
         if (archive.status === "success") {
           day.successCount += 1;
@@ -458,7 +468,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _buildHeatmapDataset(grouped, visibleWeeks) {
-    var mode = this._stateValue(this._config.mode_entity) || "Print Count";
+    var mode = this._normalizeMode(this._stateValue(this._config.mode_entity) || "Print Count");
     var weeks = Math.max(12, Number(visibleWeeks || this._config.weeks || 52));
     var startDay = ((this._config.start_day % 7) + 7) % 7;
     var today = this._startOfDay(new Date());
@@ -468,14 +478,24 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     var keys = Object.keys(grouped);
     var maxCount = 0;
+    var maxObjectCount = 0;
     var maxWeight = 0;
+    var maxCost = 0;
+    var maxFilamentCount = 0;
+    var maxDurationHours = 0;
 
     keys.forEach(function (key) {
       var day = grouped[key];
       maxCount = Math.max(maxCount, day.count || 0);
+      maxObjectCount = Math.max(maxObjectCount, day.objectCount || 0);
       maxWeight = Math.max(maxWeight, day.weight || 0);
+      maxCost = Math.max(maxCost, day.cost || 0);
+      maxFilamentCount = Math.max(maxFilamentCount, day.filamentCount || 0);
+      maxDurationHours = Math.max(maxDurationHours, day.durationHours || 0);
       day.dominantColor = this._findDominantColor(day.colorWeights);
       day.outcomeColor = this._buildOutcomeColor(day);
+      day.outcomeBand = this._buildOutcomeBand(day);
+      day.hasFullDayPrinting = Number(day.durationHours || 0) >= 24;
       day.archives.sort(function (left, right) {
         return right.timestamp - left.timestamp;
       });
@@ -504,7 +524,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           stats: stats,
           mode: mode,
           maxCount: maxCount,
+          maxObjectCount: maxObjectCount,
           maxWeight: maxWeight,
+          maxCost: maxCost,
+          maxFilamentCount: maxFilamentCount,
+          maxDurationHours: maxDurationHours,
           isFuture: isFuture,
         });
 
@@ -519,7 +543,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return {
       mode: mode,
       series: series,
-      colorRanges: this._buildColorRanges(series, mode, maxCount, maxWeight),
+      colorRanges: this._buildColorRanges(series, mode, {
+        maxCount: maxCount,
+        maxObjectCount: maxObjectCount,
+        maxWeight: maxWeight,
+        maxCost: maxCost,
+        maxFilamentCount: maxFilamentCount,
+        maxDurationHours: maxDurationHours,
+      }),
       weekKeys: weekKeys,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
@@ -557,11 +588,23 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (input.mode === "Filament Weight") {
         value = Number(stats.weight || 0);
         color = this._buildIntensityColor(value, input.maxWeight || 0, "#DBEAFE", "#1D4ED8");
+      } else if (input.mode === "By Number of Printed Objects") {
+        value = Number(stats.objectCount || 0);
+        color = this._buildIntensityColor(value, input.maxObjectCount || 0, "#FEF3C7", "#D97706");
+      } else if (input.mode === "By Cost of Prints") {
+        value = Number(stats.cost || 0);
+        color = this._buildIntensityColor(value, input.maxCost || 0, "#FCE7F3", "#BE185D");
+      } else if (input.mode === "By Number of Different Filaments") {
+        value = Number(stats.filamentCount || 0);
+        color = this._buildIntensityColor(value, input.maxFilamentCount || 0, "#E0F2FE", "#0369A1");
+      } else if (input.mode === "By Total Time Printing") {
+        value = Number(stats.durationHours || 0);
+        color = this._buildIntensityColor(value, input.maxDurationHours || 0, "#EDE9FE", "#6D28D9");
       } else if (input.mode === "Dominant Color") {
         value = Number(stats.count || 0);
         color = stats.dominantColor || this._emptyCellColor();
-      } else if (input.mode === "Outcome Mix") {
-        value = Number(stats.count || 0);
+      } else if (input.mode === "By Outcome") {
+        value = Number(stats.outcomeBand || 0);
         color = stats.outcomeColor;
       } else {
         value = Number(stats.count || 0);
@@ -578,9 +621,15 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         dateKey: input.dateKey,
         label: this._formatDateLabel(input.dateKey),
         count: stats ? stats.count : 0,
+        objectCount: stats ? stats.objectCount : 0,
         weight: stats ? stats.weight : 0,
+        cost: stats ? stats.cost : 0,
+        filamentCount: stats ? stats.filamentCount : 0,
+        durationHours: stats ? stats.durationHours : 0,
         dominantColor: stats ? stats.dominantColor || "" : "",
         outcomeColor: stats ? stats.outcomeColor : "",
+        outcomeLabel: stats ? this._outcomeBandLabel(stats.outcomeBand) : "",
+        hasFullDayPrinting: stats ? !!stats.hasFullDayPrinting : false,
         successCount: stats ? stats.successCount : 0,
         failedCount: stats ? stats.failedCount : 0,
         stoppedCount: stats ? stats.stoppedCount : 0,
@@ -736,7 +785,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chartContainer.style.setProperty("--cell-stroke-strong", this._pointStrokeColor(false, true));
   }
 
-  _buildColorRanges(series, mode, maxCount, maxWeight) {
+  _buildColorRanges(series, mode, maxima) {
     var futureColor = this._futureCellColor();
     var emptyColor = this._emptyCellColor();
     var ranges = [
@@ -750,19 +799,44 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       }));
     }
 
-    if (mode === "Outcome Mix") {
-      return ranges.concat(this._buildCategoricalColorRanges(series, function (point) {
-        return point && point.meta && point.meta.outcomeColor ? point.meta.outcomeColor : emptyColor;
-      }));
+    if (mode === "By Outcome") {
+      return ranges.concat([
+        { from: 1, to: 1, color: "#D32F2F" },
+        { from: 2, to: 2, color: "#F57C00" },
+        { from: 3, to: 3, color: "#FBC02D" },
+        { from: 4, to: 4, color: "#9CCC65" },
+        { from: 5, to: 5, color: "#2E7D32" },
+      ]);
     }
+
+    var modeConfig = this._modeScaleConfig(mode, maxima || {});
 
     return ranges.concat(
       this._buildContinuousColorRanges(
-        mode === "Filament Weight" ? maxWeight : maxCount,
-        mode === "Filament Weight" ? "#DBEAFE" : "#DCFCE7",
-        mode === "Filament Weight" ? "#1D4ED8" : "#15803D"
+        modeConfig.maxValue,
+        modeConfig.startColor,
+        modeConfig.endColor
       )
     );
+  }
+
+  _modeScaleConfig(mode, maxima) {
+    if (mode === "Filament Weight") {
+      return { maxValue: maxima.maxWeight || 0, startColor: "#DBEAFE", endColor: "#1D4ED8" };
+    }
+    if (mode === "By Number of Printed Objects") {
+      return { maxValue: maxima.maxObjectCount || 0, startColor: "#FEF3C7", endColor: "#D97706" };
+    }
+    if (mode === "By Cost of Prints") {
+      return { maxValue: maxima.maxCost || 0, startColor: "#FCE7F3", endColor: "#BE185D" };
+    }
+    if (mode === "By Number of Different Filaments") {
+      return { maxValue: maxima.maxFilamentCount || 0, startColor: "#E0F2FE", endColor: "#0369A1" };
+    }
+    if (mode === "By Total Time Printing") {
+      return { maxValue: maxima.maxDurationHours || 0, startColor: "#EDE9FE", endColor: "#6D28D9" };
+    }
+    return { maxValue: maxima.maxCount || 0, startColor: "#DCFCE7", endColor: "#15803D" };
   }
 
   _buildCategoricalColorRanges(series, colorSelector) {
@@ -894,12 +968,24 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var title = [
       meta.label,
       'Prints: ' + String(meta.count || 0),
+      'Objects: ' + String(meta.objectCount || 0),
       'Weight: ' + this._formatWeight(meta.weight || 0),
+      'Cost: ' + this._formatCost(meta.cost || 0),
+      'Filaments: ' + String(meta.filamentCount || 0),
+      'Time: ' + this._formatHours(meta.durationHours || 0),
       'Status: ' + String(meta.successCount || 0) + ' success, ' + String((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
     ];
 
     if (mode === 'Dominant Color' && meta.dominantColor) {
       title.push('Dominant color: ' + meta.dominantColor.toUpperCase());
+    }
+
+    if (mode === 'By Outcome' && meta.outcomeLabel) {
+      title.push('Outcome: ' + meta.outcomeLabel);
+    }
+
+    if (mode === 'By Total Time Printing' && meta.hasFullDayPrinting) {
+      title.push('Printed all 24 hours');
     }
 
     return title.join(' | ');
@@ -1060,15 +1146,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<div style="padding:8px 10px;min-width:180px">',
       '<div style="font-weight:700;margin-bottom:4px">' + this._escapeHtml(meta.label) + "</div>",
       '<div>Prints: <strong>' + this._escapeHtml(String(meta.count || 0)) + "</strong></div>",
+      '<div>Objects: <strong>' + this._escapeHtml(String(meta.objectCount || 0)) + "</strong></div>",
       '<div>Weight: <strong>' + this._escapeHtml(this._formatWeight(meta.weight || 0)) + "</strong></div>",
+      '<div>Cost: <strong>' + this._escapeHtml(this._formatCost(meta.cost || 0)) + "</strong></div>",
+      '<div>Filaments: <strong>' + this._escapeHtml(String(meta.filamentCount || 0)) + "</strong></div>",
+      '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
       '<div>Status: <strong>' + this._escapeHtml(meta.successCount + " success, " + (meta.failedCount + meta.stoppedCount) + " fail/stop") + "</strong></div>",
     ];
 
     if (mode === "Dominant Color" && meta.dominantColor) {
       lines.push('<div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="width:12px;height:12px;border-radius:999px;background:' + this._escapeHtml(meta.dominantColor) + ';display:inline-block"></span><span>Dominant color</span></div>');
     }
-    if (mode === "Outcome Mix") {
-      lines.push('<div style="margin-top:4px">Tap to inspect this day.</div>');
+    if (mode === "By Outcome" && meta.outcomeLabel) {
+      lines.push('<div style="margin-top:4px">Outcome band: <strong>' + this._escapeHtml(meta.outcomeLabel) + '</strong></div>');
+    }
+    if (mode === "By Total Time Printing" && meta.hasFullDayPrinting) {
+      lines.push('<div style="margin-top:4px">Printed all 24 hours.</div>');
     }
     lines.push("</div>");
     return lines.join("");
@@ -1087,16 +1180,97 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _buildOutcomeColor(day) {
+    var band = this._buildOutcomeBand(day);
+    var palette = {
+      1: "#D32F2F",
+      2: "#F57C00",
+      3: "#FBC02D",
+      4: "#9CCC65",
+      5: "#2E7D32",
+    };
+    return palette[band] || this._emptyCellColor();
+  }
+
+  _buildOutcomeBand(day) {
     var total = Number(day.count || 0);
     if (total <= 0) {
-      return this._emptyCellColor();
+      return 0;
     }
 
     var negatives = Number(day.failedCount || 0) + Number(day.stoppedCount || 0) + Number(day.otherCount || 0);
     var neutrals = Number(day.printingCount || 0);
-    var ratio = (negatives + neutrals * 0.5) / total;
-    var hue = Math.max(0, Math.min(120, 120 * (1 - ratio)));
-    return this._hslToHex(hue, 72, 44);
+    var penalty = (negatives + neutrals * 0.5) / total;
+
+    if (penalty >= 0.8) {
+      return 1;
+    }
+    if (penalty >= 0.55) {
+      return 2;
+    }
+    if (penalty >= 0.3) {
+      return 3;
+    }
+    if (penalty > 0) {
+      return 4;
+    }
+    return 5;
+  }
+
+  _outcomeBandLabel(band) {
+    var labels = {
+      1: "Poor",
+      2: "Rough",
+      3: "Mixed",
+      4: "Mostly Good",
+      5: "Good",
+    };
+    return labels[band] || "";
+  }
+
+  _normalizeMode(mode) {
+    return mode === "Outcome Mix" ? "By Outcome" : mode;
+  }
+
+  _countPrintableObjects(archive) {
+    var printableObjects = archive && archive.extra_data && archive.extra_data.printable_objects;
+    if (printableObjects && typeof printableObjects === "object") {
+      return Object.keys(printableObjects).length;
+    }
+    return 0;
+  }
+
+  _countDistinctFilaments(archive) {
+    var slots = Array.isArray(archive && archive.filament_slots)
+      ? archive.filament_slots
+      : Array.isArray(archive && archive.extra_data && archive.extra_data.filament_slots)
+        ? archive.extra_data.filament_slots
+        : [];
+    var seen = {};
+
+    slots.forEach(function (slot) {
+      var used = this._toNumber(slot && slot.used_g);
+      var color = this._normalizeHexColor(slot && slot.color);
+      var type = String(slot && slot.type ? slot.type : "").trim().toLowerCase();
+      var key = [color || "no-color", type || "no-type"].join("|");
+      if (used > 0) {
+        seen[key] = true;
+      }
+    }.bind(this));
+
+    var count = Object.keys(seen).length;
+    if (count > 0) {
+      return count;
+    }
+
+    return String(archive && archive.filament_color ? archive.filament_color : "")
+      .split(",")
+      .map(function (value) {
+        return this._normalizeHexColor(value);
+      }.bind(this))
+      .filter(Boolean)
+      .filter(function (value, index, items) {
+        return items.indexOf(value) === index;
+      }).length;
   }
 
   _findDominantColor(colorWeights) {

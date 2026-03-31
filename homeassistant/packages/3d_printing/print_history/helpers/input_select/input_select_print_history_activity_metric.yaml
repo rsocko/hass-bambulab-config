@@ -5,5 +5,9 @@ print_history_activity_metric:
     - Print Count
     - Filament Weight
     - Dominant Color
-    - Outcome Mix
+    - By Outcome
+    - By Number of Printed Objects
+    - By Cost of Prints
+    - By Number of Different Filaments
+    - By Total Time Printing
   initial: Print Count
