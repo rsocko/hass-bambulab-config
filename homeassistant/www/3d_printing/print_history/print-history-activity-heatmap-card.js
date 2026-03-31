@@ -1028,13 +1028,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _buildHeatmapTitle(meta, mode) {
     var title = [
       meta.label,
-      'Prints: ' + String(meta.count || 0),
-      'Objects: ' + String(meta.objectCount || 0),
+      'Prints: ' + this._formatCount(meta.count || 0),
+      'Objects: ' + this._formatCount(meta.objectCount || 0),
       'Weight: ' + this._formatWeight(meta.weight || 0),
       'Cost: ' + this._formatCost(meta.cost || 0),
-      'Filaments: ' + String(meta.filamentCount || 0),
+      'Filaments: ' + this._formatCount(meta.filamentCount || 0),
       'Time: ' + this._formatHours(meta.durationHours || 0),
-      'Status: ' + String(meta.successCount || 0) + ' completed, ' + String((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
+      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
     ];
 
     if (mode === 'Dominant Color' && meta.dominantColor) {
@@ -1144,7 +1144,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var activeDays = Object.keys(grouped).length;
     var summary = [
       this._buildChipHtml(dataset.mode),
-      this._buildChipHtml(String(activeDays) + " active days"),
+      this._buildChipHtml(this._formatCount(activeDays) + " active days"),
       this._buildChipHtml(this._buildSummaryMetricText(archives, dataset.mode)),
     ];
 
@@ -1209,14 +1209,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     var subtitle = [
-      String(day.count) + (day.count === 1 ? " print" : " prints"),
+      this._formatCount(day.count) + (day.count === 1 ? " print" : " prints"),
       this._formatWeight(day.weight),
-      day.successCount + " completed",
-      (day.failedCount + day.stoppedCount) + " failures/stops",
+      this._formatCount(day.successCount) + " completed",
+      this._formatCount(day.failedCount + day.stoppedCount) + " failures/stops",
     ].join(" | ");
     var items = day.archives.slice(0, this._config.max_detail_items).map(this._buildArchiveCardHtml.bind(this)).join("");
     var extra = day.archives.length > this._config.max_detail_items
-      ? '<div class="details-empty">Showing the first ' + this._config.max_detail_items + ' prints for this day.</div>'
+      ? '<div class="details-empty">Showing the first ' + this._formatCount(this._config.max_detail_items) + ' prints for this day.</div>'
       : "";
 
     this._detailsContainer.innerHTML =
@@ -1291,13 +1291,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var lines = [
       '<div style="padding:8px 10px;min-width:180px">',
       '<div style="font-weight:700;margin-bottom:4px">' + this._escapeHtml(meta.label) + "</div>",
-      '<div>Prints: <strong>' + this._escapeHtml(String(meta.count || 0)) + "</strong></div>",
-      '<div>Objects: <strong>' + this._escapeHtml(String(meta.objectCount || 0)) + "</strong></div>",
+      '<div>Prints: <strong>' + this._escapeHtml(this._formatCount(meta.count || 0)) + "</strong></div>",
+      '<div>Objects: <strong>' + this._escapeHtml(this._formatCount(meta.objectCount || 0)) + "</strong></div>",
       '<div>Weight: <strong>' + this._escapeHtml(this._formatWeight(meta.weight || 0)) + "</strong></div>",
       '<div>Cost: <strong>' + this._escapeHtml(this._formatCost(meta.cost || 0)) + "</strong></div>",
-      '<div>Filaments: <strong>' + this._escapeHtml(String(meta.filamentCount || 0)) + "</strong></div>",
+      '<div>Filaments: <strong>' + this._escapeHtml(this._formatCount(meta.filamentCount || 0)) + "</strong></div>",
       '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
-      '<div>Status: <strong>' + this._escapeHtml(meta.successCount + " completed, " + (meta.failedCount + meta.stoppedCount) + " fail/stop") + "</strong></div>",
+      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.failedCount + meta.stoppedCount) + " fail/stop") + "</strong></div>",
     ];
 
     if (mode === "Dominant Color" && meta.dominantColor) {

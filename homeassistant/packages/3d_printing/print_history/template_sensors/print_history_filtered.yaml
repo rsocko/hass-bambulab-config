@@ -189,7 +189,7 @@
             {%- endif -%}
           {%- endfor -%}
           {% set count = ns.days | length %}
-          {{ count }} active {{ 'day' if count == 1 else 'days' }}
+          {{ '{:,}'.format(count) }} active {{ 'day' if count == 1 else 'days' }}
         activity_metric_total_label: >-
           {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
           {% if raw is string %}
