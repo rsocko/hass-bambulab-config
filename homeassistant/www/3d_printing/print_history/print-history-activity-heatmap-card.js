@@ -15,6 +15,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._renderQueued = false;
     this._signature = "";
     this._resizeObserver = null;
+    this._intersectionObserver = null;
+    this._visibilityHandler = null;
     this._lastObservedWidth = 0;
     this._isHidden = false;
   }
@@ -68,20 +70,27 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   connectedCallback() {
-    var self = this;
-    requestAnimationFrame(function () {
-      if (!self.isConnected || !self._config) {
-        return;
-      }
-      self._lastObservedWidth = 0;
-      self._queueRender();
-    });
+    this._ensureResizeObserver();
+    this._ensureVisibilityHooks();
+    this._requestVisibilityRender();
   }
 
   disconnectedCallback() {
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
+    }
+    if (this._intersectionObserver) {
+      this._intersectionObserver.disconnect();
+      this._intersectionObserver = null;
+    }
+    if (this._visibilityHandler) {
+      window.removeEventListener("resize", this._visibilityHandler);
+      window.removeEventListener("focus", this._visibilityHandler);
+      window.removeEventListener("pageshow", this._visibilityHandler);
+      window.removeEventListener("location-changed", this._visibilityHandler);
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+      this._visibilityHandler = null;
     }
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
@@ -183,6 +192,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._summaryContainer = this.shadowRoot.getElementById("summary");
     this._detailsContainer = this.shadowRoot.getElementById("details");
     this._ensureResizeObserver();
+    this._ensureVisibilityHooks();
   }
 
   _ensureResizeObserver() {
@@ -202,6 +212,52 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     });
 
     this._resizeObserver.observe(this._chartContainer);
+  }
+
+  _ensureVisibilityHooks() {
+    var self = this;
+    if (!this._visibilityHandler) {
+      this._visibilityHandler = function () {
+        self._requestVisibilityRender();
+      };
+
+      window.addEventListener("resize", this._visibilityHandler);
+      window.addEventListener("focus", this._visibilityHandler);
+      window.addEventListener("pageshow", this._visibilityHandler);
+      window.addEventListener("location-changed", this._visibilityHandler);
+      document.addEventListener("visibilitychange", this._visibilityHandler);
+    }
+
+    if (this._intersectionObserver || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    this._intersectionObserver = new IntersectionObserver(function (entries) {
+      var entry = entries && entries[0] ? entries[0] : null;
+      if (!entry || !entry.isIntersecting) {
+        return;
+      }
+      self._requestVisibilityRender();
+    }, {
+      root: null,
+      threshold: 0.01,
+    });
+
+    this._intersectionObserver.observe(this);
+  }
+
+  _requestVisibilityRender() {
+    var self = this;
+    requestAnimationFrame(function () {
+      if (!self.isConnected || !self._config) {
+        return;
+      }
+      if (document.visibilityState && document.visibilityState === "hidden") {
+        return;
+      }
+      self._lastObservedWidth = 0;
+      self._queueRender();
+    });
   }
 
   _queueRender() {
@@ -247,10 +303,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._setHiddenState(false);
 
     if (!this._hasRenderableWidth()) {
-      var self = this;
-      requestAnimationFrame(function () {
-        self._queueRender();
-      });
+      this._lastObservedWidth = 0;
       return;
     }
 

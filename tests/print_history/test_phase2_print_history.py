@@ -684,13 +684,20 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=23", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=24", content)
 
     def test_heatmap_card_rerenders_when_reconnected(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn("connectedCallback()", content)
-        self.assertIn("requestAnimationFrame(function () {", content)
+        self.assertIn("this._requestVisibilityRender();", content)
         self.assertIn("self._queueRender();", content)
+
+    def test_heatmap_card_rerenders_on_view_visibility_events(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("window.addEventListener(\"location-changed\"", content)
+        self.assertIn("document.addEventListener(\"visibilitychange\"", content)
+        self.assertIn("new IntersectionObserver(function (entries)", content)
+        self.assertIn("this._intersectionObserver.observe(this);", content)
 
     def test_heatmap_card_uses_api_object_count(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
