@@ -29,6 +29,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       mode_entity: config.mode_entity || "input_select.print_history_activity_metric",
       apply_filters_entity: config.apply_filters_entity || "input_boolean.print_history_activity_use_filters",
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
+      show_details: config.show_details === true,
       api_base_entity: config.api_base_entity || "input_text.bambuddy_api_base_url",
       weeks: Math.max(12, Number(config.weeks || 53)),
       max_detail_items: Math.max(1, Number(config.max_detail_items || 12)),
@@ -109,8 +110,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _renderShell() {
     this.shadowRoot.innerHTML =
       "<style>" +
-      "ha-card{padding:16px 16px 14px;}" +
-      ".title{font-size:1rem;font-weight:600;margin:0 0 10px 0;}" +
+      "ha-card{padding:10px 16px 12px;}" +
+      ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
       ".chart-wrap{min-height:var(--chart-min-height,300px);}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
@@ -149,7 +150,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<div class="title">' + this._escapeHtml(this._config.title) + "</div>" +
       '<div id="chart" class="chart-wrap"></div>' +
       '<div id="summary" class="summary"></div>' +
-      '<div id="details" class="details"></div>' +
+      (this._config.show_details ? '<div id="details" class="details"></div>' : "") +
       "</ha-card>";
 
     this._chartContainer = this.shadowRoot.getElementById("chart");

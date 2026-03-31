@@ -16,6 +16,7 @@
         - input_select.print_history_card_variant
         - input_text.print_history_search
         - input_text.print_history_filter_colors
+        - input_text.print_history_activity_selected_date
         - input_number.print_history_page_size
   conditions:
     - condition: state

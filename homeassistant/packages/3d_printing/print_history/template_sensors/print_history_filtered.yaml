@@ -21,6 +21,7 @@
         {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
         {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
         {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+        {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
         {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
         {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
         {%- set now_ts = as_timestamp(now()) | float(0) -%}
@@ -35,8 +36,9 @@
           {%- set layer_height = a.get('layer_height', '') | string -%}
           {%- set is_favorite = a.get('is_favorite', false) -%}
           {%- set tags = a.get('tags', '') | string | lower -%}
-          {%- set started_raw = a.get('started_at', '') | string -%}
+          {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
           {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+          {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
           {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
           {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
           {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
@@ -55,6 +57,7 @@
           {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
           {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
           {%- set matches_search = search_text == '' or search_text in search_blob -%}
+          {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
           {%- if filter_date == 'Today' -%}
             {%- set matches_date = age_days < 1 -%}
           {%- elif filter_date == 'This Week' -%}
@@ -68,7 +71,7 @@
           {%- else -%}
             {%- set matches_date = true -%}
           {%- endif -%}
-          {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_date -%}
+          {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_selected_day and matches_date -%}
             {%- set ns.matches = ns.matches + [a] -%}
           {%- endif -%}
         {%- endfor -%}
@@ -79,6 +82,7 @@
         has_active_filters: >-
           {% set search = states('input_text.print_history_search') | trim %}
           {% set color_values = states('input_text.print_history_filter_colors') | trim %}
+          {% set selected_day = states('input_text.print_history_activity_selected_date') | trim %}
           {{
             states('input_select.print_history_filter_status') != 'All'
             or states('input_select.print_history_filter_material') != 'All'
@@ -89,6 +93,7 @@
             or states('input_select.print_history_filter_layer_height') != 'All'
             or search not in ['', 'unknown', 'unavailable']
             or color_values not in ['', 'unknown', 'unavailable']
+            or selected_day not in ['', 'unknown', 'unavailable']
           }}
         total_pages: >-
           {% set total = states('sensor.print_history_filtered') | int(0) %}
@@ -116,6 +121,7 @@
           {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
           {%- set sort_by = states('input_select.print_history_sort') -%}
           {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+          {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
@@ -132,8 +138,9 @@
             {%- set layer_height = a.get('layer_height', '') | string -%}
             {%- set is_favorite = a.get('is_favorite', false) -%}
             {%- set tags = a.get('tags', '') | string | lower -%}
-            {%- set started_raw = a.get('started_at', '') | string -%}
+            {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
             {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+            {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
             {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
             {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
             {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
@@ -152,6 +159,7 @@
             {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
             {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
             {%- set matches_search = search_text == '' or search_text in search_blob -%}
+            {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
             {%- if filter_date == 'Today' -%}
               {%- set matches_date = age_days < 1 -%}
             {%- elif filter_date == 'This Week' -%}
@@ -165,7 +173,7 @@
             {%- else -%}
               {%- set matches_date = true -%}
             {%- endif -%}
-            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_date -%}
+            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_selected_day and matches_date -%}
               {%- set ns.matches = ns.matches + [a] -%}
             {%- endif -%}
           {%- endfor -%}
