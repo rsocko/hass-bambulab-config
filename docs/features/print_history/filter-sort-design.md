@@ -1009,7 +1009,6 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | Entity | Current Purpose | Replaced By |
 |--------|----------------|-------------|
 | `input_number.bambuddy_history_limit` | REST sensor `?limit=` param | `input_number.print_history_max_archives` |
-| `input_number.history_current_page` | Legacy pagination page | `input_number.print_history_current_page` (already exists) |
 | `sensor.print_history_page_archives` | Current visible page slice | Dashboard card entity |
 | `script.load_history_page` | REST command pagination | Template sensor paging (no script needed) |
 | `script.navigate_history` | Prev/next REST calls | Direct `input_number.set_value` on page helper |

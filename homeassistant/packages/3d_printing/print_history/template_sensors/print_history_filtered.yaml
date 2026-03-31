@@ -308,7 +308,7 @@
             {{ '{:,}'.format(ns.total_objects) }} objects
           {% elif mode == 'cost of prints' %}
             {{ '{:,.2f}'.format(ns.total_cost) }}
-          {% elif mode in ['filament uses', 'filaments used', 'number of different filaments'] %}
+          {% elif mode == 'filaments used' %}
             {{ '{:,}'.format(ns.total_filaments) }} filaments used
           {% elif mode == 'total time printing' %}
             {{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}

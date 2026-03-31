@@ -667,7 +667,9 @@ class TestTemplateSensors(unittest.TestCase):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("ns.total_prints = ns.total_prints + 1", content)
         self.assertIn("ns.total_objects = ns.total_objects + (a.get('object_count', 1) | int(1))", content)
-        self.assertIn("{% elif mode in ['filament uses', 'filaments used', 'number of different filaments'] %}", content)
+        self.assertIn("{% elif mode == 'filaments used' %}", content)
+        self.assertNotIn("filament uses", content)
+        self.assertNotIn("number of different filaments", content)
 
     def test_filtered_sensor_formats_activity_totals_with_grouping(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
@@ -687,8 +689,11 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_supports_filaments_used_label(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn('input.mode === "Filaments Used"', content)
-        self.assertIn('"filament uses": "Filaments Used"', content)
         self.assertIn('"filaments used": "Filaments Used"', content)
+        self.assertNotIn('"filament uses": "Filaments Used"', content)
+        self.assertNotIn('"number of different filaments": "Filaments Used"', content)
+        self.assertNotIn('"outcome mix": "Outcome"', content)
+        self.assertNotIn('"by outcome": "Outcome"', content)
 
     def test_heatmap_card_formats_large_totals_with_locale_grouping(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")

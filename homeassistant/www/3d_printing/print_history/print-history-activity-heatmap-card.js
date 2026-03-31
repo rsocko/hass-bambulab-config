@@ -1382,23 +1382,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "print count": "Print Count",
       "filament weight": "Filament Weight",
       "dominant color": "Dominant Color",
-      "outcome mix": "Outcome",
-      "by outcome": "Outcome",
       outcome: "Outcome",
-      "by number of printed objects": "Number of Printed Objects",
       "number of printed objects": "Number of Printed Objects",
-      "by cost of prints": "Cost of Prints",
       "cost of prints": "Cost of Prints",
-      "by number of different filaments": "Filaments Used",
-      "number of different filaments": "Filaments Used",
-      "by filament uses": "Filaments Used",
-      "filament uses": "Filaments Used",
-      "by filaments used": "Filaments Used",
       "filaments used": "Filaments Used",
-      "by total time printing": "Total Time Printing",
       "total time printing": "Total Time Printing",
     };
-    return aliases[normalized] || String(mode == null ? "Print Count" : mode).trim() || "Print Count";
+      return aliases[normalized] || "Print Count";
   }
 
   _countDistinctFilaments(archive) {
