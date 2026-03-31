@@ -1,0 +1,4 @@
+print_history_show_images:
+  name: Show Print History Images
+  icon: mdi:image-outline
+  initial: true
