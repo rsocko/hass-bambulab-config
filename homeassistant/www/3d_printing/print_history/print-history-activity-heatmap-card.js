@@ -16,6 +16,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._signature = "";
     this._resizeObserver = null;
     this._lastObservedWidth = 0;
+    this._isHidden = false;
   }
 
   setConfig(config) {
@@ -33,6 +34,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
       show_details: config.show_details === true,
       api_base_entity: config.api_base_entity || "input_text.bambuddy_api_base_url",
+      visibility_entity: config.visibility_entity || "",
       weeks: Math.max(12, Number(config.weeks || 52)),
       tablet_weeks: Math.max(12, Number(config.tablet_weeks || 32)),
       mobile_weeks: Math.max(12, Number(config.mobile_weeks || 20)),
@@ -102,6 +104,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       favorites: this._stateValue("input_boolean.print_history_filter_favorites_only"),
       search: this._stateValue("input_text.print_history_search"),
       colors: this._stateValue("input_text.print_history_filter_colors"),
+      visible: this._config.visibility_entity ? this._stateValue(this._config.visibility_entity) : "on",
       darkMode: !!(hass.themes && hass.themes.darkMode),
     };
   }
@@ -214,6 +217,32 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    if (!this._isVisible()) {
+      this._setHiddenState(true);
+      this._destroyChart();
+      this._chartContainer.innerHTML = "";
+      if (this._legendContainer) {
+        this._legendContainer.innerHTML = "";
+      }
+      if (this._summaryContainer) {
+        this._summaryContainer.innerHTML = "";
+      }
+      if (this._detailsContainer) {
+        this._detailsContainer.innerHTML = "";
+      }
+      return;
+    }
+
+    this._setHiddenState(false);
+
+    if (!this._hasRenderableWidth()) {
+      var self = this;
+      requestAnimationFrame(function () {
+        self._queueRender();
+      });
+      return;
+    }
+
     var archives = this._getScopedArchives();
     var grouped = this._groupArchivesByDate(archives);
     var dataset = this._buildHeatmapDataset(grouped, this._resolveVisibleWeeks());
@@ -256,6 +285,35 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._chart.destroy();
     }
     this._chart = null;
+  }
+
+  _isVisible() {
+    if (!this._config || !this._config.visibility_entity) {
+      return true;
+    }
+    return this._stateValue(this._config.visibility_entity) !== "off";
+  }
+
+  _setHiddenState(hidden) {
+    if (this._isHidden === hidden) {
+      return;
+    }
+
+    var card = this.shadowRoot ? this.shadowRoot.querySelector("ha-card") : null;
+    if (card) {
+      card.style.display = hidden ? "none" : "block";
+    }
+    this._isHidden = hidden;
+    if (!hidden) {
+      this._lastObservedWidth = 0;
+    }
+  }
+
+  _hasRenderableWidth() {
+    var width = this._chartContainer && this._chartContainer.clientWidth
+      ? this._chartContainer.clientWidth
+      : this.clientWidth || 0;
+    return width > 0;
   }
 
   _clearError() {
