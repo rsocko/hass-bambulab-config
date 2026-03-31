@@ -114,7 +114,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".day-label{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--secondary-text-color);padding-right:4px;}" +
       ".cells{display:grid;grid-template-rows:repeat(7,18px);row-gap:4px;}" +
       ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(10px,1fr));column-gap:4px;}" +
-      ".cell{appearance:none;border:none;border-radius:5px;height:18px;min-width:10px;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(148,163,184,0.18);transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:rgba(148,163,184,0.14);}" +
+      ".cell{appearance:none;border:none;border-radius:0;height:18px;min-width:10px;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(148,163,184,0.18);transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:rgba(148,163,184,0.14);}" +
       ".cell:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px rgba(148,163,184,0.26),0 2px 6px rgba(15,23,42,0.18);}" +
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
@@ -603,7 +603,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       },
       plotOptions: {
         heatmap: {
-          radius: 4,
+          radius: 0,
           enableShades: false,
           useFillColorAsStroke: false,
           colorScale: {
@@ -613,7 +613,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       },
       colors: ["#14B8A6"],
       stroke: {
-        width: 1,
+        width: 2,
         colors: [gridColor],
       },
       tooltip: {
