@@ -190,7 +190,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     var ApexChartsCtor = await this._ensureApexCharts();
     if (!ApexChartsCtor) {
-      throw new Error("ApexCharts runtime unavailable. Ensure apexcharts-card is installed and loaded.");
+      this._renderHeatmap(dataset);
+      return;
     }
 
     this._clearError();
@@ -201,10 +202,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._chartContainer.innerHTML = "";
       this._chart = new ApexChartsCtor(this._chartContainer, options);
       await this._chart.render();
+      await this._ensureChartVisible(dataset);
       return;
     }
 
     await this._chart.updateOptions(options, false, false, false);
+    await this._ensureChartVisible(dataset);
   }
 
   _destroyChart() {
@@ -222,6 +225,25 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (errorNode) {
       this._chartContainer.innerHTML = "";
     }
+  }
+
+  async _ensureChartVisible(dataset) {
+    await new Promise(function (resolve) { setTimeout(resolve, 0); });
+
+    if (this._chartHasRenderableOutput()) {
+      return;
+    }
+
+    this._destroyChart();
+    this._renderHeatmap(dataset);
+  }
+
+  _chartHasRenderableOutput() {
+    if (!this._chartContainer) {
+      return false;
+    }
+
+    return !!this._chartContainer.querySelector(".apexcharts-canvas, svg, canvas");
   }
 
   _getScopedArchives() {
@@ -463,6 +485,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return {
       mode: mode,
       series: series,
+      colorRanges: this._buildColorRanges(series, mode, maxCount, maxWeight),
       weekKeys: weekKeys,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
@@ -477,6 +500,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var value = 0;
 
     if (input.isFuture) {
+      value = -1;
       color = this._futureCellColor();
     } else if (stats) {
       if (input.mode === "Filament Weight") {
@@ -582,8 +606,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           radius: 4,
           enableShades: false,
           useFillColorAsStroke: false,
+          colorScale: {
+            ranges: dataset.colorRanges,
+          },
         },
       },
+      colors: ["#14B8A6"],
       stroke: {
         width: 1,
         colors: [gridColor],
@@ -623,6 +651,87 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         mode: isDark ? "dark" : "light",
       },
     };
+  }
+
+  _buildColorRanges(series, mode, maxCount, maxWeight) {
+    var futureColor = this._futureCellColor();
+    var emptyColor = this._emptyCellColor();
+    var ranges = [
+      { from: -1, to: -1, color: futureColor },
+      { from: 0, to: 0, color: emptyColor },
+    ];
+
+    if (mode === "Dominant Color") {
+      return ranges.concat(this._buildCategoricalColorRanges(series, function (point) {
+        return point && point.meta && point.meta.dominantColor ? point.meta.dominantColor : emptyColor;
+      }));
+    }
+
+    if (mode === "Outcome Mix") {
+      return ranges.concat(this._buildCategoricalColorRanges(series, function (point) {
+        return point && point.meta && point.meta.outcomeColor ? point.meta.outcomeColor : emptyColor;
+      }));
+    }
+
+    return ranges.concat(
+      this._buildContinuousColorRanges(
+        mode === "Filament Weight" ? maxWeight : maxCount,
+        mode === "Filament Weight" ? "#DBEAFE" : "#DCFCE7",
+        mode === "Filament Weight" ? "#1D4ED8" : "#15803D"
+      )
+    );
+  }
+
+  _buildCategoricalColorRanges(series, colorSelector) {
+    var colorCodes = {};
+    var nextCode = 1;
+    var ranges = [];
+
+    series.forEach(function (row) {
+      row.data.forEach(function (point) {
+        if (!point || !point.meta) {
+          point.y = 0;
+          return;
+        }
+        if (point.meta.isFuture) {
+          point.y = -1;
+          return;
+        }
+        if (!point.meta.count) {
+          point.y = 0;
+          return;
+        }
+
+        var color = this._normalizeHexColor(colorSelector(point)) || this._emptyCellColor();
+        if (!colorCodes[color]) {
+          colorCodes[color] = nextCode;
+          ranges.push({ from: nextCode, to: nextCode, color: color });
+          nextCode += 1;
+        }
+        point.y = colorCodes[color];
+      }.bind(this));
+    }.bind(this));
+
+    return ranges;
+  }
+
+  _buildContinuousColorRanges(maxValue, startColor, endColor) {
+    if (!maxValue || maxValue <= 0) {
+      return [];
+    }
+
+    var bucketCount = 6;
+    var ranges = [];
+    for (var bucket = 1; bucket <= bucketCount; bucket += 1) {
+      var from = bucket === 1 ? Number.EPSILON : ((bucket - 1) * maxValue) / bucketCount;
+      var to = bucket === bucketCount ? maxValue : (bucket * maxValue) / bucketCount;
+      ranges.push({
+        from: from,
+        to: to,
+        color: this._buildIntensityColor(bucket, bucketCount, startColor, endColor),
+      });
+    }
+    return ranges;
   }
 
   _renderHeatmap(dataset) {
