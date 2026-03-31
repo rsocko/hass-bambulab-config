@@ -13,6 +13,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._detailsContainer = null;
     this._renderQueued = false;
     this._signature = "";
+    this._resizeObserver = null;
+    this._lastObservedWidth = 0;
   }
 
   setConfig(config) {
@@ -57,6 +59,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
       this._chart = null;
@@ -105,17 +111,17 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "<style>" +
       "ha-card{padding:16px 16px 14px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 10px 0;}" +
-      ".chart-wrap{min-height:300px;}" +
+      ".chart-wrap{min-height:var(--chart-min-height,300px);}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;}" +
-      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(10px,1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
+      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
       ".month-spacer{height:16px;}" +
       ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:16px;white-space:nowrap;overflow:hidden;}" +
-      ".day-labels{display:grid;grid-template-rows:repeat(7,18px);row-gap:4px;padding-top:24px;}" +
+      ".day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:24px;}" +
       ".day-label{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--secondary-text-color);padding-right:4px;}" +
-      ".cells{display:grid;grid-template-rows:repeat(7,18px);row-gap:4px;}" +
-      ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(10px,1fr));column-gap:4px;}" +
-      ".cell{appearance:none;border:none;border-radius:0;height:18px;min-width:10px;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(148,163,184,0.18);transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:rgba(148,163,184,0.14);}" +
-      ".cell:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px rgba(148,163,184,0.26),0 2px 6px rgba(15,23,42,0.18);}" +
+      ".cells{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
+      ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;}" +
+      ".cell{appearance:none;border:none;border-radius:0;height:var(--cell-size,18px);min-width:var(--cell-size,10px);padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px var(--cell-stroke,rgba(148,163,184,0.18));transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:var(--cell-empty,rgba(148,163,184,0.14));}" +
+      ".cell:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(--cell-stroke-strong,rgba(148,163,184,0.26)),0 2px 6px rgba(15,23,42,0.18);}" +
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
@@ -149,6 +155,26 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chartContainer = this.shadowRoot.getElementById("chart");
     this._summaryContainer = this.shadowRoot.getElementById("summary");
     this._detailsContainer = this.shadowRoot.getElementById("details");
+    this._ensureResizeObserver();
+  }
+
+  _ensureResizeObserver() {
+    var self = this;
+    if (this._resizeObserver || typeof ResizeObserver === "undefined" || !this._chartContainer) {
+      return;
+    }
+
+    this._resizeObserver = new ResizeObserver(function (entries) {
+      var entry = entries && entries[0] ? entries[0] : null;
+      var width = entry && entry.contentRect ? Math.round(entry.contentRect.width) : 0;
+      if (!width || Math.abs(width - self._lastObservedWidth) < 6) {
+        return;
+      }
+      self._lastObservedWidth = width;
+      self._queueRender();
+    });
+
+    this._resizeObserver.observe(this._chartContainer);
   }
 
   _queueRender() {
@@ -178,6 +204,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var archives = this._getScopedArchives();
     var grouped = this._groupArchivesByDate(archives);
     var dataset = this._buildHeatmapDataset(grouped);
+    var layout = this._buildChartLayout(dataset.weekKeys.length);
+
+    this._applyChartLayout(layout);
 
     this._renderSummary(archives, grouped, dataset);
     this._renderDetails(grouped);
@@ -196,7 +225,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     this._clearError();
 
-    var options = this._buildChartOptions(dataset);
+  var options = this._buildChartOptions(dataset, layout);
 
     if (!this._chart) {
       this._chartContainer.innerHTML = "";
@@ -540,16 +569,18 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     };
   }
 
-  _buildChartOptions(dataset) {
+  _buildChartOptions(dataset, layout) {
     var self = this;
     var isDark = !!(this._hass && this._hass.themes && this._hass.themes.darkMode);
-    var textColor = isDark ? "#D1D5DB" : "#1F2937";
-    var gridColor = isDark ? "rgba(148,163,184,0.22)" : "rgba(100,116,139,0.18)";
+    var textColor = this._themeColor(["--primary-text-color"], isDark ? "#D1D5DB" : "#1F2937");
+    var gridColor = this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], isDark ? "#94a3b8" : "#64748b"), isDark ? 0.38 : 0.34, isDark ? "rgba(148,163,184,0.38)" : "rgba(100,116,139,0.34)");
+    var chartBackground = this._themeColor(["--ha-card-background", "--card-background-color", "--primary-background-color"], isDark ? "#111827" : "#ffffff");
 
     return {
       chart: {
         type: "heatmap",
-        height: 320,
+        height: layout.chartHeight,
+        background: chartBackground,
         foreColor: textColor,
         toolbar: { show: false },
         animations: { enabled: false },
@@ -651,6 +682,33 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         mode: isDark ? "dark" : "light",
       },
     };
+  }
+
+  _buildChartLayout(weekCount) {
+    var safeWeekCount = Math.max(1, Number(weekCount) || 53);
+    var containerWidth = this._chartContainer && this._chartContainer.clientWidth
+      ? this._chartContainer.clientWidth
+      : this.clientWidth || 960;
+    var availableWidth = Math.max(240, containerWidth - 68);
+    var cellSize = Math.max(8, Math.min(18, Math.floor(availableWidth / safeWeekCount)));
+    var chartHeight = Math.max(130, cellSize * 7 + 52);
+
+    return {
+      cellSize: cellSize,
+      chartHeight: chartHeight,
+    };
+  }
+
+  _applyChartLayout(layout) {
+    if (!this._chartContainer || !layout) {
+      return;
+    }
+
+    this._chartContainer.style.setProperty("--cell-size", layout.cellSize + "px");
+    this._chartContainer.style.setProperty("--chart-min-height", layout.chartHeight + "px");
+    this._chartContainer.style.setProperty("--cell-empty", this._emptyCellColor());
+    this._chartContainer.style.setProperty("--cell-stroke", this._pointStrokeColor(false, false));
+    this._chartContainer.style.setProperty("--cell-stroke-strong", this._pointStrokeColor(false, true));
   }
 
   _buildColorRanges(series, mode, maxCount, maxWeight) {
@@ -1197,20 +1255,73 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _futureCellColor() {
-    return "rgba(148,163,184,0.06)";
+    return this._withAlpha(this._themeColor(["--divider-color", "--secondary-background-color"], "#94a3b8"), 0.12, "rgba(148,163,184,0.12)");
   }
 
   _emptyCellColor() {
-    return this._hass && this._hass.themes && this._hass.themes.darkMode
-      ? "rgba(148,163,184,0.16)"
-      : "rgba(203,213,225,0.72)";
+    return this._withAlpha(this._themeColor(["--divider-color", "--secondary-background-color"], this._hass && this._hass.themes && this._hass.themes.darkMode ? "#94a3b8" : "#cbd5e1"), this._hass && this._hass.themes && this._hass.themes.darkMode ? 0.28 : 0.46, this._hass && this._hass.themes && this._hass.themes.darkMode ? "rgba(148,163,184,0.28)" : "rgba(203,213,225,0.46)");
   }
 
   _pointStrokeColor(isFuture, hasData) {
     if (isFuture) {
-      return "rgba(148,163,184,0.08)";
+      return this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#94a3b8"), 0.18, "rgba(148,163,184,0.18)");
     }
-    return hasData ? "rgba(15,23,42,0.16)" : "rgba(148,163,184,0.14)";
+    return hasData
+      ? this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#64748b"), 0.42, "rgba(100,116,139,0.42)")
+      : this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#94a3b8"), 0.28, "rgba(148,163,184,0.28)");
+  }
+
+  _themeColor(variableNames, fallback) {
+    if (typeof window === "undefined" || typeof window.getComputedStyle !== "function") {
+      return fallback;
+    }
+
+    var names = Array.isArray(variableNames) ? variableNames : [variableNames];
+    var targets = [this, this._chartContainer, document.documentElement];
+    for (var targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
+      var target = targets[targetIndex];
+      if (!target) {
+        continue;
+      }
+      var styles = window.getComputedStyle(target);
+      for (var nameIndex = 0; nameIndex < names.length; nameIndex += 1) {
+        var value = styles.getPropertyValue(names[nameIndex]);
+        if (value && value.trim()) {
+          return value.trim();
+        }
+      }
+    }
+
+    return fallback;
+  }
+
+  _withAlpha(color, alpha, fallback) {
+    var rgb = this._parseColor(color || fallback);
+    if (!rgb) {
+      return fallback || color;
+    }
+    return "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + "," + Math.max(0, Math.min(1, alpha)) + ")";
+  }
+
+  _parseColor(color) {
+    var value = String(color || "").trim();
+    var normalizedHex = this._normalizeHexColor(value);
+    var match;
+
+    if (normalizedHex) {
+      return this._hexToRgb(normalizedHex);
+    }
+
+    match = value.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (match) {
+      return {
+        r: Math.max(0, Math.min(255, parseInt(match[1], 10))),
+        g: Math.max(0, Math.min(255, parseInt(match[2], 10))),
+        b: Math.max(0, Math.min(255, parseInt(match[3], 10))),
+      };
+    }
+
+    return null;
   }
 
   _mixHexColors(startColor, endColor, ratio) {
