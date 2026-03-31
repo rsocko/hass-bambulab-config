@@ -671,6 +671,7 @@ class TestTemplateSensors(unittest.TestCase):
 
     def test_filtered_sensor_formats_activity_totals_with_grouping(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        self.assertIn("{{ '{:,}'.format(count) }} active", content)
         self.assertIn("{{ '{:,.1f}g'.format(ns.total_weight) }}", content)
         self.assertIn("{{ '{:,.2f}'.format(ns.total_cost) }}", content)
         self.assertIn("{{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}", content)
@@ -694,6 +695,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("return this._formatDecimal(value, 1) + \"h\";", content)
         self.assertIn("return this._formatDecimal(weight, 1) + \"g\";", content)
         self.assertIn("return \"$\" + this._formatDecimal(value, 2);", content)
+        self.assertIn("'Prints: ' + this._formatCount(meta.count || 0)", content)
+        self.assertIn("this._buildChipHtml(this._formatCount(activeDays) + \" active days\")", content)
+        self.assertIn("this._formatCount(day.count) + (day.count === 1 ? \" print\" : \" prints\")", content)
 
 
 # =============================================================================
