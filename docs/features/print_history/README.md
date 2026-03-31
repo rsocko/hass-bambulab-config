@@ -10,6 +10,8 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
 
+For the activity heatmap, the live metric contract is now: `Print Count` = archive rows, `Number of Printed Objects` = summed API `object_count`, and `Filament Uses` = summed per-archive populated filament slots. A backend-only single-source-of-truth heatmap filter path was analyzed and deferred pending a dedicated full-scope activity payload.
+
 ## Package Structure
 
 ```
@@ -265,6 +267,7 @@ For detailed design of the two major subsystems, see:
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
 - **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/detail card layouts.
+- **Heatmap backend unification** — See [filter-sort-design.md](filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
 - **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable, but depends on multipart upload and more media-state handling.
 - **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
 - **Reprint preflight** — See [advanced-features-design.md](advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
