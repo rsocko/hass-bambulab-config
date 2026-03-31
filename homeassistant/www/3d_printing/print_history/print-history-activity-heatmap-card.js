@@ -117,14 +117,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _renderShell() {
     this.shadowRoot.innerHTML =
       "<style>" +
-      "ha-card{padding:10px 16px 12px;}" +
+      "ha-card{padding:6px 16px 10px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
       ".chart-wrap{min-height:var(--chart-min-height,300px);}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
-      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
-      ".month-spacer{height:16px;}" +
-      ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:16px;white-space:nowrap;overflow:hidden;}" +
-      ".day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:24px;}" +
+      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
+      ".month-spacer{height:14px;}" +
+      ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:14px;white-space:nowrap;overflow:hidden;}" +
+      ".day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:20px;}" +
       ".day-label{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--secondary-text-color);padding-right:4px;}" +
       ".cells{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
       ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;}" +
@@ -133,7 +133,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
-      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:22px;margin-top:4px;}" +
+      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:18px;margin-top:2px;}" +
       ".legend.hidden{display:none;}" +
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
       ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
@@ -711,6 +711,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       chart: {
         type: "heatmap",
         height: layout.chartHeight,
+        parentHeightOffset: 0,
         background: chartBackground,
         foreColor: textColor,
         toolbar: { show: false },
@@ -793,7 +794,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       grid: {
         show: false,
         padding: {
-          top: 2,
+          top: 0,
           right: 4,
           bottom: 0,
           left: 16,
@@ -825,7 +826,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       : this.clientWidth || 960;
     var availableWidth = Math.max(240, containerWidth - 68);
     var cellSize = Math.max(8, Math.min(18, Math.floor(availableWidth / safeWeekCount)));
-    var chartHeight = Math.max(144, cellSize * 7 + 66);
+    var chartHeight = Math.max(136, cellSize * 7 + 54);
 
     return {
       cellSize: cellSize,
