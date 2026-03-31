@@ -31,7 +31,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
       show_details: config.show_details === true,
       api_base_entity: config.api_base_entity || "input_text.bambuddy_api_base_url",
-      weeks: Math.max(12, Number(config.weeks || 53)),
+      weeks: Math.max(12, Number(config.weeks || 52)),
+      tablet_weeks: Math.max(12, Number(config.tablet_weeks || 32)),
+      mobile_weeks: Math.max(12, Number(config.mobile_weeks || 20)),
+      tablet_breakpoint: Math.max(480, Number(config.tablet_breakpoint || 960)),
+      mobile_breakpoint: Math.max(320, Number(config.mobile_breakpoint || 640)),
       max_detail_items: Math.max(1, Number(config.max_detail_items || 12)),
       start_day: Number.isInteger(config.start_day) ? config.start_day : 0,
       day_labels: Array.isArray(config.day_labels) && config.day_labels.length === 7
@@ -204,7 +208,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     var archives = this._getScopedArchives();
     var grouped = this._groupArchivesByDate(archives);
-    var dataset = this._buildHeatmapDataset(grouped);
+    var dataset = this._buildHeatmapDataset(grouped, this._resolveVisibleWeeks());
     var layout = this._buildChartLayout(dataset.weekKeys.length);
 
     this._applyChartLayout(layout);
@@ -453,9 +457,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     );
   }
 
-  _buildHeatmapDataset(grouped) {
+  _buildHeatmapDataset(grouped, visibleWeeks) {
     var mode = this._stateValue(this._config.mode_entity) || "Print Count";
-    var weeks = this._config.weeks;
+    var weeks = Math.max(12, Number(visibleWeeks || this._config.weeks || 52));
     var startDay = ((this._config.start_day % 7) + 7) % 7;
     var today = this._startOfDay(new Date());
     var rangeEnd = today;
@@ -522,6 +526,23 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       hasAnyPastCells: hasAnyPastCells,
       weeks: weeks,
     };
+  }
+
+  _resolveVisibleWeeks() {
+    var desktopWeeks = Math.max(12, Number(this._config.weeks || 52));
+    var tabletWeeks = Math.min(desktopWeeks, Math.max(12, Number(this._config.tablet_weeks || desktopWeeks)));
+    var mobileWeeks = Math.min(tabletWeeks, Math.max(12, Number(this._config.mobile_weeks || tabletWeeks)));
+    var width = this._chartContainer && this._chartContainer.clientWidth
+      ? this._chartContainer.clientWidth
+      : this.clientWidth || 0;
+
+    if (width && width <= this._config.mobile_breakpoint) {
+      return mobileWeeks;
+    }
+    if (width && width <= this._config.tablet_breakpoint) {
+      return tabletWeeks;
+    }
+    return desktopWeeks;
   }
 
   _buildPoint(input) {
