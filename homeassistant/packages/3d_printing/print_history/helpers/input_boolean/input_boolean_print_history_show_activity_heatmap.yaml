@@ -1,0 +1,4 @@
+print_history_show_activity_heatmap:
+  name: Show Print History Activity Heatmap
+  icon: mdi:chart-box-outline
+  initial: true

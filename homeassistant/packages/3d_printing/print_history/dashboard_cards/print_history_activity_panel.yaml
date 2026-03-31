@@ -4,6 +4,7 @@ cards:
     entities:
       - input_select.print_history_activity_metric
       - input_text.print_history_activity_selected_date
+      - input_boolean.print_history_show_activity_heatmap
       - sensor.print_history_filtered
     card:
       type: custom:bubble-card
@@ -94,6 +95,22 @@ cards:
               entity_id: input_text.print_history_activity_selected_date
             data:
               value: ""
+        - entity: input_boolean.print_history_show_activity_heatmap
+          sub_button_type: default
+          name: Toggle Heatmap
+          icon: >-
+            ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'
+              ? 'mdi:chevron-up'
+              : 'mdi:chevron-down'}
+          show_icon: true
+          show_name: false
+          show_state: false
+          show_background: true
+          state_background: ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'}
+          state_color: ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'}
+          fill_width: false
+          tap_action:
+            action: toggle
       styles: |
         ha-card {
           margin-top: 8px !important;
@@ -102,4 +119,9 @@ cards:
         .bubble-sub-buttons-container {
           gap: 6px !important;
         }
-  - !include ../dashboard_cards/print_history_activity_heatmap.yaml
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: input_boolean.print_history_show_activity_heatmap
+        state: "on"
+    card: !include ../dashboard_cards/print_history_activity_heatmap.yaml

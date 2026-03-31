@@ -221,6 +221,7 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
+        "input_boolean_print_history_show_activity_heatmap.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_NUMBER = [

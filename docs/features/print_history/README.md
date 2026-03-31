@@ -59,6 +59,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
 │   │   ├── input_boolean_capture_on_error.yaml
+│   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
 │   ├── input_number/
 │   │   ├── input_number_bambuddy_history_limit.yaml
@@ -151,6 +152,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
 | `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~95% | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
+| `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
 | `input_number.history_current_page` | input_number | Current pagination page | — |
 | `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
@@ -205,7 +207,7 @@ Implemented now:
 - Layer 1 archive fetch + projection via `sensor.print_history_archives`
 - Layer 2 filtering, sorting, page metadata, and page slice sensors
 - Browser header with search, matches, filter pills, settings popup, clear actions, and color chips
-- GitHub-style activity heatmap with count, weight, dominant-color, and outcome-mix modes
+- GitHub-style activity heatmap with count, weight, dominant-color, and outcome-mix modes, plus a separator chevron to collapse or expand the heatmap body
 - Day drill-in cards that can follow the active browser filters or ignore them
 - Repeated top/bottom control strip with page navigation, page-size slider, layout toggles, and refresh
 - Archive grid renderer with `Compact`, `Media`, and `Detail` variants
