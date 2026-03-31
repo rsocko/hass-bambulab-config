@@ -667,7 +667,13 @@ class TestTemplateSensors(unittest.TestCase):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("ns.total_prints = ns.total_prints + 1", content)
         self.assertIn("ns.total_objects = ns.total_objects + (a.get('object_count', 1) | int(1))", content)
-        self.assertIn("{% elif mode == 'filament uses' %}", content)
+        self.assertIn("{% elif mode in ['filament uses', 'filaments used', 'number of different filaments'] %}", content)
+
+    def test_filtered_sensor_formats_activity_totals_with_grouping(self):
+        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        self.assertIn("{{ '{:,.1f}g'.format(ns.total_weight) }}", content)
+        self.assertIn("{{ '{:,.2f}'.format(ns.total_cost) }}", content)
+        self.assertIn("{{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}", content)
 
 
 class TestHeatmapActivityCard(unittest.TestCase):
@@ -677,10 +683,17 @@ class TestHeatmapActivityCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn("objectCount: Math.max(1, this._toNumber(archive && archive.object_count))", content)
 
-    def test_heatmap_card_supports_filament_uses_label(self):
+    def test_heatmap_card_supports_filaments_used_label(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
-        self.assertIn('input.mode === "Filament Uses"', content)
-        self.assertIn('"filament uses": "Filament Uses"', content)
+        self.assertIn('input.mode === "Filaments Used"', content)
+        self.assertIn('"filament uses": "Filaments Used"', content)
+        self.assertIn('"filaments used": "Filaments Used"', content)
+
+    def test_heatmap_card_formats_large_totals_with_locale_grouping(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("return this._formatDecimal(value, 1) + \"h\";", content)
+        self.assertIn("return this._formatDecimal(weight, 1) + \"g\";", content)
+        self.assertIn("return \"$\" + this._formatDecimal(value, 2);", content)
 
 
 # =============================================================================
@@ -799,14 +812,15 @@ class TestHelpers(unittest.TestCase):
                     self.assertIn("idle", options)
                     self.assertIn("pending", options)
 
-    def test_activity_metric_options_use_filament_uses(self):
+    def test_activity_metric_options_use_filaments_used(self):
         path = HISTORY / "helpers" / "input_select" / "input_select_print_history_activity_metric.yaml"
         data = _load_yaml_safe(path)
         if isinstance(data, dict):
             for key, val in data.items():
                 if isinstance(val, dict) and "options" in val:
                     options = val["options"]
-                    self.assertIn("Filament Uses", options)
+                    self.assertIn("Filaments Used", options)
+                    self.assertNotIn("Filament Uses", options)
                     self.assertNotIn("Number of Different Filaments", options)
 
 

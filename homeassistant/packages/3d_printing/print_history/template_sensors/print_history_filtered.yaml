@@ -303,17 +303,17 @@
             {%- endif -%}
           {%- endfor -%}
           {% if mode == 'filament weight' %}
-            {{ '%.1fg' | format(ns.total_weight) }}
+            {{ '{:,.1f}g'.format(ns.total_weight) }}
           {% elif mode == 'number of printed objects' %}
-            {{ ns.total_objects }} objects
+            {{ '{:,}'.format(ns.total_objects) }} objects
           {% elif mode == 'cost of prints' %}
-            {{ '$%.2f' | format(ns.total_cost) }}
-          {% elif mode == 'filament uses' %}
-            {{ ns.total_filaments }} filament uses
+            {{ '{:,.2f}'.format(ns.total_cost) }}
+          {% elif mode in ['filament uses', 'filaments used', 'number of different filaments'] %}
+            {{ '{:,}'.format(ns.total_filaments) }} filaments used
           {% elif mode == 'total time printing' %}
-            {{ '%.1fh' | format(ns.total_duration_seconds / 3600) }}
+            {{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}
           {% else %}
-            {{ ns.total_prints }} prints
+            {{ '{:,}'.format(ns.total_prints) }} prints
           {% endif %}
         total_pages: >-
           {% set total = states('sensor.print_history_filtered') | int(0) %}

@@ -878,7 +878,7 @@ The shipped activity heatmap uses these metric definitions:
 
 - **Print Count**: one per archive row after filters are applied
 - **Number of Printed Objects**: sum of projected `object_count` values from the Bambuddy archive payload
-- **Filament Uses**: sum of distinct populated `filament_slots` per archive, intended as a usage/activity signal rather than a unique-filament-in-history count
+- **Filaments Used**: sum of distinct populated `filament_slots` per archive, intended as a usage/activity signal rather than a unique-filament-in-history count
 
 This keeps the browser and heatmap aligned on the same projected Layer 1 data contract and avoids deriving object totals from fallback printable-object blobs.
 

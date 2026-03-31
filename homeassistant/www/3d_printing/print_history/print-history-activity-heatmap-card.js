@@ -655,7 +655,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       } else if (input.mode === "Cost of Prints") {
         value = Number(stats.cost || 0);
         color = this._buildIntensityColor(value, input.maxCost || 0, "#FCE7F3", "#BE185D");
-      } else if (input.mode === "Filament Uses") {
+      } else if (input.mode === "Filaments Used") {
         value = Number(stats.filamentCount || 0);
         color = this._buildIntensityColor(value, input.maxFilamentCount || 0, "#E0F2FE", "#0369A1");
       } else if (input.mode === "Total Time Printing") {
@@ -891,7 +891,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Cost of Prints") {
       return { maxValue: maxima.maxCost || 0, startColor: "#FCE7F3", endColor: "#BE185D" };
     }
-    if (mode === "Filament Uses") {
+    if (mode === "Filaments Used") {
       return { maxValue: maxima.maxFilamentCount || 0, startColor: "#E0F2FE", endColor: "#0369A1" };
     }
     if (mode === "Total Time Printing") {
@@ -1177,18 +1177,18 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return this._formatWeight(totalWeight);
     }
     if (mode === "Number of Printed Objects") {
-      return String(totalObjects) + " objects";
+      return this._formatCount(totalObjects) + " objects";
     }
     if (mode === "Cost of Prints") {
       return this._formatCost(totalCost);
     }
-    if (mode === "Filament Uses") {
-      return String(totalFilaments) + " filament uses";
+    if (mode === "Filaments Used") {
+      return this._formatCount(totalFilaments) + " filaments used";
     }
     if (mode === "Total Time Printing") {
       return this._formatHours(totalDuration);
     }
-    return String(totalPrints) + " prints";
+    return this._formatCount(totalPrints) + " prints";
   }
 
   _renderDetails(grouped) {
@@ -1389,10 +1389,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "number of printed objects": "Number of Printed Objects",
       "by cost of prints": "Cost of Prints",
       "cost of prints": "Cost of Prints",
-      "by number of different filaments": "Filament Uses",
-      "number of different filaments": "Filament Uses",
-      "by filament uses": "Filament Uses",
-      "filament uses": "Filament Uses",
+      "by number of different filaments": "Filaments Used",
+      "number of different filaments": "Filaments Used",
+      "by filament uses": "Filaments Used",
+      "filament uses": "Filaments Used",
+      "by filaments used": "Filaments Used",
+      "filaments used": "Filaments Used",
       "by total time printing": "Total Time Printing",
       "total time printing": "Total Time Printing",
     };
@@ -1529,19 +1531,33 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _formatHours(hours) {
-    if (!hours) {
+    var value = this._toNumber(hours);
+    if (!value) {
       return "0h";
     }
-    return hours >= 10 ? hours.toFixed(1) + "h" : hours.toFixed(1) + "h";
+    return this._formatDecimal(value, 1) + "h";
   }
 
   _formatWeight(weight) {
-    return (this._toNumber(weight)).toFixed(1) + "g";
+    return this._formatDecimal(weight, 1) + "g";
   }
 
   _formatCost(cost) {
     var value = this._toNumber(cost);
-    return value > 0 ? "$" + value.toFixed(2) : "$0.00";
+    return "$" + this._formatDecimal(value, 2);
+  }
+
+  _formatCount(value) {
+    return new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 0,
+    }).format(this._toNumber(value));
+  }
+
+  _formatDecimal(value, digits) {
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(this._toNumber(value));
   }
 
   _formatDateTime(date) {
