@@ -27,7 +27,18 @@
         {%- set now_ts = as_timestamp(now()) | float(0) -%}
         {%- set ns = namespace(matches=[]) -%}
         {%- for a in archives -%}
-          {%- set status = a.get('status', '') | string | lower -%}
+          {%- set raw_status = a.get('status', '') | string | lower -%}
+          {%- if raw_status in ['completed', 'success'] -%}
+            {%- set status = 'completed' -%}
+          {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+            {%- set status = 'failed' -%}
+          {%- elif raw_status == 'stopped' -%}
+            {%- set status = 'stopped' -%}
+          {%- elif raw_status == 'printing' -%}
+            {%- set status = 'printing' -%}
+          {%- else -%}
+            {%- set status = raw_status -%}
+          {%- endif -%}
           {%- set material = a.get('filament_type', '') | string -%}
           {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
           {%- set printer = a.get('printer_id', '') | string -%}
@@ -118,7 +129,18 @@
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(days=[]) -%}
           {%- for a in archives -%}
-            {%- set status = a.get('status', '') | string | lower -%}
+            {%- set raw_status = a.get('status', '') | string | lower -%}
+            {%- if raw_status in ['completed', 'success'] -%}
+              {%- set status = 'completed' -%}
+            {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+              {%- set status = 'failed' -%}
+            {%- elif raw_status == 'stopped' -%}
+              {%- set status = 'stopped' -%}
+            {%- elif raw_status == 'printing' -%}
+              {%- set status = 'printing' -%}
+            {%- else -%}
+              {%- set status = raw_status -%}
+            {%- endif -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}
@@ -192,7 +214,18 @@
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(total_prints=0, total_weight=0, total_objects=0, total_cost=0, total_duration_seconds=0, total_filaments=0) -%}
           {%- for a in archives -%}
-            {%- set status = a.get('status', '') | string | lower -%}
+            {%- set raw_status = a.get('status', '') | string | lower -%}
+            {%- if raw_status in ['completed', 'success'] -%}
+              {%- set status = 'completed' -%}
+            {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+              {%- set status = 'failed' -%}
+            {%- elif raw_status == 'stopped' -%}
+              {%- set status = 'stopped' -%}
+            {%- elif raw_status == 'printing' -%}
+              {%- set status = 'printing' -%}
+            {%- else -%}
+              {%- set status = raw_status -%}
+            {%- endif -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}
@@ -319,7 +352,18 @@
           {%- set current_page = states('input_number.history_current_page') | int(1) -%}
           {%- set ns = namespace(matches=[]) -%}
           {%- for a in archives -%}
-            {%- set status = a.get('status', '') | string | lower -%}
+            {%- set raw_status = a.get('status', '') | string | lower -%}
+            {%- if raw_status in ['completed', 'success'] -%}
+              {%- set status = 'completed' -%}
+            {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+              {%- set status = 'failed' -%}
+            {%- elif raw_status == 'stopped' -%}
+              {%- set status = 'stopped' -%}
+            {%- elif raw_status == 'printing' -%}
+              {%- set status = 'printing' -%}
+            {%- else -%}
+              {%- set status = raw_status -%}
+            {%- endif -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}

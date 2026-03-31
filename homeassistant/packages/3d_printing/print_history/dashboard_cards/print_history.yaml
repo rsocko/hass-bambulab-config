@@ -26,7 +26,7 @@ cards:
           }
           const normalizeStatus = (status) => {
             const raw = String(status || '').toLowerCase();
-            if (raw === 'completed') return 'success';
+            if (raw === 'completed' || raw === 'success') return 'completed';
             if (raw === 'cancelled' || raw === 'aborted') return 'failed';
             return raw;
           };
@@ -36,7 +36,7 @@ cards:
           const baseUrl = states['input_text.bambuddy_api_base_url']?.state || '';
           const statusLabel = (status) => {
             const raw = normalizeStatus(status);
-            if (raw === 'success') return 'Completed';
+            if (raw === 'completed') return 'Completed';
             if (raw === 'failed') return 'Failed';
             if (raw === 'stopped') return 'Stopped';
             if (raw === 'printing') return 'Printing';
@@ -44,7 +44,7 @@ cards:
           };
           const statusIcon = (status) => {
             const raw = normalizeStatus(status);
-            if (raw === 'success') return '✅';
+            if (raw === 'completed') return '✅';
             if (raw === 'failed') return '❌';
             if (raw === 'stopped') return '⛔';
             if (raw === 'printing') return '🖨️';
@@ -52,7 +52,7 @@ cards:
           };
           const statusPill = (status) => {
             const raw = normalizeStatus(status);
-            const color = raw === 'success'
+            const color = raw === 'completed'
               ? '#2E7D32'
               : raw === 'failed'
                 ? '#C62828'
@@ -82,7 +82,7 @@ cards:
             const tagChips = tagsRaw.split(',').filter(t => t.trim()).slice(0, variant === 'Compact' ? 2 : 4).map(t => {
               const tag = t.trim();
               let bg = '#1565C0';
-              if (tag.startsWith('status:')) bg = tag.includes('success') ? '#2E7D32' : '#C62828';
+              if (tag.startsWith('status:')) bg = tag.includes('completed') ? '#2E7D32' : '#C62828';
               else if (tag.startsWith('vendor:')) bg = '#6A1B9A';
               else if (tag.startsWith('material:')) bg = '#00695C';
               else if (tag.startsWith('cost:')) bg = '#E65100';

@@ -3,8 +3,8 @@ print_history_filter_status:
   icon: mdi:list-status
   options:
     - All
-    - success
-    - failed
-    - stopped
-    - printing
+    - Completed
+    - Failed
+    - Stopped
+    - Printing
   initial: All
