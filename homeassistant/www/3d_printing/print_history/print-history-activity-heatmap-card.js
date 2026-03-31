@@ -112,7 +112,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "ha-card{padding:16px 16px 14px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 10px 0;}" +
       ".chart-wrap{min-height:var(--chart-min-height,300px);}" +
-      ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;}" +
+      ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
       ".month-spacer{height:16px;}" +
       ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:16px;white-space:nowrap;overflow:hidden;}" +
@@ -120,8 +120,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".day-label{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--secondary-text-color);padding-right:4px;}" +
       ".cells{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
       ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;}" +
-      ".cell{appearance:none;border:none;border-radius:0;height:var(--cell-size,18px);min-width:var(--cell-size,10px);padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px var(--cell-stroke,rgba(148,163,184,0.18));transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:var(--cell-empty,rgba(148,163,184,0.14));}" +
-      ".cell:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(--cell-stroke-strong,rgba(148,163,184,0.26)),0 2px 6px rgba(15,23,42,0.18);}" +
+      ".cell{appearance:none;border:none;border-radius:0;height:var(--cell-size,18px);min-width:var(--cell-size,10px);padding:0;cursor:pointer;box-shadow:none;transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;background:var(--cell-empty,rgba(148,163,184,0.14));}" +
+      ".cell:hover{transform:translateY(-1px);box-shadow:0 0 0 1px var(--cell-stroke-strong,rgba(148,163,184,0.26)),0 2px 6px rgba(15,23,42,0.18);}" +
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
@@ -573,7 +573,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var self = this;
     var isDark = !!(this._hass && this._hass.themes && this._hass.themes.darkMode);
     var textColor = this._themeColor(["--primary-text-color"], isDark ? "#D1D5DB" : "#1F2937");
-    var gridColor = this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], isDark ? "#94a3b8" : "#64748b"), isDark ? 0.38 : 0.34, isDark ? "rgba(148,163,184,0.38)" : "rgba(100,116,139,0.34)");
     var chartBackground = this._themeColor(["--ha-card-background", "--card-background-color", "--primary-background-color"], isDark ? "#111827" : "#ffffff");
 
     return {
@@ -624,6 +623,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       yaxis: {
         reversed: true,
         labels: {
+          minWidth: 28,
+          maxWidth: 28,
+          offsetX: -8,
           style: {
             colors: dataset.series.map(function () {
               return textColor;
@@ -645,7 +647,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       colors: ["#14B8A6"],
       stroke: {
         width: 2,
-        colors: [gridColor],
+        colors: [chartBackground],
       },
       tooltip: {
         theme: isDark ? "dark" : "light",
@@ -662,7 +664,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           top: 2,
           right: 4,
           bottom: 0,
-          left: 0,
+          left: 16,
         },
       },
       states: {
@@ -706,6 +708,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     this._chartContainer.style.setProperty("--cell-size", layout.cellSize + "px");
     this._chartContainer.style.setProperty("--chart-min-height", layout.chartHeight + "px");
+    this._chartContainer.style.setProperty("--chart-gap-background", this._themeColor(["--ha-card-background", "--card-background-color", "--primary-background-color"], this._hass && this._hass.themes && this._hass.themes.darkMode ? "#111827" : "#ffffff"));
     this._chartContainer.style.setProperty("--cell-empty", this._emptyCellColor());
     this._chartContainer.style.setProperty("--cell-stroke", this._pointStrokeColor(false, false));
     this._chartContainer.style.setProperty("--cell-stroke-strong", this._pointStrokeColor(false, true));
@@ -1255,20 +1258,20 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _futureCellColor() {
-    return this._withAlpha(this._themeColor(["--divider-color", "--secondary-background-color"], "#94a3b8"), 0.12, "rgba(148,163,184,0.12)");
+    return this._withAlpha(this._themeColor(["--divider-color", "--secondary-background-color"], "#94a3b8"), 0.08, "rgba(148,163,184,0.08)");
   }
 
   _emptyCellColor() {
-    return this._withAlpha(this._themeColor(["--divider-color", "--secondary-background-color"], this._hass && this._hass.themes && this._hass.themes.darkMode ? "#94a3b8" : "#cbd5e1"), this._hass && this._hass.themes && this._hass.themes.darkMode ? 0.28 : 0.46, this._hass && this._hass.themes && this._hass.themes.darkMode ? "rgba(148,163,184,0.28)" : "rgba(203,213,225,0.46)");
+    return this._withAlpha(this._themeColor(["--divider-color", "--secondary-background-color"], this._hass && this._hass.themes && this._hass.themes.darkMode ? "#94a3b8" : "#cbd5e1"), this._hass && this._hass.themes && this._hass.themes.darkMode ? 0.18 : 0.24, this._hass && this._hass.themes && this._hass.themes.darkMode ? "rgba(148,163,184,0.18)" : "rgba(203,213,225,0.24)");
   }
 
   _pointStrokeColor(isFuture, hasData) {
     if (isFuture) {
-      return this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#94a3b8"), 0.18, "rgba(148,163,184,0.18)");
+      return this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#94a3b8"), 0.22, "rgba(148,163,184,0.22)");
     }
     return hasData
-      ? this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#64748b"), 0.42, "rgba(100,116,139,0.42)")
-      : this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#94a3b8"), 0.28, "rgba(148,163,184,0.28)");
+      ? this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#64748b"), 0.34, "rgba(100,116,139,0.34)")
+      : this._withAlpha(this._themeColor(["--divider-color", "--secondary-text-color"], "#94a3b8"), 0.22, "rgba(148,163,184,0.22)");
   }
 
   _themeColor(variableNames, fallback) {
