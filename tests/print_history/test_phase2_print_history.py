@@ -658,6 +658,30 @@ class TestTemplateSensors(unittest.TestCase):
         content = sensor_path.read_text("utf-8")
         self.assertIn("3600", content, "Duration conversion must divide by 3600")
 
+    def test_archive_projection_includes_object_count_and_omits_quantity(self):
+        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        self.assertIn("object_count=a.get('object_count', 1) | int(1)", content)
+        self.assertNotIn("quantity=a.get('quantity', 1) | int(1)", content)
+
+    def test_filtered_sensor_uses_object_count_and_separate_print_count(self):
+        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        self.assertIn("ns.total_prints = ns.total_prints + 1", content)
+        self.assertIn("ns.total_objects = ns.total_objects + (a.get('object_count', 1) | int(1))", content)
+        self.assertIn("{% elif mode == 'filament uses' %}", content)
+
+
+class TestHeatmapActivityCard(unittest.TestCase):
+    """Heatmap card logic should match the projected archive schema and metric labels."""
+
+    def test_heatmap_card_uses_api_object_count(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("objectCount: Math.max(1, this._toNumber(archive && archive.object_count))", content)
+
+    def test_heatmap_card_supports_filament_uses_label(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('input.mode === "Filament Uses"', content)
+        self.assertIn('"filament uses": "Filament Uses"', content)
+
 
 # =============================================================================
 # 9. SCRIPT VALIDATION
@@ -774,6 +798,16 @@ class TestHelpers(unittest.TestCase):
                     options = val["options"]
                     self.assertIn("idle", options)
                     self.assertIn("pending", options)
+
+    def test_activity_metric_options_use_filament_uses(self):
+        path = HISTORY / "helpers" / "input_select" / "input_select_print_history_activity_metric.yaml"
+        data = _load_yaml_safe(path)
+        if isinstance(data, dict):
+            for key, val in data.items():
+                if isinstance(val, dict) and "options" in val:
+                    options = val["options"]
+                    self.assertIn("Filament Uses", options)
+                    self.assertNotIn("Number of Different Filaments", options)
 
 
 # =============================================================================

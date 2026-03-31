@@ -272,10 +272,7 @@
             {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_selected_day and matches_date -%}
               {%- set ns.total_prints = ns.total_prints + 1 -%}
               {%- set ns.total_weight = ns.total_weight + (a.get('filament_used_grams', 0) | float(0)) -%}
-              {%- set printable_objects = (a.get('extra_data') or {}).get('printable_objects') -%}
-              {%- set printable_count = printable_objects | count if printable_objects is mapping else 0 -%}
-              {%- set raw_object_count = a.get('object_count', 0) | int(0) -%}
-              {%- set ns.total_objects = ns.total_objects + ([1, raw_object_count, printable_count] | max) -%}
+                {%- set ns.total_objects = ns.total_objects + (a.get('object_count', 1) | int(1)) -%}
               {%- set ns.total_cost = ns.total_cost + (a.get('cost', 0) | float(0)) -%}
               {%- set duration_seconds = ((a.get('actual_time_seconds') if a.get('actual_time_seconds') is not none else a.get('print_time_seconds', 0)) | float(0)) -%}
               {%- set ns.total_duration_seconds = ns.total_duration_seconds + duration_seconds -%}
@@ -311,7 +308,7 @@
             {{ ns.total_objects }} objects
           {% elif mode == 'cost of prints' %}
             {{ '$%.2f' | format(ns.total_cost) }}
-          {% elif mode == 'number of different filaments' %}
+          {% elif mode == 'filament uses' %}
             {{ ns.total_filaments }} filament uses
           {% elif mode == 'total time printing' %}
             {{ '%.1fh' | format(ns.total_duration_seconds / 3600) }}

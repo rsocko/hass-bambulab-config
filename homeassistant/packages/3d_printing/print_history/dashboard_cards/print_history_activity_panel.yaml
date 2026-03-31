@@ -46,7 +46,7 @@ cards:
                 'Outcome': 'mdi:list-status',
                 'Number of Printed Objects': 'mdi:cube-outline',
                 'Cost of Prints': 'mdi:currency-usd',
-                'Number of Different Filaments': 'mdi:palette-swatch-outline',
+                'Filament Uses': 'mdi:palette-swatch-outline',
                 'Total Time Printing': 'mdi:timer-outline',
               };
               return icons[mode] || 'mdi:counter';

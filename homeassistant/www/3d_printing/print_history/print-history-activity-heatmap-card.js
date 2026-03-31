@@ -393,7 +393,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       timestamp: date,
       dateKey: date ? this._formatLocalDate(date) : "",
       formattedDate: date ? this._formatDateTime(date) : "Unknown date",
-      objectCount: Math.max(1, this._toNumber(archive && archive.object_count) || this._countPrintableObjects(archive)),
+      objectCount: Math.max(1, this._toNumber(archive && archive.object_count)),
       filamentWeight: this._toNumber(archive && archive.filament_used_grams),
       filamentCount: this._countDistinctFilaments(archive),
       durationHours: this._secondsToHours(archive && (archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds)),
@@ -655,7 +655,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       } else if (input.mode === "Cost of Prints") {
         value = Number(stats.cost || 0);
         color = this._buildIntensityColor(value, input.maxCost || 0, "#FCE7F3", "#BE185D");
-      } else if (input.mode === "Number of Different Filaments") {
+      } else if (input.mode === "Filament Uses") {
         value = Number(stats.filamentCount || 0);
         color = this._buildIntensityColor(value, input.maxFilamentCount || 0, "#E0F2FE", "#0369A1");
       } else if (input.mode === "Total Time Printing") {
@@ -891,7 +891,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Cost of Prints") {
       return { maxValue: maxima.maxCost || 0, startColor: "#FCE7F3", endColor: "#BE185D" };
     }
-    if (mode === "Number of Different Filaments") {
+    if (mode === "Filament Uses") {
       return { maxValue: maxima.maxFilamentCount || 0, startColor: "#E0F2FE", endColor: "#0369A1" };
     }
     if (mode === "Total Time Printing") {
@@ -1182,7 +1182,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Cost of Prints") {
       return this._formatCost(totalCost);
     }
-    if (mode === "Number of Different Filaments") {
+    if (mode === "Filament Uses") {
       return String(totalFilaments) + " filament uses";
     }
     if (mode === "Total Time Printing") {
@@ -1389,20 +1389,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "number of printed objects": "Number of Printed Objects",
       "by cost of prints": "Cost of Prints",
       "cost of prints": "Cost of Prints",
-      "by number of different filaments": "Number of Different Filaments",
-      "number of different filaments": "Number of Different Filaments",
+      "by number of different filaments": "Filament Uses",
+      "number of different filaments": "Filament Uses",
+      "by filament uses": "Filament Uses",
+      "filament uses": "Filament Uses",
       "by total time printing": "Total Time Printing",
       "total time printing": "Total Time Printing",
     };
     return aliases[normalized] || String(mode == null ? "Print Count" : mode).trim() || "Print Count";
-  }
-
-  _countPrintableObjects(archive) {
-    var printableObjects = archive && archive.extra_data && archive.extra_data.printable_objects;
-    if (printableObjects && typeof printableObjects === "object") {
-      return Object.keys(printableObjects).length;
-    }
-    return 0;
   }
 
   _countDistinctFilaments(archive) {

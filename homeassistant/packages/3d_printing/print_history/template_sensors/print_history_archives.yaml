@@ -67,7 +67,7 @@
               completed_at=a.get('completed_at'),
               created_at=a.get('created_at', ''),
               cost=a.get('cost', 0) | float(0),
-              quantity=a.get('quantity', 1) | int(1),
+                object_count=a.get('object_count', 1) | int(1),
               layer_height=(a.get('layer_height') if a.get('layer_height') is not none else ''),
               total_layers=a.get('total_layers', 0) | int(0),
               nozzle_diameter=(a.get('nozzle_diameter') if a.get('nozzle_diameter') is not none else ''),

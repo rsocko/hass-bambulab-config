@@ -8,6 +8,6 @@ print_history_activity_metric:
     - Outcome
     - Number of Printed Objects
     - Cost of Prints
-    - Number of Different Filaments
+    - Filament Uses
     - Total Time Printing
   initial: Print Count
