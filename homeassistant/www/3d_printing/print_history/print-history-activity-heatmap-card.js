@@ -9,6 +9,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._config = null;
     this._chart = null;
     this._chartContainer = null;
+    this._legendContainer = null;
     this._summaryContainer = null;
     this._detailsContainer = null;
     this._renderQueued = false;
@@ -130,7 +131,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
-      ".summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}" +
+      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:22px;margin-top:10px;}" +
+      ".legend.hidden{display:none;}" +
+      ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
+      ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
+      ".legend-swatch{width:14px;height:14px;border-radius:4px;background:var(--cell-empty,rgba(148,163,184,0.14));}" +
+      ".legend-note{font-size:11px;color:var(--secondary-text-color);margin-left:10px;opacity:0.9;}" +
+      ".summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(148,163,184,0.16);color:var(--primary-text-color);}" +
       ".details{margin-top:14px;}" +
       ".details-empty{padding:14px;border-radius:16px;background:rgba(148,163,184,0.12);color:var(--secondary-text-color);line-height:1.5;}" +
@@ -153,11 +160,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "<ha-card>" +
       '<div class="title">' + this._escapeHtml(this._config.title) + "</div>" +
       '<div id="chart" class="chart-wrap"></div>' +
+      '<div id="legend" class="legend"></div>' +
       '<div id="summary" class="summary"></div>' +
       (this._config.show_details ? '<div id="details" class="details"></div>' : "") +
       "</ha-card>";
 
     this._chartContainer = this.shadowRoot.getElementById("chart");
+    this._legendContainer = this.shadowRoot.getElementById("legend");
     this._summaryContainer = this.shadowRoot.getElementById("summary");
     this._detailsContainer = this.shadowRoot.getElementById("details");
     this._ensureResizeObserver();
@@ -213,6 +222,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     this._applyChartLayout(layout);
 
+    this._renderLegend(dataset);
     this._renderSummary(archives, grouped, dataset);
     this._renderDetails(grouped);
 
@@ -1022,27 +1032,113 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._handleDateSelection(meta.dateKey);
   }
 
+  _renderLegend(dataset) {
+    if (!this._legendContainer) {
+      return;
+    }
+
+    var mode = dataset && dataset.mode ? dataset.mode : "Print Count";
+    var legend = this._buildLegendConfig(mode);
+    if (!legend) {
+      this._legendContainer.className = "legend hidden";
+      this._legendContainer.innerHTML = "";
+      return;
+    }
+
+    this._legendContainer.className = "legend";
+    this._legendContainer.innerHTML =
+      '<div class="legend-scale">' +
+      '<span>' + this._escapeHtml(legend.startLabel) + '</span>' +
+      '<span class="legend-swatches">' + legend.colors.map(function (color) {
+        return '<span class="legend-swatch" style="background:' + this._escapeHtml(color) + '"></span>';
+      }.bind(this)).join("") + '</span>' +
+      '<span>' + this._escapeHtml(legend.endLabel) + '</span>' +
+      (legend.note ? '<span class="legend-note">' + this._escapeHtml(legend.note) + '</span>' : "") +
+      '</div>';
+  }
+
+  _buildLegendConfig(mode) {
+    if (mode === "Dominant Color") {
+      return null;
+    }
+
+    if (mode === "By Outcome") {
+      return {
+        startLabel: "Poor",
+        endLabel: "Good",
+        colors: ["#D32F2F", "#F57C00", "#FBC02D", "#9CCC65", "#2E7D32"],
+      };
+    }
+
+    var modeConfig = this._modeScaleConfig(mode, { maxCount: 5 });
+    return {
+      startLabel: "Less",
+      endLabel: "More",
+      colors: [
+        this._emptyCellColor(),
+        this._buildIntensityColor(1, 4, modeConfig.startColor, modeConfig.endColor),
+        this._buildIntensityColor(2, 4, modeConfig.startColor, modeConfig.endColor),
+        this._buildIntensityColor(3, 4, modeConfig.startColor, modeConfig.endColor),
+        this._buildIntensityColor(4, 4, modeConfig.startColor, modeConfig.endColor),
+      ],
+      note: mode === "By Total Time Printing" ? "Top band reaches 24h+" : "",
+    };
+  }
+
   _renderSummary(archives, grouped, dataset) {
     if (!this._summaryContainer) {
       return;
     }
 
     var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
+    var activeDays = Object.keys(grouped).length;
+    var summary = [
+      this._buildChipHtml(dataset.mode),
+      this._buildChipHtml(String(activeDays) + " active days"),
+      this._buildChipHtml(this._buildSummaryMetricText(archives, dataset.mode)),
+    ];
+
+    if (selectedDate) {
+      summary.push(this._buildChipHtml(this._formatDateLabel(selectedDate)));
+    }
+
+    this._summaryContainer.innerHTML = summary.join("");
+  }
+
+  _buildSummaryMetricText(archives, mode) {
+    var totalPrints = archives.length;
     var totalWeight = archives.reduce(function (sum, archive) {
       return sum + Number(archive.filamentWeight || 0);
     }, 0);
-    var activeDays = Object.keys(grouped).length;
-    var scopeLabel = this._isOn(this._config.apply_filters_entity) ? "Scoped to current filters" : "Using full archive cache";
-    var selectedLabel = selectedDate ? this._formatDateLabel(selectedDate) : "Tap a day to inspect prints";
+    var totalObjects = archives.reduce(function (sum, archive) {
+      return sum + Number(archive.objectCount || 0);
+    }, 0);
+    var totalCost = archives.reduce(function (sum, archive) {
+      return sum + Number(archive.cost || 0);
+    }, 0);
+    var totalDuration = archives.reduce(function (sum, archive) {
+      return sum + Number(archive.durationHours || 0);
+    }, 0);
+    var totalFilaments = archives.reduce(function (sum, archive) {
+      return sum + Number(archive.filamentCount || 0);
+    }, 0);
 
-    this._summaryContainer.innerHTML = [
-      this._buildChipHtml(dataset.mode),
-      this._buildChipHtml(scopeLabel),
-      this._buildChipHtml(String(activeDays) + " active days"),
-      this._buildChipHtml(String(archives.length) + " prints"),
-      this._buildChipHtml(this._formatWeight(totalWeight)),
-      this._buildChipHtml(selectedLabel),
-    ].join("");
+    if (mode === "Filament Weight") {
+      return this._formatWeight(totalWeight);
+    }
+    if (mode === "By Number of Printed Objects") {
+      return String(totalObjects) + " objects";
+    }
+    if (mode === "By Cost of Prints") {
+      return this._formatCost(totalCost);
+    }
+    if (mode === "By Number of Different Filaments") {
+      return String(totalFilaments) + " filament uses";
+    }
+    if (mode === "By Total Time Printing") {
+      return this._formatHours(totalDuration);
+    }
+    return String(totalPrints) + " prints";
   }
 
   _renderDetails(grouped) {

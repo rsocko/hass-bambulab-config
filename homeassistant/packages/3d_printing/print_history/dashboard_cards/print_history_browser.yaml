@@ -263,6 +263,7 @@ cards:
           - input_boolean.print_history_filter_favorites_only
           - input_text.print_history_search
           - input_text.print_history_filter_colors
+          - input_text.print_history_activity_selected_date
           - sensor.print_history_filtered
         card:
           type: custom:bubble-card
@@ -290,7 +291,8 @@ cards:
                 .bubble-sub-button.clear-layer-filter,
                 .bubble-sub-button.clear-favorites-filter,
                 .bubble-sub-button.clear-search-filter,
-                .bubble-sub-button.clear-colors-filter {
+                .bubble-sub-button.clear-colors-filter,
+                .bubble-sub-button.clear-selected-day-filter {
                   background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
                   color: var(--accent-color) !important;
                   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
@@ -303,7 +305,8 @@ cards:
                 .bubble-sub-button.clear-layer-filter ha-icon,
                 .bubble-sub-button.clear-favorites-filter ha-icon,
                 .bubble-sub-button.clear-search-filter ha-icon,
-                .bubble-sub-button.clear-colors-filter ha-icon {
+                .bubble-sub-button.clear-colors-filter ha-icon,
+                .bubble-sub-button.clear-selected-day-filter ha-icon {
                   color: var(--accent-color) !important;
                 }
                 ${active ? `
@@ -497,6 +500,26 @@ cards:
                 service: input_text.set_value
                 target:
                   entity_id: input_text.print_history_filter_colors
+                data:
+                  value: ""
+            - entity: input_text.print_history_activity_selected_date
+              sub_button_type: default
+              name: Clear Selected Day Filter
+              icon: mdi:calendar-remove-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_text.print_history_activity_selected_date
+                  state_not: ""
+              tap_action:
+                action: call-service
+                service: input_text.set_value
+                target:
+                  entity_id: input_text.print_history_activity_selected_date
                 data:
                   value: ""
             - name: Clear Filters
