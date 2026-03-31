@@ -213,7 +213,6 @@ class TestFileInventory(unittest.TestCase):
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_print_history_activity_selected_date.yaml",
         "input_text_print_history_search.yaml",
-        "input_text_secondary_camera_entity.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_BOOLEAN = [
@@ -241,7 +240,6 @@ class TestFileInventory(unittest.TestCase):
         "input_select_print_history_filter_color.yaml",
         "input_select_print_history_filter_printer.yaml",
         "input_select_print_history_filter_date_range.yaml",
-        "input_select_print_history_filter_favorites.yaml",
         "input_select_print_history_filter_designer.yaml",
         "input_select_print_history_filter_layer_height.yaml",
         "input_select_print_history_sort.yaml",

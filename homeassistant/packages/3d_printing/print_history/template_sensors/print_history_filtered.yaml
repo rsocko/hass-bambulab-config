@@ -95,6 +95,196 @@
             or color_values not in ['', 'unknown', 'unavailable']
             or selected_day not in ['', 'unknown', 'unavailable']
           }}
+        activity_active_days_label: >-
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {%- set filter_status = states('input_select.print_history_filter_status') -%}
+          {%- set filter_material = states('input_select.print_history_filter_material') -%}
+          {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
+          {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
+          {%- set favorites_only = is_state('input_boolean.print_history_filter_favorites_only', 'on') -%}
+          {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
+          {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
+          {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+          {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
+          {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
+          {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
+          {%- set ns = namespace(days=[]) -%}
+          {%- for a in archives -%}
+            {%- set status = a.get('status', '') | string | lower -%}
+            {%- set material = a.get('filament_type', '') | string -%}
+            {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
+            {%- set printer = a.get('printer_id', '') | string -%}
+            {%- set name = a.get('print_name', '') | string | lower -%}
+            {%- set designer = a.get('designer', '') | string -%}
+            {%- set layer_height = a.get('layer_height', '') | string -%}
+            {%- set is_favorite = a.get('is_favorite', false) -%}
+            {%- set tags = a.get('tags', '') | string | lower -%}
+            {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
+            {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+            {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
+            {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
+            {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
+            {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+            {%- set color_match = namespace(value=(selected_colors | length == 0)) -%}
+            {%- if not color_match.value -%}
+              {%- for selected in selected_colors -%}
+                {%- if selected in archive_colors -%}
+                  {%- set color_match.value = true -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- set matches_color = color_match.value -%}
+            {%- set matches_printer = filter_printer == 'All' or printer == filter_printer -%}
+            {%- set matches_favorite = (not favorites_only) or is_favorite -%}
+            {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
+            {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
+            {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
+            {%- set matches_search = search_text == '' or search_text in search_blob -%}
+            {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
+            {%- if filter_date == 'Today' -%}
+              {%- set matches_date = age_days < 1 -%}
+            {%- elif filter_date == 'This Week' -%}
+              {%- set matches_date = age_days < 7 -%}
+            {%- elif filter_date == 'This Month' -%}
+              {%- set matches_date = age_days < 30 -%}
+            {%- elif filter_date == 'Last 30 Days' -%}
+              {%- set matches_date = age_days < 30 -%}
+            {%- elif filter_date == 'Last 90 Days' -%}
+              {%- set matches_date = age_days < 90 -%}
+            {%- else -%}
+              {%- set matches_date = true -%}
+            {%- endif -%}
+            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_selected_day and matches_date and started_day and started_day not in ns.days -%}
+              {%- set ns.days = ns.days + [started_day] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {% set count = ns.days | length %}
+          {{ count }} active {{ 'day' if count == 1 else 'days' }}
+        activity_metric_total_label: >-
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {%- set mode = states('input_select.print_history_activity_metric') -%}
+          {%- set filter_status = states('input_select.print_history_filter_status') -%}
+          {%- set filter_material = states('input_select.print_history_filter_material') -%}
+          {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
+          {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
+          {%- set favorites_only = is_state('input_boolean.print_history_filter_favorites_only', 'on') -%}
+          {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
+          {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
+          {%- set search_text = states('input_text.print_history_search') | lower | trim -%}
+          {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
+          {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
+          {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
+          {%- set now_ts = as_timestamp(now()) | float(0) -%}
+          {%- set ns = namespace(total_prints=0, total_weight=0, total_objects=0, total_cost=0, total_duration_seconds=0, total_filaments=0) -%}
+          {%- for a in archives -%}
+            {%- set status = a.get('status', '') | string | lower -%}
+            {%- set material = a.get('filament_type', '') | string -%}
+            {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
+            {%- set printer = a.get('printer_id', '') | string -%}
+            {%- set name = a.get('print_name', '') | string | lower -%}
+            {%- set designer = a.get('designer', '') | string -%}
+            {%- set layer_height = a.get('layer_height', '') | string -%}
+            {%- set is_favorite = a.get('is_favorite', false) -%}
+            {%- set tags = a.get('tags', '') | string | lower -%}
+            {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
+            {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+            {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
+            {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
+            {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
+            {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+            {%- set color_match = namespace(value=(selected_colors | length == 0)) -%}
+            {%- if not color_match.value -%}
+              {%- for selected in selected_colors -%}
+                {%- if selected in archive_colors -%}
+                  {%- set color_match.value = true -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- set matches_color = color_match.value -%}
+            {%- set matches_printer = filter_printer == 'All' or printer == filter_printer -%}
+            {%- set matches_favorite = (not favorites_only) or is_favorite -%}
+            {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
+            {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
+            {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
+            {%- set matches_search = search_text == '' or search_text in search_blob -%}
+            {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
+            {%- if filter_date == 'Today' -%}
+              {%- set matches_date = age_days < 1 -%}
+            {%- elif filter_date == 'This Week' -%}
+              {%- set matches_date = age_days < 7 -%}
+            {%- elif filter_date == 'This Month' -%}
+              {%- set matches_date = age_days < 30 -%}
+            {%- elif filter_date == 'Last 30 Days' -%}
+              {%- set matches_date = age_days < 30 -%}
+            {%- elif filter_date == 'Last 90 Days' -%}
+              {%- set matches_date = age_days < 90 -%}
+            {%- else -%}
+              {%- set matches_date = true -%}
+            {%- endif -%}
+            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_search and matches_selected_day and matches_date -%}
+              {%- set ns.total_prints = ns.total_prints + 1 -%}
+              {%- set ns.total_weight = ns.total_weight + (a.get('filament_used_grams', 0) | float(0)) -%}
+              {%- set printable_objects = (a.get('extra_data') or {}).get('printable_objects') -%}
+              {%- set printable_count = printable_objects | count if printable_objects is mapping else 0 -%}
+              {%- set raw_object_count = a.get('object_count', 0) | int(0) -%}
+              {%- set ns.total_objects = ns.total_objects + ([1, raw_object_count, printable_count] | max) -%}
+              {%- set ns.total_cost = ns.total_cost + (a.get('cost', 0) | float(0)) -%}
+              {%- set duration_seconds = ((a.get('actual_time_seconds') if a.get('actual_time_seconds') is not none else a.get('print_time_seconds', 0)) | float(0)) -%}
+              {%- set ns.total_duration_seconds = ns.total_duration_seconds + duration_seconds -%}
+              {%- set slot_source = a.get('filament_slots') if a.get('filament_slots') is iterable else ((a.get('extra_data') or {}).get('filament_slots') if ((a.get('extra_data') or {}).get('filament_slots') is iterable) else []) -%}
+              {%- set slot_keys = namespace(values=[]) -%}
+              {%- for slot in slot_source -%}
+                {%- set used = slot.get('used_g', 0) | float(0) -%}
+                {%- set color = slot.get('color', '') | string | lower | trim -%}
+                {%- set slot_type = slot.get('type', '') | string | lower | trim -%}
+                {%- set key = (color if color else 'no-color') ~ '|' ~ (slot_type if slot_type else 'no-type') -%}
+                {%- if used > 0 and key not in slot_keys.values -%}
+                  {%- set slot_keys.values = slot_keys.values + [key] -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {%- if slot_keys.values | length > 0 -%}
+                {%- set filament_count = slot_keys.values | length -%}
+              {%- else -%}
+                {%- set fallback_colors = namespace(values=[]) -%}
+                {%- for color in (a.get('filament_color', '') | string | lower).split(',') -%}
+                  {%- set value = color | trim -%}
+                  {%- if value and value not in fallback_colors.values -%}
+                    {%- set fallback_colors.values = fallback_colors.values + [value] -%}
+                  {%- endif -%}
+                {%- endfor -%}
+                {%- set filament_count = fallback_colors.values | length -%}
+              {%- endif -%}
+              {%- set ns.total_filaments = ns.total_filaments + filament_count -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {% if mode == 'Filament Weight' %}
+            {{ '%.1fg' | format(ns.total_weight) }}
+          {% elif mode == 'Number of Printed Objects' %}
+            {{ ns.total_objects }} objects
+          {% elif mode == 'Cost of Prints' %}
+            {{ '$%.2f' | format(ns.total_cost) }}
+          {% elif mode == 'Number of Different Filaments' %}
+            {{ ns.total_filaments }} filament uses
+          {% elif mode == 'Total Time Printing' %}
+            {{ '%.1fh' | format(ns.total_duration_seconds / 3600) }}
+          {% else %}
+            {{ ns.total_prints }} prints
+          {% endif %}
         total_pages: >-
           {% set total = states('sensor.print_history_filtered') | int(0) %}
           {% set page_size = states('input_number.print_history_page_size') | int(10) %}

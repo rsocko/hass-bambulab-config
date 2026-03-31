@@ -25,6 +25,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     this._config = {
       title: config.title || "Print History Activity",
+      hide_title: config.hide_title === true,
+      hide_summary: config.hide_summary === true,
       source_entity: config.source_entity,
       source_attribute: config.source_attribute,
       mode_entity: config.mode_entity || "input_select.print_history_activity_metric",
@@ -128,7 +130,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
-      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:22px;margin-top:10px;}" +
+      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:22px;margin-top:4px;}" +
       ".legend.hidden{display:none;}" +
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
       ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
@@ -155,10 +157,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".error{color:var(--error-color);font-size:.9rem;line-height:1.4;padding:12px 0;}" +
       "</style>" +
       "<ha-card>" +
-      '<div class="title">' + this._escapeHtml(this._config.title) + "</div>" +
+      (this._config.hide_title ? "" : ('<div class="title">' + this._escapeHtml(this._config.title) + "</div>")) +
       '<div id="chart" class="chart-wrap"></div>' +
       '<div id="legend" class="legend"></div>' +
-      '<div id="summary" class="summary"></div>' +
+      (this._config.hide_summary ? "" : '<div id="summary" class="summary"></div>') +
       (this._config.show_details ? '<div id="details" class="details"></div>' : "") +
       "</ha-card>";
 

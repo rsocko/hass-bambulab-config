@@ -4,6 +4,7 @@ cards:
     entities:
       - input_select.print_history_activity_metric
       - input_text.print_history_activity_selected_date
+      - sensor.print_history_filtered
     card:
       type: custom:bubble-card
       card_type: separator
@@ -17,7 +18,47 @@ cards:
           show_name: true
           show_state: true
           show_background: true
-          fill_width: true
+          fill_width: false
+        - entity: sensor.print_history_filtered
+          sub_button_type: default
+          name: Active Days
+          icon: mdi:calendar-range
+          show_icon: true
+          show_name: false
+          show_attribute: true
+          attribute: activity_active_days_label
+          show_background: true
+          state_background: false
+          fill_width: false
+          tap_action:
+            action: none
+        - entity: sensor.print_history_filtered
+          sub_button_type: default
+          name: Metric Total
+          icon: >-
+            ${(() => {
+              const mode = states['input_select.print_history_activity_metric']?.state || 'Print Count';
+              const icons = {
+                'Print Count': 'mdi:counter',
+                'Filament Weight': 'mdi:weight-gram',
+                'Dominant Color': 'mdi:palette-outline',
+                'Outcome': 'mdi:list-status',
+                'Number of Printed Objects': 'mdi:cube-outline',
+                'Cost of Prints': 'mdi:currency-usd',
+                'Number of Different Filaments': 'mdi:palette-swatch-outline',
+                'Total Time Printing': 'mdi:timer-outline',
+              };
+              return icons[mode] || 'mdi:counter';
+            })()}
+          show_icon: true
+          show_name: false
+          show_attribute: true
+          attribute: activity_metric_total_label
+          show_background: true
+          state_background: false
+          fill_width: false
+          tap_action:
+            action: none
         - entity: input_text.print_history_activity_selected_date
           sub_button_type: default
           name: Selected Day
@@ -59,6 +100,6 @@ cards:
         }
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
-          gap: 8px !important;
+          gap: 6px !important;
         }
   - !include ../dashboard_cards/print_history_activity_heatmap.yaml
