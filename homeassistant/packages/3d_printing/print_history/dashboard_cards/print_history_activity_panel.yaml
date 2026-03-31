@@ -101,5 +101,6 @@ cards:
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
           gap: 6px !important;
+          justify-content: flex-start !important;
         }
   - !include ../dashboard_cards/print_history_activity_heatmap.yaml
