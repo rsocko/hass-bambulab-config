@@ -1214,7 +1214,7 @@ card:
 | **Primary browser controls** | `catalog_filter_bar.yaml` | `print_history_browser.yaml` |
 | **Controls style** | expanded `bubble-card` sub-buttons | always-visible rounded control header with search, pills, and color chips |
 | **Dynamic options** | `sync_filter_options` automation | `print_history_sync_filter_options` automation |
-| **Clear filters** | `script.filament_catalog_clear_filters` | `script.clear_print_history_filters` |
+| **Clear filters** | `script.filament_catalog_clear_filters` | `script.clear_print_history_filters` resets the browser filters and the heatmap day drill-in (`input_text.print_history_activity_selected_date`) |
 | **Scale concern** | 165 is comfortable, >300 would need paging | 500 default cap, configurable to 2000 |
 
 ---
