@@ -1316,15 +1316,27 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _normalizeMode(mode) {
+    var normalized = String(mode == null ? "" : mode)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
     var aliases = {
-      "Outcome Mix": "Outcome",
-      "By Outcome": "Outcome",
-      "By Number of Printed Objects": "Number of Printed Objects",
-      "By Cost of Prints": "Cost of Prints",
-      "By Number of Different Filaments": "Number of Different Filaments",
-      "By Total Time Printing": "Total Time Printing",
+      "print count": "Print Count",
+      "filament weight": "Filament Weight",
+      "dominant color": "Dominant Color",
+      "outcome mix": "Outcome",
+      "by outcome": "Outcome",
+      outcome: "Outcome",
+      "by number of printed objects": "Number of Printed Objects",
+      "number of printed objects": "Number of Printed Objects",
+      "by cost of prints": "Cost of Prints",
+      "cost of prints": "Cost of Prints",
+      "by number of different filaments": "Number of Different Filaments",
+      "number of different filaments": "Number of Different Filaments",
+      "by total time printing": "Total Time Printing",
+      "total time printing": "Total Time Printing",
     };
-    return aliases[mode] || mode;
+    return aliases[normalized] || String(mode == null ? "Print Count" : mode).trim() || "Print Count";
   }
 
   _countPrintableObjects(archive) {

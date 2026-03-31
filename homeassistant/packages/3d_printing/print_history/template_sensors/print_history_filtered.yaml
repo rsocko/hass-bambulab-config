@@ -177,7 +177,7 @@
           {% else %}
             {% set archives = [] %}
           {% endif %}
-          {%- set mode = states('input_select.print_history_activity_metric') -%}
+          {%- set mode = states('input_select.print_history_activity_metric') | lower | trim -%}
           {%- set filter_status = states('input_select.print_history_filter_status') -%}
           {%- set filter_material = states('input_select.print_history_filter_material') -%}
           {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
@@ -272,15 +272,15 @@
               {%- set ns.total_filaments = ns.total_filaments + filament_count -%}
             {%- endif -%}
           {%- endfor -%}
-          {% if mode == 'Filament Weight' %}
+          {% if mode == 'filament weight' %}
             {{ '%.1fg' | format(ns.total_weight) }}
-          {% elif mode == 'Number of Printed Objects' %}
+          {% elif mode == 'number of printed objects' %}
             {{ ns.total_objects }} objects
-          {% elif mode == 'Cost of Prints' %}
+          {% elif mode == 'cost of prints' %}
             {{ '$%.2f' | format(ns.total_cost) }}
-          {% elif mode == 'Number of Different Filaments' %}
+          {% elif mode == 'number of different filaments' %}
             {{ ns.total_filaments }} filament uses
-          {% elif mode == 'Total Time Printing' %}
+          {% elif mode == 'total time printing' %}
             {{ '%.1fh' | format(ns.total_duration_seconds / 3600) }}
           {% else %}
             {{ ns.total_prints }} prints
