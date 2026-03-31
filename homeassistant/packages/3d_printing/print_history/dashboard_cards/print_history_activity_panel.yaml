@@ -9,7 +9,8 @@ cards:
     card:
       type: custom:bubble-card
       card_type: separator
-      name: Print Activity Heatmap
+      name: >-
+        ${`Print Activity Heatmap: ${states['input_select.print_history_activity_metric']?.state || 'Print Count'}`}
       icon: mdi:chart-box-outline
       sub_button:
         - entity: input_select.print_history_activity_metric
