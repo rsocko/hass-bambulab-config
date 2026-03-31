@@ -241,15 +241,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
   var options = this._buildChartOptions(dataset, layout);
 
-    if (!this._chart) {
-      this._chartContainer.innerHTML = "";
-      this._chart = new ApexChartsCtor(this._chartContainer, options);
-      await this._chart.render();
-      await this._ensureChartVisible(dataset);
-      return;
+    if (this._chart) {
+      this._destroyChart();
     }
 
-    await this._chart.updateOptions(options, false, false, false);
+    this._chartContainer.innerHTML = "";
+    this._chart = new ApexChartsCtor(this._chartContainer, options);
+    await this._chart.render();
     await this._ensureChartVisible(dataset);
   }
 
