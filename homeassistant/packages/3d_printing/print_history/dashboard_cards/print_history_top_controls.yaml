@@ -80,6 +80,8 @@ card:
             show_name: true
             show_state: false
             show_background: true
+            state_background: false
+            state_color: false
             fill_width: false
             tap_action:
               action: none
