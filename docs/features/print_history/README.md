@@ -59,7 +59,6 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
 │   │   ├── input_boolean_capture_on_error.yaml
-│   │   ├── input_boolean_print_history_activity_use_filters.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
 │   ├── input_number/
 │   │   ├── input_number_bambuddy_history_limit.yaml
@@ -76,8 +75,7 @@ homeassistant/packages/3d_printing/print_history/
 │       ├── input_select_print_history_sort.yaml
 │       └── input_select_print_history_card_variant.yaml
 ├── dashboard_cards/
-│   ├── print_history_activity_panel.yaml          # wrapper: separator, controls, and heatmap
-│   ├── print_history_activity_controls.yaml       # activity mode, scope toggle, selected-day helper
+│   ├── print_history_activity_panel.yaml          # wrapper: separator-bar controls and heatmap
 │   ├── print_history_activity_heatmap.yaml        # GitHub-style heatmap card config
 │   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / Detail)
 │   ├── print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
@@ -153,7 +151,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
 | `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~95% | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
-| `input_boolean.print_history_activity_use_filters` | input_boolean | Toggle whether the activity heatmap follows the current browser filters | - |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
 | `input_number.history_current_page` | input_number | Current pagination page | — |
 | `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
@@ -162,7 +159,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_number.photo_review_timeout_hours` | input_number | Hours before review auto-dismisses (default: 24) | — |
 | `input_text.bambuddy_photo_manifest` | input_text | JSON manifest of captured photos for current print | No `initial:` |
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
-| `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, or outcome mix | - |
+| `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, outcome, objects, cost, filament variety, or total printing time | - |
 | `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/layer) | — |
 | `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | — |
 | `input_select.print_history_sort` | input_select | Browser sort mode | — |

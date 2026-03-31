@@ -222,7 +222,6 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
-        "input_boolean_print_history_activity_use_filters.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_NUMBER = [
@@ -254,7 +253,6 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_DASHBOARD_CARDS = [
-        "print_history_activity_controls.yaml",
         "print_history_activity_heatmap.yaml",
         "print_history_activity_panel.yaml",
         "print_history.yaml",

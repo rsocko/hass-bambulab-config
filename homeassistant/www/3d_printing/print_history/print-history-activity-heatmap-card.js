@@ -28,7 +28,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       source_entity: config.source_entity,
       source_attribute: config.source_attribute,
       mode_entity: config.mode_entity || "input_select.print_history_activity_metric",
-      apply_filters_entity: config.apply_filters_entity || "input_boolean.print_history_activity_use_filters",
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
       show_details: config.show_details === true,
       api_base_entity: config.api_base_entity || "input_text.bambuddy_api_base_url",
@@ -82,7 +81,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _buildSignature(hass) {
     var sourceState = hass.states[this._config.source_entity];
     var metricState = hass.states[this._config.mode_entity];
-    var applyFiltersState = hass.states[this._config.apply_filters_entity];
     var selectedDateState = hass.states[this._config.selected_date_entity];
     var apiBaseState = hass.states[this._config.api_base_entity];
 
@@ -90,7 +88,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       sourceState: sourceState ? sourceState.state : "",
       sourceFetch: sourceState && sourceState.attributes ? sourceState.attributes.last_fetch || "" : "",
       metric: metricState ? metricState.state : "",
-      applyFilters: applyFiltersState ? applyFiltersState.state : "",
       selectedDate: selectedDateState ? selectedDateState.state : "",
       apiBase: apiBaseState ? apiBaseState.state : "",
       status: this._stateValue("input_select.print_history_filter_status"),
@@ -301,10 +298,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       .sort(function (left, right) {
         return right.timestamp - left.timestamp;
       });
-
-    if (!this._isOn(this._config.apply_filters_entity)) {
-      return archives;
-    }
 
     return archives.filter(this._matchesFilters.bind(this));
   }
@@ -598,22 +591,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (input.mode === "Filament Weight") {
         value = Number(stats.weight || 0);
         color = this._buildIntensityColor(value, input.maxWeight || 0, "#DBEAFE", "#1D4ED8");
-      } else if (input.mode === "By Number of Printed Objects") {
+      } else if (input.mode === "Number of Printed Objects") {
         value = Number(stats.objectCount || 0);
         color = this._buildIntensityColor(value, input.maxObjectCount || 0, "#FEF3C7", "#D97706");
-      } else if (input.mode === "By Cost of Prints") {
+      } else if (input.mode === "Cost of Prints") {
         value = Number(stats.cost || 0);
         color = this._buildIntensityColor(value, input.maxCost || 0, "#FCE7F3", "#BE185D");
-      } else if (input.mode === "By Number of Different Filaments") {
+      } else if (input.mode === "Number of Different Filaments") {
         value = Number(stats.filamentCount || 0);
         color = this._buildIntensityColor(value, input.maxFilamentCount || 0, "#E0F2FE", "#0369A1");
-      } else if (input.mode === "By Total Time Printing") {
+      } else if (input.mode === "Total Time Printing") {
         value = Number(stats.durationHours || 0);
         color = this._buildIntensityColor(value, input.maxDurationHours || 0, "#EDE9FE", "#6D28D9");
       } else if (input.mode === "Dominant Color") {
         value = Number(stats.count || 0);
         color = stats.dominantColor || this._emptyCellColor();
-      } else if (input.mode === "By Outcome") {
+      } else if (input.mode === "Outcome") {
         value = Number(stats.outcomeBand || 0);
         color = stats.outcomeColor;
       } else {
@@ -809,7 +802,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       }));
     }
 
-    if (mode === "By Outcome") {
+    if (mode === "Outcome") {
       return ranges.concat([
         { from: 1, to: 1, color: "#D32F2F" },
         { from: 2, to: 2, color: "#F57C00" },
@@ -834,16 +827,16 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Filament Weight") {
       return { maxValue: maxima.maxWeight || 0, startColor: "#DBEAFE", endColor: "#1D4ED8" };
     }
-    if (mode === "By Number of Printed Objects") {
+    if (mode === "Number of Printed Objects") {
       return { maxValue: maxima.maxObjectCount || 0, startColor: "#FEF3C7", endColor: "#D97706" };
     }
-    if (mode === "By Cost of Prints") {
+    if (mode === "Cost of Prints") {
       return { maxValue: maxima.maxCost || 0, startColor: "#FCE7F3", endColor: "#BE185D" };
     }
-    if (mode === "By Number of Different Filaments") {
+    if (mode === "Number of Different Filaments") {
       return { maxValue: maxima.maxFilamentCount || 0, startColor: "#E0F2FE", endColor: "#0369A1" };
     }
-    if (mode === "By Total Time Printing") {
+    if (mode === "Total Time Printing") {
       return { maxValue: maxima.maxDurationHours || 0, startColor: "#EDE9FE", endColor: "#6D28D9" };
     }
     return { maxValue: maxima.maxCount || 0, startColor: "#DCFCE7", endColor: "#15803D" };
@@ -990,11 +983,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       title.push('Dominant color: ' + meta.dominantColor.toUpperCase());
     }
 
-    if (mode === 'By Outcome' && meta.outcomeLabel) {
+    if (mode === 'Outcome' && meta.outcomeLabel) {
       title.push('Outcome: ' + meta.outcomeLabel);
     }
 
-    if (mode === 'By Total Time Printing' && meta.hasFullDayPrinting) {
+    if (mode === 'Total Time Printing' && meta.hasFullDayPrinting) {
       title.push('Printed all 24 hours');
     }
 
@@ -1062,10 +1055,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return null;
     }
 
-    if (mode === "By Outcome") {
+    if (mode === "Outcome") {
       return {
-        startLabel: "Poor",
-        endLabel: "Good",
+        startLabel: "Failed",
+        endLabel: "Success",
         colors: ["#D32F2F", "#F57C00", "#FBC02D", "#9CCC65", "#2E7D32"],
       };
     }
@@ -1081,7 +1074,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         this._buildIntensityColor(3, 4, modeConfig.startColor, modeConfig.endColor),
         this._buildIntensityColor(4, 4, modeConfig.startColor, modeConfig.endColor),
       ],
-      note: mode === "By Total Time Printing" ? "Top band reaches 24h+" : "",
     };
   }
 
@@ -1126,16 +1118,16 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Filament Weight") {
       return this._formatWeight(totalWeight);
     }
-    if (mode === "By Number of Printed Objects") {
+    if (mode === "Number of Printed Objects") {
       return String(totalObjects) + " objects";
     }
-    if (mode === "By Cost of Prints") {
+    if (mode === "Cost of Prints") {
       return this._formatCost(totalCost);
     }
-    if (mode === "By Number of Different Filaments") {
+    if (mode === "Number of Different Filaments") {
       return String(totalFilaments) + " filament uses";
     }
-    if (mode === "By Total Time Printing") {
+    if (mode === "Total Time Printing") {
       return this._formatHours(totalDuration);
     }
     return String(totalPrints) + " prints";
@@ -1253,10 +1245,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Dominant Color" && meta.dominantColor) {
       lines.push('<div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="width:12px;height:12px;border-radius:999px;background:' + this._escapeHtml(meta.dominantColor) + ';display:inline-block"></span><span>Dominant color</span></div>');
     }
-    if (mode === "By Outcome" && meta.outcomeLabel) {
+    if (mode === "Outcome" && meta.outcomeLabel) {
       lines.push('<div style="margin-top:4px">Outcome band: <strong>' + this._escapeHtml(meta.outcomeLabel) + '</strong></div>');
     }
-    if (mode === "By Total Time Printing" && meta.hasFullDayPrinting) {
+    if (mode === "Total Time Printing" && meta.hasFullDayPrinting) {
       lines.push('<div style="margin-top:4px">Printed all 24 hours.</div>');
     }
     lines.push("</div>");
@@ -1324,7 +1316,15 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _normalizeMode(mode) {
-    return mode === "Outcome Mix" ? "By Outcome" : mode;
+    var aliases = {
+      "Outcome Mix": "Outcome",
+      "By Outcome": "Outcome",
+      "By Number of Printed Objects": "Number of Printed Objects",
+      "By Cost of Prints": "Cost of Prints",
+      "By Number of Different Filaments": "Number of Different Filaments",
+      "By Total Time Printing": "Total Time Printing",
+    };
+    return aliases[mode] || mode;
   }
 
   _countPrintableObjects(archive) {
