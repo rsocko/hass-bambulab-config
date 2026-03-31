@@ -13,7 +13,7 @@ card:
   styles: >-
     ${(() => {
       const variant = states['input_select.print_history_card_variant']?.state || '';
-      const selectedIndex = ({ Compact: 6, Media: 7, Detail: 8 })[variant];
+      const selectedIndex = ({ Compact: 7, Media: 8, Detail: 9 })[variant];
       return `
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {

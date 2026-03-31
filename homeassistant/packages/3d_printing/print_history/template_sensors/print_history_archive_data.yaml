@@ -128,7 +128,7 @@
           {%- set clamped_page = [1, [current_page, total_pages] | min] | max -%}
           {%- set start = (clamped_page - 1) * page_size -%}
           {%- set end = start + page_size -%}
-          {{ sorted[start:end] | list }}
+          {{ sorted[start:end] | list | tojson }}
         page: >-
           {{ states('input_number.history_current_page') | int(1) }}
         has_more: >-
