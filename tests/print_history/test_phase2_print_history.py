@@ -682,6 +682,12 @@ class TestTemplateSensors(unittest.TestCase):
 class TestHeatmapActivityCard(unittest.TestCase):
     """Heatmap card logic should match the projected archive schema and metric labels."""
 
+    def test_heatmap_card_rerenders_when_reconnected(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("connectedCallback()", content)
+        self.assertIn("requestAnimationFrame(function () {", content)
+        self.assertIn("self._queueRender();", content)
+
     def test_heatmap_card_uses_api_object_count(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn("objectCount: Math.max(1, this._toNumber(archive && archive.object_count))", content)

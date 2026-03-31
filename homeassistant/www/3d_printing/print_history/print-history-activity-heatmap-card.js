@@ -67,6 +67,17 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._queueRender();
   }
 
+  connectedCallback() {
+    var self = this;
+    requestAnimationFrame(function () {
+      if (!self.isConnected || !self._config) {
+        return;
+      }
+      self._lastObservedWidth = 0;
+      self._queueRender();
+    });
+  }
+
   disconnectedCallback() {
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
