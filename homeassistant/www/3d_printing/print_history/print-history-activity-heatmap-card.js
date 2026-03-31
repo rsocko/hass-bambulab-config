@@ -188,8 +188,23 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    this._destroyChart();
-    this._renderHeatmap(dataset);
+    var ApexChartsCtor = await this._ensureApexCharts();
+    if (!ApexChartsCtor) {
+      throw new Error("ApexCharts runtime unavailable. Ensure apexcharts-card is installed and loaded.");
+    }
+
+    this._clearError();
+
+    var options = this._buildChartOptions(dataset);
+
+    if (!this._chart) {
+      this._chartContainer.innerHTML = "";
+      this._chart = new ApexChartsCtor(this._chartContainer, options);
+      await this._chart.render();
+      return;
+    }
+
+    await this._chart.updateOptions(options, false, false, false);
   }
 
   _destroyChart() {
@@ -197,6 +212,16 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._chart.destroy();
     }
     this._chart = null;
+  }
+
+  _clearError() {
+    if (!this._chartContainer) {
+      return;
+    }
+    var errorNode = this._chartContainer.querySelector(".error");
+    if (errorNode) {
+      this._chartContainer.innerHTML = "";
+    }
   }
 
   _getScopedArchives() {
@@ -1161,6 +1186,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return window.ApexCharts;
     }
 
+    await this._waitForApexRuntime();
+    if (window.ApexCharts) {
+      return window.ApexCharts;
+    }
+
     if (!printHistoryActivityImportTried) {
       printHistoryActivityImportTried = true;
       try {
@@ -1170,7 +1200,32 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       }
     }
 
+    await this._waitForApexRuntime();
     return window.ApexCharts || null;
+  }
+
+  async _waitForApexRuntime() {
+    if (window.ApexCharts) {
+      return;
+    }
+
+    if (typeof customElements !== "undefined" && customElements.whenDefined) {
+      try {
+        await Promise.race([
+          customElements.whenDefined("apexcharts-card"),
+          new Promise(function (resolve) { setTimeout(resolve, 800); }),
+        ]);
+      } catch (_err) {
+        // Ignore and continue polling for the runtime.
+      }
+    }
+
+    for (var attempt = 0; attempt < 8; attempt += 1) {
+      if (window.ApexCharts) {
+        return;
+      }
+      await new Promise(function (resolve) { setTimeout(resolve, 100); });
+    }
   }
 
   _showError(message) {
