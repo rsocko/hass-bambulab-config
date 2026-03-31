@@ -691,7 +691,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       : this.clientWidth || 960;
     var availableWidth = Math.max(240, containerWidth - 68);
     var cellSize = Math.max(8, Math.min(18, Math.floor(availableWidth / safeWeekCount)));
-    var chartHeight = Math.max(130, cellSize * 7 + 52);
+    var chartHeight = Math.max(144, cellSize * 7 + 66);
 
     return {
       cellSize: cellSize,
