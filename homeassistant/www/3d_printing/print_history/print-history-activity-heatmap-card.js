@@ -894,8 +894,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    var selectedElement = await this._applySelectedPointState(dataset);
-    this._positionSelectedOverlay(selectedElement);
+    var selection = await this._applySelectedPointState(dataset);
+    this._positionSelectedOverlay(selection ? selection.element : null, selection ? selection.indexes : null, dataset);
   }
 
   async _applySelectedPointState(dataset) {
@@ -922,14 +922,20 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ? selectedPoints[indexes.seriesIndex]
       : [];
     if (currentSeriesSelection.indexOf(indexes.dataPointIndex) !== -1) {
-      return this._findRenderedPointElement(indexes);
+      return {
+        element: this._findRenderedPointElement(indexes),
+        indexes: indexes,
+      };
     }
 
     this._suppressPointSelection = true;
     try {
       var selectedElement = this._chart.toggleDataPointSelection(indexes.seriesIndex, indexes.dataPointIndex);
       await Promise.resolve();
-      return selectedElement || this._findRenderedPointElement(indexes);
+      return {
+        element: selectedElement || this._findRenderedPointElement(indexes),
+        indexes: indexes,
+      };
     } finally {
       this._suppressPointSelection = false;
     }
@@ -964,26 +970,92 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return this._chartContainer.querySelector('.apexcharts-series path.apexcharts-active, .apexcharts-series .apexcharts-active');
   }
 
-  _positionSelectedOverlay(targetElement) {
+  _positionSelectedOverlay(targetElement, indexes, dataset) {
     var overlay = this._ensureSelectedOverlay();
-    if (!overlay || !targetElement || !this._chartContainer) {
+    if (!overlay || !this._chartContainer) {
       this._hideSelectedOverlay();
       return;
     }
 
-    var containerRect = this._chartContainer.getBoundingClientRect();
-    var targetRect = targetElement.getBoundingClientRect();
-    if (!containerRect.width || !containerRect.height || !targetRect.width || !targetRect.height) {
+    if (targetElement) {
+      var containerRect = this._chartContainer.getBoundingClientRect();
+      var targetRect = targetElement.getBoundingClientRect();
+      if (containerRect.width && containerRect.height && targetRect.width && targetRect.height) {
+        var inset = 1.5;
+        overlay.style.left = (targetRect.left - containerRect.left - inset) + 'px';
+        overlay.style.top = (targetRect.top - containerRect.top - inset) + 'px';
+        overlay.style.width = (targetRect.width + inset * 2) + 'px';
+        overlay.style.height = (targetRect.height + inset * 2) + 'px';
+        overlay.style.display = 'block';
+        return;
+      }
+    }
+
+    var fallbackBounds = this._computeSelectedOverlayBounds(indexes, dataset);
+    if (!fallbackBounds) {
       this._hideSelectedOverlay();
+      return;
+    }
+
+    overlay.style.left = fallbackBounds.left + 'px';
+    overlay.style.top = fallbackBounds.top + 'px';
+    overlay.style.width = fallbackBounds.width + 'px';
+    overlay.style.height = fallbackBounds.height + 'px';
+    overlay.style.display = 'block';
+  }
+
+  _computeSelectedOverlayBounds(indexes, dataset) {
+    if (!indexes || !dataset || !this._chartContainer) {
+      return null;
+    }
+
+    var seriesElement = this._findSeriesElement(indexes.seriesIndex);
+    var pointCount = dataset.series && dataset.series[indexes.seriesIndex] && Array.isArray(dataset.series[indexes.seriesIndex].data)
+      ? dataset.series[indexes.seriesIndex].data.length
+      : 0;
+    if (!seriesElement || !pointCount) {
+      return null;
+    }
+
+    var containerRect = this._chartContainer.getBoundingClientRect();
+    var seriesRect = seriesElement.getBoundingClientRect();
+    if (!containerRect.width || !seriesRect.width || !seriesRect.height) {
+      return null;
+    }
+
+    var cellWidth = seriesRect.width / pointCount;
+    if (!cellWidth) {
       return;
     }
 
     var inset = 1.5;
-    overlay.style.left = (targetRect.left - containerRect.left - inset) + 'px';
-    overlay.style.top = (targetRect.top - containerRect.top - inset) + 'px';
-    overlay.style.width = (targetRect.width + inset * 2) + 'px';
-    overlay.style.height = (targetRect.height + inset * 2) + 'px';
-    overlay.style.display = 'block';
+    return {
+      left: (seriesRect.left - containerRect.left + cellWidth * indexes.dataPointIndex - inset),
+      top: (seriesRect.top - containerRect.top - inset),
+      width: (cellWidth + inset * 2),
+      height: (seriesRect.height + inset * 2),
+    };
+  }
+
+  _findSeriesElement(seriesIndex) {
+    if (!this._chartContainer || typeof seriesIndex !== 'number') {
+      return null;
+    }
+
+    var selectors = [
+      '.apexcharts-series[rel="' + String(seriesIndex + 1) + '"]',
+      '.apexcharts-series[seriesName]:nth-of-type(' + String(seriesIndex + 1) + ')',
+    ];
+
+    for (var selectorIndex = 0; selectorIndex < selectors.length; selectorIndex += 1) {
+      var match = this._chartContainer.querySelector(selectors[selectorIndex]);
+      if (match) {
+        return match;
+      }
+    }
+
+    var seriesGroups = this._chartContainer.querySelectorAll('.apexcharts-series');
+    return seriesGroups && seriesGroups[seriesIndex] ? seriesGroups[seriesIndex] : null;
   }
 
   _ensureSelectedOverlay() {
