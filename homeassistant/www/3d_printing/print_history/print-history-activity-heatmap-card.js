@@ -1,5 +1,6 @@
 var printHistoryActivityReadyPromise = null;
 var printHistoryActivityImportTried = false;
+var PRINT_HISTORY_SELECTED_ANNOTATION_ID = "print-history-selected-cell";
 
 class PrintHistoryActivityHeatmapCard extends HTMLElement {
   constructor() {
@@ -154,6 +155,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
+      ".selected-heatmap-annotation{pointer-events:none;filter:drop-shadow(0 0 0.75px var(--annotation-outline-base,var(--card-background-color,#ffffff))) drop-shadow(0 0 4px var(--annotation-outline-glow,rgba(59,130,246,0.5)));}" +
       ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:18px;margin-top:2px;}" +
       ".legend.hidden{display:none;}" +
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
@@ -342,11 +344,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chartContainer.innerHTML = "";
     this._chart = new ApexChartsCtor(this._chartContainer, options);
     await this._chart.render();
-    await this._applySelectedPointState(dataset);
     await this._ensureChartVisible(dataset);
+    await this._applySelectedVisualState(dataset, layout);
   }
 
   _destroyChart() {
+    this._removeSelectedAnnotation();
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
     }
@@ -886,6 +889,15 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     };
   }
 
+  async _applySelectedVisualState(dataset, layout) {
+    if (!this._chart) {
+      return;
+    }
+
+    await this._applySelectedPointState(dataset);
+    this._applySelectedAnnotation(dataset, layout);
+  }
+
   async _applySelectedPointState(dataset) {
     if (!this._chart || !dataset) {
       return;
@@ -917,6 +929,59 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       await Promise.resolve();
     } finally {
       this._suppressPointSelection = false;
+    }
+  }
+
+  _applySelectedAnnotation(dataset, layout) {
+    this._removeSelectedAnnotation();
+
+    if (!this._chart || !dataset) {
+      return;
+    }
+
+    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
+    if (!selectedDate) {
+      return;
+    }
+
+    var indexes = this._findPointIndexesByDate(dataset, selectedDate);
+    if (!indexes) {
+      return;
+    }
+
+    var row = dataset.series && dataset.series[indexes.seriesIndex] ? dataset.series[indexes.seriesIndex] : null;
+    var point = row && Array.isArray(row.data) ? row.data[indexes.dataPointIndex] : null;
+    if (!point) {
+      return;
+    }
+
+    var markerSize = Math.max(12, Number(layout && layout.cellSize ? layout.cellSize : 14) + 6);
+    this._chart.addPointAnnotation({
+      id: PRINT_HISTORY_SELECTED_ANNOTATION_ID,
+      x: point.x,
+      y: point.y,
+      seriesIndex: indexes.seriesIndex,
+      marker: {
+        size: markerSize,
+        fillColor: "rgba(255,255,255,0)",
+        strokeColor: this._themeColor(["--primary-color"], "#2563EB"),
+        strokeWidth: 3,
+        shape: "square",
+        radius: 0,
+        cssClass: "selected-heatmap-annotation",
+      },
+    }, false);
+  }
+
+  _removeSelectedAnnotation() {
+    if (!this._chart || typeof this._chart.removeAnnotation !== "function") {
+      return;
+    }
+
+    try {
+      this._chart.removeAnnotation(PRINT_HISTORY_SELECTED_ANNOTATION_ID);
+    } catch (_err) {
+      // Ignore missing annotation during chart teardown/update cycles.
     }
   }
 
@@ -966,6 +1031,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chartContainer.style.setProperty("--cell-empty", this._emptyCellColor());
     this._chartContainer.style.setProperty("--cell-stroke", this._pointStrokeColor(false, false));
     this._chartContainer.style.setProperty("--cell-stroke-strong", this._pointStrokeColor(false, true));
+    this._chartContainer.style.setProperty("--annotation-outline-base", this._themeColor(["--ha-card-background", "--card-background-color", "--primary-background-color"], this._hass && this._hass.themes && this._hass.themes.darkMode ? "#111827" : "#ffffff"));
+    this._chartContainer.style.setProperty("--annotation-outline-glow", this._themeColor(["--primary-color"], "#2563EB"));
   }
 
   _buildColorRanges(series, mode, maxima) {
