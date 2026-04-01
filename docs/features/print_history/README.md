@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant now renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant now renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print Phase 1 detail popup from each card, while advanced mutation flows remain deferred: the photo review chip is status-only today, and archive editing/favorite actions are not yet wired into the shipped popup.
 
 ## Event Source Split
 
@@ -249,7 +249,7 @@ Implemented now:
 Still deferred:
 
 - Photo review popup plus delete/replace/set-cover/dismiss actions
-- Archive detail popup and card-level actions such as favorites/compare
+- Archive detail editing and card-level mutation actions such as favorites/compare
 
 For detailed design of the two major subsystems, see:
 
@@ -257,6 +257,7 @@ For detailed design of the two major subsystems, see:
 - **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
+- **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan: per-card drilldown first, editing later
 - **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
 - **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only

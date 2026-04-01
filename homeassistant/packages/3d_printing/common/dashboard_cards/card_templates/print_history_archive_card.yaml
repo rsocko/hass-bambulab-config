@@ -1,0 +1,468 @@
+print_history_archive_popup:
+  tap_action: |
+    [[[
+      const archive = variables.archive || {};
+      const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
+      const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
+      const popupTitle = String(archive.print_name || 'Print Details');
+      const popupCards = [
+        {
+          type: 'custom:button-card',
+          entity: 'sensor.print_history_page_archives',
+          template: 'print_history_archive_popup_content',
+          variables: { archive: archive },
+        },
+      ];
+      if (archive.id && baseUrl) {
+        popupCards.push({
+          type: 'button',
+          name: 'Open In Bambuddy',
+          icon: 'mdi:open-in-new',
+          tap_action: {
+            action: 'url',
+            url_path: `${baseUrl}/archives/${archive.id}`,
+          },
+        });
+      }
+      return {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.popup',
+          data: {
+            title: popupTitle,
+            size: 'wide',
+            content: {
+              type: 'vertical-stack',
+              cards: popupCards,
+            },
+          },
+        },
+      };
+    ]]]
+  hold_action:
+    action: none
+  double_tap_action:
+    action: none
+
+print_history_archive_card:
+  template:
+    - print_history_archive_popup
+  entity: sensor.print_history_page_archives
+  triggers_update:
+    - sensor.print_history_page_archives
+    - input_select.print_history_card_variant
+    - input_boolean.print_history_show_images
+    - input_text.bambuddy_api_base_url
+  show_icon: false
+  show_name: false
+  show_state: false
+  show_label: false
+  custom_fields:
+    content: |
+      [[[
+        const archive = variables.archive || {};
+        const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
+        const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
+        const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
+        const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
+        const escapeHtml = (value) => String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+        const normalizeStatus = (status) => {
+          const raw = String(status || '').toLowerCase();
+          if (raw === 'completed' || raw === 'success') return 'completed';
+          if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+          return raw;
+        };
+        const formatDate = (value) => {
+          if (!value) return 'Unknown date';
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return 'Unknown date';
+          return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        };
+        const formatHours = (seconds) => {
+          const value = Number(seconds || 0);
+          return value ? `${Math.round((value / 3600) * 10) / 10}h` : '-';
+        };
+        const formatGrams = (grams) => {
+          const value = Number(grams || 0);
+          return value ? `${Math.round(value * 10) / 10}g` : '-';
+        };
+        const formatCost = (cost) => {
+          const value = Number(cost || 0);
+          return value ? `$${value.toFixed(2)}` : '-';
+        };
+        const statusLabel = (status) => {
+          const raw = normalizeStatus(status);
+          if (raw === 'completed') return 'Completed';
+          if (raw === 'failed') return 'Failed';
+          if (raw === 'stopped') return 'Stopped';
+          if (raw === 'printing') return 'Printing';
+          return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Unknown';
+        };
+        const statusIcon = (status) => {
+          const raw = normalizeStatus(status);
+          if (raw === 'completed') return '✅';
+          if (raw === 'failed') return '❌';
+          if (raw === 'stopped') return '⛔';
+          if (raw === 'printing') return '🖨️';
+          return '⏳';
+        };
+        const statusColor = (status) => {
+          const raw = normalizeStatus(status);
+          if (raw === 'completed') return '#2E7D32';
+          if (raw === 'failed') return '#C62828';
+          if (raw === 'stopped') return '#EF6C00';
+          if (raw === 'printing') return '#1565C0';
+          return '#546E7A';
+        };
+        const statusPill = `<span class="ph-archive-card__status" style="background:${statusColor(archive.status)}">${statusIcon(archive.status)} ${escapeHtml(statusLabel(archive.status))}</span>`;
+        const favorite = archive.is_favorite ? '<span class="ph-archive-card__favorite" aria-label="Favorite">★</span>' : '';
+        const dateLabel = formatDate(archive.started_at || archive.created_at);
+        const metadata = [archive.filament_type || 'Unknown material', archive.layer_height ? `${archive.layer_height}mm` : '', archive.designer || '']
+          .filter(Boolean)
+          .map((value) => escapeHtml(value))
+          .join(' · ');
+        const detailFacts = [
+          archive.filament_type || 'Unknown material',
+          archive.layer_height ? `${archive.layer_height}mm layer` : '',
+          archive.nozzle_diameter ? `${archive.nozzle_diameter}mm nozzle` : '',
+          archive.object_count ? `${archive.object_count} object${Number(archive.object_count) === 1 ? '' : 's'}` : '',
+          archive.designer ? `Designer: ${archive.designer}` : '',
+        ].filter(Boolean).map((value) => `<span class="ph-archive-card__chip">${escapeHtml(value)}</span>`).join('');
+        const colorDots = String(archive.filament_color || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .slice(0, 6)
+          .map((hex) => `<span class="ph-archive-card__color" style="background:${escapeHtml(hex)}"></span>`)
+          .join('');
+        const tags = String(archive.tags || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const tagLimit = variant === 'Compact' ? 2 : variant === 'Detail' ? 6 : 4;
+        const tagChips = tags.slice(0, tagLimit).map((tag) => {
+          let bg = '#1565C0';
+          if (tag.startsWith('status:')) bg = tag.includes('completed') ? '#2E7D32' : '#C62828';
+          else if (tag.startsWith('vendor:')) bg = '#6A1B9A';
+          else if (tag.startsWith('material:')) bg = '#00695C';
+          else if (tag.startsWith('cost:')) bg = '#E65100';
+          else if (tag.startsWith('spoolman:')) bg = '#0277BD';
+          return `<span class="ph-archive-card__tag" style="background:${bg}">${escapeHtml(tag)}</span>`;
+        }).join('');
+        const failure = archive.failure_reason
+          ? `<div class="ph-archive-card__failure">${escapeHtml(archive.failure_reason)}</div>`
+          : '';
+        const thumbHeight = variant === 'Media' ? '220px' : variant === 'Detail' ? '156px' : '180px';
+        const thumb = !showImages
+          ? ''
+          : archive.id && baseUrl
+            ? `<img src="${baseUrl}/api/v1/archives/${archive.id}/thumbnail" alt="${escapeHtml(archive.print_name || 'Archive thumbnail')}" class="ph-archive-card__image" style="height:${thumbHeight}" loading="lazy" onerror="this.style.display='none'">`
+            : `<div class="ph-archive-card__placeholder" style="height:${thumbHeight}">🖨️</div>`;
+        const stats = `
+          <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Duration</div><div class="ph-archive-card__stat-value">${escapeHtml(formatHours(archive.actual_time_seconds || archive.print_time_seconds))}</div></div>
+          <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Filament</div><div class="ph-archive-card__stat-value">${escapeHtml(formatGrams(archive.filament_used_grams))}</div></div>
+          <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Cost</div><div class="ph-archive-card__stat-value">${escapeHtml(formatCost(archive.cost))}</div></div>
+          <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Objects</div><div class="ph-archive-card__stat-value">${escapeHtml(archive.object_count || 1)}</div></div>
+        `;
+        const sharedStyles = `
+          <style>
+            .ph-archive-card { width: 100%; border: 1px solid var(--divider-color); border-radius: 24px; background: var(--ha-card-background); box-sizing: border-box; cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+            .ph-archive-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16); border-color: color-mix(in srgb, var(--primary-color) 42%, var(--divider-color)); }
+            .ph-archive-card__status { color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+            .ph-archive-card__favorite { font-size: 18px; color: #f5c242; }
+            .ph-archive-card__tag { color: #fff; border-radius: 999px; padding: 3px 8px; font-size: 10px; margin-right: 4px; display: inline-block; margin-top: 4px; }
+            .ph-archive-card__chip { display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.05); color: var(--primary-text-color); font-size: 11px; line-height: 1.2; }
+            .ph-archive-card__failure { margin-top: 8px; font-size: 12px; color: #ffb4ab; line-height: 1.4; }
+            .ph-archive-card__image { width: 100%; object-fit: cover; border-radius: 16px; display: block; }
+            .ph-archive-card__placeholder { width: 100%; background: #37474F; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 34px; }
+            .ph-archive-card__color { width: 14px; height: 14px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); display: inline-block; }
+            .ph-archive-card__stat { padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,0.04); min-width: 0; }
+            .ph-archive-card__stat-label { color: var(--secondary-text-color); font-size: 11px; line-height: 1.2; margin-bottom: 4px; }
+            .ph-archive-card__stat-value { font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+          </style>
+        `;
+        if (variant === 'Media') {
+          return `${sharedStyles}
+            <article class="ph-archive-card" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(archive.print_name || 'Unnamed print')}">
+              ${showImages ? thumb : ''}
+              <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
+                  <div style="min-width:0;flex:1 1 220px;max-width:100%">
+                    <div style="font-weight:700;font-size:18px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%">${escapeHtml(archive.print_name || 'Unnamed')}</div>
+                    <div style="font-size:12px;color:var(--secondary-text-color)">${escapeHtml(dateLabel)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto">${favorite}${statusPill}</div>
+                </div>
+                <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere">${metadata || 'No additional metadata'}</div>
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px">
+                  <span>Duration: <strong>${escapeHtml(formatHours(archive.actual_time_seconds || archive.print_time_seconds))}</strong></span>
+                  <span>Filament: <strong>${escapeHtml(formatGrams(archive.filament_used_grams))}</strong></span>
+                  <span>Cost: <strong>${escapeHtml(formatCost(archive.cost))}</strong></span>
+                </div>
+                ${colorDots ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${colorDots}</div>` : ''}
+                ${tagChips ? `<div style="margin-top:6px">${tagChips}</div>` : ''}
+                ${failure}
+              </div>
+            </article>`;
+        }
+        if (variant === 'Detail') {
+          return `${sharedStyles}
+            <style>
+              @media (max-width: 920px) {
+                .ph-archive-card__detail-content { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: 'main' 'stats' 'extras' !important; }
+              }
+              @media (max-width: 720px) {
+                .ph-archive-card__detail-root { grid-template-columns: minmax(0, 1fr) !important; }
+                .ph-archive-card__detail-stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; }
+              }
+            </style>
+            <article class="ph-archive-card ph-archive-card__detail-root" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(archive.print_name || 'Unnamed print')}" style="padding:18px 20px;display:grid;grid-template-columns:${showImages ? '220px minmax(0, 1fr)' : 'minmax(0, 1fr)'};gap:18px;align-items:start">
+              ${showImages ? `<div style="min-width:0">${thumb}</div>` : ''}
+              <div class="ph-archive-card__detail-content" style="min-width:0;display:grid;grid-template-columns:minmax(0, 1.65fr) minmax(260px, 0.95fr);grid-template-areas:'main stats' 'extras extras';gap:14px 18px;align-items:start">
+                <div style="grid-area:main;min-width:0;display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;justify-content:space-between;gap:12px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
+                    <div style="min-width:0;flex:1 1 320px;max-width:100%">
+                      <div style="font-weight:700;font-size:19px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%">${escapeHtml(archive.print_name || 'Unnamed')}</div>
+                      <div style="font-size:12px;color:var(--secondary-text-color);margin-top:4px">${escapeHtml(dateLabel)}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto">${favorite}${statusPill}</div>
+                  </div>
+                  ${detailFacts ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${detailFacts}</div>` : ''}
+                  <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere">${metadata || 'No additional metadata'}</div>
+                  ${failure}
+                </div>
+                <div class="ph-archive-card__detail-stats" style="grid-area:stats;display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:10px">${stats}</div>
+                ${(colorDots || tagChips) ? `<div style="grid-area:extras;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;min-width:0">${colorDots ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${colorDots}</div>` : ''}${tagChips ? `<div>${tagChips}</div>` : ''}</div>` : ''}
+              </div>
+            </article>`;
+        }
+        return `${sharedStyles}
+          <article class="ph-archive-card" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(archive.print_name || 'Unnamed print')}" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:${showImages ? 'grid' : 'flex'};${showImages ? 'grid-template-columns:120px minmax(0, 1fr);' : 'flex-direction:column;'}gap:14px;align-items:start;min-width:0">
+              ${showImages ? `<div>${thumb}</div>` : ''}
+              <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
+                  <div style="min-width:0;flex:1 1 220px;max-width:100%">
+                    <div style="font-weight:700;font-size:16px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%">${escapeHtml(archive.print_name || 'Unnamed')}</div>
+                    <div style="font-size:12px;color:var(--secondary-text-color)">${escapeHtml(dateLabel)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto">${favorite}${statusPill}</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;font-size:12px;min-width:0">
+                  <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Duration</div><div class="ph-archive-card__stat-value">${escapeHtml(formatHours(archive.actual_time_seconds || archive.print_time_seconds))}</div></div>
+                  <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Filament</div><div class="ph-archive-card__stat-value">${escapeHtml(formatGrams(archive.filament_used_grams))}</div></div>
+                  <div class="ph-archive-card__stat"><div class="ph-archive-card__stat-label">Cost</div><div class="ph-archive-card__stat-value">${escapeHtml(formatCost(archive.cost))}</div></div>
+                </div>
+                <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere">${metadata || 'No additional metadata'}</div>
+                ${colorDots ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${colorDots}</div>` : ''}
+                ${tagChips ? `<div>${tagChips}</div>` : ''}
+                ${failure}
+              </div>
+            </div>
+          </article>`;
+      ]]]
+  styles:
+    grid:
+      - grid-template-areas: '"content"'
+      - grid-template-columns: minmax(0, 1fr)
+      - grid-template-rows: auto
+    card:
+      - padding: 0
+      - background: transparent
+      - box-shadow: none
+      - border: none
+      - overflow: visible
+    custom_fields:
+      content:
+        - padding: 0
+
+print_history_archive_popup_content:
+  entity: sensor.print_history_page_archives
+  triggers_update:
+    - sensor.print_history_page_archives
+    - input_text.bambuddy_api_base_url
+  show_icon: false
+  show_name: false
+  show_state: false
+  show_label: false
+  tap_action:
+    action: none
+  hold_action:
+    action: none
+  double_tap_action:
+    action: none
+  custom_fields:
+    content: |
+      [[[
+        const archive = variables.archive || {};
+        const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
+        const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
+        const escapeHtml = (value) => String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+        const normalizeStatus = (status) => {
+          const raw = String(status || '').toLowerCase();
+          if (raw === 'completed' || raw === 'success') return 'completed';
+          if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+          return raw;
+        };
+        const formatDate = (value) => {
+          if (!value) return 'Not available';
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return 'Not available';
+          return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        };
+        const formatHours = (seconds) => {
+          const value = Number(seconds || 0);
+          return value ? `${Math.round((value / 3600) * 10) / 10}h` : '-';
+        };
+        const formatGrams = (grams) => {
+          const value = Number(grams || 0);
+          return value ? `${Math.round(value * 10) / 10}g` : '-';
+        };
+        const formatCost = (cost) => {
+          const value = Number(cost || 0);
+          return value ? `$${value.toFixed(2)}` : '-';
+        };
+        const statusLabel = (status) => {
+          const raw = normalizeStatus(status);
+          if (raw === 'completed') return 'Completed';
+          if (raw === 'failed') return 'Failed';
+          if (raw === 'stopped') return 'Stopped';
+          if (raw === 'printing') return 'Printing';
+          return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Unknown';
+        };
+        const statusColor = (status) => {
+          const raw = normalizeStatus(status);
+          if (raw === 'completed') return '#2E7D32';
+          if (raw === 'failed') return '#C62828';
+          if (raw === 'stopped') return '#EF6C00';
+          if (raw === 'printing') return '#1565C0';
+          return '#546E7A';
+        };
+        const tags = String(archive.tags || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const tagChips = tags.length
+          ? tags.map((tag) => `<span class="ph-popup__tag">${escapeHtml(tag)}</span>`).join('')
+          : '<span class="ph-popup__muted">No tags</span>';
+        const notes = String(archive.notes || '').trim();
+        const failure = String(archive.failure_reason || '').trim();
+        const details = [
+          ['Printer', archive.printer_id || 'Unknown'],
+          ['Material', archive.filament_type || 'Unknown'],
+          ['Layer Height', archive.layer_height ? `${archive.layer_height} mm` : '-'],
+          ['Nozzle', archive.nozzle_diameter ? `${archive.nozzle_diameter} mm` : '-'],
+          ['Total Layers', archive.total_layers || '-'],
+          ['Designer', archive.designer || '-'],
+          ['Started', formatDate(archive.started_at || archive.created_at)],
+          ['Completed', formatDate(archive.completed_at)],
+        ].map(([label, value]) => `
+          <div class="ph-popup__row">
+            <div class="ph-popup__row-label">${escapeHtml(label)}</div>
+            <div class="ph-popup__row-value">${escapeHtml(value)}</div>
+          </div>
+        `).join('');
+        const image = archive.id && baseUrl
+          ? `<img src="${baseUrl}/api/v1/archives/${archive.id}/thumbnail" alt="${escapeHtml(archive.print_name || 'Archive thumbnail')}" class="ph-popup__image" loading="lazy" onerror="this.style.display='none'">`
+          : '';
+        return `
+          <style>
+            .ph-popup { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 18px; }
+            .ph-popup__panel { border: 1px solid var(--divider-color); border-radius: 22px; background: var(--ha-card-background); }
+            .ph-popup__hero { overflow: hidden; }
+            .ph-popup__image { width: 100%; height: 240px; display: block; object-fit: cover; background: #263238; }
+            .ph-popup__hero-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+            .ph-popup__status { color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+            .ph-popup__favorite { color: #f5c242; font-size: 18px; }
+            .ph-popup__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .ph-popup__stat { padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.04); }
+            .ph-popup__stat-label { color: var(--secondary-text-color); font-size: 11px; margin-bottom: 4px; }
+            .ph-popup__stat-value { font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+            .ph-popup__details { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+            .ph-popup__section-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--secondary-text-color); }
+            .ph-popup__rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+            .ph-popup__row { padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.03); min-width: 0; }
+            .ph-popup__row-label { color: var(--secondary-text-color); font-size: 11px; margin-bottom: 4px; }
+            .ph-popup__row-value { font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+            .ph-popup__tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+            .ph-popup__tag { display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 999px; background: rgba(21, 101, 192, 0.18); color: var(--primary-text-color); font-size: 11px; }
+            .ph-popup__muted { color: var(--secondary-text-color); font-size: 13px; }
+            .ph-popup__text-block { padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.03); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+            .ph-popup__failure { border: 1px solid rgba(198, 40, 40, 0.45); background: rgba(198, 40, 40, 0.14); }
+            @media (max-width: 900px) {
+              .ph-popup { grid-template-columns: minmax(0, 1fr); }
+              .ph-popup__rows { grid-template-columns: minmax(0, 1fr); }
+            }
+          </style>
+          <div class="ph-popup">
+            <section class="ph-popup__panel ph-popup__hero">
+              ${image || '<div class="ph-popup__image" style="display:flex;align-items:center;justify-content:center;font-size:48px">🖨️</div>'}
+              <div class="ph-popup__hero-body">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+                  <div style="min-width:0;flex:1 1 260px">
+                    <div style="font-size:22px;font-weight:700;line-height:1.15;overflow-wrap:anywhere">${escapeHtml(archive.print_name || 'Unnamed')}</div>
+                    <div style="margin-top:4px;font-size:13px;color:var(--secondary-text-color)">${escapeHtml(formatDate(archive.started_at || archive.created_at))}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${archive.is_favorite ? '<span class="ph-popup__favorite">★</span>' : ''}<span class="ph-popup__status" style="background:${statusColor(archive.status)}">${escapeHtml(statusLabel(archive.status))}</span></div>
+                </div>
+                <div class="ph-popup__stats">
+                  <div class="ph-popup__stat"><div class="ph-popup__stat-label">Duration</div><div class="ph-popup__stat-value">${escapeHtml(formatHours(archive.actual_time_seconds || archive.print_time_seconds))}</div></div>
+                  <div class="ph-popup__stat"><div class="ph-popup__stat-label">Filament</div><div class="ph-popup__stat-value">${escapeHtml(formatGrams(archive.filament_used_grams))}</div></div>
+                  <div class="ph-popup__stat"><div class="ph-popup__stat-label">Cost</div><div class="ph-popup__stat-value">${escapeHtml(formatCost(archive.cost))}</div></div>
+                  <div class="ph-popup__stat"><div class="ph-popup__stat-label">Objects</div><div class="ph-popup__stat-value">${escapeHtml(archive.object_count || 1)}</div></div>
+                </div>
+              </div>
+            </section>
+            <section class="ph-popup__panel ph-popup__details">
+              <div>
+                <div class="ph-popup__section-title">Archive Details</div>
+                <div class="ph-popup__rows">${details}</div>
+              </div>
+              <div>
+                <div class="ph-popup__section-title">Tags</div>
+                <div class="ph-popup__tag-wrap">${tagChips}</div>
+              </div>
+              <div>
+                <div class="ph-popup__section-title">Notes</div>
+                <div class="ph-popup__text-block">${notes ? escapeHtml(notes) : 'No notes recorded.'}</div>
+              </div>
+              ${failure ? `<div><div class="ph-popup__section-title">Failure Reason</div><div class="ph-popup__text-block ph-popup__failure">${escapeHtml(failure)}</div></div>` : ''}
+            </section>
+          </div>
+        `;
+      ]]]
+  styles:
+    grid:
+      - grid-template-areas: '"content"'
+      - grid-template-columns: minmax(0, 1fr)
+      - grid-template-rows: auto
+    card:
+      - padding: 0
+      - background: transparent
+      - box-shadow: none
+      - border: none
+      - overflow: visible
+    custom_fields:
+      content:
+        - padding: 0

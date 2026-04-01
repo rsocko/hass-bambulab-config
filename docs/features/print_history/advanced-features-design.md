@@ -88,6 +88,16 @@ REST sensor polling `GET /archives/tags` — state is total unique tag count, at
 
 ## Future Features (Unphased)
 
+### Archive Detail Popup & Editing (Issue #753)
+
+The phased interaction design for per-archive popup drilldown is tracked in [archive-detail-popup-design.md](archive-detail-popup-design.md).
+
+Summary:
+
+- Phase 1: each archive card opens a read-only detail popup
+- Phase 2: add editing for `print_name`, `notes`, `tags`, and `is_favorite`
+- later popup action slots are reserved for issue `#744` and the related follow-on issues `#747`, `#748`, `#750`, `#755`, and `#783`
+
 ### Archive Detection And Recovery
 
 Detailed design is tracked in [archive-detection-recovery-design.md](archive-detection-recovery-design.md).
@@ -129,7 +139,7 @@ This is the best available path without changing Bambuddy itself, because curren
 | Rich print notifications | 2.7 | Low | Medium — better notification content |
 | Spool usage provenance | 2.8 | Low | Medium — "what did this spool print?" |
 | Reprint from HA | Future | High | Medium — safety concerns |
-| Archive detail drilldown | Future | Medium | Medium — support and provenance UX |
+| Archive detail popup + editing | 2.11+ | Medium | Medium — support and provenance UX |
 | Search from HA | Future | Medium | Low — Bambuddy UI is better |
 
 ---
