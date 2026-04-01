@@ -22,9 +22,16 @@ capture_and_upload_snapshot:
              | default('unknown') | replace(' ', '_') | replace('/', '_') }}
         timestamp: "{{ now().strftime('%Y%m%d_%H%M%S') }}"
         primary_camera: "camera.ntk_ryansoffice_3dprinter_camera"
-        secondary_camera: "{{ states('input_select.secondary_camera_entity') }}"
-        has_secondary: >-
+        secondary_camera: "{{ states('input_select.secondary_camera_entity') | trim }}"
+        secondary_camera_configured: >-
           {{ secondary_camera not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+        secondary_camera_state: >-
+          {{ states(secondary_camera) if secondary_camera_configured else 'none' }}
+        has_secondary: >-
+          {{ secondary_camera_configured
+             and secondary_camera.startswith('camera.')
+             and secondary_camera != primary_camera
+             and secondary_camera_state not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
         primary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
         secondary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
         primary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
@@ -98,7 +105,8 @@ capture_and_upload_snapshot:
     - variables:
         primary_upload_status: "{{ 'skipped_no_archive' if not has_archive_id else 'pending' }}"
         secondary_upload_status: >-
-          {% if not has_secondary %}not_requested
+          {% if not secondary_camera_configured %}not_requested
+          {% elif not has_secondary %}invalid_secondary
           {% elif not has_archive_id %}skipped_no_archive
           {% else %}pending
           {% endif %}

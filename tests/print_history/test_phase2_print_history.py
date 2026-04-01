@@ -763,7 +763,9 @@ class TestScripts(unittest.TestCase):
     def test_capture_script_handles_secondary_camera(self):
         content = (HISTORY / "scripts" / "capture_and_upload_snapshot.yaml").read_text("utf-8")
         self.assertIn("secondary_camera", content)
+        self.assertIn("secondary_camera_state", content)
         self.assertIn("has_secondary", content)
+        self.assertIn("invalid_secondary", content)
 
     def test_capture_script_handles_snapshot_light(self):
         """Script should turn light on before capture and off after."""

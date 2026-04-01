@@ -18,6 +18,7 @@ Bambuddy also captures its own completion photo natively (when "Capture finish p
 - Entity stored in `input_select.secondary_camera_entity`
 - Single optional camera selection from the known secondary camera list
 - `None` disables the secondary capture path
+- Shipped YAML only uses the secondary camera when the helper resolves to a valid `camera.*` entity with a usable state
 
 ## Capture Stages
 
