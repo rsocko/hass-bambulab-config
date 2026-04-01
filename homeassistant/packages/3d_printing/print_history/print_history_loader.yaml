@@ -3,8 +3,10 @@
 automation: !include_dir_merge_list automations
 rest: !include_dir_merge_list rest_sensors
 rest_command: !include_dir_merge_named rest_commands
+shell_command: !include_dir_merge_named shell_commands
 script: !include_dir_merge_named scripts
 template: !include_dir_merge_list template_sensors
+counter: !include_dir_merge_named helpers/counter
 input_text: !include_dir_merge_named helpers/input_text
 input_boolean: !include_dir_merge_named helpers/input_boolean
 input_number: !include_dir_merge_named helpers/input_number

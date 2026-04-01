@@ -139,12 +139,10 @@
         tags: "{{ all_tags }}"
         notes: "{{ notes_text }}"
 
-    # Set photo review to pending if manifest has photos
+    # Set photo review to pending if this print captured any photos
     - variables:
-        manifest_raw: "{{ states('input_text.bambuddy_photo_manifest') }}"
-        has_photos: >-
-          {{ manifest_raw not in ['', '[]', 'unknown', 'unavailable']
-             and (manifest_raw | from_json | default([]) | length > 0) }}
+      captured_photo_count: "{{ states('counter.bambuddy_captured_photo_count') | int(0) }}"
+      has_photos: "{{ captured_photo_count > 0 }}"
 
     - if:
         - condition: template
@@ -169,6 +167,7 @@
         message: >-
           Enriched archive {{ archive_id }} ({{ status_tag }},
           cost=${{ total_cost | float(0) | round(2) }},
-          tags={{ all_tags | truncate(100) }})
+          tags={{ all_tags | truncate(100) }},
+          captured_photos={{ captured_photo_count }})
 
   mode: single

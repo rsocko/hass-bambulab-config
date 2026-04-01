@@ -128,8 +128,10 @@ class TestLoaderWiring(unittest.TestCase):
             "automation",
             "rest",
             "rest_command",
+            "shell_command",
             "script",
             "template",
+            "counter",
             "input_text",
             "input_boolean",
             "input_number",
@@ -192,12 +194,12 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_REST_COMMANDS = [
-        "bambuddy_upload_photo_to_archive.yaml",
         "bambuddy_delete_archive_photo.yaml",
         "bambuddy_set_archive_cover.yaml",
         "bambuddy_update_archive.yaml",
         "bambuddy_query_recent_archive.yaml",
         "bambuddy_fetch_archives.yaml",
+        "bambuddy_get_archive_detail.yaml",
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
@@ -209,10 +211,14 @@ class TestFileInventory(unittest.TestCase):
 
     EXPECTED_HELPERS_INPUT_TEXT = [
         "input_text_bambuddy_current_archive_id.yaml",
-        "input_text_bambuddy_photo_manifest.yaml",
+        "input_text_bambuddy_last_photo_upload_result.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_print_history_activity_selected_date.yaml",
         "input_text_print_history_search.yaml",
+    ]
+
+    EXPECTED_HELPERS_COUNTER = [
+        "bambuddy_captured_photo_count.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_BOOLEAN = [
@@ -293,6 +299,9 @@ class TestFileInventory(unittest.TestCase):
     def test_helpers_input_boolean_exist(self):
         self._check_files("helpers/input_boolean", self.EXPECTED_HELPERS_INPUT_BOOLEAN)
 
+    def test_helpers_counter_exist(self):
+        self._check_files("helpers/counter", self.EXPECTED_HELPERS_COUNTER)
+
     def test_helpers_input_number_exist(self):
         self._check_files("helpers/input_number", self.EXPECTED_HELPERS_INPUT_NUMBER)
 
@@ -320,6 +329,7 @@ class TestFileInventory(unittest.TestCase):
         expected_subdirs = {
             "automations", "scripts", "rest_commands", "rest_sensors",
             "template_sensors", "helpers", "dashboard_cards", "dashboard_views",
+            "shell_commands",
         }
         actual_subdirs = {
             d.name for d in HISTORY.iterdir()
@@ -658,6 +668,69 @@ class TestTemplateSensors(unittest.TestCase):
         content = sensor_path.read_text("utf-8")
         self.assertIn("3600", content, "Duration conversion must divide by 3600")
 
+    def test_archive_projection_includes_object_count_and_omits_quantity(self):
+        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        self.assertIn("object_count=a.get('object_count', 1) | int(1)", content)
+        self.assertNotIn("quantity=a.get('quantity', 1) | int(1)", content)
+
+    def test_filtered_sensor_uses_object_count_and_separate_print_count(self):
+        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        self.assertIn("ns.total_prints = ns.total_prints + 1", content)
+        self.assertIn("ns.total_objects = ns.total_objects + (a.get('object_count', 1) | int(1))", content)
+        self.assertIn("{% elif mode == 'filaments used' %}", content)
+        self.assertNotIn("filament uses", content)
+        self.assertNotIn("number of different filaments", content)
+
+    def test_filtered_sensor_formats_activity_totals_with_grouping(self):
+        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        self.assertIn("{{ '{:,}'.format(count) }} active", content)
+        self.assertIn("{{ '{:,.1f}g'.format(ns.total_weight) }}", content)
+        self.assertIn("{{ '{:,.2f}'.format(ns.total_cost) }}", content)
+        self.assertIn("{{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}", content)
+
+
+class TestHeatmapActivityCard(unittest.TestCase):
+    """Heatmap card logic should match the projected archive schema and metric labels."""
+
+    def test_heatmap_card_resource_is_versioned_for_reregistration(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=24", content)
+
+    def test_heatmap_card_rerenders_when_reconnected(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("connectedCallback()", content)
+        self.assertIn("this._requestVisibilityRender();", content)
+        self.assertIn("self._queueRender();", content)
+
+    def test_heatmap_card_rerenders_on_view_visibility_events(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("window.addEventListener(\"location-changed\"", content)
+        self.assertIn("document.addEventListener(\"visibilitychange\"", content)
+        self.assertIn("new IntersectionObserver(function (entries)", content)
+        self.assertIn("this._intersectionObserver.observe(this);", content)
+
+    def test_heatmap_card_uses_api_object_count(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("objectCount: Math.max(1, this._toNumber(archive && archive.object_count))", content)
+
+    def test_heatmap_card_supports_filaments_used_label(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('input.mode === "Filaments Used"', content)
+        self.assertIn('"filaments used": "Filaments Used"', content)
+        self.assertNotIn('"filament uses": "Filaments Used"', content)
+        self.assertNotIn('"number of different filaments": "Filaments Used"', content)
+        self.assertNotIn('"outcome mix": "Outcome"', content)
+        self.assertNotIn('"by outcome": "Outcome"', content)
+
+    def test_heatmap_card_formats_large_totals_with_locale_grouping(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("return this._formatDecimal(value, 1) + \"h\";", content)
+        self.assertIn("return this._formatDecimal(weight, 1) + \"g\";", content)
+        self.assertIn("return \"$\" + this._formatDecimal(value, 2);", content)
+        self.assertIn("'Prints: ' + this._formatCount(meta.count || 0)", content)
+        self.assertIn("this._buildChipHtml(this._formatCount(activeDays) + \" active days\")", content)
+        self.assertIn("this._formatCount(day.count) + (day.count === 1 ? \" print\" : \" prints\")", content)
+
 
 # =============================================================================
 # 9. SCRIPT VALIDATION
@@ -690,7 +763,9 @@ class TestScripts(unittest.TestCase):
     def test_capture_script_handles_secondary_camera(self):
         content = (HISTORY / "scripts" / "capture_and_upload_snapshot.yaml").read_text("utf-8")
         self.assertIn("secondary_camera", content)
+        self.assertIn("secondary_camera_state", content)
         self.assertIn("has_secondary", content)
+        self.assertIn("invalid_secondary", content)
 
     def test_capture_script_handles_snapshot_light(self):
         """Script should turn light on before capture and off after."""
@@ -733,7 +808,7 @@ class TestHelpers(unittest.TestCase):
     STATE_PERSISTENCE_HELPERS = {
         "input_text_bambuddy_current_archive_id.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
-        "input_text_bambuddy_photo_manifest.yaml",
+        "input_text_bambuddy_last_photo_upload_result.yaml",
     }
 
     def test_state_persistence_helpers_have_no_initial(self):
@@ -775,6 +850,17 @@ class TestHelpers(unittest.TestCase):
                     self.assertIn("idle", options)
                     self.assertIn("pending", options)
 
+    def test_activity_metric_options_use_filaments_used(self):
+        path = HISTORY / "helpers" / "input_select" / "input_select_print_history_activity_metric.yaml"
+        data = _load_yaml_safe(path)
+        if isinstance(data, dict):
+            for key, val in data.items():
+                if isinstance(val, dict) and "options" in val:
+                    options = val["options"]
+                    self.assertIn("Filaments Used", options)
+                    self.assertNotIn("Filament Uses", options)
+                    self.assertNotIn("Number of Different Filaments", options)
+
 
 # =============================================================================
 # 11. CROSS-REFERENCE INTEGRITY
@@ -785,8 +871,9 @@ class TestCrossReferences(unittest.TestCase):
 
     KNOWN_PRINT_HISTORY_ENTITIES = {
         # Helpers
+        "counter.bambuddy_captured_photo_count",
         "input_text.bambuddy_current_archive_id",
-        "input_text.bambuddy_photo_manifest",
+        "input_text.bambuddy_last_photo_upload_result",
         "input_text.bambuddy_tray_map_snapshot",
         "input_text.print_history_search",
         "input_text.secondary_camera_entity",
@@ -866,16 +953,18 @@ class TestCrossReferences(unittest.TestCase):
                     # Allow service calls (not entity references)
                     known_services = {
                         "input_text.set_value", "input_select.select_option",
+                        "counter.increment", "counter.reset",
                         "input_number.set_value", "input_boolean.turn_on",
                         "input_boolean.turn_off", "homeassistant.update_entity",
                         "logbook.log", "light.turn_on", "light.turn_off",
                         "camera.snapshot", "script.capture_and_upload_snapshot",
+                        "shell_command.bambuddy_upload_archive_photo",
                         "script.resolve_current_archive_id",
                         "script.load_history_page",
                         "script.refresh_print_history_archives",
                         "script.clear_print_history_filters",
+                        "rest_command.bambuddy_get_archive_detail",
                         "rest_command.bambuddy_update_archive",
-                        "rest_command.bambuddy_upload_photo_to_archive",
                         "rest_command.bambuddy_query_recent_archive",
                         "rest_command.bambuddy_fetch_archives",
                     }

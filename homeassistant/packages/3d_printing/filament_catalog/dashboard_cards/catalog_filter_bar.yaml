@@ -215,6 +215,12 @@ cards:
           - entity: input_text.filament_catalog_search
             name: Search Filament
             secondary_info: none
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+            double_tap_action:
+              action: none
       - type: custom:config-template-card
         entities:
           - input_select.filament_catalog_filter_material
@@ -239,10 +245,18 @@ cards:
           show_name: true
           show_state: true
           styles: |
+            .bubble-button-card-container {
+              pointer-events: none !important;
+              cursor: default !important;
+            }
             .bubble-sub-button-container,
             .bubble-sub-buttons-container {
+              pointer-events: auto !important;
               justify-content: flex-start !important;
               gap: 6px !important;
+            }
+            .bubble-sub-button {
+              pointer-events: auto !important;
             }
             .bubble-sub-button.clear-material-filter,
             .bubble-sub-button.clear-vendor-filter,
@@ -271,7 +285,11 @@ cards:
               color: var(--accent-color) !important;
             }
           tap_action:
-            action: more-info
+            action: none
+          hold_action:
+            action: none
+          double_tap_action:
+            action: none
           sub_button:
             - entity: input_select.filament_catalog_filter_material
               sub_button_type: default

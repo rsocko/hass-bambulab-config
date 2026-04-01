@@ -135,7 +135,7 @@ The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed 
     started_at=a.get('started_at', ''),
     completed_at=a.get('completed_at'),
     cost=a.get('cost', 0),
-    quantity=a.get('quantity', 1),
+    object_count=a.get('object_count', 1),
     layer_height=a.get('layer_height'),
     total_layers=a.get('total_layers'),
     nozzle_diameter=a.get('nozzle_diameter'),
@@ -171,7 +171,7 @@ The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed 
   "started_at": "2026-03-28T13:55:04.674129",
   "completed_at": null,
   "cost": 1.12,
-  "quantity": 1,
+  "object_count": 1,
   "layer_height": 0.08,
   "total_layers": 30,
   "nozzle_diameter": 0.4,
@@ -194,6 +194,8 @@ The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed 
 | 2,000 | ~900 KB | +500 KB | -19 MB | ~4-5s | ⚠️ Sluggish |
 
 The projected schema is roughly **2.2x** the size of slim but gives us every field needed for filtering and display. Compared to raw full (~10-15 KB/archive), it's a **95% reduction** (strips `_print_data`, AMS dumps, file paths, content hashes).
+
+`quantity` still exists in the Bambuddy API, but the runtime browser/heatmap cache intentionally omits it. The active print history metrics use `object_count` for object totals and treat archive rows as the source of truth for print totals. If a future archive-detail popup wants to show API `quantity`, it can be added back as a display-only field without changing the current activity metrics.
 
 ### Additional Filters Enabled by Full Data
 
@@ -383,7 +385,7 @@ bambuddy_fetch_archives:
               started_at=a.get('started_at', ''),
               completed_at=a.get('completed_at'),
               cost=a.get('cost', 0),
-              quantity=a.get('quantity', 1),
+              object_count=a.get('object_count', 1),
               layer_height=a.get('layer_height'),
               total_layers=a.get('total_layers'),
               nozzle_diameter=a.get('nozzle_diameter'),
@@ -404,6 +406,7 @@ bambuddy_fetch_archives:
 - **Single entity** (`sensor.print_history_archives`) holds ALL fetched + projected archive data
 - **Triggers on events** — immediate refresh when prints complete/fail, plus 5-minute polling
 - **Field projection at ingest** — strips `extra_data._print_data` (AMS dumps, raw MQTT data) and other unused fields (`file_path`, `content_hash`, `duplicates`, `source_3mf_path`, etc.), keeping ~21 fields per archive
+- **Activity metrics use `object_count`** — Layer 1 projects `object_count`, Layer 2 sums it for object totals, and print totals remain archive-count based
 - **Preserves `filament_slots[]`** — extracted from `extra_data` before the rest is discarded. Provides per-slot color hex + grams for color swatch rendering.
 - **Uses full `/archives/` endpoint** — not `/slim`, because `/slim` lacks `id` (needed for thumbnail URLs), `is_favorite`, `tags`, `designer`, and `extra_data.filament_slots[]`
 - **~450 bytes/archive after projection** — vs ~200B (slim) and ~10-15 KB (raw full). 500 archives ≈ 225 KB.
@@ -871,6 +874,34 @@ If scale becomes an issue, the architecture supports a middle ground:
 
 This would require switching from trigger-based template to a script + REST command flow where filter changes trigger an API re-fetch. The downside is that filter changes are no longer instant. This can be added later without changing the dashboard or filter helpers — only the data fetch layer changes.
 
+### Activity Heatmap Metric Semantics
+
+The shipped activity heatmap uses these metric definitions:
+
+- **Print Count**: one per archive row after filters are applied
+- **Number of Printed Objects**: sum of projected `object_count` values from the Bambuddy archive payload
+- **Filaments Used**: sum of distinct populated `filament_slots` per archive, intended as a usage/activity signal rather than a unique-filament-in-history count
+
+This keeps the browser and heatmap aligned on the same projected Layer 1 data contract and avoids deriving object totals from fallback printable-object blobs.
+
+### Deferred: Backend-Only Heatmap Filtering / Single Source of Truth
+
+The idea of moving all heatmap filtering out of the browser card and into Layer 2 was analyzed and intentionally deferred.
+
+**Why it was deferred:**
+
+- The activity heatmap currently consumes the full projected archive cache from `sensor.print_history_archives`
+- The existing Layer 2 payload is page-oriented and optimized for the archive browser, not full-scope activity aggregation
+- Reusing the paged Layer 2 payload for the heatmap would either truncate activity totals or force Layer 2 to mix two different concerns into one payload
+
+**Future-safe direction:**
+
+- Keep the current browser-first heatmap implementation for now
+- If a stricter backend single source of truth is needed later, add a dedicated full-scope activity payload such as `activity_scope_json` or `activity_days_json`
+- Have the heatmap read that dedicated activity payload instead of reconstructing its own filtered working set from page-oriented data
+
+That future refactor is an architectural cleanup and consistency improvement, not a correctness blocker for the current implementation.
+
 ---
 
 ## Updated Package Structure
@@ -980,7 +1011,6 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | Entity | Current Purpose | Replaced By |
 |--------|----------------|-------------|
 | `input_number.bambuddy_history_limit` | REST sensor `?limit=` param | `input_number.print_history_max_archives` |
-| `input_number.history_current_page` | Legacy pagination page | `input_number.print_history_current_page` (already exists) |
 | `sensor.print_history_page_archives` | Current visible page slice | Dashboard card entity |
 | `script.load_history_page` | REST command pagination | Template sensor paging (no script needed) |
 | `script.navigate_history` | Prev/next REST calls | Direct `input_number.set_value` on page helper |
@@ -1186,7 +1216,7 @@ card:
 | **Primary browser controls** | `catalog_filter_bar.yaml` | `print_history_browser.yaml` |
 | **Controls style** | expanded `bubble-card` sub-buttons | always-visible rounded control header with search, pills, and color chips |
 | **Dynamic options** | `sync_filter_options` automation | `print_history_sync_filter_options` automation |
-| **Clear filters** | `script.filament_catalog_clear_filters` | `script.clear_print_history_filters` |
+| **Clear filters** | `script.filament_catalog_clear_filters` | `script.clear_print_history_filters` resets the browser filters and the heatmap day drill-in (`input_text.print_history_activity_selected_date`) |
 | **Scale concern** | 165 is comfortable, >300 would need paging | 500 default cap, configurable to 2000 |
 
 ---

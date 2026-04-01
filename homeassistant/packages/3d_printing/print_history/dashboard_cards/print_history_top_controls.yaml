@@ -2,6 +2,7 @@ type: custom:config-template-card
 entities:
   - input_number.print_history_page_size
   - input_select.print_history_card_variant
+  - input_boolean.print_history_show_images
   - sensor.print_history_page_info
   - sensor.print_history_filtered
 card:
@@ -19,6 +20,19 @@ card:
         .bubble-sub-buttons-container {
           gap: 8px !important;
           justify-content: center !important;
+        }
+        .bubble-sub-button:nth-child(10) {
+          margin-left: 10px !important;
+          position: relative;
+        }
+        .bubble-sub-button:nth-child(10)::before {
+          content: '';
+          position: absolute;
+          left: -9px;
+          top: 8px;
+          bottom: 8px;
+          width: 1px;
+          background: color-mix(in srgb, var(--divider-color) 72%, transparent) !important;
         }
         ${selectedIndex ? `
         .bubble-sub-button:nth-child(${selectedIndex}) {
@@ -143,6 +157,19 @@ card:
                 entity_id: input_select.print_history_card_variant
               data:
                 option: Detail
+          - entity: input_boolean.print_history_show_images
+            sub_button_type: default
+            name: Images
+            icon: mdi:image-outline
+            show_icon: true
+            show_name: false
+            show_state: false
+            show_background: true
+            state_background: ${states['input_boolean.print_history_show_images']?.state === 'on'}
+            state_color: ${states['input_boolean.print_history_show_images']?.state === 'on'}
+            fill_width: false
+            tap_action:
+              action: toggle
           - name: Refresh
             icon: mdi:refresh
             show_icon: true

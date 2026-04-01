@@ -1,0 +1,5 @@
+bambuddy_captured_photo_count:
+  name: "Bambuddy Captured Photo Count"
+  initial: 0
+  step: 1
+  icon: mdi:image-multiple

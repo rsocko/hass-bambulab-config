@@ -104,7 +104,7 @@
 #       Body: {"event":"print_started","data":{"archive_id":"999","name":"Test Print","printer_id":"1"}}
 #       VERIFY: Check logbook for "Received event 'print_started'"
 #       VERIFY: input_text.bambuddy_current_archive_id = "999"
-#       VERIFY: input_text.bambuddy_photo_manifest = "[]"
+#       VERIFY: counter.bambuddy_captured_photo_count = 0
 #       VERIFY: input_text.bambuddy_tray_map_snapshot = <tray map CSV>
 #       VERIFY: input_select.bambuddy_photo_review_state = "idle"
 #
@@ -130,7 +130,7 @@
 # B2.2  Start Capture Test
 #       Start a print → wait 3 minutes (delay in start stage)
 #       VERIFY: Photo saved to /config/www/printer_snapshots/<task>_start_<ts>.jpg
-#       VERIFY: Photo manifest updated (check input_text.bambuddy_photo_manifest)
+#       VERIFY: Photo count increments and last upload result updates
 #       VERIFY: If archive_id set, photo uploaded to Bambuddy
 #
 # B2.3  Mid-Print Capture Test
@@ -329,7 +329,7 @@
 #   2. [ ] VERIFY: Bambuddy fires print_started webhook
 #   3. [ ] VERIFY: bambuddy_current_archive_id is populated
 #   4. [ ] VERIFY: bambuddy_tray_map_snapshot has tray:spool CSV
-#   5. [ ] VERIFY: bambuddy_photo_manifest reset to "[]"
+#   5. [ ] VERIFY: bambuddy_captured_photo_count reset to 0
 #   6. [ ] VERIFY: Start photo captured after 3-min delay (if toggle on)
 #   7. [ ] Wait for print to reach midprint threshold
 #   8. [ ] VERIFY: Midprint photo captured (if toggle on + threshold crossed)

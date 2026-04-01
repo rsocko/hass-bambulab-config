@@ -8,7 +8,9 @@
 
 ## Overview
 
-Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + SURFACE + ENRICH + REACT** — Bambuddy owns archive creation, maintenance tracking, and queue management.
+The root `bambuddy/` folder was an initial design/prototype attempt. It is not the canonical or current implementation. Canonical design lives under `docs/repo/` and `docs/features/`; canonical Home Assistant implementation lives under `homeassistant/packages/3d_printing/`.
+
+This plan tracks the migration away from that early prototype into 5 HA feature packages. HA's role is **READ + SURFACE + ENRICH + REACT** — Bambuddy owns archive creation, maintenance tracking, and queue management.
 
 | Package | Depends On | Design Doc | Status |
 |---------|-----------|------------|--------|
@@ -58,11 +60,11 @@ Break monolithic `bambuddy/` into 5 HA feature packages. HA's role is **READ + S
 | 10 | Create directory tree | **Done** | automations, rest_commands, rest_sensors, scripts, template_sensors, helpers/*, dashboard_cards, dashboard_views |
 | 11 | Create `print_history_loader.yaml` | **Done** | 9 domain includes (added input_number, input_select) |
 | 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | **Done** | Read-only, page 1 |
-| 13 | REST commands: upload photo, delete photo, set cover, update archive, fetch archives, query recent archive | **Done** | 6 REST commands created; upload still uses a JSON hint because true multipart upload needs a `shell_command` path |
+| 13 | REST commands: delete photo, set cover, update archive, fetch archives, query recent archive | **Done** | JSON-hint photo upload artifact removed; multipart upload remains a separate shell/external bridge |
 | 14 | Archive ID capture automation | **Done** | Triggers on `print_started` webhook; stores archive_id; fallback query; snapshots tray map; resets manifest |
 | 15 | Photo capture automation | **Done** | Multi-trigger capture for start, mid-print, near-complete, and finish/error-adjacent flows — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
-| 17 | Snapshot capture+upload script | **Done** | Light → capture → upload; manifest tracking |
+| 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
 | 19 | Enrichment automation | **Done** | Spoolman tags + notes via PATCH; tray map snapshot; cost data; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
@@ -87,7 +89,7 @@ Implemented now:
 
 Still to do:
 
-- Replace the placeholder JSON photo upload path with a real multipart upload implementation.
+- Add richer per-photo metadata/retries or move fully to the planned Python worker.
 - Build the actual photo-review actions and popup flow; today the chip is only a status entry point.
 - Add archive-detail drilldown actions such as favorite toggle, compare, and richer Bambuddy deep links.
 - Reconcile the advanced photo-review API contracts before enabling delete/set-cover in the shipped UI.
@@ -142,12 +144,12 @@ Still to do:
 
 | Step | Description | Status | Notes |
 |------|------------|--------|-------|
-| 50 | Delete root `bambuddy/` directory | Not started | |
+| 50 | Delete root `bambuddy/` directory | Not started | Legacy prototype only; not canonical implementation |
 | 51 | Delete `homeassistant/packages/3d_printing/bambuddy_integration/` | Not started | |
 | 52 | Delete `docs/features/bambuddy_integration/` | Not started | Already marked SUPERSEDED |
 | 53 | Remove old `#bambuddy_integration_loader` from `_feature_loaders.yaml` | Not started | |
 | 54 | Update cross-references | Not started | |
-| 55 | Migrate unique content from `bambuddy/README.md` | Not started | → `bambuddy_common/README.md` |
+| 55 | Migrate any still-useful prototype notes from `bambuddy/README.md` | Not started | Only if the content is still valid; canonical docs remain under `docs/` |
 
 ## Phase 7: Verification
 
@@ -172,7 +174,7 @@ Still to do:
 |---|------|-----------|-------|-----------------|
 | 1 | ~~**Maintenance API endpoints**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `GET /api/v1/maintenance/printers/{printer_id}`, `POST /items/{item_id}/perform`, etc. Full list in [openapi-correction-notes.md](openapi-correction-notes.md#phase-5-printer_maintenance--unblocked) |
 | 2 | ~~**Maintenance task schema**~~ | ~~**Yes**~~ | 5 | **RESOLVED** — `MaintenanceStatus` and `PrinterMaintenanceOverview` schemas fully documented. Hours-based tracking (not print count). |
-| 3 | **Photo upload content type** — `POST /archives/{id}/photos` expects `multipart/form-data`. HA `rest_command` doesn't natively support file uploads. | No — browser core works without it | 1, 2 | Current YAML still uses a JSON hint payload; implement the production `shell_command`/curl upload path before relying on photo capture end-to-end |
+| 3 | **Photo upload content type** — `POST /archives/{id}/photos` expects `multipart/form-data`. HA `rest_command` doesn't natively support file uploads. | No — first phase is now in place | 1, 2 | Invalid JSON-hint upload YAML removed; active package now uses a `shell_command` bridge, with Python worker still the recommended hardening path |
 | 4 | **Webhook format for HA** — "Webhook (Custom)" provider: does it send flat notifications format or structured API format with `archive_id`? | No — receiver normalizes both | 1 | Test during Phase 1 step 7 |
 | 5 | **`print_started` includes `archive_id`?** — API docs confirm it for `print_complete`. Likely yes for `print_started` since archive exists from start. | No — fallback script handles missing ID | 2 | Verify during Phase 2 step 14 |
 | 6 | **Photo delete contract mismatch** — current YAML uses `/photos/{photo_id}`, while earlier API review suggested filename-based deletes. | No — advanced review only | 2 | Reconcile OpenAPI/source review with the shipped `rest_command` before enabling review delete actions |
@@ -224,7 +226,7 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 | Phase | Ready? | Blockers |
 |-------|--------|----------|
 | 1 — bambuddy_common | **Yes** | None |
-| 2 — print_history | **Core shipped and active** | Multipart photo upload, photo-review actions/popup, and archive-detail actions remain deferred |
+| 2 — print_history | **Core shipped and active** | Photo upload is first-phase only; photo-review actions/popup and archive-detail actions remain deferred |
 | 3 — print_queue | **Yes** | None |
 | 4 — print_statistics | **Yes** | None |
 | 5 — printer_maintenance | **Yes** | API endpoints confirmed via OpenAPI spec |

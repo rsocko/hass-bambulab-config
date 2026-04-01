@@ -1,8 +1,23 @@
-# Bambuddy Integration for Home Assistant
+# Bambuddy Root Prototype (Legacy)
 
-This directory provides a complete integration between [Bambuddy](https://github.com/maziggy/bambuddy) and Home Assistant, pulling rich print history, queue, statistics, and maintenance data into HA dashboards, sensors, and automations.
+This directory is an early design/prototype attempt for Bambuddy integration. It is not the canonical, complete, or current implementation.
 
-## Screenshots
+Use these locations instead:
+
+- Design and planning: `docs/repo/` and `docs/features/`
+- Active Home Assistant implementation: `homeassistant/packages/3d_printing/`
+
+Current feature package entry points:
+
+- `docs/features/bambuddy_common/README.md`
+- `docs/features/print_history/README.md`
+- `docs/features/print_queue/README.md`
+- `docs/features/print_statistics/README.md`
+- `docs/features/printer_maintenance/README.md`
+
+This root `bambuddy/` folder is retained only as legacy reference material during migration cleanup. Do not treat it as deployment guidance or source of truth.
+
+## Legacy Prototype Contents
 
 <!-- SCREENSHOT: id=bambuddy-print-history-card | format=png | version=1.0 | package=bambuddy | added=2026-03-15 -->
 <!-- Capture: Print history dashboard card showing recent prints with photos, names, duration, weight, status -->
@@ -32,19 +47,16 @@ This directory provides a complete integration between [Bambuddy](https://github
 - **Spool Inventory** — Built-in filament tracking with AMS slot assignment and usage tracking
 - **Proxy Mode** — Remote printing from anywhere via secure TLS relay
 
-## Integration Approach
+## Status
 
-This integration uses three complementary techniques:
+The material below reflects the original prototype assumptions. Some of it is now outdated and intentionally differs from the shipped package split. In particular:
 
-| Technique | Use Case |
-|-----------|----------|
-| **REST Sensors** | Pull print history, queue, and statistics into HA entities for dashboards and automations |
-| **REST Commands** | Send commands to Bambuddy API (archive creation, queue management) |
-| **Automations** | Create archive entries on print start, update on completion, handle webhooks |
-| **Dashboard Cards** | Display print history, queue, statistics, and maintenance info using button-card |
-| **Webhooks** | Receive real-time events from Bambuddy (print finished, failed, queue ready) |
+- canonical package loaders live under `homeassistant/packages/3d_printing/`
+- canonical design docs live under `docs/features/` and `docs/repo/`
+- archive creation is owned by Bambuddy, not by HA
+- multipart photo upload is not implemented in this root prototype
 
-An optional iframe panel can embed Bambuddy's full UI directly in the Home Assistant sidebar for features like the 3D model viewer that don't map well to HA entities.
+If you need the current plan, start with `docs/repo/bambuddy-reorganization-plan.md`.
 
 ## Files
 
@@ -72,7 +84,7 @@ bambuddy/
 - Home Assistant with [custom:button-card](https://github.com/custom-cards/button-card) installed via HACS
 - Bambuddy API key generated in **Bambuddy Settings → API Keys**
 
-## Quick Start
+## Historical Prototype Notes
 
 ### 1. Set Up Bambuddy
 
@@ -100,110 +112,21 @@ Set the minimum required permissions:
 - `archives:write` — for archive creation automation
 - `queue:write` — for queue management commands
 
-### 3. Add Input Helpers
+### Prototype Structure
 
-Add to your `configuration.yaml`:
+The files in this directory show the original prototype layout:
 
-```yaml
-homeassistant:
-  packages:
-    bambuddy: !include bambuddy/helpers.yaml
-```
+- `helpers.yaml`
+- `sensors.yaml`
+- `rest_commands.yaml`
+- `automations/`
+- `dashboards/`
 
-Or include directly:
+That layout has been superseded by the package split under `homeassistant/packages/3d_printing/` and the feature docs under `docs/features/`.
 
-```yaml
-input_text: !include bambuddy/helpers.yaml
-input_boolean: !include bambuddy/helpers.yaml
-input_number: !include bambuddy/helpers.yaml
-```
+## Migration Note
 
-### 4. Add REST Sensors
-
-```yaml
-sensor: !include bambuddy/sensors.yaml
-```
-
-### 5. Add REST Commands
-
-```yaml
-rest_command: !include bambuddy/rest_commands.yaml
-```
-
-Also add the shell command for snapshot uploads (see `docs/features/bambuddy_integration/bambuddy-integration.md`):
-
-```yaml
-shell_command:
-  bambuddy_upload_latest_snapshot: >
-    latest_file=$(ls -t /config/www/printer_snapshots/*.jpg 2>/dev/null | head -n 1) &&
-    [ -n "$latest_file" ] &&
-    curl -s -X POST
-    -H "X-API-Key: {{ api_key }}"
-    -F "file=@${latest_file}"
-    "{{ base_url }}/api/v1/archives/{{ archive_id }}/photos"
-```
-
-### 6. Import Automations
-
-Import each automation from `bambuddy/automations/`:
-- `sync_print_history.yaml` — creates archive entry on print start
-- `update_archive_on_complete.yaml` — updates archive on completion/failure
-- `maintenance_alerts.yaml` — sends maintenance reminders
-- `webhook_handler.yaml` — receives real-time events from Bambuddy
-
-> **Customization required:** The automation files reference device ID `210dfdfa64085e8cf073e50eae757d90` and entity prefix `ntk_ryansoffice_3dprinter`. After importing, update these to match your printer:
-> - **device_id** — Find in **Settings → Devices** → your printer → URL contains the device ID
-> - **entity prefix** — Replace `ntk_ryansoffice_3dprinter` with your printer's entity prefix (e.g., `sensor.YOUR_PRINTER_task_name`)
-
-### 7. Configure Bambuddy Webhook (Optional)
-
-In Bambuddy: **Settings → Webhooks → Add Webhook**
-
-- URL: `https://your-ha-instance/api/webhook/bambuddy_events`
-- Events: `print_finished`, `print_failed`, `queue_ready`
-
-### 8. Restart Home Assistant
-
-After restart, configure the helpers in the UI:
-
-1. **Enable Integration:** Set `input_boolean.bambuddy_integration_enabled` → ON
-2. **Set Base URL:** Set `input_text.bambuddy_api_base_url` → `http://your-bambuddy-server:8000`
-3. **Set API Key:** Set `input_text.bambuddy_api_key` → your generated API key
-4. **Set Printer ID:** Set `input_text.bambuddy_printer_id` → your Bambuddy printer ID (found in Bambuddy URL when viewing printer)
-
-### 9. Add Dashboard Cards
-
-Add to your lovelace dashboard YAML:
-
-```yaml
-# Print History
-- !include bambuddy/dashboards/print_history.yaml
-
-# Print Queue
-- !include bambuddy/dashboards/queue.yaml
-
-# Statistics
-- !include bambuddy/dashboards/statistics.yaml
-
-# Maintenance
-- !include bambuddy/dashboards/maintenance.yaml
-```
-
-### 10. Optional: Embed Bambuddy UI as Sidebar Panel
-
-For features like the 3D model viewer, embed Bambuddy's full UI as a panel:
-
-```yaml
-# In configuration.yaml
-panel_iframe:
-  bambuddy:
-    title: Bambuddy
-    icon: mdi:printer-3d
-    url: http://your-bambuddy-server:8000
-    require_admin: false
-```
-
-This gives you full access to Bambuddy's 3D model preview, timelapse editor, archive comparison, and other features that don't translate to HA entities.
+When a current design doc mentions lineage from `bambuddy/`, it means historical origin only. It does not mean this folder is current, complete, or canonical.
 
 ## Entity Reference
 

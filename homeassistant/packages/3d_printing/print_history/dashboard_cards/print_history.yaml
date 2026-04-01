@@ -14,6 +14,7 @@ cards:
         [[[
           const rawArchives = entity?.attributes?.archives ?? [];
           const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
+          const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
           let archives = [];
           if (Array.isArray(rawArchives)) {
             archives = rawArchives;
@@ -90,9 +91,12 @@ cards:
               return `<span style="background:${bg};color:#fff;border-radius:999px;padding:3px 8px;font-size:10px;margin-right:4px;display:inline-block;margin-top:4px">${tag}</span>`;
             });
             const favorite = a.is_favorite ? '<span style="font-size:18px;color:#f5c242">★</span>' : '';
-            const thumb = a.id
-              ? `<img src="${baseUrl}/api/v1/archives/${a.id}/thumbnail" style="width:100%;height:${variant === 'Media' ? '220px' : '180px'};object-fit:cover;border-radius:16px;display:block" loading="lazy" onerror="this.style.display='none'">`
-              : `<div style="width:100%;height:${variant === 'Media' ? '220px' : '180px'};background:#37474F;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:34px">🖨️</div>`;
+            const thumbHeight = variant === 'Media' ? '220px' : '180px';
+            const thumb = !showImages
+              ? ''
+              : a.id
+                ? `<img src="${baseUrl}/api/v1/archives/${a.id}/thumbnail" style="width:100%;height:${thumbHeight};object-fit:cover;border-radius:16px;display:block" loading="lazy" onerror="this.style.display='none'">`
+                : `<div style="width:100%;height:${thumbHeight};background:#37474F;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:34px">🖨️</div>`;
             const metadata = [
               a.filament_type || 'Unknown material',
               a.layer_height ? `${a.layer_height}mm` : '',
@@ -102,8 +106,8 @@ cards:
               ? `<div style="margin-top:8px;font-size:12px;color:#ffb4ab;line-height:1.4">${a.failure_reason}</div>`
               : '';
             if (variant === 'Media') {
-              return `<article style="width:100%;max-width:440px;margin:0 auto;border:1px solid var(--divider-color);border-radius:22px;overflow:hidden;background:var(--ha-card-background);display:flex;flex-direction:column;gap:0;box-sizing:border-box">
-                ${thumb}
+              return `<article style="width:100%;max-width:${showImages ? '440px' : '520px'};margin:0 auto;border:1px solid var(--divider-color);border-radius:22px;overflow:hidden;background:var(--ha-card-background);display:flex;flex-direction:column;gap:0;box-sizing:border-box">
+                ${showImages ? thumb : ''}
                 <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px">
                   <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
                     <div style="min-width:0;flex:1 1 220px;max-width:100%">
@@ -125,9 +129,9 @@ cards:
               </article>`;
             }
             if (variant === 'Detail' || variant === 'Compact') {
-              return `<article style="width:100%;max-width:${variant === 'Compact' ? '340px' : '500px'};margin:0 auto;border:1px solid var(--divider-color);border-radius:22px;background:var(--ha-card-background);padding:16px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box">
-                <div style="display:grid;grid-template-columns:${variant === 'Compact' ? '120px minmax(0, 1fr)' : '160px minmax(0, 1fr)'};gap:14px;align-items:start;min-width:0">
-                  <div>${thumb}</div>
+              return `<article style="width:100%;max-width:${showImages ? (variant === 'Compact' ? '340px' : '500px') : (variant === 'Compact' ? '400px' : '560px')};margin:0 auto;border:1px solid var(--divider-color);border-radius:22px;background:var(--ha-card-background);padding:16px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box">
+                <div style="display:${showImages ? 'grid' : 'flex'};${showImages ? `grid-template-columns:${variant === 'Compact' ? '120px minmax(0, 1fr)' : '160px minmax(0, 1fr)'};` : 'flex-direction:column;'}gap:14px;align-items:start;min-width:0">
+                  ${showImages ? `<div>${thumb}</div>` : ''}
                   <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
                     <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
                       <div style="min-width:0;flex:1 1 220px;max-width:100%">
@@ -155,7 +159,7 @@ cards:
             <style>
               .print-history-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(min(100%, ${variant === 'Compact' ? '260px' : variant === 'Media' ? '340px' : '400px'}), 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, ${showImages ? (variant === 'Compact' ? '260px' : variant === 'Media' ? '340px' : '400px') : (variant === 'Compact' ? '300px' : variant === 'Media' ? '320px' : '360px')}), 1fr));
                 gap: 16px;
                 justify-content: center;
                 align-items: start;

@@ -15,6 +15,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._renderQueued = false;
     this._signature = "";
     this._resizeObserver = null;
+    this._intersectionObserver = null;
+    this._visibilityHandler = null;
     this._lastObservedWidth = 0;
     this._isHidden = false;
   }
@@ -67,10 +69,28 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._queueRender();
   }
 
+  connectedCallback() {
+    this._ensureResizeObserver();
+    this._ensureVisibilityHooks();
+    this._requestVisibilityRender();
+  }
+
   disconnectedCallback() {
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
+    }
+    if (this._intersectionObserver) {
+      this._intersectionObserver.disconnect();
+      this._intersectionObserver = null;
+    }
+    if (this._visibilityHandler) {
+      window.removeEventListener("resize", this._visibilityHandler);
+      window.removeEventListener("focus", this._visibilityHandler);
+      window.removeEventListener("pageshow", this._visibilityHandler);
+      window.removeEventListener("location-changed", this._visibilityHandler);
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+      this._visibilityHandler = null;
     }
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
@@ -117,14 +137,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _renderShell() {
     this.shadowRoot.innerHTML =
       "<style>" +
-      "ha-card{padding:10px 16px 12px;}" +
+      "ha-card{padding:6px 16px 10px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
       ".chart-wrap{min-height:var(--chart-min-height,300px);}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
-      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:8px;padding-right:2px;}" +
-      ".month-spacer{height:16px;}" +
-      ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:16px;white-space:nowrap;overflow:hidden;}" +
-      ".day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:24px;}" +
+      ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
+      ".month-spacer{height:14px;}" +
+      ".month-label{font-size:11px;line-height:1;color:var(--secondary-text-color);min-height:14px;white-space:nowrap;overflow:hidden;}" +
+      ".day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:20px;}" +
       ".day-label{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--secondary-text-color);padding-right:4px;}" +
       ".cells{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
       ".heatmap-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;}" +
@@ -133,7 +153,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
-      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:22px;margin-top:4px;}" +
+      ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:18px;margin-top:2px;}" +
       ".legend.hidden{display:none;}" +
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
       ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
@@ -172,6 +192,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._summaryContainer = this.shadowRoot.getElementById("summary");
     this._detailsContainer = this.shadowRoot.getElementById("details");
     this._ensureResizeObserver();
+    this._ensureVisibilityHooks();
   }
 
   _ensureResizeObserver() {
@@ -191,6 +212,52 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     });
 
     this._resizeObserver.observe(this._chartContainer);
+  }
+
+  _ensureVisibilityHooks() {
+    var self = this;
+    if (!this._visibilityHandler) {
+      this._visibilityHandler = function () {
+        self._requestVisibilityRender();
+      };
+
+      window.addEventListener("resize", this._visibilityHandler);
+      window.addEventListener("focus", this._visibilityHandler);
+      window.addEventListener("pageshow", this._visibilityHandler);
+      window.addEventListener("location-changed", this._visibilityHandler);
+      document.addEventListener("visibilitychange", this._visibilityHandler);
+    }
+
+    if (this._intersectionObserver || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    this._intersectionObserver = new IntersectionObserver(function (entries) {
+      var entry = entries && entries[0] ? entries[0] : null;
+      if (!entry || !entry.isIntersecting) {
+        return;
+      }
+      self._requestVisibilityRender();
+    }, {
+      root: null,
+      threshold: 0.01,
+    });
+
+    this._intersectionObserver.observe(this);
+  }
+
+  _requestVisibilityRender() {
+    var self = this;
+    requestAnimationFrame(function () {
+      if (!self.isConnected || !self._config) {
+        return;
+      }
+      if (document.visibilityState && document.visibilityState === "hidden") {
+        return;
+      }
+      self._lastObservedWidth = 0;
+      self._queueRender();
+    });
   }
 
   _queueRender() {
@@ -236,10 +303,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._setHiddenState(false);
 
     if (!this._hasRenderableWidth()) {
-      var self = this;
-      requestAnimationFrame(function () {
-        self._queueRender();
-      });
+      this._lastObservedWidth = 0;
       return;
     }
 
@@ -393,7 +457,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       timestamp: date,
       dateKey: date ? this._formatLocalDate(date) : "",
       formattedDate: date ? this._formatDateTime(date) : "Unknown date",
-      objectCount: Math.max(1, this._toNumber(archive && archive.object_count) || this._countPrintableObjects(archive)),
+      objectCount: Math.max(1, this._toNumber(archive && archive.object_count)),
       filamentWeight: this._toNumber(archive && archive.filament_used_grams),
       filamentCount: this._countDistinctFilaments(archive),
       durationHours: this._secondsToHours(archive && (archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds)),
@@ -655,7 +719,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       } else if (input.mode === "Cost of Prints") {
         value = Number(stats.cost || 0);
         color = this._buildIntensityColor(value, input.maxCost || 0, "#FCE7F3", "#BE185D");
-      } else if (input.mode === "Number of Different Filaments") {
+      } else if (input.mode === "Filaments Used") {
         value = Number(stats.filamentCount || 0);
         color = this._buildIntensityColor(value, input.maxFilamentCount || 0, "#E0F2FE", "#0369A1");
       } else if (input.mode === "Total Time Printing") {
@@ -711,6 +775,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       chart: {
         type: "heatmap",
         height: layout.chartHeight,
+        parentHeightOffset: 0,
         background: chartBackground,
         foreColor: textColor,
         toolbar: { show: false },
@@ -793,7 +858,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       grid: {
         show: false,
         padding: {
-          top: 2,
+          top: 0,
           right: 4,
           bottom: 0,
           left: 16,
@@ -825,7 +890,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       : this.clientWidth || 960;
     var availableWidth = Math.max(240, containerWidth - 68);
     var cellSize = Math.max(8, Math.min(18, Math.floor(availableWidth / safeWeekCount)));
-    var chartHeight = Math.max(144, cellSize * 7 + 66);
+    var chartHeight = Math.max(136, cellSize * 7 + 54);
 
     return {
       cellSize: cellSize,
@@ -891,7 +956,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Cost of Prints") {
       return { maxValue: maxima.maxCost || 0, startColor: "#FCE7F3", endColor: "#BE185D" };
     }
-    if (mode === "Number of Different Filaments") {
+    if (mode === "Filaments Used") {
       return { maxValue: maxima.maxFilamentCount || 0, startColor: "#E0F2FE", endColor: "#0369A1" };
     }
     if (mode === "Total Time Printing") {
@@ -1028,13 +1093,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _buildHeatmapTitle(meta, mode) {
     var title = [
       meta.label,
-      'Prints: ' + String(meta.count || 0),
-      'Objects: ' + String(meta.objectCount || 0),
+      'Prints: ' + this._formatCount(meta.count || 0),
+      'Objects: ' + this._formatCount(meta.objectCount || 0),
       'Weight: ' + this._formatWeight(meta.weight || 0),
       'Cost: ' + this._formatCost(meta.cost || 0),
-      'Filaments: ' + String(meta.filamentCount || 0),
+      'Filaments: ' + this._formatCount(meta.filamentCount || 0),
       'Time: ' + this._formatHours(meta.durationHours || 0),
-      'Status: ' + String(meta.successCount || 0) + ' completed, ' + String((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
+      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
     ];
 
     if (mode === 'Dominant Color' && meta.dominantColor) {
@@ -1144,7 +1209,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var activeDays = Object.keys(grouped).length;
     var summary = [
       this._buildChipHtml(dataset.mode),
-      this._buildChipHtml(String(activeDays) + " active days"),
+      this._buildChipHtml(this._formatCount(activeDays) + " active days"),
       this._buildChipHtml(this._buildSummaryMetricText(archives, dataset.mode)),
     ];
 
@@ -1177,18 +1242,18 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return this._formatWeight(totalWeight);
     }
     if (mode === "Number of Printed Objects") {
-      return String(totalObjects) + " objects";
+      return this._formatCount(totalObjects) + " objects";
     }
     if (mode === "Cost of Prints") {
       return this._formatCost(totalCost);
     }
-    if (mode === "Number of Different Filaments") {
-      return String(totalFilaments) + " filament uses";
+    if (mode === "Filaments Used") {
+      return this._formatCount(totalFilaments) + " filaments used";
     }
     if (mode === "Total Time Printing") {
       return this._formatHours(totalDuration);
     }
-    return String(totalPrints) + " prints";
+    return this._formatCount(totalPrints) + " prints";
   }
 
   _renderDetails(grouped) {
@@ -1209,14 +1274,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     var subtitle = [
-      String(day.count) + (day.count === 1 ? " print" : " prints"),
+      this._formatCount(day.count) + (day.count === 1 ? " print" : " prints"),
       this._formatWeight(day.weight),
-      day.successCount + " completed",
-      (day.failedCount + day.stoppedCount) + " failures/stops",
+      this._formatCount(day.successCount) + " completed",
+      this._formatCount(day.failedCount + day.stoppedCount) + " failures/stops",
     ].join(" | ");
     var items = day.archives.slice(0, this._config.max_detail_items).map(this._buildArchiveCardHtml.bind(this)).join("");
     var extra = day.archives.length > this._config.max_detail_items
-      ? '<div class="details-empty">Showing the first ' + this._config.max_detail_items + ' prints for this day.</div>'
+      ? '<div class="details-empty">Showing the first ' + this._formatCount(this._config.max_detail_items) + ' prints for this day.</div>'
       : "";
 
     this._detailsContainer.innerHTML =
@@ -1291,13 +1356,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var lines = [
       '<div style="padding:8px 10px;min-width:180px">',
       '<div style="font-weight:700;margin-bottom:4px">' + this._escapeHtml(meta.label) + "</div>",
-      '<div>Prints: <strong>' + this._escapeHtml(String(meta.count || 0)) + "</strong></div>",
-      '<div>Objects: <strong>' + this._escapeHtml(String(meta.objectCount || 0)) + "</strong></div>",
+      '<div>Prints: <strong>' + this._escapeHtml(this._formatCount(meta.count || 0)) + "</strong></div>",
+      '<div>Objects: <strong>' + this._escapeHtml(this._formatCount(meta.objectCount || 0)) + "</strong></div>",
       '<div>Weight: <strong>' + this._escapeHtml(this._formatWeight(meta.weight || 0)) + "</strong></div>",
       '<div>Cost: <strong>' + this._escapeHtml(this._formatCost(meta.cost || 0)) + "</strong></div>",
-      '<div>Filaments: <strong>' + this._escapeHtml(String(meta.filamentCount || 0)) + "</strong></div>",
+      '<div>Filaments: <strong>' + this._escapeHtml(this._formatCount(meta.filamentCount || 0)) + "</strong></div>",
       '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
-      '<div>Status: <strong>' + this._escapeHtml(meta.successCount + " completed, " + (meta.failedCount + meta.stoppedCount) + " fail/stop") + "</strong></div>",
+      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.failedCount + meta.stoppedCount) + " fail/stop") + "</strong></div>",
     ];
 
     if (mode === "Dominant Color" && meta.dominantColor) {
@@ -1382,27 +1447,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "print count": "Print Count",
       "filament weight": "Filament Weight",
       "dominant color": "Dominant Color",
-      "outcome mix": "Outcome",
-      "by outcome": "Outcome",
       outcome: "Outcome",
-      "by number of printed objects": "Number of Printed Objects",
       "number of printed objects": "Number of Printed Objects",
-      "by cost of prints": "Cost of Prints",
       "cost of prints": "Cost of Prints",
-      "by number of different filaments": "Number of Different Filaments",
-      "number of different filaments": "Number of Different Filaments",
-      "by total time printing": "Total Time Printing",
+      "filaments used": "Filaments Used",
       "total time printing": "Total Time Printing",
     };
-    return aliases[normalized] || String(mode == null ? "Print Count" : mode).trim() || "Print Count";
-  }
-
-  _countPrintableObjects(archive) {
-    var printableObjects = archive && archive.extra_data && archive.extra_data.printable_objects;
-    if (printableObjects && typeof printableObjects === "object") {
-      return Object.keys(printableObjects).length;
-    }
-    return 0;
+      return aliases[normalized] || "Print Count";
   }
 
   _countDistinctFilaments(archive) {
@@ -1535,19 +1586,33 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _formatHours(hours) {
-    if (!hours) {
+    var value = this._toNumber(hours);
+    if (!value) {
       return "0h";
     }
-    return hours >= 10 ? hours.toFixed(1) + "h" : hours.toFixed(1) + "h";
+    return this._formatDecimal(value, 1) + "h";
   }
 
   _formatWeight(weight) {
-    return (this._toNumber(weight)).toFixed(1) + "g";
+    return this._formatDecimal(weight, 1) + "g";
   }
 
   _formatCost(cost) {
     var value = this._toNumber(cost);
-    return value > 0 ? "$" + value.toFixed(2) : "$0.00";
+    return "$" + this._formatDecimal(value, 2);
+  }
+
+  _formatCount(value) {
+    return new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 0,
+    }).format(this._toNumber(value));
+  }
+
+  _formatDecimal(value, digits) {
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(this._toNumber(value));
   }
 
   _formatDateTime(date) {

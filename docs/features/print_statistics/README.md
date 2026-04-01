@@ -78,11 +78,11 @@ Attributes from `ArchiveStats` schema:
 
 ## Migration Notes
 
-### Sources (from `bambuddy/`)
-- **REST sensor**: `bambuddy_statistics` from `bambuddy/sensors.yaml`
-- **Template sensors**: 4 derived sensors from `bambuddy/sensors.yaml` (converted to modern `template:` format)
-- **Dashboard card**: `bambuddy/dashboards/statistics.yaml` → `dashboard_cards/statistics.yaml`
-- **Webhook handling**: Stats refresh logic extracted from `bambuddy/automations/webhook_handler.yaml`
+### Prototype Lineage
+- **REST sensor**: `bambuddy_statistics` from the root `bambuddy/sensors.yaml` prototype
+- **Template sensors**: 4 derived sensors from the root `bambuddy/sensors.yaml` prototype (converted to modern `template:` format)
+- **Dashboard card**: root `bambuddy/dashboards/statistics.yaml` prototype evolved into `dashboard_cards/statistics.yaml`
+- **Webhook handling**: stats refresh logic extracted from the root `bambuddy/automations/webhook_handler.yaml` prototype
 
 ### Changes from Current
 - Template sensors converted from legacy `platform: template` → modern `template:` format

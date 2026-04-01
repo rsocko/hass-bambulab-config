@@ -71,12 +71,12 @@ State value: number of jobs in queue.
 
 ## Migration Notes
 
-### Sources (from `bambuddy/`)
-- **REST sensor**: `bambuddy_print_queue` from `bambuddy/sensors.yaml`
-- **REST commands**: `bambuddy_queue_add`, `bambuddy_queue_remove` from `bambuddy/rest_commands.yaml`
-- **Template sensor**: `bambuddy_queue_count` from `bambuddy/sensors.yaml`
-- **Dashboard card**: `bambuddy/dashboards/queue.yaml` → `dashboard_cards/queue.yaml`
-- **Webhook handler**: Queue-specific logic extracted from `bambuddy/automations/webhook_handler.yaml`
+### Prototype Lineage
+- **REST sensor**: `bambuddy_print_queue` from the root `bambuddy/sensors.yaml` prototype
+- **REST commands**: `bambuddy_queue_add`, `bambuddy_queue_remove` from the root `bambuddy/rest_commands.yaml` prototype
+- **Template sensor**: `bambuddy_queue_count` from the root `bambuddy/sensors.yaml` prototype
+- **Dashboard card**: root `bambuddy/dashboards/queue.yaml` prototype evolved into `dashboard_cards/queue.yaml`
+- **Webhook handler**: queue-specific logic extracted from the root `bambuddy/automations/webhook_handler.yaml` prototype
 
 ### Changes from Current
 - Webhook handling: Instead of inline `if event == queue_ready` in monolithic webhook handler, this package listens to the `bambuddy_webhook_event` HA event fired by `bambuddy_common`
