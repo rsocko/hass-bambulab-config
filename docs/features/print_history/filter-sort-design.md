@@ -766,6 +766,8 @@ Archive cards are now structured so a future tap action can open an archive-deta
 
 1. Header with print name, result badge, date, printer, and favorite state
 2. Large cover image / thumbnail with quick links back to Bambuddy
+	1. Ability to switch to view other images stored on the print archive
+	2. Ability to view multiple images at once / expanded view
 3. Print stats: planned vs actual duration, grams used, cost, quantity, layer height, nozzle size
 4. Filament breakdown with color swatches and per-color usage when available
 5. Designer / MakerWorld metadata and tags
