@@ -141,8 +141,8 @@
 
     # Set photo review to pending if this print captured any photos
     - variables:
-      captured_photo_count: "{{ states('counter.bambuddy_captured_photo_count') | int(0) }}"
-      has_photos: "{{ captured_photo_count > 0 }}"
+          captured_photo_count: "{{ states('counter.bambuddy_captured_photo_count') | int(0) }}"
+          has_photos: "{{ captured_photo_count > 0 }}"
 
     - if:
         - condition: template
