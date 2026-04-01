@@ -1,6 +1,8 @@
 # Post-Print Photo Review Design
 
 > **Current status**: Only the lightweight review-status chip is shipped today. The popup, review actions, and auto-dismiss automation remain design-only follow-on work.
+>
+> **Runtime note**: The shipped package no longer stores a per-photo JSON manifest in an `input_text` helper. Current runtime state is limited to a captured-photo counter plus a short last-upload-result summary. The manifest model below remains future design work and will need archive-backed or file-backed storage before implementation.
 
 ## Overview
 

@@ -162,7 +162,7 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 
 | Option | Recommendation | Pros | Cons |
 |---|---|---|---|
-| `shell_command` + `curl` | **Recommended default** | Native HA service trigger, real multipart upload, simple deployment, easiest path to match Bambuddy's contract | Harder response handling, quoting/escaping can be brittle, success tracking is manual |
+| `shell_command` + Python stdlib | **Recommended shipped Phase 1** | Native HA service trigger, real multipart upload, no `curl` dependency inside HA Core, easiest path to match Bambuddy's contract | Response handling is still coarse compared with a dedicated worker |
 | `command_line` | Not recommended for uploads | Good for polling or exposing command output as sensors | Wrong fit for event-driven file upload; better for reads than one-shot actions |
 | External Python script | Recommended when richer control is needed | Better retries, structured logging, response parsing, clearer file handling | More moving parts than a shell bridge |
 | `n8n` or other orchestrator | Recommended only for larger workflows | Best for multi-step flows, retries, audit trail, branching, future recovery workflows | Extra infrastructure and operational overhead |
@@ -181,9 +181,9 @@ Design shape:
 2. The script resolves `archive_id` if needed
 3. The script calls a `shell_command` with explicit parameters:
   `archive_id`, `file_path`, and optionally `base_url`
-4. The shell command uses `curl -F "file=@..."` to POST to Bambuddy
-5. HA logs success or failure at a coarse level
-6. Manifest entries remain local-first and can mark upload as deferred or best-effort until response parsing exists
+4. The shell command uses Python stdlib multipart upload to POST to Bambuddy
+5. HA queries `GET /archives/{id}` before/after upload and verifies that the archive photo count increased
+6. HA stores a short last-result summary plus a captured-photo count for runtime state; a richer manifest remains future work
 
 Why first:
 
@@ -194,16 +194,15 @@ Why first:
 
 Known limitations:
 
-- weak response parsing
-- awkward quoting and escaping
-- retries and structured diagnostics are limited
+- no structured per-photo metadata is persisted yet
+- retries and richer diagnostics still want a dedicated worker
 - later photo-review features will still want richer returned metadata
 
 #### Repo-Specific Phase 1 Draft
 
 What already exists in this repo:
 
-- `script.capture_and_upload_snapshot` already captures local files and records manifest entries
+- `script.capture_and_upload_snapshot` already captures local files and increments current-print photo state
 - `script.resolve_current_archive_id` already exists
 - an old superseded automation references `shell_command.bambuddy_upload_latest_snapshot`
 
@@ -227,12 +226,7 @@ script: !include_dir_merge_named scripts
 ```yaml
 # shell_commands/bambuddy_upload_archive_photo.yaml
 bambuddy_upload_archive_photo: >-
-  /bin/sh -c 'api_key=$(python3 -c "import sys, yaml; data = yaml.safe_load(open(\"/config/secrets.yaml\")) or {}; sys.stdout.write(str(data.get(\"bambuddy_api_key\", \"\")))");
-  [ -n "$api_key" ] &&
-  curl -sS --fail-with-body -X POST
-  -H "X-API-Key: $api_key"
-  -F "file=@{{ file_path }}"
-  "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/photos"'
+  python3 -c '... multipart upload using stdlib urllib ...'
 ```
 
 ```yaml
@@ -243,7 +237,7 @@ bambuddy_upload_archive_photo: >-
     file_path: "/config/www/printer_snapshots/{{ primary_filename }}"
 ```
 
-Prefer explicit `file_path` passing over any "latest file" upload strategy. The current phase still treats upload as best-effort; manifest entries are recorded locally first.
+Prefer explicit `file_path` passing over any "latest file" upload strategy. The current phase verifies uploads by comparing archive detail before/after the upload and stores only compact runtime state that fits inside HA helpers.
 
 ### Potential Final Form: External Python Uploader
 
@@ -315,10 +309,15 @@ This keeps Phase 1 simple while giving Phase 2 a clean forward path into photo-r
 | Save thumbnails | ON | Slicer preview images extracted natively — richer than camera snapshots |
 | Capture finish photo | ON | Bambuddy captures its own completion photo; HA photos supplement this |
 
-## Photo Manifest
+## Current Runtime State
 
-Each capture appends an entry to `input_text.bambuddy_photo_manifest` (JSON array). This manifest drives the [post-print photo review](photo-review-design.md) feature. See that document for manifest schema, review popup design, and cleanup strategy.
+The shipped Phase 1 runtime now keeps two compact helpers instead of a JSON manifest:
+
+- `counter.bambuddy_captured_photo_count` — number of captured photos in the current print cycle
+- `input_text.bambuddy_last_photo_upload_result` — short verification summary for the latest capture/upload attempt
+
+This keeps current automations within Home Assistant helper limits. A richer per-photo manifest is still future work for the advanced review flow.
 
 ### Integration with Post-Print Review
 
-After enrichment completes, the enrichment automation sets `input_select.bambuddy_photo_review_state` → `pending` if the manifest is non-empty. This surfaces a review chip on the dashboard where the user can remove, replace, or set a cover photo before the review auto-dismisses.
+After enrichment completes, the enrichment automation sets `input_select.bambuddy_photo_review_state` → `pending` if `counter.bambuddy_captured_photo_count` is greater than zero. This surfaces a review chip on the dashboard while the advanced review flow remains deferred.

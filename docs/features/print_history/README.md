@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Multi-stage photos are captured locally, but the production multipart upload bridge is not shipped in this package yet. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
 
 For the activity heatmap, the live metric contract is now: `Print Count` = archive rows, `Number of Printed Objects` = summed API `object_count`, and `Filaments Used` = summed per-archive populated filament slots. A backend-only single-source-of-truth heatmap filter path was analyzed and deferred pending a dedicated full-scope activity payload.
 
@@ -27,7 +27,8 @@ homeassistant/packages/3d_printing/print_history/
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
 │   ├── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
-│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id} (advanced review flow)
+│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (advanced review flow)
+│   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
 │   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
@@ -49,11 +50,13 @@ homeassistant/packages/3d_printing/print_history/
 ├── helpers/
 │   ├── input_text/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
-│   │   ├── input_text_bambuddy_photo_manifest.yaml
+│   │   ├── input_text_bambuddy_last_photo_upload_result.yaml
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
 │   │   ├── input_text_print_history_activity_selected_date.yaml
 │   │   ├── input_text_print_history_filter_colors.yaml
 │   │   └── input_text_print_history_search.yaml
+│   ├── counter/
+│   │   └── bambuddy_captured_photo_count.yaml
 │   ├── input_boolean/
 │   │   ├── input_boolean_bambuddy_history_fetch_enabled.yaml
 │   │   ├── input_boolean_capture_at_start.yaml
@@ -94,8 +97,10 @@ homeassistant/packages/3d_printing/print_history/
 automation: !include_dir_merge_list automations
 rest: !include_dir_merge_list rest_sensors
 rest_command: !include_dir_merge_named rest_commands
+shell_command: !include_dir_merge_named shell_commands
 script: !include_dir_merge_named scripts
 template: !include_dir_merge_list template_sensors
+counter: !include_dir_merge_named helpers/counter
 input_text: !include_dir_merge_named helpers/input_text
 input_boolean: !include_dir_merge_named helpers/input_boolean
 input_number: !include_dir_merge_named helpers/input_number
@@ -116,7 +121,8 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Service | Method | Endpoint | Purpose |
 |---|---|---|---|
-| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{photo_id}` | Advanced review placeholder; endpoint contract still needs live verification |
+| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Advanced review placeholder; filename-based delete confirmed |
+| `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
@@ -142,6 +148,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | Entity | Type | Purpose | Persists? |
 |---|---|---|---|
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
+| `input_text.bambuddy_last_photo_upload_result` | input_text | Last capture/upload verification summary for operator debugging | No `initial:` |
 | `input_text.print_history_activity_selected_date` | input_text | Selected day for the activity heatmap drill-in (`YYYY-MM-DD`) | - |
 | `input_text.print_history_search` | input_text | Browser search text | — |
 | `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | — |
@@ -159,7 +166,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | — |
 | `input_number.midprint_capture_percent` | input_number | Progress % for mid-print capture (e.g., 50) | — |
 | `input_number.photo_review_timeout_hours` | input_number | Hours before review auto-dismisses (default: 24) | — |
-| `input_text.bambuddy_photo_manifest` | input_text | JSON manifest of captured photos for current print | No `initial:` |
+| `counter.bambuddy_captured_photo_count` | counter | Number of photos captured in the current print cycle | Reset on `print_started` |
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
 | `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, outcome, objects, cost, filaments used, or total printing time | - |
 | `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/layer) | — |
@@ -173,7 +180,7 @@ input_select: !include_dir_merge_named helpers/input_select
 |---|---|
 | `script.load_history_page` | Set a specific browser page |
 | `script.navigate_history` | Prev/next/first/last navigation, calls `load_history_page` |
-| `script.capture_and_upload_snapshot` | Multi-camera capture + local save + manifest update; multipart upload bridge is external to this package |
+| `script.capture_and_upload_snapshot` | Multi-camera capture + local save + count tracking + upload verification via archive detail |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
 | `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
@@ -214,7 +221,6 @@ Implemented now:
 
 Still deferred:
 
-- Production multipart photo upload bridge for `capture_and_upload_snapshot`
 - Photo review popup plus delete/replace/set-cover/dismiss actions
 - Archive detail popup and card-level actions such as favorites/compare
 
@@ -249,7 +255,7 @@ For detailed design of the two major subsystems, see:
 ### New (not in root prototype)
 - Archive ID capture from webhook events
 - Multi-stage photo capture automations (start, mid, near-complete, error)
-- `capture_and_upload_snapshot` script with multi-camera + light control
+- `capture_and_upload_snapshot` script with multi-camera + light control + verified upload bridge
 - `resolve_current_archive_id` fallback script
 - Enrichment automation (Spoolman tags + notes)
 - Pagination scripts and template sensors

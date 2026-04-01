@@ -1,6 +1,0 @@
-# Note: no 'initial:' — HA must restore previous state from recorder.
-# Setting initial: would overwrite on every restart.
-bambuddy_photo_manifest:
-  name: Bambuddy Photo Manifest
-  max: 255
-  icon: mdi:image-multiple

@@ -21,7 +21,7 @@ Canonical sources:
 ### Partially built
 
 - [ ] `print_history` upload hardening
-  Current state: best-effort shell bridge exists, but response parsing and structured manifest updates do not.
+  Current state: Python-based shell bridge plus archive-detail verification exists, but richer per-photo metadata and retries do not.
 - [ ] `print_history` photo review UX
   Current state: status chip exists, but popup/actions are not implemented.
 - [ ] cleanup of superseded Bambuddy artifacts
@@ -52,7 +52,8 @@ Canonical sources:
 - [x] Archive enrichment shipped
 - [x] Local snapshot capture shipped
 - [x] Shell-based multipart upload bridge shipped
-- [ ] Upload response parsing and manifest status hardening
+- [x] Archive-detail verification for photo uploads
+- [ ] Rich per-photo upload metadata and retries
 - [ ] Photo review delete/replace/set-cover scripts
 - [ ] Photo review popup and dismissal flow
 - [ ] Archive detail and favorites actions

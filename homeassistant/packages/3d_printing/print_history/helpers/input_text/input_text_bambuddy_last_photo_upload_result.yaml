@@ -1,0 +1,6 @@
+# Last upload verification summary for print_history photo capture.
+# Keep this short enough for Home Assistant input_text limits.
+bambuddy_last_photo_upload_result:
+  name: Bambuddy Last Photo Upload Result
+  max: 255
+  icon: mdi:camera-check

@@ -38,12 +38,16 @@
         # Fallback: try to resolve from API
         - action: script.resolve_current_archive_id
 
-    # Reset photo manifest for new print
+    # Reset capture/upload runtime state for new print
+    - action: counter.reset
+      target:
+        entity_id: counter.bambuddy_captured_photo_count
+
     - action: input_text.set_value
       target:
-        entity_id: input_text.bambuddy_photo_manifest
+        entity_id: input_text.bambuddy_last_photo_upload_result
       data:
-        value: "[]"
+        value: "idle"
 
     # Snapshot spoolman tray map for enrichment (Tier 2 matching)
     # Stores simplified tray_name → spool_id mapping to stay within 255 chars

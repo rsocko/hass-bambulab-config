@@ -131,6 +131,7 @@ class TestLoaderWiring(unittest.TestCase):
             "shell_command",
             "script",
             "template",
+            "counter",
             "input_text",
             "input_boolean",
             "input_number",
@@ -198,6 +199,7 @@ class TestFileInventory(unittest.TestCase):
         "bambuddy_update_archive.yaml",
         "bambuddy_query_recent_archive.yaml",
         "bambuddy_fetch_archives.yaml",
+        "bambuddy_get_archive_detail.yaml",
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
@@ -209,10 +211,14 @@ class TestFileInventory(unittest.TestCase):
 
     EXPECTED_HELPERS_INPUT_TEXT = [
         "input_text_bambuddy_current_archive_id.yaml",
-        "input_text_bambuddy_photo_manifest.yaml",
+        "input_text_bambuddy_last_photo_upload_result.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_print_history_activity_selected_date.yaml",
         "input_text_print_history_search.yaml",
+    ]
+
+    EXPECTED_HELPERS_COUNTER = [
+        "bambuddy_captured_photo_count.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_BOOLEAN = [
@@ -292,6 +298,9 @@ class TestFileInventory(unittest.TestCase):
 
     def test_helpers_input_boolean_exist(self):
         self._check_files("helpers/input_boolean", self.EXPECTED_HELPERS_INPUT_BOOLEAN)
+
+    def test_helpers_counter_exist(self):
+        self._check_files("helpers/counter", self.EXPECTED_HELPERS_COUNTER)
 
     def test_helpers_input_number_exist(self):
         self._check_files("helpers/input_number", self.EXPECTED_HELPERS_INPUT_NUMBER)
@@ -797,7 +806,7 @@ class TestHelpers(unittest.TestCase):
     STATE_PERSISTENCE_HELPERS = {
         "input_text_bambuddy_current_archive_id.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
-        "input_text_bambuddy_photo_manifest.yaml",
+        "input_text_bambuddy_last_photo_upload_result.yaml",
     }
 
     def test_state_persistence_helpers_have_no_initial(self):
@@ -860,8 +869,9 @@ class TestCrossReferences(unittest.TestCase):
 
     KNOWN_PRINT_HISTORY_ENTITIES = {
         # Helpers
+        "counter.bambuddy_captured_photo_count",
         "input_text.bambuddy_current_archive_id",
-        "input_text.bambuddy_photo_manifest",
+        "input_text.bambuddy_last_photo_upload_result",
         "input_text.bambuddy_tray_map_snapshot",
         "input_text.print_history_search",
         "input_text.secondary_camera_entity",
@@ -941,6 +951,7 @@ class TestCrossReferences(unittest.TestCase):
                     # Allow service calls (not entity references)
                     known_services = {
                         "input_text.set_value", "input_select.select_option",
+                        "counter.increment", "counter.reset",
                         "input_number.set_value", "input_boolean.turn_on",
                         "input_boolean.turn_off", "homeassistant.update_entity",
                         "logbook.log", "light.turn_on", "light.turn_off",
@@ -950,6 +961,7 @@ class TestCrossReferences(unittest.TestCase):
                         "script.load_history_page",
                         "script.refresh_print_history_archives",
                         "script.clear_print_history_filters",
+                        "rest_command.bambuddy_get_archive_detail",
                         "rest_command.bambuddy_update_archive",
                         "rest_command.bambuddy_query_recent_archive",
                         "rest_command.bambuddy_fetch_archives",

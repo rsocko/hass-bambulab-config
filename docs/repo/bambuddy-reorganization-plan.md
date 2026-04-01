@@ -64,7 +64,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | 14 | Archive ID capture automation | **Done** | Triggers on `print_started` webhook; stores archive_id; fallback query; snapshots tray map; resets manifest |
 | 15 | Photo capture automation | **Done** | Multi-trigger capture for start, mid-print, near-complete, and finish/error-adjacent flows — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
-| 17 | Snapshot capture+upload script | **Done** | Light → capture → best-effort shell upload; manifest tracking |
+| 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
 | 19 | Enrichment automation | **Done** | Spoolman tags + notes via PATCH; tray map snapshot; cost data; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
@@ -89,7 +89,7 @@ Implemented now:
 
 Still to do:
 
-- Harden the first-phase multipart upload bridge with richer response handling or move to the planned Python worker.
+- Add richer per-photo metadata/retries or move fully to the planned Python worker.
 - Build the actual photo-review actions and popup flow; today the chip is only a status entry point.
 - Add archive-detail drilldown actions such as favorite toggle, compare, and richer Bambuddy deep links.
 - Reconcile the advanced photo-review API contracts before enabling delete/set-cover in the shipped UI.

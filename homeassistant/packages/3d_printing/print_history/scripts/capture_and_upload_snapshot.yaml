@@ -5,8 +5,8 @@ capture_and_upload_snapshot:
   alias: "Capture Snapshot"
   description: >-
     Captures photos from configured cameras, saves locally to
-    /config/www/printer_snapshots/, records manifest entries,
-    and attempts best-effort multipart upload to Bambuddy.
+    /config/www/printer_snapshots/, increments capture state,
+    and attempts verified multipart upload to Bambuddy.
   fields:
     stage:
       description: "Capture stage: start, midprint, near_complete, error, finish"
@@ -27,6 +27,8 @@ capture_and_upload_snapshot:
           {{ secondary_camera not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
         primary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
         secondary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
+        primary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
+        secondary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
         has_light: >-
@@ -51,7 +53,11 @@ capture_and_upload_snapshot:
       target:
         entity_id: "{{ primary_camera }}"
       data:
-        filename: "/config/www/printer_snapshots/{{ primary_filename }}"
+        filename: "{{ primary_file_path }}"
+
+    - action: counter.increment
+      target:
+        entity_id: counter.bambuddy_captured_photo_count
 
     # --- Capture secondary camera (if configured) ---
     - if:
@@ -62,7 +68,10 @@ capture_and_upload_snapshot:
           target:
             entity_id: "{{ secondary_camera }}"
           data:
-            filename: "/config/www/printer_snapshots/{{ secondary_filename }}"
+            filename: "{{ secondary_file_path }}"
+        - action: counter.increment
+          target:
+            entity_id: counter.bambuddy_captured_photo_count
 
     # --- Turn off snapshot light ---
     - if:
@@ -86,53 +95,104 @@ capture_and_upload_snapshot:
         has_archive_id: >-
           {{ archive_id not in ['', 'unknown', 'unavailable', 'None', none] }}
 
-    # --- Update photo manifest ---
     - variables:
-        current_manifest: >-
-          {% set raw = states('input_text.bambuddy_photo_manifest') %}
-          {{ raw | from_json if raw not in ['', 'unknown', 'unavailable', '[]'] else [] }}
-        primary_entry: >-
-          {{ {"stage": stage, "camera": "primary",
-              "local_path": "/local/printer_snapshots/" ~ primary_filename,
-              "file_path": "/config/www/printer_snapshots/" ~ primary_filename,
-              "archive_id": archive_id,
-              "timestamp": now().isoformat(),
-              "uploaded": false} }}
-        secondary_entry: >-
-          {{ {"stage": stage, "camera": "secondary",
-              "local_path": "/local/printer_snapshots/" ~ secondary_filename,
-              "file_path": "/config/www/printer_snapshots/" ~ secondary_filename,
-              "archive_id": archive_id,
-              "timestamp": now().isoformat(),
-              "uploaded": false} if has_secondary else none }}
+        primary_upload_status: "{{ 'skipped_no_archive' if not has_archive_id else 'pending' }}"
+        secondary_upload_status: >-
+          {% if not has_secondary %}not_requested
+          {% elif not has_archive_id %}skipped_no_archive
+          {% else %}pending
+          {% endif %}
 
-    - action: input_text.set_value
-      target:
-        entity_id: input_text.bambuddy_photo_manifest
-      data:
-        value: >-
-          {{ (current_manifest + [primary_entry] + ([secondary_entry] if has_secondary else [])) | tojson }}
-
-    # --- Best-effort upload via shell_command bridge ---
+    # --- Upload primary snapshot and verify via archive detail ---
     - if:
         - condition: template
           value_template: "{{ has_archive_id }}"
       then:
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: primary_before_response
+        - variables:
+            primary_before_count: >-
+              {% if primary_before_response is defined and primary_before_response.status == 200 %}
+                {{ primary_before_response.content.photos | default([], true) | count }}
+              {% else %}
+                0
+              {% endif %}
         - action: shell_command.bambuddy_upload_archive_photo
           data:
             archive_id: "{{ archive_id }}"
-            file_path: "/config/www/printer_snapshots/{{ primary_filename }}"
+            file_path: "{{ primary_file_path }}"
           continue_on_error: true
+        - delay:
+            seconds: 2
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: primary_after_response
+        - variables:
+            primary_after_count: >-
+              {% if primary_after_response is defined and primary_after_response.status == 200 %}
+                {{ primary_after_response.content.photos | default([], true) | count }}
+              {% else %}
+                0
+              {% endif %}
+            primary_upload_status: >-
+              {% if primary_after_count | int(0) > primary_before_count | int(0) %}verified
+              {% else %}unverified
+              {% endif %}
 
+    # --- Upload secondary snapshot and verify via archive detail ---
     - if:
         - condition: template
           value_template: "{{ has_archive_id and has_secondary }}"
       then:
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: secondary_before_response
+        - variables:
+            secondary_before_count: >-
+              {% if secondary_before_response is defined and secondary_before_response.status == 200 %}
+                {{ secondary_before_response.content.photos | default([], true) | count }}
+              {% else %}
+                0
+              {% endif %}
         - action: shell_command.bambuddy_upload_archive_photo
           data:
             archive_id: "{{ archive_id }}"
-            file_path: "/config/www/printer_snapshots/{{ secondary_filename }}"
+            file_path: "{{ secondary_file_path }}"
           continue_on_error: true
+        - delay:
+            seconds: 2
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: secondary_after_response
+        - variables:
+            secondary_after_count: >-
+              {% if secondary_after_response is defined and secondary_after_response.status == 200 %}
+                {{ secondary_after_response.content.photos | default([], true) | count }}
+              {% else %}
+                0
+              {% endif %}
+            secondary_upload_status: >-
+              {% if secondary_after_count | int(0) > secondary_before_count | int(0) %}verified
+              {% else %}unverified
+              {% endif %}
+
+    - variables:
+        upload_result_summary: >-
+          stage={{ stage }} archive={{ archive_id if has_archive_id else 'missing' }}
+          primary={{ primary_upload_status }}
+          secondary={{ secondary_upload_status }}
+          captured={{ states('counter.bambuddy_captured_photo_count') | int(0) }}
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_last_photo_upload_result
+      data:
+        value: "{{ upload_result_summary[:255] }}"
 
     - action: logbook.log
       data:
@@ -140,4 +200,4 @@ capture_and_upload_snapshot:
         message: >-
           Captured {{ stage }} photo: {{ primary_filename }}
           {% if has_secondary %} + {{ secondary_filename }}{% endif %}
-          (archive_id={{ archive_id }}, upload {% if has_archive_id %}attempted{% else %}skipped - missing archive_id{% endif %})
+          (archive_id={{ archive_id }}, primary={{ primary_upload_status }}, secondary={{ secondary_upload_status }})

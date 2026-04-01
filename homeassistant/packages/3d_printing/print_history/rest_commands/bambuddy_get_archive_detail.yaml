@@ -1,0 +1,8 @@
+# Get a single archive with full details.
+# Used by capture_and_upload_snapshot to verify that photo uploads appeared.
+bambuddy_get_archive_detail:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}
+  method: GET
+  headers:
+    X-API-Key: !secret bambuddy_api_key
