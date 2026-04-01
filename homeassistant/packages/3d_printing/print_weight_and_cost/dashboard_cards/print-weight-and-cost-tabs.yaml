@@ -15,6 +15,6 @@ tabs:
         - !include print-cost.yaml
     attributes:
       label: Print Cost
-      icon: mdi:cash-multiple
+      icon: mdi:currency-usd
 grid_options:
   columns: full
