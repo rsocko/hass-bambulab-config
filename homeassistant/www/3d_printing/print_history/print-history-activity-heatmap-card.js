@@ -1063,7 +1063,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return null;
     }
 
-    if (!this._selectedOverlay) {
+    if (!this._selectedOverlay || this._selectedOverlay.parentNode !== this._chartContainer) {
+      if (this._selectedOverlay && this._selectedOverlay.parentNode) {
+        this._selectedOverlay.parentNode.removeChild(this._selectedOverlay);
+      }
       this._selectedOverlay = document.createElement('div');
       this._selectedOverlay.className = 'selected-cell-overlay';
       this._chartContainer.appendChild(this._selectedOverlay);
