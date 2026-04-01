@@ -55,7 +55,7 @@ cards:
                 'entity': 'sensor.print_history_page_archives',
                 'template': 'print_history_archive_card',
                 'variables': {
-                  'archive': archive
+                  'archive_json': archive | tojson
                 }
               }] %}
             {% endfor %}
@@ -108,7 +108,7 @@ cards:
                 'entity': 'sensor.print_history_page_archives',
                 'template': 'print_history_archive_card',
                 'variables': {
-                  'archive': archive
+                  'archive_json': archive | tojson
                 }
               }] %}
             {% endfor %}
@@ -156,7 +156,7 @@ cards:
                 'entity': 'sensor.print_history_page_archives',
                 'template': 'print_history_archive_card',
                 'variables': {
-                  'archive': archive
+                  'archive_json': archive | tojson
                 }
               }] %}
             {% endfor %}

@@ -1,7 +1,12 @@
 print_history_archive_popup:
   tap_action: |
     [[[ 
-      const archive = variables.archive || {};
+      let archive = {};
+      try {
+        archive = JSON.parse(variables.archive_json || '{}');
+      } catch (error) {
+        archive = {};
+      }
       const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
       const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
       const popupTitle = String(archive.print_name || 'Print Details');
@@ -10,7 +15,7 @@ print_history_archive_popup:
           type: 'custom:button-card',
           entity: 'sensor.print_history_page_archives',
           template: 'print_history_archive_popup_content',
-          variables: { archive: archive },
+          variables: { archive_json: JSON.stringify(archive) },
         },
       ];
       if (archive.id && baseUrl) {
@@ -60,7 +65,12 @@ print_history_archive_card:
   custom_fields:
     content: |
       [[[ 
-        const archive = variables.archive || {};
+        let archive = {};
+        try {
+          archive = JSON.parse(variables.archive_json || '{}');
+        } catch (error) {
+          archive = {};
+        }
         const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
         const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
@@ -304,7 +314,12 @@ print_history_archive_popup_content:
   custom_fields:
     content: |
       [[[ 
-        const archive = variables.archive || {};
+        let archive = {};
+        try {
+          archive = JSON.parse(variables.archive_json || '{}');
+        } catch (error) {
+          archive = {};
+        }
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
         const escapeHtml = (value) => String(value ?? '')
