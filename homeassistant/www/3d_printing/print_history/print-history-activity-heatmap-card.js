@@ -977,6 +977,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    // Anchor the highlight to the rendered heatmap cell, not chart-axis math, so it stays aligned.
     if (targetElement) {
       var containerRect = this._chartContainer.getBoundingClientRect();
       var targetRect = targetElement.getBoundingClientRect();
