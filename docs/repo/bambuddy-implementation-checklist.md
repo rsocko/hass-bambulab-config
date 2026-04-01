@@ -16,6 +16,7 @@ Canonical sources:
 - [x] `print_history` loader, archive browser, paging/filter state, and enrichment flow
 - [x] local photo capture in `print_history`
 - [x] first-phase multipart photo upload bridge via `shell_command`
+- [x] read-only archive detail popup for `print_history` cards
 - [x] repo/docs alignment that treats root `bambuddy/` as legacy prototype only
 
 ### Partially built
@@ -24,6 +25,8 @@ Canonical sources:
   Current state: Python-based shell bridge plus archive-detail verification exists, but richer per-photo metadata and retries do not.
 - [ ] `print_history` photo review UX
   Current state: status chip exists, but popup/actions are not implemented.
+- [ ] `print_history` archive detail actions
+  Current state: each archive card now opens a read-only popup, but edit/favorite/compare flows are not implemented.
 - [ ] cleanup of superseded Bambuddy artifacts
   Current state: docs are now mostly redirect/stub oriented, but legacy package/code remains in repo.
 
@@ -53,10 +56,11 @@ Canonical sources:
 - [x] Local snapshot capture shipped
 - [x] Shell-based multipart upload bridge shipped
 - [x] Archive-detail verification for photo uploads
+- [x] Read-only archive detail popup shipped
 - [ ] Rich per-photo upload metadata and retries
 - [ ] Photo review delete/replace/set-cover scripts
 - [ ] Photo review popup and dismissal flow
-- [ ] Archive detail and favorites actions
+- [ ] Archive detail edit/favorites/compare actions
 
 ### Phase 3: print_queue
 

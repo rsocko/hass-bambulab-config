@@ -86,12 +86,13 @@ Implemented now:
 - The dashboard is a browser-first `panel: true` view with this flow: review chip, browser header, top control strip, archive grid, repeated bottom control strip.
 - Filter/sort/page state is handled server-side by `sensor.print_history_archives`, `sensor.print_history_filtered`, `sensor.print_history_page_info`, and `sensor.print_history_page_archives`.
 - The renderer supports `Compact`, `Media`, and `Detail` card variants plus live multi-select color chips.
+- A read-only per-archive detail popup is shipped. The live implementation uses the filament-catalog-style Lovelace pattern: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the card variants, and a shared popup template opens `browser_mod.popup` for the selected archive.
 
 Still to do:
 
 - Add richer per-photo metadata/retries or move fully to the planned Python worker.
 - Build the actual photo-review actions and popup flow; today the chip is only a status entry point.
-- Add archive-detail drilldown actions such as favorite toggle, compare, and richer Bambuddy deep links.
+- Add archive-detail mutation and follow-on actions such as favorite toggle, compare, and richer Bambuddy deep links.
 - Reconcile the advanced photo-review API contracts before enabling delete/set-cover in the shipped UI.
 
 ## Phase 3: `print_queue`
