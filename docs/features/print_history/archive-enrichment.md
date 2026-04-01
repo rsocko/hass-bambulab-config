@@ -8,6 +8,12 @@ When a print completes (or fails/is stopped), HA reads Spoolman spool data from 
 
 **Why HA enrichment is essential**: Bambuddy has no awareness of Spoolman. The archive stores the printer's AMS slot info (`filament_slots` with `slot_id`, `used_g`, `type`, `color`) and raw AMS `tray_uuid`/`tag_uid` in `extra_data`, but there are no Spoolman spool IDs anywhere in the Bambuddy data. HA is the only system that bridges both Spoolman and the printer.
 
+## Current Event Assumption
+
+The shipped enrichment path is still webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and `print_complete`/`print_failed`/`print_stopped` so it knows when to PATCH the archive.
+
+Archive REST pulls are enough to inspect archive contents after the fact, but they do not currently replace the trigger timing used by the shipped enrichment automation. If webhook remains disabled, this design should be treated as partially implemented rather than active: the data model is still valid, but the current automation entry points are missing.
+
 ## API Response Differences
 
 Both the list and single-archive endpoints return full `extra_data` including `filament_slots`, `_print_data`, and raw AMS tray arrays. The only minor differences:

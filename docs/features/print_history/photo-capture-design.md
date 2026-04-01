@@ -8,6 +8,17 @@ HA owns multi-camera, multi-stage photo capture during print jobs. Photos are sa
 
 Bambuddy also captures its own completion photo natively (when "Capture finish photo" is enabled); HA's photos supplement this with additional stages and cameras.
 
+## Webhook Requirement
+
+The current shipped package supports two practical operating modes:
+
+| Mode | Webhook configured? | What works | What is degraded or missing |
+|---|---|---|---|
+| **Full event-driven mode** | Yes | Current archive_id is captured at `print_started`; finish/error lifecycle automations fire from Bambuddy events; enrichment and cache refresh run immediately on completion/failure | None of the current known gaps are caused by transport choice; remaining limits are the existing fallback heuristics and deferred review flows |
+| **Reduced archive-API-only mode** | No | Start, mid-print, and near-complete captures still work from HA printer state/progress sensors; upload can still succeed if the fallback archive lookup resolves the active archive | No `print_started` reset path, no webhook-driven `finish` capture, no webhook-driven `print_failed`/`print_stopped` capture, no completion enrichment trigger, and no immediate history refresh trigger |
+
+The webhook is therefore not strictly required for basic photo capture and upload in a single-printer setup, because Bambuddy creates archives at print start and the active script can fall back to querying the archive API. It is still required for the full shipped lifecycle as currently implemented.
+
 ## Camera Configuration
 
 ### Primary Camera
@@ -91,7 +102,7 @@ triggers:
 5. Capture secondary camera (if configured) → save similarly with "_cam2" suffix
 6. Turn off snapshot light
 7. If input_text.bambuddy_current_archive_id is set:
-  → Hand off the saved file to a multipart-capable uploader (recommended: shell_command + curl)
+  → Hand off the saved file to the shipped multipart uploader (`shell_command` using Python stdlib)
 8. If archive_id is empty:
   → Call script.resolve_current_archive_id first, then hand off if resolved
 9. Local copy always retained regardless of upload success
@@ -141,8 +152,8 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 **`script.resolve_current_archive_id`** is called when archive_id is empty (webhook missed, or flat webhook format without archive_id):
 
 ```
-1. Query GET /api/v1/archives/?printer_id={id}&limit=1  (trailing slash required, no sort param)
-2. Compare returned archive filename with current sensor.*_task_name
+1. Query GET /api/v1/archives/?limit=1  (trailing slash required, no sort param)
+2. Compare the returned archive `print_name` with current sensor.*_task_name
 3. If match → store archive_id in input_text.bambuddy_current_archive_id
 4. If no match → log warning, skip upload (local photo still saved)
 ```
@@ -150,6 +161,28 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 > **OpenAPI note**: The `sort` param does not exist on `GET /archives/`. Default ordering appears newest-first. The endpoint requires a trailing slash. Response is a flat `ArchiveResponse[]` array.
 
 > **Note**: Archives exist from print START (confirmed by user observation: archive appears with 3MF, 3D viewer, filament data while print is in progress). This means mid-print uploads work immediately — there is no window where the archive doesn't yet exist.
+
+### What the Archive Pull Is Good Enough For
+
+The current archive list pull is good enough to answer two narrow questions in the common single-printer case:
+
+1. What is the newest archive in Bambuddy right now?
+2. What archive is probably associated with the currently running print, if the task name matches and Bambuddy's newest-first ordering holds?
+
+That is why the current manual and in-print upload flow can work without webhook configuration.
+
+### What the Archive Pull Does Not Replace
+
+The archive pull is not a full replacement for webhook events in the current package design:
+
+- It does not provide a start-of-print event to reset `counter.bambuddy_captured_photo_count`, clear `input_text.bambuddy_last_photo_upload_result`, snapshot the tray map, and reset review state.
+- It does not provide a completion/failure event to trigger finish capture, completion enrichment, or immediate history refresh.
+- It is heuristic rather than exact: the current fallback only asks for `?limit=1` and matches by current task name substring. That is usually acceptable for one active printer, but it is weaker for multiple printers or repeated/similar print names.
+
+### Current Recommendation
+
+- If the goal is only start/mid/near-complete photo capture with upload verification on a single printer, webhook can remain optional.
+- If the goal is the full current package behavior, including archive lifecycle state, finish/error event handling, and completion enrichment, webhook should be configured or the package should be intentionally refactored away from webhook-triggered automations.
 
 ## Automation Mode
 

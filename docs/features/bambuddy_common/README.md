@@ -10,6 +10,16 @@ Shared infrastructure for all Bambuddy feature packages. Provides API configurat
 
 **HA Role**: Configuration layer — holds API base URL/printer ID, fires normalized events from Bambuddy webhooks, and subscribes to Bambuddy's MQTT status topic for real-time printer state. Archive-specific commands (photo upload, delete, cover, enrichment) live in `print_history`.
 
+## Is Webhook Required?
+
+Not for every Bambuddy-related feature.
+
+- If you only need archive browsing and basic archive API access, webhook is not required.
+- If you only need in-progress start/mid/near-complete photo capture on a single printer, webhook is also not strictly required, because `print_history` can fall back to querying the newest archive and matching it to the active task name.
+- If you want the full current shipped `print_history` lifecycle, webhook is still required in the present design because several automations only listen to `bambuddy_webhook_event`.
+
+In other words, webhook is optional for reduced archive-API-driven operation, but it remains the current event transport for start, finish, failure, stop, enrichment, and immediate refresh behaviors.
+
 ## Package Structure
 
 ```
@@ -85,6 +95,8 @@ Attributes (auto-extracted from full JSON payload): `printer_id`, `printer_name`
 
 ## Webhook Receiver Design
 
+The webhook receiver exists to provide exact lifecycle timing and archive association to downstream packages. It is not the only way HA can learn about Bambuddy data, but it is the only current source for several event-driven automations.
+
 ### Two Webhook Formats
 
 Bambuddy has two webhook payload formats:
@@ -128,6 +140,10 @@ event_data:
 ```
 
 > **Open Item**: Need to confirm which format HA receives when configured as "Webhook (Custom)" provider in Bambuddy settings. The receiver handles both formats, but the primary path (archive_id from payload) only works with the API format. If flat format is received, downstream features use the fallback archive_id lookup.
+
+### Current Practical Value
+
+Without webhook, the system can still answer "what is the most recent archive?" from `GET /archives` and can often infer the current running print's archive in a single-printer setup. With webhook, the system gains an explicit event stream that tells HA when to initialize per-print runtime state and when to run post-print actions immediately.
 
 ## Migration Notes
 

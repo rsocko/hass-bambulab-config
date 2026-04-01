@@ -10,6 +10,15 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
 
+## Event Source Split
+
+The current implementation mixes two data sources:
+
+- **Archive REST pulls** provide the archive list, the most recent print, archive detail, and a fallback way to infer the active archive during a running print.
+- **`bambuddy_webhook_event`** provides lifecycle timing for `print_started`, `print_complete`, `print_failed`, and `print_stopped`.
+
+That means the archive API is already enough for browsing history and, in a simple single-printer setup, often enough to infer the current archive for in-progress photo uploads. It is not enough to preserve the full shipped event-driven behavior by itself, because several automations still trigger only from webhook-derived events.
+
 For the activity heatmap, the live metric contract is now: `Print Count` = archive rows, `Number of Printed Objects` = summed API `object_count`, and `Filaments Used` = summed per-archive populated filament slots. A backend-only single-source-of-truth heatmap filter path was analyzed and deferred pending a dedicated full-scope activity payload.
 
 ## Package Structure
@@ -125,7 +134,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
-| `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?printer_id=...&limit=1` | Fallback archive_id resolution |
+| `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
 ### Template Sensors
@@ -204,6 +213,24 @@ Deferred advanced scripts:
 | `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | Refresh REST sensor + Layer 1 archive cache |
 | `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
+
+### Operating Without Webhook
+
+If `bambuddy_common` webhook reception is not configured, the package still has partial value:
+
+- History browsing still works because it is archive-API driven.
+- Start, mid-print, and near-complete photo captures still work because those triggers come from HA printer sensors.
+- Upload can still work because `script.capture_and_upload_snapshot` falls back to `script.resolve_current_archive_id`, which queries the newest archive and matches against the current task name.
+
+But these shipped behaviors are currently webhook-dependent and will not fire reliably without it:
+
+- `bambuddy_capture_archive_id` startup reset path for current-print runtime state
+- `finish` capture in `bambuddy_capture_print_photos`
+- `print_failed` and `print_stopped` error captures unless the HMS error sensor happens to catch the case
+- `bambuddy_enrich_archive_on_complete`
+- `bambuddy_event_history_refresh` immediate post-print refresh
+
+The current archive fallback is intentionally minimal and should be treated as a convenience path, not as an exact replacement for lifecycle events. Today it uses `GET /api/v1/archives/?limit=1` and a task-name substring match.
 
 ## Key Design Details
 
