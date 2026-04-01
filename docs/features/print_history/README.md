@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant now renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print Phase 1 detail popup from each card, while advanced mutation flows remain deferred: the photo review chip is status-only today, and archive editing/favorite actions are not yet wired into the shipped popup.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print Phase 1 detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Advanced mutation flows remain deferred: the photo review chip is status-only today, and archive editing/favorite actions are not yet wired into the shipped popup.
 
 ## Event Source Split
 
@@ -250,6 +250,13 @@ Still deferred:
 
 - Photo review popup plus delete/replace/set-cover/dismiss actions
 - Archive detail editing and card-level mutation actions such as favorites/compare
+- Feature-local popup/card template ownership inside `print_history`; today the live templates still sit in the shared button-card registry under `common/dashboard_cards/card_templates`
+
+Popup implementation notes for the current shipped path:
+
+- The archive renderer is now YAML-only; the removed custom Lovelace JS card path is no longer part of the active implementation.
+- `sensor.print_history_page_archives` remains the only archive-grid data source; popup content is rendered from that projected page payload rather than a live detail fetch.
+- The show/hide image toggle is consumed directly inside the archive card templates, so thumbnail display stays controlled by `input_boolean.print_history_show_images` across all three variants.
 
 For detailed design of the two major subsystems, see:
 
@@ -257,7 +264,7 @@ For detailed design of the two major subsystems, see:
 - **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
-- **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan: per-card drilldown first, editing later
+- **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown is shipped, editing later
 - **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
 - **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only

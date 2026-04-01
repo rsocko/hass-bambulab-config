@@ -1,0 +1,110 @@
+print_history_archive_card_media:
+  template:
+    - print_history_archive_popup
+  type: custom:button-card
+  show_icon: false
+  show_name: false
+  show_state: false
+  show_label: false
+  custom_fields:
+    body: |
+      [[[ 
+        let archive = {};
+        try {
+          archive = JSON.parse(variables?.archive_json || '{}');
+        } catch (_error) {
+          archive = {};
+        }
+
+        const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
+        const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
+        const archiveId = archive?.id;
+        const normalizeStatus = (status) => {
+          const raw = String(status || '').toLowerCase();
+          if (raw === 'completed' || raw === 'success') return 'completed';
+          if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+          return raw;
+        };
+        const status = normalizeStatus(archive?.status);
+        const statusLabel = status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : status === 'stopped' ? 'Stopped' : status === 'printing' ? 'Printing' : 'Unknown';
+        const statusColor = status === 'completed' ? '#2E7D32' : status === 'failed' ? '#C62828' : status === 'stopped' ? '#EF6C00' : status === 'printing' ? '#1565C0' : '#546E7A';
+        const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : status === 'stopped' ? '⛔' : status === 'printing' ? '🖨️' : '⏳';
+        const escapeHtml = (value) => String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+        const formatDate = (value) => {
+          if (!value) return 'Unknown';
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) return 'Unknown';
+          return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        };
+        const formatDuration = (secondsValue) => {
+          const seconds = Number(secondsValue || 0);
+          if (!seconds) return '-';
+          if (seconds >= 3600) return `${Math.round((seconds / 3600) * 10) / 10}h`;
+          return `${Math.round(seconds / 60)}m`;
+        };
+        const formatNumber = (value, digits = 1, suffix = '') => {
+          const numeric = Number(value);
+          if (!Number.isFinite(numeric) || numeric <= 0) return '-';
+          return `${numeric.toFixed(digits).replace(/\.0$/, '')}${suffix}`;
+        };
+        const formatCurrency = (value) => {
+          const numeric = Number(value);
+          if (!Number.isFinite(numeric) || numeric <= 0) return '-';
+          return `$${numeric.toFixed(2)}`;
+        };
+        const colors = String(archive?.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
+        const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4);
+        const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
+        const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
+        const metadata = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm` : '', archive?.designer || ''].filter(Boolean).join(' · ');
+
+        return `
+          <div style="display:flex;flex-direction:column;gap:0;">
+            ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:220px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}">` : ''}
+            <div style="padding:${thumbnailUrl ? '16px 2px 2px' : '0'} 0 0;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0;">
+                <div style="min-width:0;flex:1 1 220px;max-width:100%;">
+                  <div style="font-weight:700;font-size:18px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%;">${escapeHtml(archive?.print_name || 'Unnamed')}</div>
+                  <div style="font-size:12px;color:var(--secondary-text-color);">${escapeHtml(formatDate(archive?.started_at || archive?.created_at))}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto;">
+                  ${archive?.is_favorite ? '<span style="font-size:18px;color:#f5c242;">★</span>' : ''}
+                  <span style="background:${statusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">${statusIcon} ${escapeHtml(statusLabel)}</span>
+                </div>
+              </div>
+              <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere;">${escapeHtml(metadata || 'No additional metadata')}</div>
+              <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;">
+                <span>Duration: <strong>${escapeHtml(formatDuration(archive?.actual_time_seconds || archive?.print_time_seconds))}</strong></span>
+                <span>Filament: <strong>${escapeHtml(formatNumber(archive?.filament_used_grams, 1, 'g'))}</strong></span>
+                <span>Cost: <strong>${escapeHtml(formatCurrency(archive?.cost))}</strong></span>
+              </div>
+              ${colors.length ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${colors.slice(0, 6).map((hex) => `<span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(hex)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span>`).join('')}</div>` : ''}
+              ${tags.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:#1565C0;color:#fff;border-radius:999px;padding:3px 8px;font-size:10px;">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+              ${archive?.failure_reason ? `<div style="font-size:12px;color:#ffb4ab;line-height:1.4;">${escapeHtml(archive.failure_reason)}</div>` : ''}
+            </div>
+          </div>`;
+      ]]]
+  styles:
+    grid:
+      - grid-template-areas: '"body"'
+      - grid-template-columns: minmax(0, 1fr)
+    card:
+      - width: 100%
+      - min-width: 0
+      - border: 1px solid var(--divider-color)
+      - border-radius: 22px
+      - background: var(--ha-card-background)
+      - padding: 18px
+      - box-sizing: border-box
+      - overflow: hidden
+      - justify-self: stretch
+    custom_fields:
+      body:
+        - display: block
+        - width: 100%
+        - text-align: left
