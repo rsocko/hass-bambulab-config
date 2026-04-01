@@ -1,47 +1,20 @@
 # Docs: docs/features/print_weight_and_cost/README.md
-type: custom:mod-card
-card:
-  type: custom:tabbed-card
-  options: {}
-  tabs:
-    - card:
-        type: vertical-stack
-        cards:
-          - !include print-weight.yaml
-      attributes:
-        label: Print Weight
-        icon: mdi:weight-gram
-    - card:
-        type: vertical-stack
-        cards:
-          - !include print-cost.yaml
-      attributes:
-        label: Print Cost
-        icon: mdi:currency-usd
-card_mod:
-  prepend: true
-  style:
-    .: |
-      ha-card {
-        background: none !important;
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 !important;
-      }
-    "tabbed-card$":
-      "mwc-tab-bar$":
-        "mwc-tab$": |
-          .mdc-tab__content {
-            align-items: center !important;
-          }
-          .mdc-tab__icon {
-            display: flex !important;
-            align-items: center !important;
-            transform: translateY(-2px);
-          }
-          .mdc-tab__text-label {
-            display: flex !important;
-            align-items: center !important;
-          }
+type: custom:tabbed-card
+options: {}
+tabs:
+  - card:
+      type: vertical-stack
+      cards:
+        - !include print-weight.yaml
+    attributes:
+      label: Print Weight
+      icon: mdi:weight-gram
+  - card:
+      type: vertical-stack
+      cards:
+        - !include print-cost.yaml
+    attributes:
+      label: Print Cost
+      icon: mdi:currency-usd
 grid_options:
   columns: full
