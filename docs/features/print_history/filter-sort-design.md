@@ -537,6 +537,12 @@ input_select_print_history_filter_layer_height:
   initial: "All"
   icon: mdi:layers-outline
 
+input_select_print_history_filter_tag:
+  name: Print History Filter - Tag
+  options: ["All"]  # Populated dynamically from archive tags
+  initial: "All"
+  icon: mdi:tag-outline
+
 input_select_print_history_sort:
   name: Print History Sort
   options:
@@ -686,6 +692,7 @@ Behavior:
 - Collects unique `printer_id` values (mapped to names if available) → updates `input_select.print_history_filter_printer`
 - Collects unique `designer` values (non-empty) → updates `input_select.print_history_filter_designer`
 - Collects unique `layer_height` values (formatted as strings) → updates `input_select.print_history_filter_layer_height`
+- Collects unique comma-separated archive `tags` values → updates `input_select.print_history_filter_tag`
 - Prepends `All` to each list
 - If current selection not in new list → HA resets the relevant helper to its default value
 
@@ -696,7 +703,7 @@ This mirrors the Filament Catalog's `sync_filter_options.yaml` pattern exactly.
 **Automation: `print_history_reset_page_on_filter_change`**
 
 Triggers:
-- State change on any filter `input_select` or `input_text.print_history_search`
+- State change on any browser filter helper, search text, selected colors, selected activity day, page size, or layout mode
 
 Action:
 - Set `input_number.print_history_current_page` to 1
@@ -713,9 +720,9 @@ The Print History view now uses an always-visible header modeled after the Filam
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [ Search Prints........................ ] [Matches] [Open Bambuddy] [⚙]     │
 │ [Status] [Material] [Printer] [Date]                                      │
-│ [Designer] [Layer Height] [Favorites Only] [Sort]                          │
+│ [Designer] [Layer Height] [Tag] [Favorites Only] [Sort]                    │
 │ [Items Per Page Slider] [Compact] [Media] [Detail] [Refresh]               │
-│ [Clear] [Refresh]                                                          │
+│ [Clear Active Filter Chips] [Clear Filters] [Refresh]                      │
 │ Color Filters: All Colors or #FFFFFF • #000000                             │
 │ [●] [●] [●] [●] [●] ... multi-select color chips                           │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -729,12 +736,13 @@ The Print History view now uses an always-visible header modeled after the Filam
 | `Matches` | Show the current filtered result count | Always visible near the search box |
 | `Open Bambuddy` | Jump directly to Bambuddy's archive UI | Replaces the old large `Recent Prints` header card |
 | `Settings` | Open only capture/history settings | Kept top-right; browsing controls stay on-page |
-| Filter pills | Status/material/printer/date/designer/layer-height | Rounded cards with current value and active-state indicator |
+| Filter pills | Status/material/printer/date/designer/layer-height/tag | Rounded cards with current value and active-state indicator |
 | Tag filter | Exact-match archive tag selector | `All` does not exclude untagged archives |
 | `Favorites Only` | Toggle favorites-only filtering | Boolean button rather than a dropdown |
 | Layout toggles | Switch between `Compact`, `Media`, and `Detail` | Only one is active at a time |
 | Items-per-page slider | Adjust page density without opening a popup | Mirrors the Filament Catalog threshold-slider pattern |
 | `Clear` / `Refresh` | Reset active filters or refresh the cache | `Clear` is visually accented whenever any filter is active |
+| Tag clear chip | Reset only the selected tag filter | Appears beside the other clear-action chips when a tag is active |
 | Color chips | Multi-select filament-color filter | Clicking a swatch toggles it in the active filter set |
 
 #### Settings Popup Scope
@@ -928,6 +936,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_select_print_history_filter_date_range.yaml    # NEW
 │   │   ├── input_select_print_history_filter_designer.yaml      # NEW
 │   │   ├── input_select_print_history_filter_layer_height.yaml  # NEW
+│   │   ├── input_select_print_history_filter_tag.yaml           # NEW
 │   │   ├── input_select_print_history_sort.yaml                 # NEW
 │   │   └── input_select_print_history_card_variant.yaml         # NEW
 │   ├── input_boolean/
@@ -983,6 +992,7 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | `input_select.print_history_filter_date_range` | input_select | `All Time` |
 | `input_select.print_history_filter_designer` | input_select | `All` (dynamic) |
 | `input_select.print_history_filter_layer_height` | input_select | `All` (dynamic) |
+| `input_select.print_history_filter_tag` | input_select | `All` (dynamic) |
 | `input_select.print_history_sort` | input_select | `Date (Newest)` |
 | `input_select.print_history_card_variant` | input_select | `Media` |
 | `input_boolean.print_history_filter_favorites_only` | input_boolean | `off` |

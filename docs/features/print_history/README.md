@@ -178,7 +178,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `counter.bambuddy_captured_photo_count` | counter | Number of photos captured in the current print cycle | Reset on `print_started` |
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
 | `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, outcome, objects, cost, filaments used, or total printing time | - |
-| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/layer) | — |
+| `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/layer/tag) | — |
 | `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | — |
 | `input_select.print_history_sort` | input_select | Browser sort mode | — |
 | `input_select.print_history_card_variant` | input_select | Compact / Media / Detail renderer selection | — |
@@ -357,8 +357,8 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │  ┌─ Browser Header ──────────────────────────────────────────────────────┐ │
 │  │ Open Bambuddy  Settings                                               │ │
 │  │ Status  Material  Printer  Date                                       │ │
-│  │ Designer  Layer Height  Favorites  Sort                              │ │
-│  │ Search  Matches  Clear actions                                        │ │
+│  │ Designer  Layer Height  Tag  Favorites  Sort                         │ │
+│  │ Search  Matches  Clear actions (including tag clear when active)      │ │
 │  │ Multi-select color chips (one chip per archive color)                │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │

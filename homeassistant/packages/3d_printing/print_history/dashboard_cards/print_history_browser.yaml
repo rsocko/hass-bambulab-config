@@ -270,6 +270,7 @@ cards:
           - input_select.print_history_filter_date_range
           - input_select.print_history_filter_designer
           - input_select.print_history_filter_layer_height
+          - input_select.print_history_filter_tag
           - input_boolean.print_history_filter_favorites_only
           - input_text.print_history_search
           - input_text.print_history_filter_colors
@@ -307,6 +308,7 @@ cards:
                 .bubble-sub-button.clear-date-filter,
                 .bubble-sub-button.clear-designer-filter,
                 .bubble-sub-button.clear-layer-filter,
+                .bubble-sub-button.clear-tag-filter,
                 .bubble-sub-button.clear-favorites-filter,
                 .bubble-sub-button.clear-search-filter,
                 .bubble-sub-button.clear-colors-filter,
@@ -321,6 +323,7 @@ cards:
                 .bubble-sub-button.clear-date-filter ha-icon,
                 .bubble-sub-button.clear-designer-filter ha-icon,
                 .bubble-sub-button.clear-layer-filter ha-icon,
+                .bubble-sub-button.clear-tag-filter ha-icon,
                 .bubble-sub-button.clear-favorites-filter ha-icon,
                 .bubble-sub-button.clear-search-filter ha-icon,
                 .bubble-sub-button.clear-colors-filter ha-icon,
@@ -464,6 +467,26 @@ cards:
                 service: input_select.select_option
                 target:
                   entity_id: input_select.print_history_filter_layer_height
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_tag
+              sub_button_type: default
+              name: Clear Tag Filter
+              icon: mdi:tag-remove-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity_id: input_select.print_history_filter_tag
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_tag
                 data:
                   option: "All"
             - entity: input_boolean.print_history_filter_favorites_only
