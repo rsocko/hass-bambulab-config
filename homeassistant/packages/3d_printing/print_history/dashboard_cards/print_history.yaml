@@ -55,7 +55,23 @@ cards:
                 'entity': 'sensor.print_history_page_archives',
                 'template': 'print_history_archive_card',
                 'variables': {
-                  'archive_json': archive | tojson
+                  'archive_id': archive.id,
+                  'archive_name': archive.print_name | default('Unnamed Print', true),
+                  'archive_status': archive.status | default('unknown', true),
+                  'archive_started': (archive.started_at or archive.created_at or 'Unknown date'),
+                  'archive_duration': (((archive.actual_time_seconds or archive.print_time_seconds or 0) | float(0) / 3600) | round(1) ~ 'h') if (archive.actual_time_seconds or archive.print_time_seconds) else '-',
+                  'archive_filament_used': ((archive.filament_used_grams | float(0) | round(1)) ~ 'g') if archive.filament_used_grams else '-',
+                  'archive_cost': ('$' ~ ('%.2f' | format(archive.cost | float(0)))) if archive.cost else '-',
+                  'archive_printer': archive.printer_id | string,
+                  'archive_material': archive.filament_type | default('Unknown material', true),
+                  'archive_layer_height': ((archive.layer_height | string) ~ ' mm') if archive.layer_height not in [none, ''] else '-',
+                  'archive_nozzle': ((archive.nozzle_diameter | string) ~ ' mm') if archive.nozzle_diameter not in [none, ''] else '-',
+                  'archive_object_count': archive.object_count | default(1, true) | string,
+                  'archive_designer': archive.designer | default('', true),
+                  'archive_tags': archive.tags | default('No tags', true),
+                  'archive_notes': archive.notes | default('No notes', true),
+                  'archive_failure_reason': archive.failure_reason | default('', true),
+                  'archive_favorite': archive.is_favorite | default(false, true)
                 }
               }] %}
             {% endfor %}
@@ -108,7 +124,23 @@ cards:
                 'entity': 'sensor.print_history_page_archives',
                 'template': 'print_history_archive_card',
                 'variables': {
-                  'archive_json': archive | tojson
+                  'archive_id': archive.id,
+                  'archive_name': archive.print_name | default('Unnamed Print', true),
+                  'archive_status': archive.status | default('unknown', true),
+                  'archive_started': (archive.started_at or archive.created_at or 'Unknown date'),
+                  'archive_duration': (((archive.actual_time_seconds or archive.print_time_seconds or 0) | float(0) / 3600) | round(1) ~ 'h') if (archive.actual_time_seconds or archive.print_time_seconds) else '-',
+                  'archive_filament_used': ((archive.filament_used_grams | float(0) | round(1)) ~ 'g') if archive.filament_used_grams else '-',
+                  'archive_cost': ('$' ~ ('%.2f' | format(archive.cost | float(0)))) if archive.cost else '-',
+                  'archive_printer': archive.printer_id | string,
+                  'archive_material': archive.filament_type | default('Unknown material', true),
+                  'archive_layer_height': ((archive.layer_height | string) ~ ' mm') if archive.layer_height not in [none, ''] else '-',
+                  'archive_nozzle': ((archive.nozzle_diameter | string) ~ ' mm') if archive.nozzle_diameter not in [none, ''] else '-',
+                  'archive_object_count': archive.object_count | default(1, true) | string,
+                  'archive_designer': archive.designer | default('', true),
+                  'archive_tags': archive.tags | default('No tags', true),
+                  'archive_notes': archive.notes | default('No notes', true),
+                  'archive_failure_reason': archive.failure_reason | default('', true),
+                  'archive_favorite': archive.is_favorite | default(false, true)
                 }
               }] %}
             {% endfor %}
@@ -156,7 +188,23 @@ cards:
                 'entity': 'sensor.print_history_page_archives',
                 'template': 'print_history_archive_card',
                 'variables': {
-                  'archive_json': archive | tojson
+                  'archive_id': archive.id,
+                  'archive_name': archive.print_name | default('Unnamed Print', true),
+                  'archive_status': archive.status | default('unknown', true),
+                  'archive_started': (archive.started_at or archive.created_at or 'Unknown date'),
+                  'archive_duration': (((archive.actual_time_seconds or archive.print_time_seconds or 0) | float(0) / 3600) | round(1) ~ 'h') if (archive.actual_time_seconds or archive.print_time_seconds) else '-',
+                  'archive_filament_used': ((archive.filament_used_grams | float(0) | round(1)) ~ 'g') if archive.filament_used_grams else '-',
+                  'archive_cost': ('$' ~ ('%.2f' | format(archive.cost | float(0)))) if archive.cost else '-',
+                  'archive_printer': archive.printer_id | string,
+                  'archive_material': archive.filament_type | default('Unknown material', true),
+                  'archive_layer_height': ((archive.layer_height | string) ~ ' mm') if archive.layer_height not in [none, ''] else '-',
+                  'archive_nozzle': ((archive.nozzle_diameter | string) ~ ' mm') if archive.nozzle_diameter not in [none, ''] else '-',
+                  'archive_object_count': archive.object_count | default(1, true) | string,
+                  'archive_designer': archive.designer | default('', true),
+                  'archive_tags': archive.tags | default('No tags', true),
+                  'archive_notes': archive.notes | default('No notes', true),
+                  'archive_failure_reason': archive.failure_reason | default('', true),
+                  'archive_favorite': archive.is_favorite | default(false, true)
                 }
               }] %}
             {% endfor %}
