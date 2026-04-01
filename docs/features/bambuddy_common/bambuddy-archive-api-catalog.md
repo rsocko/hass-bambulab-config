@@ -73,8 +73,10 @@ The `PATCH /{id}` endpoint accepts any combination of:
 Tags are stored in the archive's `tags` field as comma-separated values.
 Each tag is a plain string. The enrichment convention uses `prefix:value` pairs:
 ```
-spoolman:42, vendor:Bambu Lab, material:PLA, cost:$1.23, status:success, ha_enriched:true
+spoolman:42, vendor:Bambu Lab, material:PLA, status:success, ha_enriched:true
 ```
+
+The recommended design is to keep numeric print totals such as filament cost in the archive's native `cost` field rather than encoding them as tags.
 
 There is **no separate tags API per archive** — tags are set via `PATCH /{id}` with the full `tags` string.
 The `GET /tags` and `PUT/DELETE /tags/{tag_name}` operate globally across ALL archives.

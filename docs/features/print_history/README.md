@@ -28,7 +28,7 @@ homeassistant/packages/3d_printing/print_history/
 ├── print_history_loader.yaml
 ├── automations/
 │   ├── bambuddy_capture_archive_id.yaml          # webhook print_started → store archive_id
-│   ├── bambuddy_enrich_archive_on_complete.yaml   # webhook print_complete/failed → PATCH tags/notes
+│   ├── bambuddy_enrich_archive_on_complete.yaml   # webhook print_complete/failed → PATCH tags/notes/cost
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped/HMS → immediate capture + upload
 │   ├── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor + archive cache
@@ -39,7 +39,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (advanced review flow)
 │   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
-│   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
+│   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes/cost enrichment
 │   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
@@ -133,7 +133,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Advanced review placeholder; filename-based delete confirmed |
 | `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
-| `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
+| `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, and cost |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
@@ -209,7 +209,7 @@ Deferred advanced scripts:
 | `bambuddy_capture_archive_id` | `bambuddy_webhook_event` where event=`print_started` | Store archive_id from payload (or fallback lookup) |
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed/stopped webhook, HMS error sensor | Error photo capture via `capture_and_upload_snapshot` |
-| `bambuddy_enrich_archive_on_complete` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with Spoolman tags/notes, clear archive_id |
+| `bambuddy_enrich_archive_on_complete` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with Spoolman enrichment metadata (tags, notes, cost), clear archive_id |
 | `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | Refresh REST sensor + Layer 1 archive cache |
 | `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
@@ -261,7 +261,7 @@ Popup implementation notes for the current shipped path:
 For detailed design of the two major subsystems, see:
 
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
-- **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes)
+- **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes + cost, with phased compact note payload)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown is shipped, editing later
@@ -292,7 +292,7 @@ For detailed design of the two major subsystems, see:
 - Multi-stage photo capture automations (start, mid, near-complete, error)
 - `capture_and_upload_snapshot` script with multi-camera + light control + verified upload bridge
 - `resolve_current_archive_id` fallback script
-- Enrichment automation (Spoolman tags + notes)
+- Enrichment automation (Spoolman tags + notes + cost; notes now also carry phased compact structured data)
 - Pagination scripts and template sensors
 - Configurable capture stage toggles and secondary camera helper
 - Dedicated history view (`view_print_history.yaml`)

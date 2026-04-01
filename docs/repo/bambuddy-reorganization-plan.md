@@ -66,7 +66,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
-| 19 | Enrichment automation | **Done** | Spoolman tags + notes via PATCH; tray map snapshot; cost data; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
+| 19 | Enrichment automation | **Partially done** | Current shipped flow writes core tags/notes. Next implementation slice should align it to the refined design: tags + native cost + dual-purpose notes (human summary + compact structured payload); see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
 | 21 | Browser paging scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml`, `refresh_print_history_archives.yaml`, `clear_print_history_filters.yaml`, `toggle_print_history_color_filter.yaml` |
 | 22 | Template sensors (modern format) | **Done** | Layer 1 cache (`print_history_archives`), Layer 2 filter metadata (`print_history_filtered`), page label, and current page slice |
@@ -161,7 +161,7 @@ Still to do:
 | 56 | HA config check | Not started | |
 | 57 | Entity audit | Not started | ~5 REST sensors, ~13 template, ~8 REST commands, ~14 helpers, ~9 automations, ~5 scripts |
 | 58 | Photo capture test — all stages | Not started | start, mid, near-complete → local save + Bambuddy upload |
-| 59 | Enrichment test — Spoolman tags/notes | Not started | Complete print → verify in Bambuddy |
+| 59 | Enrichment test — Spoolman tags/notes/cost | Not started | Complete print → verify searchable tags, numeric cost, human summary notes, and parseable compact note payload in Bambuddy |
 | 60 | Dashboard verification — all cards + views | Not started | Including history + maintenance views |
 | 61 | History pagination test | Not started | Navigate past page 1 |
 | 62 | Maintenance test — mark complete from HA | Not started | |
@@ -181,7 +181,7 @@ Still to do:
 | 6 | **Photo delete contract mismatch** — current YAML uses `/photos/{photo_id}`, while earlier API review suggested filename-based deletes. | No — advanced review only | 2 | Reconcile OpenAPI/source review with the shipped `rest_command` before enabling review delete actions |
 | 7 | **Set-cover-photo endpoint** — current YAML assumes `PATCH /archives/{id}` with `cover_photo_id`, but this still needs live confirmation. | No — blocks photo review only | 2 | Verify against Bambuddy source/live API before wiring cover selection into the dashboard |
 | 8 | **Dashboard view registration** — `view_print_history.yaml` and `view_maintenance.yaml` must be added to `common/dashboards/3d_printing.yaml` views list. | No | 2, 5 | `view_print_history.yaml` **Done** (added during Phase 2 step 25). Phase 5 still pending. |
-| 9 | **Enrichment idempotency** — PATCHing tags/notes twice shouldn't create duplicates. | No | 2 | Verify Bambuddy behavior during testing |
+| 9 | **Enrichment idempotency** — PATCHing tags/notes/cost twice shouldn't create duplicates or note drift. | No | 2 | Verify deterministic regeneration of tags, cost, and compact note payload during testing |
 | 10 | **Webhook image field** — payload can include base64 JPEG for some events. Could be decoded as bonus data. | No — nice-to-have | 2 | Defer to post-MVP enhancement |
 
 ## Recommended Next Backlog
@@ -216,7 +216,7 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 - **Archive creation**: Bambuddy auto-creates at print start
 - **Webhook**: Single receiver → HA event; features listen to the event
 - **Photos**: HA owns multi-camera, multi-stage capture; uploads directly to Bambuddy
-- **Enrichment**: Spoolman spool IDs + cost + vendor → Bambuddy tags + notes via PATCH
+- **Enrichment**: Spoolman spool IDs + vendor → Bambuddy tags, filament total → native `cost`, and a dual-purpose `notes` field carrying both operator-readable summary and a compact structured payload via PATCH
 - **Maintenance**: Bambuddy is source of truth; HA reads + surfaces + allows mark-complete
 - **Print Log**: Skipped (subset of archives)
 - **AMS History**: Skipped (HA already records via ha-bambulab sensors)

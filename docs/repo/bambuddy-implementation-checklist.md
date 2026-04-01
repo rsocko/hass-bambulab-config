@@ -52,11 +52,13 @@ Canonical sources:
 - [x] Active package under `homeassistant/packages/3d_printing/print_history/`
 - [x] Feature doc under `docs/features/print_history/README.md`
 - [x] Archive browser/dashboard shipped
-- [x] Archive enrichment shipped
+- [x] Archive enrichment shipped in initial form
 - [x] Local snapshot capture shipped
 - [x] Shell-based multipart upload bridge shipped
 - [x] Archive-detail verification for photo uploads
 - [x] Read-only archive detail popup shipped
+- [ ] Refine enrichment to use native `cost` and dual-purpose `notes` (human summary + compact structured payload)
+- [ ] Upgrade enrichment resolution toward the UUID-first design without requiring sidecar storage
 - [ ] Rich per-photo upload metadata and retries
 - [ ] Photo review delete/replace/set-cover scripts
 - [ ] Photo review popup and dismissal flow
@@ -93,8 +95,9 @@ Canonical sources:
 
 ## Next Implementation Order
 
-1. Harden `print_history` upload handling or move to the Python worker.
-2. Build `print_queue` core lifecycle controls.
-3. Build `print_statistics` core sensors and cards.
-4. Build `printer_maintenance` core read/react package.
-5. Return to advanced `print_history` review/detail workflows.
+1. Refine `print_history` enrichment to the phased-notes design: tags + native cost + dual-purpose notes with compact structured payload.
+2. Harden `print_history` upload handling or move to the Python worker.
+3. Build `print_queue` core lifecycle controls.
+4. Build `print_statistics` core sensors and cards.
+5. Build `printer_maintenance` core read/react package.
+6. Return to advanced `print_history` review/detail workflows.
