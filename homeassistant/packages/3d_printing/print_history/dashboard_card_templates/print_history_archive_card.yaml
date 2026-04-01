@@ -1,127 +1,53 @@
-print_history_archive_popup:
-  tap_action: |
-    [[[
-      const archiveId = variables.archive_id || '';
-      const archiveName = variables.archive_name || 'Unnamed Print';
-      const status = variables.archive_status || 'unknown';
-      const started = variables.archive_started || 'Unknown date';
-      const duration = variables.archive_duration || '-';
-      const filament = variables.archive_filament_used || '-';
-      const cost = variables.archive_cost || '-';
-      const printer = variables.archive_printer || '-';
-      const material = variables.archive_material || '-';
-      const layerHeight = variables.archive_layer_height || '-';
-      const nozzle = variables.archive_nozzle || '-';
-      const objects = variables.archive_object_count || '-';
-      const designer = variables.archive_designer || '-';
-      const tags = variables.archive_tags || 'No tags';
-      const notes = variables.archive_notes || 'No notes';
-      const failure = variables.archive_failure_reason || '';
-      const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
-      const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
-      const openLine = archiveId && baseUrl
-        ? `\n\n[Open in Bambuddy](${baseUrl}/archives/${archiveId})`
-        : '';
-      const failureLine = failure ? `\n\n**Failure Reason**\n${failure}` : '';
-      const content = `**Status**: ${status}\n\n**Started**: ${started}\n\n**Duration**: ${duration}\n\n**Filament**: ${filament}\n\n**Cost**: ${cost}\n\n**Printer**: ${printer}\n\n**Material**: ${material}\n\n**Layer Height**: ${layerHeight}\n\n**Nozzle**: ${nozzle}\n\n**Objects**: ${objects}\n\n**Designer**: ${designer}\n\n**Tags**: ${tags}\n\n**Notes**\n${notes}${failureLine}${openLine}`;
-      return {
-        action: 'fire-dom-event',
-        browser_mod: {
-          service: 'browser_mod.popup',
-          data: {
-            title: archiveName,
-            size: 'wide',
-            content: {
-              type: 'markdown',
-              content: content,
-            },
-          },
-        },
-      };
-    ]]]
-  hold_action:
-    action: none
-  double_tap_action:
-    action: none
-
 print_history_archive_card:
-  template:
-    - print_history_archive_popup
   type: custom:button-card
   entity: sensor.print_history_page_archives
+  icon: mdi:archive-outline
   show_icon: true
   show_name: true
   show_state: false
   show_label: true
-  icon: |
-    [[[ 
-      const status = String(variables.archive_status || '').toLowerCase();
-      if (status === 'completed' || status === 'success') return 'mdi:check-circle';
-      if (status === 'failed' || status === 'cancelled' || status === 'aborted') return 'mdi:close-circle';
-      if (status === 'stopped') return 'mdi:stop-circle';
-      if (status === 'printing') return 'mdi:printer-3d';
-      return 'mdi:archive-outline';
-    ]]]
+  tap_action:
+    action: none
+  hold_action:
+    action: none
+  double_tap_action:
+    action: none
   name: |
     [[[ return variables.archive_name || 'Unnamed Print'; ]]]
   label: |
     [[[ 
       const started = variables.archive_started || 'Unknown date';
+      const status = variables.archive_status || 'unknown';
       const duration = variables.archive_duration || '-';
-      const filament = variables.archive_filament_used || '-';
-      return `${started} | ${duration} | ${filament}`;
+      return `${started} | ${status} | ${duration}`;
     ]]]
-  custom_fields:
-    meta: |
-      [[[ 
-        const material = variables.archive_material || 'Unknown material';
-        const designer = variables.archive_designer || '';
-        const cost = variables.archive_cost || '-';
-        const favorite = String(variables.archive_favorite || 'false') === 'true' ? '★ ' : '';
-        const extra = [material, designer].filter(Boolean).join(' | ');
-        return `<div style="font-size:12px;color:var(--secondary-text-color);line-height:1.4">${favorite}${extra}<br>Cost: ${cost}</div>`;
-      ]]]
   styles:
-    grid:
-      - grid-template-areas: '"i n" "i l" "i meta"'
-      - grid-template-columns: 42px minmax(0, 1fr)
-      - grid-template-rows: auto auto auto
-      - column-gap: 12px
-      - row-gap: 4px
     card:
       - padding: 16px
-      - border-radius: 22px
-      - background: var(--ha-card-background)
+      - border-radius: 20px
       - border: 1px solid var(--divider-color)
-      - cursor: pointer
+      - background: var(--ha-card-background)
       - text-align: left
+    grid:
+      - grid-template-areas: '"i n" "i l"'
+      - grid-template-columns: 28px minmax(0, 1fr)
+      - grid-template-rows: auto auto
+      - column-gap: 12px
+      - row-gap: 4px
     icon:
-      - width: 24px
-      - color: |
-          [[[ 
-            const status = String(variables.archive_status || '').toLowerCase();
-            if (status === 'completed' || status === 'success') return '#2E7D32';
-            if (status === 'failed' || status === 'cancelled' || status === 'aborted') return '#C62828';
-            if (status === 'stopped') return '#EF6C00';
-            if (status === 'printing') return '#1565C0';
-            return 'var(--secondary-text-color)';
-          ]]]
+      - width: 22px
+      - color: var(--secondary-text-color)
       - align-self: start
       - margin-top: 2px
     name:
       - justify-self: start
       - text-align: left
-      - font-size: 16px
+      - font-size: 15px
       - font-weight: 700
       - overflow-wrap: anywhere
     label:
       - justify-self: start
       - text-align: left
-      - color: var(--secondary-text-color)
       - font-size: 12px
+      - color: var(--secondary-text-color)
       - overflow-wrap: anywhere
-    custom_fields:
-      meta:
-        - justify-self: stretch
-        - text-align: left
-        - min-width: 0
