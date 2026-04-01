@@ -2,70 +2,163 @@
 # Each archive is its own button-card so taps open an archive-specific popup
 # instead of falling through to one more-info target for the whole section.
 
-type: custom:config-template-card
-entities:
-  - sensor.print_history_page_archives
-  - input_select.print_history_card_variant
-  - input_boolean.print_history_show_images
-card:
-  type: custom:auto-entities
-  show_empty: false
-  card:
-    type: grid
-    columns: >-
-      ${(() => {
-        const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
-        if (variant === 'Detail') return 1;
-        if (variant === 'Media') return 2;
-        return 3;
-      })()}
-    square: false
-    card_mod:
-      style: |
-        #root {
-          align-items: stretch;
-          gap: 16px;
-        }
-        @media (max-width: 1100px) {
-          #root {
-            grid-template-columns: repeat(${(() => {
-              const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
-              return variant === 'Detail' ? 1 : 2;
-            })()}, minmax(0, 1fr)) !important;
-          }
-        }
-        @media (max-width: 720px) {
-          #root {
-            grid-template-columns: 1fr !important;
-          }
-        }
-  card_param: cards
-  filter:
-    template: >
-      {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-      {% if raw is string %}
-        {% set archives = raw | from_json %}
-      {% elif raw is iterable %}
-        {% set archives = raw | list %}
-      {% else %}
-        {% set archives = [] %}
-      {% endif %}
-      {% set cards = namespace(items=[]) %}
-      {% if archives | length == 0 %}
-        {% set cards.items = cards.items + [{
-          'type': 'markdown',
-          'content': 'No matching archives. Adjust filters or refresh the archive cache.'
-        }] %}
-      {% else %}
-        {% for archive in archives %}
-          {% set cards.items = cards.items + [{
-            'type': 'custom:button-card',
-            'entity': 'sensor.print_history_page_archives',
-            'template': 'print_history_archive_card',
-            'variables': {
-              'archive': archive
+type: vertical-stack
+cards:
+  - type: conditional
+    conditions:
+      - entity: input_select.print_history_card_variant
+        state: Compact
+    card:
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: grid
+        columns: 3
+        square: false
+        card_mod:
+          style: |
+            #root {
+              align-items: stretch;
+              gap: 16px;
             }
-          }] %}
-        {% endfor %}
-      {% endif %}
-      {{ cards.items | tojson }}
+            @media (max-width: 1100px) {
+              #root {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              }
+            }
+            @media (max-width: 720px) {
+              #root {
+                grid-template-columns: 1fr !important;
+              }
+            }
+      card_param: cards
+      filter:
+        template: >
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set cards = namespace(items=[]) %}
+          {% if archives | length == 0 %}
+            {% set cards.items = cards.items + [{
+              'type': 'markdown',
+              'content': 'No matching archives. Adjust filters or refresh the archive cache.'
+            }] %}
+          {% else %}
+            {% for archive in archives %}
+              {% set cards.items = cards.items + [{
+                'type': 'custom:button-card',
+                'entity': 'sensor.print_history_page_archives',
+                'template': 'print_history_archive_card',
+                'variables': {
+                  'archive': archive
+                }
+              }] %}
+            {% endfor %}
+          {% endif %}
+          {{ cards.items | tojson }}
+
+  - type: conditional
+    conditions:
+      - entity: input_select.print_history_card_variant
+        state: Media
+    card:
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: grid
+        columns: 2
+        square: false
+        card_mod:
+          style: |
+            #root {
+              align-items: stretch;
+              gap: 16px;
+            }
+            @media (max-width: 720px) {
+              #root {
+                grid-template-columns: 1fr !important;
+              }
+            }
+      card_param: cards
+      filter:
+        template: >
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set cards = namespace(items=[]) %}
+          {% if archives | length == 0 %}
+            {% set cards.items = cards.items + [{
+              'type': 'markdown',
+              'content': 'No matching archives. Adjust filters or refresh the archive cache.'
+            }] %}
+          {% else %}
+            {% for archive in archives %}
+              {% set cards.items = cards.items + [{
+                'type': 'custom:button-card',
+                'entity': 'sensor.print_history_page_archives',
+                'template': 'print_history_archive_card',
+                'variables': {
+                  'archive': archive
+                }
+              }] %}
+            {% endfor %}
+          {% endif %}
+          {{ cards.items | tojson }}
+
+  - type: conditional
+    conditions:
+      - entity: input_select.print_history_card_variant
+        state: Detail
+    card:
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: grid
+        columns: 1
+        square: false
+        card_mod:
+          style: |
+            #root {
+              align-items: stretch;
+              gap: 16px;
+            }
+      card_param: cards
+      filter:
+        template: >
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set cards = namespace(items=[]) %}
+          {% if archives | length == 0 %}
+            {% set cards.items = cards.items + [{
+              'type': 'markdown',
+              'content': 'No matching archives. Adjust filters or refresh the archive cache.'
+            }] %}
+          {% else %}
+            {% for archive in archives %}
+              {% set cards.items = cards.items + [{
+                'type': 'custom:button-card',
+                'entity': 'sensor.print_history_page_archives',
+                'template': 'print_history_archive_card',
+                'variables': {
+                  'archive': archive
+                }
+              }] %}
+            {% endfor %}
+          {% endif %}
+          {{ cards.items | tojson }}
