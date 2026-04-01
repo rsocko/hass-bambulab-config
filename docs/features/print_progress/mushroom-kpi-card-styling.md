@@ -66,19 +66,26 @@ The Layer Progress and Print Progress button-cards use `opacity: 0.75`–`0.8` o
 
 ## Text Wrapping
 
-### Time Remaining — `white-space: normal`
+### Time Remaining — `white-space: pre-line`
 
-The secondary line can get long (e.g., `2d 14h 33m elapsed of 3d 18h 0m total`). Standard settings:
+The secondary line is intentionally split into two lines so the break is stable on narrow cards:
+
+```
+2d 14h 33m elapsed of
+3d 18h 0m total
+```
+
+This uses an explicit `\n` in the template plus `pre-line` in CSS:
 
 ```yaml
 [slot="secondary"] {
-  white-space: normal !important;
+  white-space: pre-line !important;
   overflow: visible !important;
   text-overflow: unset !important;
 }
 ```
 
-Non-breaking spaces (`\u00a0`) keep the "total" portion grouped so it doesn't break mid-unit:
+Non-breaking spaces (`\u00a0`) keep the total portion grouped so it stays together on the second line and doesn't break mid-unit:
 
 ```
 3d 18h 0m total    →   3d\u00a018h\u00a00m\u00a0total

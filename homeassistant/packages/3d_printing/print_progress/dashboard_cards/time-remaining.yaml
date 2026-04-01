@@ -12,7 +12,10 @@ secondary: |-
   {% if total > 0 %}
     {% set ed = elapsed // 1440 %}{% set eh = (elapsed % 1440) // 60 %}{% set em = elapsed % 60 %}
     {% set td = total // 1440 %}{% set th = (total % 1440) // 60 %}{% set tm = total % 60 %}
-    {% set nbsp = '\u00a0' %}{{ (ed ~ 'd ' if ed > 0 else '') ~ (eh ~ 'h ' if ed > 0 or eh > 0 else '') ~ em ~ 'm' }} elapsed of{{ nbsp }}{{ (td ~ 'd' ~ nbsp if td > 0 else '') ~ (th ~ 'h' ~ nbsp if td > 0 or th > 0 else '') ~ tm ~ 'm' ~ nbsp ~ 'total' }}
+    {% set nbsp = '\u00a0' %}
+    {% set elapsed_text = (ed ~ 'd ' if ed > 0 else '') ~ (eh ~ 'h ' if ed > 0 or eh > 0 else '') ~ em ~ 'm' %}
+    {% set total_text = (td ~ 'd' ~ nbsp if td > 0 else '') ~ (th ~ 'h' ~ nbsp if td > 0 or th > 0 else '') ~ tm ~ 'm' ~ nbsp ~ 'total' %}
+    {{ elapsed_text ~ ' elapsed of\n' ~ total_text }}
   {% endif %}
 icon: mdi:clock-time-four
 icon_color: |-
@@ -38,7 +41,7 @@ card_mod:
     }
     [slot="secondary"] {
       font-size: 11px !important;
-      white-space: normal !important;
+      white-space: pre-line !important;
       overflow: visible !important;
       text-overflow: unset !important;
       opacity: 0.7 !important;
