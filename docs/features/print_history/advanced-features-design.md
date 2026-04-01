@@ -94,9 +94,15 @@ The phased interaction design for per-archive popup drilldown is tracked in [arc
 
 Summary:
 
-- Phase 1: each archive card opens a read-only detail popup
+- Phase 1: shipped using YAML-only `auto-entities` + shared button-card templates; each archive card opens a read-only detail popup
 - Phase 2: add editing for `print_name`, `notes`, `tags`, and `is_favorite`
 - later popup action slots are reserved for issue `#744` and the related follow-on issues `#747`, `#748`, `#750`, `#755`, and `#783`
+
+Implementation note:
+
+- the earlier custom frontend card experiment was removed
+- the current live path intentionally mirrors the filament catalog architecture because it is already proven in this dashboard stack
+- template-ownership cleanup is still possible later, but it is no longer a prerequisite for the popup rollout
 
 ### Archive Detection And Recovery
 
@@ -139,7 +145,7 @@ This is the best available path without changing Bambuddy itself, because curren
 | Rich print notifications | 2.7 | Low | Medium — better notification content |
 | Spool usage provenance | 2.8 | Low | Medium — "what did this spool print?" |
 | Reprint from HA | Future | High | Medium — safety concerns |
-| Archive detail popup + editing | 2.11+ | Medium | Medium — support and provenance UX |
+| Archive detail popup + editing | 2.11+ | Medium | Medium — Phase 1 popup shipped, editing still pending |
 | Search from HA | Future | Medium | Low — Bambuddy UI is better |
 
 ---

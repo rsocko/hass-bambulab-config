@@ -6,11 +6,33 @@ Define the phased interaction model for print-history cards so each visible arch
 
 This document covers the Home Assistant interaction model and rollout sequence for issue #753.
 
+## Current Implementation Status
+
+### Shipped now
+
+- each visible archive is now its own Lovelace card and opens an archive-specific `browser_mod.popup`
+- the active implementation is YAML-only and follows the same pattern used by the filament catalog:
+	1. `custom:auto-entities` reads `sensor.print_history_page_archives.attributes.archives`
+	2. one `custom:button-card` is generated per archive
+	3. shared button-card templates render the `Compact`, `Media`, and `Detail` card bodies
+	4. a shared popup template opens a read-only detail popup using the projected archive payload already present on the page
+- the active popup is reusable and defined once through shared button-card templates rather than duplicated in each layout variant
+
+### Not shipped yet
+
+- edit actions for `print_name`, `notes`, `tags`, and `is_favorite`
+- future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
+- feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
+
+### Design adjustment from the earlier draft
+
+An intermediate custom Lovelace JavaScript card was attempted and then removed. The current implementation intentionally avoids a new frontend resource dependency and instead uses the existing repository pattern that already works in the filament catalog.
+
 ## Problem Statement
 
-The current `print_history` browser renders the visible page slice as one large HTML blob inside a single `custom:button-card`.
+The original `print_history` browser rendered the visible page slice as one large HTML blob inside a single `custom:button-card`.
 
-That creates two UX problems:
+That original approach created two UX problems:
 
 1. the entire print section behaves like one card
 2. taps resolve to one default more-info target instead of the specific print the user intended to inspect
@@ -33,11 +55,17 @@ That architecture is acceptable for presentation-only browsing, but it is the wr
 
 ## Verified Constraints
 
+### Historical renderer that motivated this issue
+
+- source: `sensor.print_history_page_archives`
+- original implementation: one `custom:button-card` with `custom_fields.history_grid`
+- result: one Lovelace card surface, one default tap target
+
 ### Current renderer
 
 - source: `sensor.print_history_page_archives`
-- current implementation: one `custom:button-card` with `custom_fields.history_grid`
-- result: one Lovelace card surface, one default tap target
+- current implementation: `custom:auto-entities` generates one `custom:button-card` per archive and applies shared templates for `Compact`, `Media`, and `Detail`
+- result: each visible archive is its own tap target and opens its own popup
 
 ### Current projected archive shape
 
@@ -80,6 +108,12 @@ They may initially live under the shared button-card template registry if that i
 2. the dashboard template-loading model allows feature-local template registration without routing feature-specific templates through `common`
 
 This should be treated as a small architectural refactor tied to the popup rollout, not as permanent placement.
+
+Current status:
+
+- this ownership refactor is still a valid target architecture
+- it is not part of the currently shipped implementation
+- the live templates remain in `common/dashboard_cards/card_templates` because that is the active shared button-card registry path
 
 ### Phase 1 rendering model
 
@@ -134,6 +168,10 @@ Without this step, issue #753 lands as functionally correct but structurally mis
 2. `common` no longer owns print-history-specific template definitions
 3. no behavior change in the archive browser
 
+### Current status
+
+Deferred. The popup feature shipped first using the existing shared template registry so the interaction model could be stabilized before moving template ownership.
+
 ## Phase 1: Read-Only Archive Detail Popup
 
 ### User behavior
@@ -171,6 +209,22 @@ Phase 1 popup should show:
 2. tapping a print opens an archive-specific popup
 3. the popup is materially more informative than the card itself
 4. no edit actions are exposed yet
+
+### Current status
+
+Implemented, with ongoing layout refinement.
+
+What is live now:
+
+- per-archive tap targets in `Compact`, `Media`, and `Detail`
+- read-only popup content rendered from the projected archive payload already present on the page
+- thumbnail, status, timestamps, duration, filament used, cost, object count, material, layer height, nozzle, total layers, printer, designer, tags, notes, failure reason, and an `Open in Bambuddy` button
+
+What is still being tuned inside Phase 1:
+
+- responsive column counts for `Compact` and `Media`
+- full-width behavior for `Detail`
+- card density and visual polish compared with the earlier single-renderer layout
 
 ## Phase 2: Edit Key Fields
 
@@ -236,6 +290,7 @@ Do not add future issue actions directly to the archive card face unless the act
 - per-archive cards should remain driven by `sensor.print_history_page_archives`
 - card visuals can continue using button-card HTML/CSS for layout richness
 - the archive grid wrapper should remain responsive across `Compact`, `Media`, and `Detail`
+- the active implementation should prefer the existing `auto-entities` + button-card template pattern over introducing a new custom frontend resource unless a later requirement clearly justifies it
 
 ### Popup content strategy
 
@@ -245,8 +300,7 @@ Do not add future issue actions directly to the archive card face unless the act
 
 ## Recommended Delivery Sequence
 
-1. complete the template-ownership refactor so `print_history` owns its own popup/card templates
-2. ship per-archive tap targets and read-only popup content
-3. validate that card layout modes still behave correctly on desktop and mobile
-4. add key-field editing in a second pass using the same popup entry point
-5. attach future issue-specific actions only after their own design docs define payloads and workflows
+1. stabilize the shipped Phase 1 renderer and popup behavior across desktop and mobile
+2. decide whether template ownership should move from `common` into `print_history` as a cleanup refactor or remain deferred
+3. add key-field editing in a second pass using the same popup entry point
+4. attach future issue-specific actions only after their own design docs define payloads and workflows
