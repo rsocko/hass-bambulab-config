@@ -12,21 +12,12 @@ cards:
       type: custom:auto-entities
       show_empty: false
       card:
-        type: grid
-        columns: 1
-        square: false
-        card_mod:
-          style: |
-            #root {
-              grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
-              align-items: stretch !important;
-              gap: 16px !important;
-            }
-            #root > * {
-              width: 100% !important;
-              justify-self: stretch !important;
-              min-width: 0 !important;
-            }
+        type: custom:layout-card
+        layout_type: custom:grid-layout
+        layout:
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))
+          grid-gap: 16px
+          margin: 0
       card_param: cards
       filter:
         template: >
@@ -58,21 +49,12 @@ cards:
       type: custom:auto-entities
       show_empty: false
       card:
-        type: grid
-        columns: 1
-        square: false
-        card_mod:
-          style: |
-            #root {
-              grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
-              align-items: stretch !important;
-              gap: 16px !important;
-            }
-            #root > * {
-              width: 100% !important;
-              justify-self: stretch !important;
-              min-width: 0 !important;
-            }
+        type: custom:layout-card
+        layout_type: custom:grid-layout
+        layout:
+          grid-template-columns: repeat(auto-fit, minmax(360px, 1fr))
+          grid-gap: 16px
+          margin: 0
       card_param: cards
       filter:
         template: >
@@ -104,20 +86,12 @@ cards:
       type: custom:auto-entities
       show_empty: false
       card:
-        type: grid
-        columns: 1
-        square: false
-        card_mod:
-          style: |
-            #root {
-              grid-template-columns: minmax(0, 1fr) !important;
-              align-items: stretch !important;
-              gap: 16px !important;
-            }
-            #root > * {
-              width: 100% !important;
-              min-width: 0 !important;
-            }
+        type: custom:layout-card
+        layout_type: custom:grid-layout
+        layout:
+          grid-template-columns: minmax(0, 1fr)
+          grid-gap: 16px
+          margin: 0
       card_param: cards
       filter:
         template: >
