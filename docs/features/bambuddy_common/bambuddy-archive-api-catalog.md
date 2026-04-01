@@ -20,7 +20,7 @@ Rate limits: 100/min read, 30/min write, 10/min control.
 | `GET` | `/` | List archives (paginated, filterable by printer_id, project_id, status, date range, search) | **Core** — REST sensor for history |
 | `GET` | `/slim` | Lightweight listing for stats/dashboards (no extra_data, no duplicates) | **Useful** — faster polling for widgets |
 | `GET` | `/{id}` | Get single archive with full details + duplicates | **Core** — archive detail view |
-| `PATCH` | `/{id}` | Update archive (tags, notes, cost, is_favorite, project_id) | **Core** — enrichment target |
+| `PATCH` | `/{id}` | Update archive (tags, notes, cost, is_favorite, project_id, print_name, failure_reason, quantity, external_url, printer_id, status) | **Core** — enrichment target |
 | `DELETE` | `/{id}` | Delete archive | Unlikely from HA |
 | `POST` | `/upload` | Upload single 3MF to archive | Not from HA |
 
@@ -32,9 +32,21 @@ The `PATCH /{id}` endpoint accepts any combination of:
 - `cost` — float
 - `is_favorite` — boolean
 - `project_id` — int or null
+- `print_name` — string
+- `failure_reason` — string or null
+- `quantity` — int
+- `external_url` — string or null
+- `printer_id` — int or null
+- `status` — string or null
 
 > **Important**: Tags are stored as a **comma-separated string**, not a JSON array.
 > Example: `"spoolman:42,vendor:Bambu Lab,ha_enriched:true"`
+
+### Storage Characteristics
+
+- `tags` and `notes` are stored as `Text` columns, with no app-level max-length validation in the current backend schema.
+- Both fields are indexed into Bambuddy's archive FTS search table, so very large payloads carry search and storage cost even without a hard validation limit.
+- There is no archive custom-fields feature in the current source. `extra_data` is ingest-owned metadata and is not part of the normal archive PATCH contract.
 
 ---
 

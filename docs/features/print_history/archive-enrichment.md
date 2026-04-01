@@ -8,6 +8,153 @@ When a print completes (or fails/is stopped), HA reads Spoolman spool data from 
 
 **Why HA enrichment is essential**: Bambuddy has no awareness of Spoolman. The archive stores the printer's AMS slot info (`filament_slots` with `slot_id`, `used_g`, `type`, `color`) and raw AMS `tray_uuid`/`tag_uid` in `extra_data`, but there are no Spoolman spool IDs anywhere in the Bambuddy data. HA is the only system that bridges both Spoolman and the printer.
 
+## Issue #751 Status
+
+Issue #751 asks to sync filament details such as Spoolman spool IDs into the Bambuddy archive record. That desire is already defined in this design, but the shipped automation only implements part of the intended model.
+
+### Defined in Design
+
+The design already defines a hybrid enrichment contract:
+
+- Use `tags` for searchable facts such as unique spool IDs, tray-specific spool references, vendor, material, status, and the `ha_enriched:true` marker.
+- Use `notes` for the human-readable per-tray breakdown with spool ID, color, grams used, and cost.
+- Prefer UUID-first tray resolution from archive detail, with tray-map snapshot fallback and color-only matching as a last resort.
+
+### Implemented Today
+
+The current shipped automation does PATCH Bambuddy at print completion and already writes:
+
+- unique `spoolman:` tags
+- unique `vendor:` tags
+- unique `material:` tags
+- `cost:$...`, `status:...`, and `ha_enriched:true`
+- summary notes with tray name, material, color, cost, weight, and rate
+
+### Not Yet Implemented in Shipped Automation
+
+The current automation does not yet perform the full design-defined enrichment:
+
+- it does not call `GET /archives/{id}` to resolve used trays from archive `tray_uuid` data
+- it does not emit `tray:...:spoolman:...` tags
+- it does not include explicit spool IDs in each notes row
+- it does not limit tagging to only the trays definitively associated with the finished archive; today it derives top-level tags from the current tray map, which is broader than the intended UUID-first design
+
+So the correct status for issue #751 is: partially implemented, fully designed, with the remaining work centered on more precise tray-to-spool resolution and richer archive annotation.
+
+## Storage Options
+
+There are three reasonable ways to store the enrichment for issue #751.
+
+### Option 1: Notes Only
+
+Store all spool details only in `notes`.
+
+**Pros**
+
+- human-readable in one place
+- flexible format for multi-tray details and ambiguity notes
+- avoids noisy or high-cardinality tag sets
+
+**Cons**
+
+- poor filtering and search ergonomics compared with tags
+- harder to build dashboard filters or future automations around exact spool usage
+- no easy global audit of which spool IDs appear across archives
+
+### Option 2: Tags Only
+
+Store all enrichment as tags and keep notes minimal or empty.
+
+**Pros**
+
+- best for Bambuddy filtering, exact matching, and tag-level reporting
+- easy to power HA filter controls from archive tags
+- simple to detect enrichment state and spool participation
+
+**Cons**
+
+- poor fit for rich per-tray context such as grams, cost, ambiguity, or fallback reasoning
+- becomes noisy if too much detail is encoded as tags
+- difficult to preserve operator-friendly explanations for multi-color prints
+
+### Option 3: Hybrid Tags + Notes
+
+Store stable searchable identifiers in `tags` and the full tray breakdown in `notes`.
+
+**Pros**
+
+- best balance of queryability and readability
+- tags stay compact and structured
+- notes can carry exact tray-level details without distorting the tag taxonomy
+- aligns with Bambuddy search behavior because both `tags` and `notes` are searchable
+
+**Cons**
+
+- requires discipline about what belongs in tags versus notes
+- idempotency and merge behavior need to be handled carefully on retries
+
+## Recommended Plan
+
+The recommended approach for issue #751 remains the hybrid model.
+
+- Keep top-level `spoolman:` tags for each unique spool used in the print.
+- Add `tray:` tags when the spool-to-tray match is definitive, because those preserve physical AMS lineage without forcing the operator to read notes.
+- Keep `vendor:`, `material:`, `status:`, and `ha_enriched:true` as compact searchable tags.
+- Use `notes` for the full per-tray breakdown, including spool ID, vendor, material, color, grams used, and per-tray cost.
+- If matching falls back from UUID to snapshot or color, record that in notes instead of overloading tags with low-confidence details.
+
+In practice, that means the plan is not to choose between `notes` and prolific `tags`; it is to use both, but with different responsibilities. Tags should hold stable queryable facts. Notes should hold the richer operator-facing explanation.
+
+## Bambuddy Storage Constraints
+
+The Bambuddy source materially shapes how much enrichment should live directly on the archive.
+
+### Notes and Tags Are Flexible, But Not Free
+
+- `notes` and `tags` are stored as database `Text` columns in Bambuddy, with no app-level `max_length` validation in the current backend model or update schema.
+- That means there is no practical product-level hard stop for normal enrichment payloads, but very large values still increase storage, payload size, and search/index cost.
+- Bambuddy indexes both `notes` and `tags` into its archive FTS search table, so oversized notes or very noisy tag sets create avoidable overhead.
+
+### Tag Semantics Matter
+
+- Tags are stored as one comma-separated string per archive, not as a first-class array column.
+- There is no archive-level custom tag object with extra attributes such as confidence, tray UUID, or provenance.
+- The global tags endpoint derives all tag counts by scanning archive tag strings, splitting by comma, and counting in application code.
+
+### No Archive Custom Fields
+
+- Bambuddy does not currently provide a custom-fields feature for archives.
+- `extra_data` exists on archive records, but it is archive metadata owned by Bambuddy's ingest pipeline and is not part of the normal archive PATCH contract.
+- The supported mutable archive fields are the existing API fields such as `print_name`, `notes`, `tags`, `is_favorite`, `cost`, `project_id`, `printer_id`, `status`, `failure_reason`, `quantity`, and `external_url`.
+
+### Do Not Overload Unrelated Fields
+
+- `external_url` is a real UI field for source links, not a hidden spare field.
+- `quantity`, `failure_reason`, `status`, `project_id`, and `cost` all carry actual Bambuddy meaning and should not be repurposed for enrichment-only metadata.
+- If HA writes them, it should be because HA is intentionally participating in those Bambuddy semantics.
+
+## Sidecar Threshold
+
+If the enrichment ever grows beyond compact searchable facts plus a readable summary, a separate data store becomes the cleaner design.
+
+Use Bambuddy for:
+
+- stable searchable tags such as `spoolman:`, `tray:`, `vendor:`, `material:`, `status:`, and `ha_enriched:true`
+- concise operator-facing notes summarizing the final resolved tray usage
+- native archive fields when HA is intentionally filling real Bambuddy semantics such as `cost` or `external_url`
+
+Use a sidecar store when you need:
+
+- rich structured per-tray metadata beyond a compact summary
+- provenance and confidence details for UUID vs snapshot vs color fallback resolution
+- raw snapshots, reconciliation history, or future schema expansion that would make Bambuddy notes/tags noisy
+- join-heavy reporting or rendering that does not map well to Bambuddy's stock archive UI
+
+The recommended threshold is therefore:
+
+- keep the core print-history enrichment in Bambuddy when the data is small, searchable, and human-readable
+- move to a linked sidecar store once the design needs arbitrary structured metadata rather than compact archive annotations
+
 ## Current Event Assumption
 
 The shipped enrichment path is still webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and `print_complete`/`print_failed`/`print_stopped` so it knows when to PATCH the archive.
@@ -357,11 +504,11 @@ rest_command.bambuddy_update_archive:
 ## Idempotency
 
 The enrichment automation should be safe to run multiple times for the same archive:
-- **Tags**: The `ha_enriched:true` tag can be checked before adding tags (if Bambuddy deduplicates tags natively, this is optional)
+- **Tags**: The enrichment should normalize and deduplicate tags before PATCHing. Bambuddy's regular archive update path does not perform automatic per-archive tag deduplication for us.
 - **Notes**: PATCH replaces the notes field entirely, so re-running produces identical output
 - **Lifecycle**: `input_text.bambuddy_current_archive_id` is cleared after enrichment, so the automation naturally won't re-trigger for the same print cycle
 
-> **Open Item**: Verify whether Bambuddy deduplicates repeated tag values inside the PATCH `tags` string automatically. If not, enrichment should normalize/merge tags before sending the update.
+> **Implementation Note**: Global Bambuddy tag rename/delete operations do deduplicate during those maintenance actions, but normal `PATCH /archives/{id}` updates do not merge or clean tags automatically. Treat tag normalization as HA's responsibility.
 
 ## Error Path Enrichment
 

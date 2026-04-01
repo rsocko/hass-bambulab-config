@@ -7,18 +7,30 @@
 
 ## Table of Contents
 
-1. [API Domains Not Covered by Any Phase](#1-api-domains-not-covered-by-any-phase)
-2. [Phase-by-Phase Corrections & Enhancements](#2-phase-by-phase-corrections--enhancements)
-3. [Queue API Is Far Richer Than Documented](#3-queue-api-is-far-richer-than-documented)
-4. [Timelapse Management — Missing from Print History](#4-timelapse-management--missing-from-print-history)
-5. [Camera Endpoints — Direct Snapshot Alternative](#5-camera-endpoints--direct-snapshot-alternative)
-6. [Inventory System — Parallel to Spoolman Sync](#6-inventory-system--parallel-to-spoolman-sync)
-7. [Projects System — Batch Print Tracking](#7-projects-system--batch-print-tracking)
-8. [Smart Plugs — Native HA Entity Discovery](#8-smart-plugs--native-ha-entity-discovery)
-9. [Webhook Endpoints — External Queue & Printer Control](#9-webhook-endpoints--external-queue--printer-control)
-10. [New Schema Fields Worth Surfacing](#10-new-schema-fields-worth-surfacing)
-11. [Global API Patterns to Remember](#11-global-api-patterns-to-remember)
-12. [Recommended Priority Order for New Work](#12-recommended-priority-order-for-new-work)
+- [Bambuddy API vs Design — Development Guidance Notes](#bambuddy-api-vs-design--development-guidance-notes)
+  - [Table of Contents](#table-of-contents)
+  - [1. API Domains Not Covered by Any Phase](#1-api-domains-not-covered-by-any-phase)
+  - [2. Phase-by-Phase Corrections \& Enhancements](#2-phase-by-phase-corrections--enhancements)
+    - [Phase 1: bambuddy\_common — COMPLETE ✅](#phase-1-bambuddy_common--complete-)
+    - [Phase 2: print\_history — Core Complete, Advanced Pending](#phase-2-print_history--core-complete-advanced-pending)
+    - [Phase 3: print\_queue — NOT STARTED](#phase-3-print_queue--not-started)
+    - [Phase 4: print\_statistics — NOT STARTED](#phase-4-print_statistics--not-started)
+    - [Phase 5: printer\_maintenance — NOT STARTED](#phase-5-printer_maintenance--not-started)
+  - [3. Queue API Is Far Richer Than Documented](#3-queue-api-is-far-richer-than-documented)
+  - [4. Timelapse Management — Missing from Print History](#4-timelapse-management--missing-from-print-history)
+  - [5. Camera Endpoints — Direct Snapshot Alternative](#5-camera-endpoints--direct-snapshot-alternative)
+  - [6. Inventory System — Parallel to Spoolman Sync](#6-inventory-system--parallel-to-spoolman-sync)
+  - [7. Projects System — Batch Print Tracking](#7-projects-system--batch-print-tracking)
+  - [8. Smart Plugs — Native HA Entity Discovery](#8-smart-plugs--native-ha-entity-discovery)
+  - [9. Webhook Endpoints — External Queue \& Printer Control](#9-webhook-endpoints--external-queue--printer-control)
+  - [10. New Schema Fields Worth Surfacing](#10-new-schema-fields-worth-surfacing)
+  - [11. Global API Patterns to Remember](#11-global-api-patterns-to-remember)
+  - [12. Recommended Priority Order for New Work](#12-recommended-priority-order-for-new-work)
+    - [Immediate (Before Phase 3-5 Core)](#immediate-before-phase-3-5-core)
+    - [High Priority (Phase 3-5 Core Implementation)](#high-priority-phase-3-5-core-implementation)
+    - [Medium Priority (Advanced Features)](#medium-priority-advanced-features)
+    - [Low Priority (Future Consideration)](#low-priority-future-consideration)
+  - [Appendix: API Endpoint Count by Domain](#appendix-api-endpoint-count-by-domain)
 
 ---
 
@@ -322,14 +334,20 @@ From cross-referencing the `ArchiveResponse` schema against Phase 2 template sen
 | `is_favorite` | boolean | Phase 2.1 planned (toggle) | Add to dashboard card (star icon) |
 | `designer` | string | Phase 2.4 planned | Show in history detail card |
 | `makerworld_url` | string | Phase 2.4 planned | Link button in history card |
-| `external_url` | string | Not mentioned | Link to source (Printables, etc.) |
-| `failure_reason` | string | Not surfaced | Show in failed print cards (e.g., "spaghetti_detection") |
-| `quantity` | integer | Not mentioned | Show reprint count: "Printed 3x" |
+| `external_url` | string | Supported in Bambuddy UI/API; not yet fully surfaced in HA design | Link to source (Printables, etc.) |
+| `failure_reason` | string | Supported in Bambuddy UI/API; only lightly surfaced in current HA design | Show in failed print cards and popup detail |
+| `quantity` | integer | Supported in Bambuddy UI/API; not yet meaningfully surfaced in HA history views | Show print quantity / object-count context where useful |
 | `energy_kwh` | float | Phase 2.6 planned | Show in cost breakdown |
 | `energy_cost` | float | Phase 2.6 planned | Add to total cost display |
 | `content_hash` | string | Not surfaced | Used internally for dedup/similar |
-| `created_by_username` | string | Not mentioned | Show who started the print (multi-user) |
-| `project_id` | integer | Not mentioned | Link to project if assigned |
+| `created_by_username` | string | Not yet used in HA design | Show who started the print (multi-user) |
+| `project_id` | integer | Supported in Bambuddy UI/API; future HA action slot already planned | Link to project if assigned |
+
+Archive field caveats from Bambuddy source:
+
+- `notes` and `tags` are `Text` fields with no app-level max-length validators, so treat performance and readability as the real limit.
+- both fields are part of Bambuddy's FTS index, so large enrichment payloads carry search/index cost
+- there is no archive custom-fields feature; `extra_data` is not a normal mutable archive extension point
 
 From `PrintQueueItemResponse`:
 

@@ -183,6 +183,12 @@ Phase 2 keeps the same popup entry point and adds a controlled edit area for fie
 - `tags`
 - `is_favorite`
 
+### Scope boundary
+
+Bambuddy itself supports a broader archive update contract than the initial HA popup edit scope. Additional mutable fields include `project_id`, `status`, `failure_reason`, `quantity`, `external_url`, and `cost`.
+
+Those fields are intentionally out of the first editable popup slice unless they support a clear print-history workflow. This keeps the initial popup focused and avoids implying that unrelated Bambuddy archive fields are spare storage for enrichment metadata.
+
 ### Why these first
 
 - they already fit the existing Bambuddy update semantics
