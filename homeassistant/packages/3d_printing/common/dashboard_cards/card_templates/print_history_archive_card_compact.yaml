@@ -59,7 +59,8 @@ print_history_archive_card_compact:
         };
         const colors = String(archive?.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
         const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 2);
-        const thumbnailUrl = baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
+        const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
+        const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
         const metadata = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm` : '', archive?.designer || ''].filter(Boolean).join(' · ');
 
         return `
@@ -96,11 +97,13 @@ print_history_archive_card_compact:
       - grid-template-columns: minmax(0, 1fr)
     card:
       - width: 100%
+      - min-width: 0
       - border: 1px solid var(--divider-color)
       - border-radius: 22px
       - background: var(--ha-card-background)
       - padding: 16px 18px
       - box-sizing: border-box
+      - justify-self: stretch
     custom_fields:
       body:
         - display: block

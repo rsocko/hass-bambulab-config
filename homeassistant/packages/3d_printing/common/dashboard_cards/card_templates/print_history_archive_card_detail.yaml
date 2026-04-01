@@ -61,12 +61,13 @@ print_history_archive_card_detail:
         const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 6);
         const facts = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm layer` : '', archive?.nozzle_diameter ? `${archive.nozzle_diameter}mm nozzle` : '', archive?.object_count ? `${archive.object_count} object${Number(archive.object_count) === 1 ? '' : 's'}` : '', archive?.designer ? `Designer: ${archive.designer}` : ''].filter(Boolean);
         const metadata = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm` : '', archive?.designer || ''].filter(Boolean).join(' · ');
-        const thumbnailUrl = baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
+        const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
+        const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
 
         return `
-          <div style="display:grid;grid-template-columns:${thumbnailUrl ? '220px minmax(0, 1fr)' : 'minmax(0, 1fr)'};gap:18px;align-items:start;">
+          <div style="display:grid;grid-template-columns:${thumbnailUrl ? 'minmax(180px, 240px) minmax(0, 1fr)' : 'minmax(0, 1fr)'};gap:18px;align-items:start;width:100%;">
             ${thumbnailUrl ? `<div><img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:156px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}"></div>` : ''}
-            <div style="min-width:0;display:grid;grid-template-columns:minmax(0,1.65fr) minmax(220px,0.95fr);grid-template-areas:'main stats' 'extras extras';gap:14px 18px;align-items:start;">
+            <div style="min-width:0;display:grid;grid-template-columns:minmax(0,1.65fr) minmax(240px,0.95fr);grid-template-areas:'main stats' 'extras extras';gap:14px 18px;align-items:start;width:100%;">
               <div style="grid-area:main;min-width:0;display:flex;flex-direction:column;gap:10px;">
                 <div style="display:flex;justify-content:space-between;gap:12px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0;">
                   <div style="min-width:0;flex:1 1 320px;max-width:100%;">
@@ -98,11 +99,13 @@ print_history_archive_card_detail:
       - grid-template-columns: minmax(0, 1fr)
     card:
       - width: 100%
+      - min-width: 0
       - border: 1px solid var(--divider-color)
       - border-radius: 24px
       - background: var(--ha-card-background)
       - padding: 18px 20px
       - box-sizing: border-box
+      - justify-self: stretch
     custom_fields:
       body:
         - display: block
