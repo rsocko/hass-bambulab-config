@@ -18,11 +18,13 @@ cards:
         card_mod:
           style: |
             #root {
-              grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)) !important;
+              grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
               align-items: stretch !important;
               gap: 16px !important;
             }
             #root > * {
+              width: 100% !important;
+              justify-self: stretch !important;
               min-width: 0 !important;
             }
       card_param: cards
@@ -62,11 +64,13 @@ cards:
         card_mod:
           style: |
             #root {
-              grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)) !important;
+              grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
               align-items: stretch !important;
               gap: 16px !important;
             }
             #root > * {
+              width: 100% !important;
+              justify-self: stretch !important;
               min-width: 0 !important;
             }
       card_param: cards
