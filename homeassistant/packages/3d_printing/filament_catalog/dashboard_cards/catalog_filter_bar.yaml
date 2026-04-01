@@ -245,10 +245,18 @@ cards:
           show_name: true
           show_state: true
           styles: |
+            .bubble-button-card-container {
+              pointer-events: none !important;
+              cursor: default !important;
+            }
             .bubble-sub-button-container,
             .bubble-sub-buttons-container {
+              pointer-events: auto !important;
               justify-content: flex-start !important;
               gap: 6px !important;
+            }
+            .bubble-sub-button {
+              pointer-events: auto !important;
             }
             .bubble-sub-button.clear-material-filter,
             .bubble-sub-button.clear-vendor-filter,
