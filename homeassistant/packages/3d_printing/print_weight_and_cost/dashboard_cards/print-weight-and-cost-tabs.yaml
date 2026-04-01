@@ -3,18 +3,21 @@ type: custom:tabbed-card
 options: {}
 card_mod:
   style:
-    mwc-tab-bar $ mwc-tab $: |
-      .mdc-tab__content {
-        align-items: center !important;
-      }
-      .mdc-tab__icon {
-        margin-top: -2px !important;
-        margin-bottom: 0 !important;
-      }
-      .mdc-tab__text-label {
-        display: flex !important;
-        align-items: center !important;
-      }
+    "tabbed-card$":
+      "mwc-tab-bar$":
+        "mwc-tab$": |
+          .mdc-tab__content {
+            align-items: center !important;
+          }
+          .mdc-tab__icon {
+            display: flex !important;
+            align-items: center !important;
+            transform: translateY(-2px);
+          }
+          .mdc-tab__text-label {
+            display: flex !important;
+            align-items: center !important;
+          }
 tabs:
   - card:
       type: vertical-stack
