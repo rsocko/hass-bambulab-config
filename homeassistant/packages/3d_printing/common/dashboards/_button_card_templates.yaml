@@ -1,0 +1,3 @@
+<<:
+  - !include_dir_merge_named ../dashboard_cards/card_templates
+  - !include_dir_merge_named ../../print_history/dashboard_card_templates

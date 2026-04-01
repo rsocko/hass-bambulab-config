@@ -70,6 +70,17 @@ That means Phase 1 can stay entirely within the existing dashboard payload contr
 
 ## Recommended Architecture
 
+### Template ownership
+
+The archive popup/card templates are logically part of `print_history`, not true shared `common` infrastructure.
+
+They may initially live under the shared button-card template registry if that is the current dashboard loading constraint, but the intended end state is:
+
+1. `print_history` owns its archive card and popup templates
+2. the dashboard template-loading model allows feature-local template registration without routing feature-specific templates through `common`
+
+This should be treated as a small architectural refactor tied to the popup rollout, not as permanent placement.
+
 ### Phase 1 rendering model
 
 Replace the single HTML-blob renderer with generated per-archive cards.
@@ -100,6 +111,28 @@ The popup should have two layers:
 This matches the existing repository pattern used by spool and AMS popups: lightweight card trigger, heavier popup content on demand.
 
 ## Phase Plan
+
+## Phase 0: Template Ownership Refactor
+
+### Purpose
+
+Decouple `print_history`-specific button-card templates from the `common` feature group so feature ownership matches feature behavior.
+
+### Scope
+
+1. adjust the 3D-printing dashboard template-loading approach so feature packages can supply their own button-card templates
+2. move archive popup/card templates into the `print_history` package
+3. keep the rendered UX unchanged
+
+### Why this phase exists
+
+Without this step, issue #753 lands as functionally correct but structurally misleading: a print-history-specific template appears to be reusable shared infrastructure when it is not.
+
+### Exit Criteria
+
+1. archive popup/card templates are loaded from `print_history`
+2. `common` no longer owns print-history-specific template definitions
+3. no behavior change in the archive browser
 
 ## Phase 1: Read-Only Archive Detail Popup
 
@@ -212,7 +245,8 @@ Do not add future issue actions directly to the archive card face unless the act
 
 ## Recommended Delivery Sequence
 
-1. ship per-archive tap targets and read-only popup content
-2. validate that card layout modes still behave correctly on desktop and mobile
-3. add key-field editing in a second pass using the same popup entry point
-4. attach future issue-specific actions only after their own design docs define payloads and workflows
+1. complete the template-ownership refactor so `print_history` owns its own popup/card templates
+2. ship per-archive tap targets and read-only popup content
+3. validate that card layout modes still behave correctly on desktop and mobile
+4. add key-field editing in a second pass using the same popup entry point
+5. attach future issue-specific actions only after their own design docs define payloads and workflows

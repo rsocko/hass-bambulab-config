@@ -1,6 +1,6 @@
 print_history_archive_popup:
   tap_action: |
-    [[[
+    [[[ 
       const archive = variables.archive || {};
       const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
       const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
@@ -59,7 +59,7 @@ print_history_archive_card:
   show_label: false
   custom_fields:
     content: |
-      [[[
+      [[[ 
         const archive = variables.archive || {};
         const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
         const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
@@ -303,7 +303,7 @@ print_history_archive_popup_content:
     action: none
   custom_fields:
     content: |
-      [[[
+      [[[ 
         const archive = variables.archive || {};
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = baseUrlRaw.endsWith('/') ? baseUrlRaw.slice(0, -1) : baseUrlRaw;
