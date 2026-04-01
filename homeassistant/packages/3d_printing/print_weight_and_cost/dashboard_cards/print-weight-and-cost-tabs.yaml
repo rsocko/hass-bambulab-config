@@ -1,6 +1,20 @@
 # Docs: docs/features/print_weight_and_cost/README.md
 type: custom:tabbed-card
 options: {}
+card_mod:
+  style:
+    mwc-tab-bar $ mwc-tab $: |
+      .mdc-tab__content {
+        align-items: center !important;
+      }
+      .mdc-tab__icon {
+        margin-top: -2px !important;
+        margin-bottom: 0 !important;
+      }
+      .mdc-tab__text-label {
+        display: flex !important;
+        align-items: center !important;
+      }
 tabs:
   - card:
       type: vertical-stack
