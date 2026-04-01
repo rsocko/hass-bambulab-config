@@ -1,6 +1,5 @@
 var printHistoryActivityReadyPromise = null;
 var printHistoryActivityImportTried = false;
-var PRINT_HISTORY_SELECTED_ANNOTATION_ID = "print-history-selected-cell";
 
 class PrintHistoryActivityHeatmapCard extends HTMLElement {
   constructor() {
@@ -21,6 +20,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._lastObservedWidth = 0;
     this._isHidden = false;
     this._suppressPointSelection = false;
+    this._selectedOverlay = null;
   }
 
   setConfig(config) {
@@ -141,7 +141,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "<style>" +
       "ha-card{padding:6px 16px 10px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
-      ".chart-wrap{min-height:var(--chart-min-height,300px);}" +
+      ".chart-wrap{position:relative;min-height:var(--chart-min-height,300px);}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
       ".month-spacer{height:14px;}" +
@@ -155,7 +155,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".cell:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px;}" +
       ".cell.future{cursor:default;opacity:.72;}" +
       ".cell.selected{box-shadow:inset 0 0 0 2px rgba(15,23,42,0.85),0 0 0 2px var(--primary-background-color);}" +
-      ".selected-heatmap-annotation{pointer-events:none;filter:drop-shadow(0 0 0.75px var(--annotation-outline-base,var(--card-background-color,#ffffff))) drop-shadow(0 0 4px var(--annotation-outline-glow,rgba(59,130,246,0.5)));}" +
+      ".selected-cell-overlay{position:absolute;pointer-events:none;box-sizing:border-box;border:3px solid var(--primary-color);box-shadow:0 0 0 1px var(--annotation-outline-base,var(--card-background-color,#ffffff)),0 0 8px var(--annotation-outline-glow,rgba(59,130,246,0.45));z-index:4;display:none;}" +
       ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:18px;margin-top:2px;}" +
       ".legend.hidden{display:none;}" +
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
@@ -345,11 +345,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chart = new ApexChartsCtor(this._chartContainer, options);
     await this._chart.render();
     await this._ensureChartVisible(dataset);
-    await this._applySelectedVisualState(dataset, layout);
+    await this._applySelectedVisualState(dataset);
   }
 
   _destroyChart() {
-    this._removeSelectedAnnotation();
+    this._hideSelectedOverlay();
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
     }
@@ -889,28 +889,30 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     };
   }
 
-  async _applySelectedVisualState(dataset, layout) {
+  async _applySelectedVisualState(dataset) {
     if (!this._chart) {
       return;
     }
 
-    await this._applySelectedPointState(dataset);
-    this._applySelectedAnnotation(dataset, layout);
+    var selectedElement = await this._applySelectedPointState(dataset);
+    this._positionSelectedOverlay(selectedElement);
   }
 
   async _applySelectedPointState(dataset) {
     if (!this._chart || !dataset) {
-      return;
+      return null;
     }
 
     var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
     if (!selectedDate) {
-      return;
+      this._hideSelectedOverlay();
+      return null;
     }
 
     var indexes = this._findPointIndexesByDate(dataset, selectedDate);
     if (!indexes) {
-      return;
+      this._hideSelectedOverlay();
+      return null;
     }
 
     var selectedPoints = this._chart && this._chart.w && this._chart.w.globals
@@ -920,68 +922,87 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ? selectedPoints[indexes.seriesIndex]
       : [];
     if (currentSeriesSelection.indexOf(indexes.dataPointIndex) !== -1) {
-      return;
+      return this._findRenderedPointElement(indexes);
     }
 
     this._suppressPointSelection = true;
     try {
-      this._chart.toggleDataPointSelection(indexes.seriesIndex, indexes.dataPointIndex);
+      var selectedElement = this._chart.toggleDataPointSelection(indexes.seriesIndex, indexes.dataPointIndex);
       await Promise.resolve();
+      return selectedElement || this._findRenderedPointElement(indexes);
     } finally {
       this._suppressPointSelection = false;
     }
   }
 
-  _applySelectedAnnotation(dataset, layout) {
-    this._removeSelectedAnnotation();
-
-    if (!this._chart || !dataset) {
-      return;
+  _findRenderedPointElement(indexes) {
+    if (!this._chartContainer || !indexes) {
+      return null;
     }
 
-    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
-    if (!selectedDate) {
-      return;
+    var selectors = [
+      '.apexcharts-series[rel="' + String(indexes.seriesIndex + 1) + '"] path[j="' + String(indexes.dataPointIndex) + '"]',
+      '.apexcharts-series[seriesName] path[j="' + String(indexes.dataPointIndex) + '"]',
+      '.apexcharts-heatmap-rect[j="' + String(indexes.dataPointIndex) + '"]',
+    ];
+
+    for (var selectorIndex = 0; selectorIndex < selectors.length; selectorIndex += 1) {
+      var match = this._chartContainer.querySelector(selectors[selectorIndex]);
+      if (match) {
+        return match;
+      }
     }
 
-    var indexes = this._findPointIndexesByDate(dataset, selectedDate);
-    if (!indexes) {
-      return;
-    }
-
-    var row = dataset.series && dataset.series[indexes.seriesIndex] ? dataset.series[indexes.seriesIndex] : null;
-    var point = row && Array.isArray(row.data) ? row.data[indexes.dataPointIndex] : null;
-    if (!point) {
-      return;
-    }
-
-    var markerSize = Math.max(12, Number(layout && layout.cellSize ? layout.cellSize : 14) + 6);
-    this._chart.addPointAnnotation({
-      id: PRINT_HISTORY_SELECTED_ANNOTATION_ID,
-      x: point.x,
-      y: point.y,
-      seriesIndex: indexes.seriesIndex,
-      marker: {
-        size: markerSize,
-        fillColor: "rgba(255,255,255,0)",
-        strokeColor: this._themeColor(["--primary-color"], "#2563EB"),
-        strokeWidth: 3,
-        shape: "square",
-        radius: 0,
-        cssClass: "selected-heatmap-annotation",
-      },
-    }, false);
+    return this._findSelectedPointElement();
   }
 
-  _removeSelectedAnnotation() {
-    if (!this._chart || typeof this._chart.removeAnnotation !== "function") {
+  _findSelectedPointElement() {
+    if (!this._chartContainer) {
+      return null;
+    }
+
+    return this._chartContainer.querySelector('.apexcharts-series path.apexcharts-active, .apexcharts-series .apexcharts-active');
+  }
+
+  _positionSelectedOverlay(targetElement) {
+    var overlay = this._ensureSelectedOverlay();
+    if (!overlay || !targetElement || !this._chartContainer) {
+      this._hideSelectedOverlay();
       return;
     }
 
-    try {
-      this._chart.removeAnnotation(PRINT_HISTORY_SELECTED_ANNOTATION_ID);
-    } catch (_err) {
-      // Ignore missing annotation during chart teardown/update cycles.
+    var containerRect = this._chartContainer.getBoundingClientRect();
+    var targetRect = targetElement.getBoundingClientRect();
+    if (!containerRect.width || !containerRect.height || !targetRect.width || !targetRect.height) {
+      this._hideSelectedOverlay();
+      return;
+    }
+
+    var inset = 1.5;
+    overlay.style.left = (targetRect.left - containerRect.left - inset) + 'px';
+    overlay.style.top = (targetRect.top - containerRect.top - inset) + 'px';
+    overlay.style.width = (targetRect.width + inset * 2) + 'px';
+    overlay.style.height = (targetRect.height + inset * 2) + 'px';
+    overlay.style.display = 'block';
+  }
+
+  _ensureSelectedOverlay() {
+    if (!this._chartContainer) {
+      return null;
+    }
+
+    if (!this._selectedOverlay) {
+      this._selectedOverlay = document.createElement('div');
+      this._selectedOverlay.className = 'selected-cell-overlay';
+      this._chartContainer.appendChild(this._selectedOverlay);
+    }
+
+    return this._selectedOverlay;
+  }
+
+  _hideSelectedOverlay() {
+    if (this._selectedOverlay) {
+      this._selectedOverlay.style.display = 'none';
     }
   }
 
