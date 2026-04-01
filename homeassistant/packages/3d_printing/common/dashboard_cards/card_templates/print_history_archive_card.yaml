@@ -1,3 +1,0 @@
-# Proxy include so the shared button-card template registry can load the
-# print-history-owned archive popup/card templates without duplicating them.
-!include ../../../print_history/dashboard_card_templates/print_history_archive_card.yaml

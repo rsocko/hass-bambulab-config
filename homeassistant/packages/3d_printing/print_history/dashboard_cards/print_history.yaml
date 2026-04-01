@@ -1,212 +1,331 @@
-# Print History Card — responsive per-archive grid.
-# Each archive is its own button-card so taps open an archive-specific popup
-# instead of falling through to one more-info target for the whole section.
+# Print History Card — full-width responsive archive grid.
+# Archive cards render from the current page slice so filtering/paging stays
+# server-side and the dashboard focuses on presentation.
 
 type: vertical-stack
 cards:
-  - type: conditional
-    conditions:
-      - entity: input_select.print_history_card_variant
-        state: Compact
-    card:
-      type: custom:auto-entities
-      show_empty: false
-      card:
-        type: grid
-        columns: 3
-        square: false
-        card_mod:
-          style: |
-            #root {
-              align-items: stretch;
-              gap: 16px;
+  - type: custom:button-card
+    entity: sensor.print_history_page_archives
+    show_name: false
+    show_icon: false
+    show_state: false
+    custom_fields:
+      history_grid: |
+        [[[ 
+          const rawArchives = entity?.attributes?.archives ?? [];
+          const variant = states['input_select.print_history_card_variant']?.state || 'Compact';
+          const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
+          let archives = [];
+          if (Array.isArray(rawArchives)) {
+            archives = rawArchives;
+          } else if (typeof rawArchives === 'string') {
+            try {
+              archives = JSON.parse(rawArchives);
+            } catch (error) {
+              archives = [];
             }
-            @media (max-width: 1100px) {
-              #root {
-                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+          const normalizeStatus = (status) => {
+            const raw = String(status || '').toLowerCase();
+            if (raw === 'completed' || raw === 'success') return 'completed';
+            if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+            return raw;
+          };
+          if (archives.length === 0) {
+            return '<div style="padding:16px;color:var(--secondary-text-color);text-align:center">No matching archives. Adjust filters or refresh the archive cache.</div>';
+          }
+          const baseUrl = states['input_text.bambuddy_api_base_url']?.state || '';
+          const statusLabel = (status) => {
+            const raw = normalizeStatus(status);
+            if (raw === 'completed') return 'Completed';
+            if (raw === 'failed') return 'Failed';
+            if (raw === 'stopped') return 'Stopped';
+            if (raw === 'printing') return 'Printing';
+            return raw || 'Unknown';
+          };
+          const statusIcon = (status) => {
+            const raw = normalizeStatus(status);
+            if (raw === 'completed') return '✅';
+            if (raw === 'failed') return '❌';
+            if (raw === 'stopped') return '⛔';
+            if (raw === 'printing') return '🖨️';
+            return '⏳';
+          };
+          const statusPill = (status) => {
+            const raw = normalizeStatus(status);
+            const color = raw === 'completed'
+              ? '#2E7D32'
+              : raw === 'failed'
+                ? '#C62828'
+                : raw === 'stopped'
+                  ? '#EF6C00'
+                  : raw === 'printing'
+                    ? '#1565C0'
+                    : '#546E7A';
+            return `<span style="background:${color};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px">${statusIcon(status)} ${statusLabel(status)}</span>`;
+          };
+          const colorDots = (archive) => {
+            const colors = String(archive.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
+            if (!colors.length) return '';
+            return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${colors.slice(0, 6).map((hex) => `<span style="width:14px;height:14px;border-radius:999px;background:${hex};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25)"></span>`).join('')}</div>`;
+          };
+          const rows = archives.map((a) => {
+            const dateSource = a.started_at || a.created_at;
+            const date = dateSource ? new Date(dateSource).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : 'Unknown date';
+            const durationSource = a.actual_time_seconds || a.print_time_seconds || 0;
+            const duration = durationSource
+              ? Math.round((Number(durationSource) / 3600) * 10) / 10 + 'h' : '-';
+            const grams = a.filament_used_grams ? `${Math.round(Number(a.filament_used_grams) * 10) / 10}g` : '-';
+            const cost = a.cost ? `$${Number(a.cost).toFixed(2)}` : '-';
+            const tagsRaw = typeof a.tags === 'string' ? a.tags : '';
+            const tagLimit = variant === 'Compact' ? 2 : variant === 'Detail' ? 6 : 4;
+            const tagChips = tagsRaw.split(',').filter(t => t.trim()).slice(0, tagLimit).map(t => {
+              const tag = t.trim();
+              let bg = '#1565C0';
+              if (tag.startsWith('status:')) bg = tag.includes('completed') ? '#2E7D32' : '#C62828';
+              else if (tag.startsWith('vendor:')) bg = '#6A1B9A';
+              else if (tag.startsWith('material:')) bg = '#00695C';
+              else if (tag.startsWith('cost:')) bg = '#E65100';
+              else if (tag.startsWith('spoolman:')) bg = '#0277BD';
+              return `<span style="background:${bg};color:#fff;border-radius:999px;padding:3px 8px;font-size:10px;margin-right:4px;display:inline-block;margin-top:4px">${tag}</span>`;
+            });
+            const favorite = a.is_favorite ? '<span style="font-size:18px;color:#f5c242">★</span>' : '';
+            const thumbHeight = variant === 'Media' ? '220px' : variant === 'Detail' ? '156px' : '180px';
+            const thumb = !showImages
+              ? ''
+              : a.id
+                ? `<img src="${baseUrl}/api/v1/archives/${a.id}/thumbnail" style="width:100%;height:${thumbHeight};object-fit:cover;border-radius:16px;display:block" loading="lazy" onerror="this.style.display='none'">`
+                : `<div style="width:100%;height:${thumbHeight};background:#37474F;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:34px">🖨️</div>`;
+            const metadata = [
+              a.filament_type || 'Unknown material',
+              a.layer_height ? `${a.layer_height}mm` : '',
+              a.designer || ''
+            ].filter(Boolean).join(' · ');
+            const detailFacts = [
+              a.filament_type || 'Unknown material',
+              a.layer_height ? `${a.layer_height}mm layer` : '',
+              a.nozzle_diameter ? `${a.nozzle_diameter}mm nozzle` : '',
+              a.object_count ? `${a.object_count} object${Number(a.object_count) === 1 ? '' : 's'}` : '',
+              a.designer ? `Designer: ${a.designer}` : ''
+            ].filter(Boolean).map((value) => `<span class="print-history-detail-chip">${value}</span>`).join('');
+            const failure = a.failure_reason
+              ? `<div style="margin-top:8px;font-size:12px;color:#ffb4ab;line-height:1.4">${a.failure_reason}</div>`
+              : '';
+            if (variant === 'Media') {
+              return `<article style="width:100%;max-width:${showImages ? '440px' : '520px'};margin:0 auto;border:1px solid var(--divider-color);border-radius:22px;overflow:hidden;background:var(--ha-card-background);display:flex;flex-direction:column;gap:0;box-sizing:border-box">
+                ${showImages ? thumb : ''}
+                <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
+                    <div style="min-width:0;flex:1 1 220px;max-width:100%">
+                      <div style="font-weight:700;font-size:18px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%">${a.print_name || 'Unnamed'}</div>
+                      <div style="font-size:12px;color:var(--secondary-text-color)">${date}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto">${favorite}${statusPill(a.status)}</div>
+                  </div>
+                  <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere">${metadata || 'No additional metadata'}</div>
+                  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px">
+                    <span>Duration: <strong>${duration}</strong></span>
+                    <span>Filament: <strong>${grams}</strong></span>
+                    <span>Cost: <strong>${cost}</strong></span>
+                  </div>
+                  ${colorDots(a)}
+                  ${tagChips.length ? `<div style="margin-top:6px">${tagChips.join('')}</div>` : ''}
+                  ${failure}
+                </div>
+              </article>`;
+            }
+            if (variant === 'Detail') {
+              return `<article class="print-history-detail-card${showImages ? '' : ' print-history-detail-card--no-image'}">
+                ${showImages ? `<div class="print-history-detail-card__thumb">${thumb}</div>` : ''}
+                <div class="print-history-detail-card__content">
+                  <div class="print-history-detail-card__main">
+                    <div style="display:flex;justify-content:space-between;gap:12px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
+                      <div style="min-width:0;flex:1 1 320px;max-width:100%">
+                        <div style="font-weight:700;font-size:19px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%">${a.print_name || 'Unnamed'}</div>
+                        <div style="font-size:12px;color:var(--secondary-text-color);margin-top:4px">${date}</div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto">${favorite}${statusPill(a.status)}</div>
+                    </div>
+                    ${detailFacts ? `<div class="print-history-detail-card__facts">${detailFacts}</div>` : ''}
+                    <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere">${metadata || 'No additional metadata'}</div>
+                    ${failure}
+                  </div>
+                  <div class="print-history-detail-card__stats">
+                    <div class="print-history-detail-card__stat"><div class="print-history-detail-card__stat-label">Duration</div><div class="print-history-detail-card__stat-value">${duration}</div></div>
+                    <div class="print-history-detail-card__stat"><div class="print-history-detail-card__stat-label">Filament</div><div class="print-history-detail-card__stat-value">${grams}</div></div>
+                    <div class="print-history-detail-card__stat"><div class="print-history-detail-card__stat-label">Cost</div><div class="print-history-detail-card__stat-value">${cost}</div></div>
+                    <div class="print-history-detail-card__stat"><div class="print-history-detail-card__stat-label">Objects</div><div class="print-history-detail-card__stat-value">${a.object_count || 1}</div></div>
+                  </div>
+                  ${(colorDots(a) || tagChips.length) ? `<div class="print-history-detail-card__extras">${colorDots(a) ? `<div class="print-history-detail-card__colors">${colorDots(a)}</div>` : ''}${tagChips.length ? `<div class="print-history-detail-card__tags">${tagChips.join('')}</div>` : ''}</div>` : ''}
+                </div>
+              </article>`;
+            }
+            if (variant === 'Compact') {
+              return `<article style="width:100%;max-width:${showImages ? (variant === 'Compact' ? '340px' : '500px') : (variant === 'Compact' ? '400px' : '560px')};margin:0 auto;border:1px solid var(--divider-color);border-radius:22px;background:var(--ha-card-background);padding:16px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box">
+                <div style="display:${showImages ? 'grid' : 'flex'};${showImages ? `grid-template-columns:${variant === 'Compact' ? '120px minmax(0, 1fr)' : '160px minmax(0, 1fr)'};` : 'flex-direction:column;'}gap:14px;align-items:start;min-width:0">
+                  ${showImages ? `<div>${thumb}</div>` : ''}
+                  <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                    <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0">
+                      <div style="min-width:0;flex:1 1 220px;max-width:100%">
+                        <div style="font-weight:700;font-size:${variant === 'Compact' ? '16px' : '18px'};line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%">${a.print_name || 'Unnamed'}</div>
+                        <div style="font-size:12px;color:var(--secondary-text-color)">${date}</div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto">${favorite}${statusPill(a.status)}</div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;font-size:12px;min-width:0">
+                      <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04)"><div style="color:var(--secondary-text-color)">Duration</div><div style="font-weight:700">${duration}</div></div>
+                      <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04)"><div style="color:var(--secondary-text-color)">Filament</div><div style="font-weight:700">${grams}</div></div>
+                      <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04)"><div style="color:var(--secondary-text-color)">Cost</div><div style="font-weight:700">${cost}</div></div>
+                    </div>
+                    <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere">${metadata || 'No additional metadata'}</div>
+                    ${colorDots(a)}
+                    ${tagChips.length ? `<div>${tagChips.join('')}</div>` : ''}
+                    ${failure}
+                  </div>
+                </div>
+              </article>`;
+            }
+            return '';
+          }).join('');
+          return `
+            <style>
+              .print-history-grid {
+                display: grid;
+                gap: 16px;
+                justify-content: center;
+                align-items: start;
               }
-            }
-            @media (max-width: 720px) {
-              #root {
-                grid-template-columns: 1fr !important;
+              .print-history-grid--default {
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, ${showImages ? (variant === 'Compact' ? '260px' : '340px') : (variant === 'Compact' ? '300px' : '320px')}), 1fr));
               }
-            }
-      card_param: cards
-      filter:
-        template: >
-          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-          {% if raw is string %}
-            {% set archives = raw | from_json %}
-          {% elif raw is iterable %}
-            {% set archives = raw | list %}
-          {% else %}
-            {% set archives = [] %}
-          {% endif %}
-          {% set cards = namespace(items=[]) %}
-          {% if archives | length == 0 %}
-            {% set cards.items = cards.items + [{
-              'type': 'markdown',
-              'content': 'No matching archives. Adjust filters or refresh the archive cache.'
-            }] %}
-          {% else %}
-            {% for archive in archives %}
-              {% set cards.items = cards.items + [{
-                'type': 'custom:button-card',
-                'entity': 'sensor.print_history_page_archives',
-                'template': 'print_history_archive_card',
-                'variables': {
-                  'archive_id': archive.id,
-                  'archive_name': archive.print_name | default('Unnamed Print', true),
-                  'archive_status': archive.status | default('unknown', true),
-                  'archive_started': (archive.started_at or archive.created_at or 'Unknown date'),
-                  'archive_duration': (((archive.actual_time_seconds or archive.print_time_seconds or 0) | float(0) / 3600) | round(1) ~ 'h') if (archive.actual_time_seconds or archive.print_time_seconds) else '-',
-                  'archive_filament_used': ((archive.filament_used_grams | float(0) | round(1)) ~ 'g') if archive.filament_used_grams else '-',
-                  'archive_cost': ('$' ~ ('%.2f' | format(archive.cost | float(0)))) if archive.cost else '-',
-                  'archive_printer': archive.printer_id | string,
-                  'archive_material': archive.filament_type | default('Unknown material', true),
-                  'archive_layer_height': ((archive.layer_height | string) ~ ' mm') if archive.layer_height not in [none, ''] else '-',
-                  'archive_nozzle': ((archive.nozzle_diameter | string) ~ ' mm') if archive.nozzle_diameter not in [none, ''] else '-',
-                  'archive_object_count': archive.object_count | default(1, true) | string,
-                  'archive_designer': archive.designer | default('', true),
-                  'archive_tags': archive.tags | default('No tags', true),
-                  'archive_notes': archive.notes | default('No notes', true),
-                  'archive_failure_reason': archive.failure_reason | default('', true),
-                  'archive_favorite': archive.is_favorite | default(false, true)
-                }
-              }] %}
-            {% endfor %}
-          {% endif %}
-          {{ cards.items | tojson }}
-
-  - type: conditional
-    conditions:
-      - entity: input_select.print_history_card_variant
-        state: Media
-    card:
-      type: custom:auto-entities
-      show_empty: false
-      card:
-        type: grid
-        columns: 2
-        square: false
-        card_mod:
-          style: |
-            #root {
-              align-items: stretch;
-              gap: 16px;
-            }
-            @media (max-width: 720px) {
-              #root {
-                grid-template-columns: 1fr !important;
+              .print-history-grid--detail {
+                grid-template-columns: minmax(0, 1fr);
               }
-            }
-      card_param: cards
-      filter:
-        template: >
-          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-          {% if raw is string %}
-            {% set archives = raw | from_json %}
-          {% elif raw is iterable %}
-            {% set archives = raw | list %}
-          {% else %}
-            {% set archives = [] %}
-          {% endif %}
-          {% set cards = namespace(items=[]) %}
-          {% if archives | length == 0 %}
-            {% set cards.items = cards.items + [{
-              'type': 'markdown',
-              'content': 'No matching archives. Adjust filters or refresh the archive cache.'
-            }] %}
-          {% else %}
-            {% for archive in archives %}
-              {% set cards.items = cards.items + [{
-                'type': 'custom:button-card',
-                'entity': 'sensor.print_history_page_archives',
-                'template': 'print_history_archive_card',
-                'variables': {
-                  'archive_id': archive.id,
-                  'archive_name': archive.print_name | default('Unnamed Print', true),
-                  'archive_status': archive.status | default('unknown', true),
-                  'archive_started': (archive.started_at or archive.created_at or 'Unknown date'),
-                  'archive_duration': (((archive.actual_time_seconds or archive.print_time_seconds or 0) | float(0) / 3600) | round(1) ~ 'h') if (archive.actual_time_seconds or archive.print_time_seconds) else '-',
-                  'archive_filament_used': ((archive.filament_used_grams | float(0) | round(1)) ~ 'g') if archive.filament_used_grams else '-',
-                  'archive_cost': ('$' ~ ('%.2f' | format(archive.cost | float(0)))) if archive.cost else '-',
-                  'archive_printer': archive.printer_id | string,
-                  'archive_material': archive.filament_type | default('Unknown material', true),
-                  'archive_layer_height': ((archive.layer_height | string) ~ ' mm') if archive.layer_height not in [none, ''] else '-',
-                  'archive_nozzle': ((archive.nozzle_diameter | string) ~ ' mm') if archive.nozzle_diameter not in [none, ''] else '-',
-                  'archive_object_count': archive.object_count | default(1, true) | string,
-                  'archive_designer': archive.designer | default('', true),
-                  'archive_tags': archive.tags | default('No tags', true),
-                  'archive_notes': archive.notes | default('No notes', true),
-                  'archive_failure_reason': archive.failure_reason | default('', true),
-                  'archive_favorite': archive.is_favorite | default(false, true)
+              .print-history-detail-card {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                border: 1px solid var(--divider-color);
+                border-radius: 24px;
+                background: var(--ha-card-background);
+                padding: 18px 20px;
+                display: grid;
+                grid-template-columns: ${showImages ? '220px minmax(0, 1fr)' : 'minmax(0, 1fr)'};
+                gap: 18px;
+                box-sizing: border-box;
+                align-items: start;
+              }
+              .print-history-detail-card--no-image {
+                grid-template-columns: minmax(0, 1fr);
+              }
+              .print-history-detail-card__thumb {
+                min-width: 0;
+              }
+              .print-history-detail-card__content {
+                min-width: 0;
+                display: grid;
+                grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.95fr);
+                grid-template-areas:
+                  'main stats'
+                  'extras extras';
+                gap: 14px 18px;
+                align-items: start;
+              }
+              .print-history-detail-card__main {
+                grid-area: main;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+              }
+              .print-history-detail-card__facts {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+              }
+              .print-history-detail-chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 5px 10px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.05);
+                color: var(--primary-text-color);
+                font-size: 11px;
+                line-height: 1.2;
+              }
+              .print-history-detail-card__stats {
+                grid-area: stats;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+              }
+              .print-history-detail-card__stat {
+                padding: 10px 12px;
+                border-radius: 16px;
+                background: rgba(255,255,255,0.04);
+                min-width: 0;
+              }
+              .print-history-detail-card__stat-label {
+                color: var(--secondary-text-color);
+                font-size: 11px;
+                line-height: 1.2;
+                margin-bottom: 4px;
+              }
+              .print-history-detail-card__stat-value {
+                font-size: 15px;
+                font-weight: 700;
+                line-height: 1.2;
+                overflow-wrap: anywhere;
+              }
+              .print-history-detail-card__extras {
+                grid-area: extras;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px 16px;
+                align-items: center;
+                min-width: 0;
+              }
+              .print-history-detail-card__colors,
+              .print-history-detail-card__tags {
+                min-width: 0;
+              }
+              @media (max-width: 920px) {
+                .print-history-detail-card__content {
+                  grid-template-columns: minmax(0, 1fr);
+                  grid-template-areas:
+                    'main'
+                    'stats'
+                    'extras';
                 }
-              }] %}
-            {% endfor %}
-          {% endif %}
-          {{ cards.items | tojson }}
-
-  - type: conditional
-    conditions:
-      - entity: input_select.print_history_card_variant
-        state: Detail
-    card:
-      type: custom:auto-entities
-      show_empty: false
+              }
+              @media (max-width: 720px) {
+                .print-history-detail-card {
+                  grid-template-columns: minmax(0, 1fr);
+                }
+                .print-history-detail-card__stats {
+                  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                }
+              }
+            </style>
+            <div class="print-history-grid ${variant === 'Detail' ? 'print-history-grid--detail' : 'print-history-grid--default'}">${rows}</div>
+          `;
+        ]]]
+    styles:
       card:
-        type: grid
-        columns: 1
-        square: false
-        card_mod:
-          style: |
-            #root {
-              align-items: stretch;
-              gap: 16px;
-            }
-      card_param: cards
-      filter:
-        template: >
-          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-          {% if raw is string %}
-            {% set archives = raw | from_json %}
-          {% elif raw is iterable %}
-            {% set archives = raw | list %}
-          {% else %}
-            {% set archives = [] %}
-          {% endif %}
-          {% set cards = namespace(items=[]) %}
-          {% if archives | length == 0 %}
-            {% set cards.items = cards.items + [{
-              'type': 'markdown',
-              'content': 'No matching archives. Adjust filters or refresh the archive cache.'
-            }] %}
-          {% else %}
-            {% for archive in archives %}
-              {% set cards.items = cards.items + [{
-                'type': 'custom:button-card',
-                'entity': 'sensor.print_history_page_archives',
-                'template': 'print_history_archive_card',
-                'variables': {
-                  'archive_id': archive.id,
-                  'archive_name': archive.print_name | default('Unnamed Print', true),
-                  'archive_status': archive.status | default('unknown', true),
-                  'archive_started': (archive.started_at or archive.created_at or 'Unknown date'),
-                  'archive_duration': (((archive.actual_time_seconds or archive.print_time_seconds or 0) | float(0) / 3600) | round(1) ~ 'h') if (archive.actual_time_seconds or archive.print_time_seconds) else '-',
-                  'archive_filament_used': ((archive.filament_used_grams | float(0) | round(1)) ~ 'g') if archive.filament_used_grams else '-',
-                  'archive_cost': ('$' ~ ('%.2f' | format(archive.cost | float(0)))) if archive.cost else '-',
-                  'archive_printer': archive.printer_id | string,
-                  'archive_material': archive.filament_type | default('Unknown material', true),
-                  'archive_layer_height': ((archive.layer_height | string) ~ ' mm') if archive.layer_height not in [none, ''] else '-',
-                  'archive_nozzle': ((archive.nozzle_diameter | string) ~ ' mm') if archive.nozzle_diameter not in [none, ''] else '-',
-                  'archive_object_count': archive.object_count | default(1, true) | string,
-                  'archive_designer': archive.designer | default('', true),
-                  'archive_tags': archive.tags | default('No tags', true),
-                  'archive_notes': archive.notes | default('No notes', true),
-                  'archive_failure_reason': archive.failure_reason | default('', true),
-                  'archive_favorite': archive.is_favorite | default(false, true)
-                }
-              }] %}
-            {% endfor %}
-          {% endif %}
-          {{ cards.items | tojson }}
+        - border-radius: 24px
+        - padding: 16px
+        - overflow: hidden
+        - background: transparent
+      grid:
+        - grid-template-areas: '"history_grid"'
+        - grid-template-columns: minmax(0, 1fr)
+        - grid-template-rows: min-content
+      custom_fields:
+        history_grid:
+          - width: 100%
+          - display: block
+          - min-width: 0
+          - justify-self: stretch
+          - align-self: stretch
