@@ -19,6 +19,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._visibilityHandler = null;
     this._lastObservedWidth = 0;
     this._isHidden = false;
+    this._suppressPointSelection = false;
   }
 
   setConfig(config) {
@@ -341,6 +342,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chartContainer.innerHTML = "";
     this._chart = new ApexChartsCtor(this._chartContainer, options);
     await this._chart.render();
+    await this._applySelectedPointState(dataset);
     await this._ensureChartVisible(dataset);
   }
 
@@ -871,9 +873,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           },
         },
         active: {
+          allowMultipleDataPointsSelection: false,
           filter: {
             type: "darken",
-            value: 0.08,
+            value: 0.18,
           },
         },
       },
@@ -881,6 +884,60 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         mode: isDark ? "dark" : "light",
       },
     };
+  }
+
+  async _applySelectedPointState(dataset) {
+    if (!this._chart || !dataset) {
+      return;
+    }
+
+    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
+    if (!selectedDate) {
+      return;
+    }
+
+    var indexes = this._findPointIndexesByDate(dataset, selectedDate);
+    if (!indexes) {
+      return;
+    }
+
+    var selectedPoints = this._chart && this._chart.w && this._chart.w.globals
+      ? this._chart.w.globals.selectedDataPoints
+      : null;
+    var currentSeriesSelection = selectedPoints && Array.isArray(selectedPoints[indexes.seriesIndex])
+      ? selectedPoints[indexes.seriesIndex]
+      : [];
+    if (currentSeriesSelection.indexOf(indexes.dataPointIndex) !== -1) {
+      return;
+    }
+
+    this._suppressPointSelection = true;
+    try {
+      this._chart.toggleDataPointSelection(indexes.seriesIndex, indexes.dataPointIndex);
+      await Promise.resolve();
+    } finally {
+      this._suppressPointSelection = false;
+    }
+  }
+
+  _findPointIndexesByDate(dataset, dateKey) {
+    var series = dataset && Array.isArray(dataset.series) ? dataset.series : [];
+    for (var seriesIndex = 0; seriesIndex < series.length; seriesIndex += 1) {
+      var row = series[seriesIndex];
+      var points = row && Array.isArray(row.data) ? row.data : [];
+      for (var dataPointIndex = 0; dataPointIndex < points.length; dataPointIndex += 1) {
+        var point = points[dataPointIndex];
+        var meta = point && point.meta ? point.meta : null;
+        if (meta && meta.dateKey === dateKey && !meta.isFuture) {
+          return {
+            seriesIndex: seriesIndex,
+            dataPointIndex: dataPointIndex,
+          };
+        }
+      }
+    }
+
+    return null;
   }
 
   _buildChartLayout(weekCount) {
@@ -1133,6 +1190,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _handlePointSelection(opts, dataset) {
+    if (this._suppressPointSelection) {
+      return;
+    }
+
     if (!opts || typeof opts.seriesIndex !== "number" || typeof opts.dataPointIndex !== "number") {
       return;
     }
