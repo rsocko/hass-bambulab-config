@@ -1,0 +1,58 @@
+print_history_archive_popup:
+  tap_action: |
+    [[[ 
+      let archive = {};
+      try {
+        archive = JSON.parse(variables?.archive_json || '{}');
+      } catch (_error) {
+        archive = {};
+      }
+
+      const archiveId = archive?.id;
+      if (!archiveId) {
+        return { action: 'none' };
+      }
+
+      const archiveName = archive?.print_name || `Archive ${archiveId}`;
+      const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
+      const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
+      const archiveUrl = baseUrl ? `${baseUrl}/archives/${archiveId}` : '';
+      const cards = [
+        {
+          type: 'custom:button-card',
+          template: 'print_history_archive_popup_content',
+          variables: {
+            archive_json: variables?.archive_json || '{}'
+          },
+          tap_action: { action: 'none' },
+          hold_action: { action: 'none' }
+        }
+      ];
+
+      if (archiveUrl) {
+        cards.push({
+          type: 'button',
+          name: 'Open in Bambuddy',
+          icon: 'mdi:open-in-new',
+          tap_action: {
+            action: 'url',
+            url_path: archiveUrl
+          }
+        });
+      }
+
+      return {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.popup',
+          data: {
+            title: archiveName,
+            size: 'normal',
+            content: {
+              type: 'vertical-stack',
+              cards
+            }
+          }
+        }
+      };
+    ]]]

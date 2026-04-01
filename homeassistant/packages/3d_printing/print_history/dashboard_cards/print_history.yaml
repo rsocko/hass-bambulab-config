@@ -4,8 +4,127 @@
 
 type: vertical-stack
 cards:
-  - type: custom:print-history-archive-grid-card
-    source_entity: sensor.print_history_page_archives
-    variant_entity: input_select.print_history_card_variant
-    show_images_entity: input_boolean.print_history_show_images
-    api_base_entity: input_text.bambuddy_api_base_url
+  - type: conditional
+    conditions:
+      - entity: input_select.print_history_card_variant
+        state: Compact
+    card:
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: grid
+        columns: 2
+        square: false
+        card_mod:
+          style: |
+            @media (max-width: 768px) {
+              #root {
+                grid-template-columns: minmax(0, 1fr) !important;
+              }
+            }
+      card_param: cards
+      filter:
+        template: >
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set cards = namespace(items=[]) %}
+          {% for archive in archives %}
+            {% set cards.items = cards.items + [{
+              'type': 'custom:button-card',
+              'template': 'print_history_archive_card_compact',
+              'variables': {
+                'archive_json': archive | tojson
+              }
+            }] %}
+          {% endfor %}
+          {{ cards.items | tojson }}
+
+  - type: conditional
+    conditions:
+      - entity: input_select.print_history_card_variant
+        state: Media
+    card:
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: grid
+        columns: 2
+        square: false
+        card_mod:
+          style: |
+            @media (max-width: 768px) {
+              #root {
+                grid-template-columns: minmax(0, 1fr) !important;
+              }
+            }
+      card_param: cards
+      filter:
+        template: >
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set cards = namespace(items=[]) %}
+          {% for archive in archives %}
+            {% set cards.items = cards.items + [{
+              'type': 'custom:button-card',
+              'template': 'print_history_archive_card_media',
+              'variables': {
+                'archive_json': archive | tojson
+              }
+            }] %}
+          {% endfor %}
+          {{ cards.items | tojson }}
+
+  - type: conditional
+    conditions:
+      - entity: input_select.print_history_card_variant
+        state: Detail
+    card:
+      type: custom:auto-entities
+      show_empty: false
+      card:
+        type: grid
+        columns: 1
+        square: false
+      card_param: cards
+      filter:
+        template: >
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set cards = namespace(items=[]) %}
+          {% for archive in archives %}
+            {% set cards.items = cards.items + [{
+              'type': 'custom:button-card',
+              'template': 'print_history_archive_card_detail',
+              'variables': {
+                'archive_json': archive | tojson
+              }
+            }] %}
+          {% endfor %}
+          {{ cards.items | tojson }}
+
+  - type: conditional
+    conditions:
+      - entity: sensor.print_history_filtered
+        state: '0'
+    card:
+      type: markdown
+      content: >
+        No matching archives. Adjust filters or refresh the archive cache.
