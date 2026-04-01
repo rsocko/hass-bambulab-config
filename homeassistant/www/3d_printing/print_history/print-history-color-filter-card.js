@@ -128,7 +128,6 @@ class PrintHistoryColorFilterCard extends HTMLElement {
             class="swatch ${isSelected ? "selected" : ""} ${isBusy ? "busy" : ""}"
             type="button"
             data-color="${color}"
-            title="${color}"
             aria-label="Toggle color ${color} filter"
             aria-pressed="${isSelected ? "true" : "false"}"
             style="width:${slotSize}px;height:${slotSize}px;"
@@ -136,6 +135,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
             <span class="ring" style="width:${ringSize}px;height:${ringSize}px;border:${border};">
               <span class="fill" style="width:${fillSize}px;height:${fillSize}px;background:${color};"></span>
             </span>
+            <span class="tooltip" role="tooltip">${color}</span>
           </button>`;
       })
       .join("");
@@ -171,6 +171,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           place-items: center;
           cursor: pointer;
           overflow: visible;
+          position: relative;
         }
 
         .ring {
@@ -187,13 +188,41 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           display: block;
         }
 
+        .tooltip {
+          position: absolute;
+          left: 50%;
+          bottom: calc(100% + 6px);
+          transform: translateX(-50%) translateY(4px);
+          background: rgba(17, 24, 39, 0.94);
+          color: #f9fafb;
+          border-radius: 999px;
+          padding: 3px 8px;
+          font-size: 11px;
+          line-height: 1.2;
+          white-space: nowrap;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.12s ease, transform 0.12s ease;
+          z-index: 2;
+        }
+
         .swatch:hover .ring {
           filter: brightness(1.05);
+        }
+
+        .swatch:hover .tooltip,
+        .swatch:focus-visible .tooltip {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
         }
 
         .swatch:active .ring,
         .swatch.busy .ring {
           transform: scale(0.96);
+        }
+
+        .swatch:focus-visible {
+          outline: none;
         }
 
         @media (max-width: 768px) {
