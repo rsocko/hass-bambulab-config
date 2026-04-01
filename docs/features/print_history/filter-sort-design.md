@@ -436,6 +436,7 @@ Derived from the projected archive schema (full endpoint, trimmed fields):
 | **Favorites** | `input_boolean` | `off` = all archives, `on` = favorites only | `is_favorite` |
 | **Designer** | `input_select` | `All`, + dynamic unique designers | `designer` |
 | **Layer Height** | `input_select` | `All`, + dynamic (e.g., 0.04, 0.08, 0.12, 0.16, 0.20) | `layer_height` |
+| **Tag** | `input_select` | `All`, + dynamic unique archive tags; `All` includes tagged and untagged prints | `tags` |
 | **Search** | `input_text` | Free text on `print_name`, `designer`, `tags` | Multiple fields |
 
 > **Color filter note**: The `filament_color` field is a comma-separated hex string (e.g., `#000000,#FFFFFF,#C12E1F`). The live UI exposes these values as clickable color swatches instead of a single dropdown. Multiple swatches can be active at once, and the filter matches any archive that used at least one selected color.
@@ -729,6 +730,7 @@ The Print History view now uses an always-visible header modeled after the Filam
 | `Open Bambuddy` | Jump directly to Bambuddy's archive UI | Replaces the old large `Recent Prints` header card |
 | `Settings` | Open only capture/history settings | Kept top-right; browsing controls stay on-page |
 | Filter pills | Status/material/printer/date/designer/layer-height | Rounded cards with current value and active-state indicator |
+| Tag filter | Exact-match archive tag selector | `All` does not exclude untagged archives |
 | `Favorites Only` | Toggle favorites-only filtering | Boolean button rather than a dropdown |
 | Layout toggles | Switch between `Compact`, `Media`, and `Detail` | Only one is active at a time |
 | Items-per-page slider | Adjust page density without opening a popup | Mirrors the Filament Catalog threshold-slider pattern |

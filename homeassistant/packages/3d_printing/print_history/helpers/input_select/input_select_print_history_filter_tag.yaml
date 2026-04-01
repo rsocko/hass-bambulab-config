@@ -1,0 +1,6 @@
+print_history_filter_tag:
+  name: Print History Filter Tag
+  icon: mdi:tag-outline
+  options:
+    - All
+  initial: All

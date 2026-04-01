@@ -122,6 +122,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       dateRange: this._stateValue("input_select.print_history_filter_date_range"),
       designer: this._stateValue("input_select.print_history_filter_designer"),
       layerHeight: this._stateValue("input_select.print_history_filter_layer_height"),
+      tag: this._stateValue("input_select.print_history_filter_tag"),
       sort: this._stateValue("input_select.print_history_sort"),
       favorites: this._stateValue("input_boolean.print_history_filter_favorites_only"),
       search: this._stateValue("input_text.print_history_search"),
@@ -481,6 +482,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var dateRangeValue = this._stateValue("input_select.print_history_filter_date_range");
     var designerValue = this._stateValue("input_select.print_history_filter_designer");
     var layerHeightValue = this._stateValue("input_select.print_history_filter_layer_height");
+    var tagValue = this._stateValue("input_select.print_history_filter_tag");
     var favoritesOnly = this._isOn("input_boolean.print_history_filter_favorites_only");
     var searchText = String(this._stateValue("input_text.print_history_search") || "").toLowerCase().trim();
     var selectedColors = String(this._stateValue("input_text.print_history_filter_colors") || "")
@@ -494,6 +496,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var now = new Date();
     var archiveAgeDays = archive.timestamp ? (this._startOfDay(now) - this._startOfDay(archive.timestamp)) / 86400000 : Number.POSITIVE_INFINITY;
     var archiveStatus = archive.status;
+    var tagValues = this._parseTagList(archive.tags);
     var searchBlob = [archive.printName, archive.designer, archive.tags]
       .join(" ")
       .toLowerCase();
@@ -503,6 +506,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var matchesPrinter = printerValue === "All" || String(archive.printerId) === String(printerValue);
     var matchesDesigner = designerValue === "All" || String(archive.designer).toLowerCase() === String(designerValue).toLowerCase();
     var matchesLayerHeight = layerHeightValue === "All" || String(archive.layerHeight) === String(layerHeightValue);
+    var matchesTag = !tagValue || String(tagValue).toLowerCase() === "all" || tagValues.indexOf(String(tagValue).toLowerCase()) !== -1;
     var matchesFavorite = !favoritesOnly || isFavorite;
     var matchesSearch = !searchText || searchBlob.indexOf(searchText) !== -1;
     var matchesColors = !selectedColors.length || selectedColors.some(function (color) {
@@ -522,7 +526,16 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       matchesDate = archiveAgeDays < 90;
     }
 
-    return matchesStatus && matchesMaterial && matchesPrinter && matchesDesigner && matchesLayerHeight && matchesFavorite && matchesSearch && matchesColors && matchesDate;
+    return matchesStatus && matchesMaterial && matchesPrinter && matchesDesigner && matchesLayerHeight && matchesTag && matchesFavorite && matchesSearch && matchesColors && matchesDate;
+  }
+
+  _parseTagList(raw) {
+    return String(raw || "")
+      .split(",")
+      .map(function (value) {
+        return value.trim().toLowerCase();
+      })
+      .filter(Boolean);
   }
 
   _matchesStatusFilter(statusValue, archiveStatus) {

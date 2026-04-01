@@ -75,6 +75,17 @@
             {% endif %}
           {% endfor %}
           {{ ns.values | sort }}
+        tag_options: >-
+          {% set ns = namespace(values=[]) %}
+          {% for a in archives %}
+            {% for tag in (a.get('tags', '') | string).split(',') %}
+              {% set value = tag | trim %}
+              {% if value and value not in ns.values %}
+                {% set ns.values = ns.values + [value] %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {{ ['All'] + (ns.values | sort) }}
     - action: input_select.set_options
       data:
         entity_id: input_select.print_history_filter_material
@@ -95,4 +106,8 @@
       data:
         entity_id: input_select.print_history_filter_layer_height
         options: "{{ layer_height_options }}"
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_tag
+        options: "{{ tag_options }}"
   mode: restart

@@ -95,6 +95,7 @@ cards:
       - input_select.print_history_filter_date_range
       - input_select.print_history_filter_designer
       - input_select.print_history_filter_layer_height
+      - input_select.print_history_filter_tag
       - input_select.print_history_sort
       - input_boolean.print_history_filter_favorites_only
       - sensor.print_history_filtered
@@ -180,6 +181,16 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_tag
+                sub_button_type: select
+                name: Tag
+                icon: mdi:tag-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_tag']?.state !== (states['input_select.print_history_filter_tag']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_tag']?.state !== (states['input_select.print_history_filter_tag']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_boolean.print_history_filter_favorites_only
                 name: Favorites

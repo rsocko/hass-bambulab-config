@@ -36,6 +36,10 @@ clear_print_history_filters:
         option: All
     - action: input_select.select_option
       data:
+        entity_id: input_select.print_history_filter_tag
+        option: All
+    - action: input_select.select_option
+      data:
         entity_id: input_select.print_history_sort
         option: Date (Newest)
     - action: input_text.set_value
