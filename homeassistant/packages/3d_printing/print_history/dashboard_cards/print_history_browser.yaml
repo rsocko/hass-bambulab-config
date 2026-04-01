@@ -252,6 +252,12 @@ cards:
           - entity: input_text.print_history_search
             name: Search Prints
             secondary_info: none
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+            double_tap_action:
+              action: none
       - type: custom:config-template-card
         entities:
           - input_select.print_history_filter_status
@@ -322,6 +328,10 @@ cards:
               `;
             })()}
           tap_action:
+            action: none
+          hold_action:
+            action: none
+          double_tap_action:
             action: none
           sub_button:
             - entity: input_select.print_history_filter_status

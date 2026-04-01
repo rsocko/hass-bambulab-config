@@ -215,6 +215,12 @@ cards:
           - entity: input_text.filament_catalog_search
             name: Search Filament
             secondary_info: none
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+            double_tap_action:
+              action: none
       - type: custom:config-template-card
         entities:
           - input_select.filament_catalog_filter_material
@@ -271,7 +277,11 @@ cards:
               color: var(--accent-color) !important;
             }
           tap_action:
-            action: more-info
+            action: none
+          hold_action:
+            action: none
+          double_tap_action:
+            action: none
           sub_button:
             - entity: input_select.filament_catalog_filter_material
               sub_button_type: default
