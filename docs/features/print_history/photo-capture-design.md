@@ -4,7 +4,7 @@
 
 ## Overview
 
-HA owns multi-camera, multi-stage photo capture during print jobs. Photos are saved locally for HA dashboard use and uploaded to the corresponding Bambuddy archive. Error/failure photos are included.
+HA owns multi-camera, multi-stage photo capture during print jobs. Photos are saved locally for HA dashboard use and are designed to be handed off to a multipart-capable uploader for attachment to the corresponding Bambuddy archive. Error/failure photos are included.
 
 Bambuddy also captures its own completion photo natively (when "Capture finish photo" is enabled); HA's photos supplement this with additional stages and cameras.
 
@@ -90,9 +90,9 @@ triggers:
 5. Capture secondary camera (if configured) → save similarly with "_cam2" suffix
 6. Turn off snapshot light
 7. If input_text.bambuddy_current_archive_id is set:
-   → Upload to Bambuddy via rest_command.bambuddy_upload_photo_to_archive
+  → Hand off the saved file to a multipart-capable uploader (recommended: shell_command + curl)
 8. If archive_id is empty:
-   → Call script.resolve_current_archive_id first, then upload if resolved
+  → Call script.resolve_current_archive_id first, then hand off if resolved
 9. Local copy always retained regardless of upload success
 ```
 
@@ -155,6 +155,157 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 - **`bambuddy_capture_print_photos`**: `mode: single` — one print at a time; only one set of stage triggers active
 - **`bambuddy_capture_error_photos`**: `mode: queued` (max: 3) — multiple errors can fire rapidly (HMS cascade)
 - **`script.capture_and_upload_snapshot`**: `mode: queued` (max: 5) — overlapping camera+upload operations
+
+## Upload Transport Guidance
+
+`POST /api/v1/archives/{id}/photos` requires `multipart/form-data` with a real `file` field. That rules out HA `rest_command` for the upload itself.
+
+| Option | Recommendation | Pros | Cons |
+|---|---|---|---|
+| `shell_command` + `curl` | **Recommended default** | Native HA service trigger, real multipart upload, simple deployment, easiest path to match Bambuddy's contract | Harder response handling, quoting/escaping can be brittle, success tracking is manual |
+| `command_line` | Not recommended for uploads | Good for polling or exposing command output as sensors | Wrong fit for event-driven file upload; better for reads than one-shot actions |
+| External Python script | Recommended when richer control is needed | Better retries, structured logging, response parsing, clearer file handling | More moving parts than a shell bridge |
+| `n8n` or other orchestrator | Recommended only for larger workflows | Best for multi-step flows, retries, audit trail, branching, future recovery workflows | Extra infrastructure and operational overhead |
+
+Current shipped YAML captures locally and now uses a first-phase `shell_command` multipart uploader. Do not use `rest_command` to upload archive photos.
+
+## Draft Implementation Path
+
+### First Phase: `shell_command` Upload Bridge
+
+This is the intended starting point.
+
+Design shape:
+
+1. `script.capture_and_upload_snapshot` captures the image and writes the local file
+2. The script resolves `archive_id` if needed
+3. The script calls a `shell_command` with explicit parameters:
+  `archive_id`, `file_path`, and optionally `base_url`
+4. The shell command uses `curl -F "file=@..."` to POST to Bambuddy
+5. HA logs success or failure at a coarse level
+6. Manifest entries remain local-first and can mark upload as deferred or best-effort until response parsing exists
+
+Why first:
+
+- no new orchestration platform
+- minimal change to current HA package layout
+- directly compatible with the live Swagger contract
+- good enough to prove end-to-end upload behavior quickly
+
+Known limitations:
+
+- weak response parsing
+- awkward quoting and escaping
+- retries and structured diagnostics are limited
+- later photo-review features will still want richer returned metadata
+
+#### Repo-Specific Phase 1 Draft
+
+What already exists in this repo:
+
+- `script.capture_and_upload_snapshot` already captures local files and records manifest entries
+- `script.resolve_current_archive_id` already exists
+- an old superseded automation references `shell_command.bambuddy_upload_latest_snapshot`
+
+What was missing before this phase and is now implemented in the active package:
+
+- `shell_command` include in `print_history_loader.yaml`
+- `shell_commands/` directory under the active `print_history` package
+- explicit upload bridge that receives `archive_id` + `file_path`
+
+Implemented first-phase package shape:
+
+```yaml
+# print_history_loader.yaml
+automation: !include_dir_merge_list automations
+rest: !include_dir_merge_list rest_sensors
+rest_command: !include_dir_merge_named rest_commands
+shell_command: !include_dir_merge_named shell_commands
+script: !include_dir_merge_named scripts
+```
+
+```yaml
+# shell_commands/bambuddy_upload_archive_photo.yaml
+bambuddy_upload_archive_photo: >-
+  /bin/sh -c 'api_key=$(python3 -c "import sys, yaml; data = yaml.safe_load(open(\"/config/secrets.yaml\")) or {}; sys.stdout.write(str(data.get(\"bambuddy_api_key\", \"\")))");
+  [ -n "$api_key" ] &&
+  curl -sS --fail-with-body -X POST
+  -H "X-API-Key: $api_key"
+  -F "file=@{{ file_path }}"
+  "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/photos"'
+```
+
+```yaml
+# script.capture_and_upload_snapshot call contract
+- action: shell_command.bambuddy_upload_archive_photo
+  data:
+    archive_id: "{{ archive_id }}"
+    file_path: "/config/www/printer_snapshots/{{ primary_filename }}"
+```
+
+Prefer explicit `file_path` passing over any "latest file" upload strategy. The current phase still treats upload as best-effort; manifest entries are recorded locally first.
+
+### Potential Final Form: External Python Uploader
+
+Use this if upload becomes a core workflow instead of a thin bridge.
+
+Design shape:
+
+1. HA capture script still owns timing and local file creation
+2. HA hands upload work to a Python worker with explicit inputs
+3. Python performs multipart upload, parses the response, and returns structured output
+4. HA updates the photo manifest with real upload outcome and returned Bambuddy metadata
+5. Future review/delete/set-cover flows reuse the returned metadata instead of guessing
+
+Expected advantages over the shell bridge:
+
+- reliable success/failure distinction
+- cleaner logging
+- easier retries and timeouts
+- easier to evolve into photo-review and media-lifecycle workflows
+
+Expected costs:
+
+- more implementation effort
+- additional runtime/dependency management
+- one more moving part to deploy and maintain
+
+#### Repo-Specific Phase 2 Draft
+
+Recommended Python worker input contract:
+
+```json
+{
+  "archive_id": "184",
+  "file_path": "/config/www/printer_snapshots/Benchy_midprint_20260328_150000.jpg",
+  "base_url": "http://bambuddy.socko.us"
+}
+```
+
+Recommended Python worker output contract:
+
+```json
+{
+  "ok": true,
+  "status": 200,
+  "uploaded_filename": "Benchy_midprint_20260328_150000.jpg",
+  "response_body": {}
+}
+```
+
+Recommended manifest change when Phase 2 is implemented:
+
+- current repo state: local-first manifest with `uploaded: false`
+- target state: structured upload lifecycle fields
+
+Suggested fields:
+
+- `upload_requested`
+- `upload_status`
+- `uploaded_filename`
+- `upload_error`
+
+This keeps Phase 1 simple while giving Phase 2 a clean forward path into photo-review and delete/set-cover workflows.
 
 ## Bambuddy Settings (Recommended)
 

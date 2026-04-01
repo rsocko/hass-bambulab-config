@@ -159,10 +159,10 @@
 
 | Status | ID | Format | Description | Doc Location |
 |--------|-----|--------|-------------|-------------|
-| ⬜ | `bambuddy-print-history-card` | png | Print history card | [bambuddy/README.md](../../bambuddy/README.md) |
-| ⬜ | `bambuddy-queue-card` | png | Print queue card | [bambuddy/README.md](../../bambuddy/README.md) |
-| ⬜ | `bambuddy-statistics-card` | png | Statistics dashboard card | [bambuddy/README.md](../../bambuddy/README.md) |
-| ⬜ | `bambuddy-maintenance-card` | png | Maintenance tracking card | [bambuddy/README.md](../../bambuddy/README.md) |
+| ⬜ | `bambuddy-print-history-card` | png | Legacy prototype print history card | [docs/repo/bambuddy-reorganization-plan.md](../repo/bambuddy-reorganization-plan.md) |
+| ⬜ | `bambuddy-queue-card` | png | Legacy prototype queue card | [docs/repo/bambuddy-reorganization-plan.md](../repo/bambuddy-reorganization-plan.md) |
+| ⬜ | `bambuddy-statistics-card` | png | Legacy prototype statistics card | [docs/repo/bambuddy-reorganization-plan.md](../repo/bambuddy-reorganization-plan.md) |
+| ⬜ | `bambuddy-maintenance-card` | png | Legacy prototype maintenance card | [docs/repo/bambuddy-reorganization-plan.md](../repo/bambuddy-reorganization-plan.md) |
 
 ---
 

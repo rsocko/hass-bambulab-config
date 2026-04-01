@@ -164,15 +164,15 @@ Score ranges:
 
 ## Migration Notes
 
-### Sources (from `bambuddy/`)
-- **Maintenance alerts boolean**: `bambuddy_maintenance_alerts_enabled` from `bambuddy/helpers.yaml`
-- **Dashboard card**: `bambuddy/dashboards/maintenance.yaml` → split into 3 cards
+### Prototype Lineage
+- **Maintenance alerts boolean**: `bambuddy_maintenance_alerts_enabled` from the root `bambuddy/helpers.yaml` prototype
+- **Dashboard card**: root `bambuddy/dashboards/maintenance.yaml` prototype evolved into the current split-card design
 
 ### Eliminated
 - `bambuddy/automations/maintenance_alerts.yaml` — Replaced entirely. Old automation used heuristic thresholds (success rate < 80%, every 500 prints) against statistics. New package reads actual maintenance task data from Bambuddy's dedicated maintenance tracker.
 - Maintenance checklist in old dashboard card (JavaScript hardcoded intervals like "clean nozzle every 50 prints") — replaced by Bambuddy's configurable maintenance schedules
 
-### New (not in existing bambuddy/)
+### New (not in root prototype)
 - REST sensor for actual maintenance status (not derived from statistics)
 - REST command to mark tasks complete from HA
 - `complete_maintenance_task` script (UI-callable from dashboard buttons)

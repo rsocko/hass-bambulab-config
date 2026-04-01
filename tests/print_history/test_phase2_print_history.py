@@ -128,6 +128,7 @@ class TestLoaderWiring(unittest.TestCase):
             "automation",
             "rest",
             "rest_command",
+            "shell_command",
             "script",
             "template",
             "input_text",
@@ -192,7 +193,6 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_REST_COMMANDS = [
-        "bambuddy_upload_photo_to_archive.yaml",
         "bambuddy_delete_archive_photo.yaml",
         "bambuddy_set_archive_cover.yaml",
         "bambuddy_update_archive.yaml",
@@ -320,6 +320,7 @@ class TestFileInventory(unittest.TestCase):
         expected_subdirs = {
             "automations", "scripts", "rest_commands", "rest_sensors",
             "template_sensors", "helpers", "dashboard_cards", "dashboard_views",
+            "shell_commands",
         }
         actual_subdirs = {
             d.name for d in HISTORY.iterdir()
@@ -944,12 +945,12 @@ class TestCrossReferences(unittest.TestCase):
                         "input_boolean.turn_off", "homeassistant.update_entity",
                         "logbook.log", "light.turn_on", "light.turn_off",
                         "camera.snapshot", "script.capture_and_upload_snapshot",
+                        "shell_command.bambuddy_upload_archive_photo",
                         "script.resolve_current_archive_id",
                         "script.load_history_page",
                         "script.refresh_print_history_archives",
                         "script.clear_print_history_filters",
                         "rest_command.bambuddy_update_archive",
-                        "rest_command.bambuddy_upload_photo_to_archive",
                         "rest_command.bambuddy_query_recent_archive",
                         "rest_command.bambuddy_fetch_archives",
                     }

@@ -65,13 +65,13 @@ This repo is a collection of the configuration and automation that I use within 
   - Real-time humidity and temperature tracking
   - Color-coded status indicators for filament storage
   - Optional integration with humidity-intelligence package
-- [Bambuddy Integration](bambuddy/README.md)
+- [Bambuddy Feature Packages](docs/repo/bambuddy-reorganization-plan.md)
+  - Canonical design and implementation now live under `docs/features/` and `homeassistant/packages/3d_printing/`
   - Print history / archive in HA dashboards (name, duration, weight, photo, status, tags)
   - Print queue visibility and management from HA
   - Rich statistics dashboard (success rates, filament usage, trends)
   - Maintenance health tracking with proactive alerts and checklists
   - Webhook-driven real-time event handling (print finished, failed, queue ready)
-  - Optional: Embed full Bambuddy UI as a Home Assistant sidebar panel
 
 ## Deployment-Aligned Structure
 
@@ -114,5 +114,5 @@ The actual config objects that are used to achieve the above scenarios include:
   - Air Quality Monitoring Cards (PM2.5, CO2, VOC, Temperature, Humidity)
   - Govee Air Purifier Control with speed adjustment
   - Fan Controls (Printer fans and Bento Box fan)
-  - [Bambuddy Integration Cards](bambuddy/dashboards/) - Print history, queue, statistics, and maintenance cards
+  - [Bambuddy Feature Dashboards](docs/repo/bambuddy-reorganization-plan.md) - Canonical dashboard/package design is tracked in `docs/features/` and implemented in `homeassistant/packages/3d_printing/`
 - 

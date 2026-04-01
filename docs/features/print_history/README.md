@@ -4,11 +4,11 @@
 
 ## Overview
 
-Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), uploads them to Bambuddy archives, enriches completed archives with Spoolman spool data, and exposes a full-width dashboard browser with an always-visible control bar in Home Assistant.
+Reads print archives from Bambuddy's API, captures multi-camera photos at multiple print stages (including errors), enriches completed archives with Spoolman spool data, and exposes a full-width dashboard browser with an always-visible control bar in Home Assistant.
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. Multi-stage photos are captured locally, but the production multipart upload bridge is not shipped in this package yet. Advanced review flows are still deferred: the photo review chip is status-only today, and archive detail/favorite actions are not yet wired into the shipped cards.
 
 For the activity heatmap, the live metric contract is now: `Print Count` = archive rows, `Number of Printed Objects` = summed API `object_count`, and `Filaments Used` = summed per-archive populated filament slots. A backend-only single-source-of-truth heatmap filter path was analyzed and deferred pending a dedicated full-scope activity payload.
 
@@ -27,7 +27,6 @@ homeassistant/packages/3d_printing/print_history/
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
 │   ├── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
-│   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos (JSON hint; multipart path still pending)
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id} (advanced review flow)
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes enrichment
@@ -117,7 +116,6 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Service | Method | Endpoint | Purpose |
 |---|---|---|---|
-| `rest_command.bambuddy_upload_photo_to_archive` | POST | `/api/v1/archives/{id}/photos` | Placeholder upload command; production multipart upload still needs a `shell_command` path |
 | `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{photo_id}` | Advanced review placeholder; endpoint contract still needs live verification |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update name, notes, tags |
@@ -175,7 +173,7 @@ input_select: !include_dir_merge_named helpers/input_select
 |---|---|
 | `script.load_history_page` | Set a specific browser page |
 | `script.navigate_history` | Prev/next/first/last navigation, calls `load_history_page` |
-| `script.capture_and_upload_snapshot` | Multi-camera capture + local save + Bambuddy upload |
+| `script.capture_and_upload_snapshot` | Multi-camera capture + local save + manifest update; multipart upload bridge is external to this package |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
 | `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
@@ -216,7 +214,7 @@ Implemented now:
 
 Still deferred:
 
-- Production multipart photo upload path for `capture_and_upload_snapshot`
+- Production multipart photo upload bridge for `capture_and_upload_snapshot`
 - Photo review popup plus delete/replace/set-cover/dismiss actions
 - Archive detail popup and card-level actions such as favorites/compare
 
@@ -236,19 +234,19 @@ For detailed design of the two major subsystems, see:
 
 ## Migration Notes
 
-### Sources (from `bambuddy/`)
-- **REST sensor**: `bambuddy_print_history` from `bambuddy/sensors.yaml`
-- **REST commands**: `bambuddy_update_archive_status` → `bambuddy_update_archive` (generalized to support notes+tags+name)
-- **Template sensors**: 4 "last print" sensors from `bambuddy/sensors.yaml` (converted to modern `template:` format)
-- **Dashboard cards**: `bambuddy/dashboards/print_history.yaml` → `dashboard_cards/`
-- **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_fetch_enabled`, `bambuddy_history_limit` from `bambuddy/helpers.yaml`
+### Prototype Lineage
+- **REST sensor**: `bambuddy_print_history` from the root `bambuddy/sensors.yaml` prototype
+- **REST commands**: `bambuddy_update_archive_status` prototype evolved into `bambuddy_update_archive` (generalized to support notes+tags+name)
+- **Template sensors**: 4 "last print" sensors from the root `bambuddy/sensors.yaml` prototype (converted to modern `template:` format)
+- **Dashboard cards**: root `bambuddy/dashboards/print_history.yaml` prototype evolved into `dashboard_cards/`
+- **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_fetch_enabled`, `bambuddy_history_limit` originated in the root `bambuddy/helpers.yaml` prototype
 
 ### Eliminated
 - `bambuddy/automations/sync_print_history.yaml` — Bambuddy auto-creates archives; HA no longer calls `POST /archives`
 - `rest_command.bambuddy_create_archive` — same reason
 - `rest_command.bambuddy_update_archive_status` — replaced by generalized `bambuddy_update_archive` (PATCH with any fields)
 
-### New (not in existing bambuddy/)
+### New (not in root prototype)
 - Archive ID capture from webhook events
 - Multi-stage photo capture automations (start, mid, near-complete, error)
 - `capture_and_upload_snapshot` script with multi-camera + light control
@@ -428,7 +426,7 @@ Section 3: pagination_browser    Section 6: current_print_diagnostics
 | # | Item | Impact | Blocking? |
 |---|---|---|---|
 | 1 | Verify `print_started` webhook includes `archive_id` in payload | If missing, first photo upload relies on fallback lookup | No — fallback designed |
-| 2 | Photo upload content type (JSON photo_url vs multipart file) | Determines upload mechanism in `capture_and_upload_snapshot` | No — both paths designed |
+| 2 | Photo upload content type (multipart file only) | Determines upload mechanism in `capture_and_upload_snapshot` | No — valid transport options are documented |
 | 3 | Confirm `input_text.3dprinter_snapshot_light` availability cross-package | If notifications package not deployed, need local fallback | No — gated with template check |
 | 4 | Enrichment idempotency — verify PATCH tags doesn't create duplicates | Could pollute tag lists on retry | Low risk — test during Phase 7 |
 | 5 | Base64 `image` field in webhook payload — bonus data capture | Bambuddy webhooks can include base64 JPEG for some events | No — nice-to-have, not blocking |

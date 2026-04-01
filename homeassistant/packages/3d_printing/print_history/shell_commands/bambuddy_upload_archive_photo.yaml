@@ -1,0 +1,11 @@
+# Upload a locally captured snapshot to a Bambuddy archive using multipart/form-data.
+# Uses the existing bambuddy_api_key secret so the key does not live in entity state.
+# Usage: service: shell_command.bambuddy_upload_archive_photo
+# Data: { "archive_id": "42", "file_path": "/config/www/printer_snapshots/example.jpg" }
+bambuddy_upload_archive_photo: >-
+  /bin/sh -c 'api_key=$(python3 -c "import sys, yaml; data = yaml.safe_load(open(\"/config/secrets.yaml\")) or {}; sys.stdout.write(str(data.get(\"bambuddy_api_key\", \"\")))");
+  [ -n "$api_key" ] &&
+  curl -sS --fail-with-body -X POST
+  -H "X-API-Key: $api_key"
+  -F "file=@{{ file_path }}"
+  "{{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/photos"'

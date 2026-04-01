@@ -1,12 +1,12 @@
-# Multi-camera snapshot capture + local save + Bambuddy upload.
+# Multi-camera snapshot capture + multipart upload bridge.
 # Called by photo capture automations with a stage parameter.
 # Docs: docs/features/print_history/photo-capture-design.md
 capture_and_upload_snapshot:
-  alias: "Capture and Upload Snapshot"
+  alias: "Capture Snapshot"
   description: >-
     Captures photos from configured cameras, saves locally to
-    /config/www/printer_snapshots/, and uploads to the current
-    Bambuddy archive if archive_id is known.
+    /config/www/printer_snapshots/, records manifest entries,
+    and attempts best-effort multipart upload to Bambuddy.
   fields:
     stage:
       description: "Capture stage: start, midprint, near_complete, error, finish"
@@ -82,25 +82,9 @@ capture_and_upload_snapshot:
         - variables:
             archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
 
-    # --- Upload primary photo to Bambuddy ---
-    - if:
-        - condition: template
-          value_template: "{{ archive_id not in ['', 'unknown', 'unavailable'] }}"
-      then:
-        - action: rest_command.bambuddy_upload_photo_to_archive
-          data:
-            archive_id: "{{ archive_id }}"
-            photo_url: "/local/printer_snapshots/{{ primary_filename }}"
-
-    # --- Upload secondary photo to Bambuddy ---
-    - if:
-        - condition: template
-          value_template: "{{ has_secondary and archive_id not in ['', 'unknown', 'unavailable'] }}"
-      then:
-        - action: rest_command.bambuddy_upload_photo_to_archive
-          data:
-            archive_id: "{{ archive_id }}"
-            photo_url: "/local/printer_snapshots/{{ secondary_filename }}"
+    - variables:
+        has_archive_id: >-
+          {{ archive_id not in ['', 'unknown', 'unavailable', 'None', none] }}
 
     # --- Update photo manifest ---
     - variables:
@@ -111,14 +95,44 @@ capture_and_upload_snapshot:
           {{ {"stage": stage, "camera": "primary",
               "local_path": "/local/printer_snapshots/" ~ primary_filename,
               "file_path": "/config/www/printer_snapshots/" ~ primary_filename,
+              "archive_id": archive_id,
               "timestamp": now().isoformat(),
-              "uploaded": archive_id not in ['', 'unknown', 'unavailable']} }}
+              "uploaded": false} }}
+        secondary_entry: >-
+          {{ {"stage": stage, "camera": "secondary",
+              "local_path": "/local/printer_snapshots/" ~ secondary_filename,
+              "file_path": "/config/www/printer_snapshots/" ~ secondary_filename,
+              "archive_id": archive_id,
+              "timestamp": now().isoformat(),
+              "uploaded": false} if has_secondary else none }}
 
     - action: input_text.set_value
       target:
         entity_id: input_text.bambuddy_photo_manifest
       data:
-        value: "{{ (current_manifest + [primary_entry]) | tojson }}"
+        value: >-
+          {{ (current_manifest + [primary_entry] + ([secondary_entry] if has_secondary else [])) | tojson }}
+
+    # --- Best-effort upload via shell_command bridge ---
+    - if:
+        - condition: template
+          value_template: "{{ has_archive_id }}"
+      then:
+        - action: shell_command.bambuddy_upload_archive_photo
+          data:
+            archive_id: "{{ archive_id }}"
+            file_path: "/config/www/printer_snapshots/{{ primary_filename }}"
+          continue_on_error: true
+
+    - if:
+        - condition: template
+          value_template: "{{ has_archive_id and has_secondary }}"
+      then:
+        - action: shell_command.bambuddy_upload_archive_photo
+          data:
+            archive_id: "{{ archive_id }}"
+            file_path: "/config/www/printer_snapshots/{{ secondary_filename }}"
+          continue_on_error: true
 
     - action: logbook.log
       data:
@@ -126,4 +140,4 @@ capture_and_upload_snapshot:
         message: >-
           Captured {{ stage }} photo: {{ primary_filename }}
           {% if has_secondary %} + {{ secondary_filename }}{% endif %}
-          (archive_id={{ archive_id }})
+          (archive_id={{ archive_id }}, upload {% if has_archive_id %}attempted{% else %}skipped - missing archive_id{% endif %})

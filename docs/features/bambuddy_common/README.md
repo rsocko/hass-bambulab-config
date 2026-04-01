@@ -49,9 +49,9 @@ input_text: !include_dir_merge_named helpers/input_text
 
 | Entity | Type | Purpose | Source |
 |---|---|---|---|
-| `input_text.bambuddy_api_base_url` | input_text | Bambuddy server URL (e.g., `http://localhost:8000`) | bambuddy/helpers.yaml |
-| `input_text.bambuddy_printer_id` | input_text | Bambuddy printer ID | bambuddy/helpers.yaml |
-| `input_boolean.bambuddy_integration_enabled` | input_boolean | Master on/off switch | bambuddy/helpers.yaml |
+| `input_text.bambuddy_api_base_url` | input_text | Bambuddy server URL (e.g., `http://localhost:8000`) | root `bambuddy/` prototype lineage |
+| `input_text.bambuddy_printer_id` | input_text | Bambuddy printer ID | root `bambuddy/` prototype lineage |
+| `input_boolean.bambuddy_integration_enabled` | input_boolean | Master on/off switch | root `bambuddy/` prototype lineage |
 
 ### Secrets (secrets.yaml)
 
@@ -131,11 +131,11 @@ event_data:
 
 ## Migration Notes
 
-### Sources
-- **Helpers**: Extracted from `bambuddy/helpers.yaml` (2 input_text + 1 input_boolean). API key moved to `secrets.yaml` instead of an entity.
-- **Printer Status sensor**: Originally a REST sensor polling every 30s; migrated to MQTT subscription (`bambuddy/printers/{serial}/status`) for real-time updates
-- **Refresh command**: Extracted from `bambuddy/rest_commands.yaml` (`bambuddy_refresh_printer_status`)
-- **Webhook receiver**: Replaces `bambuddy/automations/webhook_handler.yaml` — fires events instead of handling inline
+### Prototype Lineage
+- **Helpers**: Originated in the root `bambuddy/helpers.yaml` prototype (2 input_text + 1 input_boolean). API key moved to `secrets.yaml` instead of an entity.
+- **Printer Status sensor**: Prototype started as a REST sensor polling every 30s; migrated to MQTT subscription (`bambuddy/printers/{serial}/status`) for real-time updates
+- **Refresh command**: Prototype lineage from `bambuddy/rest_commands.yaml` (`bambuddy_refresh_printer_status`)
+- **Webhook receiver**: Replaces the old prototype logic in `bambuddy/automations/webhook_handler.yaml` with normalized HA events
 
 ### Eliminated
 - `bambuddy_create_archive` REST command — Bambuddy auto-creates archives at print start; HA no longer creates them
