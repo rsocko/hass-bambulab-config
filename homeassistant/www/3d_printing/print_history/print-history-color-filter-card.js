@@ -128,6 +128,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
             class="swatch ${isSelected ? "selected" : ""} ${isBusy ? "busy" : ""}"
             type="button"
             data-color="${color}"
+            title="${color}"
             aria-label="Toggle color ${color} filter"
             aria-pressed="${isSelected ? "true" : "false"}"
             style="width:${slotSize}px;height:${slotSize}px;"
