@@ -622,7 +622,7 @@ catalog_spool_popup:
                 {
                   type: 'custom:apexcharts-card',
                   graph_span: historyHours + 'h',
-                  series: [{ entity: eid, name: 'Weight (g)', color: colorHex, stroke_width: 4, type: 'area', curve: 'smooth', statistics: { type: 'mean', period: statsPeriod } }],
+                    series: [{ entity: eid, name: 'Weight (g)', color: colorHex, stroke_width: 4, type: 'area', curve: 'smooth', statistics: { type: 'mean', period: statsPeriod }, transform: 'return x == null ? null : Math.round(Number(x) * 10) / 10;' }],
                   card_mod: { style: 'ha-card { background: ' + chartBg + ' !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; } .apexcharts-toolbar svg { fill: ' + chartFg + ' !important; }' },
                   apex_config: {
                     chart: { toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, background: chartBg, foreColor: chartFg, zoom: { enabled: true, type: 'x' }, animations: { enabled: false } },

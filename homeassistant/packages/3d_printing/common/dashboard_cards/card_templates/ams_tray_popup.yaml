@@ -1529,7 +1529,8 @@ ams_tray_popup:
                     stroke_width: 4,
                     type: 'area',
                     curve: 'smooth',
-                    statistics: { type: 'mean', period: 'hour' }
+                      statistics: { type: 'mean', period: 'hour' },
+                      transform: 'return x == null ? null : Math.round(Number(x) * 10) / 10;'
                   }],
                   card_mod: {
                     style: 'ha-card { background: ' + chartBackground + ' !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; } .apexcharts-toolbar svg { fill: ' + chartForeColor + ' !important; } .apexcharts-toolbar { color: ' + chartForeColor + ' !important; }'
