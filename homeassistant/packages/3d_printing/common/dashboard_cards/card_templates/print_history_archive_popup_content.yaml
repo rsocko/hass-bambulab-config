@@ -152,7 +152,7 @@ print_history_archive_popup_content:
               <span style="background:${statusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">${statusIcon} ${escapeHtml(statusLabel)}</span>
               <span style="display:inline-flex;align-items:center;gap:6px;color:${archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)'};font-size:13px;font-weight:700;">
                 <ha-icon icon="${archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:16px;"></ha-icon>
-                ${archive?.is_favorite ? 'Favorite' : 'Not Favorite'}
+                ${archive?.is_favorite ? 'Favorite' : ''}
               </span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">

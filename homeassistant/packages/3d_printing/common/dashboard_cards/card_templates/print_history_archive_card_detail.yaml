@@ -159,6 +159,8 @@ print_history_archive_card_detail:
       - justify-self: end
       - width: 28px
       - height: 28px
+      - border-radius: 999px
+      - overflow: hidden
       - padding-top: 2px
       - margin-left: 12px
     icon:

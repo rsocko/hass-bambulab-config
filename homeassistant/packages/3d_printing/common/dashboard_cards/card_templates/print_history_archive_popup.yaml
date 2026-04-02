@@ -60,7 +60,7 @@ print_history_archive_popup:
           archive_json: variables?.archive_json || '{}',
           archive_id: String(archiveId)
         },
-        name: `[[[ ${liveArchiveResolver} return archive?.is_favorite ? 'Unfavorite' : 'Favorite'; ]]]`,
+        name: 'Favorite',
         icon: `[[[ ${liveArchiveResolver} return archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'; ]]]`,
         show_name: true,
         show_icon: true,
