@@ -65,7 +65,6 @@ print_history_archive_popup:
       if (hasCustomFailureReason) {
         failureReasonOptions.push(archiveFailureReason);
       }
-      const failureReasonStatuses = ['Failed', 'Cancelled'];
       const selectedFailureReason = archiveFailureReason || 'Unspecified';
       const editorNameLimit = 255;
       const editorTagLimit = 255;
@@ -77,18 +76,6 @@ print_history_archive_popup:
       const notesWereTrimmed = archiveNotes.length > editorNotesLimit;
       const tagsWereTrimmed = archiveTags.length > editorTagLimit;
       const isFavorite = !!archive?.is_favorite;
-      const failureReasonEditorCard = {
-        type: 'entities',
-        title: 'Failure Reason',
-        show_header_toggle: false,
-        entities: [
-          {
-            entity: 'input_select.print_history_popup_failure_reason',
-            name: 'Failure Reason',
-            icon: 'mdi:alert-circle-outline'
-          }
-        ]
-      };
       const buttonCard = (name, icon, background, tapAction) => ({
         type: 'custom:button-card',
         name,
@@ -150,23 +137,32 @@ print_history_archive_popup:
               entity: 'input_select.print_history_popup_status',
               name: 'Status',
               icon: 'mdi:list-status'
-            }
-          ]
-        },
-        ...failureReasonStatuses.map((status) => ({
-          type: 'conditional',
-          conditions: [
+            },
             {
-              entity: 'input_select.print_history_popup_status',
-              state: status
-            }
-          ],
-          card: failureReasonEditorCard
-        })),
-        {
-          type: 'entities',
-          show_header_toggle: false,
-          entities: [
+              type: 'conditional',
+              conditions: [
+                {
+                  condition: 'or',
+                  conditions: [
+                    {
+                      condition: 'state',
+                      entity: 'input_select.print_history_popup_status',
+                      state: 'Failed'
+                    },
+                    {
+                      condition: 'state',
+                      entity: 'input_select.print_history_popup_status',
+                      state: 'Cancelled'
+                    }
+                  ]
+                }
+              ],
+              row: {
+                entity: 'input_select.print_history_popup_failure_reason',
+                name: 'Failure Reason',
+                icon: 'mdi:alert-circle-outline'
+              }
+            },
             {
               entity: 'input_text.print_history_popup_tags',
               name: 'Tags',
