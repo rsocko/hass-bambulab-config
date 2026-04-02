@@ -113,9 +113,6 @@ card:
       tap_action:
         action: toggle
   styles: |
-    ${(() => {
-      const insightsEnabled = states['input_boolean.filament_catalog_show_insights']?.state === 'on';
-      return `
     ha-card {
       margin-top: 8px !important;
     }
@@ -153,16 +150,10 @@ card:
       color: var(--primary-color) !important;
     }
     .bubble-sub-button:nth-child(6) {
-      background-color: ${insightsEnabled
-        ? 'color-mix(in srgb, var(--primary-color) 20%, var(--card-background-color))'
-        : 'var(--ha-card-background, var(--card-background-color))'} !important;
-      box-shadow: ${insightsEnabled
-        ? 'inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 55%, transparent)'
-        : 'none'} !important;
-      color: ${insightsEnabled ? 'var(--primary-color)' : 'var(--primary-text-color)'} !important;
+      background-color: color-mix(in srgb, var(--primary-color) 20%, var(--card-background-color)) !important;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 55%, transparent) !important;
+      color: var(--primary-color) !important;
     }
     .bubble-sub-button:nth-child(6) .bubble-sub-button-text {
-      color: ${insightsEnabled ? 'var(--primary-color)' : 'var(--primary-text-color)'} !important;
+      color: var(--primary-color) !important;
     }
-      `;
-    })()}
