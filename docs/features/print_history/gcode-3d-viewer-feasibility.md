@@ -44,24 +44,18 @@ Downloads extracted G-code from `/archives/{id}/gcode`, renders extrusion paths 
 
 ### Option A: Iframe Embed (Recommended)
 
-**Embed the Bambuddy archive page directly** in an HA dashboard using a `webpage` card or `browser_mod` popup.
+**Do not assume a dedicated Bambuddy archive-detail route exists.**
 
-Bambuddy serves each archive at `{bambuddy_url}/archives/{id}`. This page already includes the model viewer, gcode viewer, photos, metadata, and all interactive controls.
+Upstream Bambuddy exposes the archive browser at `/archives`, but the React router does not define `/archives/:id`. The archive UI is handled inside the archives page with in-page cards and modals, and upstream project links navigate back to `/archives?search=...` rather than to a per-archive detail URL.
+
+That means a Home Assistant popup cannot reliably deep-link to a single archive page today. Any iframe approach would need to embed the broader archives page rather than an archive-specific route.
 
 **Implementation:**
 ```yaml
 # Lovelace card — static iframe
 type: iframe
-url: "http://bambuddy.local:8902/archives/171"
+url: "http://bambuddy.local:8902/archives"
 aspect_ratio: "16:9"
-```
-
-Or dynamically based on the current archive:
-```yaml
-# Using auto-entities or custom:config-template-card
-type: iframe
-url: >-
-  http://bambuddy.local:8902/archives/{{ states('input_text.bambuddy_current_archive_id') }}
 ```
 
 **Popup via browser_mod:**
@@ -74,13 +68,13 @@ tap_action:
       title: "Archive Preview"
       content:
         type: iframe
-        url: "http://bambuddy.local:8902/archives/171"
+      url: "http://bambuddy.local:8902/archives"
         aspect_ratio: "16:9"
 ```
 
 **Pros:**
 - Zero development effort
-- Full Bambuddy UI including all viewers, photos, metadata
+    - Full Bambuddy UI including the archive browser and its viewers/modals
 - Automatically stays up-to-date with Bambuddy updates
 - Interactive (orbit, zoom, layer scrub)
 
@@ -88,7 +82,7 @@ tap_action:
 - Requires Bambuddy to be network-accessible from the browser
 - Bambuddy auth may block the embed (check CORS / cookie settings)
 - Not "native" HA look and feel
-- Can't control which viewer mode is initially shown
+    - Can't deep-link to one archive from the current HA popup
 
 **Auth consideration**: Bambuddy uses API key auth for API calls, but the web UI may have its own session auth. If the iframe prompts for login, this approach becomes less seamless. Test whether the archive page is accessible without auth when accessed from the same network.
 

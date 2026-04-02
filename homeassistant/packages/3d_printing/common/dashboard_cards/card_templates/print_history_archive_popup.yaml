@@ -14,9 +14,6 @@ print_history_archive_popup:
       }
 
       const archiveName = archive?.print_name || `Archive ${archiveId}`;
-      const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
-      const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
-      const archiveUrl = baseUrl ? `${baseUrl}/archives/${archiveId}` : '';
       const cards = [
         {
           type: 'custom:button-card',
@@ -28,18 +25,6 @@ print_history_archive_popup:
           hold_action: { action: 'none' }
         }
       ];
-
-      if (archiveUrl) {
-        cards.push({
-          type: 'button',
-          name: 'Open in Bambuddy',
-          icon: 'mdi:open-in-new',
-          tap_action: {
-            action: 'url',
-            url_path: archiveUrl
-          }
-        });
-      }
 
       return {
         action: 'fire-dom-event',

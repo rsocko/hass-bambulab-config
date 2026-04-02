@@ -218,7 +218,7 @@ What is live now:
 
 - per-archive tap targets in `Compact`, `Media`, and `Detail`
 - read-only popup content rendered from the projected archive payload already present on the page
-- thumbnail, status, timestamps, duration, filament used, cost, object count, material, layer height, nozzle, total layers, printer, designer, tags, notes, failure reason, and an `Open in Bambuddy` button
+- thumbnail, status, timestamps, duration, filament used, cost, object count, material, layer height, nozzle, total layers, printer, designer, tags, notes, and failure reason
 
 What is still being tuned inside Phase 1:
 
