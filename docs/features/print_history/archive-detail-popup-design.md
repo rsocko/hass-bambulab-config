@@ -22,11 +22,10 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 - Phase 0 remains deferred, and that is still accurate: the live archive popup/card templates are still owned by `common/dashboard_cards/card_templates`, and `button_card_templates` are still loaded from the shared dashboard definition under `common/dashboards/3d_printing.yaml`
 - Phase 1 is shipped for all three archive card variants: `Compact`, `Media`, and `Detail`
-- Phase 2 has now started in an initial form: favorites can be toggled from both the cards and the popup, and the popup supports helper-backed `tags` / `notes` edits within Home Assistant's current helper length cap
+- Phase 2 now covers the initial operator-edit slice: favorites can be toggled from both the cards and the popup, and the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason` within Home Assistant's current helper limits
 
 ### Not shipped yet
 
-- edit action for `print_name`
 - future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
 - feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
 
@@ -260,23 +259,35 @@ Phase 2 keeps the same popup entry point and adds a controlled edit area for fie
 - `tags`
 - `is_favorite`
 
+Status and failure-reason editing are now also in scope for the HA popup because they support a concrete archive-triage workflow: correcting an outcome after manual review, and aligning archived result metadata with Bambuddy's own failure categorization.
+
 ### Scope boundary
 
 Bambuddy itself supports a broader archive update contract than the initial HA popup edit scope. Additional mutable fields include `project_id`, `status`, `failure_reason`, `quantity`, `external_url`, and `cost`.
 
-Those fields are intentionally out of the first editable popup slice unless they support a clear print-history workflow. This keeps the initial popup focused and avoids implying that unrelated Bambuddy archive fields are spare storage for enrichment metadata.
+The remaining deferred fields are `project_id`, `quantity`, `external_url`, and `cost`. Those stay out of the current popup slice because they are not required for the first archive-review workflow and would push the popup toward a full archive-admin form.
 
 ### Why these first
 
 - they already fit the existing Bambuddy update semantics
 - they are high-value operator metadata
 - they do not require a separate object model or multi-step workflow
+- `status` and `failure_reason` support a real post-print operator workflow instead of being generic metadata storage
 
 ### Current implementation slice
 
 - `is_favorite` is toggleable from both the archive cards and the popup action bar
-- `tags` and `notes` are editable from the popup through helper-backed fields plus a save action, with current inline editing capped by Home Assistant helper limits
-- `print_name` is still deferred
+- `print_name`, `tags`, and `notes` are editable from the popup through helper-backed fields plus a save action, with current inline editing capped by Home Assistant helper limits
+- `status` is editable from the popup
+- `failure_reason` is editable from the popup, but only when the selected status is `failed` or Bambuddy's cancelled state (`aborted`)
+
+### Upstream Bambuddy behavior verified against source
+
+- backend `PATCH /archives/{id}` accepts `failure_reason` as `string | null`, so the API contract itself allows arbitrary custom strings
+- the shipped Bambuddy frontend does not expose a free-text failure-reason field; it uses a fixed dropdown list in `EditArchiveModal.tsx`
+- the shipped Bambuddy frontend only shows that dropdown when status is `failed` or `aborted`
+- Bambuddy's edit modal status list is currently `completed`, `failed`, `aborted`, and `printing`
+- the HA popup should mirror that UI behavior for consistency, while preserving an existing non-standard stored failure reason as a selectable option if one already exists on the archive
 
 ### UI shape
 

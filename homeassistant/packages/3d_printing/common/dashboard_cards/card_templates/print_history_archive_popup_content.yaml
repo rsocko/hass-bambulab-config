@@ -46,12 +46,14 @@ print_history_archive_popup_content:
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
-          if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+          if (raw === 'cancelled' || raw === 'aborted') return 'aborted';
           return raw;
         };
         const status = normalizeStatus(archive?.status);
         const statusLabel = status === 'completed'
           ? 'Completed'
+          : status === 'aborted'
+            ? 'Cancelled'
           : status === 'failed'
             ? 'Failed'
             : status === 'stopped'
@@ -61,6 +63,8 @@ print_history_archive_popup_content:
                 : (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown');
         const statusColor = status === 'completed'
           ? '#2E7D32'
+          : status === 'aborted'
+            ? '#EF6C00'
           : status === 'failed'
             ? '#C62828'
             : status === 'stopped'
@@ -70,6 +74,8 @@ print_history_archive_popup_content:
                 : '#546E7A';
         const statusIcon = status === 'completed'
           ? '✅'
+          : status === 'aborted'
+            ? '⛔'
           : status === 'failed'
             ? '❌'
             : status === 'stopped'

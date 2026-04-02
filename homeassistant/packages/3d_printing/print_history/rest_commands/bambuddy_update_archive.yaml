@@ -1,7 +1,7 @@
 # Update a Bambuddy archive — tags, notes, name.
 # Tags are a comma-separated string, not a JSON array.
 # Usage: service: rest_command.bambuddy_update_archive
-# Data: { "archive_id": "42", "tags": "ha_enriched:true,spoolman:42", "notes": "..." }
+# Data: { "archive_id": "42", "print_name": "Benchy", "tags": "ha_enriched:true,spoolman:42", "notes": "...", "status": "failed", "failure_reason": "Layer shift" }
 # Docs: docs/features/print_history/archive-enrichment.md
 bambuddy_update_archive:
   url: >-
@@ -10,5 +10,22 @@ bambuddy_update_archive:
   headers:
     X-API-Key: !secret bambuddy_api_key
   payload: >-
-    {"tags": {{ tags | default('') | tojson }}, "notes": {{ notes | default('') | tojson }}}
+    {% set ns = namespace(body={
+      "tags": tags | default('', true),
+      "notes": notes | default('', true)
+    }) %}
+    {% if print_name is defined %}
+      {% set ns.body = dict(ns.body, print_name=print_name) %}
+    {% endif %}
+    {% if status is defined %}
+      {% set ns.body = dict(ns.body, status=status) %}
+    {% endif %}
+    {% if failure_reason is defined %}
+      {% if failure_reason == '__NULL__' %}
+        {% set ns.body = dict(ns.body, failure_reason=none) %}
+      {% else %}
+        {% set ns.body = dict(ns.body, failure_reason=failure_reason) %}
+      {% endif %}
+    {% endif %}
+    {{ ns.body | tojson }}
   content_type: "application/json"

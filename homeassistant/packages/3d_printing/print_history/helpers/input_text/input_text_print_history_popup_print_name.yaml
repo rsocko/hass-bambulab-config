@@ -1,0 +1,5 @@
+print_history_popup_print_name:
+  name: Print History Popup Print Name
+  max: 255
+  mode: text
+  icon: mdi:printer-3d

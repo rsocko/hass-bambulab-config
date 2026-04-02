@@ -1,0 +1,17 @@
+print_history_popup_failure_reason:
+  name: Print History Popup Failure Reason
+  icon: mdi:alert-circle-outline
+  options:
+    - Unspecified
+    - Adhesion failure
+    - Spaghetti / Detached
+    - Layer shift
+    - Clogged nozzle
+    - Filament runout
+    - Warping
+    - Stringing
+    - Under-extrusion
+    - Power failure
+    - User cancelled
+    - Other
+  initial: Unspecified

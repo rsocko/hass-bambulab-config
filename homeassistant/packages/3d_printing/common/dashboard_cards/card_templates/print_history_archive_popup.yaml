@@ -25,15 +25,64 @@ print_history_archive_popup:
       }
 
       const archiveName = archive?.print_name || `Archive ${archiveId}`;
+      const archivePrintName = String(archive?.print_name || '');
       const archiveTags = String(archive?.tags || '');
       const archiveNotes = String(archive?.notes || '');
+      const archiveFailureReason = String(archive?.failure_reason || '').trim();
+      const normalizeStatusOption = (status) => {
+        const raw = String(status || '').toLowerCase().trim();
+        if (raw === 'success') return 'completed';
+        if (raw === 'cancelled') return 'aborted';
+        return raw;
+      };
+      const archiveStatus = normalizeStatusOption(archive?.status);
+      const fixedStatusOptions = ['completed', 'failed', 'aborted', 'printing'];
+      const statusOptions = fixedStatusOptions.slice();
+      if (archiveStatus && !statusOptions.includes(archiveStatus)) {
+        statusOptions.push(archiveStatus);
+      }
+      const fixedFailureReasonOptions = [
+        'Unspecified',
+        'Adhesion failure',
+        'Spaghetti / Detached',
+        'Layer shift',
+        'Clogged nozzle',
+        'Filament runout',
+        'Warping',
+        'Stringing',
+        'Under-extrusion',
+        'Power failure',
+        'User cancelled',
+        'Other'
+      ];
+      const failureReasonOptions = fixedFailureReasonOptions.slice();
+      const hasCustomFailureReason = archiveFailureReason && !failureReasonOptions.includes(archiveFailureReason);
+      if (hasCustomFailureReason) {
+        failureReasonOptions.push(archiveFailureReason);
+      }
+      const selectedFailureReason = archiveFailureReason || 'Unspecified';
+      const editorNameLimit = 255;
       const editorTagLimit = 255;
       const editorNotesLimit = 255;
+      const editablePrintName = archivePrintName.slice(0, editorNameLimit);
       const editableTags = archiveTags.slice(0, editorTagLimit);
       const editableNotes = archiveNotes.slice(0, editorNotesLimit);
+      const printNameWasTrimmed = archivePrintName.length > editorNameLimit;
       const notesWereTrimmed = archiveNotes.length > editorNotesLimit;
       const tagsWereTrimmed = archiveTags.length > editorTagLimit;
       const isFavorite = !!archive?.is_favorite;
+      const failureReasonEditorCard = {
+        type: 'entities',
+        title: 'Failure Reason',
+        show_header_toggle: false,
+        entities: [
+          {
+            entity: 'input_select.print_history_popup_failure_reason',
+            name: 'Failure Reason',
+            icon: 'mdi:alert-circle-outline'
+          }
+        ]
+      };
       const buttonCard = (name, icon, background, tapAction) => ({
         type: 'custom:button-card',
         name,
@@ -83,9 +132,19 @@ print_history_archive_popup:
         },
         {
           type: 'entities',
-          title: 'Edit Tags & Notes',
+          title: 'Edit Archive',
           show_header_toggle: false,
           entities: [
+            {
+              entity: 'input_text.print_history_popup_print_name',
+              name: 'Print Name',
+              icon: 'mdi:printer-3d'
+            },
+            {
+              entity: 'input_select.print_history_popup_status',
+              name: 'Status',
+              icon: 'mdi:list-status'
+            },
             {
               entity: 'input_text.print_history_popup_tags',
               name: 'Tags',
@@ -98,9 +157,29 @@ print_history_archive_popup:
             }
           ]
         },
-        ...((notesWereTrimmed || tagsWereTrimmed) ? [{
+        {
+          type: 'conditional',
+          conditions: [
+            {
+              entity: 'input_select.print_history_popup_status',
+              state: 'failed'
+            }
+          ],
+          card: failureReasonEditorCard
+        },
+        {
+          type: 'conditional',
+          conditions: [
+            {
+              entity: 'input_select.print_history_popup_status',
+              state: 'aborted'
+            }
+          ],
+          card: failureReasonEditorCard
+        },
+        ...((printNameWasTrimmed || notesWereTrimmed || tagsWereTrimmed || hasCustomFailureReason) ? [{
           type: 'markdown',
-          content: `${tagsWereTrimmed ? '- Tags were trimmed to the first 255 characters for editing.\n' : ''}${notesWereTrimmed ? '- Notes were trimmed to the first 255 characters for editing.\n' : ''}Home Assistant input_text helpers currently cap inline edits at 255 characters.`
+          content: `${printNameWasTrimmed ? '- Print name was trimmed to the first 255 characters for editing.\n' : ''}${tagsWereTrimmed ? '- Tags were trimmed to the first 255 characters for editing.\n' : ''}${notesWereTrimmed ? '- Notes were trimmed to the first 255 characters for editing.\n' : ''}${hasCustomFailureReason ? '- A non-standard failure reason was preserved as an extra dropdown option because Bambuddy\'s API accepts arbitrary strings even though its UI uses a fixed list.\n' : ''}${(printNameWasTrimmed || tagsWereTrimmed || notesWereTrimmed) ? 'Home Assistant input_text helpers currently cap inline edits at 255 characters.' : ''}`
         }] : []),
         {
           type: 'grid',
@@ -153,6 +232,13 @@ print_history_archive_popup:
               {
                 service: 'input_text.set_value',
                 data: {
+                  entity_id: 'input_text.print_history_popup_print_name',
+                  value: editablePrintName
+                }
+              },
+              {
+                service: 'input_text.set_value',
+                data: {
                   entity_id: 'input_text.print_history_popup_tags',
                   value: editableTags
                 }
@@ -162,6 +248,34 @@ print_history_archive_popup:
                 data: {
                   entity_id: 'input_text.print_history_popup_notes',
                   value: editableNotes
+                }
+              },
+              {
+                service: 'input_select.set_options',
+                data: {
+                  entity_id: 'input_select.print_history_popup_status',
+                  options: statusOptions
+                }
+              },
+              {
+                service: 'input_select.select_option',
+                data: {
+                  entity_id: 'input_select.print_history_popup_status',
+                  option: archiveStatus || 'completed'
+                }
+              },
+              {
+                service: 'input_select.set_options',
+                data: {
+                  entity_id: 'input_select.print_history_popup_failure_reason',
+                  options: failureReasonOptions
+                }
+              },
+              {
+                service: 'input_select.select_option',
+                data: {
+                  entity_id: 'input_select.print_history_popup_failure_reason',
+                  option: selectedFailureReason
                 }
               },
               {

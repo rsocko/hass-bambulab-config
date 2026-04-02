@@ -1,0 +1,9 @@
+print_history_popup_status:
+  name: Print History Popup Status
+  icon: mdi:list-status
+  options:
+    - completed
+    - failed
+    - aborted
+    - printing
+  initial: completed

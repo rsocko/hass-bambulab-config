@@ -1,11 +1,25 @@
-# Save popup-edited tags and notes back to Bambuddy, then refresh the history cache.
+# Save popup-edited archive fields back to Bambuddy, then refresh the history cache.
 save_print_history_archive_popup_edits:
   alias: Save Print History Archive Popup Edits
   sequence:
     - variables:
         resolved_archive_id: "{{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}"
+        resolved_print_name: "{{ states('input_text.print_history_popup_print_name') | default('', true) | string | trim }}"
         resolved_tags: "{{ states('input_text.print_history_popup_tags') | default('', true) | string }}"
         resolved_notes: "{{ states('input_text.print_history_popup_notes') | default('', true) | string }}"
+        resolved_status: "{{ states('input_select.print_history_popup_status') | default('', true) | string | trim | lower }}"
+        resolved_failure_reason: >-
+          {% set current_status = states('input_select.print_history_popup_status') | default('', true) | string | trim | lower %}
+          {% set selected = states('input_select.print_history_popup_failure_reason') | default('', true) | string | trim %}
+          {% if current_status in ['failed', 'aborted'] %}
+            {% if selected in ['', 'Unspecified'] %}
+              __NULL__
+            {% else %}
+              {{ selected }}
+            {% endif %}
+          {% else %}
+            __NULL__
+          {% endif %}
     - if:
         - condition: template
           value_template: "{{ resolved_archive_id != '' }}"
@@ -13,8 +27,11 @@ save_print_history_archive_popup_edits:
         - action: rest_command.bambuddy_update_archive
           data:
             archive_id: "{{ resolved_archive_id }}"
+            print_name: "{{ resolved_print_name }}"
             tags: "{{ resolved_tags }}"
             notes: "{{ resolved_notes }}"
+            status: "{{ resolved_status }}"
+            failure_reason: "{{ resolved_failure_reason }}"
         - action: script.refresh_print_history_archives
         - action: browser_mod.close_popup
         - action: logbook.log

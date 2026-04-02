@@ -21,11 +21,6 @@ The toggle endpoint is simpler for button cards; the PATCH endpoint is better fo
 
 **Manual favorite** — A button on the print history dashboard card (or a dedicated HA script/service) that marks the current/last completed print as a favorite in Bambuddy.
 
-**Auto-favorite** — An optional automation that auto-favorites prints meeting certain criteria:
-- Successful prints of a specific model (by `print_name` pattern)
-- Prints using specific filaments (by tag or material)
-- First successful print of a new model (no prior archive with same `print_name` and `status: completed`)
-
 ### Implementation
 
 **Script: `bambuddy_toggle_favorite`**
@@ -95,8 +90,9 @@ The phased interaction design for per-archive popup drilldown is tracked in [arc
 Summary:
 
 - Phase 1: each archive card opens a read-only detail popup
-- Phase 2: add editing for `print_name`, `notes`, `tags`, and `is_favorite` as the initial HA popup scope
-- Bambuddy's broader archive update contract also supports fields such as `project_id`, `status`, `failure_reason`, `quantity`, `external_url`, and `cost`, but those are intentionally deferred unless the HA popup needs them for a clear operator workflow
+- Phase 2: add editing for `print_name`, `notes`, `tags`, `is_favorite`, `status`, and `failure_reason` as the initial HA popup scope
+- Bambuddy's broader archive update contract also supports fields such as `project_id`, `quantity`, `external_url`, and `cost`, but those remain intentionally deferred
+- verified against Bambuddy source: the backend accepts any `failure_reason` string, but the shipped Bambuddy edit modal uses a fixed failure-reason dropdown and only shows it when status is `failed` or `aborted` (the cancelled state)
 - later popup action slots are reserved for issue `#744` and the related follow-on issues `#747`, `#748`, `#750`, `#755`, and `#783`
 
 ### Archive Detection And Recovery
