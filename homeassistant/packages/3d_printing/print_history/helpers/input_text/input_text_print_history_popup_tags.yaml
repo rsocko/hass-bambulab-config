@@ -1,0 +1,5 @@
+print_history_popup_tags:
+  name: Print History Popup Tags
+  max: 65535
+  mode: text
+  icon: mdi:tag-multiple-outline

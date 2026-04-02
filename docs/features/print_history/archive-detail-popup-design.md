@@ -18,9 +18,15 @@ This document covers the Home Assistant interaction model and rollout sequence f
 	4. a shared popup template opens a read-only detail popup using the projected archive payload already present on the page
 - the active popup is reusable and defined once through shared button-card templates rather than duplicated in each layout variant
 
+### Phase tracking as of the live implementation
+
+- Phase 0 remains deferred, and that is still accurate: the live archive popup/card templates are still owned by `common/dashboard_cards/card_templates`, and `button_card_templates` are still loaded from the shared dashboard definition under `common/dashboards/3d_printing.yaml`
+- Phase 1 is shipped for all three archive card variants: `Compact`, `Media`, and `Detail`
+- Phase 2 has now started in an initial form: favorites can be toggled from both the cards and the popup, and the popup supports helper-backed `tags` / `notes` edits
+
 ### Not shipped yet
 
-- edit actions for `print_name`, `notes`, `tags`, and `is_favorite`
+- edit action for `print_name`
 - future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
 - feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
 
@@ -170,7 +176,7 @@ Without this step, issue #753 lands as functionally correct but structurally mis
 
 ### Current status
 
-Deferred. The popup feature shipped first using the existing shared template registry so the interaction model could be stabilized before moving template ownership.
+Deferred, and still accurate. The popup feature shipped first using the existing shared template registry so the interaction model could be stabilized before moving template ownership. The live templates remain under `common/dashboard_cards/card_templates`, and the current dashboard wiring still loads button-card templates from the shared `common` dashboard definition.
 
 ## Phase 1: Read-Only Archive Detail Popup
 
@@ -195,7 +201,6 @@ Phase 1 popup should show:
 - tags
 - notes
 - failure reason when present
-- link or button to open the archive directly in Bambuddy
 
 ### Data behavior
 
@@ -226,6 +231,24 @@ What is still being tuned inside Phase 1:
 - full-width behavior for `Detail`
 - card density and visual polish compared with the earlier single-renderer layout
 
+## Recommended Next Stage
+
+The next stage should remain Phase 2, not Phase 0.
+
+Why:
+
+- the current popup entry point is already stable and shipped across all three card variants
+- the remaining user-visible gap is the unfinished portion of archive actions, not tap-target behavior or popup launch
+- the lowest-risk next increment is to continue the existing action area by adding the remaining missing edit scope and follow-on drilldown actions
+
+Recommended sequencing:
+
+1. finish the remaining initial edit scope by adding `print_name`
+2. refine the current `tags` / `notes` editing UX if the helper-backed flow proves too clunky in practice
+3. return to Phase 0 only if the dashboard template-loading model is being changed anyway, or if feature-local template ownership becomes operationally important enough to justify the refactor on its own
+
+That keeps the next work aligned with the shipped UX while preserving the ownership refactor as a cleanup/architecture follow-on rather than a blocker.
+
 ## Phase 2: Edit Key Fields
 
 Phase 2 keeps the same popup entry point and adds a controlled edit area for fields that map cleanly to the existing `PATCH /archives/{id}` contract.
@@ -248,6 +271,12 @@ Those fields are intentionally out of the first editable popup slice unless they
 - they already fit the existing Bambuddy update semantics
 - they are high-value operator metadata
 - they do not require a separate object model or multi-step workflow
+
+### Current implementation slice
+
+- `is_favorite` is toggleable from both the archive cards and the popup action bar
+- `tags` and `notes` are editable from the popup through helper-backed fields plus a save action
+- `print_name` is still deferred
 
 ### UI shape
 

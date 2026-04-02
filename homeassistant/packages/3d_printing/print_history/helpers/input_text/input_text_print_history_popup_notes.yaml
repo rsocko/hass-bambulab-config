@@ -1,0 +1,5 @@
+print_history_popup_notes:
+  name: Print History Popup Notes
+  max: 65535
+  mode: text
+  icon: mdi:text-box-outline

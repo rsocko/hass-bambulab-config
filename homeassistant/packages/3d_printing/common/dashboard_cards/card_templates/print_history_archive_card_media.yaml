@@ -2,10 +2,34 @@ print_history_archive_card_media:
   template:
     - print_history_archive_popup
   type: custom:button-card
-  show_icon: false
+  show_icon: true
   show_name: false
   show_state: false
   show_label: false
+  icon: |
+    [[[ 
+      let archive = {};
+      try {
+        archive = JSON.parse(variables?.archive_json || '{}');
+      } catch (_error) {
+        archive = {};
+      }
+      return archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline';
+    ]]]
+  icon_tap_action:
+    action: call-service
+    service: script.toggle_print_history_archive_favorite
+    data:
+      archive_id: |
+        [[[ 
+          let archive = {};
+          try {
+            archive = JSON.parse(variables?.archive_json || '{}');
+          } catch (_error) {
+            archive = {};
+          }
+          return archive?.id ? String(archive.id) : '';
+        ]]]
   custom_fields:
     body: |
       [[[ 
@@ -73,7 +97,6 @@ print_history_archive_card_media:
                   <div style="font-size:12px;color:var(--secondary-text-color);">${escapeHtml(formatDate(archive?.started_at || archive?.created_at))}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:100%;margin-left:auto;">
-                  ${archive?.is_favorite ? '<span style="font-size:18px;color:#f5c242;">★</span>' : ''}
                   <span style="background:${statusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">${statusIcon} ${escapeHtml(statusLabel)}</span>
                 </div>
               </div>
@@ -91,8 +114,9 @@ print_history_archive_card_media:
       ]]]
   styles:
     grid:
-      - grid-template-areas: '"body"'
-      - grid-template-columns: minmax(0, 1fr)
+      - grid-template-areas: '"body i"'
+      - grid-template-columns: minmax(0, 1fr) auto
+      - align-items: start
     card:
       - width: 100%
       - min-width: 0
@@ -103,6 +127,26 @@ print_history_archive_card_media:
       - box-sizing: border-box
       - overflow: hidden
       - justify-self: stretch
+    img_cell:
+      - align-self: start
+      - justify-self: end
+      - width: 28px
+      - height: 28px
+      - padding-top: 2px
+      - margin-left: 12px
+    icon:
+      - width: 22px
+      - height: 22px
+      - color: |
+          [[[ 
+            let archive = {};
+            try {
+              archive = JSON.parse(variables?.archive_json || '{}');
+            } catch (_error) {
+              archive = {};
+            }
+            return archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)';
+          ]]]
     custom_fields:
       body:
         - display: block

@@ -1,0 +1,29 @@
+# Save popup-edited tags and notes back to Bambuddy, then refresh the history cache.
+save_print_history_archive_popup_edits:
+  alias: Save Print History Archive Popup Edits
+  sequence:
+    - variables:
+        resolved_archive_id: "{{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}"
+        resolved_tags: "{{ states('input_text.print_history_popup_tags') | default('', true) | string }}"
+        resolved_notes: "{{ states('input_text.print_history_popup_notes') | default('', true) | string }}"
+    - if:
+        - condition: template
+          value_template: "{{ resolved_archive_id != '' }}"
+      then:
+        - action: rest_command.bambuddy_update_archive
+          data:
+            archive_id: "{{ resolved_archive_id }}"
+            tags: "{{ resolved_tags }}"
+            notes: "{{ resolved_notes }}"
+        - action: script.refresh_print_history_archives
+        - action: browser_mod.close_popup
+        - action: logbook.log
+          data:
+            name: Print History
+            message: "Saved popup edits for archive {{ resolved_archive_id }}"
+      else:
+        - action: logbook.log
+          data:
+            name: Print History
+            message: Save popup edits requested without an archive ID
+  mode: queued

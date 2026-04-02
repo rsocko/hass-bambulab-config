@@ -1,0 +1,10 @@
+# Toggle Bambuddy archive favorite state.
+# Usage: service: rest_command.bambuddy_toggle_favorite
+# Data: { "archive_id": "42" }
+bambuddy_toggle_favorite:
+  url: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/{{ archive_id }}/favorite
+  method: POST
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+  content_type: "application/json"

@@ -1,0 +1,4 @@
+print_history_popup_archive_id:
+  name: Print History Popup Archive ID
+  max: 100
+  icon: mdi:archive-outline

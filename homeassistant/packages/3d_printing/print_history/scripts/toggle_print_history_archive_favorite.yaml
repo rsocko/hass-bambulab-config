@@ -1,0 +1,30 @@
+# Toggle favorite state for a Bambuddy archive, then refresh the history cache.
+toggle_print_history_archive_favorite:
+  alias: Toggle Print History Archive Favorite
+  fields:
+    archive_id:
+      description: Archive ID to favorite or unfavorite.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        resolved_archive_id: "{{ archive_id | default('', true) | string | trim }}"
+    - if:
+        - condition: template
+          value_template: "{{ resolved_archive_id != '' }}"
+      then:
+        - action: rest_command.bambuddy_toggle_favorite
+          data:
+            archive_id: "{{ resolved_archive_id }}"
+        - action: script.refresh_print_history_archives
+        - action: logbook.log
+          data:
+            name: Print History
+            message: "Toggled favorite for archive {{ resolved_archive_id }}"
+      else:
+        - action: logbook.log
+          data:
+            name: Print History
+            message: Toggle favorite requested without an archive ID
+  mode: queued

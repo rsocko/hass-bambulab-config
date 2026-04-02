@@ -14,6 +14,46 @@ print_history_archive_popup:
       }
 
       const archiveName = archive?.print_name || `Archive ${archiveId}`;
+      const archiveTags = String(archive?.tags || '');
+      const archiveNotes = String(archive?.notes || '');
+      const isFavorite = !!archive?.is_favorite;
+      const favoriteIcon = isFavorite ? 'mdi:star' : 'mdi:star-outline';
+      const favoriteLabel = isFavorite ? 'Unfavorite' : 'Favorite';
+      const buttonCard = (name, icon, background, tapAction) => ({
+        type: 'custom:button-card',
+        name,
+        icon,
+        show_name: true,
+        show_icon: true,
+        show_state: false,
+        tap_action: tapAction,
+        hold_action: { action: 'none' },
+        styles: {
+          card: [
+            { padding: '12px 10px' },
+            { 'border-radius': '16px' },
+            { 'box-shadow': 'none' },
+            { border: '1px solid rgba(255,255,255,0.08)' },
+            { background }
+          ],
+          grid: [
+            { 'grid-template-areas': '"i" "n"' },
+            { 'grid-template-columns': '1fr' },
+            { 'justify-items': 'center' },
+            { gap: '6px' }
+          ],
+          icon: [
+            { width: '22px' },
+            { height: '22px' },
+            { color: 'var(--primary-text-color)' }
+          ],
+          name: [
+            { 'font-size': '12px' },
+            { 'font-weight': '600' },
+            { color: 'var(--primary-text-color)' }
+          ]
+        }
+      });
       const cards = [
         {
           type: 'custom:button-card',
@@ -23,20 +63,102 @@ print_history_archive_popup:
           },
           tap_action: { action: 'none' },
           hold_action: { action: 'none' }
+        },
+        {
+          type: 'entities',
+          title: 'Edit Tags & Notes',
+          show_header_toggle: false,
+          entities: [
+            {
+              entity: 'input_text.print_history_popup_tags',
+              name: 'Tags',
+              icon: 'mdi:tag-multiple-outline'
+            },
+            {
+              entity: 'input_text.print_history_popup_notes',
+              name: 'Notes',
+              icon: 'mdi:text-box-outline'
+            }
+          ]
+        },
+        {
+          type: 'grid',
+          columns: 3,
+          square: false,
+          cards: [
+            buttonCard(
+              favoriteLabel,
+              favoriteIcon,
+              isFavorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.04)',
+              {
+                action: 'call-service',
+                service: 'script.toggle_print_history_archive_favorite',
+                data: {
+                  archive_id: String(archiveId)
+                }
+              }
+            ),
+            buttonCard(
+              'Save',
+              'mdi:content-save-outline',
+              'rgba(21,101,192,0.18)',
+              {
+                action: 'call-service',
+                service: 'script.save_print_history_archive_popup_edits'
+              }
+            ),
+            buttonCard(
+              'Close',
+              'mdi:close',
+              'rgba(255,255,255,0.04)',
+              {
+                action: 'call-service',
+                service: 'browser_mod.close_popup'
+              }
+            )
+          ]
         }
       ];
 
       return {
         action: 'fire-dom-event',
         browser_mod: {
-          service: 'browser_mod.popup',
+          service: 'browser_mod.sequence',
           data: {
-            title: archiveName,
-            size: 'normal',
-            content: {
-              type: 'vertical-stack',
-              cards
-            }
+            sequence: [
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: 'input_text.print_history_popup_archive_id',
+                  value: String(archiveId)
+                }
+              },
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: 'input_text.print_history_popup_tags',
+                  value: archiveTags
+                }
+              },
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: 'input_text.print_history_popup_notes',
+                  value: archiveNotes
+                }
+              },
+              {
+                service: 'browser_mod.popup',
+                data: {
+                  title: archiveName,
+                  size: 'normal',
+                  content: {
+                    type: 'vertical-stack',
+                    cards
+                  }
+                }
+              }
+            ]
           }
         }
       };

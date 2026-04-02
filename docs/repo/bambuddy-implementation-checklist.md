@@ -26,7 +26,7 @@ Canonical sources:
 - [ ] `print_history` photo review UX
   Current state: status chip exists, but popup/actions are not implemented.
 - [ ] `print_history` archive detail actions
-  Current state: each archive card now opens a read-only popup, but edit/favorite/compare flows are not implemented.
+  Current state: favorites are now toggleable from both the cards and popup, and popup-backed `tags` / `notes` edits are implemented; `print_name`, compare, and richer follow-on actions are not yet implemented.
 - [ ] cleanup of superseded Bambuddy artifacts
   Current state: docs are now mostly redirect/stub oriented, but legacy package/code remains in repo.
 
@@ -36,7 +36,7 @@ Canonical sources:
 - [ ] `print_statistics` feature package implementation
 - [ ] `printer_maintenance` feature package implementation
 - [ ] external Python upload worker
-- [ ] archive-detail workflows such as favorites, compare, and richer deep links
+- [ ] archive-detail workflows such as compare and richer deep links
 
 ## Package Checklist
 
@@ -57,12 +57,13 @@ Canonical sources:
 - [x] Shell-based multipart upload bridge shipped
 - [x] Archive-detail verification for photo uploads
 - [x] Read-only archive detail popup shipped
+- [ ] Archive detail `print_name` edit, compare actions, and richer deep links
 - [ ] Refine enrichment to use native `cost` and dual-purpose `notes` (human summary + compact structured payload)
 - [ ] Upgrade enrichment resolution toward the UUID-first design without requiring sidecar storage
 - [ ] Rich per-photo upload metadata and retries
 - [ ] Photo review delete/replace/set-cover scripts
 - [ ] Photo review popup and dismissal flow
-- [ ] Archive detail edit/favorites/compare actions
+
 
 ### Phase 3: print_queue
 

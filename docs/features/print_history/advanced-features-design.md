@@ -123,25 +123,25 @@ This is the best available path without changing Bambuddy itself, because curren
 
 ## Priority Ranking
 
-| Feature | Phase | Effort | Value |
-|---------|-------|--------|-------|
-| Favorites toggle | 2.1 | Low | Medium — quick win, useful UX |
-| Timelapse auto-attach | 2 (enrichment) | Low | High — automates manual step |
-| Archive detection + recovery workflow | 2.05 | Medium | Very High — catches and manages broken history records |
-| Timelapse lifecycle management | 2.9 | Medium | High — exception handling + richer media review |
-| Archive repair diagnostics | 2.10 | Medium | High — repair missing assets and expose archive health |
-| Failure analysis sensor | 3.1 (statistics) | Medium | High — surfaced in dashboard |
-| Tag audit sensor | 2 (common/diagnostic) | Low | Medium — enrichment verification |
-| Compare on failure | 2.2 | Medium | Medium — debugging prints |
-| Duplicate/reprint awareness | 2.3 | Medium | High — "printed this before" intelligence |
-| MakerWorld attribution | 2.4 | Low | Medium — designer credit + source links |
-| Spool remaining pre-print warning | 2.5 | Medium | **Very High** — prevent failed prints from empty spools |
-| Energy cost enrichment | 2.6 | Medium | High — ties power_monitoring to Bambuddy |
-| Rich print notifications | 2.7 | Low | Medium — better notification content |
-| Spool usage provenance | 2.8 | Low | Medium — "what did this spool print?" |
-| Reprint from HA | Future | High | Medium — safety concerns |
-| Archive detail popup + editing | 2.11+ | Medium | Medium — support and provenance UX |
-| Search from HA | Future | Medium | Low — Bambuddy UI is better |
+| Feature                               | Phase                 | Effort | Value                                                   |
+| ------------------------------------- | --------------------- | ------ | ------------------------------------------------------- |
+| Favorites toggle                      | 2.1                   | Low    | Medium — quick win, useful UX                           |
+| Timelapse auto-attach                 | 2 (enrichment)        | Low    | High — automates manual step                            |
+| Archive detection + recovery workflow | 2.05                  | Medium | Very High — catches and manages broken history records  |
+| Timelapse lifecycle management        | 2.9                   | Medium | High — exception handling + richer media review         |
+| Archive repair diagnostics            | 2.10                  | Medium | High — repair missing assets and expose archive health  |
+| Failure analysis sensor               | 3.1 (statistics)      | Medium | High — surfaced in dashboard                            |
+| Tag audit sensor                      | 2 (common/diagnostic) | Low    | Medium — enrichment verification                        |
+| Compare on failure                    | 2.2                   | Medium | Medium — debugging prints                               |
+| Duplicate/reprint awareness           | 2.3                   | Medium | High — "printed this before" intelligence               |
+| MakerWorld attribution                | 2.4                   | Low    | Medium — designer credit + source links                 |
+| Spool remaining pre-print warning     | 2.5                   | Medium | **Very High** — prevent failed prints from empty spools |
+| Energy cost enrichment                | 2.6                   | Medium | High — ties power_monitoring to Bambuddy                |
+| Rich print notifications              | 2.7                   | Low    | Medium — better notification content                    |
+| Spool usage provenance                | 2.8                   | Low    | Medium — "what did this spool print?"                   |
+| Reprint from HA                       | Future                | High   | Medium — safety concerns                                |
+| Archive detail popup + editing        | 2.11+                 | Medium | Medium — support and provenance UX                      |
+| Search from HA                        | Future                | Medium | Low — Bambuddy UI is better                             |
 
 ---
 
