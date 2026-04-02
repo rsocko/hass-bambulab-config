@@ -1,6 +1,7 @@
 print_history_archive_popup_content:
+  entity: sensor.print_history_archives
   triggers_update:
-    - sensor.print_history_page_archives
+    - sensor.print_history_archives
   show_icon: false
   show_name: false
   show_state: false
@@ -30,10 +31,10 @@ print_history_archive_popup_content:
         const snapshotArchiveId = snapshotArchive?.id;
         let archive = snapshotArchive;
         try {
-          const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
-          const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
-          if (Array.isArray(pageArchives) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
-            archive = pageArchives.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
+          const archiveCacheRaw = states['sensor.print_history_archives']?.attributes?.archives_json || '[]';
+          const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
+          if (Array.isArray(archiveCache) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
+            archive = archiveCache.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
           }
         } catch (_error) {
           archive = snapshotArchive;
