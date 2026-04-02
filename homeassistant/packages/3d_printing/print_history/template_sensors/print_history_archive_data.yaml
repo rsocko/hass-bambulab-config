@@ -27,7 +27,7 @@
       unique_id: print_history_page_archives
       icon: mdi:archive-outline
       state: >-
-        {{ states('input_number.history_current_page') | int(1) }}
+        {{ now().isoformat() }}
       attributes:
         archives: >-
           {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
