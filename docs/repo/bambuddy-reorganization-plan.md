@@ -28,6 +28,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | [archive-enrichment.md](../features/print_history/archive-enrichment.md) | print_history | Spoolman → Bambuddy tag/notes pipeline |
 | [photo-review-design.md](../features/print_history/photo-review-design.md) | print_history | Post-print photo curation (remove/replace/cover) |
 | [archive-detection-recovery-design.md](../features/print_history/archive-detection-recovery-design.md) | print_history | Detect incomplete Bambuddy archives and define no-code-change repair options |
+| [archive-mismatch-repair-design.md](../features/print_history/archive-mismatch-repair-design.md) | print_history | Detect wrong-file archive records and define replacement-based repair options |
 | [archive-detection-phase1-scope.md](../features/print_history/archive-detection-phase1-scope.md) | print_history | Collapsed recommended first build slice: detection and visibility only |
 | [archive-detection-implementation-plan.md](../features/print_history/archive-detection-implementation-plan.md) | print_history | Design-only phased plan for HA detection, exception UX, and future recovery orchestration |
 | [archive-recovery-n8n-design.md](../features/print_history/archive-recovery-n8n-design.md) | print_history | `n8n` recovery workflow contract, retry policy, and outcome model |

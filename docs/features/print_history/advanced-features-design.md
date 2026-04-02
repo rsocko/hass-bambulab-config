@@ -107,6 +107,18 @@ Summary:
 
 This is the best available path without changing Bambuddy itself, because current Bambuddy APIs can inspect, rescan, upload, and attach source files, but do not support in-place repair of a fallback archive whose main `file_path` was never created.
 
+### Archive Mismatch Detection And Replacement
+
+Detailed design is tracked in [archive-mismatch-repair-design.md](archive-mismatch-repair-design.md).
+
+Summary:
+
+- Detect archives whose stored `.3mf` payload appears to belong to a different print record
+- Treat same-hash, different-name chains as suspicious rather than automatically wrong
+- Support manual, operator-approved replacement via a new canonical archive instead of pretending the old archive can be repointed in place
+
+This is a distinct failure mode from fallback `no_3mf_available` archives. It applies when Bambuddy successfully archived a file, but the file bytes are wrong for the record and later metadata edits made the mismatch more visible.
+
 ### Reprint from HA
 
 `POST /archives/{id}/reprint` dispatches a 3MF to the printer with AMS mapping, plate selection, bed leveling, and calibration options. Complex because it needs AMS mapping UI and unattended reprint safety considerations. Best surfaced as a dashboard button with confirmation. Blocked until `spoolman_tray_map` can auto-generate the `ams_mapping` body from current tray state.
@@ -124,6 +136,7 @@ This is the best available path without changing Bambuddy itself, because curren
 | Favorites toggle                      | 2.1                   | Low    | Medium — quick win, useful UX                           |
 | Timelapse auto-attach                 | 2 (enrichment)        | Low    | High — automates manual step                            |
 | Archive detection + recovery workflow | 2.05                  | Medium | Very High — catches and manages broken history records  |
+| Archive mismatch detection + replacement | 2.12                | Medium | High — explains and repairs wrong-file archive records |
 | Timelapse lifecycle management        | 2.9                   | Medium | High — exception handling + richer media review         |
 | Archive repair diagnostics            | 2.10                  | Medium | High — repair missing assets and expose archive health  |
 | Failure analysis sensor               | 3.1 (statistics)      | Medium | High — surfaced in dashboard                            |
@@ -213,6 +226,12 @@ From the archive response:
 | `GET` | `/archives/search?q=...` | Search by print_name to find past prints of the same model |
 
 ### Use Cases
+
+Important caveat:
+
+- this feature assumes `content_hash` reflects the intended archived file
+- issue `#793` showed that same-hash grouping can still be correct technically while the archive record itself points to the wrong file
+- suspicious same-hash, different-name cases therefore need a separate review/repair path, documented in [archive-mismatch-repair-design.md](archive-mismatch-repair-design.md)
 
 1. **"You've printed this before" notification** — On `print_started`, if the archive has `duplicate_count > 0` or `GET /{id}/similar` returns matches, send a notification:
    > "Starting 'Benchy' — you've printed this model 3 times before. Last result: completed (94.4% time accuracy). Best attempt: archive #145."
