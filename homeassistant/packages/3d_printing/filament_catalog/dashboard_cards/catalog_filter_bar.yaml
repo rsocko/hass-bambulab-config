@@ -244,48 +244,66 @@ cards:
           icon: mdi:counter
           show_name: true
           show_state: true
-          styles: |
-            .bubble-button-card-container {
-              pointer-events: none !important;
-              cursor: default !important;
-            }
-            .bubble-sub-button-container,
-            .bubble-sub-buttons-container {
-              pointer-events: auto !important;
-              justify-content: flex-start !important;
-              gap: 6px !important;
-            }
-            .bubble-sub-button {
-              pointer-events: auto !important;
-            }
-            .bubble-sub-button.clear-material-filter,
-            .bubble-sub-button.clear-vendor-filter,
-            .bubble-sub-button.clear-color-filter,
-            .bubble-sub-button.clear-family-filter,
-            .bubble-sub-button.clear-type-filter,
-            .bubble-sub-button.clear-location-filter,
-            .bubble-sub-button.clear-stock-level-filter,
-            .bubble-sub-button.clear-sealed-filter,
-            .bubble-sub-button.clear-desiccant-filter,
-            .bubble-sub-button.clear-data-quality-filter,
-            .bubble-sub-button.clear-search-filter {
-              background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
-              color: var(--accent-color) !important;
-              box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
-            }
-            .bubble-sub-button.clear-material-filter ha-icon,
-            .bubble-sub-button.clear-vendor-filter ha-icon,
-            .bubble-sub-button.clear-color-filter ha-icon,
-            .bubble-sub-button.clear-family-filter ha-icon,
-            .bubble-sub-button.clear-type-filter ha-icon,
-            .bubble-sub-button.clear-location-filter ha-icon,
-            .bubble-sub-button.clear-stock-level-filter ha-icon,
-            .bubble-sub-button.clear-sealed-filter ha-icon,
-            .bubble-sub-button.clear-desiccant-filter ha-icon,
-            .bubble-sub-button.clear-data-quality-filter ha-icon,
-            .bubble-sub-button.clear-search-filter ha-icon {
-              color: var(--accent-color) !important;
-            }
+          styles: >-
+            ${(() => {
+              const active = ['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => {
+                const stateObj = states[id];
+                return !!(stateObj && stateObj.attributes && stateObj.attributes.options && stateObj.state !== stateObj.attributes.options[0]);
+              }) || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0);
+              return `
+                .bubble-button-card-container {
+                  pointer-events: none !important;
+                  cursor: default !important;
+                }
+                .bubble-sub-button-container,
+                .bubble-sub-buttons-container {
+                  pointer-events: auto !important;
+                  justify-content: flex-start !important;
+                  gap: 6px !important;
+                }
+                .bubble-sub-button {
+                  pointer-events: auto !important;
+                }
+                .bubble-sub-button.clear-material-filter,
+                .bubble-sub-button.clear-vendor-filter,
+                .bubble-sub-button.clear-color-filter,
+                .bubble-sub-button.clear-family-filter,
+                .bubble-sub-button.clear-type-filter,
+                .bubble-sub-button.clear-location-filter,
+                .bubble-sub-button.clear-stock-level-filter,
+                .bubble-sub-button.clear-sealed-filter,
+                .bubble-sub-button.clear-desiccant-filter,
+                .bubble-sub-button.clear-data-quality-filter,
+                .bubble-sub-button.clear-search-filter {
+                  background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
+                  color: var(--accent-color) !important;
+                  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
+                }
+                .bubble-sub-button.clear-material-filter ha-icon,
+                .bubble-sub-button.clear-vendor-filter ha-icon,
+                .bubble-sub-button.clear-color-filter ha-icon,
+                .bubble-sub-button.clear-family-filter ha-icon,
+                .bubble-sub-button.clear-type-filter ha-icon,
+                .bubble-sub-button.clear-location-filter ha-icon,
+                .bubble-sub-button.clear-stock-level-filter ha-icon,
+                .bubble-sub-button.clear-sealed-filter ha-icon,
+                .bubble-sub-button.clear-desiccant-filter ha-icon,
+                .bubble-sub-button.clear-data-quality-filter ha-icon,
+                .bubble-sub-button.clear-search-filter ha-icon {
+                  color: var(--accent-color) !important;
+                }
+                ${active ? `
+                .bubble-sub-button:last-child {
+                  background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
+                  color: var(--accent-color) !important;
+                  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
+                }
+                .bubble-sub-button:last-child ha-icon {
+                  color: var(--accent-color) !important;
+                }
+                ` : ''}
+              `;
+            })()}
           tap_action:
             action: none
           hold_action:
@@ -516,8 +534,8 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || !!(states['input_text.filament_catalog_search']?.state))}
-              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || !!(states['input_text.filament_catalog_search']?.state))}
+              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
+              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
               tap_action:
                 action: call-service
                 service: script.filament_catalog_clear_filters
