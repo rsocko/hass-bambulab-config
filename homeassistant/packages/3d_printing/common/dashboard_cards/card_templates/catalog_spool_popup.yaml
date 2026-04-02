@@ -430,6 +430,11 @@ catalog_spool_popup:
           data: {
             title: spoolName,
             size: 'normal',
+            card_mod: {
+              style: {
+                'ha-dialog$': '.body.ha-scrollbar { overflow-y: auto !important; scrollbar-gutter: stable both-edges !important; padding-right: 2px !important; box-sizing: border-box !important; } .content-wrapper { scrollbar-gutter: stable both-edges !important; }'
+              }
+            },
             content: {
               type: 'vertical-stack',
               cards: [
