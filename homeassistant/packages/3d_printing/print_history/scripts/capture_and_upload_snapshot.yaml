@@ -22,22 +22,25 @@ capture_and_upload_snapshot:
              | default('unknown') | replace(' ', '_') | replace('/', '_') }}
         timestamp: "{{ now().strftime('%Y%m%d_%H%M%S') }}"
         primary_camera: "camera.ntk_ryansoffice_3dprinter_camera"
-        secondary_camera: "{{ states('input_select.secondary_camera_entity') | trim }}"
-        secondary_camera_configured: >-
-          {{ secondary_camera not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
-        secondary_camera_state: >-
-          {{ states(secondary_camera) if secondary_camera_configured else 'none' }}
-        has_secondary: >-
-          {{ secondary_camera_configured
-             and secondary_camera.startswith('camera.')
-             and secondary_camera != primary_camera
-             and secondary_camera_state not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+        secondary_camera: >-
+          {% set selected_camera = states('input_select.secondary_camera_entity') | default('', true) | string | trim %}
+          {{ '' if selected_camera | lower == 'none' else selected_camera }}
         primary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
         secondary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
         primary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
         secondary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
+
+    - variables:
+        secondary_camera_configured: >-
+          {{ secondary_camera not in ['', 'unknown', 'unavailable', 'none'] }}
+        secondary_camera_state: >-
+          {{ states(secondary_camera) if secondary_camera not in ['', 'unknown', 'unavailable', 'none'] else 'none' }}
+        has_secondary: >-
+          {{ secondary_camera.startswith('camera.')
+             and secondary_camera != primary_camera
+             and secondary_camera_state not in ['', 'unknown', 'unavailable', 'none'] }}
         has_light: >-
           {{ snapshot_light not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
 
