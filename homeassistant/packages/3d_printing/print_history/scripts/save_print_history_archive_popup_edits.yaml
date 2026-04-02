@@ -11,7 +11,7 @@ save_print_history_archive_popup_edits:
         resolved_failure_reason: >-
           {% set current_status = states('input_select.print_history_popup_status') | default('', true) | string | trim | lower %}
           {% set selected = states('input_select.print_history_popup_failure_reason') | default('', true) | string | trim %}
-          {% if current_status in ['failed', 'aborted'] %}
+          {% if current_status in ['failed', 'cancelled'] %}
             {% if selected in ['', 'Unspecified'] %}
               __NULL__
             {% else %}

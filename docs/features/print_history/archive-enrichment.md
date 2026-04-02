@@ -4,7 +4,7 @@
 
 ## Overview
 
-When a print completes (or fails/is stopped), HA reads Spoolman spool data from existing sensors and PATCHes the Bambuddy archive with tags, notes, and the native `cost` field. This enriches Bambuddy's archive with filament identity, cost, and per-tray usage data that only HA has, since HA bridges both Spoolman and the printer.
+When a print completes (or fails/is cancelled), HA reads Spoolman spool data from existing sensors and PATCHes the Bambuddy archive with tags, notes, and the native `cost` field. This enriches Bambuddy's archive with filament identity, cost, and per-tray usage data that only HA has, since HA bridges both Spoolman and the printer.
 
 **Why HA enrichment is essential**: Bambuddy has no awareness of Spoolman. The archive stores the printer's AMS slot info (`filament_slots` with `slot_id`, `used_g`, `type`, `color`) and raw AMS `tray_uuid`/`tag_uid` in `extra_data`, but there are no Spoolman spool IDs anywhere in the Bambuddy data. HA is the only system that bridges both Spoolman and the printer.
 
@@ -220,7 +220,7 @@ The recommended threshold is therefore:
 
 ## Current Event Assumption
 
-The shipped enrichment path is still mostly webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and uses `print_complete`/`print_failed` webhook events plus native cancel handling for the stopped path so it knows when to PATCH the archive.
+The shipped enrichment path is still mostly webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and uses `print_complete`/`print_failed` webhook events plus native cancel handling for the cancelled path so it knows when to PATCH the archive.
 
 ### Recommended Direction
 
@@ -485,7 +485,7 @@ actions:
 
 ## Enrichment Automation
 
-**`bambuddy_enrich_archive_on_complete.yaml`** triggers on `bambuddy_webhook_event` for `print_complete`, `print_failed`, and `print_stopped`, and also listens to the native `bambu_lab` `event_print_canceled` trigger for the stopped path.
+**`bambuddy_enrich_archive_on_complete.yaml`** triggers on `bambuddy_webhook_event` for `print_complete`, `print_failed`, and `print_stopped`, and also listens to the native `bambu_lab` `event_print_canceled` trigger for the cancelled path.
 
 ### Tag Strategy
 
@@ -637,7 +637,7 @@ The enrichment automation should be safe to run multiple times for the same arch
 ## Error Path Enrichment
 
 On `print_failed` or `print_stopped`/native cancel, the enrichment still runs:
-- Tags include `status:failed` or `status:stopped`
+- Tags include `status:failed` or `status:cancelled`
 - Notes include partial weight/cost data (whatever was consumed before failure)
 - The native `cost` field can still be written with the partial filament cost known at stop/failure time
 - This provides a record of filament wasted on failed prints

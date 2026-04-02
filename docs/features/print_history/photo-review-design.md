@@ -20,7 +20,7 @@ After a print completes, HA may have captured 3–6+ photos across multiple stag
 
 The review is **opt-in** and surfaces as a conditional card after print completion:
 
-1. Print completes (success, failed, or stopped)
+1. Print completes (success, failed, or cancelled)
 2. Enrichment automation runs (tags/notes PATCH)
 3. Enrichment automation sets `input_select.bambuddy_photo_review_state` → `pending`
 4. The review chip appears on the print history view (conditional on state = `pending`)

@@ -32,14 +32,19 @@ print_history_archive_popup:
       const normalizeStatusOption = (status) => {
         const raw = String(status || '').toLowerCase().trim();
         if (raw === 'success') return 'completed';
-        if (raw === 'cancelled') return 'aborted';
+        if (raw === 'cancelled' || raw === 'aborted' || raw === 'stopped') return 'cancelled';
         return raw;
       };
+      const formatStatusOption = (status) => {
+        const normalized = normalizeStatusOption(status);
+        return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '';
+      };
       const archiveStatus = normalizeStatusOption(archive?.status);
-      const fixedStatusOptions = ['completed', 'failed', 'aborted', 'printing'];
-      const statusOptions = fixedStatusOptions.slice();
-      if (archiveStatus && !statusOptions.includes(archiveStatus)) {
-        statusOptions.push(archiveStatus);
+      const fixedStatusOptions = ['completed', 'failed', 'cancelled', 'printing'];
+      const statusOptions = fixedStatusOptions.map((status) => formatStatusOption(status));
+      const archiveStatusOption = formatStatusOption(archiveStatus);
+      if (archiveStatusOption && !statusOptions.includes(archiveStatusOption)) {
+        statusOptions.push(archiveStatusOption);
       }
       const fixedFailureReasonOptions = [
         'Unspecified',
@@ -162,7 +167,7 @@ print_history_archive_popup:
           conditions: [
             {
               entity: 'input_select.print_history_popup_status',
-              state: 'failed'
+              state: 'Failed'
             }
           ],
           card: failureReasonEditorCard
@@ -172,7 +177,7 @@ print_history_archive_popup:
           conditions: [
             {
               entity: 'input_select.print_history_popup_status',
-              state: 'aborted'
+              state: 'Cancelled'
             }
           ],
           card: failureReasonEditorCard
@@ -208,8 +213,10 @@ print_history_archive_popup:
               'mdi:close',
               'rgba(255,255,255,0.04)',
               {
-                action: 'call-service',
-                service: 'browser_mod.close_popup'
+                  action: 'fire-dom-event',
+                  browser_mod: {
+                    service: 'browser_mod.close_popup'
+                  }
               }
             )
           ]
@@ -261,7 +268,7 @@ print_history_archive_popup:
                 service: 'input_select.select_option',
                 data: {
                   entity_id: 'input_select.print_history_popup_status',
-                  option: archiveStatus || 'completed'
+                  option: formatStatusOption(archiveStatus || 'completed')
                 }
               },
               {

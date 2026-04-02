@@ -5,7 +5,7 @@
 - alias: "Print History - Enrich Archive on Complete"
   id: bambuddy_enrich_archive_on_complete
   description: >
-    When a print finishes (success/failed/stopped), enriches the Bambuddy
+    When a print finishes (success/failed/cancelled), enriches the Bambuddy
     archive with Spoolman spool IDs, vendor, material, cost tags and
     structured per-tray notes.
 
@@ -50,7 +50,7 @@
         status_tag: >-
           {% if event_name == 'print_complete' %}success
           {% elif event_name == 'print_failed' %}failed
-          {% elif event_name == 'print_stopped' %}stopped
+          {% elif event_name == 'print_stopped' %}cancelled
           {% else %}unknown{% endif %}
         # Parse tray_map snapshot (simplified format: tray_name:spool_id,...)
         tray_snapshot_raw: "{{ states('input_text.bambuddy_tray_map_snapshot') }}"

@@ -57,7 +57,7 @@
           {%- set ns = namespace(matches=[]) -%}
           {%- for a in archives -%}
             {%- set raw_status = a.get('status', '') | string | lower -%}
-            {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status in ['failed', 'cancelled', 'aborted'] else raw_status -%}
+            {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status == 'failed' else 'cancelled' if raw_status in ['cancelled', 'aborted', 'stopped'] else raw_status -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}

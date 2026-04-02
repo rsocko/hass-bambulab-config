@@ -279,15 +279,15 @@ The remaining deferred fields are `project_id`, `quantity`, `external_url`, and 
 - `is_favorite` is toggleable from both the archive cards and the popup action bar
 - `print_name`, `tags`, and `notes` are editable from the popup through helper-backed fields plus a save action, with current inline editing capped by Home Assistant helper limits
 - `status` is editable from the popup
-- `failure_reason` is editable from the popup, but only when the selected status is `failed` or Bambuddy's cancelled state (`aborted`)
+- `failure_reason` is editable from the popup, but only when the selected status is `failed` or `cancelled`
 
 ### Upstream Bambuddy behavior verified against source
 
 - backend `PATCH /archives/{id}` accepts `failure_reason` as `string | null`, so the API contract itself allows arbitrary custom strings
 - the shipped Bambuddy frontend does not expose a free-text failure-reason field; it uses a fixed dropdown list in `EditArchiveModal.tsx`
-- the shipped Bambuddy frontend only shows that dropdown when status is `failed` or `aborted`
-- Bambuddy's edit modal status list is currently `completed`, `failed`, `aborted`, and `printing`
-- the HA popup should mirror that UI behavior for consistency, while preserving an existing non-standard stored failure reason as a selectable option if one already exists on the archive
+- the shipped Bambuddy frontend only shows that dropdown for failure/cancel-style outcomes; our HA popup normalizes stored `cancelled`, `aborted`, and legacy `stopped` values into a single `Cancelled` option
+- the HA popup status list is `Completed`, `Failed`, `Cancelled`, and `Printing`, while still accepting legacy raw values from stored archives
+- the HA popup preserves an existing non-standard stored failure reason as a selectable option if one already exists on the archive
 
 ### UI shape
 

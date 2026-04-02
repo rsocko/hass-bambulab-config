@@ -46,41 +46,35 @@ print_history_archive_popup_content:
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
-          if (raw === 'cancelled' || raw === 'aborted') return 'aborted';
+          if (raw === 'cancelled' || raw === 'aborted' || raw === 'stopped') return 'cancelled';
           return raw;
         };
         const status = normalizeStatus(archive?.status);
         const statusLabel = status === 'completed'
           ? 'Completed'
-          : status === 'aborted'
+          : status === 'cancelled'
             ? 'Cancelled'
           : status === 'failed'
             ? 'Failed'
-            : status === 'stopped'
-              ? 'Stopped'
-              : status === 'printing'
+            : status === 'printing'
                 ? 'Printing'
                 : (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown');
         const statusColor = status === 'completed'
           ? '#2E7D32'
-          : status === 'aborted'
+          : status === 'cancelled'
             ? '#EF6C00'
           : status === 'failed'
             ? '#C62828'
-            : status === 'stopped'
-              ? '#EF6C00'
-              : status === 'printing'
+            : status === 'printing'
                 ? '#1565C0'
                 : '#546E7A';
         const statusIcon = status === 'completed'
           ? '✅'
-          : status === 'aborted'
+          : status === 'cancelled'
             ? '⛔'
           : status === 'failed'
             ? '❌'
-            : status === 'stopped'
-              ? '⛔'
-              : status === 'printing'
+            : status === 'printing'
                 ? '🖨️'
                 : '⏳';
         const escapeHtml = (value) => String(value ?? '')
@@ -121,7 +115,11 @@ print_history_archive_popup_content:
           .map((tag) => tag.trim())
           .filter(Boolean);
         const tagColor = (tag) => {
-          if (tag.startsWith('status:')) return tag.includes('completed') ? '#2E7D32' : '#C62828';
+          if (tag.startsWith('status:')) {
+            if (tag.includes('completed') || tag.includes('success')) return '#2E7D32';
+            if (tag.includes('cancelled') || tag.includes('aborted') || tag.includes('stopped')) return '#EF6C00';
+            return '#C62828';
+          }
           if (tag.startsWith('vendor:')) return '#6A1B9A';
           if (tag.startsWith('material:')) return '#00695C';
           if (tag.startsWith('cost:')) return '#E65100';

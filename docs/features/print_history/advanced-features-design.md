@@ -92,7 +92,7 @@ Summary:
 - Phase 1: each archive card opens a read-only detail popup
 - Phase 2: add editing for `print_name`, `notes`, `tags`, `is_favorite`, `status`, and `failure_reason` as the initial HA popup scope
 - Bambuddy's broader archive update contract also supports fields such as `project_id`, `quantity`, `external_url`, and `cost`, but those remain intentionally deferred
-- verified against Bambuddy source: the backend accepts any `failure_reason` string, but the shipped Bambuddy edit modal uses a fixed failure-reason dropdown and only shows it when status is `failed` or `aborted` (the cancelled state)
+- verified against Bambuddy source: the backend accepts any `failure_reason` string, and this package normalizes Bambuddy's raw cancelled-style values (`cancelled`, `aborted`, and legacy `stopped`) into one `Cancelled` popup option while still showing failure reason only for `failed` or `cancelled`
 - later popup action slots are reserved for issue `#744` and the related follow-on issues `#747`, `#748`, `#750`, `#755`, and `#783`
 
 ### Archive Detection And Recovery

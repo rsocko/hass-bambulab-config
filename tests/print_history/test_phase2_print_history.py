@@ -694,7 +694,13 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=24", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=30", content)
+
+    def test_heatmap_card_normalizes_cancelled_statuses(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('raw === "cancelled" || raw === "aborted" || raw === "stopped"', content)
+        self.assertIn('return "cancelled";', content)
+        self.assertIn('cancelledCount', content)
 
     def test_heatmap_card_rerenders_when_reconnected(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -860,6 +866,20 @@ class TestHelpers(unittest.TestCase):
                     self.assertIn("Filaments Used", options)
                     self.assertNotIn("Filament Uses", options)
                     self.assertNotIn("Number of Different Filaments", options)
+
+    def test_status_helpers_use_cancelled_consistently(self):
+        filter_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_status.yaml"
+        popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_status.yaml"
+        filter_data = _load_yaml_safe(filter_path)
+        popup_data = _load_yaml_safe(popup_path)
+
+        filter_options = next(iter(filter_data.values())).get("options", []) if isinstance(filter_data, dict) else []
+        popup_options = next(iter(popup_data.values())).get("options", []) if isinstance(popup_data, dict) else []
+
+        self.assertIn("Cancelled", filter_options)
+        self.assertNotIn("Stopped", filter_options)
+        self.assertIn("Cancelled", popup_options)
+        self.assertNotIn("Aborted", popup_options)
 
 
 # =============================================================================

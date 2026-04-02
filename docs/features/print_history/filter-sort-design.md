@@ -428,7 +428,7 @@ Derived from the projected archive schema (full endpoint, trimmed fields):
 
 | Filter | Helper Type | Options | Source Field |
 |--------|-------------|---------|--------------|
-| **Status** | `input_select` | `All`, `Completed`, `Failed`, `Stopped`, `Printing` | `status` |
+| **Status** | `input_select` | `All`, `Completed`, `Failed`, `Cancelled`, `Printing` | `status` |
 | **Material** | `input_select` | `All`, + dynamic from fetched data | `filament_type` |
 | **Color** | `input_text` + generated buttons | Multi-select color swatches derived from unique `filament_color` values; matches any selected color | `filament_color` (comma-sep hex) |
 | **Printer** | `input_select` | `All`, + dynamic from fetched data (printer_id → name) | `printer_id` |
@@ -487,7 +487,7 @@ This ended up being more reliable than earlier generated `custom:button-card` va
 # helpers/input_select/
 input_select_print_history_filter_status:
   name: Print History Filter - Status
-  options: ["All", "Completed", "Failed", "Stopped", "Printing"]
+  options: ["All", "Completed", "Failed", "Cancelled", "Printing"]
   initial: "All"
   icon: mdi:list-status
 

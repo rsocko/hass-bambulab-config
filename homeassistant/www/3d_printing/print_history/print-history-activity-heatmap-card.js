@@ -572,7 +572,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
             durationHours: 0,
             successCount: 0,
             failedCount: 0,
-            stoppedCount: 0,
+            cancelledCount: 0,
             printingCount: 0,
             otherCount: 0,
             colorWeights: {},
@@ -592,8 +592,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           day.successCount += 1;
         } else if (archive.status === "failed") {
           day.failedCount += 1;
-        } else if (archive.status === "stopped") {
-          day.stoppedCount += 1;
+        } else if (archive.status === "cancelled") {
+          day.cancelledCount += 1;
         } else if (archive.status === "printing") {
           day.printingCount += 1;
         } else {
@@ -775,7 +775,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         hasFullDayPrinting: stats ? !!stats.hasFullDayPrinting : false,
         successCount: stats ? stats.successCount : 0,
         failedCount: stats ? stats.failedCount : 0,
-        stoppedCount: stats ? stats.stoppedCount : 0,
+        cancelledCount: stats ? stats.cancelledCount : 0,
         printingCount: stats ? stats.printingCount : 0,
         otherCount: stats ? stats.otherCount : 0,
         isFuture: input.isFuture,
@@ -1333,7 +1333,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       'Cost: ' + this._formatCost(meta.cost || 0),
       'Filaments: ' + this._formatCount(meta.filamentCount || 0),
       'Time: ' + this._formatHours(meta.durationHours || 0),
-      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount((meta.failedCount || 0) + (meta.stoppedCount || 0)) + ' fail/stop',
+      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount(meta.failedCount || 0) + ' failed, ' + this._formatCount(meta.cancelledCount || 0) + ' cancelled',
     ];
 
     if (mode === 'Dominant Color' && meta.dominantColor) {
@@ -1418,7 +1418,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     if (mode === "Outcome") {
       return {
-        startLabel: "Failed",
+        startLabel: "Cancelled / Failed",
         endLabel: "Completed",
         colors: ["#D32F2F", "#F57C00", "#FBC02D", "#9CCC65", "#2E7D32"],
       };
@@ -1515,7 +1515,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._formatCount(day.count) + (day.count === 1 ? " print" : " prints"),
       this._formatWeight(day.weight),
       this._formatCount(day.successCount) + " completed",
-      this._formatCount(day.failedCount + day.stoppedCount) + " failures/stops",
+      this._formatCount(day.failedCount) + " failed",
+      this._formatCount(day.cancelledCount) + " cancelled",
     ].join(" | ");
     var items = day.archives.slice(0, this._config.max_detail_items).map(this._buildArchiveCardHtml.bind(this)).join("");
     var extra = day.archives.length > this._config.max_detail_items
@@ -1569,7 +1570,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var map = {
       completed: { label: "Completed", color: "#2E7D32" },
       failed: { label: "Failed", color: "#C62828" },
-      stopped: { label: "Stopped", color: "#EF6C00" },
+      cancelled: { label: "Cancelled", color: "#EF6C00" },
       printing: { label: "Printing", color: "#1565C0" },
       unknown: { label: "Unknown", color: "#546E7A" },
     };
@@ -1600,7 +1601,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<div>Cost: <strong>' + this._escapeHtml(this._formatCost(meta.cost || 0)) + "</strong></div>",
       '<div>Filaments: <strong>' + this._escapeHtml(this._formatCount(meta.filamentCount || 0)) + "</strong></div>",
       '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
-      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.failedCount + meta.stoppedCount) + " fail/stop") + "</strong></div>",
+      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.failedCount) + " failed, " + this._formatCount(meta.cancelledCount) + " cancelled") + "</strong></div>",
     ];
 
     if (mode === "Dominant Color" && meta.dominantColor) {
@@ -1646,7 +1647,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return 0;
     }
 
-    var negatives = Number(day.failedCount || 0) + Number(day.stoppedCount || 0) + Number(day.otherCount || 0);
+    var negatives = Number(day.failedCount || 0) + Number(day.cancelledCount || 0) + Number(day.otherCount || 0);
     var neutrals = Number(day.printingCount || 0);
     var penalty = (negatives + neutrals * 0.5) / total;
 
@@ -1780,11 +1781,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (raw === "completed" || raw === "success") {
       return "completed";
     }
-    if (raw === "failed" || raw === "cancelled" || raw === "aborted") {
+    if (raw === "failed") {
       return "failed";
     }
-    if (raw === "stopped") {
-      return "stopped";
+    if (raw === "cancelled" || raw === "aborted" || raw === "stopped") {
+      return "cancelled";
     }
     if (raw === "printing") {
       return "printing";

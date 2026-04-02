@@ -176,9 +176,9 @@
 #       VERIFY: Tags include status:failed
 #       VERIFY: Archive ID cleared after enrichment
 #
-# B3.3  Enrichment on Stopped Print
+# B3.3  Enrichment on Cancelled Print
 #       Simulate print_stopped webhook
-#       VERIFY: Tags include status:stopped
+#       VERIFY: Tags include status:cancelled
 #
 # B3.4  Enrichment with No Archive ID
 #       Clear bambuddy_current_archive_id, then send print_complete webhook
@@ -357,7 +357,7 @@
 #   1. [ ] Start a print and deliberately cancel/stop it mid-print
 #   2. [ ] VERIFY: print_failed/print_stopped webhook fires
 #   3. [ ] VERIFY: Error photo captured (if capture_on_error is ON)
-#   4. [ ] VERIFY: Enrichment runs with status:failed or status:stopped
+#   4. [ ] VERIFY: Enrichment runs with status:failed or status:cancelled
 #   5. [ ] VERIFY: Archive in Bambuddy reflects error state in tags/notes
 
 # ═══════════════════════════════════════════════════════════════════════════════

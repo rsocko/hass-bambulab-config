@@ -5,6 +5,6 @@ print_history_filter_status:
     - All
     - Completed
     - Failed
-    - Stopped
+    - Cancelled
     - Printing
   initial: All

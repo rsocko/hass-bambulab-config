@@ -31,10 +31,10 @@
           {%- set raw_status = a.get('status', '') | string | lower -%}
           {%- if raw_status in ['completed', 'success'] -%}
             {%- set status = 'completed' -%}
-          {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+          {%- elif raw_status == 'failed' -%}
             {%- set status = 'failed' -%}
-          {%- elif raw_status == 'stopped' -%}
-            {%- set status = 'stopped' -%}
+          {%- elif raw_status in ['cancelled', 'aborted', 'stopped'] -%}
+            {%- set status = 'cancelled' -%}
           {%- elif raw_status == 'printing' -%}
             {%- set status = 'printing' -%}
           {%- else -%}
@@ -137,10 +137,10 @@
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- if raw_status in ['completed', 'success'] -%}
               {%- set status = 'completed' -%}
-            {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+            {%- elif raw_status == 'failed' -%}
               {%- set status = 'failed' -%}
-            {%- elif raw_status == 'stopped' -%}
-              {%- set status = 'stopped' -%}
+            {%- elif raw_status in ['cancelled', 'aborted', 'stopped'] -%}
+              {%- set status = 'cancelled' -%}
             {%- elif raw_status == 'printing' -%}
               {%- set status = 'printing' -%}
             {%- else -%}
@@ -225,10 +225,10 @@
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- if raw_status in ['completed', 'success'] -%}
               {%- set status = 'completed' -%}
-            {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+            {%- elif raw_status == 'failed' -%}
               {%- set status = 'failed' -%}
-            {%- elif raw_status == 'stopped' -%}
-              {%- set status = 'stopped' -%}
+            {%- elif raw_status in ['cancelled', 'aborted', 'stopped'] -%}
+              {%- set status = 'cancelled' -%}
             {%- elif raw_status == 'printing' -%}
               {%- set status = 'printing' -%}
             {%- else -%}
@@ -363,10 +363,10 @@
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- if raw_status in ['completed', 'success'] -%}
               {%- set status = 'completed' -%}
-            {%- elif raw_status in ['failed', 'cancelled', 'aborted'] -%}
+            {%- elif raw_status == 'failed' -%}
               {%- set status = 'failed' -%}
-            {%- elif raw_status == 'stopped' -%}
-              {%- set status = 'stopped' -%}
+            {%- elif raw_status in ['cancelled', 'aborted', 'stopped'] -%}
+              {%- set status = 'cancelled' -%}
             {%- elif raw_status == 'printing' -%}
               {%- set status = 'printing' -%}
             {%- else -%}

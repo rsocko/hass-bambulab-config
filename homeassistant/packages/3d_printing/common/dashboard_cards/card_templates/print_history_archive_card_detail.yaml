@@ -70,13 +70,13 @@ print_history_archive_card_detail:
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
-          if (raw === 'cancelled' || raw === 'aborted') return 'failed';
+          if (raw === 'cancelled' || raw === 'aborted' || raw === 'stopped') return 'cancelled';
           return raw;
         };
         const status = normalizeStatus(archive?.status);
-        const statusLabel = status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : status === 'stopped' ? 'Stopped' : status === 'printing' ? 'Printing' : 'Unknown';
-        const statusColor = status === 'completed' ? '#2E7D32' : status === 'failed' ? '#C62828' : status === 'stopped' ? '#EF6C00' : status === 'printing' ? '#1565C0' : '#546E7A';
-        const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : status === 'stopped' ? '⛔' : status === 'printing' ? '🖨️' : '⏳';
+        const statusLabel = status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : status === 'cancelled' ? 'Cancelled' : status === 'printing' ? 'Printing' : 'Unknown';
+        const statusColor = status === 'completed' ? '#2E7D32' : status === 'failed' ? '#C62828' : status === 'cancelled' ? '#EF6C00' : status === 'printing' ? '#1565C0' : '#546E7A';
+        const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : status === 'cancelled' ? '⛔' : status === 'printing' ? '🖨️' : '⏳';
         const escapeHtml = (value) => String(value ?? '')
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
