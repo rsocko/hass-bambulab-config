@@ -17,9 +17,13 @@ capture_and_upload_snapshot:
   max: 5
   sequence:
     - variables:
+        raw_task_name: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
+             | default('unknown', true) | string | trim }}
         task_name: >-
           {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
-             | default('unknown') | replace(' ', '_') | replace('/', '_') }}
+             | default('unknown', true) | string | trim
+             | replace(' ', '_') | replace('/', '_') }}
         timestamp: "{{ now().strftime('%Y%m%d_%H%M%S') }}"
         primary_camera: "camera.ntk_ryansoffice_3dprinter_camera"
         secondary_camera: >-
@@ -92,25 +96,100 @@ capture_and_upload_snapshot:
           target:
             entity_id: "{{ snapshot_light }}"
 
-    # --- Resolve archive_id if not set ---
+    - variables:
+        had_archive_id: >-
+          {{ archive_id not in ['', 'unknown', 'unavailable', 'None', none] }}
+
+    # --- Validate stored archive_id before upload ---
     - if:
         - condition: template
-          value_template: "{{ archive_id in ['', 'unknown', 'unavailable'] }}"
+          value_template: "{{ had_archive_id }}"
+      then:
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: current_archive_response
+
+    - variables:
+        current_archive_matches_task: >-
+          {% if had_archive_id
+                and current_archive_response is defined
+                and current_archive_response.status == 200 %}
+            {% set current_task = raw_task_name | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+            {% set archive_print_name = current_archive_response.content.print_name | default('', true) | string | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+            {% set archive_filename = current_archive_response.content.filename | default('', true) | string | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+            {{ current_task not in ['', 'unknown']
+               and (
+                 current_task in archive_print_name
+                 or archive_print_name in current_task
+                 or current_task in archive_filename
+                 or archive_filename in current_task
+               ) }}
+          {% else %}
+            false
+          {% endif %}
+
+    # --- Resolve archive_id if missing or stale ---
+    - if:
+        - condition: template
+          value_template: "{{ not had_archive_id or not current_archive_matches_task }}"
       then:
         - action: script.resolve_current_archive_id
         - variables:
             archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
 
     - variables:
-        has_archive_id: >-
+        resolved_archive_present: >-
           {{ archive_id not in ['', 'unknown', 'unavailable', 'None', none] }}
 
+    - if:
+        - condition: template
+          value_template: "{{ resolved_archive_present }}"
+      then:
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: validated_archive_response
+
     - variables:
-        primary_upload_status: "{{ 'skipped_no_archive' if not has_archive_id else 'pending' }}"
+        archive_matches_task: >-
+          {% if resolved_archive_present
+                and validated_archive_response is defined
+                and validated_archive_response.status == 200 %}
+            {% set current_task = raw_task_name | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+            {% set archive_print_name = validated_archive_response.content.print_name | default('', true) | string | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+            {% set archive_filename = validated_archive_response.content.filename | default('', true) | string | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+            {{ current_task not in ['', 'unknown']
+               and (
+                 current_task in archive_print_name
+                 or archive_print_name in current_task
+                 or current_task in archive_filename
+                 or archive_filename in current_task
+               ) }}
+          {% else %}
+            false
+          {% endif %}
+
+    - variables:
+        has_archive_id: >-
+          {{ resolved_archive_present and archive_matches_task }}
+        archive_lookup_status: >-
+          {% if resolved_archive_present and archive_matches_task %}validated
+          {% elif had_archive_id and not current_archive_matches_task %}skipped_stale_archive
+          {% else %}skipped_no_archive
+          {% endif %}
+        archive_display_id: >-
+          {{ archive_id if resolved_archive_present else 'missing' }}
+
+    - variables:
+        primary_upload_status: >-
+          {% if has_archive_id %}pending
+          {% else %}{{ archive_lookup_status }}
+          {% endif %}
         secondary_upload_status: >-
           {% if not secondary_camera_configured %}not_requested
           {% elif not has_secondary %}invalid_secondary
-          {% elif not has_archive_id %}skipped_no_archive
+          {% elif not has_archive_id %}{{ archive_lookup_status }}
           {% else %}pending
           {% endif %}
 
@@ -194,7 +273,7 @@ capture_and_upload_snapshot:
 
     - variables:
         upload_result_summary: >-
-          stage={{ stage }} archive={{ archive_id if has_archive_id else 'missing' }}
+          stage={{ stage }} archive={{ archive_display_id }} archive_status={{ archive_lookup_status }}
           primary={{ primary_upload_status }}
           secondary={{ secondary_upload_status }}
           captured={{ states('counter.bambuddy_captured_photo_count') | int(0) }}
@@ -211,4 +290,4 @@ capture_and_upload_snapshot:
         message: >-
           Captured {{ stage }} photo: {{ primary_filename }}
           {% if has_secondary %} + {{ secondary_filename }}{% endif %}
-          (archive_id={{ archive_id }}, primary={{ primary_upload_status }}, secondary={{ secondary_upload_status }})
+          (archive_id={{ archive_display_id }}, archive_status={{ archive_lookup_status }}, primary={{ primary_upload_status }}, secondary={{ secondary_upload_status }})

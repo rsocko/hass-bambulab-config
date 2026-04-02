@@ -178,11 +178,11 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 
 ### Fallback: API Query
 
-**`script.resolve_current_archive_id`** is called when archive_id is empty (webhook missed, or flat webhook format without archive_id):
+**`script.resolve_current_archive_id`** is called when archive_id is empty, or when the currently stored archive_id fails validation against the current task (webhook missed, stale helper state, or flat webhook format without archive_id):
 
 ```
 1. Query GET /api/v1/archives/?limit=1  (trailing slash required, no sort param)
-2. Compare the returned archive `print_name` with current sensor.*_task_name
+2. Compare the returned archive `print_name` and `filename` with current sensor.*_task_name
 3. If match → store archive_id in input_text.bambuddy_current_archive_id
 4. If no match → log warning, skip upload (local photo still saved)
 ```
@@ -206,7 +206,11 @@ The archive pull is not a full replacement for webhook events in the current pac
 
 - It does not provide a start-of-print event to reset `counter.bambuddy_captured_photo_count`, clear `input_text.bambuddy_last_photo_upload_result`, snapshot the tray map, and reset review state.
 - It does not provide a completion/failure event to trigger finish capture, completion enrichment, or immediate history refresh.
-- It is heuristic rather than exact: the current fallback only asks for `?limit=1` and matches by current task name substring. That is usually acceptable for one active printer, but it is weaker for multiple printers or repeated/similar print names.
+- It is heuristic rather than exact: the current fallback only asks for `?limit=1` and matches by current task name substring against the archive `print_name` or `filename`. That is usually acceptable for one active printer, but it is weaker for multiple printers or repeated/similar print names.
+
+### Stale Archive Guard
+
+`script.capture_and_upload_snapshot` now validates the currently stored `input_text.bambuddy_current_archive_id` against the current print task before upload. If the stored archive detail does not match the active task, the script treats it as stale, attempts fallback resolution again, and skips upload rather than attaching photos to the wrong archive.
 
 ### Current Recommendation
 

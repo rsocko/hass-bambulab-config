@@ -11,7 +11,11 @@ resolve_current_archive_id:
       response_variable: api_response
 
     - variables:
-        task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | default('') }}"
+        raw_task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | default('', true) | string | trim }}"
+        normalized_task_name: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
+             | default('', true) | string | lower | trim
+             | replace('_', ' ') | replace('.3mf', '') }}
         response_ok: "{{ api_response is defined and api_response.status == 200 }}"
         # API returns a flat array: [ {archive}, ... ]
         archives: >-
@@ -21,11 +25,21 @@ resolve_current_archive_id:
             []
           {% endif %}
         matched_id: >-
+          {% set task = normalized_task_name %}
+          {% set ns = namespace(match='') %}
           {% for archive in archives %}
-            {% if task_name and task_name in (archive.print_name | default('')) %}
-              {{ archive.id }}
+            {% set archive_print_name = archive.print_name | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
+            {% set archive_filename = archive.filename | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
+            {% if task and (
+              task in archive_print_name
+              or archive_print_name in task
+              or task in archive_filename
+              or archive_filename in task
+            ) %}
+              {% set ns.match = archive.id | string %}
             {% endif %}
           {% endfor %}
+          {{ ns.match }}
 
     - if:
         - condition: template
@@ -39,10 +53,10 @@ resolve_current_archive_id:
         - action: logbook.log
           data:
             name: Print History
-            message: "Resolved archive_id={{ matched_id | trim }} for '{{ task_name }}' (fallback)"
+            message: "Resolved archive_id={{ matched_id | trim }} for '{{ raw_task_name }}' (fallback)"
       else:
         - action: logbook.log
           data:
             name: Print History
-            message: "Could not resolve archive_id for '{{ task_name }}'"
+            message: "Could not resolve archive_id for '{{ raw_task_name }}'"
   mode: single

@@ -286,13 +286,20 @@
 #       Clear input_text.bambuddy_current_archive_id
 #       Call script.resolve_current_archive_id
 #       VERIFY: Script queries GET /archives?printer_id=X&sort=-created_at&limit=1
-#       VERIFY: If match found (task_name in archive.name), archive_id is stored
+#       VERIFY: If match found against archive print_name or filename, archive_id is stored
 #       VERIFY: Logbook shows "Resolved archive_id=..." or "Could not resolve..."
 #
 # B7.2  Fallback During Photo Capture
 #       Clear archive_id, then trigger a photo capture
 #       VERIFY: capture_and_upload_snapshot calls resolve_current_archive_id
 #       VERIFY: If resolved, photo is uploaded; if not, photo saved locally only
+#
+# B7.3  Stale Archive Guard
+#       Set input_text.bambuddy_current_archive_id to an older unrelated archive
+#       Trigger a photo capture for a different current task
+#       VERIFY: capture_and_upload_snapshot validates archive detail before upload
+#       VERIFY: If stored archive detail does not match current task, upload is skipped or re-resolved
+#       VERIFY: input_text.bambuddy_last_photo_upload_result includes archive_status=skipped_stale_archive or validated
 #
 # ── B8. BAMBUDDY COMMON DEPENDENCIES ─────────────────────────────────────────
 #
