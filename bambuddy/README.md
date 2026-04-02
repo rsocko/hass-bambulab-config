@@ -139,7 +139,7 @@ When a current design doc mentions lineage from `bambuddy/`, it means historical
 | `input_text.bambuddy_printer_id` | Bambuddy printer ID |
 | `input_text.bambuddy_current_archive_id` | Current print's archive ID (managed by automation) |
 | `input_boolean.bambuddy_integration_enabled` | Master on/off switch |
-| `input_boolean.bambuddy_history_fetch_enabled` | Enable/disable history polling |
+| `input_boolean.bambuddy_history_sync_enabled` | Enable/disable history sync |
 | `input_boolean.bambuddy_maintenance_alerts_enabled` | Enable/disable maintenance alerts |
 | `input_number.bambuddy_history_limit` | Number of history entries to display (5–50) |
 

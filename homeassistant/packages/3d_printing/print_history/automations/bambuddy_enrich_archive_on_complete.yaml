@@ -14,16 +14,25 @@
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_complete"
+      id: "print_complete"
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_failed"
+      id: "print_failed"
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_stopped"
+      id: "print_stopped"
+
+    - trigger: device
+      device_id: 210dfdfa64085e8cf073e50eae757d90
+      domain: bambu_lab
+      type: event_print_canceled
+      id: "print_stopped"
 
   conditions:
     - condition: state
@@ -37,7 +46,7 @@
   actions:
     - variables:
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
-        event_name: "{{ trigger.event.data.event | default('unknown') }}"
+        event_name: "{{ trigger.id | default('unknown') }}"
         status_tag: >-
           {% if event_name == 'print_complete' %}success
           {% elif event_name == 'print_failed' %}failed

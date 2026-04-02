@@ -1,7 +1,7 @@
 # Refresh the recent-print REST sensor and the Layer 1 browser archive cache
 # when relevant events occur.
-# Triggers on print_complete, print_failed, print_stopped webhooks
-# and on HA startup.
+# Triggers on print_complete, print_failed, print_stopped webhooks,
+# native print-canceled, and on HA startup.
 # Docs: docs/features/print_history/README.md
 - alias: "Print History - Refresh on Event"
   id: bambuddy_event_history_refresh
@@ -14,19 +14,25 @@
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_complete"
-      id: webhook
+      id: print_complete
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_failed"
-      id: webhook
+      id: print_failed
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_stopped"
-      id: webhook
+      id: print_stopped
+
+    - trigger: device
+      device_id: 210dfdfa64085e8cf073e50eae757d90
+      domain: bambu_lab
+      type: event_print_canceled
+      id: print_stopped
 
     - trigger: homeassistant
       event: start
@@ -37,7 +43,7 @@
       entity_id: input_boolean.bambuddy_integration_enabled
       state: "on"
     - condition: state
-      entity_id: input_boolean.bambuddy_history_fetch_enabled
+      entity_id: input_boolean.bambuddy_history_sync_enabled
       state: "on"
 
   actions:
@@ -62,6 +68,6 @@
         name: Print History
         message: >-
           History refreshed
-          {% if trigger.id == 'startup' %}(startup){% else %}after {{ trigger.event.data.event | default('event') }}{% endif %}
+          {% if trigger.id == 'startup' %}(startup){% else %}after {{ trigger.id | default('event') }}{% endif %}
 
   mode: single

@@ -12,12 +12,24 @@ Bambuddy also captures its own completion photo natively (when "Capture finish p
 
 The current shipped package supports two practical operating modes:
 
-| Mode | Webhook configured? | What works | What is degraded or missing |
-|---|---|---|---|
-| **Full event-driven mode** | Yes | Current archive_id is captured at `print_started`; finish/error lifecycle automations fire from Bambuddy events; enrichment and cache refresh run immediately on completion/failure | None of the current known gaps are caused by transport choice; remaining limits are the existing fallback heuristics and deferred review flows |
-| **Reduced archive-API-only mode** | No | Start, mid-print, and near-complete captures still work from HA printer state/progress sensors; upload can still succeed if the fallback archive lookup resolves the active archive | No `print_started` reset path, no webhook-driven `finish` capture, no webhook-driven `print_failed`/`print_stopped` capture, no completion enrichment trigger, and no immediate history refresh trigger |
+| Mode                              | Webhook configured? | What works                                                                                                                                                                          | What is degraded or missing                                                                                                                                                                             |
+| --------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Full event-driven mode**        | Yes                 | Current archive_id is captured at `print_started`; finish/error lifecycle automations fire from Bambuddy events; enrichment and cache refresh run immediately on completion/failure | None of the current known gaps are caused by transport choice; remaining limits are the existing fallback heuristics and deferred review flows                                                          |
+| **Reduced archive-API-only mode** | No                  | Start, mid-print, and near-complete captures still work from HA printer state/progress sensors; upload can still succeed if the fallback archive lookup resolves the active archive | No `print_started` reset path, no webhook-driven `finish` capture, no reliable webhook-driven `print_failed` capture, no completion enrichment trigger, and no immediate history refresh trigger |
 
 The webhook is therefore not strictly required for basic photo capture and upload in a single-printer setup, because Bambuddy creates archives at print start and the active script can fall back to querying the archive API. It is still required for the full shipped lifecycle as currently implemented.
+
+### Recommended Direction
+
+- Remove webhook listeners for lifecycle stages that HA already receives natively from `bambu_lab`.
+- Keep webhook handling only for Bambuddy-specific data that HA cannot infer, especially `archive_id` at `print_started`, and any failure outcome that is not yet proven equivalent on the current printer model.
+
+For this design, that means the long-term recommendation is:
+
+- replace webhook-driven stopped handling with native `event_print_canceled`
+- replace webhook-driven finish handling with native `event_print_finished` where archive timing allows
+- keep webhook-driven `print_started` only if it is still needed for exact archive binding
+- keep webhook-driven `print_failed` only until native failed-event behavior is validated on P1S
 
 ## Camera Configuration
 
@@ -39,15 +51,15 @@ Each stage is gated by its own `input_boolean` toggle, allowing the user to enab
 |---|---|---|---|
 | **Start** | Print status → `running` (after configurable delay ~2-5 min) | `input_boolean.capture_at_start` | Delay allows first layer to be visible |
 | **Mid-print** | `sensor.*_print_progress` crosses `input_number.midprint_capture_percent` | `input_boolean.capture_at_midprint` | Default: 50% |
-| **Near-complete** | `sensor.*_print_progress` ≥ 95% | `input_boolean.capture_near_complete` | Captures before bed lowers |
-| **Finished** | `bambuddy_webhook_event` where event=`print_complete` | (always, no gate) | Bambuddy also captures natively |
-| **Error** | `print_failed`/`print_stopped` webhook or `binary_sensor.*_print_error` → on | `input_boolean.capture_on_error` | Immediate diagnostic capture |
+| **Near-complete** | `sensor.*_print_progress` ≥ 99% | `input_boolean.capture_near_complete` | Captures before bed lowers |
+| **Finished** | `bambuddy_webhook_event` where event=`print_complete` | `input_boolean.capture_on_complete` | Optional final capture; Bambuddy also captures natively |
+| **Error** | `print_failed` webhook, `print_stopped` webhook or native `event_print_canceled`, or `binary_sensor.*_print_error` / `binary_sensor.*_hms_errors` → on | `input_boolean.capture_on_error` | Immediate diagnostic capture |
 
 ### Stage Automations
 
 Two automations cover all stages:
 
-**`bambuddy_capture_print_photos.yaml`** — Normal stages (start, mid, near-complete):
+**`bambuddy_capture_print_photos.yaml`** — Normal stages (start, mid, near-complete, finish):
 ```yaml
 triggers:
   # Start: print status changes to running
@@ -60,11 +72,17 @@ triggers:
     entity_id: sensor.ntk_ryansoffice_3dprinter_print_progress
     above: "{{ states('input_number.midprint_capture_percent') | int }}"
     id: "midprint"
-  # Near-complete: progress ≥ 95%
+  # Near-complete: progress ≥ 99%
   - trigger: numeric_state
     entity_id: sensor.ntk_ryansoffice_3dprinter_print_progress
-    above: 94
+    above: 98
     id: "near_complete"
+  # Finish: gated print_complete capture
+  - trigger: event
+    event_type: bambuddy_webhook_event
+    event_data:
+      event: "print_complete"
+    id: "finish"
 ```
 
 **`bambuddy_capture_error_photos.yaml`** — Error stages:
@@ -81,9 +99,20 @@ triggers:
     event_data:
       event: "print_stopped"
     id: "stopped"
-  # HMS error sensor
+  # Native Bambu cancel event
+  - trigger: device
+    device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_canceled
+    id: "stopped"
+  # Print-error sensor
   - trigger: state
     entity_id: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+    to: "on"
+    id: "print_error"
+  # HMS error sensor
+  - trigger: state
+    entity_id: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
     to: "on"
     id: "hms_error"
 ```
@@ -189,6 +218,10 @@ The archive pull is not a full replacement for webhook events in the current pac
 - **`bambuddy_capture_print_photos`**: `mode: single` — one print at a time; only one set of stage triggers active
 - **`bambuddy_capture_error_photos`**: `mode: queued` (max: 3) — multiple errors can fire rapidly (HMS cascade)
 - **`script.capture_and_upload_snapshot`**: `mode: queued` (max: 5) — overlapping camera+upload operations
+
+## Duplicate Trigger Note
+
+If both Bambuddy webhook reception and native `bambu_lab` cancel triggers are enabled, a single stop/cancel action can emit both `print_stopped` and `event_print_canceled`. Any automation wired to both will run twice unless it has explicit deduplication.
 
 ## Upload Transport Guidance
 

@@ -85,10 +85,10 @@
 #    This means photo capture won't happen even during active prints.
 #    ACTION: Enable desired capture stages in HA UI or via helper values.
 #
-# 4. HISTORY FETCH DISABLED — input_boolean.bambuddy_history_fetch_enabled
+# 4. HISTORY SYNC DISABLED — input_boolean.bambuddy_history_sync_enabled
 #    is OFF. While this doesn't gate the REST sensor itself, it gates
 #    the refresh and capture automations.
-#    ACTION: Turn on when ready to activate print history features.
+#    ACTION: Turn on when ready to activate history sync features.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # B. MANUAL TESTS — REQUIRE HUMAN INTERACTION
@@ -194,7 +194,7 @@
 #
 # B4.1  REST Sensor Activation
 #       Ensure Bambuddy API is reachable from HA host
-#       Turn ON input_boolean.bambuddy_history_fetch_enabled
+#       Turn ON input_boolean.bambuddy_history_sync_enabled
 #       Force refresh: Developer Tools → Services → homeassistant.update_entity
 #           target: sensor.bambuddy_print_history
 #       VERIFY: Sensor goes from unavailable to a number (total archives)
@@ -275,8 +275,8 @@
 #       Trigger a webhook event
 #       VERIFY: Webhook receiver fires and processes normally
 #
-# B6.3  History Fetch Toggle
-#       Turn OFF input_boolean.bambuddy_history_fetch_enabled
+# B6.3  History Sync Toggle
+#       Turn OFF input_boolean.bambuddy_history_sync_enabled
 #       VERIFY: Refresh automation does not run on print_complete
 #       (Note: REST sensor polls independently based on scan_interval)
 #
@@ -319,7 +319,7 @@
 #   [ ] Bambuddy server running and reachable from HA
 #   [ ] API key configured in secrets.yaml
 #   [ ] input_boolean.bambuddy_integration_enabled = ON
-#   [ ] input_boolean.bambuddy_history_fetch_enabled = ON
+#   [ ] input_boolean.bambuddy_history_sync_enabled = ON
 #   [ ] At least one capture toggle ON (e.g., capture_at_start, capture_on_error)
 #   [ ] Bambuddy webhook configured to POST to HA
 #   [ ] Printer connected and idle

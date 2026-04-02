@@ -55,6 +55,8 @@ cards:
                     name: Mid-Print
                   - entity: input_boolean.capture_near_complete
                     name: Near Complete
+                  - entity: input_boolean.capture_on_complete
+                    name: On Complete
                   - entity: input_boolean.capture_on_error
                     name: On Error
                   - type: divider
@@ -63,8 +65,8 @@ cards:
                   - entity: input_select.secondary_camera_entity
                     name: Secondary Camera
                   - type: divider
-                  - entity: input_boolean.bambuddy_history_fetch_enabled
-                    name: Auto-Fetch History
+                  - entity: input_boolean.bambuddy_history_sync_enabled
+                    name: History Sync
                   - entity: input_number.print_history_max_archives
                     name: Max Cached
                   - entity: input_number.photo_review_timeout_hours

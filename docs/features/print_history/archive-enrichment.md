@@ -220,7 +220,19 @@ The recommended threshold is therefore:
 
 ## Current Event Assumption
 
-The shipped enrichment path is still webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and `print_complete`/`print_failed`/`print_stopped` so it knows when to PATCH the archive.
+The shipped enrichment path is still mostly webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and uses `print_complete`/`print_failed` webhook events plus native cancel handling for the stopped path so it knows when to PATCH the archive.
+
+### Recommended Direction
+
+- Move enrichment timing to native `bambu_lab` lifecycle events wherever they are already equivalent.
+- Retain Bambuddy webhook handling only for lifecycle inputs that provide unique archive context not available from native HA state.
+
+For the current design, that means:
+
+- prefer native `event_print_finished` over webhook `print_complete` once the enrichment timing against Bambuddy archive availability is confirmed
+- prefer native `event_print_canceled` over webhook `print_stopped`
+- retain webhook `print_started` if it remains the only exact source of `archive_id`
+- retain webhook `print_failed` until native failed handling is verified as equivalent on the current P1S path
 
 Archive REST pulls are enough to inspect archive contents after the fact, but they do not currently replace the trigger timing used by the shipped enrichment automation. If webhook remains disabled, this design should be treated as partially implemented rather than active: the data model is still valid, but the current automation entry points are missing.
 
@@ -473,7 +485,7 @@ actions:
 
 ## Enrichment Automation
 
-**`bambuddy_enrich_archive_on_complete.yaml`** triggers on `bambuddy_webhook_event` for `print_complete`, `print_failed`, and `print_stopped` events.
+**`bambuddy_enrich_archive_on_complete.yaml`** triggers on `bambuddy_webhook_event` for `print_complete`, `print_failed`, and `print_stopped`, and also listens to the native `bambu_lab` `event_print_canceled` trigger for the stopped path.
 
 ### Tag Strategy
 
@@ -558,6 +570,12 @@ triggers:
     event_type: bambuddy_webhook_event
     event_data:
       event: "print_stopped"
+    id: "print_stopped"
+  - trigger: device
+    device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_canceled
+    id: "print_stopped"
 
 conditions:
   - condition: state
@@ -618,7 +636,7 @@ The enrichment automation should be safe to run multiple times for the same arch
 
 ## Error Path Enrichment
 
-On `print_failed` or `print_stopped`, the enrichment still runs:
+On `print_failed` or `print_stopped`/native cancel, the enrichment still runs:
 - Tags include `status:failed` or `status:stopped`
 - Notes include partial weight/cost data (whatever was consumed before failure)
 - The native `cost` field can still be written with the partial filament cost known at stop/failure time

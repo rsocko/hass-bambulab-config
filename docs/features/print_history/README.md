@@ -15,9 +15,23 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 The current implementation mixes two data sources:
 
 - **Archive REST pulls** provide the archive list, the most recent print, archive detail, and a fallback way to infer the active archive during a running print.
-- **`bambuddy_webhook_event`** provides lifecycle timing for `print_started`, `print_complete`, `print_failed`, and `print_stopped`.
+- **Lifecycle events** come from a mix of `bambuddy_webhook_event` (`print_started`, `print_complete`, `print_failed`, `print_stopped`) and native `bambu_lab` device triggers (`event_print_started`, `event_print_finished`, `event_print_canceled`, printer error events).
 
 That means the archive API is already enough for browsing history and, in a simple single-printer setup, often enough to infer the current archive for in-progress photo uploads. It is not enough to preserve the full shipped event-driven behavior by itself, because several automations still trigger only from webhook-derived events.
+
+### Recommended Direction
+
+- Prefer native `bambu_lab` triggers and printer sensors whenever they already represent the same lifecycle event in Home Assistant.
+- Remove Bambuddy webhook listeners for events that are already replicated by the Bambu integration, to avoid duplicate firing and split lifecycle ownership.
+- Keep Bambuddy webhook handling only where it adds information HA does not otherwise have, such as direct `archive_id` delivery at `print_started`, or any printer outcome that cannot be reproduced reliably on the current printer model from native triggers and sensors.
+
+In practical terms for the current P1S-oriented design:
+
+- `print_complete` should trend toward native `event_print_finished`.
+- `print_stopped` should trend toward native `event_print_canceled`.
+- Printer/HMS fault handling should trend toward native printer error events or the existing `print_error` and `hms_errors` entities.
+- `print_started` webhook should be retained if it remains the only clean source of Bambuddy `archive_id`.
+- `print_failed` webhook should be retained until native failure semantics are verified as equivalent on this printer model.
 
 For the activity heatmap, the live metric contract is now: `Print Count` = archive rows, `Number of Printed Objects` = summed API `object_count`, and `Filaments Used` = summed per-archive populated filament slots. A backend-only single-source-of-truth heatmap filter path was analyzed and deferred pending a dedicated full-scope activity payload.
 
@@ -30,8 +44,8 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_capture_archive_id.yaml          # webhook print_started → store archive_id
 │   ├── bambuddy_enrich_archive_on_complete.yaml   # webhook print_complete/failed → PATCH tags/notes/cost
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
-│   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped/HMS → immediate capture + upload
-│   ├── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor + archive cache
+│   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped + native cancel + print_error/HMS sensors → immediate capture + upload
+│   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + archive cache
 │   ├── print_history_sync_filter_options.yaml     # populate dynamic filter options from archive cache
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
@@ -67,10 +81,11 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── counter/
 │   │   └── bambuddy_captured_photo_count.yaml
 │   ├── input_boolean/
-│   │   ├── input_boolean_bambuddy_history_fetch_enabled.yaml
+│   │   ├── input_boolean_bambuddy_history_sync_enabled.yaml
 │   │   ├── input_boolean_capture_at_start.yaml
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
+│   │   ├── input_boolean_capture_on_complete.yaml
 │   │   ├── input_boolean_capture_on_error.yaml
 │   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
@@ -163,10 +178,11 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | — |
 | `input_select.secondary_camera_entity` | input_select | Configurable secondary camera choice from the known auxiliary cameras, or `None` | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
-| `input_boolean.bambuddy_history_fetch_enabled` | input_boolean | Enable/disable history REST polling | — |
+| `input_boolean.bambuddy_history_sync_enabled` | input_boolean | Enable/disable history sync features (refresh, cache sync, capture sync) | — |
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
-| `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~95% | — |
+| `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | — |
+| `input_boolean.capture_on_complete` | input_boolean | Enable photo capture on print completion webhook | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
 | `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
@@ -208,9 +224,9 @@ Deferred advanced scripts:
 |---|---|---|
 | `bambuddy_capture_archive_id` | `bambuddy_webhook_event` where event=`print_started` | Store archive_id from payload (or fallback lookup) |
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
-| `bambuddy_capture_error_photos` | print_failed/stopped webhook, HMS error sensor | Error photo capture via `capture_and_upload_snapshot` |
-| `bambuddy_enrich_archive_on_complete` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with Spoolman enrichment metadata (tags, notes, cost), clear archive_id |
-| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | Refresh REST sensor + Layer 1 archive cache |
+| `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
+| `bambuddy_enrich_archive_on_complete` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for stopped | PATCH archive with Spoolman enrichment metadata (tags, notes, cost), clear archive_id |
+| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for stopped | Refresh REST sensor + Layer 1 archive cache |
 | `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
@@ -226,9 +242,11 @@ But these shipped behaviors are currently webhook-dependent and will not fire re
 
 - `bambuddy_capture_archive_id` startup reset path for current-print runtime state
 - `finish` capture in `bambuddy_capture_print_photos`
-- `print_failed` and `print_stopped` error captures unless the HMS error sensor happens to catch the case
+- `print_failed` error captures unless the HMS or print-error sensors happen to catch the case
 - `bambuddy_enrich_archive_on_complete`
 - `bambuddy_event_history_refresh` immediate post-print refresh
+
+If both Bambuddy webhook reception and the native `bambu_lab` cancel trigger are enabled, a single user stop/cancel can reach HA twice. Any automation listening to both sources can therefore run twice unless it has explicit deduplication.
 
 The current archive fallback is intentionally minimal and should be treated as a convenience path, not as an exact replacement for lifecycle events. Today it uses `GET /api/v1/archives/?limit=1` and a task-name substring match.
 
@@ -280,7 +298,7 @@ For detailed design of the two major subsystems, see:
 - **REST commands**: `bambuddy_update_archive_status` prototype evolved into `bambuddy_update_archive` (generalized to support notes+tags+name)
 - **Template sensors**: 4 "last print" sensors from the root `bambuddy/sensors.yaml` prototype (converted to modern `template:` format)
 - **Dashboard cards**: root `bambuddy/dashboards/print_history.yaml` prototype evolved into `dashboard_cards/`
-- **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_fetch_enabled`, `bambuddy_history_limit` originated in the root `bambuddy/helpers.yaml` prototype
+- **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_sync_enabled`, `bambuddy_history_limit` originated in the root `bambuddy/helpers.yaml` prototype
 
 ### Eliminated
 - `bambuddy/automations/sync_print_history.yaml` — Bambuddy auto-creates archives; HA no longer calls `POST /archives`
@@ -400,7 +418,7 @@ Popup launched from `Settings` button:
 │  At Start [✓]  Mid-Print [✓]  Near End [✓] │
 │  On Error [✓]  Mid-Print Threshold   50%   │
 │  Secondary Camera               [dropdown] │
-│  Auto-Fetch History                  [✓]   │
+│  History Sync                        [✓]   │
 │  Max Cached Archives                175    │
 │  Review Timeout (hrs)                24    │
 └─────────────────────────────────────────────┘

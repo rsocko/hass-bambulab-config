@@ -34,9 +34,9 @@ input_boolean:
     name: Bambuddy Integration Enabled
     icon: mdi:archive-check
 
-  # Enable pulling print history via REST sensor (polls every 5 minutes)
-  bambuddy_history_fetch_enabled:
-    name: Bambuddy History Fetch Enabled
+  # Enable syncing print history data with Bambuddy-backed HA features
+  bambuddy_history_sync_enabled:
+    name: Bambuddy History Sync Enabled
     icon: mdi:history
 
   # Enable maintenance alerts from Bambuddy statistics

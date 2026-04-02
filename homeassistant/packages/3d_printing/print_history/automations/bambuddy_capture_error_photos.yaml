@@ -5,7 +5,7 @@
   id: bambuddy_capture_error_photos
   description: >
     Captures diagnostic photos when a print fails, is stopped, or an
-    HMS error fires. Queued to handle rapid error cascades.
+    HMS or print-error sensor fires. Queued to handle rapid error cascades.
 
   triggers:
     - trigger: event
@@ -20,9 +20,21 @@
         event: "print_stopped"
       id: "stopped"
 
-    # HMS error from printer sensor
+    - trigger: device
+      device_id: 210dfdfa64085e8cf073e50eae757d90
+      domain: bambu_lab
+      type: event_print_canceled
+      id: "stopped"
+
+    # Print-error sensor from printer
     - trigger: state
       entity_id: binary_sensor.ntk_ryansoffice_3dprinter_print_error
+      to: "on"
+      id: "print_error"
+
+    # HMS error sensor from printer
+    - trigger: state
+      entity_id: binary_sensor.ntk_ryansoffice_3dprinter_hms_errors
       to: "on"
       id: "hms_error"
 

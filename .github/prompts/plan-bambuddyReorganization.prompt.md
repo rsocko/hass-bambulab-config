@@ -155,7 +155,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_text_history_page_data.yaml
 │   │   └── input_text_secondary_camera_entity.yaml      # configurable 2nd camera
 │   ├── input_boolean/
-│   │   ├── input_boolean_bambuddy_history_fetch_enabled.yaml
+│   │   ├── input_boolean_bambuddy_history_sync_enabled.yaml
 │   │   ├── input_boolean_capture_at_start.yaml
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
