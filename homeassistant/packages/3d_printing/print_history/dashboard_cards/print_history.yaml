@@ -1,125 +1,314 @@
 # Print History Card — full-width responsive archive grid.
 # Archive cards render from the current page slice so filtering/paging stays
 # server-side and the dashboard focuses on presentation.
+#
+# A light container-level fade helps page and layout switches feel smoother
+# without adding per-card motion or duplicate placeholder trees.
 
-type: vertical-stack
-cards:
-  - type: conditional
-    conditions:
-      - entity: input_select.print_history_card_variant
-        state: Compact
-    card:
-      type: custom:auto-entities
-      show_empty: false
+type: custom:config-template-card
+entities:
+  - sensor.print_history_page_archives
+  - input_select.print_history_card_variant
+  - sensor.print_history_filtered
+card:
+  type: vertical-stack
+  cards:
+    - type: conditional
+      conditions:
+        - entity: input_select.print_history_card_variant
+          state: Compact
       card:
-        type: custom:layout-card
-        layout_type: custom:grid-layout
-        layout:
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))
-          grid-gap: 16px
-          margin: 0
-      card_param: cards
-      filter:
-        template: >
-          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-          {% if raw is string %}
-            {% set archives = raw | from_json %}
-          {% elif raw is iterable %}
-            {% set archives = raw | list %}
-          {% else %}
-            {% set archives = [] %}
-          {% endif %}
-          {% set cards = namespace(items=[]) %}
-          {% for archive in archives %}
-            {% set cards.items = cards.items + [{
-              'type': 'custom:button-card',
-              'template': 'print_history_archive_card_compact',
-              'variables': {
-                'archive_json': archive | tojson
-              }
-            }] %}
-          {% endfor %}
-          {{ cards.items | tojson }}
+        type: custom:auto-entities
+        show_empty: false
+        card:
+          type: custom:layout-card
+          layout_type: custom:grid-layout
+          layout:
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))
+            grid-gap: 16px
+            margin: 0
+          card_mod:
+            style: >-
+              ${(() => {
+                const pageState = states['sensor.print_history_page_archives']?.state || '';
+                const variant = states['input_select.print_history_card_variant']?.state || '';
+                const animationName = ((pageState.length + variant.length) % 2 === 0)
+                  ? 'print-history-page-fade-a'
+                  : 'print-history-page-fade-b';
+                return `
+                  @media (prefers-reduced-motion: reduce) {
+                    ha-card {
+                      animation: none !important;
+                      transform: none !important;
+                    }
+                  }
 
-  - type: conditional
-    conditions:
-      - entity: input_select.print_history_card_variant
-        state: Media
-    card:
-      type: custom:auto-entities
-      show_empty: false
+                  ha-card {
+                    animation: ${animationName} 180ms cubic-bezier(0.2, 0.0, 0, 1) both;
+                    transform-origin: top center;
+                    will-change: opacity, transform;
+                  }
+
+                  @keyframes print-history-page-fade-a {
+                    from {
+                      opacity: 0;
+                      transform: translateY(6px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+
+                  @keyframes print-history-page-fade-b {
+                    from {
+                      opacity: 0;
+                      transform: translateY(6px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+                `;
+              })()}
+        card_param: cards
+        filter:
+          template: >
+            {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+            {% if raw is string %}
+              {% set archives = raw | from_json %}
+            {% elif raw is iterable %}
+              {% set archives = raw | list %}
+            {% else %}
+              {% set archives = [] %}
+            {% endif %}
+            {% set cards = namespace(items=[]) %}
+            {% for archive in archives %}
+              {% set cards.items = cards.items + [{
+                'type': 'custom:button-card',
+                'template': 'print_history_archive_card_compact',
+                'variables': {
+                  'archive_json': archive | tojson
+                }
+              }] %}
+            {% endfor %}
+            {{ cards.items | tojson }}
+
+    - type: conditional
+      conditions:
+        - entity: input_select.print_history_card_variant
+          state: Media
       card:
-        type: custom:layout-card
-        layout_type: custom:grid-layout
-        layout:
-          grid-template-columns: repeat(auto-fit, minmax(360px, 1fr))
-          grid-gap: 16px
-          margin: 0
-      card_param: cards
-      filter:
-        template: >
-          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-          {% if raw is string %}
-            {% set archives = raw | from_json %}
-          {% elif raw is iterable %}
-            {% set archives = raw | list %}
-          {% else %}
-            {% set archives = [] %}
-          {% endif %}
-          {% set cards = namespace(items=[]) %}
-          {% for archive in archives %}
-            {% set cards.items = cards.items + [{
-              'type': 'custom:button-card',
-              'template': 'print_history_archive_card_media',
-              'variables': {
-                'archive_json': archive | tojson
-              }
-            }] %}
-          {% endfor %}
-          {{ cards.items | tojson }}
+        type: custom:auto-entities
+        show_empty: false
+        card:
+          type: custom:layout-card
+          layout_type: custom:grid-layout
+          layout:
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr))
+            grid-gap: 16px
+            margin: 0
+          card_mod:
+            style: >-
+              ${(() => {
+                const pageState = states['sensor.print_history_page_archives']?.state || '';
+                const variant = states['input_select.print_history_card_variant']?.state || '';
+                const animationName = ((pageState.length + variant.length) % 2 === 0)
+                  ? 'print-history-page-fade-a'
+                  : 'print-history-page-fade-b';
+                return `
+                  @media (prefers-reduced-motion: reduce) {
+                    ha-card {
+                      animation: none !important;
+                      transform: none !important;
+                    }
+                  }
 
-  - type: conditional
-    conditions:
-      - entity: input_select.print_history_card_variant
-        state: Detail
-    card:
-      type: custom:auto-entities
-      show_empty: false
+                  ha-card {
+                    animation: ${animationName} 180ms cubic-bezier(0.2, 0.0, 0, 1) both;
+                    transform-origin: top center;
+                    will-change: opacity, transform;
+                  }
+
+                  @keyframes print-history-page-fade-a {
+                    from {
+                      opacity: 0;
+                      transform: translateY(6px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+
+                  @keyframes print-history-page-fade-b {
+                    from {
+                      opacity: 0;
+                      transform: translateY(6px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+                `;
+              })()}
+        card_param: cards
+        filter:
+          template: >
+            {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+            {% if raw is string %}
+              {% set archives = raw | from_json %}
+            {% elif raw is iterable %}
+              {% set archives = raw | list %}
+            {% else %}
+              {% set archives = [] %}
+            {% endif %}
+            {% set cards = namespace(items=[]) %}
+            {% for archive in archives %}
+              {% set cards.items = cards.items + [{
+                'type': 'custom:button-card',
+                'template': 'print_history_archive_card_media',
+                'variables': {
+                  'archive_json': archive | tojson
+                }
+              }] %}
+            {% endfor %}
+            {{ cards.items | tojson }}
+
+    - type: conditional
+      conditions:
+        - entity: input_select.print_history_card_variant
+          state: Detail
       card:
-        type: custom:layout-card
-        layout_type: custom:grid-layout
-        layout:
-          grid-template-columns: minmax(0, 1fr)
-          grid-gap: 16px
-          margin: 0
-      card_param: cards
-      filter:
-        template: >
-          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
-          {% if raw is string %}
-            {% set archives = raw | from_json %}
-          {% elif raw is iterable %}
-            {% set archives = raw | list %}
-          {% else %}
-            {% set archives = [] %}
-          {% endif %}
-          {% set cards = namespace(items=[]) %}
-          {% for archive in archives %}
-            {% set cards.items = cards.items + [{
-              'type': 'custom:button-card',
-              'template': 'print_history_archive_card_detail',
-              'variables': {
-                'archive_json': archive | tojson
-              }
-            }] %}
-          {% endfor %}
-          {{ cards.items | tojson }}
+        type: custom:auto-entities
+        show_empty: false
+        card:
+          type: custom:layout-card
+          layout_type: custom:grid-layout
+          layout:
+            grid-template-columns: minmax(0, 1fr)
+            grid-gap: 16px
+            margin: 0
+          card_mod:
+            style: >-
+              ${(() => {
+                const pageState = states['sensor.print_history_page_archives']?.state || '';
+                const variant = states['input_select.print_history_card_variant']?.state || '';
+                const animationName = ((pageState.length + variant.length) % 2 === 0)
+                  ? 'print-history-page-fade-a'
+                  : 'print-history-page-fade-b';
+                return `
+                  @media (prefers-reduced-motion: reduce) {
+                    ha-card {
+                      animation: none !important;
+                      transform: none !important;
+                    }
+                  }
 
-  - type: conditional
-    conditions:
-      - entity: sensor.print_history_filtered
-        state: '0'
-    card:
-      type: markdown
-      content: >
-        No matching archives. Adjust filters or refresh the archive cache.
+                  ha-card {
+                    animation: ${animationName} 180ms cubic-bezier(0.2, 0.0, 0, 1) both;
+                    transform-origin: top center;
+                    will-change: opacity, transform;
+                  }
+
+                  @keyframes print-history-page-fade-a {
+                    from {
+                      opacity: 0;
+                      transform: translateY(6px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+
+                  @keyframes print-history-page-fade-b {
+                    from {
+                      opacity: 0;
+                      transform: translateY(6px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+                `;
+              })()}
+        card_param: cards
+        filter:
+          template: >
+            {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
+            {% if raw is string %}
+              {% set archives = raw | from_json %}
+            {% elif raw is iterable %}
+              {% set archives = raw | list %}
+            {% else %}
+              {% set archives = [] %}
+            {% endif %}
+            {% set cards = namespace(items=[]) %}
+            {% for archive in archives %}
+              {% set cards.items = cards.items + [{
+                'type': 'custom:button-card',
+                'template': 'print_history_archive_card_detail',
+                'variables': {
+                  'archive_json': archive | tojson
+                }
+              }] %}
+            {% endfor %}
+            {{ cards.items | tojson }}
+
+    - type: conditional
+      conditions:
+        - entity: sensor.print_history_filtered
+          state: '0'
+      card:
+        type: markdown
+        content: >
+          No matching archives. Adjust filters or refresh the archive cache.
+        card_mod:
+          style: >-
+            ${(() => {
+              const pageState = states['sensor.print_history_page_archives']?.state || '';
+              const variant = states['input_select.print_history_card_variant']?.state || '';
+              const animationName = ((pageState.length + variant.length) % 2 === 0)
+                ? 'print-history-page-fade-a'
+                : 'print-history-page-fade-b';
+              return `
+                @media (prefers-reduced-motion: reduce) {
+                  ha-card {
+                    animation: none !important;
+                    transform: none !important;
+                  }
+                }
+
+                ha-card {
+                  animation: ${animationName} 180ms cubic-bezier(0.2, 0.0, 0, 1) both;
+                  transform-origin: top center;
+                  will-change: opacity, transform;
+                }
+
+                @keyframes print-history-page-fade-a {
+                  from {
+                    opacity: 0;
+                    transform: translateY(6px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0);
+                  }
+                }
+
+                @keyframes print-history-page-fade-b {
+                  from {
+                    opacity: 0;
+                    transform: translateY(6px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0);
+                  }
+                }
+              `;
+            })()}
