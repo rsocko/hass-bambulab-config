@@ -36,23 +36,35 @@ catalog_group_header:
   custom_fields:
     header: |
       [[[
-        // Force the parent grid-item wrapper to span all columns.
-        // Runs once via setTimeout after the card is in the DOM.
-        setTimeout(() => {
-          try {
-            let el = this?.shadowRoot?.host;
-            while (el) {
-              const parentStyle = el.parentElement
-                ? getComputedStyle(el.parentElement).display
-                : '';
-              if (parentStyle === 'grid') {
-                el.style.gridColumn = '1 / -1';
-                break;
+        // Force the parent grid-item wrapper to span all columns as soon as
+        // the card is attached, without the fixed 50 ms delay that caused a
+        // visible second layout pass in the catalog grid.
+        if (!this.__catalogGroupHeaderSpanScheduled) {
+          this.__catalogGroupHeaderSpanScheduled = true;
+          const applyGridSpan = (attempt = 0) => {
+            try {
+              let el = this?.shadowRoot?.host;
+              while (el) {
+                const parent = el.parentElement;
+                const parentStyle = parent ? getComputedStyle(parent).display : '';
+                if (parentStyle === 'grid') {
+                  el.style.gridColumn = '1 / -1';
+                  this.__catalogGroupHeaderSpanScheduled = false;
+                  return;
+                }
+                el = parent;
               }
-              el = el.parentElement;
+            } catch (e) {}
+
+            if (attempt < 5) {
+              requestAnimationFrame(() => applyGridSpan(attempt + 1));
+            } else {
+              this.__catalogGroupHeaderSpanScheduled = false;
             }
-          } catch(e) {}
-        }, 50);
+          };
+
+          requestAnimationFrame(() => applyGridSpan());
+        }
 
         const name = variables?.groupName || 'Unknown';
         const count = variables?.groupCount || 0;
