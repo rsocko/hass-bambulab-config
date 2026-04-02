@@ -2,17 +2,30 @@ print_history_archive_card_detail:
   template:
     - print_history_archive_popup
   type: custom:button-card
+  triggers_update:
+    - sensor.print_history_page_archives
   show_icon: true
   show_name: false
   show_state: false
   show_label: false
   icon: |
     [[[ 
-      let archive = {};
+      let snapshotArchive = {};
       try {
-        archive = JSON.parse(variables?.archive_json || '{}');
+        snapshotArchive = JSON.parse(variables?.archive_json || '{}');
       } catch (_error) {
-        archive = {};
+        snapshotArchive = {};
+      }
+      const archiveId = snapshotArchive?.id;
+      let archive = snapshotArchive;
+      try {
+        const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+        const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+        if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
+          archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
+        }
+      } catch (_error) {
+        archive = snapshotArchive;
       }
       return archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline';
     ]]]
@@ -33,11 +46,22 @@ print_history_archive_card_detail:
   custom_fields:
     body: |
       [[[ 
-        let archive = {};
+        let snapshotArchive = {};
         try {
-          archive = JSON.parse(variables?.archive_json || '{}');
+          snapshotArchive = JSON.parse(variables?.archive_json || '{}');
         } catch (_error) {
-          archive = {};
+          snapshotArchive = {};
+        }
+        const snapshotArchiveId = snapshotArchive?.id;
+        let archive = snapshotArchive;
+        try {
+          const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+          const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+          if (Array.isArray(pageArchives) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
+            archive = pageArchives.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
+          }
+        } catch (_error) {
+          archive = snapshotArchive;
         }
 
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
@@ -142,11 +166,22 @@ print_history_archive_card_detail:
       - height: 22px
       - color: |
           [[[ 
-            let archive = {};
+            let snapshotArchive = {};
             try {
-              archive = JSON.parse(variables?.archive_json || '{}');
+              snapshotArchive = JSON.parse(variables?.archive_json || '{}');
             } catch (_error) {
-              archive = {};
+              snapshotArchive = {};
+            }
+            const archiveId = snapshotArchive?.id;
+            let archive = snapshotArchive;
+            try {
+              const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+              const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+              if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
+                archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
+              }
+            } catch (_error) {
+              archive = snapshotArchive;
             }
             return archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)';
           ]]]
