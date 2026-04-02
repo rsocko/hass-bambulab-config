@@ -34,72 +34,6 @@ print_history_archive_popup:
       const notesWereTrimmed = archiveNotes.length > editorNotesLimit;
       const tagsWereTrimmed = archiveTags.length > editorTagLimit;
       const isFavorite = !!archive?.is_favorite;
-      const liveArchiveResolver = `
-        let snapshotArchive = {};
-        try {
-          snapshotArchive = JSON.parse(variables?.archive_json || '{}');
-        } catch (_error) {
-          snapshotArchive = {};
-        }
-        const resolvedArchiveId = variables?.archive_id || snapshotArchive?.id;
-        let archive = snapshotArchive;
-        try {
-          const archiveCacheRaw = states['sensor.print_history_archives']?.attributes?.archives_json || '[]';
-          const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
-          if (Array.isArray(archiveCache) && resolvedArchiveId !== undefined && resolvedArchiveId !== null) {
-            archive = archiveCache.find((item) => String(item?.id) === String(resolvedArchiveId)) || snapshotArchive;
-          }
-        } catch (_error) {
-          archive = snapshotArchive;
-        }
-      `;
-      const favoriteButtonCard = {
-        type: 'custom:button-card',
-        entity: 'sensor.print_history_archives',
-        triggers_update: ['sensor.print_history_archives'],
-        variables: {
-          archive_json: variables?.archive_json || '{}',
-          archive_id: String(archiveId)
-        },
-        name: 'Favorite',
-        icon: `[[[ ${liveArchiveResolver} return archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'; ]]]`,
-        show_name: true,
-        show_icon: true,
-        show_state: false,
-        tap_action: {
-          action: 'call-service',
-          service: 'script.toggle_print_history_archive_favorite',
-          data: {
-            archive_id: String(archiveId)
-          }
-        },
-        hold_action: { action: 'none' },
-        styles: {
-          card: [
-            { padding: '12px 10px' },
-            { 'border-radius': '16px' },
-            { 'box-shadow': 'none' },
-            { border: '1px solid rgba(255,255,255,0.08)' },
-            { background: `[[[ ${liveArchiveResolver} return archive?.is_favorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.04)'; ]]]` }
-          ],
-          grid: [
-            { 'grid-template-areas': '"i" "n"' },
-            { 'grid-template-columns': '1fr' },
-            { 'justify-items': 'center' },
-            { gap: '6px' }
-          ],
-          icon: [
-            { width: '22px' },
-            { height: '22px' },
-            { color: `[[[ ${liveArchiveResolver} return archive?.is_favorite ? '#f5c242' : 'var(--primary-text-color)'; ]]]` }
-          ],
-          name: [
-            { 'font-size': '12px' },
-            { 'font-weight': '600' },
-            { color: 'var(--primary-text-color)' }
-          ]
-        }
-      };
       const buttonCard = (name, icon, background, tapAction) => ({
         type: 'custom:button-card',
         name,
@@ -173,7 +107,14 @@ print_history_archive_popup:
           columns: 3,
           square: false,
           cards: [
-            favoriteButtonCard,
+            {
+              type: 'custom:button-card',
+              template: 'print_history_archive_popup_favorite_button',
+              variables: {
+                archive_json: variables?.archive_json || '{}',
+                archive_id: String(archiveId)
+              }
+            },
             buttonCard(
               'Save',
               'mdi:content-save-outline',
