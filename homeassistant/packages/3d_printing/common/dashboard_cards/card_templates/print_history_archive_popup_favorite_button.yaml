@@ -76,6 +76,9 @@ print_history_archive_popup_favorite_button:
       - justify-items: center
       - gap: 6px
     icon:
+      - align-self: center
+      - justify-self: center
+      - line-height: 1
       - width: 22px
       - height: 22px
       - color: |
