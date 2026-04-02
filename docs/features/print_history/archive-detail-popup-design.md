@@ -22,7 +22,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 - Phase 0 remains deferred, and that is still accurate: the live archive popup/card templates are still owned by `common/dashboard_cards/card_templates`, and `button_card_templates` are still loaded from the shared dashboard definition under `common/dashboards/3d_printing.yaml`
 - Phase 1 is shipped for all three archive card variants: `Compact`, `Media`, and `Detail`
-- Phase 2 has now started in an initial form: favorites can be toggled from both the cards and the popup, and the popup supports helper-backed `tags` / `notes` edits
+- Phase 2 has now started in an initial form: favorites can be toggled from both the cards and the popup, and the popup supports helper-backed `tags` / `notes` edits within Home Assistant's current helper length cap
 
 ### Not shipped yet
 
@@ -275,7 +275,7 @@ Those fields are intentionally out of the first editable popup slice unless they
 ### Current implementation slice
 
 - `is_favorite` is toggleable from both the archive cards and the popup action bar
-- `tags` and `notes` are editable from the popup through helper-backed fields plus a save action
+- `tags` and `notes` are editable from the popup through helper-backed fields plus a save action, with current inline editing capped by Home Assistant helper limits
 - `print_name` is still deferred
 
 ### UI shape

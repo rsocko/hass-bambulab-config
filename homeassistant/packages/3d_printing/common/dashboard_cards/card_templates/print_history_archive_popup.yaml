@@ -16,6 +16,12 @@ print_history_archive_popup:
       const archiveName = archive?.print_name || `Archive ${archiveId}`;
       const archiveTags = String(archive?.tags || '');
       const archiveNotes = String(archive?.notes || '');
+      const editorTagLimit = 255;
+      const editorNotesLimit = 255;
+      const editableTags = archiveTags.slice(0, editorTagLimit);
+      const editableNotes = archiveNotes.slice(0, editorNotesLimit);
+      const notesWereTrimmed = archiveNotes.length > editorNotesLimit;
+      const tagsWereTrimmed = archiveTags.length > editorTagLimit;
       const isFavorite = !!archive?.is_favorite;
       const favoriteIcon = isFavorite ? 'mdi:star' : 'mdi:star-outline';
       const favoriteLabel = isFavorite ? 'Unfavorite' : 'Favorite';
@@ -81,6 +87,10 @@ print_history_archive_popup:
             }
           ]
         },
+        ...((notesWereTrimmed || tagsWereTrimmed) ? [{
+          type: 'markdown',
+          content: `${tagsWereTrimmed ? '- Tags were trimmed to the first 255 characters for editing.\n' : ''}${notesWereTrimmed ? '- Notes were trimmed to the first 255 characters for editing.\n' : ''}Home Assistant input_text helpers currently cap inline edits at 255 characters.`
+        }] : []),
         {
           type: 'grid',
           columns: 3,
@@ -137,14 +147,14 @@ print_history_archive_popup:
                 service: 'input_text.set_value',
                 data: {
                   entity_id: 'input_text.print_history_popup_tags',
-                  value: archiveTags
+                  value: editableTags
                 }
               },
               {
                 service: 'input_text.set_value',
                 data: {
                   entity_id: 'input_text.print_history_popup_notes',
-                  value: archiveNotes
+                  value: editableNotes
                 }
               },
               {
