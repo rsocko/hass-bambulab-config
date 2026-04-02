@@ -65,6 +65,7 @@ print_history_archive_popup:
       if (hasCustomFailureReason) {
         failureReasonOptions.push(archiveFailureReason);
       }
+      const failureReasonStatuses = ['Failed', 'Cancelled'];
       const selectedFailureReason = archiveFailureReason || 'Unspecified';
       const editorNameLimit = 255;
       const editorTagLimit = 255;
@@ -149,7 +150,23 @@ print_history_archive_popup:
               entity: 'input_select.print_history_popup_status',
               name: 'Status',
               icon: 'mdi:list-status'
-            },
+            }
+          ]
+        },
+        ...failureReasonStatuses.map((status) => ({
+          type: 'conditional',
+          conditions: [
+            {
+              entity: 'input_select.print_history_popup_status',
+              state: status
+            }
+          ],
+          card: failureReasonEditorCard
+        })),
+        {
+          type: 'entities',
+          show_header_toggle: false,
+          entities: [
             {
               entity: 'input_text.print_history_popup_tags',
               name: 'Tags',
@@ -161,26 +178,6 @@ print_history_archive_popup:
               icon: 'mdi:text-box-outline'
             }
           ]
-        },
-        {
-          type: 'conditional',
-          conditions: [
-            {
-              entity: 'input_select.print_history_popup_status',
-              state: 'Failed'
-            }
-          ],
-          card: failureReasonEditorCard
-        },
-        {
-          type: 'conditional',
-          conditions: [
-            {
-              entity: 'input_select.print_history_popup_status',
-              state: 'Cancelled'
-            }
-          ],
-          card: failureReasonEditorCard
         },
         ...((printNameWasTrimmed || notesWereTrimmed || tagsWereTrimmed || hasCustomFailureReason) ? [{
           type: 'markdown',
