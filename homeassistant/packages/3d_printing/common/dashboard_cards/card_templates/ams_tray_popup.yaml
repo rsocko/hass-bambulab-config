@@ -1396,40 +1396,45 @@ ams_tray_popup:
                       fill_container: true
                     },
                     {
-                      type: 'custom:mushroom-template-card',
-                      primary: printWeightText,
-                      secondary: printWeightSecondary,
-                      icon: printIcon,
-                      icon_color: printIconColor,
-                      layout: 'vertical',
-                      fill_container: true
-                    },
-                    {
                       type: 'vertical-stack',
                       cards: [
                         {
-                          type: 'custom:mushroom-template-card',
-                          primary: totalWeightText,
-                          secondary: totalSpoolsSecondary,
-                          icon: 'mdi:layers-triple',
-                          icon_color: 'cyan',
-                          layout: 'vertical',
-                          fill_container: true
+                          type: 'horizontal-stack',
+                          cards: [
+                            {
+                              type: 'custom:mushroom-template-card',
+                              primary: printWeightText,
+                              secondary: printWeightSecondary,
+                              icon: printIcon,
+                              icon_color: printIconColor,
+                              layout: 'vertical',
+                              fill_container: true
+                            },
+                            {
+                              type: 'custom:mushroom-template-card',
+                              primary: totalWeightText,
+                              secondary: totalSpoolsSecondary,
+                              icon: 'mdi:layers-triple',
+                              icon_color: 'cyan',
+                              layout: 'vertical',
+                              fill_container: true
+                            }
+                          ]
                         },
                         {
                           type: 'custom:bubble-card',
                           card_type: 'sub-buttons',
                           entity: inventoryRuleHelperEntity,
-                          hide_main_background: false,
+                          hide_main_background: true,
                           rows: 1,
-                          styles: 'ha-card { padding-top: 2px !important; padding-bottom: 2px !important; } .bubble-sub-button-container, .bubble-sub-buttons-container { gap: 0 !important; } .bubble-sub-button { min-height: 30px !important; }',
+                          styles: 'ha-card { padding: 0 !important; background: transparent !important; box-shadow: none !important; border: 0 !important; } .bubble-sub-button-container, .bubble-sub-buttons-container { gap: 0 !important; } .bubble-sub-button { min-height: 30px !important; }',
                           sub_button: {
                             main: [],
                             bottom: [
                               {
                                 entity: inventoryRuleHelperEntity,
                                 sub_button_type: 'select',
-                                name: 'Rule',
+                                name: 'Inventory Rule',
                                 icon: 'mdi:playlist-check',
                                 show_name: true,
                                 show_state: true,
