@@ -1,6 +1,6 @@
 filament_catalog_filter_spool_type:
   name: Filament Catalog Spool Type
-  icon: mdi:cached
+  icon: fapro:filament-2
   options:
     - All
   initial: All

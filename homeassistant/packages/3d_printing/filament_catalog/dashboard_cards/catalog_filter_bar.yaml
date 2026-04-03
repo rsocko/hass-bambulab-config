@@ -186,7 +186,7 @@ cards:
               - entity: input_select.filament_catalog_filter_spool_type
                 sub_button_type: select
                 name: Spool Type
-                icon: mdi:cached
+                icon: fapro:filament-2
                 show_name: true
                 show_state: true
                 show_background: true
@@ -488,7 +488,7 @@ cards:
             - entity: input_select.filament_catalog_filter_spool_type
               sub_button_type: default
               name: Clear Spool Type Filter
-              icon: mdi:cached
+              icon: fapro:filament-2
               show_icon: true
               show_name: false
               show_state: false
