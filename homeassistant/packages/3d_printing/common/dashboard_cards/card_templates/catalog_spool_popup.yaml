@@ -650,6 +650,11 @@ catalog_spool_popup:
                     }
                   ]
                 },
+                // --- Other spools (markdown, same pattern as AMS popup) ---
+                ...(otherSpools.length > 0 ? [{
+                  type: 'markdown',
+                  content: otherSpoolsMd
+                }] : []),
                 // --- Desiccant / Dried info + action buttons (bubble card format) ---
                 {
                   type: 'horizontal-stack',
@@ -696,11 +701,6 @@ catalog_spool_popup:
                     }
                   ]
                 },
-                // --- Other spools (markdown, same pattern as AMS popup) ---
-                ...(otherSpools.length > 0 ? [{
-                  type: 'markdown',
-                  content: otherSpoolsMd
-                }] : []),
                 // --- Weight history chart ---
                 {
                   type: 'custom:apexcharts-card',
