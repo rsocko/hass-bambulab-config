@@ -1384,23 +1384,26 @@ ams_tray_popup:
                 },
                 {
                   type: 'horizontal-stack',
+                  card_mod: {
+                    style: '#root { align-items: stretch !important; } #root > :first-child { flex: 3 1 0 !important; min-width: 0 !important; } #root > :last-child { flex: 1 1 0 !important; min-width: 0 !important; }'
+                  },
                   cards: [
-                    {
-                      type: 'custom:mushroom-template-card',
-                      primary: weightText,
-                      secondary: 'Remaining',
-                      icon: 'mdi:weight-gram',
-                      icon_color: 'teal',
-                      tap_action: openWeightEditorAction,
-                      layout: 'vertical',
-                      fill_container: true
-                    },
                     {
                       type: 'vertical-stack',
                       cards: [
                         {
                           type: 'horizontal-stack',
                           cards: [
+                            {
+                              type: 'custom:mushroom-template-card',
+                              primary: weightText,
+                              secondary: 'Remaining',
+                              icon: 'mdi:weight-gram',
+                              icon_color: 'teal',
+                              tap_action: openWeightEditorAction,
+                              layout: 'vertical',
+                              fill_container: true
+                            },
                             {
                               type: 'custom:mushroom-template-card',
                               primary: printWeightText,
