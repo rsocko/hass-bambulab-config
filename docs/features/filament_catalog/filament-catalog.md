@@ -556,10 +556,10 @@ The view's `auto-entities` references this sensor to decide which spools to disp
 ##### Filter Bar Design
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ View ▼  Sort ▼                                                  │
+│ Filter Spools                 View ▼  Sort ▼  [Compact]         │
 │ Material ▼  Vendor ▼  Color ▼  Family ▼                        │
 │ Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]          │
-│ Sealed ▼  [Desiccant Old]  [Large Cards]                        │
+│ Sealed ▼  [Desiccant Old]                                       │
 │ 🔍 [___search___]              [123 Matches]  [Clear Filters]   │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -621,7 +621,7 @@ New `input_boolean.filament_catalog_compact_cards` helper — a simple on/off to
 | **Off** (default) | 4 | 2 | Default grid — all Phase 3 enhancements visible |
 | **On** | 4 | 2 | Compact grid — vertical card layout, no weight bar or last-used |
 
-The view uses two `conditional` card wrappers around `auto-entities` instances: one for default (shown when toggle is off/unavailable, uses `catalog_spool_card`) and one for compact (shown when toggle is on, uses `catalog_spool_card_compact`). Both use 4 columns on desktop and CSS `card_mod` media queries to switch to 2 columns on mobile (≤768px). The toggle button is in the filter bar's third row.
+The view uses two `conditional` card wrappers around `auto-entities` instances: one for default (shown when toggle is off/unavailable, uses `catalog_spool_card`) and one for compact (shown when toggle is on, uses `catalog_spool_card_compact`). Both use 4 columns on desktop and CSS `card_mod` media queries to switch to 2 columns on mobile (≤768px). The toggle button now lives in the `Filter Spools` separator row alongside `View` and `Sort`.
 
 #### Files Modified / Created
 
@@ -702,7 +702,7 @@ New `input_select.filament_catalog_sort`:
 | `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Cost, Vendor then Name (ascending/descending), Hue (rainbow color sort) |
 | `common/dashboard_cards/card_templates/catalog_group_header.yaml` | **Created** | Lightweight group separator — reads variables only, no entity iteration |
 | `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort logic, derived `entity_ids_json` from grouped output |
-| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View (tab) and Sort dropdowns in new top row |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View (tab) and Sort dropdowns in the separator row |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** | Replaced auto-entities templates to use grouped data with inline headers; removed `sort:` property |
 
 #### Estimated Complexity: Medium (Actual: Medium-High)

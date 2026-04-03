@@ -1,13 +1,46 @@
 type: vertical-stack
 cards:
-  - type: custom:bubble-card
-    card_type: separator
-    name: Filter Spools
-    icon: mdi:filter-variant
   - type: custom:config-template-card
     entities:
       - input_select.filament_catalog_tab
       - input_select.filament_catalog_sort
+      - input_boolean.filament_catalog_compact_cards
+    card:
+      type: custom:bubble-card
+      card_type: separator
+      name: Filter Spools
+      icon: mdi:filter-variant
+      sub_button:
+        - entity: input_select.filament_catalog_tab
+          sub_button_type: select
+          name: View
+          icon: mdi:format-list-group
+          show_name: true
+          show_state: true
+          show_background: true
+          fill_width: false
+        - entity: input_select.filament_catalog_sort
+          sub_button_type: select
+          name: Sort
+          icon: mdi:sort
+          show_name: true
+          show_state: true
+          show_background: true
+          fill_width: false
+        - entity: input_boolean.filament_catalog_compact_cards
+          sub_button_type: default
+          name: Compact
+          icon: mdi:arrow-collapse
+          show_name: true
+          show_state: false
+          show_background: true
+          fill_width: false
+          state_background: ${states['input_boolean.filament_catalog_compact_cards']?.state === 'on'}
+          state_color: ${states['input_boolean.filament_catalog_compact_cards']?.state === 'on'}
+          tap_action:
+            action: toggle
+  - type: custom:config-template-card
+    entities:
       - input_select.filament_catalog_filter_material
       - input_select.filament_catalog_filter_vendor
       - input_select.filament_catalog_filter_color
@@ -18,35 +51,17 @@ cards:
       - input_select.filament_catalog_filter_sealed
       - input_select.filament_catalog_filter_desiccant
       - input_select.filament_catalog_filter_data_quality
-      - input_boolean.filament_catalog_compact_cards
       - sensor.filament_catalog_filtered_spools
     card:
       type: custom:bubble-card
       card_type: sub-buttons
       entity: sensor.filament_catalog_filtered_spools
       hide_main_background: false
-      rows: 3.08
+      rows: 2.35
       sub_button:
         main: []
         bottom_layout: rows
         bottom:
-          - group:
-              - entity: input_select.filament_catalog_tab
-                sub_button_type: select
-                name: View
-                icon: mdi:format-list-group
-                show_name: true
-                show_state: true
-                fill_width: true
-              - entity: input_select.filament_catalog_sort
-                sub_button_type: select
-                name: Sort
-                icon: mdi:sort
-                show_name: true
-                show_state: true
-                fill_width: true
-            buttons_layout: inline
-            justify_content: fill
           - group:
               - entity: input_select.filament_catalog_filter_material
                 sub_button_type: select
@@ -161,14 +176,6 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.filament_catalog_filter_data_quality']?.state !== (states['input_select.filament_catalog_filter_data_quality']?.attributes?.options?.[0] ?? '')}
-                fill_width: true
-              - entity: input_boolean.filament_catalog_compact_cards
-                name: Compact
-                icon: mdi:arrow-collapse
-                show_name: true
-                show_state: false
-                tap_action:
-                  action: toggle
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
