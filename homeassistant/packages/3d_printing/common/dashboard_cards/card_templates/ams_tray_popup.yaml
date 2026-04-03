@@ -1309,49 +1309,49 @@ ams_tray_popup:
                 ...(setOnPrinterChip ? [{
                   type: 'custom:mushroom-chips-card',
                   alignment: 'center',
-                    : colorHex.toUpperCase() + '  \u2022  RGB(' + r + ', ' + g + ', ' + b + ')',
-                  tap_action: { action: 'none' },
-                  styles: {
-                    card: [
-                      { background: backgroundCSS },
-                      { border: '3px solid ' + headerBorderColor },
-                      { 'border-radius': '8px' },
-                      { padding: '10px 16px' },
-                      { cursor: 'default' },
-                      { 'user-select': 'text' }
-                    ],
-                    grid: [
-                      { 'grid-template-areas': '"i n" "i l"' },
-                      { 'grid-template-columns': 'min-content 1fr' },
-                      { 'grid-template-rows': 'auto auto' },
-                      { 'align-items': 'center' },
-                      { 'justify-items': 'start' },
-                      { gap: '0 12px' }
-                    ],
-                    entity_picture: [
-                      { width: '40px' },
-                      { height: '40px' },
-                      { 'border-radius': '50%' },
-                      { border: '2px solid ' + headerBorderColor }
-                    ],
-                    name: [
-                      { color: headerTextColor },
-                      { 'font-size': '14px' },
-                      { 'font-weight': '700' },
-                      { 'text-align': 'left' },
-                      { 'user-select': 'text' },
-                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
-                    ],
-                    label: [
-                      { color: headerTextColor },
-                      { 'font-size': '12px' },
-                      { opacity: '0.85' },
-                      { 'text-align': 'left' },
-                      { 'user-select': 'text' },
-                      ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
-                    ]
+                  chips: [setOnPrinterChip],
+                  card_mod: {
+                    style: {
+                      '.': 'mushroom-template-chip:first-child { --chip-background: #2e7d32; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:first-child:hover { filter: brightness(1.2); } mushroom-template-chip:first-child:active { filter: brightness(0.9); }',
+                      'mushroom-template-chip:first-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }'
+                    }
+                  }
+                }] : []),
+                {
+                  type: 'custom:mushroom-chips-card',
+                  alignment: 'center',
+                  chips: [
+                    { type: 'template', icon: 'mdi:texture-box', icon_color: 'orange', content: 'Material: ' + material },
+                    { type: 'template', icon: 'mdi:factory', icon_color: 'purple', content: 'Vendor: ' + vendor },
+                    { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location, ...(locationEntityId ? { entity: locationEntityId, tap_action: { action: 'more-info' } } : {}) }
+                  ]
+                },
+                {
+                  type: 'custom:mushroom-chips-card',
+                  alignment: 'center',
+                  chips: [
+                    { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') },
+                    { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') },
+                    { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails },
+                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : [])
+                  ],
+                  card_mod: {
+                    style: {
+                      '$': 'mushroom-template-chip:nth-child(2)::part(icon) { filter: drop-shadow(0 1px 0 ' + baseColorOutlineColor + ') drop-shadow(0 -1px 0 ' + baseColorOutlineColor + ') drop-shadow(1px 0 0 ' + baseColorOutlineColor + ') drop-shadow(-1px 0 0 ' + baseColorOutlineColor + '); }'
+                    }
                   }
                 },
+                ...(usedNonFirstMultiHex ? [
+                  {
+                    type: 'custom:mushroom-template-card',
+                    primary: 'Using non-first multi-color tray color',
+                    secondary: 'Current tray color #' + trayColorNormalized.toUpperCase() + ' matched by any-hex fallback. Recommended tray color is first hex #' + multiColorFirstHex.toUpperCase() + ' for deterministic matching.',
+                    icon: 'mdi:alert-circle-outline',
+                    icon_color: 'orange',
+                    layout: 'horizontal',
+                    fill_container: true
+                  }
+                ] : []),
                 {
                   type: 'grid',
                   columns: 2,
