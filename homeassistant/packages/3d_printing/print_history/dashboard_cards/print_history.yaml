@@ -91,7 +91,25 @@ cards:
         layout:
           grid-template-columns: minmax(0, 1fr)
           grid-gap: 16px
+          justify-items: stretch
+          align-items: stretch
           margin: 0
+        card_mod:
+          style: |
+            :host {
+              display: block;
+              width: 100%;
+            }
+            #root {
+              width: 100% !important;
+            }
+            #columns {
+              width: 100% !important;
+            }
+            #columns > * {
+              width: 100% !important;
+              min-width: 0 !important;
+            }
       card_param: cards
       filter:
         template: >
