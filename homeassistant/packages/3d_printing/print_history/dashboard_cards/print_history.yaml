@@ -86,30 +86,7 @@ cards:
       type: custom:auto-entities
       show_empty: false
       card:
-        type: custom:layout-card
-        layout_type: custom:grid-layout
-        layout:
-          grid-template-columns: minmax(0, 1fr)
-          grid-gap: 16px
-          justify-items: stretch
-          align-items: stretch
-          margin: 0
-        card_mod:
-          style: |
-            :host {
-              display: block;
-              width: 100%;
-            }
-            #root {
-              width: 100% !important;
-            }
-            #columns {
-              width: 100% !important;
-            }
-            #columns > * {
-              width: 100% !important;
-              min-width: 0 !important;
-            }
+        type: vertical-stack
       card_param: cards
       filter:
         template: >
