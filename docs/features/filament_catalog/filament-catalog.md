@@ -513,7 +513,7 @@ At 165 spools, client-side filtering via `config-template-card` is too slow. Ins
 | `input_select.filament_catalog_filter_type` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_location` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_spool_type` | input_select | Dropdown — options populated dynamically |
-| `input_select.filament_catalog_filter_clip_type` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_clip_type` | input_select | Dropdown — options populated dynamically, plus `None` for spools with no clip type set |
 | `input_boolean.filament_catalog_filter_qty_to_purchase` | input_boolean | Toggle: only include spools where qty to purchase > 0 |
 | `input_select.filament_catalog_filter_sealed` | input_select | `All`, `Sealed`, `Unsealed` (static) |
 | `input_select.filament_catalog_filter_stock_level` | input_select | Tiered stock filter: `Any Stock Level`, `Low Stock`, `Low Stock (by Filament)` |
@@ -540,7 +540,7 @@ Triggers:
 
 Behavior:
 - Single pass through all non-archived `sensor.spoolman_spool_*` entities
-- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location, Spool Type, Clip Type)
+- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location, Spool Type, Clip Type), and injects a `None` sentinel for Clip Type to target spools where no clip type is defined
 - Strips JSON outer quotes from `filament_extra_primary_color` and `filament_extra_color_family`
 - Flattens the `filament_extra_type_details` JSON array into individual type values
 - Calls `input_select.set_options` for each dropdown with `['All'] + sorted_unique_values`

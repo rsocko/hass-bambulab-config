@@ -111,6 +111,7 @@
               {%- set type_details = attrs.get('filament_extra_type_details', '') | string | replace('[', '') | replace(']', '') | replace('"', '') | lower -%}
               {%- set spool_type = attrs.get('extra_spool_type', '') | string | replace('"', '') | trim -%}
               {%- set clip_type = attrs.get('extra_clip_type', '') | string | replace('"', '') | trim -%}
+              {%- set clip_type_defined = clip_type not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
               {%- set remaining_weight = attrs.get('remaining_weight', 0) | float(0) -%}
               {%- set filament_id = attrs.get('filament_id') -%}
               {%- set spool_filled = attrs.get('extra_desiccant_filled', '') -%}
@@ -168,7 +169,7 @@
               {%- set matches_type = filter_type == 'All' or filter_type | lower in type_details -%}
               {%- set matches_location = filter_location == 'All' or location | lower == filter_location | lower -%}
               {%- set matches_spool_type = filter_spool_type == 'All' or spool_type | lower == filter_spool_type | lower -%}
-              {%- set matches_clip_type = filter_clip_type == 'All' or clip_type | lower == filter_clip_type | lower -%}
+              {%- set matches_clip_type = filter_clip_type == 'All' or (filter_clip_type == 'None' and (not clip_type_defined)) or (clip_type_defined and clip_type | lower == filter_clip_type | lower) -%}
               {%- set matches_qty_to_purchase = (not filter_qty_to_purchase) or has_qty_to_purchase -%}
               {%- set matches_sealed = filter_sealed == 'All' or (filter_sealed == 'Sealed' and is_sealed) or (filter_sealed == 'Unsealed' and (not is_sealed)) -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}

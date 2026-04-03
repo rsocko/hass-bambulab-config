@@ -93,7 +93,7 @@ actions:
             'types': ['All'] + (ns.types | sort),
             'locations': ['All'] + (ns.locations | sort),
             'spool_types': ['All'] + (ns.spool_types | sort),
-            'clip_types': ['All'] + (ns.clip_types | sort)
+            'clip_types': ['All', 'None'] + (ns.clip_types | sort)
           }
         }}
 
