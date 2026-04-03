@@ -14,8 +14,15 @@ spoolman_patch_filament_extra:
         {% set encoded_value = 'true' %}
       {% elif value is sameas false %}
         {% set encoded_value = 'false' %}
+      {% elif value is string %}
+        {% set raw_value = value | trim %}
+        {% if raw_value | regex_match('^(".*"|\[.*\]|\{.*\}|null)$') %}
+          {% set encoded_value = raw_value %}
+        {% else %}
+          {% set encoded_value = raw_value | tojson %}
+        {% endif %}
       {% else %}
-        {% set encoded_value = value | string | tojson %}
+        {% set encoded_value = value | tojson %}
       {% endif %}
       {% set ns.encoded = ns.encoded | combine({ key: encoded_value }) %}
     {% endfor %}
