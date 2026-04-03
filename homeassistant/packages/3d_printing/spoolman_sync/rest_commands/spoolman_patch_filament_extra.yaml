@@ -8,7 +8,18 @@ spoolman_patch_filament_extra:
     accept: "application/json, text/html"
     Content-Type: "application/json"
   payload: >-
+    {% set ns = namespace(encoded=dict()) %}
+    {% for key, value in (extra | default({}, true)).items() %}
+      {% if value is sameas true %}
+        {% set encoded_value = 'true' %}
+      {% elif value is sameas false %}
+        {% set encoded_value = 'false' %}
+      {% else %}
+        {% set encoded_value = value | string | tojson %}
+      {% endif %}
+      {% set ns.encoded = ns.encoded | combine({ key: encoded_value }) %}
+    {% endfor %}
     {
-      "extra": {{ extra | tojson }}
+      "extra": {{ ns.encoded | tojson }}
     }
   content_type: "application/json"
