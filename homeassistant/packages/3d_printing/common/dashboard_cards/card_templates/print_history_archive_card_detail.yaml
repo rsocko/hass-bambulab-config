@@ -190,3 +190,21 @@ print_history_archive_card_detail:
         - width: 100%
         - justify-self: stretch
         - text-align: left
+  extra_styles: |
+    :host {
+      display: block;
+      width: 100%;
+    }
+    #container {
+      width: 100% !important;
+      grid-template-columns: minmax(0, 1fr) auto !important;
+      justify-items: stretch !important;
+      align-items: start !important;
+    }
+    #container > * {
+      min-width: 0;
+    }
+    #container > #body {
+      width: 100% !important;
+      justify-self: stretch !important;
+    }
