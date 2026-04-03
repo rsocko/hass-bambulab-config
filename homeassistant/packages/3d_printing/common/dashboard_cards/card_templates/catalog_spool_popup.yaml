@@ -140,11 +140,12 @@ catalog_spool_popup:
       const inventoryRuleHelperEntity = 'input_select.spoolman_filament_inventory_rule';
       const filamentEditorFilamentIdEntity = 'input_text.spoolman_filament_editor_filament_id';
       const filamentEditorSpoolEntityIdEntity = 'input_text.spoolman_filament_editor_spool_entity_id';
-      const inventoryRuleOptions = ['Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
+      const inventoryRuleOptions = ['Not Defined', 'Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
       const normalizeInventoryRule = function(value) {
         const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
         const normalized = raw.toLowerCase();
         const aliases = {
+          'not defined': 'Not Defined',
           'keep in stock': 'Keep In Stock',
           'maintain backup spool': 'Maintain Backup Spool',
           'max inventory': 'Max Inventory',
@@ -152,7 +153,7 @@ catalog_spool_popup:
           'do not stock': 'Do Not Stock'
         };
         const resolved = aliases[normalized] || '';
-        return inventoryRuleOptions.includes(resolved) ? resolved : 'As Needed';
+        return inventoryRuleOptions.includes(resolved) ? resolved : 'Not Defined';
       };
       const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
 
@@ -551,8 +552,8 @@ catalog_spool_popup:
                                 show_name: true,
                                 show_state: true,
                                 show_background: true,
-                                state_background: currentInventoryRule !== 'As Needed',
-                                state_color: currentInventoryRule !== 'As Needed',
+                                state_background: currentInventoryRule !== 'Not Defined',
+                                state_color: currentInventoryRule !== 'Not Defined',
                                 fill_width: true
                               }
                             ]

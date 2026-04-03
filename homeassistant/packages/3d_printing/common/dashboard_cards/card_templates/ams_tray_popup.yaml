@@ -675,11 +675,12 @@ ams_tray_popup:
       const inventoryRuleHelperEntity = 'input_select.spoolman_filament_inventory_rule';
       const filamentEditorFilamentIdEntity = 'input_text.spoolman_filament_editor_filament_id';
       const filamentEditorSpoolEntityIdEntity = 'input_text.spoolman_filament_editor_spool_entity_id';
-      const inventoryRuleOptions = ['Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
+      const inventoryRuleOptions = ['Not Defined', 'Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
       const normalizeInventoryRule = function(value) {
         const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
         const normalized = raw.toLowerCase();
         const aliases = {
+          'not defined': 'Not Defined',
           'keep in stock': 'Keep In Stock',
           'maintain backup spool': 'Maintain Backup Spool',
           'max inventory': 'Max Inventory',
@@ -687,7 +688,7 @@ ams_tray_popup:
           'do not stock': 'Do Not Stock'
         };
         const resolved = aliases[normalized] || '';
-        return inventoryRuleOptions.includes(resolved) ? resolved : 'As Needed';
+        return inventoryRuleOptions.includes(resolved) ? resolved : 'Not Defined';
       };
       const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
       // Other spools of same filament — read from pre-computed sensor.spoolman_filament_totals
@@ -1047,6 +1048,10 @@ ams_tray_popup:
         }
       };
       const headerLabel = trayLabel + '  •  Spool #' + spoolId;
+      const spoolColorLabel = isMultiColor
+        ? (() => { const fh = multiColorFirstHex; const mr = parseInt(fh.substring(0,2),16)||0; const mg = parseInt(fh.substring(2,4),16)||0; const mb = parseInt(fh.substring(4,6),16)||0; return '#' + fh.toUpperCase() + ' = RGB(' + mr + ', ' + mg + ', ' + mb + ')' + (multiColorList.length > 1 ? ' · ' + multiColorList.slice(1).join(' · ').toUpperCase() : '') + '  •  ' + multiColorDirection; })()
+        : colorHex.toUpperCase() + '  •  RGB(' + r + ', ' + g + ', ' + b + ')';
+      const headerSummary = headerLabel + '\n' + spoolColorLabel;
       if (!spoolId) {
         const reason = trayData.reason || 'No matching spool found in Spoolman';
         return {
@@ -1163,10 +1168,12 @@ ams_tray_popup:
               cards: [
                 {
                   type: 'custom:button-card',
+                  entity: spoolEntityId,
                   name: spoolName,
-                  label: headerLabel,
+                  label: headerSummary,
                   show_label: true,
                   show_icon: false,
+                  show_entity_picture: true,
                   tap_action: { action: 'none' },
                   styles: {
                     card: [
@@ -1177,18 +1184,34 @@ ams_tray_popup:
                       { cursor: 'default' },
                       { 'user-select': 'text' }
                     ],
+                    grid: [
+                      { 'grid-template-areas': '"i n" "i l"' },
+                      { 'grid-template-columns': 'min-content 1fr' },
+                      { 'grid-template-rows': 'auto auto' },
+                      { 'align-items': 'center' },
+                      { 'justify-items': 'start' },
+                      { gap: '0 12px' }
+                    ],
+                    entity_picture: [
+                      { width: '48px' },
+                      { height: '48px' },
+                      { 'border-radius': '50%' },
+                      { border: '2px solid ' + headerBorderColor }
+                    ],
                     name: [
                       { color: headerTextColor },
                       { 'font-size': '18px' },
                       { 'font-weight': '700' },
-                      { 'text-align': 'center' },
+                      { 'text-align': 'left' },
+                      { 'user-select': 'text' },
                       ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
                     ],
                     label: [
                       { color: headerTextColor },
                       { 'font-size': '12px' },
                       { opacity: '0.85' },
-                      { 'text-align': 'center' },
+                      { 'line-height': '1.4' },
+                      { 'text-align': 'left' },
                       { 'user-select': 'text' },
                       { 'white-space': 'pre-wrap' },
                       ...(multiTextShadow ? [{ 'text-shadow': multiTextShadow }] : [])
@@ -1286,59 +1309,6 @@ ams_tray_popup:
                 ...(setOnPrinterChip ? [{
                   type: 'custom:mushroom-chips-card',
                   alignment: 'center',
-                  chips: [setOnPrinterChip],
-                  card_mod: {
-                    style: {
-                      '.': 'mushroom-template-chip:first-child { --chip-background: #2e7d32; --chip-border-width: 0; font-weight: 700; cursor: pointer; transition: filter 0.2s; } mushroom-template-chip:first-child:hover { filter: brightness(1.2); } mushroom-template-chip:first-child:active { filter: brightness(0.9); }',
-                      'mushroom-template-chip:first-child $': 'ha-state-icon { color: white !important; } span { color: white !important; }'
-                    }
-                  }
-                }] : []),
-                {
-                  type: 'custom:mushroom-chips-card',
-                  alignment: 'center',
-                  chips: [
-                    { type: 'template', icon: 'mdi:texture-box', icon_color: 'orange', content: 'Material: ' + material },
-                    { type: 'template', icon: 'mdi:factory', icon_color: 'purple', content: 'Vendor: ' + vendor },
-                    { type: 'template', icon: 'mdi:map-marker', icon_color: 'blue', content: 'Location: ' + location, ...(locationEntityId ? { entity: locationEntityId, tap_action: { action: 'more-info' } } : {}) }
-                  ]
-                },
-                {
-                  type: 'custom:mushroom-chips-card',
-                  alignment: 'center',
-                  chips: [
-                    { type: 'template', icon: 'mdi:palette-swatch-variant', icon_color: 'indigo', content: 'Family: ' + (colorFamily || 'N/A') },
-                    { type: 'template', icon: 'mdi:circle', icon_color: baseColorIconColor, content: 'Primary Color: ' + (baseColor || 'N/A') },
-                    { type: 'template', icon: 'mdi:tag-multiple', icon_color: 'green', content: 'Type: ' + typeDetails },
-                    ...(isMultiColor ? [{ type: 'template', icon: 'mdi:palette', icon_color: 'deep-purple', content: '\u2728 Multi-Color \u00b7 ' + (multiColorDirection || 'unknown') }] : [])
-                  ],
-                  card_mod: {
-                    style: {
-                      '$': 'mushroom-template-chip:nth-child(2)::part(icon) { filter: drop-shadow(0 1px 0 ' + baseColorOutlineColor + ') drop-shadow(0 -1px 0 ' + baseColorOutlineColor + ') drop-shadow(1px 0 0 ' + baseColorOutlineColor + ') drop-shadow(-1px 0 0 ' + baseColorOutlineColor + '); }'
-                    }
-                  }
-                },
-                ...(usedNonFirstMultiHex ? [
-                  {
-                    type: 'custom:mushroom-template-card',
-                    primary: 'Using non-first multi-color tray color',
-                    secondary: 'Current tray color #' + trayColorNormalized.toUpperCase() + ' matched by any-hex fallback. Recommended tray color is first hex #' + multiColorFirstHex.toUpperCase() + ' for deterministic matching.',
-                    icon: 'mdi:alert-circle-outline',
-                    icon_color: 'orange',
-                    layout: 'horizontal',
-                    fill_container: true
-                  }
-                ] : []),
-                {
-                  type: 'custom:button-card',
-                  entity: spoolEntityId,
-                  show_entity_picture: true,
-                  show_icon: false,
-                  show_name: true,
-                  show_label: true,
-                  name: filamentName,
-                  label: isMultiColor
-                    ? (() => { const fh = multiColorFirstHex; const mr = parseInt(fh.substring(0,2),16)||0; const mg = parseInt(fh.substring(2,4),16)||0; const mb = parseInt(fh.substring(4,6),16)||0; return '#' + fh.toUpperCase() + ' = RGB(' + mr + ', ' + mg + ', ' + mb + ')' + (multiColorList.length > 1 ? ' \u00b7 ' + multiColorList.slice(1).join(' \u00b7 ').toUpperCase() : '') + '  \u2022  ' + multiColorDirection; })()
                     : colorHex.toUpperCase() + '  \u2022  RGB(' + r + ', ' + g + ', ' + b + ')',
                   tap_action: { action: 'none' },
                   styles: {
@@ -1444,8 +1414,8 @@ ams_tray_popup:
                                 show_name: true,
                                 show_state: true,
                                 show_background: true,
-                                state_background: currentInventoryRule !== 'As Needed',
-                                state_color: currentInventoryRule !== 'As Needed',
+                                state_background: currentInventoryRule !== 'Not Defined',
+                                state_color: currentInventoryRule !== 'Not Defined',
                                 fill_width: true
                               }
                             ]

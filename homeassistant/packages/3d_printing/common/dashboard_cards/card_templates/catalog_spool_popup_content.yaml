@@ -3,7 +3,7 @@
 # This renders ONLY inside a browser_mod popup (on-demand, 1 card at a time),
 # so its JS cost does not affect the main grid render.
 #
-# Renders: color banner, UUID, chips, entity image, KPIs,
+# Renders: merged color banner, UUID, chips, KPIs,
 #          other-spools list, desiccant/dried info, purchase info.
 #
 # Used by: catalog_spool_popup (as popup content card)
@@ -144,9 +144,15 @@ catalog_spool_popup_content:
         return `
           <div style="display:flex;flex-direction:column;gap:8px;">
             <!-- Banner -->
-            <div style="background:${bgCSS};border:3px solid ${hbColor};border-radius:10px;padding:14px 16px;text-align:center;user-select:text;">
-              <div style="font-size:18px;font-weight:700;color:${htColor};${shadow}">${spoolName}</div>
-              <div style="font-size:12px;color:${htColor};opacity:0.85;${shadow}">Spool #${spoolId}  ·  ${location}</div>
+            <div style="background:${bgCSS};border:3px solid ${hbColor};border-radius:10px;padding:14px 16px;user-select:text;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:12px;text-align:left;">
+                ${entityPicture ? '<img src="' + entityPicture + '" style="width:48px;height:48px;border-radius:50%;border:2px solid ' + hbColor + ';flex:0 0 auto;">' : ''}
+                <div style="min-width:0;display:flex;flex-direction:column;gap:2px;">
+                  <div style="font-size:18px;font-weight:700;color:${htColor};${shadow}">${spoolName}</div>
+                  <div style="font-size:12px;color:${htColor};opacity:0.85;white-space:pre-wrap;line-height:1.4;${shadow}">Spool #${spoolId}  ·  ${location}</div>
+                  <div style="font-size:12px;color:${htColor};opacity:0.85;white-space:pre-wrap;line-height:1.4;${shadow}">${colorLabel}</div>
+                </div>
+              </div>
             </div>
 
             ${uuid ? '<div style="text-align:center;">' + pill('mdi:identifier', uuid, '#9E9E9E') + '</div>' : ''}
@@ -164,15 +170,6 @@ catalog_spool_popup_content:
               ${pill('mdi:circle', 'Primary: ' + (baseColor || 'N/A'), bcIcon)}
               ${pill('mdi:tag-multiple', 'Type: ' + typeDetails, '#4CAF50')}
               ${isMulti ? pill('mdi:palette', '✨ Multi-Color · ' + (multiDir || 'unknown'), '#7B1FA2') : ''}
-            </div>
-
-            <!-- Entity image + filament name -->
-            <div style="background:${bgCSS};border:3px solid ${hbColor};border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:12px;user-select:text;">
-              ${entityPicture ? '<img src="' + entityPicture + '" style="width:40px;height:40px;border-radius:50%;border:2px solid ' + hbColor + ';">' : ''}
-              <div>
-                <div style="font-size:14px;font-weight:700;color:${htColor};${shadow}">${filamentName}</div>
-                <div style="font-size:12px;color:${htColor};opacity:0.85;${shadow}">${colorLabel}</div>
-              </div>
             </div>
 
             <!-- Purchase / Settings -->

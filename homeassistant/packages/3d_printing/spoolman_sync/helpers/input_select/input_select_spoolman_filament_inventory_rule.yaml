@@ -1,10 +1,11 @@
 spoolman_filament_inventory_rule:
   name: Spoolman Filament Inventory Rule
   options:
+    - Not Defined
     - Keep In Stock
     - Maintain Backup Spool
     - Max Inventory
     - As Needed
     - Do Not Stock
-  initial: As Needed
+  initial: Not Defined
   icon: mdi:playlist-check

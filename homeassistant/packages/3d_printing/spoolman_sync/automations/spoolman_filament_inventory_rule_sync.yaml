@@ -9,6 +9,7 @@
         - input_select.spoolman_filament_inventory_rule
   variables:
     allowed_rules:
+      - Not Defined
       - Keep In Stock
       - Maintain Backup Spool
       - Max Inventory
@@ -22,6 +23,7 @@
       {% set raw = states('input_select.spoolman_filament_inventory_rule') | default('', true) | string | trim %}
       {% set cleaned = raw | regex_replace('^"|"$', '') | lower %}
       {% set aliases = {
+        'not defined': 'Not Defined',
         'keep in stock': 'Keep In Stock',
         'maintain backup spool': 'Maintain Backup Spool',
         'max inventory': 'Max Inventory',
@@ -29,7 +31,7 @@
         'do not stock': 'Do Not Stock'
       } %}
       {% set resolved = aliases.get(cleaned, '') %}
-      {{ resolved if resolved in allowed_rules else 'As Needed' }}
+      {{ resolved if resolved in allowed_rules else 'Not Defined' }}
     filament_entity_id: >-
       {% if filament_id_text | regex_match('^\d+$') %}
         sensor.spoolman_filament_{{ filament_id_text }}
@@ -41,6 +43,7 @@
         {% set raw = state_attr(filament_entity_id, 'extra_inventory_rule') | default('', true) | string | trim %}
         {% set cleaned = raw | regex_replace('^"|"$', '') | lower %}
         {% set aliases = {
+          'not defined': 'Not Defined',
           'keep in stock': 'Keep In Stock',
           'maintain backup spool': 'Maintain Backup Spool',
           'max inventory': 'Max Inventory',
@@ -48,18 +51,25 @@
           'do not stock': 'Do Not Stock'
         } %}
         {% set resolved = aliases.get(cleaned, '') %}
-        {{ resolved if resolved in allowed_rules else 'As Needed' }}
+        {{ resolved if resolved in allowed_rules else 'Not Defined' }}
       {% else %}
-        As Needed
+        Not Defined
       {% endif %}
     next_extra: >-
-      {% set ns = namespace(data = dict()) %}
+      {% set ns = namespace(data = dict(), filtered = dict()) %}
       {% if filament_entity_id | trim != '' and states[filament_entity_id] is not none %}
         {% for key, value in states[filament_entity_id].attributes.items() if key.startswith('extra_') %}
           {% set ns.data = ns.data | combine({ key[6:]: value }) %}
         {% endfor %}
       {% endif %}
-      {{ ns.data | combine({'inventory_rule': selected_rule}) | tojson | from_json }}
+      {% for key, value in ns.data.items() if key != 'inventory_rule' %}
+        {% set ns.filtered = ns.filtered | combine({ key: value }) %}
+      {% endfor %}
+      {% if selected_rule == 'Not Defined' %}
+        {{ ns.filtered | tojson | from_json }}
+      {% else %}
+        {{ ns.filtered | combine({'inventory_rule': selected_rule}) | tojson | from_json }}
+      {% endif %}
   conditions:
     - condition: template
       value_template: "{{ filament_id_text | regex_match('^\\d+$') }}"
