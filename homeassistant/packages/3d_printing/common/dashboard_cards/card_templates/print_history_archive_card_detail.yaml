@@ -113,9 +113,9 @@ print_history_archive_card_detail:
         const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
 
         return `
-          <div style="display:flex;flex-wrap:wrap;gap:16px 18px;align-items:flex-start;width:100%;min-width:0;">
-            ${thumbnailUrl ? `<div style="flex:0 1 164px;max-width:164px;min-width:128px;width:100%;"><img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}"></div>` : ''}
-            <div style="flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:12px;align-self:stretch;">
+          <div style="display:grid;grid-template-columns:${thumbnailUrl ? 'minmax(148px, 188px) minmax(0, 1fr)' : 'minmax(0, 1fr)'};gap:16px 18px;align-items:flex-start;width:100%;min-width:0;">
+            ${thumbnailUrl ? `<div style="min-width:0;width:100%;"><img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}"></div>` : ''}
+            <div style="min-width:0;width:100%;display:flex;flex-direction:column;gap:12px;align-self:stretch;">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;row-gap:10px;flex-wrap:wrap;min-width:0;width:100%;">
                 <div style="flex:1 1 320px;min-width:0;max-width:100%;">
                   <div style="font-weight:700;font-size:19px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%;">${escapeHtml(archive?.print_name || 'Unnamed')}</div>
@@ -188,4 +188,5 @@ print_history_archive_card_detail:
       body:
         - display: block
         - width: 100%
+        - justify-self: stretch
         - text-align: left
