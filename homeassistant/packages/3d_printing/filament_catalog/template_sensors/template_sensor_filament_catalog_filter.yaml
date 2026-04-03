@@ -147,6 +147,7 @@
               {%- endif -%}
               {%- set has_old_desiccant = desiccant_age_days > des_yellow_thresh -%}
               {%- set des_has_date = spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
+              {%- set has_undefined_desiccant = (not is_sealed) and (not des_has_date) -%}
               {%- set is_needs_drying = (not is_sealed) and (days_since_dried > 90) -%}
               {%- set is_stale = days_since_used > 180 -%}
               {%- set is_missing_desiccant = (not is_sealed) and (not has_desiccant) -%}
@@ -184,7 +185,7 @@
               {%- elif filter_desiccant is search('^Yellow') -%}
                 {%- set matches_desiccant = desiccant_age_days > des_yellow_thresh and desiccant_age_days <= des_orange_thresh -%}
               {%- elif filter_desiccant == 'Undefined' -%}
-                {%- set matches_desiccant = not des_has_date -%}
+                {%- set matches_desiccant = has_undefined_desiccant -%}
               {%- elif filter_desiccant == 'Missing Desiccant' -%}
                 {%- set matches_desiccant = is_missing_desiccant -%}
               {%- else -%}

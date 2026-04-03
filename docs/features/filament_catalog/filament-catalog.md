@@ -789,7 +789,7 @@ The chart covers three categories of alerts:
 | **Desiccant Orange** | Age > orange threshold (default 60d) but ≤ red | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
 | **Desiccant Yellow** | Age > yellow threshold (default 45d) but ≤ orange | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
 | **Desiccant Undefined** | Unsealed spool with no `extra_desiccant_filled` date | [#152](https://github.com/rsocko/hass-bambulab-config/issues/152) |
-| **Missing Desiccant** | `extra_desiccant_in_spool = false` for unsealed spools | [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102) |
+| **Missing Desiccant** | `extra_desiccant_in_spool` is not truthy for unsealed spools | [#101](https://github.com/rsocko/hass-bambulab-config/issues/101), [#102](https://github.com/rsocko/hass-bambulab-config/issues/102) |
 
 **Data Quality Alerts** (previously 5A.3 — merged into the alert chart)
 
