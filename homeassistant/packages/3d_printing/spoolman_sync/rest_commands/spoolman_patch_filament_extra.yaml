@@ -16,7 +16,9 @@ spoolman_patch_filament_extra:
         {% set encoded_value = 'false' %}
       {% elif value is string %}
         {% set raw_value = value | trim %}
-        {% if raw_value | regex_match('^(".*"|\[.*\]|\{.*\}|null)$') %}
+        {% if key == 'purchase_qty' and raw_value | regex_match('^-?\d+$') %}
+          {% set encoded_value = raw_value %}
+        {% elif raw_value | regex_match('^(".*"|\[.*\]|\{.*\}|null)$') %}
           {% set encoded_value = raw_value %}
         {% else %}
           {% set encoded_value = raw_value | tojson %}
