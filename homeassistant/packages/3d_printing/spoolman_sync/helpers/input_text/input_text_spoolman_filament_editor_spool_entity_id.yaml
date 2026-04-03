@@ -1,0 +1,5 @@
+spoolman_filament_editor_spool_entity_id:
+  name: Spoolman Filament Editor Spool Entity ID
+  max: 128
+  initial: ""
+  icon: mdi:barcode-scan

@@ -1,0 +1,5 @@
+spoolman_filament_editor_filament_id:
+  name: Spoolman Filament Editor Filament ID
+  max: 32
+  initial: ""
+  icon: mdi:identifier

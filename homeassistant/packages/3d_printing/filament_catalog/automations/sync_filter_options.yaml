@@ -30,7 +30,8 @@ actions:
       filter_options: >-
         {%- set ns = namespace(
           materials=[], vendors=[], colors=[],
-          color_families=[], types=[], locations=[]
+          color_families=[], types=[], locations=[],
+          spool_types=[], clip_types=[]
         ) -%}
         {%- for s in states.sensor
             if s.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
@@ -73,6 +74,14 @@ actions:
             {%- if v and v not in ns.locations -%}
               {%- set ns.locations = ns.locations + [v] -%}
             {%- endif -%}
+            {%- set v = attrs.get('extra_spool_type', '') | string | replace('"', '') | trim -%}
+            {%- if v and v not in ['', 'None', 'none', 'unknown', 'unavailable'] and v not in ns.spool_types -%}
+              {%- set ns.spool_types = ns.spool_types + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('extra_clip_type', '') | string | replace('"', '') | trim -%}
+            {%- if v and v not in ['', 'None', 'none', 'unknown', 'unavailable'] and v not in ns.clip_types -%}
+              {%- set ns.clip_types = ns.clip_types + [v] -%}
+            {%- endif -%}
           {%- endif -%}
         {%- endfor -%}
         {{
@@ -82,7 +91,9 @@ actions:
             'colors': ['All'] + (ns.colors | sort),
             'color_families': ['All'] + (ns.color_families | sort),
             'types': ['All'] + (ns.types | sort),
-            'locations': ['All'] + (ns.locations | sort)
+            'locations': ['All'] + (ns.locations | sort),
+            'spool_types': ['All'] + (ns.spool_types | sort),
+            'clip_types': ['All'] + (ns.clip_types | sort)
           }
         }}
 
@@ -121,3 +132,15 @@ actions:
       entity_id: input_select.filament_catalog_filter_location
     data:
       options: "{{ filter_options.locations }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_spool_type
+    data:
+      options: "{{ filter_options.spool_types }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_clip_type
+    data:
+      options: "{{ filter_options.clip_types }}"

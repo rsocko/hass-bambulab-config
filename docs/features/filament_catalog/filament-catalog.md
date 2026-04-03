@@ -58,9 +58,9 @@ homeassistant/packages/3d_printing/
 │   │   ├── sync_filter_options.yaml          ← Dynamically populates filter dropdowns from spoolman data
 │   │   └── sync_quality_filter_grouping.yaml ← Auto-switch to By Hex Color on Duplicate Hex filter
 │   ├── helpers/
-│   │   ├── input_boolean/                    ← Toggle filters (low stock, desiccant old, nearly empty, needs repurchase, needs drying, stale, missing desiccant, unsealed only, compact cards, show insights)
+│   │   ├── input_boolean/                    ← Toggle filters (qty to purchase, desiccant old, nearly empty, needs repurchase, needs drying, stale, missing desiccant, unsealed only, compact cards, show insights)
 │   │   ├── input_number/                     ← Stock threshold + desiccant thresholds (yellow/orange/red days)
-│   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, etc.) + stock level, desiccant, data quality, tab, sort, history range, sealed
+│   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, type, location, spool type, clip type) + stock level, desiccant, data quality, tab, sort, history range, sealed
 │   │   └── input_text/                       ← Free-text search
 │   ├── scripts/
 │   │   ├── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
@@ -311,9 +311,10 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 ├── Filter Bar (Phase 2)
 │   ├── Row 1: View ▼  Sort ▼
 │   ├── Row 2: Material ▼  Vendor ▼  Color ▼  Family ▼
-│   ├── Row 3: Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]
-│   ├── Row 4: Sealed ▼  [Desiccant Old]  [Large Cards]
-│   └── Row 5: 🔍 [search]  [123 Matches]  [Clear Filters]
+│   ├── Row 3: Type ▼  Location ▼  [Stock Threshold ━━━]  Stock Level ▼
+│   ├── Row 4: Sealed ▼  Desiccant ▼  Data Quality ▼
+│   ├── Row 5: Spool Type ▼  Clip Type ▼  [Qty To Buy]  [Large Cards]
+│   └── Row 6: 🔍 [search]  [123 Matches]  [Clear Filters]
 │
 └── Single auto-entities grid (columns: 5)
     ├── Source: sensor.filament_catalog_filtered_spools (entity_ids_json)
@@ -511,11 +512,18 @@ At 165 spools, client-side filtering via `config-template-card` is too slow. Ins
 | `input_select.filament_catalog_filter_color_family` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_type` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_location` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_spool_type` | input_select | Dropdown — options populated dynamically |
+| `input_select.filament_catalog_filter_clip_type` | input_select | Dropdown — options populated dynamically |
+| `input_boolean.filament_catalog_filter_qty_to_purchase` | input_boolean | Toggle: only include spools where qty to purchase > 0 |
 | `input_select.filament_catalog_filter_sealed` | input_select | `All`, `Sealed`, `Unsealed` (static) |
+| `input_select.filament_catalog_filter_stock_level` | input_select | Tiered stock filter: `Any Stock Level`, `Low Stock`, `Low Stock (by Filament)` |
+| `input_select.filament_catalog_filter_desiccant` | input_select | Tiered desiccant-age / missing-desiccant filter |
+| `input_select.filament_catalog_filter_data_quality` | input_select | Data quality issue filter |
 | `input_select.filament_catalog_history_range` | input_select | Popup chart history control: `Last 30 Days` or `Full History` (default `Full History`) |
 | `input_text.filament_catalog_search` | input_text | Free-text search across name, vendor, color |
 | `input_number.filament_catalog_stock_threshold` | input_number | Default 150g, min 0, max 500 |
-| `input_boolean.filament_catalog_filter_low_stock` | input_boolean | Toggle: show only low-stock spools |
+| `input_boolean.filament_catalog_filter_nearly_empty` | input_boolean | Toggle: only include nearly empty spools |
+| `input_boolean.filament_catalog_filter_needs_repurchase` | input_boolean | Toggle: only include filaments that need repurchase |
 | `input_boolean.filament_catalog_filter_desiccant_old` | input_boolean | Toggle: show only spools with desiccant >45 days |
 
 ##### Dynamic Filter Option Sync
@@ -532,7 +540,7 @@ Triggers:
 
 Behavior:
 - Single pass through all non-archived `sensor.spoolman_spool_*` entities
-- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location)
+- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location, Spool Type, Clip Type)
 - Strips JSON outer quotes from `filament_extra_primary_color` and `filament_extra_color_family`
 - Flattens the `filament_extra_type_details` JSON array into individual type values
 - Calls `input_select.set_options` for each dropdown with `['All'] + sorted_unique_values`
@@ -545,8 +553,8 @@ This approach avoids constant recomputation — the automation only runs when sp
 Jinja2 template that:
 1. Iterates all `sensor.spoolman_spool_*` entities
 2. Excludes `archived = true`
-3. Applies each active dropdown filter (skip if `All`)
-4. Applies toggle filters (low stock, desiccant old)
+3. Applies each active dropdown filter (skip if `All`), including Spool Type and Clip Type
+4. Applies boolean filters such as Qty to Purchase and alert toggles when enabled
 5. Applies text search (case-insensitive match on `friendly_name`, `filament_name`, `filament_vendor_name`, `filament_extra_primary_color`, `filament_extra_color_family`)
 6. Outputs JSON list of matching entity IDs as `entity_ids_json` attribute
 7. Provides `active_filter_summary` attribute listing active filter names
@@ -558,8 +566,9 @@ The view's `auto-entities` references this sensor to decide which spools to disp
 ┌──────────────────────────────────────────────────────────────────┐
 │ Filter Spools                 View ▼  Sort ▼  [Compact]         │
 │ Material ▼  Vendor ▼  Color ▼  Family ▼                        │
-│ Type ▼  Location ▼  [Stock Threshold ━━━]  [Low Stock]          │
-│ Sealed ▼  [Desiccant Old]                                       │
+│ Type ▼  Location ▼  [Stock Threshold ━━━]  Stock Level ▼        │
+│ Sealed ▼  Desiccant ▼  Data Quality ▼                           │
+│ Spool Type ▼  Clip Type ▼  [Qty To Buy]                         │
 │ 🔍 [___search___]              [123 Matches]  [Clear Filters]   │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -571,7 +580,8 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 | Filter | Logic | UI |
 |---|---|---|
 | **Desiccant Old** | `extra_desiccant_filled` age > 45 days | Toggle |
-| **Low Stock** | `remaining_weight < stock_threshold` | Toggle |
+| **Stock Level** | Threshold-based stock states (`Any Stock Level`, `Low Stock`, `Low Stock (by Filament)`) | Dropdown |
+| **Qty To Purchase** | `filament_extra_purchase_qty > 0` | Toggle |
 | **Sealed State** | `extra_sealed` true/false | Dropdown (`All`/`Sealed`/`Unsealed`) |
 
 #### Files Created/Modified
@@ -580,9 +590,9 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 |---|---|---|
 | `filament_catalog/filament_catalog_loader.yaml` | **Modified** | Added `automation: !include_dir_list automations` |
 | `filament_catalog/automations/sync_filter_options.yaml` | **Created** | Dynamic filter option sync automation |
-| `filament_catalog/helpers/input_select/*.yaml` (6 files) | **Modified** | Replaced hardcoded options with `['All']` default |
+| `filament_catalog/helpers/input_select/*.yaml` | **Modified** | Replaced hardcoded options with `['All']` defaults and added newer dropdown helpers over time |
 | `filament_catalog/helpers/input_select/filament_catalog_filter_sealed.yaml` | **Unchanged** | Static options (`All`/`Sealed`/`Unsealed`) |
-| `filament_catalog/helpers/input_boolean/*.yaml` (2 files) | **Created** | Low stock and desiccant old toggles |
+| `filament_catalog/helpers/input_boolean/*.yaml` | **Created** | Toggle helpers for boolean filters and view state |
 | `filament_catalog/helpers/input_number/filament_catalog_stock_threshold.yaml` | **Created** | Configurable stock threshold |
 | `filament_catalog/helpers/input_text/filament_catalog_search.yaml` | **Created** | Free-text search input |
 | `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Created** | Server-side filtered spool list |
@@ -672,7 +682,7 @@ Row 4: [location_label]                   [last_used]
 - **By Filament**: Aggregated view from `spoolman_filament_totals` — one row per `filament_id` with expandable spool list. Collapses 165 spools → 132 rows (and many are single-spool, so effectively shorter).
 - **All**: Single flat grid with sort control
 
-> **Note**: "Alerts" was originally a tab but was removed since it behaves as a filter, not a grouping perspective. The existing Low Stock and Desiccant Old toggles in the filter bar serve this purpose.
+> **Note**: "Alerts" was originally a tab but was removed since it behaves as a filter, not a grouping perspective. The existing stock/desiccant/data-quality controls and alert-oriented boolean filters in the filter bar serve this purpose.
 
 #### Sort Controls
 
@@ -680,6 +690,9 @@ New `input_select.filament_catalog_sort`:
 - `Name (A-Z)` / `Name (Z-A)`
 - `Weight (Low → High)` / `Weight (High → Low)`
 - `Last Used (Recent)` / `Last Used (Oldest)`
+- `Purchase Date (Newest)` / `Purchase Date (Oldest)`
+- `Desiccant Filled Date (Newest)` / `Desiccant Filled Date (Oldest)`
+- `Qty to Purchase (Ascending)` / `Qty to Purchase (Descending)`
 - `Cost (High → Low)` / `Cost (Low → High)`
 - `Vendor → Name`
 - `Hue` — Sorts by color hue in rainbow order (red → orange → yellow → green → cyan → blue → purple). Converts each spool's `filament_extra_primary_color` hex to HSV hue (0–360°). Near-achromatic colors (saturation < 8% — whites, grays, blacks) sort after all chromatic colors, ordered by brightness. Spools with missing or invalid hex values sort last. When a group-by tab is active, hue sorting applies within each group.
@@ -699,10 +712,10 @@ New `input_select.filament_catalog_sort`:
 | File | Action | Notes |
 |---|---|---|
 | `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Color Family, All |
-| `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Cost, Vendor then Name (ascending/descending), Hue (rainbow color sort) |
+| `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Purchase Date, Desiccant Filled Date, Qty to Purchase, Cost, Vendor then Name, Hue |
 | `common/dashboard_cards/card_templates/catalog_group_header.yaml` | **Created** | Lightweight group separator — reads variables only, no entity iteration |
 | `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort logic, derived `entity_ids_json` from grouped output |
-| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View (tab) and Sort dropdowns in the separator row |
+| `filament_catalog/dashboard_cards/catalog_filter_bar.yaml` | **Modified** | Added View/Sort controls, new filter controls, and per-filter Matches clear chips |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Modified** | Replaced auto-entities templates to use grouped data with inline headers; removed `sort:` property |
 
 #### Estimated Complexity: Medium (Actual: Medium-High)
@@ -1030,6 +1043,9 @@ The `catalog_insights_panel.yaml` is a `conditional` card (condition: `input_boo
 | `filament_catalog/helpers/input_select/filament_catalog_filter_stock_level.yaml` | **Created** | Tiered stock level dropdown |
 | `filament_catalog/helpers/input_select/filament_catalog_filter_desiccant.yaml` | **Created** | Tiered desiccant dropdown |
 | `filament_catalog/helpers/input_select/filament_catalog_filter_data_quality.yaml` | **Created** | Data quality filter dropdown |
+| `filament_catalog/helpers/input_select/filament_catalog_filter_spool_type.yaml` | **Created** | Dynamic spool type dropdown |
+| `filament_catalog/helpers/input_select/filament_catalog_filter_clip_type.yaml` | **Created** | Dynamic clip type dropdown |
+| `filament_catalog/helpers/input_boolean/filament_catalog_filter_qty_to_purchase.yaml` | **Created** | Boolean purchase-quantity filter |
 | `filament_catalog/automations/sync_quality_filter_grouping.yaml` | **Created** | Auto-switch to By Hex Color on Duplicate Hex Colors selection |
 | `filament_catalog/scripts/filament_catalog_apply_quality_filter.yaml` | **Created** | Set data quality filter + optional hex grouping |
 | `www/3d_printing/filament_catalog/apex-direct-bar-card.js` | **Created** | Custom Lovelace card for reading JSON attributes directly |

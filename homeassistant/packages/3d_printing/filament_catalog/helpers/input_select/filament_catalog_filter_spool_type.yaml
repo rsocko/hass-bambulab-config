@@ -1,0 +1,6 @@
+filament_catalog_filter_spool_type:
+  name: Filament Catalog Spool Type
+  icon: mdi:cached
+  options:
+    - All
+  initial: All

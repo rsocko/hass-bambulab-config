@@ -1,0 +1,87 @@
+- alias: "3D Printer - Spoolman Filament Inventory Rule Sync"
+  id: spoolman_filament_inventory_rule_sync
+  description: >-
+    Sync the shared popup inventory-rule helper back to the current Spoolman
+    filament record and refresh the active spool/filament entities.
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_select.spoolman_filament_inventory_rule
+  variables:
+    allowed_rules:
+      - Keep In Stock
+      - Maintain Backup Spool
+      - Max Inventory
+      - As Needed
+      - Do Not Stock
+    filament_id_text: >-
+      {{ states('input_text.spoolman_filament_editor_filament_id') | default('', true) | string | trim }}
+    spool_entity_id: >-
+      {{ states('input_text.spoolman_filament_editor_spool_entity_id') | default('', true) | string | trim }}
+    selected_rule: >-
+      {% set raw = states('input_select.spoolman_filament_inventory_rule') | default('', true) | string | trim %}
+      {% set cleaned = raw | regex_replace('^"|"$', '') | lower %}
+      {% set aliases = {
+        'keep in stock': 'Keep In Stock',
+        'maintain backup spool': 'Maintain Backup Spool',
+        'max inventory': 'Max Inventory',
+        'as needed': 'As Needed',
+        'do not stock': 'Do Not Stock'
+      } %}
+      {% set resolved = aliases.get(cleaned, '') %}
+      {{ resolved if resolved in allowed_rules else 'As Needed' }}
+    filament_entity_id: >-
+      {% if filament_id_text | regex_match('^\d+$') %}
+        sensor.spoolman_filament_{{ filament_id_text }}
+      {% else %}
+        
+      {% endif %}
+    current_rule: >-
+      {% if filament_entity_id | trim != '' %}
+        {% set raw = state_attr(filament_entity_id, 'extra_inventory_rule') | default('', true) | string | trim %}
+        {% set cleaned = raw | regex_replace('^"|"$', '') | lower %}
+        {% set aliases = {
+          'keep in stock': 'Keep In Stock',
+          'maintain backup spool': 'Maintain Backup Spool',
+          'max inventory': 'Max Inventory',
+          'as needed': 'As Needed',
+          'do not stock': 'Do Not Stock'
+        } %}
+        {% set resolved = aliases.get(cleaned, '') %}
+        {{ resolved if resolved in allowed_rules else 'As Needed' }}
+      {% else %}
+        As Needed
+      {% endif %}
+    next_extra: >-
+      {% set ns = namespace(data = dict()) %}
+      {% if filament_entity_id | trim != '' and states[filament_entity_id] is not none %}
+        {% for key, value in states[filament_entity_id].attributes.items() if key.startswith('extra_') %}
+          {% set ns.data = ns.data | combine({ key[6:]: value }) %}
+        {% endfor %}
+      {% endif %}
+      {{ ns.data | combine({'inventory_rule': selected_rule}) | tojson | from_json }}
+  conditions:
+    - condition: template
+      value_template: "{{ filament_id_text | regex_match('^\\d+$') }}"
+    - condition: template
+      value_template: "{{ selected_rule in allowed_rules }}"
+    - condition: template
+      value_template: "{{ current_rule != selected_rule }}"
+  actions:
+    - action: rest_command.spoolman_patch_filament_extra
+      data: >-
+        {{ {
+          'filament_id': filament_id_text | int(0),
+          'extra': next_extra
+        } | tojson | from_json }}
+    - if:
+        - condition: template
+          value_template: "{{ spool_entity_id != '' }}"
+      then:
+        - action: homeassistant.update_entity
+          data:
+            entity_id: "{{ spool_entity_id }}"
+    - action: homeassistant.update_entity
+      data:
+        entity_id: "{{ filament_entity_id }}"
+  mode: restart

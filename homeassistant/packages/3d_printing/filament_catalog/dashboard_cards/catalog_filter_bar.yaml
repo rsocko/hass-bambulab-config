@@ -47,6 +47,9 @@ cards:
       - input_select.filament_catalog_filter_color_family
       - input_select.filament_catalog_filter_type
       - input_select.filament_catalog_filter_location
+      - input_select.filament_catalog_filter_spool_type
+      - input_select.filament_catalog_filter_clip_type
+      - input_boolean.filament_catalog_filter_qty_to_purchase
       - input_select.filament_catalog_filter_stock_level
       - input_select.filament_catalog_filter_sealed
       - input_select.filament_catalog_filter_desiccant
@@ -57,7 +60,7 @@ cards:
       card_type: sub-buttons
       entity: sensor.filament_catalog_filtered_spools
       hide_main_background: false
-      rows: 2.35
+      rows: 3.1
       sub_button:
         main: []
         bottom_layout: rows
@@ -179,6 +182,41 @@ cards:
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
+          - group:
+              - entity: input_select.filament_catalog_filter_spool_type
+                sub_button_type: select
+                name: Spool Type
+                icon: mdi:cached
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_clip_type
+                sub_button_type: select
+                name: Clip Type
+                icon: mdi:paperclip
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_boolean.filament_catalog_filter_qty_to_purchase
+                sub_button_type: default
+                name: Qty to Buy
+                icon: mdi:cart-plus
+                show_name: true
+                show_state: false
+                show_background: true
+                state_background: ${states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on'}
+                state_color: ${states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on'}
+                fill_width: true
+                tap_action:
+                  action: toggle
+            buttons_layout: inline
+            justify_content: fill
   - type: horizontal-stack
     cards:
       - type: entities
@@ -236,6 +274,9 @@ cards:
           - input_select.filament_catalog_filter_color_family
           - input_select.filament_catalog_filter_type
           - input_select.filament_catalog_filter_location
+          - input_select.filament_catalog_filter_spool_type
+          - input_select.filament_catalog_filter_clip_type
+          - input_boolean.filament_catalog_filter_qty_to_purchase
           - input_select.filament_catalog_filter_stock_level
           - input_select.filament_catalog_filter_sealed
           - input_select.filament_catalog_filter_desiccant
@@ -253,10 +294,10 @@ cards:
           show_state: true
           styles: >-
             ${(() => {
-              const active = ['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => {
+              const active = ['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => {
                 const stateObj = states[id];
                 return !!(stateObj && stateObj.attributes && stateObj.attributes.options && stateObj.state !== stateObj.attributes.options[0]);
-              }) || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0);
+              }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0);
               return `
                 .bubble-button-card-container {
                   pointer-events: none !important;
@@ -277,6 +318,9 @@ cards:
                 .bubble-sub-button.clear-family-filter,
                 .bubble-sub-button.clear-type-filter,
                 .bubble-sub-button.clear-location-filter,
+                .bubble-sub-button.clear-spool-type-filter,
+                .bubble-sub-button.clear-clip-type-filter,
+                .bubble-sub-button.clear-qty-to-purchase-filter,
                 .bubble-sub-button.clear-stock-level-filter,
                 .bubble-sub-button.clear-sealed-filter,
                 .bubble-sub-button.clear-desiccant-filter,
@@ -292,6 +336,9 @@ cards:
                 .bubble-sub-button.clear-family-filter ha-icon,
                 .bubble-sub-button.clear-type-filter ha-icon,
                 .bubble-sub-button.clear-location-filter ha-icon,
+                .bubble-sub-button.clear-spool-type-filter ha-icon,
+                .bubble-sub-button.clear-clip-type-filter ha-icon,
+                .bubble-sub-button.clear-qty-to-purchase-filter ha-icon,
                 .bubble-sub-button.clear-stock-level-filter ha-icon,
                 .bubble-sub-button.clear-sealed-filter ha-icon,
                 .bubble-sub-button.clear-desiccant-filter ha-icon,
@@ -438,6 +485,64 @@ cards:
                   entity_id: input_select.filament_catalog_filter_location
                 data:
                   option: "All"
+            - entity: input_select.filament_catalog_filter_spool_type
+              sub_button_type: default
+              name: Clear Spool Type Filter
+              icon: mdi:cached
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_spool_type
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_spool_type
+                data:
+                  option: "All"
+            - entity: input_select.filament_catalog_filter_clip_type
+              sub_button_type: default
+              name: Clear Clip Type Filter
+              icon: mdi:paperclip
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_clip_type
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_clip_type
+                data:
+                  option: "All"
+            - entity: input_boolean.filament_catalog_filter_qty_to_purchase
+              sub_button_type: default
+              name: Clear Qty To Purchase Filter
+              icon: mdi:cart-plus
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_boolean.filament_catalog_filter_qty_to_purchase
+                  state: "on"
+              tap_action:
+                action: call-service
+                service: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.filament_catalog_filter_qty_to_purchase
             - entity: input_select.filament_catalog_filter_stock_level
               sub_button_type: default
               name: Clear Stock Level Filter
@@ -541,8 +646,8 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
-              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
+              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
+              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
               tap_action:
                 action: call-service
                 service: script.filament_catalog_clear_filters

@@ -1,0 +1,6 @@
+filament_catalog_filter_clip_type:
+  name: Filament Catalog Clip Type
+  icon: mdi:paperclip
+  options:
+    - All
+  initial: All

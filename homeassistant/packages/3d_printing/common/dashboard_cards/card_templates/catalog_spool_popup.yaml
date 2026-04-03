@@ -137,6 +137,24 @@ catalog_spool_popup:
         ...filamentEntityExtra,
         ...spoolMirroredFilamentExtra
       };
+      const inventoryRuleHelperEntity = 'input_select.spoolman_filament_inventory_rule';
+      const filamentEditorFilamentIdEntity = 'input_text.spoolman_filament_editor_filament_id';
+      const filamentEditorSpoolEntityIdEntity = 'input_text.spoolman_filament_editor_spool_entity_id';
+      const inventoryRuleOptions = ['Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
+      const normalizeInventoryRule = function(value) {
+        const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+        const normalized = raw.toLowerCase();
+        const aliases = {
+          'keep in stock': 'Keep In Stock',
+          'maintain backup spool': 'Maintain Backup Spool',
+          'max inventory': 'Max Inventory',
+          'as needed': 'As Needed',
+          'do not stock': 'Do Not Stock'
+        };
+        const resolved = aliases[normalized] || '';
+        return inventoryRuleOptions.includes(resolved) ? resolved : 'As Needed';
+      };
+      const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
 
       const weightEditorModeEntity = 'input_select.spoolman_weight_editor_mode';
       const weightEditorDeltaGramsEntity = 'input_number.spoolman_weight_editor_delta_grams';
@@ -426,8 +444,33 @@ catalog_spool_popup:
       return {
         action: 'fire-dom-event',
         browser_mod: {
-          service: 'browser_mod.popup',
+          service: 'browser_mod.sequence',
           data: {
+            sequence: [
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: filamentEditorFilamentIdEntity,
+                  value: Number.isFinite(filamentIdInt) ? String(filamentIdInt) : ''
+                }
+              },
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: filamentEditorSpoolEntityIdEntity,
+                  value: eid || ''
+                }
+              },
+              {
+                service: 'input_select.select_option',
+                data: {
+                  entity_id: inventoryRuleHelperEntity,
+                  option: currentInventoryRule
+                }
+              },
+              {
+                service: 'browser_mod.popup',
+                data: {
             title: spoolName,
             size: 'normal',
             card_mod: {
@@ -469,13 +512,43 @@ catalog_spool_popup:
                       fill_container: true
                     },
                     {
-                      type: 'custom:mushroom-template-card',
-                      primary: totalWeightText,
-                      secondary: totalSpoolsSecondary,
-                      icon: 'mdi:layers-triple',
-                      icon_color: 'cyan',
-                      layout: 'vertical',
-                      fill_container: true
+                      type: 'vertical-stack',
+                      cards: [
+                        {
+                          type: 'custom:mushroom-template-card',
+                          primary: totalWeightText,
+                          secondary: totalSpoolsSecondary,
+                          icon: 'mdi:layers-triple',
+                          icon_color: 'cyan',
+                          layout: 'vertical',
+                          fill_container: true
+                        },
+                        {
+                          type: 'custom:bubble-card',
+                          card_type: 'sub-buttons',
+                          entity: inventoryRuleHelperEntity,
+                          hide_main_background: false,
+                          rows: 1,
+                          styles: 'ha-card { padding-top: 2px !important; padding-bottom: 2px !important; } .bubble-sub-button-container, .bubble-sub-buttons-container { gap: 0 !important; } .bubble-sub-button { min-height: 30px !important; }',
+                          sub_button: {
+                            main: [],
+                            bottom: [
+                              {
+                                entity: inventoryRuleHelperEntity,
+                                sub_button_type: 'select',
+                                name: 'Rule',
+                                icon: 'mdi:playlist-check',
+                                show_name: true,
+                                show_state: true,
+                                show_background: true,
+                                state_background: currentInventoryRule !== 'As Needed',
+                                state_color: currentInventoryRule !== 'As Needed',
+                                fill_width: true
+                              }
+                            ]
+                          }
+                        }
+                      ]
                     },
                     {
                       type: 'vertical-stack',
@@ -738,6 +811,9 @@ catalog_spool_popup:
                 }
               ]
             }
+                }
+              }
+            ]
           }
         }
       };
