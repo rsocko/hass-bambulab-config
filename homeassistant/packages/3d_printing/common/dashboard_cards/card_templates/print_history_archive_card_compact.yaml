@@ -224,6 +224,23 @@ print_history_archive_card_compact:
           archive?.layer_height ? `${archive.layer_height}mm layer` : '',
           archive?.designer ? `Designer: ${archive.designer}` : ''
         ].filter(Boolean).join(' • ');
+        const metadataCount = [archive?.filament_type, archive?.filament_color, archive?.layer_height, archive?.nozzle_diameter, archive?.designer, archive?.sliced_for_model, archive?.total_layers]
+          .filter((value) => String(value ?? '').trim() !== '')
+          .length;
+        const toBoolean = (value) => {
+          if (value === true || value === false) return value;
+          const normalized = String(value ?? '').trim().toLowerCase();
+          if (['true', '1', 'yes'].includes(normalized)) return true;
+          if (['false', '0', 'no'].includes(normalized)) return false;
+          return null;
+        };
+        const hasGcode = toBoolean(archive?.has_gcode ?? archive?.extra_data?.has_gcode ?? archive?.capabilities?.has_gcode);
+        const hasFilamentBreakdown = Array.isArray(slotColors) && slotColors.length > 0;
+        const missingMetadataReasons = [];
+        if (hasGcode === false) missingMetadataReasons.push('No G-code file');
+        if (!hasFilamentBreakdown) missingMetadataReasons.push('No filament breakdown');
+        if (metadataCount < 3) missingMetadataReasons.push('Limited slicer metadata');
+        const showMissingMetadataAlert = hasGcode === false || (!hasFilamentBreakdown && metadataCount < 3);
 
         return `
           <div style="display:flex;flex-direction:column;gap:12px;height:100%;min-height:100%;">
@@ -243,6 +260,7 @@ print_history_archive_card_compact:
                   <span style="display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;background:rgba(255,255,255,0.06);color:var(--primary-text-color);">Archive ID ${escapeHtml(String(archiveId || '-'))}</span>
                   <span style="display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;background:${enrichmentStatusColor};color:#fff;">Enrichment ${escapeHtml(enrichmentStatusLabel)}</span>
                 </div>
+                ${showMissingMetadataAlert ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:7px 10px;border-radius:14px;background:rgba(244,67,54,0.12);color:#ffb4ab;font-size:11px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;">Missing metadata: ${escapeHtml(missingMetadataReasons.join(' • '))}</div>` : ''}
                 <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:12px;min-width:0;">
                   <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04);min-width:0;"><div style="color:var(--secondary-text-color);font-size:11px;">Duration</div><div style="font-weight:700;overflow-wrap:anywhere;">${escapeHtml(formatDuration(archive?.actual_time_seconds || archive?.print_time_seconds))}</div></div>
                   <div style="padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.04);min-width:0;"><div style="color:var(--secondary-text-color);font-size:11px;">Filament</div><div style="font-weight:700;overflow-wrap:anywhere;">${escapeHtml(formatNumber(archive?.filament_used_grams, 1, 'g'))}</div></div>
@@ -267,6 +285,50 @@ print_history_archive_card_compact:
       - height: 100%
       - min-width: 0
       - border: 1px solid var(--divider-color)
+      - border-left: |
+          [[[ 
+            let snapshotArchive = {};
+            try {
+              snapshotArchive = JSON.parse(variables?.archive_json || '{}');
+            } catch (_error) {
+              snapshotArchive = {};
+            }
+            const archiveId = snapshotArchive?.id;
+            let archive = snapshotArchive;
+            try {
+              const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+              const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+              if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
+                archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
+              }
+            } catch (_error) {
+              archive = snapshotArchive;
+            }
+            const extraData = archive?.extra_data && typeof archive.extra_data === 'object' ? archive.extra_data : {};
+            const toBoolean = (value) => {
+              if (value === true || value === false) return value;
+              const normalized = String(value ?? '').trim().toLowerCase();
+              if (['true', '1', 'yes'].includes(normalized)) return true;
+              if (['false', '0', 'no'].includes(normalized)) return false;
+              return null;
+            };
+            const slotSource = Array.isArray(archive?.filament_slots)
+              ? archive.filament_slots
+              : Array.isArray(extraData?.filament_slots)
+                ? extraData.filament_slots
+                : [];
+            const hasFilamentBreakdown = slotSource.some((slot) => {
+              const used = Number(slot?.used_g ?? slot?.used ?? slot?.weight_g ?? slot?.grams ?? 0);
+              return Number.isFinite(used) && used > 0;
+            });
+            const metadataCount = [archive?.filament_type, archive?.filament_color, archive?.layer_height, archive?.nozzle_diameter, archive?.designer, archive?.sliced_for_model, archive?.total_layers]
+              .filter((value) => String(value ?? '').trim() !== '')
+              .length;
+            const hasGcode = toBoolean(archive?.has_gcode ?? extraData?.has_gcode ?? archive?.capabilities?.has_gcode);
+            if (hasGcode === false) return '3px solid #f44336';
+            if (!hasFilamentBreakdown && metadataCount < 3) return '3px solid #FF9800';
+            return '3px solid transparent';
+          ]]]
       - border-radius: 22px
       - background: var(--ha-card-background)
       - padding: 16px 18px

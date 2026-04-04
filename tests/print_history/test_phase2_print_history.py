@@ -887,6 +887,45 @@ class TestCompactArchiveCard(unittest.TestCase):
         self.assertIn("height:100%;min-height:100%;", self.content)
         self.assertIn("height: 100% !important;", self.content)
 
+    def test_compact_card_flags_missing_archive_metadata(self):
+        self.assertIn("Missing metadata:", self.content)
+        self.assertIn("No G-code file", self.content)
+        self.assertIn("No filament breakdown", self.content)
+        self.assertIn("Limited slicer metadata", self.content)
+        self.assertIn("- border-left:", self.content)
+        self.assertIn("3px solid #f44336", self.content)
+        self.assertIn("3px solid #FF9800", self.content)
+
+
+class TestArchiveCardMissingMetadataAlerts(unittest.TestCase):
+    """All archive card variants should surface missing metadata alerts."""
+
+    CARD_FILES = [
+        "print_history_archive_card_detail.yaml",
+        "print_history_archive_card_media.yaml",
+    ]
+
+    def test_all_variants_use_left_border_alerts(self):
+        for file_name in self.CARD_FILES:
+            with self.subTest(file=file_name):
+                content = (
+                    ROOT
+                    / "homeassistant"
+                    / "packages"
+                    / "3d_printing"
+                    / "common"
+                    / "dashboard_cards"
+                    / "card_templates"
+                    / file_name
+                ).read_text("utf-8")
+                self.assertIn("Missing metadata:", content)
+                self.assertIn("No G-code file", content)
+                self.assertIn("No filament breakdown", content)
+                self.assertIn("Limited slicer metadata", content)
+                self.assertIn("- border-left:", content)
+                self.assertIn("3px solid #f44336", content)
+                self.assertIn("3px solid #FF9800", content)
+
 
 # =============================================================================
 # 9. SCRIPT VALIDATION
