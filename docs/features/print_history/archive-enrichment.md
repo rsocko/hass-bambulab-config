@@ -252,6 +252,209 @@ Manual re-enrichment is different from the active-print enrichment path. The ori
 
 Because of that, the manual re-enrich flow should explicitly allow lower-confidence outcomes and should not assume that a current open spool match is always available.
 
+#### Archive Fields Used For Re-Enrich Matching
+
+Manual re-enrichment should treat these two archive sections as the primary reconstruction inputs:
+
+- `extra_data.filament_slots[]`
+- `extra_data._print_data.raw_data.ams[].tray[]`
+
+Their roles are different:
+
+- `filament_slots[]` identifies the contributing print materials and provides `used_g` for each contribution row.
+- `ams[].tray[]` provides the archived physical tray snapshot taken at print time, including `tray_uuid`, `tray_type`, and `tray_color`.
+
+Important constraint:
+
+- `filament_slots[].slot_id` is not the AMS tray number and must never be treated as a direct tray index.
+- `slot_id` is only a Bambuddy-side print contribution slot identifier.
+- re-enrichment must recover tray identity from archived AMS tray attributes, not from `slot_id`.
+
+#### Manual Re-Enrich Decision Flow
+
+```mermaid
+flowchart TD
+   A[Load archive details] --> B[Read contributing filament_slots rows where used_g > 0]
+   B --> C[Normalize type and color for each contribution row]
+   C --> D[Search archived ams tray snapshot for same type plus color]
+   D --> E{Exactly one tray match?}
+   E -->|Yes| F[Use tray_uuid and tray code from archived AMS row]
+   F --> G{Spoolman UUID match found?}
+   G -->|Yes| H[Emit complete row with spool and filament IDs]
+   G -->|No| I[Try filament-only match from type plus color]
+   E -->|No matches| I
+   E -->|More than one match| J[Mark row ambiguous and require operator review]
+   I --> K{Exactly one filament match?}
+   K -->|Yes| L[Emit partial row with filament ID only]
+   K -->|No| J
+   H --> M[Build candidate payload]
+   L --> M
+   J --> M
+   M --> N{Any ambiguous rows?}
+   N -->|Yes| O[Do not auto-assign spool IDs for those rows; report issue to user]
+   N -->|No| P[Apply normal anti-downgrade rules and patch archive]
+```
+
+#### Manual Re-Enrich Matching Steps
+
+Recommended row-by-row algorithm:
+
+1. Read archive detail and collect every `filament_slots[]` row with `used_g > 0`.
+2. For each contributing row, normalize:
+  - material/type from `filament_slots[].type`
+  - color from `filament_slots[].color` into canonical `#RRGGBB`
+  - usage weight from `filament_slots[].used_g`
+3. Flatten the archived AMS snapshot from `extra_data._print_data.raw_data.ams[].tray[]` into a single candidate list.
+4. For each AMS tray candidate, normalize:
+  - material/type from `tray_type`
+  - color from `tray_color` by dropping alpha and converting to canonical `#RRGGBB`
+  - identity from `tray_uuid`
+  - tray location from AMS unit plus tray index, for example `ams.id=0` + `tray.id=2` -> `A3`
+5. Match each contributing `filament_slots[]` row to archived AMS tray rows using exact normalized `type + color`.
+6. If the `type + color` match returns exactly one AMS tray row, use that row as the recovered print-time tray identity and attempt spool resolution from `tray_uuid`.
+7. If the `type + color` match returns no AMS tray rows, skip tray identity recovery and continue with filament-only matching.
+8. If the `type + color` match returns more than one AMS tray row, treat that contribution row as ambiguous and surface it to the user instead of guessing.
+9. After a unique AMS tray row is recovered:
+  - first try exact spool resolution from archived `tray_uuid`
+  - if UUID resolution succeeds, emit both `Spool:<id>` and `Filament:<id>`
+  - if UUID resolution fails, fall back to filament-only matching by the normalized `type + color`
+10. Filament-only fallback is valid only when exactly one filament candidate is defensible.
+11. If two or more plausible filament or spool candidates remain for the same contribution row, record the row as ambiguous and require operator review.
+12. Build the final payload status from the resolved rows:
+  - `complete` when every contributing row has a defensible spool and filament match
+  - `partial` when one or more rows have defensible filament matches but spool identity is intentionally withheld
+  - `unavailable` when one or more rows cannot be resolved even to a defensible filament match
+
+#### Ambiguity Rule For Duplicate Type And Color
+
+The most important manual re-enrich guardrail is that duplicate archived candidates must not be guessed through.
+
+Rules:
+
+- If two or more archived AMS tray rows share the same normalized `type + color` for a single contributing `filament_slots[]` row, the row is ambiguous.
+- If two or more Spoolman candidates remain after UUID-less fallback for the same normalized `type + color`, the row is ambiguous.
+- Ambiguous rows must not receive an auto-selected `Spool:<id>` tag.
+- Ambiguous rows should not receive an auto-selected `Filament:<id>` either unless there is still exactly one defensible filament candidate.
+- The popup should report the ambiguity clearly to the user, because the system cannot prove which physical filament was actually used.
+
+In other words, matching on `type + color` is required for archive reconstruction, but matching on `type + color` is only safe when it produces a unique candidate.
+
+#### Implementation Acceptance Criteria
+
+The first implementation of popup-triggered manual re-enrich should satisfy all of the following:
+
+- It reads `extra_data.filament_slots[]` and only processes rows with `used_g > 0`.
+- It treats `filament_slots[].slot_id` as a contribution identifier only and never as an AMS tray index.
+- It reads archived tray candidates from `extra_data._print_data.raw_data.ams[].tray[]`.
+- It normalizes archive slot colors from `#RRGGBB` and archived tray colors from `RRGGBBAA` into the same canonical `#RRGGBB` form before comparison.
+- It requires exact normalized `type + color` for archive-row to archived-tray matching.
+- It attempts UUID-based spool resolution only after exactly one archived tray row has been recovered.
+- It does not emit `Spool:<id>` when UUID resolution fails and fallback matching is not unique.
+- It may emit `Filament:<id>` without `Spool:<id>` only when exactly one filament candidate is still defensible.
+- It marks the candidate payload `partial` when at least one row is filament-only but still defensible.
+- It marks the candidate payload `unavailable` when one or more contributing rows have no defensible filament match.
+- It treats duplicate `type + color` matches as ambiguity and surfaces that to the operator instead of guessing.
+- It does not auto-patch ambiguous rows with guessed spool IDs.
+- It applies the existing anti-downgrade rule before writing the archive.
+
+#### Candidate Payload Examples
+
+##### Example: Complete
+
+All contributing rows resolve to a unique archived tray and then to a unique Spoolman spool.
+
+```json
+{
+  "status": "complete",
+  "Filaments": [
+    {
+      "name": "Bambu PLA Basic Black",
+      "weight": 61.5,
+      "tray": "B2",
+      "s": 123,
+      "f": 34,
+      "h": "#000000"
+    },
+    {
+      "name": "Bambu PLA Basic Red",
+      "weight": 6.34,
+      "tray": "B1",
+      "s": 124,
+      "f": 35,
+      "h": "#C12E1F"
+    },
+    {
+      "name": "Bambu PLA Basic White",
+      "weight": 1.48,
+      "tray": "B3",
+      "s": 125,
+      "f": 36,
+      "h": "#FFFFFF"
+    }
+  ]
+}
+```
+
+##### Example: Partial
+
+The archive row resolves to a unique filament, but spool identity is not defensible and is intentionally omitted.
+
+```json
+{
+  "status": "partial",
+  "Filaments": [
+    {
+      "name": "Bambu PLA Basic Black",
+      "weight": 61.5,
+      "tray": "B2",
+      "f": 34,
+      "h": "#000000"
+    },
+    {
+      "name": "Bambu PLA Basic Red",
+      "weight": 6.34,
+      "tray": "B1",
+      "s": 124,
+      "f": 35,
+      "h": "#C12E1F"
+    }
+  ]
+}
+```
+
+Expected tags for this case:
+
+- include `Filament:<id>` for defensible filament rows
+- include `Spool:<id>` only for rows with defensible spool identity
+- keep `ha_enriched:true`
+
+##### Example: Ambiguous
+
+Two archived AMS tray rows share the same normalized `type + color`, so manual re-enrich must stop short of guessing the source tray/spool.
+
+```json
+{
+  "status": "partial",
+  "Filaments": [
+    {
+      "name": "PLA Black",
+      "weight": 61.5,
+      "h": "#000000"
+    }
+  ],
+  "ambiguities": [
+    {
+      "type": "PLA",
+      "color": "#000000",
+      "weight": 61.5,
+      "reason": "multiple archived AMS trays matched type+color"
+    }
+  ]
+}
+```
+
+The exact shape of any future `ambiguities` field can evolve, but the operator-visible behavior must remain the same: do not guess through duplicate `type + color` candidates.
+
 #### Re-Enrich Phase 1: Filament-First Recovery
 
 The first implementation of manual re-enrich should prioritize recovering the correct **filament IDs** per contributing tray, even when the exact spool cannot be determined reliably.

@@ -250,13 +250,6 @@ reenrich_print_history_archive:
                         {% set ns_row.filament_id = filament_id_raw | int(0) %}
                       {% endif %}
                       {% set ns_row.display_name = state_attr(ns_match.matched_entity_id, 'filament_name') | default(state_attr(ns_match.matched_entity_id, 'friendly_name') | default(slot.name_hint | default('Unknown Filament', true), true), true) | string %}
-                      {% set matched_color = state_attr(ns_match.matched_entity_id, 'filament_color_hex') | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
-                      {% if matched_color | length == 8 %}
-                        {% set matched_color = matched_color[0:6] %}
-                      {% endif %}
-                      {% if matched_color | length == 6 %}
-                        {% set ns_row.color_hex = '#' ~ matched_color.upper() %}
-                      {% endif %}
                     {% else %}
                       {% set ns_candidate = namespace(filament_ids=[], first_entity='') %}
                       {% for candidate in ns_match.raw_candidates %}

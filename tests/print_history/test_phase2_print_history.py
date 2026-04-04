@@ -806,6 +806,19 @@ class TestScripts(unittest.TestCase):
         self.assertIn("refresh_print_history_archives", content)
         self.assertIn("ha_enriched:true", content)
 
+    def test_reenrich_script_preserves_archive_color_hex(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn(
+            "color_hex=slot.color_hex | default(none, true)",
+            content,
+            "Re-enrich should seed color from archived tray/slot color",
+        )
+        self.assertNotIn(
+            "matched_color = state_attr(ns_match.matched_entity_id, 'filament_color_hex')",
+            content,
+            "Re-enrich must not overwrite archived color with live Spoolman color",
+        )
+
     def test_navigate_history_supports_all_directions(self):
         content = (HISTORY / "scripts" / "navigate_history.yaml").read_text("utf-8")
         for direction in ("prev", "next", "first", "last"):
