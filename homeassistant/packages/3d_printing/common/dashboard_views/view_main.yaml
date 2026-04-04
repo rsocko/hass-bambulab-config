@@ -6,7 +6,11 @@ sections:
 - !include ../../error_alerts/dashboard_cards/error-alert-section.yaml
 - type: grid
   cards:
-    - !include ../../common/dashboard_cards/home_top_info_separator.yaml
+    - type: vertical-stack
+      cards:
+        - !include ../../common/dashboard_cards/home_top_info_separator.yaml
+      grid_options:
+        columns: full
   column_span: 3
 - type: grid
   cards:
