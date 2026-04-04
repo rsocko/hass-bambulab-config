@@ -52,27 +52,9 @@
           {% endif %}
           {% set ns = namespace(trimmed=[]) %}
           {% for a in raw %}
-            {% set extra = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
-            {% set slots = extra.get('filament_slots', []) if extra is mapping else [] %}
-            {% set notes_raw = a.get('notes', '') | string %}
-            {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
-            {% set legacy_marker = '--- HA Enrichment ---' %}
-            {% set marker_index = notes_raw.find(enrichment_marker) %}
-            {% set legacy_index = notes_raw.find(legacy_marker) %}
-            {% set cutoff = marker_index if marker_index >= 0 else legacy_index %}
-            {% set user_notes = notes_raw.rstrip() %}
-            {% set enrichment_payload = {} %}
-            {% if cutoff >= 0 %}
-              {% set user_notes = notes_raw[0:cutoff].rstrip() %}
-              {% if cutoff == marker_index %}
-                {% set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim %}
-                {% set enrichment_payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} %}
-              {% endif %}
-            {% endif %}
             {% set ns.trimmed = ns.trimmed + [dict(
               id=a.get('id'),
               printer_id=a.get('printer_id'),
-              project_id=a.get('project_id'),
               project_name=(a.get('project_name') if a.get('project_name') is not none else ''),
               print_name=a.get('print_name', ''),
               print_time_seconds=a.get('print_time_seconds', 0) | int(0),
@@ -80,7 +62,6 @@
               filament_used_grams=a.get('filament_used_grams', 0) | float(0),
               filament_type=a.get('filament_type', ''),
               filament_color=a.get('filament_color', ''),
-              filament_slots=slots,
               status=a.get('status', ''),
               started_at=a.get('started_at', ''),
               completed_at=a.get('completed_at'),
@@ -94,16 +75,12 @@
               designer=a.get('designer', ''),
               is_favorite=a.get('is_favorite', false),
               tags=a.get('tags', ''),
-              user_notes=user_notes,
-              enrichment_status=(enrichment_payload.get('status', '') if enrichment_payload is mapping else ''),
-              enrichment_source=(enrichment_payload.get('source', '') if enrichment_payload is mapping else ''),
-              enrichment_reason=(enrichment_payload.get('reason', '') if enrichment_payload is mapping else ''),
-              enrichment_filaments=(enrichment_payload.get('Filaments', []) if enrichment_payload is mapping else []),
-              enrichment_ambiguities=(enrichment_payload.get('ambiguities', []) if enrichment_payload is mapping else []),
-              failure_reason=a.get('failure_reason', ''),
-              thumbnail_path=a.get('thumbnail_path', '')
+              notes=a.get('notes', ''),
+              failure_reason=a.get('failure_reason', '')
             )] %}
           {% endfor %}
           {{ ns.trimmed | tojson }}
         last_fetch: "{{ now().isoformat() }}"
-        source_status: "{{ result.get('status', 'unknown') }}"
+        source_status: >-
+          {% set response = result if result is defined and result is mapping else {} %}
+          {{ response.get('status', 'unknown') }}

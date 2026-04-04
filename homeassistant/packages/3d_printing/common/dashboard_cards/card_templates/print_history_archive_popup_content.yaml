@@ -43,8 +43,6 @@ print_history_archive_popup_content:
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
         const archiveId = archive?.id;
-        const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
-        const LEGACY_MARKER = '--- HA Enrichment ---';
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
@@ -57,11 +55,15 @@ print_history_archive_popup_content:
           const trimmed = raw.length === 8 ? raw.slice(0, 6) : raw;
           return /^[0-9a-fA-F]{6}$/.test(trimmed) ? `#${trimmed.toUpperCase()}` : '';
         };
+        const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
+        const LEGACY_MARKER = '--- HA Enrichment ---';
+        const RECOVERY_MARKER = '[RECOVERY_AUDIT_V1]';
         const splitArchiveNotes = (value) => {
           const raw = String(value || '');
           const markerIndex = raw.indexOf(ENRICHMENT_MARKER);
           const legacyIndex = raw.indexOf(LEGACY_MARKER);
-          const indexes = [markerIndex, legacyIndex].filter((index) => index >= 0);
+          const recoveryIndex = raw.indexOf(RECOVERY_MARKER);
+          const indexes = [markerIndex, legacyIndex, recoveryIndex].filter((index) => index >= 0);
           if (!indexes.length) {
             return { userNotes: raw.trimEnd(), payload: null };
           }
@@ -161,25 +163,6 @@ print_history_archive_popup_content:
           }
           return tagPalette[hash % tagPalette.length];
         };
-        const hasMeaningfulValue = (value) => {
-          if (value === null || value === undefined) return false;
-          const normalized = String(value).trim().toLowerCase();
-          return !['', 'none', 'null', 'unknown', 'unavailable'].includes(normalized);
-        };
-        const hasResolvedEntityId = (value) => {
-          if (value === null || value === undefined) return false;
-          const normalized = String(value).trim().toLowerCase();
-          return normalized !== '' && normalized !== 'null' && normalized !== 'none';
-        };
-        const getEnrichmentReviewReasons = (item) => {
-          const reviewReasons = [];
-          if (!hasMeaningfulValue(item?.tray)) reviewReasons.push('Tray unresolved');
-          if (!hasResolvedEntityId(item?.s)) reviewReasons.push('Spool unresolved');
-          if (!hasResolvedEntityId(item?.f)) reviewReasons.push('Filament unresolved');
-          if (String(item?.ambiguity || '').trim()) reviewReasons.push('Needs review');
-          return reviewReasons;
-        };
-
         const thumbnailUrl = baseUrl && archiveId
           ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail`
           : '';
@@ -198,27 +181,9 @@ print_history_archive_popup_content:
           ['Designer', archive?.designer || '-']
         ];
         const notesInfo = splitArchiveNotes(archive?.notes);
-        const enrichmentRows = Array.isArray(archive?.enrichment_filaments) ? archive.enrichment_filaments : Array.isArray(notesInfo.payload?.Filaments) ? notesInfo.payload.Filaments : [];
-        const enrichmentAmbiguities = Array.isArray(archive?.enrichment_ambiguities) ? archive.enrichment_ambiguities : Array.isArray(notesInfo.payload?.ambiguities) ? notesInfo.payload.ambiguities : [];
-        const enrichmentStatusRaw = String(archive?.enrichment_status || notesInfo.payload?.status || '').toLowerCase();
-        const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();
-        const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.source || '').trim();
-        const enrichmentRowsWithState = enrichmentRows.map((item) => {
-          const reviewReasons = getEnrichmentReviewReasons(item);
-          return {
-            item,
-            reviewReasons,
-            needsReview: reviewReasons.length > 0
-          };
-        });
-        const hasEnrichmentData = enrichmentRows.length > 0 || enrichmentAmbiguities.length > 0;
-        const enrichmentStatus = (() => {
-          if (enrichmentStatusRaw === 'complete' || enrichmentStatusRaw === 'partial') return enrichmentStatusRaw;
-          if (enrichmentStatusRaw === 'unavailable' && hasEnrichmentData) return 'partial';
-          if (enrichmentStatusRaw === 'unavailable') return 'unavailable';
-          if (!hasEnrichmentData) return 'unavailable';
-          return enrichmentRowsWithState.some((row) => row.needsReview) || enrichmentAmbiguities.length ? 'partial' : 'complete';
-        })();
+        const enrichmentStatus = String(notesInfo.payload?.status || '').toLowerCase();
+        const enrichmentReason = String(notesInfo.payload?.reason || '').trim();
+        const enrichmentSource = String(notesInfo.payload?.source || '').trim();
         const enrichmentStatusLabel = enrichmentStatus === 'complete'
           ? 'Complete'
           : enrichmentStatus === 'partial'
@@ -239,6 +204,7 @@ print_history_archive_popup_content:
           .split(',')
           .map((value) => normalizeHex(value))
           .filter(Boolean);
+        const enrichmentRows = Array.isArray(notesInfo.payload?.Filaments) ? notesInfo.payload.Filaments : [];
         const filamentChips = enrichmentRows.length
           ? enrichmentRows.map((item, index) => {
               const name = String(item?.name || '').trim() || `Filament ${index + 1}`;
@@ -277,9 +243,9 @@ print_history_archive_popup_content:
                 </div>`).join('')}
             </div>
                 ${filamentChips.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Filament Colors</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${filamentChips.map((chip) => `<span title="${escapeHtml(chip.tooltip)}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;"><span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(chip.dotColor)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(chip.label)}</span></span>`).join('')}</div></div>` : ''}
-                ${(hasEnrichmentData || enrichmentStatusRaw || enrichmentReason || enrichmentSource) ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Enrichment</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${enrichmentSourceLabel ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(21,101,192,0.16);color:#BBDEFB;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentSourceLabel)}</span>` : ''}<span style="background:${enrichmentStatusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentStatusLabel)}</span></div></div>${enrichmentReason ? `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.12)' : 'rgba(239,108,0,0.12)'};border:1px solid ${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.28)' : 'rgba(239,108,0,0.28)'};"><ha-icon icon="${enrichmentStatus === 'complete' ? 'mdi:information-outline' : 'mdi:alert-outline'}" style="--mdc-icon-size:16px;color:${enrichmentStatus === 'complete' ? '#90CAF9' : '#FFCC80'};margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:${enrichmentStatus === 'complete' ? '#E3F2FD' : '#FFE0B2'};overflow-wrap:anywhere;">${escapeHtml(enrichmentReason)}</div></div>` : ''}${enrichmentRowsWithState.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">${enrichmentRowsWithState.map(({ item, reviewReasons, needsReview }) => `<div style="padding:12px 14px;border-radius:14px;background:${needsReview ? 'rgba(239,108,0,0.10)' : 'rgba(255,255,255,0.04)'};border:${needsReview ? '1px solid rgba(245,124,0,0.35)' : '1px solid transparent'};display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div style="font-size:14px;font-weight:700;overflow-wrap:anywhere;">${escapeHtml(item?.name || 'Unknown Filament')}</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${hasMeaningfulValue(item?.tray) ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);padding:4px 8px;border-radius:999px;font-size:12px;">${escapeHtml(String(item.tray))}</span>` : ''}${needsReview ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,124,0,0.18);color:#FFCC80;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>Needs Review</span></span>` : ''}</div></div><div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;"><span style="color:var(--secondary-text-color);">${escapeHtml(formatNumber(item?.weight, 1, 'g'))}</span>${hasResolvedEntityId(item?.s) ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);padding:4px 8px;border-radius:999px;">Spool #${escapeHtml(String(item.s))}</span>` : `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,124,0,0.18);color:#FFCC80;padding:4px 8px;border-radius:999px;font-weight:700;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>Spool unresolved</span></span>`}${hasResolvedEntityId(item?.f) ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);padding:4px 8px;border-radius:999px;">Filament #${escapeHtml(String(item.f))}</span>` : `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,124,0,0.18);color:#FFCC80;padding:4px 8px;border-radius:999px;font-weight:700;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>Filament unresolved</span></span>`}</div>${normalizeHex(item?.h) ? `<div style="display:inline-flex;align-items:center;gap:8px;width:max-content;background:rgba(255,255,255,0.04);padding:4px 8px;border-radius:999px;"><span style="width:12px;height:12px;border-radius:999px;background:${escapeHtml(normalizeHex(item?.h))};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(normalizeHex(item?.h))}</span></div>` : ''}${item?.ambiguity ? `<div style="display:inline-flex;align-items:center;gap:8px;width:max-content;background:rgba(239,108,0,0.16);color:#FFCC80;padding:4px 8px;border-radius:999px;font-size:12px;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>${escapeHtml(String(item.ambiguity))}</span></div>` : ''}${reviewReasons.length ? `<div style="font-size:12px;line-height:1.4;color:${needsReview ? '#FFE0B2' : 'var(--secondary-text-color)'};overflow-wrap:anywhere;">${escapeHtml(reviewReasons.join(' • '))}</div>` : ''}</div>`).join('')}</div>` : `<div style="font-size:13px;color:var(--secondary-text-color);">${escapeHtml(enrichmentReason || 'No structured filament rows were preserved for this archive.')}</div>`}${enrichmentAmbiguities.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#FFCC80;">Needs Review</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">${enrichmentAmbiguities.map((item) => `<div style="padding:12px 14px;border-radius:14px;background:rgba(239,108,0,0.12);border:1px solid rgba(239,108,0,0.35);display:flex;flex-direction:column;gap:6px;"><div style="font-size:13px;font-weight:700;overflow-wrap:anywhere;">${escapeHtml(item?.label || 'Unknown filament')}</div><div style="font-size:12px;color:var(--secondary-text-color);">${escapeHtml(String(item?.weight || '-'))}g • ${escapeHtml(String(item?.type || '-'))} • ${escapeHtml(String(item?.color || '-'))}</div><div style="font-size:12px;line-height:1.4;color:#FFE0B2;overflow-wrap:anywhere;">${escapeHtml(String(item?.reason || 'Manual review required'))}</div></div>`).join('')}</div></div>` : ''}</div>` : ''}
+                ${(enrichmentStatus || enrichmentReason || enrichmentSource) ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Enrichment</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${enrichmentSourceLabel ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(21,101,192,0.16);color:#BBDEFB;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentSourceLabel)}</span>` : ''}<span style="background:${enrichmentStatusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentStatusLabel)}</span></div></div>${enrichmentReason ? `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.12)' : 'rgba(239,108,0,0.12)'};border:1px solid ${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.28)' : 'rgba(239,108,0,0.28)'};"><ha-icon icon="${enrichmentStatus === 'complete' ? 'mdi:information-outline' : 'mdi:alert-outline'}" style="--mdc-icon-size:16px;color:${enrichmentStatus === 'complete' ? '#90CAF9' : '#FFCC80'};margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:${enrichmentStatus === 'complete' ? '#E3F2FD' : '#FFE0B2'};overflow-wrap:anywhere;">${escapeHtml(enrichmentReason)}</div></div>` : `<div style="font-size:13px;color:var(--secondary-text-color);">Detailed tray and spool matching data is no longer cached in the browser list.</div>`}</div>` : ''}
                 ${tags.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Tags</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:${tagColor(tag)};color:#243242;border-radius:999px;padding:4px 10px;font-size:11px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);">${escapeHtml(tag)}</span>`).join('')}</div></div>` : ''}
-                ${String(archive?.user_notes ?? notesInfo.userNotes || '') ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Notes</div><div style="font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${escapeHtml(String(archive?.user_notes ?? notesInfo.userNotes || ''))}</div></div>` : ''}
+                ${String(notesInfo.userNotes || '') ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Notes</div><div style="font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${escapeHtml(String(notesInfo.userNotes || ''))}</div></div>` : ''}
             ${archive?.failure_reason ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Failure Reason</div><div style="font-size:14px;line-height:1.5;color:#ffb4ab;overflow-wrap:anywhere;">${escapeHtml(archive.failure_reason)}</div></div>` : ''}
           </div>`;
       ]]]
