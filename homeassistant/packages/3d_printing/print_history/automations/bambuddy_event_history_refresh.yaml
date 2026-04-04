@@ -28,12 +28,6 @@
         event: "print_stopped"
       id: print_stopped
 
-    - trigger: device
-      device_id: 210dfdfa64085e8cf073e50eae757d90
-      domain: bambu_lab
-      type: event_print_canceled
-      id: print_stopped
-
     - trigger: homeassistant
       event: start
       id: startup

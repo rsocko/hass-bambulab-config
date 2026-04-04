@@ -85,7 +85,6 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_boolean_capture_at_start.yaml
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
-│   │   ├── input_boolean_capture_on_complete.yaml
 │   │   ├── input_boolean_capture_on_error.yaml
 │   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
@@ -182,7 +181,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
 | `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | — |
-| `input_boolean.capture_on_complete` | input_boolean | Enable photo capture on print completion webhook | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
 | `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |

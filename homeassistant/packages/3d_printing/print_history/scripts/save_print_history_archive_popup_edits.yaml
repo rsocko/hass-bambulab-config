@@ -3,6 +3,8 @@ save_print_history_archive_popup_edits:
   alias: Save Print History Archive Popup Edits
   sequence:
     - variables:
+        enrichment_marker: "[HA_ENRICHMENT_V1]"
+        legacy_marker: "--- HA Enrichment ---"
         resolved_archive_id: "{{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}"
         resolved_print_name: "{{ states('input_text.print_history_popup_print_name') | default('', true) | string | trim }}"
         resolved_tags: "{{ states('input_text.print_history_popup_tags') | default('', true) | string }}"
@@ -20,16 +22,111 @@ save_print_history_archive_popup_edits:
           {% else %}
             __NULL__
           {% endif %}
+        resolved_user_notes: >-
+          {% set raw = resolved_notes %}
+          {% set marker_index = raw.find(enrichment_marker) %}
+          {% set legacy_index = raw.find(legacy_marker) %}
+          {% if marker_index >= 0 and legacy_index >= 0 %}
+            {% set cutoff = [marker_index, legacy_index] | min %}
+          {% elif marker_index >= 0 %}
+            {% set cutoff = marker_index %}
+          {% elif legacy_index >= 0 %}
+            {% set cutoff = legacy_index %}
+          {% else %}
+            {% set cutoff = -1 %}
+          {% endif %}
+          {% if cutoff >= 0 %}
+            {{ raw[:cutoff] | regex_replace('\n+$', '') }}
+          {% else %}
+            {{ raw | regex_replace('\n+$', '') }}
+          {% endif %}
+        resolved_user_tags: >-
+          {% set ns = namespace(result=[]) %}
+          {% for tag in resolved_tags.split(',') %}
+            {% set cleaned = tag | string | trim %}
+            {% if cleaned | length > 0
+               and not cleaned.startswith('Filament:')
+               and not cleaned.startswith('Spool:')
+               and cleaned != 'ha_enriched:true'
+               and not cleaned.startswith('spoolman:')
+               and not cleaned.startswith('vendor:')
+               and not cleaned.startswith('material:')
+               and not cleaned.startswith('status:')
+               and not cleaned.startswith('cost:')
+               and cleaned not in ns.result %}
+              {% set ns.result = ns.result + [cleaned] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.result | tojson | from_json }}
     - if:
         - condition: template
           value_template: "{{ resolved_archive_id != '' }}"
       then:
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ resolved_archive_id }}"
+          response_variable: archive_detail_response
+        - variables:
+            archive_detail: "{{ archive_detail_response.content | default({}, true) }}"
+            existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
+            existing_payload_raw: >-
+              {% set marker_index = existing_notes_raw.find(enrichment_marker) %}
+              {% if marker_index >= 0 %}
+                {{ existing_notes_raw[marker_index + (enrichment_marker | length):] | trim }}
+              {% else %}
+                {{ '' }}
+              {% endif %}
+            existing_payload: >-
+              {% if existing_payload_raw | length > 0 %}
+                {{ existing_payload_raw | from_json({}) }}
+              {% else %}
+                {{ {} }}
+              {% endif %}
+            preserved_system_tags: >-
+              {% set ns = namespace(result=[]) %}
+              {% if existing_payload is mapping and existing_payload.status is defined %}
+                {% set ns.result = ns.result + ['ha_enriched:true'] %}
+                {% for item in existing_payload.Filaments | default([], true) %}
+                  {% if item.f is not none %}
+                    {% set filament_tag = 'Filament:' ~ (item.f | string) %}
+                    {% if filament_tag not in ns.result %}
+                      {% set ns.result = ns.result + [filament_tag] %}
+                    {% endif %}
+                  {% endif %}
+                  {% if item.s is not none %}
+                    {% set spool_tag = 'Spool:' ~ (item.s | string) %}
+                    {% if spool_tag not in ns.result %}
+                      {% set ns.result = ns.result + [spool_tag] %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+              {{ ns.result | tojson | from_json }}
+            merged_tags: >-
+              {% set ns = namespace(result=[]) %}
+              {% for tag in resolved_user_tags + preserved_system_tags %}
+                {% set cleaned = tag | string | trim %}
+                {% if cleaned | length > 0 and cleaned not in ns.result %}
+                  {% set ns.result = ns.result + [cleaned] %}
+                {% endif %}
+              {% endfor %}
+              {{ ns.result | join(',') }}
+            merged_notes: >-
+              {% if existing_payload is mapping and existing_payload.status is defined %}
+                {% if resolved_user_notes | length > 0 %}
+                  {{ resolved_user_notes ~ '\n\n' ~ enrichment_marker ~ '\n' ~ (existing_payload | tojson) }}
+                {% else %}
+                  {{ enrichment_marker ~ '\n' ~ (existing_payload | tojson) }}
+                {% endif %}
+              {% else %}
+                {{ resolved_user_notes }}
+              {% endif %}
         - action: rest_command.bambuddy_update_archive
           data:
             archive_id: "{{ resolved_archive_id }}"
             print_name: "{{ resolved_print_name }}"
-            tags: "{{ resolved_tags }}"
-            notes: "{{ resolved_notes }}"
+            tags: "{{ merged_tags }}"
+            notes: "{{ merged_notes }}"
             status: "{{ resolved_status }}"
             failure_reason: "{{ resolved_failure_reason }}"
         - action: script.refresh_print_history_archives

@@ -43,11 +43,36 @@ print_history_archive_popup_content:
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
         const archiveId = archive?.id;
+        const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
+        const LEGACY_MARKER = '--- HA Enrichment ---';
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
           if (raw === 'cancelled' || raw === 'aborted' || raw === 'stopped') return 'cancelled';
           return raw;
+        };
+        const splitArchiveNotes = (value) => {
+          const raw = String(value || '');
+          const markerIndex = raw.indexOf(ENRICHMENT_MARKER);
+          const legacyIndex = raw.indexOf(LEGACY_MARKER);
+          const indexes = [markerIndex, legacyIndex].filter((index) => index >= 0);
+          if (!indexes.length) {
+            return { userNotes: raw.trimEnd(), payload: null };
+          }
+          const cutoff = Math.min(...indexes);
+          const userNotes = raw.slice(0, cutoff).replace(/\n+$/u, '');
+          if (cutoff !== markerIndex) {
+            return { userNotes, payload: null };
+          }
+          const payloadRaw = raw.slice(markerIndex + ENRICHMENT_MARKER.length).trim();
+          try {
+            return {
+              userNotes,
+              payload: payloadRaw ? JSON.parse(payloadRaw) : null
+            };
+          } catch (_error) {
+            return { userNotes, payload: null };
+          }
         };
         const status = normalizeStatus(archive?.status);
         const statusLabel = status === 'completed'
@@ -114,17 +139,16 @@ print_history_archive_popup_content:
           .split(',')
           .map((tag) => tag.trim())
           .filter(Boolean);
-        const tagColor = (tag) => {
-          if (tag.startsWith('status:')) {
-            if (tag.includes('completed') || tag.includes('success')) return '#2E7D32';
-            if (tag.includes('cancelled') || tag.includes('aborted') || tag.includes('stopped')) return '#EF6C00';
-            return '#C62828';
-          }
-          if (tag.startsWith('vendor:')) return '#6A1B9A';
-          if (tag.startsWith('material:')) return '#00695C';
-          if (tag.startsWith('cost:')) return '#E65100';
-          if (tag.startsWith('spoolman:')) return '#0277BD';
-          return '#1565C0';
+        const isSystemTag = (tag) => {
+          const value = String(tag || '');
+          return value.startsWith('Filament:')
+            || value.startsWith('Spool:')
+            || value === 'ha_enriched:true'
+            || value.startsWith('spoolman:')
+            || value.startsWith('vendor:')
+            || value.startsWith('material:')
+            || value.startsWith('status:')
+            || value.startsWith('cost:');
         };
 
         const thumbnailUrl = baseUrl && archiveId
@@ -144,7 +168,19 @@ print_history_archive_popup_content:
           ['Printer', archive?.printer_id || '-'],
           ['Designer', archive?.designer || '-']
         ];
-        const tags = parseTags(archive?.tags);
+        const notesInfo = splitArchiveNotes(archive?.notes);
+        const enrichmentPayload = notesInfo.payload;
+        const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];
+        const enrichmentStatusRaw = String(enrichmentPayload?.status || '').toLowerCase();
+        const enrichmentStatusLabel = enrichmentStatusRaw
+          ? enrichmentStatusRaw.charAt(0).toUpperCase() + enrichmentStatusRaw.slice(1)
+          : 'Unavailable';
+        const enrichmentStatusColor = enrichmentStatusRaw === 'complete'
+          ? '#2E7D32'
+          : enrichmentStatusRaw === 'partial'
+            ? '#EF6C00'
+            : '#546E7A';
+        const tags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));
         const colors = String(archive?.filament_color || '')
           .split(',')
           .map((value) => value.trim())
@@ -168,8 +204,9 @@ print_history_archive_popup_content:
                 </div>`).join('')}
             </div>
             ${colors.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Filament Colors</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${colors.map((hex) => `<span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;"><span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(hex)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(hex)}</span></span>`).join('')}</div></div>` : ''}
-            ${tags.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Tags</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:${tagColor(tag)};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;">${escapeHtml(tag)}</span>`).join('')}</div></div>` : ''}
-            ${archive?.notes ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Notes</div><div style="font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${escapeHtml(archive.notes)}</div></div>` : ''}
+            ${enrichmentRows.length || enrichmentPayload ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Enrichment</div><span style="background:${enrichmentStatusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentStatusLabel)}</span></div>${enrichmentRows.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">${enrichmentRows.map((item) => `<div style="padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04);display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:14px;font-weight:700;overflow-wrap:anywhere;">${escapeHtml(item?.name || 'Unknown Filament')}</div><div style="font-size:12px;color:var(--secondary-text-color);">${escapeHtml(String(item?.tray || '-'))}</div></div><div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--secondary-text-color);"><span>${escapeHtml(formatNumber(item?.weight, 1, 'g'))}</span><span>${item?.s != null ? `Spool #${escapeHtml(String(item.s))}` : 'Spool unresolved'}</span><span>${item?.f != null ? `Filament #${escapeHtml(String(item.f))}` : 'Filament unresolved'}</span></div>${item?.h ? `<div style="display:inline-flex;align-items:center;gap:8px;width:max-content;background:rgba(255,255,255,0.04);padding:4px 8px;border-radius:999px;"><span style="width:12px;height:12px;border-radius:999px;background:${escapeHtml(String(item.h))};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(String(item.h))}</span></div>` : ''}</div>`).join('')}</div>` : `<div style="font-size:13px;color:var(--secondary-text-color);">No structured filament rows were preserved for this archive.</div>`}</div>` : ''}
+            ${tags.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Tags</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:#1565C0;color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;">${escapeHtml(tag)}</span>`).join('')}</div></div>` : ''}
+            ${notesInfo.userNotes ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Notes</div><div style="font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${escapeHtml(notesInfo.userNotes)}</div></div>` : ''}
             ${archive?.failure_reason ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Failure Reason</div><div style="font-size:14px;line-height:1.5;color:#ffb4ab;overflow-wrap:anywhere;">${escapeHtml(archive.failure_reason)}</div></div>` : ''}
           </div>`;
       ]]]

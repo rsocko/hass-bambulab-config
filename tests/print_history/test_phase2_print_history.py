@@ -222,7 +222,7 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_HELPERS_INPUT_BOOLEAN = [
-        "input_boolean_bambuddy_history_fetch_enabled.yaml",
+        "input_boolean_bambuddy_history_sync_enabled.yaml",
         "input_boolean_capture_at_start.yaml",
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
@@ -897,7 +897,7 @@ class TestCrossReferences(unittest.TestCase):
         "input_text.bambuddy_tray_map_snapshot",
         "input_text.print_history_search",
         "input_text.secondary_camera_entity",
-        "input_boolean.bambuddy_history_fetch_enabled",
+        "input_boolean.bambuddy_history_sync_enabled",
         "input_boolean.capture_at_start",
         "input_boolean.capture_at_midprint",
         "input_boolean.capture_near_complete",

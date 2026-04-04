@@ -45,15 +45,15 @@ For this design, that means the long-term recommendation is:
 
 ## Capture Stages
 
-Each stage is gated by its own `input_boolean` toggle, allowing the user to enable/disable individual stages without modifying automations.
+Start, mid-print, near-complete, and error capture use helper gates. Finish capture is unconditional so the archive gets a final HA photo whenever the `print_complete` webhook arrives.
 
 | Stage | Trigger | Boolean Gate | Notes |
 |---|---|---|---|
 | **Start** | Print status → `running` (after configurable delay ~2-5 min) | `input_boolean.capture_at_start` | Delay allows first layer to be visible |
 | **Mid-print** | `sensor.*_print_progress` crosses `input_number.midprint_capture_percent` | `input_boolean.capture_at_midprint` | Default: 50% |
 | **Near-complete** | `sensor.*_print_progress` ≥ 99% | `input_boolean.capture_near_complete` | Captures before bed lowers |
-| **Finished** | `bambuddy_webhook_event` where event=`print_complete` | `input_boolean.capture_on_complete` | Optional final capture; Bambuddy also captures natively |
-| **Error** | `print_failed` webhook, `print_stopped` webhook or native `event_print_canceled`, or `binary_sensor.*_print_error` / `binary_sensor.*_hms_errors` → on | `input_boolean.capture_on_error` | Immediate diagnostic capture |
+| **Finished** | `bambuddy_webhook_event` where event=`print_complete` | None | Always capture a final HA snapshot; Bambuddy may also capture natively |
+| **Error** | `print_failed` webhook, `print_stopped` webhook, or `binary_sensor.*_print_error` / `binary_sensor.*_hms_errors` → on | `input_boolean.capture_on_error` | Immediate diagnostic capture |
 
 ### Stage Automations
 
@@ -77,7 +77,7 @@ triggers:
     entity_id: sensor.ntk_ryansoffice_3dprinter_print_progress
     above: 98
     id: "near_complete"
-  # Finish: gated print_complete capture
+  # Finish: unconditional print_complete capture
   - trigger: event
     event_type: bambuddy_webhook_event
     event_data:
@@ -98,12 +98,6 @@ triggers:
     event_type: bambuddy_webhook_event
     event_data:
       event: "print_stopped"
-    id: "stopped"
-  # Native Bambu cancel event
-  - trigger: device
-    device_id: 210dfdfa64085e8cf073e50eae757d90
-    domain: bambu_lab
-    type: event_print_canceled
     id: "stopped"
   # Print-error sensor
   - trigger: state

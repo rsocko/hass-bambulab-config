@@ -25,9 +25,51 @@ print_history_archive_popup:
       }
 
       const archiveName = archive?.print_name || `Archive ${archiveId}`;
+      const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
+      const LEGACY_MARKER = '--- HA Enrichment ---';
+      const parseTags = (value) => String(value || '')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      const isSystemTag = (tag) => {
+        const value = String(tag || '');
+        return value.startsWith('Filament:')
+          || value.startsWith('Spool:')
+          || value === 'ha_enriched:true'
+          || value.startsWith('spoolman:')
+          || value.startsWith('vendor:')
+          || value.startsWith('material:')
+          || value.startsWith('status:')
+          || value.startsWith('cost:');
+      };
+      const splitArchiveNotes = (value) => {
+        const raw = String(value || '');
+        const markerIndex = raw.indexOf(ENRICHMENT_MARKER);
+        const legacyIndex = raw.indexOf(LEGACY_MARKER);
+        const indexes = [markerIndex, legacyIndex].filter((index) => index >= 0);
+        if (!indexes.length) {
+          return { userNotes: raw.trimEnd(), payload: null };
+        }
+        const cutoff = Math.min(...indexes);
+        const userNotes = raw.slice(0, cutoff).replace(/\n+$/u, '');
+        if (cutoff !== markerIndex) {
+          return { userNotes, payload: null };
+        }
+        const payloadRaw = raw.slice(markerIndex + ENRICHMENT_MARKER.length).trim();
+        try {
+          return {
+            userNotes,
+            payload: payloadRaw ? JSON.parse(payloadRaw) : null
+          };
+        } catch (_error) {
+          return { userNotes, payload: null };
+        }
+      };
       const archivePrintName = String(archive?.print_name || '');
-      const archiveTags = String(archive?.tags || '');
-      const archiveNotes = String(archive?.notes || '');
+      const archiveUserTags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));
+      const archiveNotesInfo = splitArchiveNotes(archive?.notes);
+      const archiveTags = archiveUserTags.join(', ');
+      const archiveNotes = String(archiveNotesInfo.userNotes || '');
       const archiveFailureReason = String(archive?.failure_reason || '').trim();
       const normalizeStatusOption = (status) => {
         const raw = String(status || '').toLowerCase().trim();

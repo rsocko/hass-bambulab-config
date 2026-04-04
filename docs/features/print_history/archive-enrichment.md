@@ -6,6 +6,10 @@
 
 When a print completes (or fails/is cancelled), HA reads Spoolman spool data from existing sensors and PATCHes the Bambuddy archive with tags, notes, and the native `cost` field. This enriches Bambuddy's archive with filament identity, cost, and per-tray usage data that only HA has, since HA bridges both Spoolman and the printer.
 
+The preferred write timing is now to PATCH the archive during the print as soon as `archive_id` and trustworthy per-tray print-weight data are both available, then run a final reconciliation write at print completion, failure, or cancellation.
+
+> **April 2026 consolidation**: This file is the canonical archive enrichment design reference.
+
 **Why HA enrichment is essential**: Bambuddy has no awareness of Spoolman. The archive stores the printer's AMS slot info (`filament_slots` with `slot_id`, `used_g`, `type`, `color`) and raw AMS `tray_uuid`/`tag_uid` in `extra_data`, but there are no Spoolman spool IDs anywhere in the Bambuddy data. HA is the only system that bridges both Spoolman and the printer.
 
 ## Issue #751 Status
@@ -14,15 +18,16 @@ Issue #751 asks to sync filament details such as Spoolman spool IDs into the Bam
 
 ### Defined in Design
 
-The design already defines a hybrid enrichment contract:
+The revised design defines a narrower enrichment contract:
 
-- Use `tags` for searchable facts such as unique spool IDs, tray-specific spool references, vendor, material, status, and the `ha_enriched:true` marker.
-- Use `notes` for the human-readable per-tray breakdown and, in the phased rollout, a compact structured payload that HA can parse later.
-- Prefer UUID-first tray resolution from archive detail, with tray-map snapshot fallback and color-only matching as a last resort.
+- Use `tags` only for system identifiers: unique `Filament:<id>` and `Spool:<id>` tags, plus the marker tag `ha_enriched:true`.
+- Use `notes` for user-entered text plus an appended hidden JSON payload after the `[HA_ENRICHMENT_V1]` marker.
+- Derive enrichment primarily from the same `sensor.print_weight_effective` and `sensor.spoolman_tray_map` data path already used by `spoolman_sync`.
+- Treat Bambuddy archive-detail inspection as optional secondary validation, not the primary enrichment source for this feature.
 
 ### Implemented Today
 
-The current shipped automation does PATCH Bambuddy at print completion and already writes:
+The current shipped automation does PATCH Bambuddy at print completion, but it still reflects the older design:
 
 - unique `spoolman:` tags
 - unique `vendor:` tags
@@ -32,21 +37,16 @@ The current shipped automation does PATCH Bambuddy at print completion and alrea
 
 ### Not Yet Implemented in Shipped Automation
 
-The current automation does not yet perform the full design-defined enrichment:
+The current automation does not yet implement the revised design:
+- it does not append a versioned hidden JSON payload after user notes
+- it does not split user notes/tags from system-managed notes/tags in the popup edit flow
+- it still derives top-level tags from the broader current tray map instead of the exact contributing trays
 
-- it does not call `GET /archives/{id}` to resolve used trays from archive `tray_uuid` data
-- it does not emit `tray:...:spoolman:...` tags
-- it does not include explicit spool IDs in each notes row
-- it does not limit tagging to only the trays definitively associated with the finished archive; today it derives top-level tags from the current tray map, which is broader than the intended UUID-first design
-
-So the correct status for issue #751 is: partially implemented, fully designed, with the remaining work centered on more precise tray-to-spool resolution and richer archive annotation.
+So the correct status is still: partially implemented, with the core remaining work centered on usage-scoped tray selection, the new tags/notes contract, and popup-safe round-tripping.
 
 ## Storage Options
 
 There are three reasonable ways to store the enrichment for issue #751.
-
-### Option 1: Notes Only
-
 Store all spool details only in `notes`.
 
 **Pros**
@@ -54,19 +54,12 @@ Store all spool details only in `notes`.
 - human-readable in one place
 - flexible format for multi-tray details and ambiguity notes
 - easiest phased rollout when HA needs a compact parseable payload before a sidecar exists
-- avoids noisy or high-cardinality tag sets
 
 **Cons**
 
-- poor filtering and search ergonomics compared with tags
-- harder to build dashboard filters or future automations around exact spool usage
-- no easy global audit of which spool IDs appear across archives
 
 ### Option 2: Tags Only
 
-Store all enrichment as tags and keep notes minimal or empty.
-
-**Pros**
 
 - best for Bambuddy filtering, exact matching, and tag-level reporting
 - easy to power HA filter controls from archive tags
@@ -74,38 +67,141 @@ Store all enrichment as tags and keep notes minimal or empty.
 
 **Cons**
 
-- poor fit for rich per-tray context such as grams, cost, ambiguity, or fallback reasoning
 - becomes noisy if too much detail is encoded as tags
 - difficult to preserve operator-friendly explanations for multi-color prints
-
-### Option 3: Hybrid Tags + Notes
-
-Store stable searchable identifiers in `tags` and the tray breakdown plus compact structured enrichment payload in `notes`.
 
 **Pros**
 
 - best balance of queryability and readability
-- tags stay compact and structured
-- notes can carry exact tray-level details plus a compact parseable payload without distorting the tag taxonomy
-- aligns with Bambuddy search behavior because both `tags` and `notes` are searchable
 
 **Cons**
 
-- requires discipline about what belongs in tags versus notes
-- idempotency and merge behavior need to be handled carefully on retries
-
 ## Recommended Plan
+The recommended approach for issue #751 is still a hybrid model, but the contract is now narrower and popup-safe.
 
-The recommended approach for issue #751 remains the hybrid model.
+- Keep only `Filament:<id>`, `Spool:<id>`, and `ha_enriched:true` as reserved system tags.
+- Keep Bambuddy's native `cost` field for total cost when cost enrichment is included.
+- Use `notes` for user-entered text plus a hidden JSON payload appended after a version marker.
+- Build the payload from the exact trays that contributed non-zero usage according to `sensor.print_weight_effective` and the same tray-map resolution already trusted by `spoolman_sync`.
+- Hide the system tags and system JSON from popup editing, then regenerate them on save.
 
-- Keep top-level `spoolman:` tags for each unique spool used in the print.
-- Add `tray:` tags when the spool-to-tray match is definitive, because those preserve physical AMS lineage without forcing the operator to read notes.
-- Keep `vendor:`, `material:`, `status:`, and `ha_enriched:true` as compact searchable tags.
-- Write the total filament cost to Bambuddy's native `cost` field instead of encoding it as a searchable tag.
-- Use `notes` for both a concise per-tray breakdown and a compact structured payload that can be parsed by HA during the pre-sidecar phase.
-- If matching falls back from UUID to snapshot or color, record that in notes instead of overloading tags with low-confidence details.
+There is intentionally no separate vendor, material, cost, or status system tag in the revised design:
 
-In practice, that means the plan is not to choose between `notes` and prolific `tags`; it is to use both, but with different responsibilities. Tags should hold stable queryable facts. Notes should hold the richer operator-facing explanation.
+- vendor and material already exist as Bambuddy archive fields
+- cost already belongs in Bambuddy's native `cost` field
+- archive outcome already belongs in Bambuddy's native `status` field
+- the enrichment payload's own `status` field describes enrichment completeness, not print outcome, so it belongs in the JSON payload rather than tags
+
+In practice, tags hold stable searchable identifiers, while notes hold user text plus the compact machine-readable archive enrichment block.
+
+## Consolidated Contract
+
+### Source of truth
+
+The active enrichment path should be derived primarily from the same Home Assistant entities already used by `spoolman_sync`:
+
+- `sensor.print_weight_effective` for per-tray contribution grams
+- `sensor.spoolman_tray_map` for tray-to-spool and tray-to-filament resolution
+- `input_text.print_weight_backup` and `input_text.print_metadata_backup` as the recovery path when live data is lost after restart
+
+Archive detail data such as `extra_data._print_data.raw_data.ams` remains useful for validation and future reconciliation, but it is no longer the default primary source for the first enrichment write.
+
+### Write timing
+
+The archive should usually receive its first enrichment PATCH during the print, not only at completion.
+
+Recommended flow:
+
+1. Resolve the Bambuddy `archive_id` for the active print.
+2. Wait until the print-weight path exposes valid per-tray usage data.
+3. Write the current system tags and notes payload immediately.
+4. Re-run the same payload builder on print completion, failure, or cancellation for final reconciliation.
+
+This front-loads the archive write while the best tray-level data still exists and reduces the chance of losing enrichment after a Home Assistant restart.
+
+### Tag contract
+
+Use only these reserved system tag forms:
+
+- `Filament:<id>`
+- `Spool:<id>`
+- `ha_enriched:true`
+
+Rules:
+
+- emit one `Filament:<id>` tag per unique filament used
+- emit one `Spool:<id>` tag per unique spool used
+- emit `ha_enriched:true` whenever the archive notes/tags have been managed by the enrichment flow
+- keep all user-entered tags unchanged
+- hide system tags from popup editing
+- deduplicate tags before every PATCH
+
+There should be no separate vendor, material, cost, or archive-status tags in the active design.
+
+### Notes contract
+
+The Bambuddy `notes` field is composed of:
+
+1. user-entered notes
+2. a hidden machine-readable payload after a deterministic marker
+
+Required marker:
+
+```text
+[HA_ENRICHMENT_V1]
+```
+
+Stored form:
+
+```text
+<user notes>
+
+[HA_ENRICHMENT_V1]
+{"status":"complete","Filaments":[{"name":"Bambu PLA Basic Blue","weight":41.2,"tray":"A2","s":123,"f":34,"h":"#C1C3C2"}]}
+```
+
+### JSON payload contract
+
+The current compact payload is:
+
+```json
+{
+  "status": "complete",
+  "Filaments": [
+    {
+      "name": "Bambu PLA Basic Blue",
+      "weight": 41.2,
+      "tray": "A2",
+      "s": 123,
+      "f": 34,
+      "h": "#C1C3C2"
+    }
+  ]
+}
+```
+
+Field meanings:
+
+- `status`: `complete` | `partial` | `unavailable`
+- `status` is the enrichment-data completeness state only. It is not a duplicate of Bambuddy's archive `status` field.
+- `Filaments`: one record per non-zero tray contribution
+- `name`: friendly spool name when available
+- `weight`: numeric grams used
+- `tray`: `A1-A4`, `B1-B4`, or the equivalent resolved tray code
+- `s`: spool ID
+- `f`: filament ID
+- `h`: normalized `#RRGGBB` filament hex color
+
+### Popup editing contract
+
+The popup must not expose system-managed data for direct editing.
+
+- Notes editor shows only user notes.
+- Tags editor shows only user-managed tags.
+- Tags editor must hide `Filament:`, `Spool:`, and `ha_enriched:true`.
+- Save flow recombines user tags with system `Filament:`, `Spool:`, and `ha_enriched:true` tags.
+- Save flow recombines user notes with the `[HA_ENRICHMENT_V1]` JSON block.
+- If no fresher enrichment data exists locally, save should preserve the existing stored system block rather than blindly downgrading it.
 
 ## Phased Enrichment Rollout
 
@@ -115,29 +211,76 @@ The enrichment should be delivered in phases so we do not block on sidecar stora
 
 Use Bambuddy as the only persistence target for enrichment.
 
-- tags hold stable searchable facts
+- tags hold stable searchable identifier facts
 - native `cost` holds total filament cost
 - notes contain two sections:
-  - a human-readable summary
-  - a compact machine-readable payload for HA parsing
+  - user-entered notes
+  - a compact machine-readable payload for HA parsing after the `[HA_ENRICHMENT_V1]` marker
 
 This phase is intentionally constrained. The structured payload should be compact, versioned, and limited to the fields we actually need for near-term HA workflows.
 
-### Phase B: Richer UUID-First Resolution
+### Phase B: Operational Hardening
 
 Once the base note contract is working end-to-end:
 
-- improve spool resolution to the full UUID-first design
-- add definitive `tray:` tags when confidence is high
+- keep the sensor-derived enrichment flow authoritative for print-complete usage
+- validate the during-print and terminal reconciliation paths against restart, missed webhook, and popup-edit scenarios
 - keep the compact payload format stable, extending only when necessary
 
-### Phase C: Sidecar If Needed
+### Phase C: Actual Usage Reconciliation For Failed Or Cancelled Prints
+
+Once the base during-print enrichment flow is stable, add a future reconciliation phase for non-completed prints.
+
+Goal:
+
+- update the archive with a better estimate of the **actual** filaments consumed when a print failed or was cancelled before the normal print-complete data path is fully reliable
+
+Approach:
+
+- analyze the print's G-code or equivalent slicer/preview artifact after the failure/cancel event
+- infer the actual tool/material segments consumed up to the failure point
+- use that analysis to refine the archive payload for failed or cancelled jobs where the simple during-print weight snapshot is incomplete or ambiguous
+
+Expected result:
+
+- preserve the current during-print payload as the first-write fallback
+- allow a later reconciliation pass to improve the `Filaments` array for failed/cancelled archives
+- introduce future payload extensions for projected vs actual values only when the G-code analysis path is implemented
+
+### Phase D: Archive-Detail Correction For Partial Or Unavailable Enrichment
+
+This is an explicitly later correction phase, not part of the primary enrichment path.
+
+Goal:
+
+- recover or improve archive enrichment when the Home Assistant sensor-derived payload ended in `partial` or `unavailable`
+
+When to use it:
+
+- Home Assistant restarted and live per-tray data was lost
+- the backup path was missing or invalid
+- tray-level mapping was ambiguous during the initial enrichment pass
+- the archive still contains useful AMS tray data that can reconstruct some or all of the missing mapping
+
+Potential inputs:
+
+- Bambuddy archive `extra_data._print_data.raw_data.ams`
+- Bambuddy archive filament color/material fields
+- archived AMS tray UUIDs and tray colors
+
+Role of this phase:
+
+- attempt to recreate some or all of the missing spool/filament resolution after the fact
+- improve `partial` or `unavailable` payloads when archive-detail evidence is strong enough
+- remain a correction/reconciliation tool, not the default first-pass enrichment path
+
+### Phase E: Sidecar If Needed
 
 Only introduce a sidecar store when the compact note payload is no longer enough.
 
 - move larger structured enrichment state out of Bambuddy
 - keep Bambuddy as the searchable/readable operator surface
-- preserve backward compatibility by continuing to write the human summary to notes
+- preserve backward compatibility by continuing to write the compact `[HA_ENRICHMENT_V1]` payload into the archive notes field when appropriate
 
 ## Recommended Refinements
 
@@ -152,13 +295,13 @@ Based on the Bambuddy source review, the core enrichment design should be refine
 ### 2. Keep Notes Operator-Facing, But Allow A Compact Structured Block
 
 - Notes are flexible, but they are also part of Bambuddy's full-text search index and current card UX.
-- The design should favor concise human-readable summary notes, plus a small versioned structured block for HA parsing.
+- The design should favor user-entered notes plus a small versioned structured block for HA parsing.
 - Do not place raw snapshots, exhaustive provenance payloads, or large semi-structured documents directly in Bambuddy notes.
 - If ambiguity or fallback resolution needs to be recorded, keep that wording brief and focused on operator value.
 
 ### 3. Keep the Tray Snapshot Compact
 
-- The fallback snapshot does not need the entire `spoolman_tray_map` JSON if UUID-first archive resolution succeeds in the normal path.
+- The fallback snapshot does not need the entire `spoolman_tray_map` JSON if the sensor-derived enrichment succeeds in the normal path.
 - The default fallback design should therefore store only the minimum tray-level data needed for recovery, such as tray name, spool ID, and optionally a small amount of match metadata.
 - A larger persisted snapshot should only be introduced if a later implementation proves that the compact snapshot is insufficient.
 
@@ -201,8 +344,8 @@ If the enrichment ever grows beyond compact searchable facts plus a readable sum
 
 Use Bambuddy for:
 
-- stable searchable tags such as `spoolman:`, `tray:`, `vendor:`, `material:`, `status:`, and `ha_enriched:true`
-- concise operator-facing notes summarizing the final resolved tray usage
+- stable searchable system tags such as `Filament:<id>`, `Spool:<id>`, and `ha_enriched:true`
+- user-entered notes plus the compact `[HA_ENRICHMENT_V1]` payload block
 - native archive fields when HA is intentionally filling real Bambuddy semantics such as `cost` or `external_url`
 
 Use a sidecar store when you need:
@@ -220,16 +363,19 @@ The recommended threshold is therefore:
 
 ## Current Event Assumption
 
-The shipped enrichment path is still mostly webhook-driven. It assumes HA receives `print_started` so it can snapshot tray state for the active print, and uses `print_complete`/`print_failed` webhook events plus native cancel handling for the cancelled path so it knows when to PATCH the archive.
+The shipped enrichment path is still mostly webhook-driven. It assumes HA receives `print_started` so it can capture print context for the active print, and uses `print_complete`/`print_failed` webhook events plus native cancel handling for the cancelled path so it knows when to PATCH the archive.
 
 ### Recommended Direction
 
-- Move enrichment timing to native `bambu_lab` lifecycle events wherever they are already equivalent.
+- Front-load enrichment timing so the first PATCH happens during the print once `archive_id` and per-tray print-weight data are available.
+- Use completion/failure/cancel events as the final reconciliation pass rather than the first enrichment pass.
+- Move enrichment timing to native `bambu_lab` lifecycle events or state triggers wherever they are already equivalent.
 - Retain Bambuddy webhook handling only for lifecycle inputs that provide unique archive context not available from native HA state.
 
 For the current design, that means:
 
-- prefer native `event_print_finished` over webhook `print_complete` once the enrichment timing against Bambuddy archive availability is confirmed
+- prefer a state/event driven during-print trigger based on archive availability plus print-weight data readiness
+- prefer native `event_print_finished` over webhook `print_complete` for final reconciliation once the enrichment timing against Bambuddy archive availability is confirmed
 - prefer native `event_print_canceled` over webhook `print_stopped`
 - retain webhook `print_started` if it remains the only exact source of `archive_id`
 - retain webhook `print_failed` until native failed handling is verified as equivalent on the current P1S path
@@ -265,7 +411,14 @@ None of the slot_ids matched the AMS position. The slicer slot numbers are arbit
 
 ### Implication for Enrichment
 
-Since `filament_slots.slot_id` cannot be used to identify which AMS tray (and therefore which Spoolman spool) was used, the enrichment must use other data to resolve spools:
+Since `filament_slots.slot_id` cannot be used to identify which AMS tray (and therefore which Spoolman spool) was used, the enrichment must use other data to resolve spools. The preferred order is now:
+
+1. sensor-derived active-print mapping and weights
+2. archive AMS UUID data for validation or later reconciliation
+3. compact tray snapshot fallback
+4. color-only fallback
+
+Legacy UUID-first detail follows because it is still useful for validation and future reconciliation:
 
 1. **AMS tray UUIDs from the archive** — The archive's `extra_data._print_data.raw_data.ams[].tray[].tray_uuid` stores the physical spool RFID UUID that was loaded in each AMS tray at the moment Bambuddy captured the print. These can be matched directly against Spoolman's `extra_spool_uuid` field.
 
@@ -345,12 +498,14 @@ Only used when neither archive AMS data nor tray map snapshot is available:
 
 ## Data Sources Available in HA
 
-At the time of `print_complete` or `print_failed`, these sensors contain the relevant data:
+During the active print and again at terminal reconciliation, these sensors contain the relevant data:
 
 | Sensor | Data | Package |
 |---|---|---|
 | `sensor.spoolman_tray_map` | Per-tray spool_id, filament name/vendor/color, match state, UUID match strategy | core |
 | `sensor.print_cost` | Total print cost ($), per-tray breakdown (cost, weight, price_per_kg, name, color, price_source) | core |
+| `input_text.print_weight_backup` | Restart-persistent backup of per-tray print-weight attributes | spoolman_sync |
+| `input_text.print_metadata_backup` | Restart-persistent validation metadata for the print-weight backup | spoolman_sync |
 | `sensor.ntk_ryansoffice_3dprinter_print_weight` | Per-tray weight used (attributes: `AMS 1 Tray 1`, `AMS 2 Tray 3`, etc.) | ha-bambulab |
 | `sensor.ntk_ryansoffice_3dprinter_task_name` | Print file name | ha-bambulab |
 | `input_text.bambuddy_current_archive_id` | Archive ID to PATCH | print_history |
@@ -446,7 +601,7 @@ The `breakdown` attribute of `sensor.print_cost` provides per-tray cost data:
 }
 ```
 
-## Tray Map Snapshot at Print Start
+## Tray Map Snapshot At Print Start
 
 A separate automation captures the `spoolman_tray_map` state when a print begins:
 
@@ -479,77 +634,67 @@ actions:
         {% endif %}
 ```
 
-> **Recommended default**: Keep the fallback snapshot intentionally small. UUID-first archive lookup is the primary path; the helper only needs enough data to support fallback matching.
+> **Recommended default**: Keep the fallback snapshot intentionally small. The active sensor-derived mapping is the primary path; the helper only needs enough data to support fallback matching.
 >
 > **Escalation path**: If later testing proves the compact snapshot is insufficient, move the richer fallback state to a trigger-based template sensor, sidecar file, or other store designed for larger structured payloads instead of inflating archive notes.
 
 ## Enrichment Automation
 
-**`bambuddy_enrich_archive_on_complete.yaml`** triggers on `bambuddy_webhook_event` for `print_complete`, `print_failed`, and `print_stopped`, and also listens to the native `bambu_lab` `event_print_canceled` trigger for the cancelled path.
+The implementation should converge on two cooperating paths that share one payload builder:
+
+- a during-print enrichment path that runs once `archive_id` and valid per-tray usage data are available
+- a final reconciliation path that runs on print completion, failure, or cancellation
 
 ### Tag Strategy
 
-Tags are structured with a `prefix:value` format for searchability in Bambuddy:
+Reserved system tags are:
 
 ```
-spoolman:42           # Spoolman spool ID (one per unique spool used)
-tray:ams_2_tray_2:spoolman:42  # AMS tray-specific spool ID
-vendor:Bambu Lab      # Filament vendor (deduplicated)
-material:PLA          # Filament material type (deduplicated)
-status:success        # Print outcome
-ha_enriched:true      # Marker that HA has enriched this archive
+Filament:34
+Filament:82
+Spool:123
+Spool:53
+ha_enriched:true
 ```
 
-Multiple spools (multi-color prints) generate one `spoolman:` tag per unique spool and one `tray:` tag per AMS tray used. The `tray:` tags preserve which physical AMS tray (and therefore which spool) contributed to the print.
+These tags should be regenerated deterministically from the current resolved payload and merged with user-managed tags at save time.
+
+Do not add separate tags for vendor, material, cost, or archive status. Those concepts already belong in Bambuddy fields, and the enrichment-completeness `status` belongs in the JSON payload.
 
 > **Recommendation**: Do not emit `cost:$...` as a default enrichment tag. Store the numeric total in the native archive `cost` field and keep tags focused on stable identity and classification facts.
 
 ### Notes Strategy
 
-Notes contain a concise human-readable summary followed by a compact structured payload.
+Notes contain user-entered text followed by the hidden machine-readable payload.
 
 ```
---- HA Enrichment ---
-Total cost: $1.23
-Trays used: 4
+User-entered notes stay here.
 
-AMS 2 Tray 2: PLA Matte (Bambu Lab) #000000
-  Spool #42 | 29.69g | $0.59
-
-AMS 2 Tray 3: PLA Basic (Bambu Lab) #FFFFFF
-  Spool #18 | 2.38g | $0.05
-
-AMS 2 Tray 1: PLA Basic (Bambu Lab) #C12E1F
-  Spool #55 | 8.45g | $0.17
-
-AMS 1 Tray 4: PLA Basic (Bambu Lab) #F4EE2A
-  Spool #61 | 4.30g | $0.09
-
---- HA Enrichment Data v1 ---
-{"spools":[{"id":42,"g":29.69,"t":"ams_2_tray_2"},{"id":18,"g":2.38,"t":"ams_2_tray_3"},{"id":55,"g":8.45,"t":"ams_2_tray_1"},{"id":61,"g":4.30,"t":"ams_1_tray_4"}],"cost":1.23,"status":"success","match":"uuid"}
+[HA_ENRICHMENT_V1]
+{"status":"complete","Filaments":[{"name":"Bambu PLA Basic Blue","weight":41.2,"tray":"A2","s":123,"f":34,"h":"#C1C3C2"},{"name":"Bambu PLA Matte Charcoal","weight":5.3,"tray":"B1","s":53,"f":82,"h":"#000000"}]}
 ```
 
-Notes reference the **physical AMS tray positions** (determined by color matching at print time), not the slicer's arbitrary slot IDs.
+Notes reference the resolved physical tray positions, not the slicer's arbitrary slot IDs.
 
 Recommended notes behavior:
 
-- include the tray-level summary an operator would actually want to read later
+- keep only the user note text operator-facing
 - include a compact structured payload in a clearly marked, versioned block so HA can parse it later
-- include short fallback wording when matching was approximate or ambiguous
-- do not embed raw tray snapshots, JSON payloads, or large provenance dumps in Bambuddy notes
+- preserve the existing system block on popup save if no fresher local data exists
+- do not embed raw tray snapshots or large provenance dumps in Bambuddy notes
 
 Recommended structured payload scope for the first implementation:
 
-- spool IDs used
-- grams used per spool or per tray
-- tray identifier when known
-- total filament cost
-- print outcome status
-- match mode such as `uuid`, `snapshot`, or `color`
+- status
+- tray-scoped filament records
+- spool IDs and filament IDs
+- grams used per contributing tray
+- resolved tray identifier
+- normalized filament hex color
 
 Recommended payload rules:
 
-- keep it versioned, for example `HA Enrichment Data v1`
+- keep it versioned with `[HA_ENRICHMENT_V1]`
 - keep it compact and single-block so HA can extract it predictably
 - avoid duplicating raw Bambuddy archive data or full tray snapshots
 - extend conservatively to avoid making notes hard to read or expensive to index
@@ -558,6 +703,9 @@ Recommended payload rules:
 
 ```yaml
 triggers:
+  - trigger: state
+    entity_id: sensor.print_weight_effective
+    id: during_print_weight_ready
   - trigger: event
     event_type: bambuddy_webhook_event
     event_data:
@@ -585,26 +733,13 @@ conditions:
     value_template: "{{ states('input_text.bambuddy_current_archive_id') != '' }}"
 
 actions:
-  # 1. GET archive detail (for extra_data.ams tray UUIDs)
-  #    Call GET /archives/{id} to retrieve raw_data.ams[].tray[].tray_uuid
-  #
-  # 2. Resolve spools via UUID-first strategy:
-  #    a. Extract ams[].tray[] from archive response
-  #    b. For each color in filament_color:
-  #       - Find matching tray by color (normalize: strip '#' and alpha)
-  #       - Get tray_uuid from that tray
-  #       - Look up tray_uuid in all sensor.spoolman_spool_* entities
-  #         by comparing against extra_spool_uuid attribute
-  #       - If UUID match found → definitive spool_id (Tier 1)
-  #    c. If no UUID available, fall back to spoolman_tray_map snapshot (Tier 2)
-  #    d. If no snapshot, fall back to current spoolman_tray_map color matching (Tier 3)
-  #
-  # 3. Build tags list with resolved spool data
-  # 4. Build notes string with:
-  #    a. human-readable summary
-  #    b. compact structured payload block for HA parsing
-  # 5. Call rest_command.bambuddy_update_archive (PATCH with tags + notes + cost)
-  # 6. Clear input_text.bambuddy_current_archive_id
+  # 1. Resolve active archive_id
+  # 2. For during-print path, require active print state plus valid non-zero per-tray usage data
+  # 3. Build payload from sensor.print_weight_effective + sensor.spoolman_tray_map
+  # 4. Optionally validate or enrich with archive AMS UUID data when needed
+  # 5. Merge system tags/notes with preserved user tags/notes
+  # 6. PATCH archive with tags + notes + cost
+  # 7. On terminal path, rerun as final reconciliation and only then clear active archive state
 ```
 
 ### REST Commands Used
@@ -621,14 +756,14 @@ rest_command.bambuddy_update_archive:
 ```
 
 > **Important**: Tags are a **comma-separated string** in the PATCH body, NOT a JSON array.
-> Example: `"tags": "spoolman:42,vendor:Bambu Lab,ha_enriched:true"`
+> Example: `"tags": "favorite,hueforge,Filament:34,Spool:123"`
 > There is no separate `POST /archives/{id}/tags` endpoint — tags are set via the main PATCH endpoint.
 
 ## Idempotency
 
 The enrichment automation should be safe to run multiple times for the same archive:
 - **Tags**: The enrichment should normalize and deduplicate tags before PATCHing. Bambuddy's regular archive update path does not perform automatic per-archive tag deduplication for us.
-- **Notes**: PATCH replaces the notes field entirely, so re-running should regenerate the same summary and structured block deterministically
+- **Notes**: PATCH replaces the notes field entirely, so re-running should regenerate the same user-note plus system-block structure deterministically
 - **Cost**: PATCH should overwrite the numeric `cost` field with the same computed total each run
 - **Lifecycle**: `input_text.bambuddy_current_archive_id` is cleared after enrichment, so the automation naturally won't re-trigger for the same print cycle
 
@@ -637,13 +772,23 @@ The enrichment automation should be safe to run multiple times for the same arch
 ## Error Path Enrichment
 
 On `print_failed` or `print_stopped`/native cancel, the enrichment still runs:
-- Tags include `status:failed` or `status:cancelled`
-- Notes include partial weight/cost data (whatever was consumed before failure)
+- Tags still include the resolved `Filament:` and `Spool:` system identifiers from whatever trustworthy data exists, plus `ha_enriched:true`
+- Notes include the best available current payload, which may be `partial` or `unavailable`
 - The native `cost` field can still be written with the partial filament cost known at stop/failure time
 - This provides a record of filament wasted on failed prints
 
+Future phase:
+
+- for failed or cancelled prints, a later reconciliation pass may update the archive with better **actual** filament usage derived from G-code analysis or an equivalent execution artifact
+- that future pass should refine failed/cancelled archives without removing the initial during-print enrichment write
+
 ## Timing
 
-The enrichment runs after the webhook event, which fires after Bambuddy has already updated the archive with duration and status. HA's enrichment adds the spool/cost/filament data that Bambuddy doesn't have access to.
+The preferred timing is:
 
-The archive_id is cleared at the end of enrichment, marking the print cycle as complete from HA's perspective.
+1. during-print first write as soon as `archive_id` and valid per-tray usage data are available
+2. terminal-state reconciliation after Bambuddy updates the archive with final status/duration
+
+HA's enrichment adds the spool/cost/filament data that Bambuddy doesn't have access to.
+
+The archive_id should only be cleared after the terminal reconciliation path completes, not after the first during-print write.

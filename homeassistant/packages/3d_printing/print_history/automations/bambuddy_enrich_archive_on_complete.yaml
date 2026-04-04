@@ -1,38 +1,44 @@
-# Enrich Bambuddy archive with Spoolman data on print completion/failure.
-# Uses tray_map snapshot (captured at print_started) + print_cost sensor.
-# PATCHes tags (comma-separated) and notes to the archive.
+# Enrich Bambuddy archives using sensor.print_weight_effective + spoolman_tray_map.
+# First write happens during-print once archive_id and per-tray weight data exist,
+# then a terminal reconciliation runs on complete/failed/cancelled.
 # Docs: docs/features/print_history/archive-enrichment.md
 - alias: "Print History - Enrich Archive on Complete"
   id: bambuddy_enrich_archive_on_complete
   description: >
-    When a print finishes (success/failed/cancelled), enriches the Bambuddy
-    archive with Spoolman spool IDs, vendor, material, cost tags and
-    structured per-tray notes.
+    Maintains the Phase A print-history enrichment contract in Bambuddy by
+    storing compact system tags plus the hidden [HA_ENRICHMENT_V1] notes block.
 
   triggers:
+    - trigger: numeric_state
+      entity_id: sensor.print_weight_effective
+      above: 0
+      id: during_print_weight_ready
+
+    - trigger: state
+      entity_id: input_text.bambuddy_current_archive_id
+      id: archive_id_available
+
+    - trigger: homeassistant
+      event: start
+      id: homeassistant_started
+
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_complete"
-      id: "print_complete"
+      id: print_complete
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_failed"
-      id: "print_failed"
+      id: print_failed
 
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
         event: "print_stopped"
-      id: "print_stopped"
-
-    - trigger: device
-      device_id: 210dfdfa64085e8cf073e50eae757d90
-      domain: bambu_lab
-      type: event_print_canceled
-      id: "print_stopped"
+      id: print_stopped
 
   conditions:
     - condition: state
@@ -41,142 +47,395 @@
     - condition: template
       value_template: >-
         {{ states('input_text.bambuddy_current_archive_id')
-           not in ['', 'unknown', 'unavailable', 'None'] }}
+           not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
 
   actions:
     - variables:
-        archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
-        event_name: "{{ trigger.id | default('unknown') }}"
-        status_tag: >-
-          {% if event_name == 'print_complete' %}success
-          {% elif event_name == 'print_failed' %}failed
-          {% elif event_name == 'print_stopped' %}cancelled
-          {% else %}unknown{% endif %}
-        # Parse tray_map snapshot (simplified format: tray_name:spool_id,...)
-        tray_snapshot_raw: "{{ states('input_text.bambuddy_tray_map_snapshot') }}"
-        # Get print cost data
-        total_cost: "{{ states('sensor.print_cost') | default('0') }}"
-        cost_breakdown: "{{ state_attr('sensor.print_cost', 'breakdown') | default({}) }}"
-        # Get current tray_map for vendor/material info
-        tray_map: "{{ state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}) }}"
+        enrichment_marker: "[HA_ENRICHMENT_V1]"
+        legacy_marker: "--- HA Enrichment ---"
+        archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+        trigger_id: "{{ trigger.id | default('unknown') }}"
+        is_terminal_trigger: "{{ trigger.id in ['print_complete', 'print_failed', 'print_stopped'] }}"
+        weight_data_available: >-
+          {{ state_attr('sensor.print_weight_effective', 'weight_data_available') | string | lower == 'true' }}
+        effective_total_weight: "{{ states('sensor.print_weight_effective') | float(0) }}"
+        total_cost: "{{ states('sensor.print_cost') | float(0) | round(2) }}"
+        write_ready: >-
+          {{ archive_id not in ['', 'unknown', 'unavailable', 'none', 'None']
+             and weight_data_available
+             and effective_total_weight > 0 }}
 
-    # Build tags and notes from available data
-    - variables:
-        # Collect unique spool IDs from cost breakdown trays
-        spool_tags: >-
-          {% set ns = namespace(tags=[], spool_ids=[]) %}
-          {% if tray_map is mapping %}
-            {% for tray_name, tray in tray_map.items() %}
-              {% if tray.spool_id is defined and tray.spool_id not in [None, '', 'None'] %}
-                {% set sid = tray.spool_id | string %}
-                {% if sid not in ns.spool_ids %}
-                  {% set ns.spool_ids = ns.spool_ids + [sid] %}
-                  {% set ns.tags = ns.tags + ['spoolman:' ~ sid] %}
-                {% endif %}
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-          {{ ns.tags | join(',') }}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ not is_terminal_trigger and not write_ready }}"
+          sequence:
+            - stop: Awaiting archive_id and valid per-tray print-weight data.
 
-        # Collect unique vendors from Spoolman spool entities via tray_map
-        vendor_tags: >-
-          {% set ns = namespace(vendors=[], result=[]) %}
-          {% if tray_map is mapping %}
-            {% for tray_name, tray in tray_map.items() %}
-              {% set eid = tray.spool_entity_id | default('') %}
-              {% if eid %}
-                {% set vendor = state_attr(eid, 'filament_vendor_name') | default('') %}
-                {% if vendor and vendor not in ns.vendors %}
-                  {% set ns.vendors = ns.vendors + [vendor] %}
-                {% endif %}
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-          {% for v in ns.vendors %}
-            {% set ns.result = ns.result + ['vendor:' ~ v] %}
-          {% endfor %}
-          {{ ns.result | join(',') }}
-
-        # Collect unique materials
-        material_tags: >-
-          {% set ns = namespace(materials=[]) %}
-          {% if cost_breakdown is mapping %}
-            {% for tray_name, tray in cost_breakdown.items() %}
-              {% set mat = tray.name | default('') %}
-              {% if mat and mat not in ns.materials %}
-                {% set ns.materials = ns.materials + [mat] %}
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-          {% set ns.result = [] %}
-          {% for m in ns.materials %}
-            {% set ns.result = ns.result + ['material:' ~ m] %}
-          {% endfor %}
-          {{ ns.result | join(',') }}
-
-        # Assemble all tags
-        all_tags: >-
-          {% set parts = [] %}
-          {% if spool_tags %}{% set parts = parts + [spool_tags] %}{% endif %}
-          {% if vendor_tags %}{% set parts = parts + [vendor_tags] %}{% endif %}
-          {% if material_tags %}{% set parts = parts + [material_tags] %}{% endif %}
-          {% set parts = parts + ['cost:$' ~ (total_cost | float(0) | round(2))] %}
-          {% set parts = parts + ['status:' ~ status_tag] %}
-          {% set parts = parts + ['ha_enriched:true'] %}
-          {{ parts | join(',') }}
-
-        # Build structured notes
-        notes_text: >-
-          --- HA Enrichment ---
-          Total cost: ${{ total_cost | float(0) | round(2) }}
-          Status: {{ status_tag }}
-          {% if cost_breakdown is mapping and cost_breakdown | length > 0 %}
-          Trays used: {{ cost_breakdown | length }}
-          {% for tray_name, tray in cost_breakdown.items() %}
-
-          {{ tray_name }}: {{ tray.name | default('Unknown') }} {{ tray.color | default('') }}
-            {% if tray.cost is defined %}Cost: ${{ tray.cost | round(2) }}{% endif %}
-            {% if tray.weight is defined %} | Weight: {{ tray.weight | round(2) }}g{% endif %}
-            {% if tray.price_per_kg is defined %} | Rate: ${{ tray.price_per_kg | round(2) }}/kg{% endif %}
-          {% endfor %}
-          {% endif %}
-
-    # PATCH archive with tags and notes
-    - action: rest_command.bambuddy_update_archive
+    - action: rest_command.bambuddy_get_archive_detail
       data:
         archive_id: "{{ archive_id }}"
-        tags: "{{ all_tags }}"
-        notes: "{{ notes_text }}"
+      response_variable: archive_detail_response
 
-    # Set photo review to pending if this print captured any photos
     - variables:
-          captured_photo_count: "{{ states('counter.bambuddy_captured_photo_count') | int(0) }}"
-          has_photos: "{{ captured_photo_count > 0 }}"
+        archive_detail: "{{ archive_detail_response.content | default({}, true) }}"
+        existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
+        existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
+        existing_user_notes: >-
+          {% set raw = existing_notes_raw %}
+          {% set marker_index = raw.find(enrichment_marker) %}
+          {% set legacy_index = raw.find(legacy_marker) %}
+          {% if marker_index >= 0 and legacy_index >= 0 %}
+            {% set cutoff = [marker_index, legacy_index] | min %}
+          {% elif marker_index >= 0 %}
+            {% set cutoff = marker_index %}
+          {% elif legacy_index >= 0 %}
+            {% set cutoff = legacy_index %}
+          {% else %}
+            {% set cutoff = -1 %}
+          {% endif %}
+          {% if cutoff >= 0 %}
+            {{ raw[:cutoff] | regex_replace('\n+$', '') }}
+          {% else %}
+            {{ raw | regex_replace('\n+$', '') }}
+          {% endif %}
+        existing_payload_raw: >-
+          {% set marker_index = existing_notes_raw.find(enrichment_marker) %}
+          {% if marker_index >= 0 %}
+            {{ existing_notes_raw[marker_index + (enrichment_marker | length):] | trim }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        existing_payload: >-
+          {% if existing_payload_raw | length > 0 %}
+            {{ existing_payload_raw | from_json({}) }}
+          {% else %}
+            {{ {} }}
+          {% endif %}
+        existing_user_tags: >-
+          {% set ns = namespace(result=[]) %}
+          {% for tag in existing_tags_raw.split(',') %}
+            {% set cleaned = tag | string | trim %}
+            {% if cleaned | length > 0
+               and not cleaned.startswith('Filament:')
+               and not cleaned.startswith('Spool:')
+               and cleaned != 'ha_enriched:true'
+               and not cleaned.startswith('spoolman:')
+               and not cleaned.startswith('vendor:')
+               and not cleaned.startswith('material:')
+               and not cleaned.startswith('status:')
+               and not cleaned.startswith('cost:') %}
+              {% set ns.result = ns.result + [cleaned] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.result | tojson | from_json }}
+
+    - variables:
+        current_filaments: >-
+          {% set tray_sources = [
+            {'weight_key': 'AMS 1 Tray 1', 'tray_key': 'ams_1_tray_1', 'tray_code': 'A1'},
+            {'weight_key': 'AMS 1 Tray 2', 'tray_key': 'ams_1_tray_2', 'tray_code': 'A2'},
+            {'weight_key': 'AMS 1 Tray 3', 'tray_key': 'ams_1_tray_3', 'tray_code': 'A3'},
+            {'weight_key': 'AMS 1 Tray 4', 'tray_key': 'ams_1_tray_4', 'tray_code': 'A4'},
+            {'weight_key': 'AMS 2 Tray 1', 'tray_key': 'ams_2_tray_1', 'tray_code': 'B1'},
+            {'weight_key': 'AMS 2 Tray 2', 'tray_key': 'ams_2_tray_2', 'tray_code': 'B2'},
+            {'weight_key': 'AMS 2 Tray 3', 'tray_key': 'ams_2_tray_3', 'tray_code': 'B3'},
+            {'weight_key': 'AMS 2 Tray 4', 'tray_key': 'ams_2_tray_4', 'tray_code': 'B4'},
+            {'weight_key': 'External Spool', 'tray_key': 'external_spool', 'tray_code': 'External'}
+          ] %}
+          {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') | default({}, true) %}
+          {% set weight_map = state_attr('sensor.print_weight_effective', 'weights') | default({}, true) %}
+          {% set ns = namespace(rows=[]) %}
+          {% for tray_source in tray_sources %}
+            {% set grams = weight_map.get(tray_source.weight_key) | float(0) %}
+            {% if grams > 0 %}
+              {% set tray_entry = tray_map.get(tray_source.tray_key, {}) if tray_map is mapping else {} %}
+              {% set spool_entity_id = tray_entry.spool_entity_id | default('', true) | string %}
+              {% set spool_id_raw = tray_entry.spool_id | default('', true) | string | trim %}
+              {% set spool_id_valid = spool_id_raw | regex_match('^\d+$') %}
+              {% if spool_entity_id | length > 0 %}
+                {% set filament_id_raw = state_attr(spool_entity_id, 'filament_id') | default('', true) | string | trim %}
+                {% set spool_name = state_attr(spool_entity_id, 'friendly_name') | default(tray_entry.name | default('Unknown Filament', true), true) | string %}
+                {% set color_raw = state_attr(spool_entity_id, 'filament_color_hex') | default('', true) | string | trim %}
+              {% else %}
+                {% set filament_id_raw = '' %}
+                {% set spool_name = tray_entry.name | default('Unknown Filament', true) | string %}
+                {% set color_raw = '' %}
+              {% endif %}
+              {% set filament_id_valid = filament_id_raw | regex_match('^\d+$') %}
+              {% set color_norm = color_raw | replace('"', '') | trim %}
+              {% if color_norm.startswith('#') %}
+                {% set color_norm = color_norm[1:] %}
+              {% endif %}
+              {% if color_norm | length == 8 %}
+                {% set color_norm = color_norm[0:6] %}
+              {% endif %}
+              {% if color_norm | length == 6 %}
+                {% set color_norm = '#' ~ color_norm.upper() %}
+              {% else %}
+                {% set color_norm = none %}
+              {% endif %}
+              {% if spool_id_valid %}
+                {% set spool_id_value = spool_id_raw | int(0) %}
+              {% else %}
+                {% set spool_id_value = none %}
+              {% endif %}
+              {% if filament_id_valid %}
+                {% set filament_id_value = filament_id_raw | int(0) %}
+              {% else %}
+                {% set filament_id_value = none %}
+              {% endif %}
+              {% set ns.rows = ns.rows + [{
+                'name': spool_name,
+                'weight': grams | round(1),
+                'tray': tray_source.tray_code,
+                's': spool_id_value,
+                'f': filament_id_value,
+                'h': color_norm
+              }] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.rows | tojson | from_json }}
+        current_payload_status: >-
+          {% if current_filaments | count == 0 %}
+            unavailable
+          {% else %}
+            {% set ns = namespace(incomplete=false) %}
+            {% for row in current_filaments %}
+              {% if row.s is none or row.f is none or row.h is none %}
+                {% set ns.incomplete = true %}
+              {% endif %}
+            {% endfor %}
+            {{ 'partial' if ns.incomplete else 'complete' }}
+          {% endif %}
+        current_payload: >-
+          {{ {
+            'status': current_payload_status,
+            'Filaments': current_filaments
+          } | tojson | from_json }}
+        existing_filaments: >-
+          {{ existing_payload.Filaments | default([], true) if existing_payload is mapping else [] }}
+        existing_payload_status: >-
+          {% if existing_payload is mapping %}
+            {{ existing_payload.status | default('', true) | string | lower }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        current_resolved_rows: >-
+          {% set ns = namespace(count=0) %}
+          {% for row in current_filaments %}
+            {% if row.s is not none and row.f is not none and row.h is not none %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.count }}
+        existing_resolved_rows: >-
+          {% set ns = namespace(count=0) %}
+          {% for row in existing_filaments %}
+            {% if row.s is not none and row.f is not none and row.h is not none %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.count }}
+        current_filament_rows: "{{ current_filaments | count }}"
+        existing_filament_rows: "{{ existing_filaments | count }}"
+        current_payload_rank: >-
+          {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+          {{ rank.get(current_payload_status, -1) }}
+        existing_payload_rank: >-
+          {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+          {{ rank.get(existing_payload_status, -1) }}
+        current_detail_score: >-
+          {{
+            (current_payload_rank | int(-1)) * 1000 +
+            (current_resolved_rows | int(0)) * 100 +
+            (current_filament_rows | int(0))
+          }}
+        existing_detail_score: >-
+          {{
+            (existing_payload_rank | int(-1)) * 1000 +
+            (existing_resolved_rows | int(0)) * 100 +
+            (existing_filament_rows | int(0))
+          }}
+        use_existing_payload: >-
+          {{ existing_payload is mapping and (existing_detail_score | int(-1)) > (current_detail_score | int(-1)) }}
+        has_existing_enrichment: >-
+          {{ existing_payload is mapping and existing_payload_status in ['complete', 'partial', 'unavailable'] }}
+        terminal_data_insufficient: >-
+          {{ is_terminal_trigger and (current_detail_score | int(0)) <= 0 }}
+        terminal_preserving_existing: >-
+          {{ is_terminal_trigger and use_existing_payload and (existing_detail_score | int(-1)) > (current_detail_score | int(-1)) }}
+        skip_patch_no_reliable_payload: >-
+          {{ is_terminal_trigger and terminal_data_insufficient and not has_existing_enrichment }}
+        effective_payload_source: "{{ 'preserved_existing' if use_existing_payload else 'current_recomputed' }}"
+        effective_payload: >-
+          {{ (existing_payload if use_existing_payload else current_payload) | tojson | from_json }}
+        effective_system_tags: >-
+          {% set ns = namespace(tags=['ha_enriched:true'], spool_ids=[], filament_ids=[]) %}
+          {% for item in effective_payload.Filaments | default([], true) %}
+            {% if item.f is not none %}
+              {% set filament_id = item.f | string %}
+              {% if filament_id not in ns.filament_ids %}
+                {% set ns.filament_ids = ns.filament_ids + [filament_id] %}
+                {% set ns.tags = ns.tags + ['Filament:' ~ filament_id] %}
+              {% endif %}
+            {% endif %}
+            {% if item.s is not none %}
+              {% set spool_id = item.s | string %}
+              {% if spool_id not in ns.spool_ids %}
+                {% set ns.spool_ids = ns.spool_ids + [spool_id] %}
+                {% set ns.tags = ns.tags + ['Spool:' ~ spool_id] %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.tags | tojson | from_json }}
+        merged_tags: >-
+          {% set ns = namespace(all=[]) %}
+          {% for tag in existing_user_tags + effective_system_tags %}
+            {% set cleaned = tag | string | trim %}
+            {% if cleaned | length > 0 and cleaned not in ns.all %}
+              {% set ns.all = ns.all + [cleaned] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.all | join(',') }}
+        merged_notes: >-
+          {% set user_notes = existing_user_notes | string | trim %}
+          {% set payload_json = effective_payload | tojson %}
+          {% if user_notes | length > 0 %}
+            {{ user_notes ~ '\n\n' ~ enrichment_marker ~ '\n' ~ payload_json }}
+          {% else %}
+            {{ enrichment_marker ~ '\n' ~ payload_json }}
+          {% endif %}
 
     - if:
         - condition: template
-          value_template: "{{ has_photos }}"
+          value_template: "{{ terminal_preserving_existing }}"
       then:
-        - action: input_select.select_option
-          target:
-            entity_id: input_select.bambuddy_photo_review_state
+        - action: system_log.write
           data:
-            option: "pending"
+            message: >-
+              Print History reconciliation preserved the existing enrichment for archive {{ archive_id }}
+              because current terminal data was lower fidelity.
+              current_status={{ current_payload_status }}, current_rows={{ current_filament_rows }},
+              current_resolved={{ current_resolved_rows }}, existing_status={{ existing_payload_status }},
+              existing_rows={{ existing_filament_rows }}, existing_resolved={{ existing_resolved_rows }}.
+            level: warning
+            logger: homeassistant.components.bambulab.print_history
+        - action: logbook.log
+          data:
+            name: Print History Reconciliation
+            message: >-
+              Preserved existing archive enrichment because the terminal data was less complete
+              (current={{ current_payload_status }}/{{ current_resolved_rows }} resolved rows,
+              existing={{ existing_payload_status }}/{{ existing_resolved_rows }} resolved rows).
+        - action: persistent_notification.create
+          data:
+            notification_id: "print_history_reconciliation_preserved_{{ archive_id }}"
+            title: "Print History Enrichment Preserved Existing Data"
+            message: >-
+              Archive **{{ archive_id }}** already had richer per-tray enrichment data than the
+              terminal reconciliation pass could reconstruct.
 
-    # Clear archive_id — this print cycle is complete
-    - action: input_text.set_value
-      target:
-        entity_id: input_text.bambuddy_current_archive_id
-      data:
-        value: ""
+              Existing enrichment was preserved and the archive was **not downgraded**.
 
-    - action: logbook.log
-      data:
-        name: Print History
-        message: >-
-          Enriched archive {{ archive_id }} ({{ status_tag }},
-          cost=${{ total_cost | float(0) | round(2) }},
-          tags={{ all_tags | truncate(100) }},
-          captured_photos={{ captured_photo_count }})
+              Current terminal data:
+              - status: `{{ current_payload_status }}`
+              - filament rows: `{{ current_filament_rows }}`
+              - fully resolved rows: `{{ current_resolved_rows }}`
 
-  mode: single
+              Existing stored data:
+              - status: `{{ existing_payload_status }}`
+              - filament rows: `{{ existing_filament_rows }}`
+              - fully resolved rows: `{{ existing_resolved_rows }}`
+
+              Review the archive only if you expected terminal data to be more complete.
+
+    - if:
+        - condition: template
+          value_template: "{{ skip_patch_no_reliable_payload }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            notification_id: "print_history_enrichment_missing_{{ archive_id }}"
+            title: "Print History Enrichment Not Updated"
+            message: >-
+              Archive **{{ archive_id }}** reached terminal reconciliation, but Home Assistant did not
+              have trustworthy per-tray enrichment data.
+
+              The archive enrichment was **not updated automatically** to avoid writing a lower-fidelity
+              or empty payload.
+
+              Current terminal data:
+              - status: `{{ current_payload_status }}`
+              - filament rows: `{{ current_filament_rows }}`
+              - fully resolved rows: `{{ current_resolved_rows }}`
+
+              Manual review may be required if this archive should contain per-tray filament details.
+        - action: system_log.write
+          data:
+            message: >-
+              Print History WARNING: No reliable per-tray enrichment data was available for archive {{ archive_id }}
+              at terminal reconciliation. Archive enrichment was not updated automatically.
+              current_status={{ current_payload_status }}, current_rows={{ current_filament_rows }},
+              current_resolved={{ current_resolved_rows }}.
+            level: warning
+            logger: homeassistant.components.bambulab.print_history
+        - action: logbook.log
+          data:
+            name: Print History - No Enrichment Data
+            message: >-
+              WARNING: Archive {{ archive_id }} had no reliable terminal per-tray enrichment data.
+              Enrichment was not updated automatically.
+      else:
+        - action: rest_command.bambuddy_update_archive
+          data:
+            archive_id: "{{ archive_id }}"
+            tags: "{{ merged_tags }}"
+            notes: "{{ merged_notes }}"
+            cost: "{{ total_cost }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ is_terminal_trigger }}"
+      then:
+        - variables:
+            captured_photo_count: "{{ states('counter.bambuddy_captured_photo_count') | int(0) }}"
+            has_photos: "{{ captured_photo_count > 0 }}"
+        - if:
+            - condition: template
+              value_template: "{{ has_photos }}"
+          then:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.bambuddy_photo_review_state
+              data:
+                option: "pending"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_current_archive_id
+          data:
+            value: ""
+        - action: logbook.log
+          data:
+            name: Print History
+            message: >-
+              {% if skip_patch_no_reliable_payload %}
+                Terminal reconciliation found no reliable per-tray enrichment data for archive {{ archive_id }}.
+                Archive enrichment was not updated automatically.
+              {% else %}
+                Reconciled archive {{ archive_id }} with {{ effective_payload.status }}
+                enrichment data (source={{ effective_payload_source }}),
+                cost=${{ total_cost | float(0) | round(2) }},
+                tags={{ merged_tags | truncate(100) }},
+                captured_photos={{ states('counter.bambuddy_captured_photo_count') | int(0) }}
+              {% endif %}
+      else:
+        - action: logbook.log
+          data:
+            name: Print History
+            message: >-
+              Wrote during-print enrichment for archive {{ archive_id }}
+              using {{ effective_payload.status }} payload data
+              (source={{ effective_payload_source }}).
+
+  mode: queued

@@ -55,8 +55,6 @@ cards:
                     name: Mid-Print
                   - entity: input_boolean.capture_near_complete
                     name: Near Complete
-                  - entity: input_boolean.capture_on_complete
-                    name: On Complete
                   - entity: input_boolean.capture_on_error
                     name: On Error
                   - type: divider

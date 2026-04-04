@@ -1,12 +1,13 @@
 # Multi-stage photo capture during normal print lifecycle.
 # Stages: start (delayed), midprint (% threshold), near_complete (99%+), finish.
-# Each stage is gated by its input_boolean toggle.
+# Finish capture is always attempted when the print_complete webhook arrives.
 # Docs: docs/features/print_history/photo-capture-design.md
 - alias: "Print History - Capture Print Photos"
   id: bambuddy_capture_print_photos
   description: >
     Captures photos at multiple print stages using the primary camera
-    (and optional secondary camera). Each stage is gated by a toggle.
+    (and optional secondary camera). Start, mid-print, and near-complete
+    remain optional; finish capture always runs.
 
   triggers:
     # Start: printer just began printing (delayed to show first layer)
@@ -89,13 +90,10 @@
               data:
                 stage: "near_complete"
 
-        # Finish: gate only
+        # Finish: always capture on print_complete
         - conditions:
             - condition: trigger
               id: "finish"
-            - condition: state
-              entity_id: input_boolean.capture_on_complete
-              state: "on"
           sequence:
             - action: script.capture_and_upload_snapshot
               data:

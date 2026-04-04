@@ -20,12 +20,6 @@
         event: "print_stopped"
       id: "stopped"
 
-    - trigger: device
-      device_id: 210dfdfa64085e8cf073e50eae757d90
-      domain: bambu_lab
-      type: event_print_canceled
-      id: "stopped"
-
     # Print-error sensor from printer
     - trigger: state
       entity_id: binary_sensor.ntk_ryansoffice_3dprinter_print_error
