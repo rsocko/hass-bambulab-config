@@ -48,6 +48,11 @@ Signals:
 
 This should downgrade urgency while preserving auditability.
 
+Important nuance:
+
+- the replacement archive may have correct file metadata but recovery-time top-level timestamps
+- original runtime timestamps should be shown from preserved recovery audit notes when available, not inferred from the replacement archive's own `completed_at`
+
 ## Main History Table Behavior
 
 ## Row indicator model
@@ -131,6 +136,7 @@ Add:
 - `Recover` action affordance
 - `repair_state`
 - `last recovery result`
+- original print timing from preserved recovery audit metadata when available
 
 ### After automatic recovery exists
 
@@ -138,6 +144,7 @@ Add:
 
 - `Recovered automatically`
 - linkage to replacement archive
+- distinction between `original print completed` and `replacement archive created`
 
 ## Interaction Model
 
@@ -189,6 +196,8 @@ Use milder language:
 Use reassuring but precise language:
 
 - `Recovered via replacement archive`
+- `Original print timing preserved in recovery notes` when that audit block exists
+- avoid wording that implies the replacement archive's top-level timestamps are the original print timestamps
 
 ## Avoid
 
@@ -209,6 +218,13 @@ Use reassuring but precise language:
 ### Exception card
 
 - dedicated list card in print history view
+
+Recommended recovered item fields:
+
+- fallback archive ID
+- replacement archive ID
+- original started/completed time from recovery audit metadata when available
+- replacement archive created time as a separate field
 
 ### Optional detail popup later
 

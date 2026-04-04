@@ -9,6 +9,8 @@ Translate the archive detection and recovery design into a concrete implementati
 Related documents:
 
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
+- [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
+- [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
 - [../../repo/bambuddy-archive-recovery-approach.md](../../repo/bambuddy-archive-recovery-approach.md)
 
 ## Recommended Delivery Sequence
@@ -223,6 +225,24 @@ HA should eventually send a POST to an `n8n` webhook with:
 1. operator can trigger recovery manually
 2. successful recovery creates a new Bambuddy archive
 3. lineage between old and new archives is clear in tags or notes
+4. original fallback runtime timestamps are preserved in recovery notes because the replacement archive uses recovery-time canonical fields
+
+### Interim test method before HA orchestration
+
+Use a workstation-side helper first rather than attempting multipart upload directly from HA.
+
+Recommended path:
+
+1. run the PowerShell helper in `Inspect` mode for a high-confidence case
+2. run the helper in `Upload` mode and verify the created archive in Bambuddy
+3. run the helper in `Full` mode to validate lineage tags and recovery notes
+4. only then wrap the same semantics in `n8n` or a manual HA action
+
+Reference files:
+
+- [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
+- [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
+- `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1`
 
 ### Phase 3 validation
 

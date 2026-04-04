@@ -210,6 +210,18 @@ Expected result:
 - new archive ID
 - normal Bambuddy archive parsing and thumbnail generation
 
+### Important timestamp behavior
+
+The upload endpoint creates a new archive from the recovered `.3mf`, but it does not restore the original print run timestamps.
+
+Design assumption for the workflow:
+
+- `started_at` on the new archive will not contain the original print start time
+- `completed_at` on the new archive will reflect archive creation time during recovery
+- `actual_time_seconds` is not reconstructed by the upload flow
+
+Therefore the workflow must preserve original runtime values separately if they matter for auditability.
+
 ## Stage 7: Lineage annotation
 
 After upload succeeds:
@@ -221,6 +233,7 @@ Add or merge tags/notes such as:
 - `exception:missing_3mf`
 - `repair:pending` or `repair:failed` before success
 - replacement archive reference after success
+- original runtime values retained as the historical source of truth for execution timing
 
 ### New archive
 
@@ -228,6 +241,44 @@ Add or merge tags/notes such as:
 
 - `repair:recovered`
 - `recovered_from:{old_archive_id}`
+- recovery audit block carrying original fallback `started_at`, `completed_at`, `actual_time_seconds`, and original `status`
+
+### Recommended notes contract
+
+Append a small machine-readable block instead of overwriting existing notes.
+
+Suggested format on the recovered archive:
+
+```text
+[RECOVERY_AUDIT_V1]
+{"recovered_from_archive_id":174,"recovery_mode":"manual","recovery_source":"sd_cache_3mf","original_status":"completed","original_started_at":"2026-03-29T02:50:40.735421","original_completed_at":"2026-03-29T14:24:30.547489","original_actual_time_seconds":41629}
+```
+
+Suggested format on the fallback archive:
+
+```text
+[RECOVERY_AUDIT_V1]
+{"replaced_by_archive_id":181,"replacement_status":"archived","replacement_completed_at":"2026-04-04T18:20:00Z"}
+```
+
+This keeps the canonical archive fields honest while still making the original runtime values available for future UI cleanup or reporting.
+
+## Stage 8: Cleanup normalization
+
+After successful upload and lineage annotation, run a lightweight cleanup pass.
+
+Recommended cleanup actions:
+
+- tag the old archive as replaced and resolved
+- tag the new archive as recovered and canonical
+- append recovery audit notes to both records
+- preserve existing notes by appending rather than replacing
+- leave top-level timestamp columns untouched to avoid implying unsupported in-place repair
+
+Optional future cleanup:
+
+- derive UI-friendly helper sensors from `[RECOVERY_AUDIT_V1]`
+- collapse old and new records into one grouped row in HA while preserving separate Bambuddy records
 
 If archive annotation fails after upload succeeds, return `annotation_failed` but still include the new archive ID.
 
@@ -248,6 +299,8 @@ Return `upload_failed` when retrieval succeeded but archive creation failed.
 ### Partial success rule
 
 If file recovery worked and Bambuddy created a new archive, that should be treated as the primary success criterion even if post-upload annotation partially fails.
+
+If annotation or cleanup fails, the workflow should report that the replacement archive is usable but historical runtime context may not be preserved in Bambuddy notes.
 
 ## Observability
 
@@ -290,6 +343,7 @@ HA should treat the `n8n` workflow as asynchronous in spirit even if the webhook
 4. Bambuddy upload returns a new archive
 5. old and new archives are linked clearly in tags or notes
 6. HA can consume and display the returned status cleanly
+7. original fallback runtime timestamps remain visible somewhere even though the new archive uses recovery-time canonical fields
 
 ## Recommendation
 

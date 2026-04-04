@@ -166,6 +166,101 @@ An archive should be flagged as incomplete when any of the following is true:
 - It produces the full metadata/thumbnail pipeline
 - It avoids relying on unsupported in-place repair behavior
 
+### Recovered archive timestamp semantics
+
+`POST /archives/upload` does not recreate the original print run timeline.
+
+Current Bambuddy behavior when uploading a `.3mf` without live print context is:
+
+- `status` is created as `archived`
+- `started_at` is not reconstructed and remains empty
+- `completed_at` is set to the time the new archive record is created
+
+Important consequence:
+
+- the new archive's timeline reflects recovery time, not the original print execution time
+- `started_at`, `completed_at`, and `actual_time_seconds` are not extracted from the `.3mf` by the upload flow
+- parser-derived fields such as thumbnail, content hash, filament usage, slice metadata, and print name can still be restored normally
+
+### Recovery data-loss profile
+
+Fields that are usually restorable from a valid `.3mf` upload:
+
+- `file_path`
+- `file_size`
+- `content_hash`
+- `thumbnail_path`
+- parsed print metadata such as `print_name`, `print_time_seconds`, `filament_used_grams`, `filament_type`, `filament_color`, `layer_height`, `total_layers`, `nozzle_diameter`, `nozzle_temperature`, `sliced_for_model`
+
+Fields that are not restored automatically by creating a replacement archive:
+
+- original `started_at`
+- original `completed_at`
+- original `actual_time_seconds`
+- original archive `status` semantics such as `completed` versus recovery-created `archived`
+- original photos, favorites, tags, notes, and operator annotations unless copied separately
+- exact lineage to the broken archive unless explicitly written after upload
+
+### Recovery options for lost runtime fields
+
+Option 1: Accept upload-time defaults.
+
+- simplest workflow
+- recovered archive has correct file metadata
+- historical run timestamps remain lost from the canonical archive fields
+
+Option 2: Preserve original runtime values in recovery metadata.
+
+- recommended default
+- after upload, write a structured recovery block into `notes` on the new archive
+- optionally write a matching linkage block on the old fallback archive
+
+Option 3: Preserve runtime values externally only.
+
+- store recovery audit information in HA helper state, `n8n` execution logs, or a separate data store
+- lowest risk to Bambuddy UI clutter
+- weakest in-app auditability
+
+Recommended choice: Option 2.
+
+It preserves the missing historical context close to the archive record while accepting that Bambuddy's canonical timestamp columns will still reflect the new recovery event.
+
+### Source project fallback viability
+
+An original Bambu Studio `.3mf` project file can be a fallback source, but it is not equivalent to the printer-cached sliced `.3mf`.
+
+Expected behavior from Bambuddy source:
+
+- `POST /archives/{id}/source` and `POST /archives/upload-source` attach the file as `source_3mf_path` only
+- `POST /archives/upload` will ingest the file as a new archive if it is a valid `.3mf`
+- archive card `GCODE` versus `Source` labeling depends on sliced signals such as embedded G-code or populated `total_layers` / `print_time_seconds`
+
+Design implication:
+
+- a source project file is a viable provenance and viewer fallback
+- it is a weak substitute for true archive reconstruction when the goal is to restore sliced-print metadata or a plate-specific print record
+- prefer recovery-source ranking of `printer-cached sliced .3mf` first, then `original Bambu Studio source .3mf` only when no sliced file exists
+
+### Bambu Studio re-slice/export fallback
+
+Between those two tiers, include an explicit `re-slice then export plate sliced file` fallback.
+
+Why:
+
+- Bambu Studio can create a printer-destined sliced export without actually sending the job to the printer
+- this output is structurally closer to Bambuddy's canonical archive input than a raw source-project `.3mf`
+
+Limits:
+
+- the export is only as accurate as the current slicer version, selected printer preset, process preset, filament mapping, and chosen plate
+- it should be treated as a reconstructed sliced artifact, not guaranteed original evidence
+
+Recommended ranking:
+
+1. cached sliced `.3mf` from the printer or SD backup
+2. Bambu Studio `Export plate sliced file` output derived from the source project
+3. raw Bambu Studio source project attached or uploaded only as last resort
+
 ### Downsides
 
 - Creates a second archive instead of repairing the original
@@ -191,6 +286,38 @@ Reasons:
 ### Design note
 
 The recovery worker should be treated as an adapter around Bambuddy and printer FTP, not as a new source of truth. Its job is to recover a missing `.3mf` and hand it back to Bambuddy for normal archive creation.
+
+### Cleanup and provenance note
+
+Recovery should include a cleanup pass that normalizes the old and new archive records after a successful upload.
+
+Recommended cleanup goals:
+
+- preserve a human-readable relationship between the fallback archive and the replacement archive
+- keep the fallback archive visible as the historical runtime record
+- keep the replacement archive visible as the canonical file-backed record
+- avoid pretending that the replacement archive's top-level timestamps are the original print timestamps
+
+Recommended `notes` augmentation on the recovered archive:
+
+```text
+[RECOVERY_AUDIT_V1]
+{"recovered_from_archive_id":174,"recovery_source":"sd_cache_3mf","recovery_completed_at":"2026-04-04T18:20:00Z","original_status":"completed","original_started_at":"2026-03-29T02:50:40.735421","original_completed_at":"2026-03-29T14:24:30.547489","original_actual_time_seconds":41629}
+```
+
+Recommended `notes` augmentation on the fallback archive:
+
+```text
+[RECOVERY_AUDIT_V1]
+{"replaced_by_archive_id":181,"replacement_created_at":"2026-04-04T18:20:00Z","replacement_preserves_file_metadata":true}
+```
+
+Implementation notes:
+
+- append to existing notes instead of replacing them
+- keep the recovery block machine-parseable and versioned
+- mirror only the fields that would otherwise be lost or misleading after replacement creation
+- do not duplicate large `extra_data` payloads into notes
 
 ## Option 3: Recovery By Uploading Source 3MF To Fallback Archive
 
@@ -353,6 +480,7 @@ On success:
 - upload recovered `.3mf` to Bambuddy via `POST /archives/upload`
 - PATCH or tag both archives to indicate the relationship
 - optionally favorite or annotate the recovered archive as canonical
+- append recovery audit metadata to `notes` so original fallback runtime timestamps remain visible even though the new archive uses recovery-time canonical fields
 
 On failure:
 
@@ -365,11 +493,13 @@ For fallback archive:
 
 - `exception:missing_3mf`
 - `repair:pending`
+- `replaced_by:{new_archive_id}` after success
 
 For recovered archive:
 
 - `repair:recovered`
 - `recovered_from:{old_archive_id}`
+- `recovery_source:sd_cache_3mf` or `recovery_source:manual_upload`
 
 For irrecoverable archive after all attempts:
 

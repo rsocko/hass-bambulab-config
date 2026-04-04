@@ -11,6 +11,8 @@ Related documents:
 - [archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)
 - [archive-recovery-n8n-design.md](archive-recovery-n8n-design.md)
 - [archive-exception-ux-design.md](archive-exception-ux-design.md)
+- [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
+- [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
 
 ## Phase 1: Detection Core
 
@@ -63,6 +65,15 @@ Related documents:
 - [ ] verify normal archives do not generate false positives
 - [ ] verify thumbnail-only issues are separated from full archive breakage
 - [ ] verify dashboard remains readable with zero, one, and multiple exceptions
+- [ ] verify original fallback runtime timestamps are preserved in `[RECOVERY_AUDIT_V1]` notes on the replacement path
+
+### Interim manual proof steps
+
+- [ ] run `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1` in `Inspect` mode for archive `189`
+- [ ] run the helper in `Upload` mode for archive `189` and verify the created archive fields
+- [ ] run the helper in `Full` mode for archive `189` and verify lineage tags and notes
+- [ ] repeat the same sequence for archive `191`
+- [ ] decide whether archive `174` should be recovered as medium-confidence provenance only
 
 ## Phase 2: Manual Recovery Orchestration
 

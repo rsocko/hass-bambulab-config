@@ -302,6 +302,8 @@ For detailed design of the two major subsystems, see:
 - **[archive-recovery-n8n-design.md](archive-recovery-n8n-design.md)** — Recommended `n8n` workflow design for manual and future automated recovery
 - **[archive-exception-ux-design.md](archive-exception-ux-design.md)** — Dashboard and interaction design for incomplete archive visibility
 - **[archive-detection-execution-checklist.md](archive-detection-execution-checklist.md)** — Task-level execution checklist before implementation
+- **[archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)** — Point-in-time recovery matrix for the current live fallback archive set
+- **[archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)** — Staged manual test method before HA or `n8n` automation creates records
 
 ## Migration Notes
 
