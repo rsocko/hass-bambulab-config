@@ -87,25 +87,6 @@ cards:
       .bubble-sub-buttons-container {
         gap: 8px !important;
       }
-      .bubble-sub-button:first-child {
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        height: auto !important;
-        min-height: 36px !important;
-        padding: 0 12px !important;
-      }
-      .bubble-sub-button:first-child .bubble-sub-button-name,
-      .bubble-sub-button:first-child .bubble-sub-button-state {
-        white-space: nowrap !important;
-      }
-      .bubble-sub-button:nth-child(2),
-      .bubble-sub-button:nth-child(3) {
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
-        min-height: 36px !important;
-      }
       .bubble-sub-button-icon {
         --mdc-icon-size: 18px !important;
       }
