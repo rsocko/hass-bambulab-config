@@ -21,21 +21,11 @@ reenrich_print_history_archive:
         - variables:
             enrichment_marker: "[HA_ENRICHMENT_V1]"
             legacy_marker: "--- HA Enrichment ---"
-            requested_archive_id: >-
-              {% if archive_id is defined %}
-                {{ archive_id | default('', true) | string | trim }}
-              {% else %}
-                {{ '' }}
-              {% endif %}
-            resolved_archive_id: >-
-              {% if requested_archive_id | length > 0 %}
-                {{ requested_archive_id }}
-              {% else %}
-                {{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}
-              {% endif %}
+            requested_archive_id: "{{ archive_id | string | trim if archive_id is defined else '' }}"
+            resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
         - if:
             - condition: template
-              value_template: "{{ resolved_archive_id | length > 0 }}"
+              value_template: "{{ resolved_archive_id | string | trim != '' }}"
           then:
             - action: rest_command.bambuddy_get_archive_detail
               data:
