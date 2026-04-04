@@ -83,7 +83,7 @@ print_history_archive_card_compact:
           .replace(/>/g, '&gt;')
           .replace(/\"/g, '&quot;')
           .replace(/'/g, '&#39;');
-          const tagPalette = ['#1565C0', '#2E7D32', '#6A1B9A', '#EF6C00', '#00838F', '#AD1457', '#455A64', '#7B1FA2', '#C62828', '#283593', '#0277BD', '#558B2F'];
+          const tagPalette = ['#AFC8FF', '#B8D8BA', '#D6C2F0', '#F3C4A7', '#A8DDD3', '#F0B7C8', '#E8D9A8', '#BCC7F4', '#C6E6B4', '#E6B8AF', '#D8C3A5', '#C7D0D9'];
           const tagColor = (tag) => {
             const normalized = String(tag || '').trim().toLowerCase();
             if (!normalized) return tagPalette[0];
@@ -148,7 +148,7 @@ print_history_archive_card_compact:
                 </div>
                 <div style="font-size:13px;color:var(--secondary-text-color);overflow-wrap:anywhere;">${escapeHtml(metadata || 'No additional metadata')}</div>
                 ${colors.length ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${colors.slice(0, 6).map((hex) => `<span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(hex)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span>`).join('')}</div>` : ''}
-                ${tags.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:${tagColor(tag)};color:#fff;border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+                ${tags.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:${tagColor(tag)};color:#243242;border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
                 ${archive?.failure_reason ? `<div style="font-size:12px;color:#ffb4ab;line-height:1.4;">${escapeHtml(archive.failure_reason)}</div>` : ''}
               </div>
             </div>

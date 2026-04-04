@@ -1115,7 +1115,7 @@ class TestPrintHistoryTagColors(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml",
         ]
-        expected_palette = "const tagPalette = ['#1565C0', '#2E7D32', '#6A1B9A', '#EF6C00', '#00838F', '#AD1457', '#455A64', '#7B1FA2', '#C62828', '#283593', '#0277BD', '#558B2F'];"
+        expected_palette = "const tagPalette = ['#AFC8FF', '#B8D8BA', '#D6C2F0', '#F3C4A7', '#A8DDD3', '#F0B7C8', '#E8D9A8', '#BCC7F4', '#C6E6B4', '#E6B8AF', '#D8C3A5', '#C7D0D9'];"
 
         for path in files:
             content = path.read_text("utf-8")
