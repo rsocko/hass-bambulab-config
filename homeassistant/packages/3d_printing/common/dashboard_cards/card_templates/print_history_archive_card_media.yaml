@@ -77,13 +77,42 @@ print_history_archive_card_media:
         const statusLabel = status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : status === 'cancelled' ? 'Cancelled' : status === 'printing' ? 'Printing' : 'Unknown';
         const statusColor = status === 'completed' ? '#2E7D32' : status === 'failed' ? '#C62828' : status === 'cancelled' ? '#EF6C00' : status === 'printing' ? '#1565C0' : '#546E7A';
         const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : status === 'cancelled' ? '⛔' : status === 'printing' ? '🖨️' : '⏳';
+        const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
+        const LEGACY_MARKER = '--- HA Enrichment ---';
+        const normalizeHex = (value) => {
+          const raw = String(value || '').trim().replace(/^#/, '').replace(/"/g, '');
+          if (!raw) return '';
+          const trimmed = raw.length === 8 ? raw.slice(0, 6) : raw;
+          return /^[0-9a-fA-F]{6}$/.test(trimmed) ? `#${trimmed.toUpperCase()}` : '';
+        };
+        const splitArchiveNotes = (value) => {
+          const raw = String(value || '');
+          const markerIndex = raw.indexOf(ENRICHMENT_MARKER);
+          const legacyIndex = raw.indexOf(LEGACY_MARKER);
+          const indexes = [markerIndex, legacyIndex].filter((index) => index >= 0);
+          if (!indexes.length) {
+            return { payload: null };
+          }
+          const cutoff = Math.min(...indexes);
+          if (cutoff !== markerIndex) {
+            return { payload: null };
+          }
+          const payloadRaw = raw.slice(markerIndex + ENRICHMENT_MARKER.length).trim();
+          try {
+            return {
+              payload: payloadRaw ? JSON.parse(payloadRaw) : null
+            };
+          } catch (_error) {
+            return { payload: null };
+          }
+        };
         const escapeHtml = (value) => String(value ?? '')
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/\"/g, '&quot;')
           .replace(/'/g, '&#39;');
-          const tagPalette = ['#DCFCE7', '#DBEAFE', '#FCE7F3', '#E0F2FE', '#EDE9FE', '#FEF3C7', '#BBF7D0', '#BFDBFE', '#FBCFE8', '#BAE6FD', '#DDD6FE', '#FED7AA'];
+          const tagPalette = ['#86EFAC', '#93C5FD', '#F9A8D4', '#7DD3FC', '#C4B5FD', '#FCD34D', '#4ADE80', '#60A5FA', '#EC4899', '#38BDF8', '#A78BFA', '#F59E0B'];
           const tagColor = (tag) => {
             const normalized = String(tag || '').trim().toLowerCase();
             if (!normalized) return tagPalette[0];
@@ -121,7 +150,25 @@ print_history_archive_card_media:
           const normalized = String(tag || '').trim().toLowerCase();
           return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));
         };
-        const colors = String(archive?.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
+        const notesInfo = splitArchiveNotes(archive?.notes);
+        const enrichmentPayload = notesInfo.payload;
+        const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];
+        const colors = String(archive?.filament_color || '').split(',').map((value) => normalizeHex(value)).filter(Boolean);
+        const filamentChips = enrichmentRows.length
+          ? enrichmentRows.map((item, index) => {
+              const name = String(item?.name || '').trim() || `Filament ${index + 1}`;
+              const tray = String(item?.tray || '').trim();
+              const hex = normalizeHex(item?.h);
+              const ambiguity = String(item?.ambiguity || '').trim();
+              return {
+                dotColor: hex || 'rgba(255,255,255,0.2)',
+                tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name
+              };
+            })
+          : colors.map((hex) => ({
+              dotColor: hex,
+              tooltip: hex
+            }));
         const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).filter((tag) => !isSystemTag(tag)).slice(0, 4);
         const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
         const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
@@ -146,7 +193,7 @@ print_history_archive_card_media:
                 <span>Filament: <strong>${escapeHtml(formatNumber(archive?.filament_used_grams, 1, 'g'))}</strong></span>
                 <span>Cost: <strong>${escapeHtml(formatCurrency(archive?.cost))}</strong></span>
               </div>
-              ${colors.length ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${colors.slice(0, 6).map((hex) => `<span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(hex)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span>`).join('')}</div>` : ''}
+              ${filamentChips.length ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${filamentChips.slice(0, 6).map((chip) => `<span title="${escapeHtml(chip.tooltip)}" style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(chip.dotColor)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span>`).join('')}</div>` : ''}
               ${tags.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:${tagColor(tag)};color:#243242;border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
               ${archive?.failure_reason ? `<div style="font-size:12px;color:#ffb4ab;line-height:1.4;">${escapeHtml(archive.failure_reason)}</div>` : ''}
             </div>

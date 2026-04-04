@@ -45,9 +45,9 @@
 # │   Format: ams_1_tray_1:25,ams_1_tray_2:72,.. │        │ < 255 limit   │
 # │                                                                        │
 # │ ENRICHMENT TAG GENERATION (live)              │ PASS   │               │
-# │   Spool tags: spoolman:25,spoolman:72,...     │        │ 8 unique IDs  │
-# │   Vendor tags: (empty from tray_map)          │ NOTE   │ See finding   │
-# │   Status/cost/ha_enriched tags                │ PASS   │               │
+# │   System tags: Filament:<id>, Spool:<id>      │        │ deduplicated  │
+# │   Marker tag: ha_enriched:true                │        │               │
+# │   Hidden notes payload: [HA_ENRICHMENT_V1]    │ PASS   │ compact JSON  │
 # │                                                                        │
 # │ MQTT SENSOR (bambuddy_printer_status)         │ PASS   │ RUNNING       │
 # │   Connected, progress, temps, print name      │        │ Full attrs    │
@@ -73,13 +73,12 @@
 #    ACTION: Verify Bambuddy API reachability from HA host. Check
 #    http://bambuddy.socko.us/api/v1/archives from HA shell.
 #
-# 2. VENDOR TAGS EMPTY — The enrichment tag builder reads vendor from
-#    cost_breakdown and tray_map, but neither currently carries vendor
-#    info. The tray_map stores spool_id/color/material but not vendor.
-#    The cost_breakdown has material name (includes vendor prefix like
-#    "Bambu Lab Blue Gray PLA") but the separate vendor field is empty.
-#    ACTION: Either parse vendor from material name or enhance
-#    spoolman_tray_map/print_cost to expose vendor attribute.
+# 2. ENRICHMENT STATUS IS NOT ARCHIVE STATUS — The live enrichment payload
+#    stores completeness in the hidden `[HA_ENRICHMENT_V1]` JSON block.
+#    That `status` is `complete|partial|unavailable` for enrichment quality,
+#    not Bambuddy's top-level archive outcome.
+#    ACTION: If native archive `status` writes are desired, add them as an
+#    explicit follow-on change; they are not part of the current automation.
 #
 # 3. CAPTURE TOGGLES ALL OFF — All 4 photo capture booleans are OFF.
 #    This means photo capture won't happen even during active prints.
@@ -112,7 +111,7 @@
 #       POST to http://<ha-host>/api/webhook/bambuddy_events
 #       Body: {"event":"print_complete","print_name":"Test Print","printer_id":"1","archive_id":"999"}
 #       VERIFY: Enrichment automation fires (check traces)
-#       VERIFY: rest_command.bambuddy_update_archive called with tags string
+#       VERIFY: rest_command.bambuddy_update_archive called with tags + notes + cost
 #
 # B1.3  Webhook with Missing Archive ID
 #       POST: {"event":"print_started","data":{"name":"Test Print","printer_id":"1"}}
@@ -165,30 +164,30 @@
 #
 # B3.1  Enrichment on Successful Print
 #       Complete a print (or send print_complete webhook with archive_id)
-#       VERIFY: Automation trace shows note build + PATCH call
-#       VERIFY: PATCH includes native cost and native status=completed
-#       VERIFY: Notes include cost breakdown with per-tray details
-#       VERIFY: No new auto tags are written for spool/material/cost/status
+#       VERIFY: Automation trace shows payload build + PATCH call
+#       VERIFY: PATCH includes managed tags, hidden notes payload, and native cost
+#       VERIFY: Tags include `Filament:<id>`, `Spool:<id>`, and `ha_enriched:true`
+#       VERIFY: Notes include a hidden `[HA_ENRICHMENT_V1]` JSON block
 #       VERIFY: bambuddy_current_archive_id is cleared after enrichment
 #
 # B3.2  Enrichment on Failed Print
 #       Simulate print_failed webhook
-#       VERIFY: PATCH includes native status=failed
+#       VERIFY: Terminal reconciliation still runs and updates tags/notes/cost when payload data exists
 #       VERIFY: Archive ID cleared after enrichment
 #
 # B3.3  Enrichment on Cancelled Print
 #       Simulate print_stopped webhook
-#       VERIFY: PATCH includes native status=cancelled
+#       VERIFY: Terminal reconciliation still runs and updates tags/notes/cost when payload data exists
 #
 # B3.4  Enrichment with No Archive ID
 #       Clear bambuddy_current_archive_id, then send print_complete webhook
 #       VERIFY: Enrichment skipped (condition blocks — archive_id is empty)
 #       VERIFY: Logbook does NOT show enrichment running
 #
-# B3.5  Verify Tag Format in Bambuddy
+# B3.5  Verify Stored Enrichment in Bambuddy
 #       After enrichment, open the archive in Bambuddy UI
 #       VERIFY: Tags display correctly (comma-separated, not JSON array)
-#       VERIFY: Notes section shows HA Enrichment block with cost details
+#       VERIFY: Notes section contains the hidden `[HA_ENRICHMENT_V1]` payload after any user notes
 #
 # ── B4. REST SENSOR & HISTORY BROWSING ────────────────────────────────────────
 #
@@ -238,9 +237,9 @@
 #
 # B5.2  History Table with Data
 #       With REST sensor active and archives present:
-#       VERIFY: Table shows thumbnails, print names, dates, durations, tags
+#       VERIFY: Table shows thumbnails, print names, dates, durations, and user-visible tags
 #       VERIFY: Status icons (check/alert) render correctly
-#       VERIFY: Tags display as colored chips (spoolman, vendor, material, cost)
+#       VERIFY: Managed enrichment tags are hidden from the user-facing chip display
 #
 # B5.3  Pagination Controls
 #       With > 1 page of archives:
@@ -346,7 +345,7 @@
 #   12. [ ] VERIFY: Bambuddy fires print_complete webhook
 #   13. [ ] VERIFY: Finish photo captured
 #   14. [ ] VERIFY: Enrichment automation runs (check traces)
-#   15. [ ] VERIFY: Archive in Bambuddy has HA-enriched tags + notes
+#   15. [ ] VERIFY: Archive in Bambuddy has managed `Filament:` / `Spool:` / `ha_enriched:true` tags plus hidden `[HA_ENRICHMENT_V1]` notes payload
 #   16. [ ] VERIFY: History sensor refreshes (5s delay then update)
 #   17. [ ] VERIFY: Template sensors show latest print data
 #   18. [ ] VERIFY: bambuddy_current_archive_id cleared
@@ -357,8 +356,8 @@
 #   1. [ ] Start a print and deliberately cancel/stop it mid-print
 #   2. [ ] VERIFY: print_failed/print_stopped webhook fires
 #   3. [ ] VERIFY: Error photo captured (if capture_on_error is ON)
-#   4. [ ] VERIFY: Enrichment runs with status:failed or status:cancelled
-#   5. [ ] VERIFY: Archive in Bambuddy reflects error state in tags/notes
+#   4. [ ] VERIFY: Enrichment runs on the terminal webhook and updates managed tags/notes/cost if data is available
+#   5. [ ] VERIFY: Archive in Bambuddy keeps managed enrichment metadata and Bambuddy's own outcome state remains intact
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # D. REGRESSION CHECKS — KNOWN PITFALLS
@@ -392,7 +391,6 @@
 #     Currently 300s (5 min). Too aggressive hammers Bambuddy API.
 #     Verified in: test_has_reasonable_scan_interval (pytest)
 #
-# D7. Vendor tags may be empty from current enrichment sources
-#     Neither cost_breakdown.vendor nor tray_map.vendor is populated.
-#     Material names include vendor prefix as workaround.
-#     FUTURE: Parse vendor from material name or enhance data sources.
+# D7. Hidden payload status is enrichment completeness only
+#     `[HA_ENRICHMENT_V1].status` is `complete|partial|unavailable` for
+#     enrichment fidelity. It is not Bambuddy's top-level archive outcome.

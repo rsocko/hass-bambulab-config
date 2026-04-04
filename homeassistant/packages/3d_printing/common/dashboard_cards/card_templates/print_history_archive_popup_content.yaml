@@ -151,7 +151,7 @@ print_history_archive_popup_content:
           const normalized = String(tag || '').trim().toLowerCase();
           return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));
         };
-        const tagPalette = ['#DCFCE7', '#DBEAFE', '#FCE7F3', '#E0F2FE', '#EDE9FE', '#FEF3C7', '#BBF7D0', '#BFDBFE', '#FBCFE8', '#BAE6FD', '#DDD6FE', '#FED7AA'];
+        const tagPalette = ['#86EFAC', '#93C5FD', '#F9A8D4', '#7DD3FC', '#C4B5FD', '#FCD34D', '#4ADE80', '#60A5FA', '#EC4899', '#38BDF8', '#A78BFA', '#F59E0B'];
         const tagColor = (tag) => {
           const normalized = String(tag || '').trim().toLowerCase();
           if (!normalized) return tagPalette[0];
@@ -214,7 +214,7 @@ print_history_archive_popup_content:
               key: `fallback-${hex}-${index}`,
               label: hex,
               dotColor: hex,
-              tooltip: ''
+              tooltip: hex
             }));
 
         return `

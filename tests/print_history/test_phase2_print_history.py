@@ -1115,7 +1115,7 @@ class TestPrintHistoryTagColors(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml",
         ]
-        expected_palette = "const tagPalette = ['#DCFCE7', '#DBEAFE', '#FCE7F3', '#E0F2FE', '#EDE9FE', '#FEF3C7', '#BBF7D0', '#BFDBFE', '#FBCFE8', '#BAE6FD', '#DDD6FE', '#FED7AA'];"
+        expected_palette = "const tagPalette = ['#86EFAC', '#93C5FD', '#F9A8D4', '#7DD3FC', '#C4B5FD', '#FCD34D', '#4ADE80', '#60A5FA', '#EC4899', '#38BDF8', '#A78BFA', '#F59E0B'];"
 
         for path in files:
             content = path.read_text("utf-8")
@@ -1137,6 +1137,45 @@ class TestPrintHistoryTagColors(unittest.TestCase):
             with self.subTest(file=path.relative_to(ROOT)):
                 self.assertNotIn('tags.map((tag) => `<span style="background:#1565C0', content)
                 self.assertIn('tags.map((tag) => `<span style="background:${tagColor(tag)}', content)
+
+    def test_archive_color_dots_use_enrichment_payload_for_hover_text(self):
+        files = [
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
+        ]
+
+        for path in files:
+            content = path.read_text("utf-8")
+            with self.subTest(file=path.relative_to(ROOT)):
+                self.assertIn("const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';", content)
+                self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];", content)
+                self.assertIn("const filamentChips = enrichmentRows.length", content)
+                self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
+                self.assertIn("tooltip: hex", content)
+                self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)
+
+    def test_compact_card_implements_issue_809_metadata_and_height_contract(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const enrichmentStatusRaw = String(enrichmentPayload?.status || '').toLowerCase();", content)
+        self.assertIn("const archiveIdLabel = archiveId !== undefined && archiveId !== null && archiveId !== '' ? `Archive #${archiveId}` : 'Archive unavailable';", content)
+        self.assertIn("Enrichment ${escapeHtml(enrichmentStatusLabel)}", content)
+        self.assertIn("const prefixKey = normalized.includes(':') ? normalized.split(':', 1)[0] : normalized;", content)
+        self.assertIn("const tagLimit = 3;", content)
+        self.assertIn("const hiddenTagCount = Math.max(0, allTags.length - tagLimit);", content)
+        self.assertIn("… +${hiddenTagCount}", content)
+        self.assertIn("- min-height: 320px", content)
+        self.assertIn("- height: 100%", content)
+
+    def test_compact_grid_uses_uniform_auto_rows(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "dashboard_cards" / "print_history.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("grid-auto-rows: 1fr", content)
 
 
 # =============================================================================
