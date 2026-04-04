@@ -851,6 +851,43 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("this._formatCount(day.count) + (day.count === 1 ? \" print\" : \" prints\")", content)
 
 
+class TestCompactArchiveCard(unittest.TestCase):
+    """Compact archive card should preserve the issue #809 design contract."""
+
+    def setUp(self):
+        self.content = (
+            ROOT
+            / "homeassistant"
+            / "packages"
+            / "3d_printing"
+            / "common"
+            / "dashboard_cards"
+            / "card_templates"
+            / "print_history_archive_card_compact.yaml"
+        ).read_text("utf-8")
+
+    def test_compact_card_shows_archive_id_and_enrichment_status(self):
+        self.assertIn("Archive ID", self.content)
+        self.assertIn("Enrichment", self.content)
+        self.assertIn("enrichmentStatusLabel", self.content)
+
+    def test_compact_card_groups_tags_by_prefix_and_limits_overflow(self):
+        self.assertIn("prefixPalette", self.content)
+        self.assertIn("tagColorForPrefix", self.content)
+        self.assertIn("const maxTags = 5", self.content)
+        self.assertIn("hiddenTagCount", self.content)
+        self.assertIn("${escapeHtml(tag.prefix)}", self.content)
+
+    def test_compact_card_color_swatches_include_hover_details(self):
+        self.assertIn("chip.name, chip.hex", self.content)
+        self.assertIn("title=\"${escapeHtml([chip.name, chip.hex].filter(Boolean).join(' | '))}\"", self.content)
+
+    def test_compact_card_stretches_to_common_height(self):
+        self.assertIn("- height: 100%", self.content)
+        self.assertIn("height:100%;min-height:100%;", self.content)
+        self.assertIn("height: 100% !important;", self.content)
+
+
 # =============================================================================
 # 9. SCRIPT VALIDATION
 # =============================================================================
