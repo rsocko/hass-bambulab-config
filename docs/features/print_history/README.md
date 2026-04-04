@@ -10,6 +10,16 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are toggleable from both the card views and the popup, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
 
+## Related Runtime Repair Docs
+
+For fallback-archive canonical timestamp repair and adjacent orchestration design, see:
+
+- `archive-runtime-db-repair-guide.md`
+- `archive-runtime-field-impact-matrix.md`
+- `archive-runtime-repair-deployment-options.md`
+- `archive-runtime-repair-script-and-n8n-flow.md`
+- `archive-runtime-sidecar-api-and-compose.md`
+
 ## Event Source Split
 
 The current implementation mixes two data sources:

@@ -17,6 +17,12 @@ Current feature package entry points:
 
 This root `bambuddy/` folder is retained only as legacy reference material during migration cleanup. Do not treat it as deployment guidance or source of truth.
 
+## Upstream Bambuddy Note
+
+The only archive-runtime repair reference intentionally kept in this legacy `bambuddy/` folder is the upstream-facing PR draft:
+
+- `archive-runtime-admin-api-pr-draft.md` — draft for an upstream Bambuddy admin repair endpoint
+
 ## Legacy Prototype Contents
 
 <!-- SCREENSHOT: id=bambuddy-print-history-card | format=png | version=1.0 | package=bambuddy | added=2026-03-15 -->
