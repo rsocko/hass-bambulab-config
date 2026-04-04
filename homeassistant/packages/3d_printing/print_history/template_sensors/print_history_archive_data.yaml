@@ -14,6 +14,7 @@
         - input_select.print_history_filter_date_range
         - input_boolean.print_history_filter_favorites_only
         - input_select.print_history_filter_designer
+        - input_select.print_history_filter_project
         - input_select.print_history_filter_layer_height
         - input_select.print_history_filter_tag
         - input_select.print_history_sort
@@ -44,6 +45,7 @@
           {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
           {%- set favorites_only = is_state('input_boolean.print_history_filter_favorites_only', 'on') -%}
           {%- set filter_designer = states('input_select.print_history_filter_designer') -%}
+          {%- set filter_project = states('input_select.print_history_filter_project') -%}
           {%- set filter_layer_height = states('input_select.print_history_filter_layer_height') -%}
           {%- set filter_tag = states('input_select.print_history_filter_tag') | lower -%}
           {%- set sort_by = states('input_select.print_history_sort') -%}
@@ -63,6 +65,7 @@
             {%- set printer = a.get('printer_id', '') | string -%}
             {%- set name = a.get('print_name', '') | string | lower -%}
             {%- set designer = a.get('designer', '') | string -%}
+            {%- set project_name = (a.get('project_name') if a.get('project_name') is not none else '') | string | trim -%}
             {%- set layer_height = a.get('layer_height', '') | string -%}
             {%- set is_favorite = a.get('is_favorite', false) -%}
             {%- set tags = a.get('tags', '') | string | lower -%}
@@ -85,6 +88,7 @@
             {%- set matches_printer = filter_printer == 'All' or printer == filter_printer -%}
             {%- set matches_favorite = (not favorites_only) or is_favorite -%}
             {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
+            {%- set matches_project = filter_project == 'All' or (filter_project == 'None' and project_name == '') or (filter_project not in ['All', 'None'] and project_name | lower == filter_project | lower) -%}
             {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
             {%- set matches_tag = filter_tag in ['', 'all'] or filter_tag in tag_values -%}
             {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
@@ -103,7 +107,7 @@
             {%- else -%}
               {%- set matches_date = true -%}
             {%- endif -%}
-            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_layer_height and matches_tag and matches_search and matches_selected_day and matches_date -%}
+            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_project and matches_layer_height and matches_tag and matches_search and matches_selected_day and matches_date -%}
               {%- set ns.matches = ns.matches + [a] -%}
             {%- endif -%}
           {%- endfor -%}

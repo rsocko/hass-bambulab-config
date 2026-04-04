@@ -98,6 +98,7 @@ cards:
       - input_select.print_history_filter_printer
       - input_select.print_history_filter_date_range
       - input_select.print_history_filter_designer
+      - input_select.print_history_filter_project
       - input_select.print_history_filter_layer_height
       - input_select.print_history_filter_tag
       - input_boolean.print_history_filter_favorites_only
@@ -174,6 +175,16 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.print_history_filter_designer']?.state !== (states['input_select.print_history_filter_designer']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_designer']?.state !== (states['input_select.print_history_filter_designer']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_project
+                sub_button_type: select
+                name: Project
+                icon: mdi:folder-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_project']?.state !== (states['input_select.print_history_filter_project']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_project']?.state !== (states['input_select.print_history_filter_project']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.print_history_filter_layer_height
                 sub_button_type: select
@@ -265,6 +276,7 @@ cards:
           - input_select.print_history_filter_printer
           - input_select.print_history_filter_date_range
           - input_select.print_history_filter_designer
+          - input_select.print_history_filter_project
           - input_select.print_history_filter_layer_height
           - input_select.print_history_filter_tag
           - input_boolean.print_history_filter_favorites_only
@@ -303,6 +315,7 @@ cards:
                 .bubble-sub-button.clear-printer-filter,
                 .bubble-sub-button.clear-date-filter,
                 .bubble-sub-button.clear-designer-filter,
+                .bubble-sub-button.clear-project-filter,
                 .bubble-sub-button.clear-layer-filter,
                 .bubble-sub-button.clear-tag-filter,
                 .bubble-sub-button.clear-favorites-filter,
@@ -318,6 +331,7 @@ cards:
                 .bubble-sub-button.clear-printer-filter ha-icon,
                 .bubble-sub-button.clear-date-filter ha-icon,
                 .bubble-sub-button.clear-designer-filter ha-icon,
+                .bubble-sub-button.clear-project-filter ha-icon,
                 .bubble-sub-button.clear-layer-filter ha-icon,
                 .bubble-sub-button.clear-tag-filter ha-icon,
                 .bubble-sub-button.clear-favorites-filter ha-icon,
@@ -443,6 +457,26 @@ cards:
                 service: input_select.select_option
                 target:
                   entity_id: input_select.print_history_filter_designer
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_project
+              sub_button_type: default
+              name: Clear Project Filter
+              icon: mdi:folder-remove-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_project
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_project
                 data:
                   option: "All"
             - entity: input_select.print_history_filter_layer_height

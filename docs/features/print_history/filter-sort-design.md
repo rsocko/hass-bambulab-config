@@ -124,6 +124,8 @@ The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed 
   {% set ns.trimmed = ns.trimmed + [dict(
     id=a.get('id'),
     printer_id=a.get('printer_id'),
+    project_id=a.get('project_id'),
+    project_name=(a.get('project_name') if a.get('project_name') is not none else ''),
     print_name=a.get('print_name', ''),
     print_time_seconds=a.get('print_time_seconds', 0),
     actual_time_seconds=a.get('actual_time_seconds'),
@@ -155,6 +157,8 @@ The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed 
 {
   "id": 171,
   "printer_id": 1,
+  "project_id": null,
+  "project_name": "",
   "print_name": "Hueforge back to the future",
   "print_time_seconds": 15533,
   "actual_time_seconds": null,
@@ -205,6 +209,7 @@ The projected schema is roughly **2.2x** the size of slim but gives us every fie
 | **Favorites** | `is_favorite` | `input_boolean` (`on` = favorites only) |
 | **Has Tags** | `tags` (non-empty) | `input_boolean` |
 | **Designer** | `designer` | `input_select` — dynamic |
+| **Project** | `project_name` / `project_id` | `input_select` — dynamic, with persistent `None` for unassigned prints |
 | **Layer Height** | `layer_height` | `input_select` — dynamic (`0.04`, `0.08`, `0.12`, `0.16`, `0.20`) |
 
 ---
@@ -435,6 +440,7 @@ Derived from the projected archive schema (full endpoint, trimmed fields):
 | **Date Range** | `input_select` | `All Time`, `Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days` | `started_at` |
 | **Favorites** | `input_boolean` | `off` = all archives, `on` = favorites only | `is_favorite` |
 | **Designer** | `input_select` | `All`, + dynamic unique designers | `designer` |
+| **Project** | `input_select` | `All`, `None`, + dynamic unique project names; `None` matches prints without a project assignment | `project_name` / `project_id` |
 | **Layer Height** | `input_select` | `All`, + dynamic (e.g., 0.04, 0.08, 0.12, 0.16, 0.20) | `layer_height` |
 | **Tag** | `input_select` | `All`, + dynamic unique archive tags; `All` includes tagged and untagged prints | `tags` |
 | **Search** | `input_text` | Free text on `print_name`, `designer`, `tags` | Multiple fields |
@@ -530,6 +536,12 @@ input_select_print_history_filter_designer:
   options: ["All"]  # Populated dynamically
   initial: "All"
   icon: mdi:account-outline
+
+input_select_print_history_filter_project:
+  name: Print History Filter - Project
+  options: ["All", "None"]  # Project names populated dynamically; None stays available for unassigned prints
+  initial: "All"
+  icon: mdi:folder-outline
 
 input_select_print_history_filter_layer_height:
   name: Print History Filter - Layer Height
@@ -691,9 +703,10 @@ Behavior:
 - Collects unique hex colors from `filament_color` (splits comma-separated strings) → exposes them as the always-visible multi-select color-chip row
 - Collects unique `printer_id` values (mapped to names if available) → updates `input_select.print_history_filter_printer`
 - Collects unique `designer` values (non-empty) → updates `input_select.print_history_filter_designer`
+- Collects unique `project_name` values (non-empty) → updates `input_select.print_history_filter_project`
 - Collects unique `layer_height` values (formatted as strings) → updates `input_select.print_history_filter_layer_height`
 - Collects unique comma-separated archive `tags` values, excluding system-managed enrichment tags such as `Spool:*`, `Filament:*`, and `ha_enriched:true` → updates `input_select.print_history_filter_tag`
-- Prepends `All` to each list
+- Prepends `All` to each list, and keeps `None` permanently available for the project filter so unassigned prints remain selectable
 - If current selection not in new list → HA resets the relevant helper to its default value
 
 This mirrors the Filament Catalog's `sync_filter_options.yaml` pattern exactly.
@@ -935,6 +948,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_select_print_history_filter_printer.yaml       # NEW
 │   │   ├── input_select_print_history_filter_date_range.yaml    # NEW
 │   │   ├── input_select_print_history_filter_designer.yaml      # NEW
+│   │   ├── input_select_print_history_filter_project.yaml       # NEW
 │   │   ├── input_select_print_history_filter_layer_height.yaml  # NEW
 │   │   ├── input_select_print_history_filter_tag.yaml           # NEW
 │   │   ├── input_select_print_history_sort.yaml                 # NEW
@@ -991,6 +1005,7 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | `input_select.print_history_filter_printer` | input_select | `All` (dynamic) |
 | `input_select.print_history_filter_date_range` | input_select | `All Time` |
 | `input_select.print_history_filter_designer` | input_select | `All` (dynamic) |
+| `input_select.print_history_filter_project` | input_select | `All` |
 | `input_select.print_history_filter_layer_height` | input_select | `All` (dynamic) |
 | `input_select.print_history_filter_tag` | input_select | `All` (dynamic) |
 | `input_select.print_history_sort` | input_select | `Date (Newest)` |
@@ -1161,7 +1176,7 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 │ ┌──────────── Browser Header ──────────────────────────────────────┐ │
 │ │ Open Bambuddy  Settings                                          │ │
 │ │ Status  Material  Printer  Date                                  │ │
-│ │ Designer  Layer Height  Favorites  Sort                          │ │
+│ │ Designer  Project  Layer Height  Favorites  Sort                 │ │
 │ │ Search  47 matches  Clear actions                                │ │
 │ │ Multi-select color chips                                         │ │
 │ └───────────────────────────────────────────────────────────────────┘ │
@@ -1221,7 +1236,7 @@ card:
 | **Data volume** | ~165 entities (fixed) | 50–2000 archives (growing) |
 | **Data fetch** | Always in HA (Spoolman integration) | Trigger-based fetch with `rest_command` action + Jinja2 field projection |
 | **Filter sensor** | `sensor.filament_catalog_filtered_spools` | `sensor.print_history_filtered` |
-| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 8 input_selects + 2 input_texts + 1 input_boolean + 2 input_numbers |
+| **Filter inputs** | 12 input_selects + 1 input_text + 4 input_booleans + 3 input_numbers | 9 input_selects + 2 input_texts + 1 input_boolean + 2 input_numbers |
 | **Grouping/tabs** | Yes (By Location, By Material, etc.) | No (flat list with sort) |
 | **Sort** | 9 options (name, weight, cost, hue, etc.) | 10 options (date, duration, cost, filament, name) |
 | **Pagination** | No (all shown, relies on auto-entities) | Yes (page_size + current_page) |

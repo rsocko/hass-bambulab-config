@@ -1,0 +1,7 @@
+print_history_filter_project:
+  name: Print History Filter Project
+  icon: mdi:folder-outline
+  options:
+    - All
+    - None
+  initial: All

@@ -248,6 +248,7 @@ class TestFileInventory(unittest.TestCase):
         "input_select_print_history_filter_printer.yaml",
         "input_select_print_history_filter_date_range.yaml",
         "input_select_print_history_filter_designer.yaml",
+        "input_select_print_history_filter_project.yaml",
         "input_select_print_history_filter_layer_height.yaml",
         "input_select_print_history_sort.yaml",
         "input_select_print_history_card_variant.yaml",
@@ -673,6 +674,11 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("object_count=a.get('object_count', 1) | int(1)", content)
         self.assertNotIn("quantity=a.get('quantity', 1) | int(1)", content)
 
+    def test_archive_projection_includes_project_fields(self):
+        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        self.assertIn("project_id=a.get('project_id')", content)
+        self.assertIn("project_name=(a.get('project_name') if a.get('project_name') is not none else '')", content)
+
     def test_filtered_sensor_uses_object_count_and_separate_print_count(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("ns.total_prints = ns.total_prints + 1", content)
@@ -687,6 +693,16 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{{ '{:,.1f}g'.format(ns.total_weight) }}", content)
         self.assertIn("{{ '{:,.2f}'.format(ns.total_cost) }}", content)
         self.assertIn("{{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}", content)
+
+    def test_project_filter_supports_unassigned_none_option(self):
+        filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        sync_content = (HISTORY / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
+        helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_project.yaml").read_text("utf-8")
+
+        self.assertIn("input_select.print_history_filter_project", filtered_content)
+        self.assertIn("filter_project == 'None' and project_name == ''", filtered_content)
+        self.assertIn("['All', 'None'] + (ns.values | sort)", sync_content)
+        self.assertIn("- None", helper_content)
 
     def test_filtered_sensor_builds_color_tooltips_from_enrichment_notes(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
@@ -924,6 +940,7 @@ class TestCrossReferences(unittest.TestCase):
         "input_select.print_history_filter_date_range",
         "input_select.print_history_filter_favorites",
         "input_select.print_history_filter_designer",
+        "input_select.print_history_filter_project",
         "input_select.print_history_filter_layer_height",
         "input_select.print_history_sort",
         "input_select.print_history_card_variant",

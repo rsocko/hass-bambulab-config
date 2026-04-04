@@ -66,6 +66,15 @@
             {% endif %}
           {% endfor %}
           {{ ns.values | sort }}
+        project_options: >-
+          {% set ns = namespace(values=[]) %}
+          {% for a in archives %}
+            {% set value = (a.get('project_name') if a.get('project_name') is not none else '') | string | trim %}
+            {% if value and value not in ns.values %}
+              {% set ns.values = ns.values + [value] %}
+            {% endif %}
+          {% endfor %}
+          {{ ['All', 'None'] + (ns.values | sort) }}
         layer_height_options: >-
           {% set ns = namespace(values=['All']) %}
           {% for a in archives %}
@@ -113,6 +122,10 @@
       data:
         entity_id: input_select.print_history_filter_designer
         options: "{{ designer_options }}"
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_filter_project
+        options: "{{ project_options }}"
     - action: input_select.set_options
       data:
         entity_id: input_select.print_history_filter_layer_height

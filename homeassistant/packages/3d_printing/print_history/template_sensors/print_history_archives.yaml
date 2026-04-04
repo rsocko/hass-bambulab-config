@@ -55,6 +55,8 @@
             {% set ns.trimmed = ns.trimmed + [dict(
               id=a.get('id'),
               printer_id=a.get('printer_id'),
+              project_id=a.get('project_id'),
+              project_name=(a.get('project_name') if a.get('project_name') is not none else ''),
               print_name=a.get('print_name', ''),
               print_time_seconds=a.get('print_time_seconds', 0) | int(0),
               actual_time_seconds=(a.get('actual_time_seconds') if a.get('actual_time_seconds') is not none else a.get('print_time_seconds', 0)) | int(0),
