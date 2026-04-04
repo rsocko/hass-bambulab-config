@@ -688,6 +688,14 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{{ '{:,.2f}'.format(ns.total_cost) }}", content)
         self.assertIn("{{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}", content)
 
+    def test_filtered_sensor_builds_color_tooltips_from_enrichment_notes(self):
+        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        self.assertIn("available_color_tooltips_json", content)
+        self.assertIn("{% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}", content)
+        self.assertIn("{% set rows = payload.get('Filaments', []) if payload is mapping else [] %}", content)
+        self.assertIn("{% set ns.entries = ns.entries + [dict(color=color_key, names=[name])] %}", content)
+        self.assertIn("{% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}", content)
+
 
 class TestHeatmapActivityCard(unittest.TestCase):
     """Heatmap card logic should match the projected archive schema and metric labels."""
@@ -1211,6 +1219,17 @@ class TestPrintHistoryTagColors(unittest.TestCase):
                 self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
                 self.assertIn("tooltip: hex", content)
                 self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)
+
+    def test_color_filter_card_uses_precomputed_tooltip_metadata(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-color-filter-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('tooltips_attribute: "available_color_tooltips_json"', content)
+        self.assertIn("JSON.stringify(colorsState?.attributes?.[this._config.tooltips_attribute] || \"\")", content)
+        self.assertIn("_availableTooltips()", content)
+        self.assertIn("tooltips.get(color.toLowerCase()) || this._formatColorLabel(color)", content)
+        self.assertIn('title="${safeTooltip}"', content)
 
     def test_compact_card_implements_issue_809_metadata_and_height_contract(self):
         content = (

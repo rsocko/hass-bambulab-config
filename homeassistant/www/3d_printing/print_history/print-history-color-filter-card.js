@@ -12,6 +12,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     this._config = {
       colors_entity: "sensor.print_history_filtered",
       colors_attribute: "available_colors_json",
+      tooltips_attribute: "available_color_tooltips_json",
       selected_entity: "input_text.print_history_filter_colors",
       toggle_script: "script.toggle_print_history_color_filter",
       slot_size: 38,
@@ -38,6 +39,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     const signature = [
       selectedState?.state || "",
       JSON.stringify(colorsState?.attributes?.[this._config.colors_attribute] || ""),
+      JSON.stringify(colorsState?.attributes?.[this._config.tooltips_attribute] || ""),
       this._busyColor,
     ].join("|");
 
@@ -50,6 +52,24 @@ class PrintHistoryColorFilterCard extends HTMLElement {
 
   getCardSize() {
     return 2;
+  }
+
+  _escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  _normalizeColor(value) {
+    const raw = String(value || "").trim();
+    return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : "";
+  }
+
+  _formatColorLabel(color) {
+    return String(color || "").toUpperCase();
   }
 
   _availableColors() {
@@ -68,8 +88,38 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     }
 
     return values
-      .map((value) => String(value || "").trim())
-      .filter((value) => /^#[0-9a-fA-F]{6}$/.test(value));
+      .map((value) => this._normalizeColor(value))
+      .filter(Boolean);
+  }
+
+  _availableTooltips() {
+    const raw = this._hass?.states?.[this._config.colors_entity]?.attributes?.[this._config.tooltips_attribute];
+    let values = [];
+
+    if (Array.isArray(raw)) {
+      values = raw;
+    } else if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        values = Array.isArray(parsed) ? parsed : [];
+      } catch (_err) {
+        values = [];
+      }
+    }
+
+    return values.reduce((tooltips, value) => {
+      if (!value || typeof value !== "object") {
+        return tooltips;
+      }
+
+      const color = this._normalizeColor(value.color);
+      const tooltip = String(value.tooltip || "").trim();
+      if (color && tooltip) {
+        tooltips.set(color, tooltip);
+      }
+
+      return tooltips;
+    }, new Map());
   }
 
   _selectedColors() {
@@ -106,6 +156,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     }
 
     const colors = this._availableColors();
+    const tooltips = this._availableTooltips();
     const selected = this._selectedColors();
     const slotSize = Number(this._config.slot_size || 38);
     const ringSize = Number(this._config.ring_size || 30);
@@ -119,23 +170,27 @@ class PrintHistoryColorFilterCard extends HTMLElement {
       .map((color) => {
         const isSelected = selected.has(color.toLowerCase());
         const isBusy = this._busyColor === color;
+        const tooltip = tooltips.get(color.toLowerCase()) || this._formatColorLabel(color);
         const border = isSelected
           ? `${selectedBorderWidth}px solid var(--accent-color)`
           : `${unselectedBorderWidth}px solid rgba(255,255,255,0.24)`;
+        const safeColor = this._escapeHtml(color);
+        const safeTooltip = this._escapeHtml(tooltip);
 
         return `
           <button
             class="swatch ${isSelected ? "selected" : ""} ${isBusy ? "busy" : ""}"
             type="button"
-            data-color="${color}"
-            aria-label="Toggle color ${color} filter"
+            data-color="${safeColor}"
+            aria-label="Toggle color ${safeTooltip} filter"
             aria-pressed="${isSelected ? "true" : "false"}"
+            title="${safeTooltip}"
             style="width:${slotSize}px;height:${slotSize}px;"
           >
             <span class="ring" style="width:${ringSize}px;height:${ringSize}px;border:${border};">
-              <span class="fill" style="width:${fillSize}px;height:${fillSize}px;background:${color};"></span>
+              <span class="fill" style="width:${fillSize}px;height:${fillSize}px;background:${safeColor};"></span>
             </span>
-            <span class="tooltip" role="tooltip">${color}</span>
+            <span class="tooltip" role="tooltip">${safeTooltip}</span>
           </button>`;
       })
       .join("");
