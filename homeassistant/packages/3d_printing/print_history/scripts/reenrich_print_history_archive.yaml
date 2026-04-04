@@ -150,13 +150,112 @@ reenrich_print_history_archive:
                         'profile_name': profile_name,
                         'vendor_hint': vendor_hint,
                         'name_hint': name_hint,
+                        'source': 'archived_filament_slots',
                         'ambiguous': tray_matches.items | count > 1,
                         'ambiguity_reason': ambiguity_reason,
                         'archived_tray_match_count': tray_matches.items | count
                       }] %}
                     {% endif %}
                   {% endfor %}
+                  {% if ns.rows | count == 0 and slots | count == 0 %}
+                    {% set archive_weight = archive_detail.filament_used_grams | default(0, true) | float(0) %}
+                    {% set archive_type = archive_detail.filament_type | default('', true) | string | trim %}
+                    {% set archive_colors = namespace(values=[]) %}
+                    {% for raw_color in (archive_detail.filament_color | default('', true) | string).split(',') %}
+                      {% set parsed_color = raw_color | string | trim | replace('#', '') | replace('"', '') %}
+                      {% if parsed_color | length == 8 %}
+                        {% set parsed_color = parsed_color[0:6] %}
+                      {% endif %}
+                      {% if parsed_color | length == 6 %}
+                        {% set normalized_color = '#' ~ parsed_color.upper() %}
+                        {% if normalized_color not in archive_colors.values %}
+                          {% set archive_colors.values = archive_colors.values + [normalized_color] %}
+                        {% endif %}
+                      {% endif %}
+                    {% endfor %}
+                    {% set fallback_color = archive_colors.values[0] if archive_colors.values | count == 1 else none %}
+                    {% if archive_weight > 0 and archive_type | length > 0 and fallback_color is not none %}
+                      {% set tray_matches = namespace(items=[]) %}
+                      {% for tray_candidate in ns.tray_candidates %}
+                        {% if tray_candidate.tray_type == archive_type and tray_candidate.color_hex == fallback_color %}
+                          {% set tray_matches.items = tray_matches.items + [tray_candidate] %}
+                        {% endif %}
+                      {% endfor %}
+                      {% set unique_tray = tray_matches.items[0] if tray_matches.items | count == 1 else {} %}
+                      {% set profile_name = unique_tray.profile_name if unique_tray is mapping and unique_tray.profile_name is defined else '' %}
+                      {% set vendor_hint = unique_tray.vendor_hint if unique_tray is mapping and unique_tray.vendor_hint is defined else '' %}
+                      {% set ambiguity_reason = 'multiple archived AMS trays matched archive-level type+color fallback' if tray_matches.items | count > 1 else '' %}
+                      {% set name_hint = profile_name if profile_name | length > 0 else ((archive_type ~ ' ' ~ fallback_color) | trim) %}
+                      {% set ns.rows = ns.rows + [{
+                        'slot_id': 'archive_total',
+                        'tray': unique_tray.tray_code | default(none, true) if unique_tray is mapping else none,
+                        'weight': archive_weight | round(1),
+                        'tray_uuid': unique_tray.tray_uuid | default('', true) if unique_tray is mapping else '',
+                        'type': archive_type,
+                        'color_hex': fallback_color,
+                        'profile_name': profile_name,
+                        'vendor_hint': vendor_hint,
+                        'name_hint': name_hint,
+                        'source': 'archive_totals_single_color',
+                        'ambiguous': tray_matches.items | count > 1,
+                        'ambiguity_reason': ambiguity_reason,
+                        'archived_tray_match_count': tray_matches.items | count
+                      }] %}
+                    {% endif %}
+                  {% endif %}
                   {{ ns.rows | tojson | from_json }}
+                archive_row_source: >-
+                  {% if archive_slot_rows | count == 0 %}
+                    unavailable
+                  {% elif archive_slot_rows | selectattr('source', 'equalto', 'archive_totals_single_color') | list | count == archive_slot_rows | count %}
+                    archive_totals_single_color
+                  {% else %}
+                    archived_filament_slots
+                  {% endif %}
+                archive_row_reason: >-
+                  {% set extra = archive_detail.extra_data | default({}, true) %}
+                  {% set extra_slots = extra.filament_slots | default([], true) if extra is mapping else [] %}
+                  {% set top_slots = archive_detail.filament_slots | default([], true) %}
+                  {% set slots = extra_slots if extra_slots | count > 0 else top_slots %}
+                  {% set print_data = extra.get('_print_data', {}) if extra is mapping else {} %}
+                  {% set raw_data = print_data.get('raw_data', {}) if print_data is mapping else {} %}
+                  {% set raw_ams = raw_data.get('ams', []) if raw_data is mapping else [] %}
+                  {% set archive_type = archive_detail.filament_type | default('', true) | string | trim %}
+                  {% set archive_weight = archive_detail.filament_used_grams | default(0, true) | float(0) %}
+                  {% set archive_colors = namespace(values=[]) %}
+                  {% for raw_color in (archive_detail.filament_color | default('', true) | string).split(',') %}
+                    {% set parsed_color = raw_color | string | trim | replace('#', '') | replace('"', '') %}
+                    {% if parsed_color | length == 8 %}
+                      {% set parsed_color = parsed_color[0:6] %}
+                    {% endif %}
+                    {% if parsed_color | length == 6 %}
+                      {% set normalized_color = '#' ~ parsed_color.upper() %}
+                      {% if normalized_color not in archive_colors.values %}
+                        {% set archive_colors.values = archive_colors.values + [normalized_color] %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if archive_row_source == 'archive_totals_single_color' %}
+                    This archive has no archived filament slot rows, so re-enrich used the archive-level filament total as a single-color fallback.
+                  {% elif archive_slot_rows | count > 0 %}
+                    {{ '' }}
+                  {% elif slots | count > 0 %}
+                    Archived filament slot rows were present, but none had a positive used_g value that could be re-enriched.
+                  {% elif raw_ams | count > 0 and archive_colors.values | count > 1 %}
+                    This archive has archived AMS tray data but no archived filament slot rows. Because the archive-level filament colors contain multiple values, a safe fallback could not be built.
+                  {% elif raw_ams | count > 0 and archive_weight <= 0 %}
+                    This archive has archived AMS tray data but no archived filament slot rows, and the archive-level filament weight is unavailable.
+                  {% elif raw_ams | count > 0 and archive_type | length == 0 %}
+                    This archive has archived AMS tray data but no archived filament slot rows, and the archive-level filament type is unavailable.
+                  {% elif raw_ams | count > 0 and archive_colors.values | count == 0 %}
+                    This archive has archived AMS tray data but no archived filament slot rows or usable archive-level color metadata.
+                  {% elif raw_ams | count > 0 %}
+                    This archive has archived AMS tray data but no archived filament slot rows, and the archive-level fallback was not specific enough to use safely.
+                  {% elif archive_colors.values | count > 1 %}
+                    This archive stores only aggregate multi-color usage and has no archived filament slot rows, so re-enrich could not split filament usage safely.
+                  {% else %}
+                    This archive does not contain enough archived filament usage detail for re-enrich to rebuild spool lineage safely.
+                  {% endif %}
                 candidate_filaments: >-
                   {% set spool_entities = states.sensor | selectattr('entity_id', 'match', '^sensor\\.spoolman_spool_\\d+$') | list %}
                   {% set ns = namespace(rows=[]) %}
@@ -332,6 +431,12 @@ reenrich_print_history_archive:
                     'status': candidate_payload_status,
                     'Filaments': candidate_filaments
                   } %}
+                  {% if archive_row_source != 'unavailable' %}
+                    {% set payload = dict(payload, source=archive_row_source) %}
+                  {% endif %}
+                  {% if archive_row_reason | length > 0 %}
+                    {% set payload = dict(payload, reason=archive_row_reason) %}
+                  {% endif %}
                   {% if candidate_ambiguities | count > 0 %}
                     {{ dict(payload, ambiguities=candidate_ambiguities) | tojson | from_json }}
                   {% else %}
@@ -425,24 +530,6 @@ reenrich_print_history_archive:
             - choose:
                 - conditions:
                     - condition: template
-                      value_template: "{{ not has_candidate_payload }}"
-                  sequence:
-                    - action: persistent_notification.create
-                      data:
-                        notification_id: "print_history_reenrich_missing_{{ resolved_archive_id }}"
-                        title: "Print History Re-Enrich Could Not Resolve Filament Data"
-                        message: >-
-                          Archive **{{ resolved_archive_id }}** did not produce any candidate
-                          enrichment rows from the archived filament slots.
-
-                          No changes were written.
-                    - action: logbook.log
-                      data:
-                        name: Print History Re-Enrich
-                        message: >-
-                          No candidate rows could be resolved for archive {{ resolved_archive_id }}.
-                - conditions:
-                    - condition: template
                       value_template: "{{ should_preserve_existing }}"
                   sequence:
                     - action: persistent_notification.create
@@ -471,6 +558,20 @@ reenrich_print_history_archive:
                 - choose:
                     - conditions:
                         - condition: template
+                          value_template: "{{ not has_candidate_payload }}"
+                      sequence:
+                        - action: persistent_notification.create
+                          data:
+                            notification_id: "print_history_reenrich_missing_{{ resolved_archive_id }}"
+                            title: "Print History Re-Enrich Saved Diagnostic Only"
+                            message: >-
+                              Archive **{{ resolved_archive_id }}** did not produce any resolvable
+                              filament rows, but the hidden enrichment payload was updated with a
+                              diagnostic reason so the popup can explain why.
+
+                              {{ archive_row_reason }}
+                    - conditions:
+                        - condition: template
                           value_template: "{{ candidate_ambiguities | count > 0 }}"
                       sequence:
                         - action: persistent_notification.create
@@ -490,7 +591,7 @@ reenrich_print_history_archive:
                     name: Print History Re-Enrich
                     message: >-
                       Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status }}
-                      and {{ candidate_filament_rows }} filament row(s).
+                      from {{ archive_row_source }} and {{ candidate_filament_rows }} filament row(s).
           else:
             - action: logbook.log
               data:

@@ -1043,6 +1043,26 @@ class TestEnrichmentArchiveUpdatePayload(unittest.TestCase):
         self.assertNotIn('"tags": [', content)
 
 
+class TestManualReEnrichFallbacks(unittest.TestCase):
+    """Manual re-enrich should preserve operator-visible diagnostics for older archive shapes."""
+
+    def test_reenrich_supports_single_color_archive_total_fallback(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("archive_totals_single_color", content)
+        self.assertIn("archive_detail.filament_used_grams", content)
+        self.assertIn("archive_detail.filament_color", content)
+        self.assertIn("archive_detail.filament_type", content)
+        self.assertIn("multiple archived AMS trays matched archive-level type+color fallback", content)
+
+    def test_reenrich_payload_carries_reason_and_saves_unavailable_diagnostics(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("archive_row_reason", content)
+        self.assertIn("dict(payload, source=archive_row_source)", content)
+        self.assertIn("dict(payload, reason=archive_row_reason)", content)
+        self.assertIn("Print History Re-Enrich Saved Diagnostic Only", content)
+        self.assertIn("hidden enrichment payload was updated with a", content)
+
+
 # =============================================================================
 # =============================================================================
 # 14. TAG FILTER OPTIONS
@@ -1100,6 +1120,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("<span>Needs Review</span>", content)
         self.assertIn("<span>Spool unresolved</span>", content)
         self.assertIn("<span>Filament unresolved</span>", content)
+
+    def test_popup_content_surfaces_enrichment_reason_and_source(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("const enrichmentReason = String(enrichmentPayload?.reason || '').trim();", content)
+        self.assertIn("const enrichmentSource = String(enrichmentPayload?.source || '').trim();", content)
+        self.assertIn("const enrichmentSourceLabel = enrichmentSource === 'archive_totals_single_color'", content)
+        self.assertIn("Archive-level fallback", content)
+        self.assertIn("${escapeHtml(enrichmentReason)}", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
