@@ -137,7 +137,7 @@ card:
           font-weight: 700 !important;
           min-height: 34px !important;
           padding-left: 118px !important;
-          background: left center / 108px 34px no-repeat url('/local/3d_printing/common/trace%20(14).svg') !important;
+          background: left center / 108px 34px no-repeat url('/local/3d_printing/common/trace-14.svg') !important;
         }
         .bubble-line {
           opacity: 0.75;
