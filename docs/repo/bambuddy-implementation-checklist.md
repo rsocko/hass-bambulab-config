@@ -27,6 +27,8 @@ Canonical sources:
   Current state: status chip exists, but popup/actions are not implemented.
 - [ ] `print_history` archive detail actions
   Current state: favorites are now toggleable from both the cards and popup, and popup-backed `tags` / `notes` edits are implemented; `print_name`, compare, and richer follow-on actions are not yet implemented.
+- [ ] `print_history` manual re-enrich hardening
+  Current state: popup-triggered re-enrich exists, but implementation tracking still needs to explicitly cover archive-slot vs AMS-tray matching, duplicate `type + color` ambiguity handling, and operator-visible partial outcomes.
 - [ ] cleanup of superseded Bambuddy artifacts
   Current state: docs are now mostly redirect/stub oriented, but legacy package/code remains in repo.
 
@@ -60,6 +62,9 @@ Canonical sources:
 - [ ] Archive detail `print_name` edit, compare actions, and richer deep links
 - [ ] Add compact machine-readable provenance to enrichment `notes` alongside the shipped native `cost`/`status` updates
 - [ ] Upgrade enrichment resolution toward the UUID-first design without requiring sidecar storage
+- [ ] Ship manual re-enrich matching contract against archive `filament_slots[]` plus archived `ams[].tray[]`
+- [ ] Ship duplicate `type + color` ambiguity handling so re-enrich refuses guessed spool IDs and surfaces operator review instead
+- [ ] Add payload/status coverage for `complete`, `partial`, and ambiguous re-enrich outcomes
 - [ ] Rich per-photo upload metadata and retries
 - [ ] Photo review delete/replace/set-cover scripts
 - [ ] Photo review popup and dismissal flow
@@ -96,9 +101,10 @@ Canonical sources:
 
 ## Next Implementation Order
 
-1. Refine `print_history` enrichment to the phased-notes design: keep native cost/status, add compact structured provenance payload, and improve spool resolution.
-2. Harden `print_history` upload handling or move to the Python worker.
-3. Build `print_queue` core lifecycle controls.
-4. Build `print_statistics` core sensors and cards.
-5. Build `printer_maintenance` core read/react package.
-6. Return to advanced `print_history` review/detail workflows.
+1. Refine `print_history` enrichment to the phased-notes design: tags + native cost + dual-purpose notes with compact structured payload.
+2. Finish manual re-enrich hardening: archive `filament_slots[]` plus archived `ams[].tray[]`, duplicate `type + color` ambiguity handling, and operator-visible partial outcomes.
+3. Harden `print_history` upload handling or move to the Python worker.
+4. Build `print_queue` core lifecycle controls.
+5. Build `print_statistics` core sensors and cards.
+6. Build `printer_maintenance` core read/react package.
+7. Return to advanced `print_history` review/detail workflows.

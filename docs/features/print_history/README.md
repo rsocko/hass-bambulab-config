@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are now toggleable from both the card views and the popup using `mdi:star-outline` and `mdi:star`, and the popup now supports helper-backed edits for `tags` and `notes` within Home Assistant's current `input_text` limit. Remaining advanced mutation flows are still deferred: `print_name`, compare/deep-link actions, and the photo review chip workflow are not yet wired.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are now toggleable from both the card views and the popup using `mdi:star-outline` and `mdi:star`, the popup supports helper-backed edits for `tags` and `notes` within Home Assistant's current `input_text` limit, and a first manual `Re-Enrich` action is now available from the popup for older archives. Remaining advanced mutation flows are still deferred: `print_name`, compare/deep-link actions, archived-spool re-enrich heuristics, and the photo review chip workflow are not yet wired.
 
 ## Event Source Split
 
@@ -85,7 +85,6 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_boolean_capture_at_start.yaml
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
-│   │   ├── input_boolean_capture_on_complete.yaml
 │   │   ├── input_boolean_capture_on_error.yaml
 │   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
@@ -182,7 +181,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
 | `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | — |
-| `input_boolean.capture_on_complete` | input_boolean | Enable photo capture on print completion webhook | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
 | `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
@@ -207,6 +205,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.navigate_history` | Prev/next/first/last navigation, calls `load_history_page` |
 | `script.capture_and_upload_snapshot` | Multi-camera capture + local save + count tracking + upload verification via archive detail |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
+| `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags |
 | `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
 | `script.toggle_print_history_color_filter` | Add/remove a color from the active color-chip filter |
