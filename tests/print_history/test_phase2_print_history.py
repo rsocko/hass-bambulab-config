@@ -1069,6 +1069,8 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("rest_command.spoolman_getspools", content)
         self.assertIn('allow_archived: "true"', content)
+        self.assertIn("spoolman_spools_response.content", content)
+        self.assertIn("raw | from_json([])", content)
         self.assertIn("spoolman_spools_normalized", content)
         self.assertIn("multiple Spoolman spools matched archived tray UUID", content)
 

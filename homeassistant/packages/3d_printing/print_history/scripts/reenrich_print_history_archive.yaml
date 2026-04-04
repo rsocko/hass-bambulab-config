@@ -261,7 +261,15 @@ reenrich_print_history_archive:
                 allow_archived: "true"
               response_variable: spoolman_spools_response
             - variables:
-                spoolman_spools: "{{ spoolman_spools_response.content | default([], true) }}"
+                spoolman_spools: >-
+                  {% set raw = spoolman_spools_response.content | default([], true) %}
+                  {% if raw is string %}
+                    {{ raw | from_json([]) }}
+                  {% elif raw is iterable and raw is not mapping %}
+                    {{ raw | tojson | from_json }}
+                  {% else %}
+                    {{ [] }}
+                  {% endif %}
                 spoolman_spools_normalized: >-
                   {% set ns = namespace(rows=[]) %}
                   {% for spool in spoolman_spools if spool is mapping %}
