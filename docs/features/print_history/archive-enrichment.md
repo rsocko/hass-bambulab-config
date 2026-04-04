@@ -207,6 +207,14 @@ The popup must not expose system-managed data for direct editing.
 
 The archive popup should eventually support a user-triggered `Re-enrich` action for archives whose enrichment is missing, partial, or suspected to be wrong.
 
+Current shipped slice:
+
+- the popup now exposes a manual `Re-Enrich` button for non-printing archives
+- the action rebuilds the managed payload from archive detail plus current Spoolman spool entities
+- it auto-applies only when the candidate is not lower fidelity than the existing stored payload
+- it can write a valid `partial` result with `Filament:<id>` tags but no `Spool:<id>` tag when only filament identity is defensible
+- archived-spool timeframe heuristics and operator confirmation are still deferred
+
 Goals:
 
 - let the operator request a fresh enrichment pass after the original print lifecycle is over

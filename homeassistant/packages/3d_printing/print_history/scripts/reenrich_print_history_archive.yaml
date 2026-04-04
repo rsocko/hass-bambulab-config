@@ -1,0 +1,469 @@
+# Manually rebuild archive enrichment for older prints using archive detail + current Spoolman metadata.
+reenrich_print_history_archive:
+  alias: Re-Enrich Print History Archive
+  description: >-
+    Rebuilds the managed [HA_ENRICHMENT_V1] payload for an older Bambuddy archive
+    while preserving user notes and user tags.
+  fields:
+    archive_id:
+      name: Archive ID
+      description: Optional archive ID override. Defaults to the popup helper value.
+      example: "193"
+      required: false
+      selector:
+        text:
+  sequence:
+    - if:
+        - condition: state
+          entity_id: input_boolean.bambuddy_integration_enabled
+          state: "on"
+      then:
+        - variables:
+            enrichment_marker: "[HA_ENRICHMENT_V1]"
+            legacy_marker: "--- HA Enrichment ---"
+            requested_archive_id: >-
+              {% if archive_id is defined %}
+                {{ archive_id | default('', true) | string | trim }}
+              {% else %}
+                {{ '' }}
+              {% endif %}
+            resolved_archive_id: >-
+              {% if requested_archive_id | length > 0 %}
+                {{ requested_archive_id }}
+              {% else %}
+                {{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}
+              {% endif %}
+        - if:
+            - condition: template
+              value_template: "{{ resolved_archive_id | length > 0 }}"
+          then:
+            - action: rest_command.bambuddy_get_archive_detail
+              data:
+                archive_id: "{{ resolved_archive_id }}"
+              response_variable: archive_detail_response
+            - variables:
+                archive_detail: "{{ archive_detail_response.content | default({}, true) }}"
+                existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
+                existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
+                existing_user_notes: >-
+                  {% set raw = existing_notes_raw %}
+                  {% set marker_index = raw.find(enrichment_marker) %}
+                  {% set legacy_index = raw.find(legacy_marker) %}
+                  {% if marker_index >= 0 and legacy_index >= 0 %}
+                    {% set cutoff = [marker_index, legacy_index] | min %}
+                  {% elif marker_index >= 0 %}
+                    {% set cutoff = marker_index %}
+                  {% elif legacy_index >= 0 %}
+                    {% set cutoff = legacy_index %}
+                  {% else %}
+                    {% set cutoff = -1 %}
+                  {% endif %}
+                  {% if cutoff >= 0 %}
+                    {{ raw[:cutoff] | regex_replace('\n+$', '') }}
+                  {% else %}
+                    {{ raw | regex_replace('\n+$', '') }}
+                  {% endif %}
+                existing_payload_raw: >-
+                  {% set marker_index = existing_notes_raw.find(enrichment_marker) %}
+                  {% if marker_index >= 0 %}
+                    {{ existing_notes_raw[marker_index + (enrichment_marker | length):] | trim }}
+                  {% else %}
+                    {{ '' }}
+                  {% endif %}
+                existing_payload: >-
+                  {% if existing_payload_raw | length > 0 %}
+                    {{ existing_payload_raw | from_json({}) }}
+                  {% else %}
+                    {{ {} }}
+                  {% endif %}
+                existing_user_tags: >-
+                  {% set ns = namespace(result=[]) %}
+                  {% for tag in existing_tags_raw.split(',') %}
+                    {% set cleaned = tag | string | trim %}
+                    {% if cleaned | length > 0
+                       and not cleaned.startswith('Filament:')
+                       and not cleaned.startswith('Spool:')
+                       and cleaned != 'ha_enriched:true'
+                       and cleaned not in ns.result %}
+                      {% set ns.result = ns.result + [cleaned] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.result | tojson | from_json }}
+                archive_slot_rows: >-
+                  {% set extra = archive_detail.extra_data | default({}, true) %}
+                  {% set extra_slots = extra.filament_slots | default([], true) if extra is mapping else [] %}
+                  {% set top_slots = archive_detail.filament_slots | default([], true) %}
+                  {% set slots = extra_slots if extra_slots | count > 0 else top_slots %}
+                  {% set print_data = extra.get('_print_data', {}) if extra is mapping else {} %}
+                  {% set raw_data = print_data.get('raw_data', {}) if print_data is mapping else {} %}
+                  {% set raw_ams = raw_data.get('ams', []) if raw_data is mapping else [] %}
+                  {% set ns = namespace(tray_map={}, rows=[]) %}
+                  {% for ams in raw_ams if ams is mapping %}
+                    {% set ams_index = ams.id | default(loop.index0, true) | int(loop.index0) %}
+                    {% for tray in ams.tray | default([], true) if tray is mapping %}
+                      {% set tray_index = tray.id | default(loop.index0, true) | int(loop.index0) %}
+                      {% set slot_key = ((ams_index * 4) + tray_index + 1) | string %}
+                      {% if ams_index == 0 %}
+                        {% set tray_code = 'A' ~ (tray_index + 1) %}
+                      {% elif ams_index == 1 %}
+                        {% set tray_code = 'B' ~ (tray_index + 1) %}
+                      {% else %}
+                        {% set tray_code = 'AMS' ~ (ams_index + 1) ~ '-' ~ (tray_index + 1) %}
+                      {% endif %}
+                      {% set color_raw = tray.tray_color | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
+                      {% if color_raw | length == 8 %}
+                        {% set color_raw = color_raw[0:6] %}
+                      {% endif %}
+                      {% set color_value = '#' ~ color_raw.upper() if color_raw | length == 6 else none %}
+                      {% set sub_brand = tray.tray_sub_brands | default('', true) | string | trim %}
+                      {% set profile_name = 'Bambu ' ~ sub_brand if sub_brand | length > 0 and not sub_brand.startswith('Bambu') else sub_brand %}
+                      {% set uuid_value = tray.tray_uuid | default('', true) | string | trim('"') %}
+                      {% set ns.tray_map = ns.tray_map | combine({
+                        slot_key: {
+                          'tray_code': tray_code,
+                          'tray_uuid': uuid_value,
+                          'tray_type': tray.tray_type | default('', true) | string,
+                          'color_hex': color_value,
+                          'profile_name': profile_name,
+                          'vendor_hint': 'Bambu Lab' if (uuid_value | length > 0 and not uuid_value | lower | regex_match('^0+$')) or profile_name.startswith('Bambu') else ''
+                        }
+                      }) %}
+                    {% endfor %}
+                  {% endfor %}
+                  {% for slot in slots if slot is mapping %}
+                    {% set grams = slot.used_g | default(0, true) | float(0) %}
+                    {% if grams > 0 %}
+                      {% set slot_id = slot.slot_id | default('', true) | string | trim %}
+                      {% set tray_meta = ns.tray_map.get(slot_id, {}) %}
+                      {% if tray_meta.tray_code is defined %}
+                        {% set tray_code = tray_meta.tray_code %}
+                      {% elif slot_id | regex_match('^\d+$') and (slot_id | int(0)) >= 1 and (slot_id | int(0)) <= 4 %}
+                        {% set tray_code = 'A' ~ (slot_id | int(0)) %}
+                      {% elif slot_id | regex_match('^\d+$') and (slot_id | int(0)) >= 5 and (slot_id | int(0)) <= 8 %}
+                        {% set tray_code = 'B' ~ ((slot_id | int(0)) - 4) %}
+                      {% else %}
+                        {% set tray_code = 'Slot ' ~ (slot_id if slot_id | length > 0 else loop.index) %}
+                      {% endif %}
+                      {% set slot_color = slot.color | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
+                      {% if slot_color | length == 8 %}
+                        {% set slot_color = slot_color[0:6] %}
+                      {% endif %}
+                      {% set color_value = tray_meta.color_hex if tray_meta.color_hex is defined and tray_meta.color_hex else ('#' ~ slot_color.upper() if slot_color | length == 6 else none) %}
+                      {% set type_value = tray_meta.tray_type if tray_meta.tray_type is defined and tray_meta.tray_type else (slot.type | default(archive_detail.filament_type | default('', true), true) | string) %}
+                      {% set profile_name = tray_meta.profile_name if tray_meta.profile_name is defined else '' %}
+                      {% set vendor_hint = tray_meta.vendor_hint if tray_meta.vendor_hint is defined else '' %}
+                      {% set ns.rows = ns.rows + [{
+                        'slot_id': slot_id,
+                        'tray': tray_code,
+                        'weight': grams | round(1),
+                        'tray_uuid': tray_meta.tray_uuid | default('', true) if tray_meta is mapping else '',
+                        'type': type_value,
+                        'color_hex': color_value,
+                        'profile_name': profile_name,
+                        'vendor_hint': vendor_hint,
+                        'name_hint': profile_name if profile_name | length > 0 else ('Archive Slot ' ~ tray_code)
+                      }] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.rows | tojson | from_json }}
+                candidate_filaments: >-
+                  {% set spool_entities = states.sensor | selectattr('entity_id', 'match', '^sensor\\.spoolman_spool_\\d+$') | list %}
+                  {% set ns = namespace(rows=[]) %}
+                  {% for slot in archive_slot_rows %}
+                    {% set target_uuid = slot.tray_uuid | default('', true) | string | trim('"') | lower %}
+                    {% set target_type = slot.type | default('', true) | string %}
+                    {% set target_name = slot.profile_name | default('', true) | string | trim('"') %}
+                    {% set target_color = slot.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
+                    {% if target_color | length == 8 %}
+                      {% set target_color = target_color[0:6] %}
+                    {% endif %}
+                    {% set bambu_only = ((target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu')) %}
+                    {% set ns_match = namespace(raw_candidates=[], matched_entity_id='') %}
+                    {% if target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
+                      {% for spool in spool_entities %}
+                        {% set is_sealed = state_attr(spool.entity_id, 'extra_sealed') | default('', true) | string | lower == 'true' %}
+                        {% if not is_sealed %}
+                          {% set spool_uuid = state_attr(spool.entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | lower %}
+                          {% if spool_uuid == target_uuid %}
+                            {% set ns_match.raw_candidates = ns_match.raw_candidates + [spool] %}
+                          {% endif %}
+                        {% endif %}
+                      {% endfor %}
+                      {% if ns_match.raw_candidates | count == 1 %}
+                        {% set ns_match.matched_entity_id = ns_match.raw_candidates[0].entity_id %}
+                      {% endif %}
+                    {% endif %}
+                    {% if ns_match.matched_entity_id | length == 0 %}
+                      {% set ns_color = namespace(single=[], multi_first=[], multi_any=[]) %}
+                      {% for spool in spool_entities %}
+                        {% set is_sealed = state_attr(spool.entity_id, 'extra_sealed') | default('', true) | string | lower == 'true' %}
+                        {% if is_sealed %}
+                          {% continue %}
+                        {% endif %}
+                        {% set spool_material = state_attr(spool.entity_id, 'filament_material') | default('', true) | string %}
+                        {% set spool_vendor = state_attr(spool.entity_id, 'filament_vendor_name') | default('', true) | string %}
+                        {% set spool_profile = state_attr(spool.entity_id, 'filament_extra_profile_name') | default(state_attr(spool.entity_id, 'extra_profile_name') | default('', true), true) | string | trim('"') %}
+                        {% set spool_color = state_attr(spool.entity_id, 'filament_color_hex') | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
+                        {% if spool_color | length == 8 %}
+                          {% set spool_color = spool_color[0:6] %}
+                        {% endif %}
+                        {% set multi_raw = state_attr(spool.entity_id, 'filament_multi_color_hexes') | default('', true) | string %}
+                        {% set ns_multi = namespace(values=[], first='') %}
+                        {% for raw_hex in multi_raw.split(',') %}
+                          {% set parsed_hex = raw_hex | string | trim | replace('#', '') | replace('"', '') | lower %}
+                          {% if parsed_hex | length == 8 %}
+                            {% set parsed_hex = parsed_hex[0:6] %}
+                          {% endif %}
+                          {% if parsed_hex | length == 6 %}
+                            {% if ns_multi.first == '' %}
+                              {% set ns_multi.first = parsed_hex %}
+                            {% endif %}
+                            {% set ns_multi.values = ns_multi.values + [parsed_hex] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% set vendor_ok = (spool_vendor == 'Bambu Lab') if bambu_only else (spool_vendor != 'Bambu Lab') %}
+                        {% set profile_ok = (spool_profile == target_name) if (bambu_only and target_name | length > 0 and spool_profile | length > 0) else true %}
+                        {% set base_ok = (spool_material == target_type and vendor_ok and profile_ok) %}
+                        {% if base_ok and spool_color == target_color %}
+                          {% set ns_color.single = ns_color.single + [spool] %}
+                        {% endif %}
+                        {% if base_ok and ns_multi.first == target_color %}
+                          {% set ns_color.multi_first = ns_color.multi_first + [spool] %}
+                        {% endif %}
+                        {% if base_ok and target_color in ns_multi.values %}
+                          {% set ns_color.multi_any = ns_color.multi_any + [spool] %}
+                        {% endif %}
+                      {% endfor %}
+                      {% if ns_color.single | count > 0 %}
+                        {% set ns_match.raw_candidates = ns_color.single %}
+                      {% elif ns_color.multi_first | count > 0 %}
+                        {% set ns_match.raw_candidates = ns_color.multi_first %}
+                      {% elif ns_color.multi_any | count > 0 %}
+                        {% set ns_match.raw_candidates = ns_color.multi_any %}
+                      {% else %}
+                        {% set ns_match.raw_candidates = [] %}
+                      {% endif %}
+                      {% if ns_match.raw_candidates | count == 1 %}
+                        {% set ns_match.matched_entity_id = ns_match.raw_candidates[0].entity_id %}
+                      {% elif ns_match.raw_candidates | count > 1 %}
+                        {% set ams_candidates = ns_match.raw_candidates | selectattr('attributes.location', 'equalto', 'AMS') | list %}
+                        {% if ams_candidates | count == 1 %}
+                          {% set ns_match.matched_entity_id = ams_candidates[0].entity_id %}
+                        {% endif %}
+                      {% endif %}
+                    {% endif %}
+                    {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true)) %}
+                    {% if ns_match.matched_entity_id | length > 0 %}
+                      {% set ns_row.spool_id = ns_match.matched_entity_id.split('_')[-1] | int(0) %}
+                      {% set filament_id_raw = state_attr(ns_match.matched_entity_id, 'filament_id') | default('', true) | string | trim %}
+                      {% if filament_id_raw | regex_match('^\d+$') %}
+                        {% set ns_row.filament_id = filament_id_raw | int(0) %}
+                      {% endif %}
+                      {% set ns_row.display_name = state_attr(ns_match.matched_entity_id, 'filament_name') | default(state_attr(ns_match.matched_entity_id, 'friendly_name') | default(slot.name_hint | default('Unknown Filament', true), true), true) | string %}
+                      {% set matched_color = state_attr(ns_match.matched_entity_id, 'filament_color_hex') | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
+                      {% if matched_color | length == 8 %}
+                        {% set matched_color = matched_color[0:6] %}
+                      {% endif %}
+                      {% if matched_color | length == 6 %}
+                        {% set ns_row.color_hex = '#' ~ matched_color.upper() %}
+                      {% endif %}
+                    {% else %}
+                      {% set ns_candidate = namespace(filament_ids=[], first_entity='') %}
+                      {% for candidate in ns_match.raw_candidates %}
+                        {% set candidate_filament = state_attr(candidate.entity_id, 'filament_id') | default('', true) | string | trim %}
+                        {% if ns_candidate.first_entity == '' %}
+                          {% set ns_candidate.first_entity = candidate.entity_id %}
+                        {% endif %}
+                        {% if candidate_filament | regex_match('^\d+$') and candidate_filament not in ns_candidate.filament_ids %}
+                          {% set ns_candidate.filament_ids = ns_candidate.filament_ids + [candidate_filament] %}
+                        {% endif %}
+                      {% endfor %}
+                      {% if ns_candidate.filament_ids | count == 1 %}
+                        {% set ns_row.filament_id = ns_candidate.filament_ids[0] | int(0) %}
+                        {% if ns_candidate.first_entity | length > 0 %}
+                          {% set ns_row.display_name = state_attr(ns_candidate.first_entity, 'filament_name') | default(state_attr(ns_candidate.first_entity, 'friendly_name') | default(slot.name_hint | default('Unknown Filament', true), true), true) | string %}
+                          {% set fallback_color = state_attr(ns_candidate.first_entity, 'filament_color_hex') | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
+                          {% if fallback_color | length == 8 %}
+                            {% set fallback_color = fallback_color[0:6] %}
+                          {% endif %}
+                          {% if ns_row.color_hex is none and fallback_color | length == 6 %}
+                            {% set ns_row.color_hex = '#' ~ fallback_color.upper() %}
+                          {% endif %}
+                        {% endif %}
+                      {% endif %}
+                    {% endif %}
+                    {% set ns.rows = ns.rows + [{
+                      'name': ns_row.display_name,
+                      'weight': slot.weight,
+                      'tray': slot.tray,
+                      's': ns_row.spool_id,
+                      'f': ns_row.filament_id,
+                      'h': ns_row.color_hex
+                    }] %}
+                  {% endfor %}
+                  {{ ns.rows | tojson | from_json }}
+                candidate_payload_status: >-
+                  {% if candidate_filaments | count == 0 %}
+                    unavailable
+                  {% else %}
+                    {% set ns = namespace(incomplete=false) %}
+                    {% for row in candidate_filaments %}
+                      {% if row.s is none or row.f is none or row.h is none %}
+                        {% set ns.incomplete = true %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ 'partial' if ns.incomplete else 'complete' }}
+                  {% endif %}
+                candidate_payload: >-
+                  {{ {
+                    'status': candidate_payload_status,
+                    'Filaments': candidate_filaments
+                  } | tojson | from_json }}
+                existing_filaments: >-
+                  {{ existing_payload.Filaments | default([], true) if existing_payload is mapping else [] }}
+                existing_payload_status: >-
+                  {% if existing_payload is mapping %}
+                    {{ existing_payload.status | default('', true) | string | lower }}
+                  {% else %}
+                    {{ '' }}
+                  {% endif %}
+                candidate_resolved_rows: >-
+                  {% set ns = namespace(count=0) %}
+                  {% for row in candidate_filaments %}
+                    {% if row.s is not none and row.f is not none and row.h is not none %}
+                      {% set ns.count = ns.count + 1 %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.count }}
+                existing_resolved_rows: >-
+                  {% set ns = namespace(count=0) %}
+                  {% for row in existing_filaments %}
+                    {% if row.s is not none and row.f is not none and row.h is not none %}
+                      {% set ns.count = ns.count + 1 %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.count }}
+                candidate_filament_rows: "{{ candidate_filaments | count }}"
+                existing_filament_rows: "{{ existing_filaments | count }}"
+                candidate_payload_rank: >-
+                  {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+                  {{ rank.get(candidate_payload_status, -1) }}
+                existing_payload_rank: >-
+                  {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+                  {{ rank.get(existing_payload_status, -1) }}
+                candidate_detail_score: >-
+                  {{
+                    (candidate_payload_rank | int(-1)) * 1000 +
+                    (candidate_resolved_rows | int(0)) * 100 +
+                    (candidate_filament_rows | int(0))
+                  }}
+                existing_detail_score: >-
+                  {{
+                    (existing_payload_rank | int(-1)) * 1000 +
+                    (existing_resolved_rows | int(0)) * 100 +
+                    (existing_filament_rows | int(0))
+                  }}
+                should_preserve_existing: >-
+                  {{ existing_payload is mapping and (existing_detail_score | int(-1)) > (candidate_detail_score | int(-1)) }}
+                has_candidate_payload: "{{ candidate_filament_rows | int(0) > 0 }}"
+                effective_payload: >-
+                  {{ (existing_payload if should_preserve_existing else candidate_payload) | tojson | from_json }}
+                effective_system_tags: >-
+                  {% set ns = namespace(tags=['ha_enriched:true'], spool_ids=[], filament_ids=[]) %}
+                  {% for item in effective_payload.Filaments | default([], true) %}
+                    {% if item.f is not none %}
+                      {% set filament_id = item.f | string %}
+                      {% if filament_id not in ns.filament_ids %}
+                        {% set ns.filament_ids = ns.filament_ids + [filament_id] %}
+                        {% set ns.tags = ns.tags + ['Filament:' ~ filament_id] %}
+                      {% endif %}
+                    {% endif %}
+                    {% if item.s is not none %}
+                      {% set spool_id = item.s | string %}
+                      {% if spool_id not in ns.spool_ids %}
+                        {% set ns.spool_ids = ns.spool_ids + [spool_id] %}
+                        {% set ns.tags = ns.tags + ['Spool:' ~ spool_id] %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.tags | tojson | from_json }}
+                merged_tags: >-
+                  {% set ns = namespace(all=[]) %}
+                  {% for tag in existing_user_tags + effective_system_tags %}
+                    {% set cleaned = tag | string | trim %}
+                    {% if cleaned | length > 0 and cleaned not in ns.all %}
+                      {% set ns.all = ns.all + [cleaned] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.all | join(',') }}
+                merged_notes: >-
+                  {% set user_notes = existing_user_notes | string | trim %}
+                  {% set payload_json = effective_payload | tojson %}
+                  {% if user_notes | length > 0 %}
+                    {{ user_notes ~ '\n\n' ~ enrichment_marker ~ '\n' ~ payload_json }}
+                  {% else %}
+                    {{ enrichment_marker ~ '\n' ~ payload_json }}
+                  {% endif %}
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ not has_candidate_payload }}"
+                  sequence:
+                    - action: persistent_notification.create
+                      data:
+                        notification_id: "print_history_reenrich_missing_{{ resolved_archive_id }}"
+                        title: "Print History Re-Enrich Could Not Resolve Filament Data"
+                        message: >-
+                          Archive **{{ resolved_archive_id }}** did not produce any candidate
+                          enrichment rows from the archived filament slots.
+
+                          No changes were written.
+                    - action: logbook.log
+                      data:
+                        name: Print History Re-Enrich
+                        message: >-
+                          No candidate rows could be resolved for archive {{ resolved_archive_id }}.
+                - conditions:
+                    - condition: template
+                      value_template: "{{ should_preserve_existing }}"
+                  sequence:
+                    - action: persistent_notification.create
+                      data:
+                        notification_id: "print_history_reenrich_preserved_{{ resolved_archive_id }}"
+                        title: "Print History Re-Enrich Preserved Existing Data"
+                        message: >-
+                          Archive **{{ resolved_archive_id }}** already contains richer enrichment
+                          data than the current manual re-enrich candidate.
+
+                          Existing status: `{{ existing_payload_status }}`
+                          Candidate status: `{{ candidate_payload_status }}`
+                    - action: logbook.log
+                      data:
+                        name: Print History Re-Enrich
+                        message: >-
+                          Preserved existing enrichment for archive {{ resolved_archive_id }} because
+                          the manual candidate was lower fidelity.
+              default:
+                - action: rest_command.bambuddy_update_archive
+                  data:
+                    archive_id: "{{ resolved_archive_id }}"
+                    tags: "{{ merged_tags }}"
+                    notes: "{{ merged_notes }}"
+                - action: script.refresh_print_history_archives
+                - action: logbook.log
+                  data:
+                    name: Print History Re-Enrich
+                    message: >-
+                      Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status }}
+                      and {{ candidate_filament_rows }} filament row(s).
+          else:
+            - action: logbook.log
+              data:
+                name: Print History Re-Enrich
+                message: Re-enrich requested without an archive ID
+      else:
+        - action: logbook.log
+          data:
+            name: Print History Re-Enrich
+            message: Re-enrich skipped because Bambuddy integration is disabled
+  mode: queued

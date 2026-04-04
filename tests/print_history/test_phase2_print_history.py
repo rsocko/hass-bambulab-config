@@ -189,6 +189,7 @@ class TestFileInventory(unittest.TestCase):
         "resolve_current_archive_id.yaml",
         "load_history_page.yaml",
         "navigate_history.yaml",
+        "reenrich_print_history_archive.yaml",
         "refresh_print_history_archives.yaml",
         "clear_print_history_filters.yaml",
     ]
@@ -789,6 +790,22 @@ class TestScripts(unittest.TestCase):
         self.assertIn("page", content)
         self.assertIn("print_history_filtered", content)
 
+    def test_reenrich_script_is_queued(self):
+        _, script = self._load_script("reenrich_print_history_archive.yaml")
+        self.assertEqual(script.get("mode"), "queued")
+
+    def test_reenrich_script_has_archive_id_field(self):
+        _, script = self._load_script("reenrich_print_history_archive.yaml")
+        fields = script.get("fields", {})
+        self.assertIn("archive_id", fields)
+
+    def test_reenrich_script_reads_and_updates_archive(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("bambuddy_get_archive_detail", content)
+        self.assertIn("bambuddy_update_archive", content)
+        self.assertIn("refresh_print_history_archives", content)
+        self.assertIn("ha_enriched:true", content)
+
     def test_navigate_history_supports_all_directions(self):
         content = (HISTORY / "scripts" / "navigate_history.yaml").read_text("utf-8")
         for direction in ("prev", "next", "first", "last"):
@@ -880,6 +897,11 @@ class TestHelpers(unittest.TestCase):
         self.assertNotIn("Stopped", filter_options)
         self.assertIn("Cancelled", popup_options)
         self.assertNotIn("Aborted", popup_options)
+
+    def test_archive_popup_offers_manual_reenrich(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup.yaml").read_text("utf-8")
+        self.assertIn("Re-Enrich", content)
+        self.assertIn("script.reenrich_print_history_archive", content)
 
 
 # =============================================================================

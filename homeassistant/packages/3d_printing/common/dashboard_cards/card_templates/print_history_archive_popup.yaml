@@ -148,6 +148,48 @@ print_history_archive_popup:
           ]
         }
       });
+      const actionCards = [
+        ...(archiveStatus === 'printing' ? [] : [buttonCard(
+          'Re-Enrich',
+          'mdi:refresh-circle',
+          'rgba(46,125,50,0.18)',
+          {
+            action: 'call-service',
+            service: 'script.reenrich_print_history_archive',
+            data: {
+              archive_id: String(archiveId)
+            }
+          }
+        )]),
+        {
+          type: 'custom:button-card',
+          template: 'print_history_archive_popup_favorite_button',
+          variables: {
+            archive_json: variables?.archive_json || '{}',
+            archive_id: String(archiveId)
+          }
+        },
+        buttonCard(
+          'Save',
+          'mdi:content-save-outline',
+          'rgba(21,101,192,0.18)',
+          {
+            action: 'call-service',
+            service: 'script.save_print_history_archive_popup_edits'
+          }
+        ),
+        buttonCard(
+          'Close',
+          'mdi:close',
+          'rgba(255,255,255,0.04)',
+          {
+              action: 'fire-dom-event',
+              browser_mod: {
+                service: 'browser_mod.close_popup'
+              }
+          }
+        )
+      ];
       const cards = [
         {
           type: 'custom:button-card',
@@ -218,38 +260,9 @@ print_history_archive_popup:
         }] : []),
         {
           type: 'grid',
-          columns: 3,
+          columns: archiveStatus === 'printing' ? 3 : 4,
           square: false,
-          cards: [
-            {
-              type: 'custom:button-card',
-              template: 'print_history_archive_popup_favorite_button',
-              variables: {
-                archive_json: variables?.archive_json || '{}',
-                archive_id: String(archiveId)
-              }
-            },
-            buttonCard(
-              'Save',
-              'mdi:content-save-outline',
-              'rgba(21,101,192,0.18)',
-              {
-                action: 'call-service',
-                service: 'script.save_print_history_archive_popup_edits'
-              }
-            ),
-            buttonCard(
-              'Close',
-              'mdi:close',
-              'rgba(255,255,255,0.04)',
-              {
-                  action: 'fire-dom-event',
-                  browser_mod: {
-                    service: 'browser_mod.close_popup'
-                  }
-              }
-            )
-          ]
+          cards: actionCards
         }
       ];
 
