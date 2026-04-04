@@ -203,6 +203,107 @@ The popup must not expose system-managed data for direct editing.
 - Save flow recombines user notes with the `[HA_ENRICHMENT_V1]` JSON block.
 - If no fresher enrichment data exists locally, save should preserve the existing stored system block rather than blindly downgrading it.
 
+### Popup Re-Enrich Contract
+
+The archive popup should eventually support a user-triggered `Re-enrich` action for archives whose enrichment is missing, partial, or suspected to be wrong.
+
+Goals:
+
+- let the operator request a fresh enrichment pass after the original print lifecycle is over
+- reuse the popup as the operational surface instead of forcing a separate maintenance workflow
+- improve or repair the archive enrichment without exposing the raw system JSON for manual editing
+- avoid overwriting better existing archive enrichment with a lower-confidence guess
+
+Recommended popup flow:
+
+1. User opens an archive popup.
+2. User selects a `Re-enrich` action.
+3. HA reads the current Bambuddy archive record and existing `[HA_ENRICHMENT_V1]` payload.
+4. HA runs a re-enrichment resolver using archive filament data plus Spoolman data.
+5. HA computes a candidate payload and compares it against the currently stored payload.
+6. HA either:
+  - updates the archive automatically if the candidate is clearly better, or
+  - presents the candidate for operator confirmation if the design phase requires validation, or
+  - refuses to downgrade the archive and reports why.
+
+The popup should continue to treat the system payload as managed data. The user should trigger re-enrichment as an action, not by editing the hidden notes block or reserved tags.
+
+### Manual Re-Enrich Matching Strategy
+
+Manual re-enrichment is different from the active-print enrichment path. The original live tray-to-spool mapping may no longer exist, and the exact spool used may already be empty, archived, or replaced.
+
+Because of that, the manual re-enrich flow should explicitly allow lower-confidence outcomes and should not assume that a current open spool match is always available.
+
+#### Re-Enrich Phase 1: Filament-First Recovery
+
+The first implementation of manual re-enrich should prioritize recovering the correct **filament IDs** per contributing tray, even when the exact spool cannot be determined reliably.
+
+Recommended behavior:
+
+- use the archive's stored filament information as the matching basis
+- compare archive filament attributes such as material, color, brand/profile clues, and archive AMS data against Spoolman filament/spool data
+- follow logic conceptually similar to `spoolman_tray_map`, but targeted at archive reconstruction rather than live tray state
+- allow a successful re-enrich result that resolves `f` but leaves `s` unresolved for one or more rows
+
+In this phase, it is acceptable for the resulting payload to be `partial` when:
+
+- the filament match is credible
+- the spool match is not credible because multiple open spools share that filament
+- the actual spool used may no longer be one of the currently open spools
+
+Implication for stored data:
+
+- `Filament:<id>` tags can still be added or corrected
+- `Spool:<id>` tags should only be emitted when the spool match is defensible
+- payload `status` should remain `partial` when spool resolution is intentionally withheld
+
+This phase is useful because correcting the archive to the right filament identity is still valuable even if exact spool lineage is no longer reconstructable.
+
+#### Re-Enrich Phase 2: Archived-Spool Timeframe Heuristics
+
+The second implementation phase can widen the candidate set beyond currently open spools by querying the Spoolman API directly, including archived spools.
+
+Recommended behavior:
+
+- search both active and archived Spoolman spools for the matched filament IDs
+- use archive timestamps plus Spoolman spool lifecycle metadata such as `last_used` to rank plausible spool candidates
+- treat the result as a best-effort guess, not a definitive recovery, unless there is a single strong candidate
+
+Expected outcome:
+
+- improve some `partial` Phase 1 results to `complete`
+- recover plausible spool IDs when the original spool has already been archived or replaced
+- continue to refuse low-confidence spool guesses when multiple candidates remain similarly plausible
+
+This phase should explicitly document that time-based spool matching is heuristic. It should improve the operator experience without pretending to be exact when the data is inherently ambiguous.
+
+#### Re-Enrich Phase 3: Operator Validation Before Commit
+
+An optional intermediate or later phase should add a validation UI before the archive is patched.
+
+Recommended behavior:
+
+- show the existing stored enrichment next to the candidate re-enriched payload
+- show confidence or match rationale per row, for example filament-only, archived-spool guess, or strong spool match
+- let the user accept the candidate, reject it, or selectively confirm rows before saving
+
+This phase is especially valuable for:
+
+- filament-first `partial` candidates
+- timeframe-based spool guesses from archived spools
+- cases where two or more plausible spool candidates exist for the same filament
+
+The validation step should happen before the archive PATCH. Once accepted, the save path should still use the same reserved tags plus `[HA_ENRICHMENT_V1]` payload contract as the normal enrichment flow.
+
+### Re-Enrich Safety Rules
+
+The popup-triggered re-enrich flow should follow the same anti-downgrade rules as terminal reconciliation.
+
+- never overwrite a richer stored payload with a lower-fidelity candidate
+- prefer preserving existing spool-level detail if the re-enrich candidate only recovers filament-level detail
+- log and notify when a re-enrich request cannot safely improve the archive
+- treat `partial` as a valid success state when only filament identity can be recovered confidently
+
 ## Phased Enrichment Rollout
 
 The enrichment should be delivered in phases so we do not block on sidecar storage.
