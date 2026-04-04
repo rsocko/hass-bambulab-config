@@ -3,4 +3,5 @@ print_history_filter_tag:
   icon: mdi:tag-outline
   options:
     - All
+    - None
   initial: All

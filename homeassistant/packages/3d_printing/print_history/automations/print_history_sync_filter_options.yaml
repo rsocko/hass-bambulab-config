@@ -100,12 +100,12 @@
                   {% endif %}
                 {% endfor %}
               {% endif %}
-              {% if value and not system_tag.value and value not in ns.values %}
+              {% if value and value not in ['All', 'None'] and not system_tag.value and value not in ns.values %}
                 {% set ns.values = ns.values + [value] %}
               {% endif %}
             {% endfor %}
           {% endfor %}
-          {{ ['All'] + (ns.values | sort) }}
+          {{ ['All', 'None'] + (ns.values | sort) }}
     - action: input_select.set_options
       data:
         entity_id: input_select.print_history_filter_material

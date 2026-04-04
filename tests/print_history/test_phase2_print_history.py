@@ -1129,6 +1129,18 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("status:", content)
         self.assertIn("ha_enriched:true", content)
         self.assertIn("not system_tag.value", content)
+        self.assertIn("['All', 'None'] + (ns.values | sort)", content)
+
+    def test_tag_filter_none_uses_only_user_tags(self):
+        filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        page_content = (HISTORY / "template_sensors" / "print_history_archive_data.yaml").read_text("utf-8")
+        helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tag.yaml").read_text("utf-8")
+
+        self.assertIn("user_tag_values = namespace(values=[])", filtered_content)
+        self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", filtered_content)
+        self.assertIn("filter_tag in user_tag_values.values", filtered_content)
+        self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", page_content)
+        self.assertIn("- None", helper_content)
 
 
 # =============================================================================

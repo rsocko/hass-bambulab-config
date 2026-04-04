@@ -26,6 +26,8 @@
         {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
         {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
         {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
+        {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
+        {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
         {%- set now_ts = as_timestamp(now()) | float(0) -%}
         {%- set ns = namespace(matches=[]) -%}
         {%- for a in archives -%}
@@ -51,6 +53,20 @@
           {%- set is_favorite = a.get('is_favorite', false) -%}
           {%- set tags = a.get('tags', '') | string | lower -%}
           {%- set tag_values = tags.split(',') | map('trim') | reject('equalto', '') | list -%}
+          {%- set user_tag_values = namespace(values=[]) -%}
+          {%- for tag in tag_values -%}
+            {%- set system_tag = namespace(value=(tag in system_tag_values)) -%}
+            {%- if not system_tag.value -%}
+              {%- for prefix in system_tag_prefixes -%}
+                {%- if tag[0:(prefix | length)] == prefix -%}
+                  {%- set system_tag.value = true -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- if not system_tag.value -%}
+              {%- set user_tag_values.values = user_tag_values.values + [tag] -%}
+            {%- endif -%}
+          {%- endfor -%}
           {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
           {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
           {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
@@ -71,7 +87,7 @@
           {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
           {%- set matches_project = filter_project == 'All' or (filter_project == 'None' and project_name == '') or (filter_project not in ['All', 'None'] and project_name | lower == filter_project | lower) -%}
           {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
-          {%- set matches_tag = filter_tag in ['', 'all'] or filter_tag in tag_values -%}
+          {%- set matches_tag = filter_tag in ['', 'all'] or (filter_tag == 'none' and user_tag_values.values | count == 0) or filter_tag in user_tag_values.values -%}
           {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
           {%- set matches_search = search_text == '' or search_text in search_blob -%}
           {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
@@ -136,6 +152,8 @@
           {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
+          {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
+          {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(days=[]) -%}
           {%- for a in archives -%}
@@ -161,6 +179,20 @@
             {%- set is_favorite = a.get('is_favorite', false) -%}
             {%- set tags = a.get('tags', '') | string | lower -%}
             {%- set tag_values = tags.split(',') | map('trim') | reject('equalto', '') | list -%}
+            {%- set user_tag_values = namespace(values=[]) -%}
+            {%- for tag in tag_values -%}
+              {%- set system_tag = namespace(value=(tag in system_tag_values)) -%}
+              {%- if not system_tag.value -%}
+                {%- for prefix in system_tag_prefixes -%}
+                  {%- if tag[0:(prefix | length)] == prefix -%}
+                    {%- set system_tag.value = true -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+              {%- if not system_tag.value -%}
+                {%- set user_tag_values.values = user_tag_values.values + [tag] -%}
+              {%- endif -%}
+            {%- endfor -%}
             {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
             {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
             {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
@@ -181,7 +213,7 @@
             {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
             {%- set matches_project = filter_project == 'All' or (filter_project == 'None' and project_name == '') or (filter_project not in ['All', 'None'] and project_name | lower == filter_project | lower) -%}
             {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
-            {%- set matches_tag = filter_tag in ['', 'all'] or filter_tag in tag_values -%}
+            {%- set matches_tag = filter_tag in ['', 'all'] or (filter_tag == 'none' and user_tag_values.values | count == 0) or filter_tag in user_tag_values.values -%}
             {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
             {%- set matches_search = search_text == '' or search_text in search_blob -%}
             {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
@@ -227,6 +259,8 @@
           {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
+          {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
+          {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(total_prints=0, total_weight=0, total_objects=0, total_cost=0, total_duration_seconds=0, total_filaments=0) -%}
           {%- for a in archives -%}
@@ -252,6 +286,20 @@
             {%- set is_favorite = a.get('is_favorite', false) -%}
             {%- set tags = a.get('tags', '') | string | lower -%}
             {%- set tag_values = tags.split(',') | map('trim') | reject('equalto', '') | list -%}
+            {%- set user_tag_values = namespace(values=[]) -%}
+            {%- for tag in tag_values -%}
+              {%- set system_tag = namespace(value=(tag in system_tag_values)) -%}
+              {%- if not system_tag.value -%}
+                {%- for prefix in system_tag_prefixes -%}
+                  {%- if tag[0:(prefix | length)] == prefix -%}
+                    {%- set system_tag.value = true -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+              {%- if not system_tag.value -%}
+                {%- set user_tag_values.values = user_tag_values.values + [tag] -%}
+              {%- endif -%}
+            {%- endfor -%}
             {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
             {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
             {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
@@ -272,7 +320,7 @@
             {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
             {%- set matches_project = filter_project == 'All' or (filter_project == 'None' and project_name == '') or (filter_project not in ['All', 'None'] and project_name | lower == filter_project | lower) -%}
             {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
-            {%- set matches_tag = filter_tag in ['', 'all'] or filter_tag in tag_values -%}
+            {%- set matches_tag = filter_tag in ['', 'all'] or (filter_tag == 'none' and user_tag_values.values | count == 0) or filter_tag in user_tag_values.values -%}
             {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
             {%- set matches_search = search_text == '' or search_text in search_blob -%}
             {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
@@ -366,6 +414,8 @@
           {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
+          {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
+          {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set page_size = states('input_number.print_history_page_size') | int(10) -%}
           {%- set current_page = states('input_number.history_current_page') | int(1) -%}
@@ -393,6 +443,20 @@
             {%- set is_favorite = a.get('is_favorite', false) -%}
             {%- set tags = a.get('tags', '') | string | lower -%}
             {%- set tag_values = tags.split(',') | map('trim') | reject('equalto', '') | list -%}
+            {%- set user_tag_values = namespace(values=[]) -%}
+            {%- for tag in tag_values -%}
+              {%- set system_tag = namespace(value=(tag in system_tag_values)) -%}
+              {%- if not system_tag.value -%}
+                {%- for prefix in system_tag_prefixes -%}
+                  {%- if tag[0:(prefix | length)] == prefix -%}
+                    {%- set system_tag.value = true -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+              {%- if not system_tag.value -%}
+                {%- set user_tag_values.values = user_tag_values.values + [tag] -%}
+              {%- endif -%}
+            {%- endfor -%}
             {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
             {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
             {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
@@ -413,7 +477,7 @@
             {%- set matches_designer = filter_designer == 'All' or designer | lower == filter_designer | lower -%}
             {%- set matches_project = filter_project == 'All' or (filter_project == 'None' and project_name == '') or (filter_project not in ['All', 'None'] and project_name | lower == filter_project | lower) -%}
             {%- set matches_layer_height = filter_layer_height == 'All' or layer_height == filter_layer_height -%}
-            {%- set matches_tag = filter_tag in ['', 'all'] or filter_tag in tag_values -%}
+            {%- set matches_tag = filter_tag in ['', 'all'] or (filter_tag == 'none' and user_tag_values.values | count == 0) or filter_tag in user_tag_values.values -%}
             {%- set search_blob = (name ~ ' ' ~ (designer | lower) ~ ' ' ~ tags) -%}
             {%- set matches_search = search_text == '' or search_text in search_blob -%}
             {%- set matches_selected_day = selected_day in ['', 'unknown', 'unavailable'] or started_day == selected_day -%}
