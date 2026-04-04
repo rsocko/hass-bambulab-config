@@ -1,8 +1,8 @@
 # Bambuddy Reorganization — Execution Tracker
 
-> **Source design document**: [`.github/prompts/plan-bambuddyReorganization.prompt.md`](../../.github/prompts/plan-bambuddyReorganization.prompt.md)
+> **Historical planning artifact**: [`.github/prompts/plan-bambuddyReorganization.prompt.md`](../../.github/prompts/plan-bambuddyReorganization.prompt.md)
 >
-> This file tracks execution status. The prompt file is the **source of truth** for all design decisions, architecture, schema, enrichment strategies, and file-level specifications. Refer to it for implementation details.
+> This file tracks execution status. The prompt file is useful for historical planning context, but it is no longer the source of truth for current enrichment behavior. Use `docs/features/`, `docs/repo/`, and `homeassistant/packages/3d_printing/` for the live contract.
 >
 > **API Reference**: All design docs have been cross-referenced against the live OpenAPI spec (Bambuddy v0.2.2.2). See [openapi-correction-notes.md](openapi-correction-notes.md) for per-phase corrections and [api-vs-design-guidance.md](api-vs-design-guidance.md) for development guidance covering all 280+ API endpoints.
 
@@ -67,7 +67,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
-| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, native `status`, and human-readable notes while leaving tags unchanged. Remaining work is UUID-first resolution plus compact machine-readable provenance in notes; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
+| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `Filament:` / `Spool:` / `ha_enriched:true` tags, and a hidden `[HA_ENRICHMENT_V1]` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
 | 21 | Browser paging scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml`, `refresh_print_history_archives.yaml`, `clear_print_history_filters.yaml`, `toggle_print_history_color_filter.yaml` |
 | 22 | Template sensors (modern format) | **Done** | Layer 1 cache (`print_history_archives`), Layer 2 filter metadata (`print_history_filtered`), page label, and current page slice |
@@ -217,7 +217,7 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 - **Archive creation**: Bambuddy auto-creates at print start
 - **Webhook**: Single receiver → HA event; features listen to the event
 - **Photos**: HA owns multi-camera, multi-stage capture; uploads directly to Bambuddy
-- **Enrichment**: Spoolman spool IDs + vendor → Bambuddy tags, filament total → native `cost`, and a dual-purpose `notes` field carrying both operator-readable summary and a compact structured payload via PATCH
+- **Enrichment**: current shipped flow writes `Filament:` / `Spool:` / `ha_enriched:true` tags, native `cost`, and a hidden `[HA_ENRICHMENT_V1]` structured payload in `notes`; native archive `status` remains outside the current enrichment automation
 - **Maintenance**: Bambuddy is source of truth; HA reads + surfaces + allows mark-complete
 - **Print Log**: Skipped (subset of archives)
 - **AMS History**: Skipped (HA already records via ha-bambulab sensors)

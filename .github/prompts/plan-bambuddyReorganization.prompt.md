@@ -3,6 +3,8 @@
 ## TL;DR
 Break monolithic `bambuddy/` into 5 feature HA packages. Leverage Bambuddy's native auto-archiving, maintenance tracker — HA's role is READ + SURFACE + ENRICH + REACT, not recreate. HA adds multi-camera photo capture at strategic print stages (including errors), enriches archives with Spoolman spool data via PATCH tags/notes, and surfaces Bambuddy data in HA dashboards. Delete root `bambuddy/` after migration. Print Log skipped (strict subset of archives).
 
+> Historical planning note: this prompt captures migration design context, not the exact live archive-enrichment contract currently shipped in `homeassistant/packages/3d_printing/print_history/`. For the implemented current-state contract, use `docs/features/print_history/archive-enrichment.md`.
+
 ## Decisions
 - **Package naming**: Feature-first (`print_history/`, `printer_maintenance/`)
 - **Shared API config**: Dedicated `bambuddy_common/` loaded first
@@ -13,7 +15,7 @@ Break monolithic `bambuddy/` into 5 feature HA packages. Leverage Bambuddy's nat
   1. **Primary**: API webhook events include `archive_id` in `data` payload (confirmed from API Reference docs)
   2. **Fallback**: Query `GET /archives?printer_id=X&sort=-created_at&limit=1` and match by filename — archive exists from print start
 - **Photo capture**: HA owns multi-camera, multi-stage photo capture. Photos can be uploaded to Bambuddy MID-PRINT since archive exists from start. Includes error/failure photos.
-- **Enrichment**: HA PATCHes Bambuddy archives with Spoolman spool IDs, filament cost, vendor info via tags and notes fields. Can happen at any point after archive_id is known.
+- **Enrichment**: Current shipped behavior PATCHes Bambuddy archives with managed `Filament:<id>` / `Spool:<id>` / `ha_enriched:true` tags, a hidden `[HA_ENRICHMENT_V1]` notes payload, and native `cost`. This prompt still includes broader target-state ideas for later refinement, but they are not the live source of truth.
 - **Maintenance**: Bambuddy is source of truth. HA reads maintenance status via API, surfaces in dashboard, allows mark-complete from HA. No local shadow counters.
 - **Print Log**: SKIPPED — strict subset of archive data. Only unique field is per-user tracking (requires Advanced Auth, not useful for single-user setup).
 - **AMS History**: SKIPPED — HA already records AMS humidity/temperature history via ha-bambulab integration sensors + HA recorder. Bambuddy's AMS history (30-day charts) is a UI visualization with no dedicated API endpoints. No new value for HA.
@@ -62,8 +64,11 @@ At print-start and print-complete, HA already captures:
 - **Task name, print weight, active tray info**
 
 **Enrichment strategy**: On webhook `print_complete`, HA PATCHes the Bambuddy archive with:
-- Tags: `spoolman:SPOOL_ID`, `vendor:VENDOR_NAME`, `material:TYPE`
-- Notes: JSON-structured or human-readable with spool details, cost, per-tray breakdown
+- Managed tags: `Filament:<id>`, `Spool:<id>`, `ha_enriched:true`
+- Notes: user notes preserved plus hidden `[HA_ENRICHMENT_V1]` JSON payload
+- Native field: `cost`
+
+Historical-context note: older sections of this prompt may still discuss broader tag families or human-readable note summaries as design ideas. Treat those as planning context only unless they match the live docs under `docs/features/print_history/`.
 
 ## Photo Capture Design
 
@@ -126,7 +131,7 @@ homeassistant/packages/3d_printing/print_history/
 ├── print_history_loader.yaml
 ├── automations/
 │   ├── bambuddy_capture_archive_id.yaml          # webhook print_started → store archive_id
-│   ├── bambuddy_enrich_archive_on_complete.yaml   # webhook print_complete/failed → PATCH tags/notes
+│   ├── bambuddy_enrich_archive_on_complete.yaml   # during-print + terminal reconciliation → PATCH managed tags/notes/cost
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload to archive
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped/HMS → immediate capture + upload
 │   └── bambuddy_event_history_refresh.yaml        # webhook → refresh REST sensor
@@ -134,7 +139,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_upload_photo_to_archive.yaml      # POST /archives/{id}/photos
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{photo_id}
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — set cover_photo_id
-│   └── bambuddy_update_archive.yaml               # PATCH /archives/{id} for tags/notes enrichment
+│   └── bambuddy_update_archive.yaml               # PATCH /archives/{id} for enrichment + popup edit fields
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/

@@ -15,7 +15,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 	1. `custom:auto-entities` reads `sensor.print_history_page_archives.attributes.archives`
 	2. one `custom:button-card` is generated per archive
 	3. shared button-card templates render the `Compact`, `Media`, and `Detail` card bodies
-	4. a shared popup template opens a read-only detail popup using the projected archive payload already present on the page
+	4. a shared popup template opens a detail popup using the projected archive payload already present on the page, and the shipped action area now drives helper-backed edits plus manual re-enrich
 - the active popup is reusable and defined once through shared button-card templates rather than duplicated in each layout variant
 
 ### Phase tracking as of the live implementation
@@ -26,7 +26,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 ### Not shipped yet
 
-- future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
+- compare/deep-link actions and future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
 - feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
 
 ### Design adjustment from the earlier draft
@@ -242,8 +242,8 @@ Why:
 
 Recommended sequencing:
 
-1. finish the remaining initial edit scope by adding `print_name`
-2. refine the current `tags` / `notes` editing UX if the helper-backed flow proves too clunky in practice
+1. refine the current helper-backed edit UX and verify it remains reliable for longer user notes/tags
+2. add compare/deep-link actions and any higher-value archive follow-on workflows
 3. return to Phase 0 only if the dashboard template-loading model is being changed anyway, or if feature-local template ownership becomes operationally important enough to justify the refactor on its own
 
 That keeps the next work aligned with the shipped UX while preserving the ownership refactor as a cleanup/architecture follow-on rather than a blocker.
@@ -280,6 +280,7 @@ The remaining deferred fields are `project_id`, `quantity`, `external_url`, and 
 - `print_name`, `tags`, and `notes` are editable from the popup through helper-backed fields plus a save action, with current inline editing capped by Home Assistant helper limits
 - `status` is editable from the popup
 - `failure_reason` is editable from the popup, but only when the selected status is `failed` or `cancelled`
+- manual `Re-Enrich` is exposed from the popup for older archives and preserves hidden enrichment metadata while rebuilding managed tags/notes when possible
 
 ### Upstream Bambuddy behavior verified against source
 

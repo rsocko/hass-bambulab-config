@@ -297,7 +297,7 @@ Bambuddy uses two separate viewer components:
 |----------|---------|
 | `GET /` | print_history REST sensor |
 | `GET /{id}` | archive detail lookup |
-| `PATCH /{id}` | enrichment (tags, notes, cost, is_favorite) |
+| `PATCH /{id}` | enrichment plus popup edits (`tags`, `notes`, `cost`, `is_favorite`, `print_name`, `status`, `failure_reason`) |
 | `GET /stats` | print_statistics REST sensor |
 | `GET /{id}/thumbnail` | dashboard card images |
 | `POST /{id}/photos` | photo capture upload |

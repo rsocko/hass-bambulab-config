@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are now toggleable from both the card views and the popup using `mdi:star-outline` and `mdi:star`, the popup supports helper-backed edits for `tags` and `notes` within Home Assistant's current `input_text` limit, and a first manual `Re-Enrich` action is now available from the popup for older archives. Remaining advanced mutation flows are still deferred: `print_name`, compare/deep-link actions, archived-spool re-enrich heuristics, and the photo review chip workflow are not yet wired.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are toggleable from both the card views and the popup, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
 
 ## Event Source Split
 
@@ -42,7 +42,7 @@ homeassistant/packages/3d_printing/print_history/
 ├── print_history_loader.yaml
 ├── automations/
 │   ├── bambuddy_capture_archive_id.yaml          # webhook print_started → store archive_id
-│   ├── bambuddy_enrich_archive_on_complete.yaml   # webhook print_complete/failed → PATCH tags/notes/cost
+│   ├── bambuddy_enrich_archive_on_complete.yaml   # during-print + terminal enrichment → PATCH managed tags/notes/cost
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped + native cancel + print_error/HMS sensors → immediate capture + upload
 │   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + archive cache
@@ -53,7 +53,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (advanced review flow)
 │   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
-│   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — tags/notes/cost enrichment
+│   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — enrichment + popup edit fields
 │   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
 ├── rest_sensors/
 │   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
@@ -63,6 +63,9 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── capture_and_upload_snapshot.yaml            # multi-camera snapshot → save + upload
 │   ├── resolve_current_archive_id.yaml            # fallback: query API → match filename
 │   ├── refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
+│   ├── reenrich_print_history_archive.yaml        # rebuild managed enrichment for older archives
+│   ├── save_print_history_archive_popup_edits.yaml # persist popup edits while preserving hidden enrichment metadata
+│   ├── toggle_print_history_archive_favorite.yaml # toggle archive favorite state from cards/popup
 │   ├── clear_print_history_filters.yaml           # reset browser controls to defaults
 │   └── toggle_print_history_color_filter.yaml     # toggle a color in the multi-select chip row
 ├── template_sensors/
@@ -77,6 +80,10 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
 │   │   ├── input_text_print_history_activity_selected_date.yaml
 │   │   ├── input_text_print_history_filter_colors.yaml
+│   │   ├── input_text_print_history_popup_archive_id.yaml
+│   │   ├── input_text_print_history_popup_notes.yaml
+│   │   ├── input_text_print_history_popup_print_name.yaml
+│   │   ├── input_text_print_history_popup_tags.yaml
 │   │   └── input_text_print_history_search.yaml
 │   ├── counter/
 │   │   └── bambuddy_captured_photo_count.yaml
@@ -100,6 +107,8 @@ homeassistant/packages/3d_printing/print_history/
 │       ├── input_select_secondary_camera_entity.yaml
 │       ├── input_select_print_history_activity_metric.yaml
 │       ├── input_select_print_history_filter_*.yaml
+│       ├── input_select_print_history_popup_failure_reason.yaml
+│       ├── input_select_print_history_popup_status.yaml
 │       ├── input_select_print_history_sort.yaml
 │       └── input_select_print_history_card_variant.yaml
 ├── dashboard_cards/
@@ -147,7 +156,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Advanced review placeholder; filename-based delete confirmed |
 | `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
-| `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, and cost |
+| `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, cost, status, and failure reason |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
@@ -193,6 +202,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
 | `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, outcome, objects, cost, filaments used, or total printing time | - |
 | `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/layer/tag) | — |
+| `input_text.print_history_popup_*` | input_text | Helper-backed popup edit state for archive ID, print name, tags, and notes | — |
+| `input_select.print_history_popup_*` | input_select | Helper-backed popup edit state for archive status and failure reason | — |
 | `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | — |
 | `input_select.print_history_sort` | input_select | Browser sort mode | — |
 | `input_select.print_history_card_variant` | input_select | Compact / Media / Detail renderer selection | — |
@@ -206,6 +217,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.capture_and_upload_snapshot` | Multi-camera capture + local save + count tracking + upload verification via archive detail |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
 | `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags |
+| `script.save_print_history_archive_popup_edits` | Save popup edits while preserving hidden enrichment metadata |
+| `script.toggle_print_history_archive_favorite` | Toggle an archive's favorite state from the card or popup |
 | `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
 | `script.toggle_print_history_color_filter` | Add/remove a color from the active color-chip filter |
@@ -224,7 +237,7 @@ Deferred advanced scripts:
 | `bambuddy_capture_archive_id` | `bambuddy_webhook_event` where event=`print_started` | Store archive_id from payload (or fallback lookup) |
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
-| `bambuddy_enrich_archive_on_complete` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | PATCH archive with Spoolman enrichment metadata (tags, notes, cost), clear archive_id |
+| `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `Filament:` / `Spool:` tags, hidden `[HA_ENRICHMENT_V1]` notes payload, and native `cost`; clear archive_id on terminal pass |
 | `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Refresh REST sensor + Layer 1 archive cache |
 | `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
@@ -266,7 +279,7 @@ Implemented now:
 Still deferred:
 
 - Photo review popup plus delete/replace/set-cover/dismiss actions
-- Archive detail editing and card-level mutation actions such as favorites/compare
+- Compare/deep-link actions and richer follow-on archive workflows
 - Feature-local popup/card template ownership inside `print_history`; today the live templates still sit in the shared button-card registry under `common/dashboard_cards/card_templates`
 
 Popup implementation notes for the current shipped path:
@@ -278,10 +291,10 @@ Popup implementation notes for the current shipped path:
 For detailed design of the two major subsystems, see:
 
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
-- **[archive-enrichment.md](archive-enrichment.md)** — Current archive enrichment contract (native cost/status + notes; no auto metadata tags)
+- **[archive-enrichment.md](archive-enrichment.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
-- **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown is shipped, editing later
+- **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
 - **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
 - **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only
@@ -294,7 +307,7 @@ For detailed design of the two major subsystems, see:
 
 ### Prototype Lineage
 - **REST sensor**: `bambuddy_print_history` from the root `bambuddy/sensors.yaml` prototype
-- **REST commands**: `bambuddy_update_archive_status` prototype evolved into `bambuddy_update_archive` (generalized to support notes+tags+name)
+- **REST commands**: `bambuddy_update_archive_status` prototype evolved into `bambuddy_update_archive` (generalized to support notes, tags, name, cost, status, and failure_reason)
 - **Template sensors**: 4 "last print" sensors from the root `bambuddy/sensors.yaml` prototype (converted to modern `template:` format)
 - **Dashboard cards**: root `bambuddy/dashboards/print_history.yaml` prototype evolved into `dashboard_cards/`
 - **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_sync_enabled`, `bambuddy_history_limit` originated in the root `bambuddy/helpers.yaml` prototype
@@ -309,7 +322,7 @@ For detailed design of the two major subsystems, see:
 - Multi-stage photo capture automations (start, mid, near-complete, error)
 - `capture_and_upload_snapshot` script with multi-camera + light control + verified upload bridge
 - `resolve_current_archive_id` fallback script
-- Enrichment automation (Spoolman tags + notes + cost; notes now also carry phased compact structured data)
+- Enrichment automation (managed `Filament:` / `Spool:` tags + hidden `[HA_ENRICHMENT_V1]` note payload + native cost)
 - Pagination scripts and template sensors
 - Configurable capture stage toggles and secondary camera helper
 - Dedicated history view (`view_print_history.yaml`)
@@ -336,7 +349,7 @@ The Print History view now includes the configurable browser described in the fi
 2. **Always-visible browser header** — Open Bambuddy, settings, filter pills, search, matches, clear actions, and multi-select color chips stay pinned above the archive grid.
 3. **Repeated control strip** — page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
 4. **Archive card variants** — the history renderer switches between compact, media, and detail cards while keeping a two-column desktop layout and a single-column mobile fallback.
-5. **Archive detail popup is live and now partially actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, and popup-backed `tags` / `notes` edits can be saved, subject to Home Assistant's current helper length cap. `print_name`, compare, and richer follow-on actions remain deferred.
+5. **Archive detail popup is live and now actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
 
 ### Thumbnail Images Require Local Network Access
 
