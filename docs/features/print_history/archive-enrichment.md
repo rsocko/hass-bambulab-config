@@ -200,6 +200,8 @@ Current behavior:
 
 - popup cards and the popup detail view hide system tags from the user-facing tag display
 - popup notes editing hides the `[HA_ENRICHMENT_V1]` payload from the user-facing notes field
+- popup detail derives `Partial` enrichment when the hidden payload contains filament rows or ambiguity data that still need review; `Unavailable` is reserved for archives with no preserved enrichment data
+- popup enrichment cards now show explicit colored `Needs Review`, `Spool unresolved`, and `Filament unresolved` badges so incomplete matches stand out during archive triage
 - `save_print_history_archive_popup_edits.yaml` fetches archive detail before saving so it can preserve hidden enrichment content and system tags
 - the save flow PATCHes `print_name`, `tags`, `notes`, `status`, and `failure_reason`
 - current popup saves preserve the managed `Filament:` / `Spool:` / `ha_enriched:true` tags and the hidden payload when present
@@ -242,6 +244,74 @@ Not shipped yet:
 - UUID-first live enrichment resolution from archived AMS data
 - a separate HA-side provenance index or sidecar store
 - richer machine-readable provenance beyond the current compact filament rows
+
+## Deferred Design Guidance
+
+The earlier version of this document also carried forward-looking design guidance. That guidance is still relevant, but it needs to be clearly separated from the current shipped contract above.
+
+### Recommended long-term direction
+
+- keep the current live write path focused on exact contributing trays from `sensor.print_weight_effective` plus `sensor.spoolman_tray_map`
+- continue treating popup edits and manual re-enrich as managed-metadata workflows that must preserve or improve existing hidden enrichment state rather than downgrade it
+- keep Bambuddy as the operator-facing archive surface for as long as the enrichment stays compact, searchable, and understandable
+
+### Matching and recovery strategy
+
+Important design constraint:
+
+- `extra_data.filament_slots[].slot_id` is a slicer filament index, not an AMS tray position, so it cannot be treated as a spool identity key
+
+Recommended future matching order:
+
+1. sensor-derived active-print mapping and weights
+2. archived AMS UUID data from archive detail for validation or later correction
+3. compact tray-map snapshot fallback
+4. color-only fallback when nothing better remains
+
+That future direction is what drives the planned UUID-first hardening work and the later archive-detail correction pass.
+
+### Planned phases
+
+#### Phase A: Compact Bambuddy-resident enrichment
+
+- keep the enrichment resident in Bambuddy using managed `Filament:` / `Spool:` / `ha_enriched:true` tags, native `cost`, and a compact `[HA_ENRICHMENT_V1]` payload in `notes`
+- keep the payload small and versioned so popup editing, search, and archive reads stay practical
+
+#### Phase B: Operational hardening
+
+- harden the during-print and terminal reconciliation paths against restart, missed webhook, and popup-edit round-tripping
+- keep anti-downgrade behavior explicit so a weaker reconstruction never overwrites a richer stored payload
+
+#### Phase C: Failed or cancelled print reconciliation
+
+- add a later-pass workflow for failed or cancelled prints that improves the `Filaments` payload beyond the initial during-print snapshot
+- preserve the first-write enrichment as fallback, but allow a later reconciliation pass to refine actual usage when better evidence exists
+
+#### Phase D: Archive-detail correction for partial or unavailable enrichment
+
+- use archive detail as a correction tool when live tray data was lost, ambiguous, or unavailable during the initial pass
+- improve `partial` or `unavailable` payloads only when archived AMS data or other evidence is strong enough to justify it
+
+#### Phase E: Sidecar only if the compact payload stops being enough
+
+- keep compact searchable facts in Bambuddy
+- move richer provenance, confidence history, reconciliation history, or larger structured metadata into a linked HA-side store only if the current note payload becomes too limiting
+
+### Manual re-enrich target state
+
+The shipped manual re-enrich flow is already useful, but the deferred target state is still:
+
+- filament-first recovery when spool identity is not safely recoverable
+- archived-spool or timeframe heuristics only as explicitly lower-confidence follow-on logic
+- optional operator validation before commit for ambiguous or heuristic candidates
+- anti-downgrade rules that prefer preserving richer existing spool-level detail over replacing it with filament-only guesses
+
+### Design refinements that remain valid
+
+- keep using Bambuddy native `cost` rather than cost-encoded tags
+- keep notes operator-facing, but only append a compact versioned structured block rather than large free-form provenance dumps
+- keep the tray snapshot compact and recovery-oriented rather than storing the entire live tray-map payload unless later evidence proves that is necessary
+- treat a sidecar store as an escape hatch for rich provenance, not as the default starting point
 
 ## Practical Bottom Line
 

@@ -692,7 +692,7 @@ Behavior:
 - Collects unique `printer_id` values (mapped to names if available) → updates `input_select.print_history_filter_printer`
 - Collects unique `designer` values (non-empty) → updates `input_select.print_history_filter_designer`
 - Collects unique `layer_height` values (formatted as strings) → updates `input_select.print_history_filter_layer_height`
-- Collects unique comma-separated archive `tags` values, excluding system-managed enrichment tags such as `spool:*`, `filament:*`, and `HA Enrichment:*` → updates `input_select.print_history_filter_tag`
+- Collects unique comma-separated archive `tags` values, excluding system-managed enrichment tags such as `Spool:*`, `Filament:*`, and `ha_enriched:true` → updates `input_select.print_history_filter_tag`
 - Prepends `All` to each list
 - If current selection not in new list → HA resets the relevant helper to its default value
 
