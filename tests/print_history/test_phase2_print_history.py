@@ -903,6 +903,12 @@ class TestHelpers(unittest.TestCase):
         self.assertIn("Re-Enrich", content)
         self.assertIn("script.reenrich_print_history_archive", content)
 
+    def test_archive_popup_content_prefers_enrichment_names_for_filaments(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("const filamentChips = enrichmentRows.length", content)
+        self.assertIn("Filaments", content)
+        self.assertIn("title=\"${escapeHtml(chip.tooltip)}\"", content)
+
 
 # =============================================================================
 # 11. CROSS-REFERENCE INTEGRITY

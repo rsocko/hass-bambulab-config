@@ -203,6 +203,16 @@ The popup must not expose system-managed data for direct editing.
 - Save flow recombines user notes with the `[HA_ENRICHMENT_V1]` JSON block.
 - If no fresher enrichment data exists locally, save should preserve the existing stored system block rather than blindly downgrading it.
 
+### Popup display contract
+
+When the structured enrichment payload is present, the popup filament summary should prefer enrichment-derived display names over raw archive color chips.
+
+- The popup `Filaments` strip should render the enrichment row `name` field as the visible label.
+- If a tray suffix is useful for disambiguation, it may be appended to the visible label.
+- If enrichment row `h` is present, the chip should expose that hex value as hover text while still rendering the color dot.
+- If no structured enrichment payload exists, the popup may fall back to the raw archive color list.
+- The lower `Enrichment` detail section may continue to show the explicit hex chip and spool/filament IDs for diagnostics.
+
 ### Popup Re-Enrich Contract
 
 The archive popup should eventually support a user-triggered `Re-enrich` action for archives whose enrichment is missing, partial, or suspected to be wrong.
