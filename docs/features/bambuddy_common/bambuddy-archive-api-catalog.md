@@ -40,7 +40,7 @@ The `PATCH /{id}` endpoint accepts any combination of:
 - `status` — string or null
 
 > **Important**: Tags are stored as a **comma-separated string**, not a JSON array.
-> Example: `"spoolman:42,vendor:Bambu Lab,ha_enriched:true"`
+> Example: `"favorite,customer-sample"`
 
 ### Storage Characteristics
 
@@ -64,16 +64,18 @@ The `PATCH /{id}` endpoint accepts any combination of:
 
 | Method | Endpoint | Description | HA Relevance |
 |--------|----------|-------------|--------------|
-| `GET` | `/tags` | List all unique tags with usage counts, sorted by count desc | **Core** — verify enrichment tags exist |
+| `GET` | `/tags` | List all unique tags with usage counts, sorted by count desc | Useful for operator-managed tags |
 | `PUT` | `/tags/{tag_name}` | Rename tag across ALL archives (returns affected count) | Admin utility |
 | `DELETE` | `/tags/{tag_name}` | Delete tag from ALL archives (returns affected count) | Admin utility |
 
 ### Tag Format
 
 Tags are stored in the archive's `tags` field as comma-separated values.
-Each tag is a plain string. The enrichment convention uses `prefix:value` pairs:
+Each tag is a plain string. Current HA enrichment intentionally leaves tags alone, so tags should be treated as operator-managed metadata rather than an archive-enrichment contract.
+
+Example:
 ```
-spoolman:42, vendor:Bambu Lab, material:PLA, status:success, ha_enriched:true
+favorite, customer-sample, needs-review
 ```
 
 The recommended design is to keep numeric print totals such as filament cost in the archive's native `cost` field rather than encoding them as tags.

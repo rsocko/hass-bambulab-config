@@ -389,7 +389,7 @@ These patterns are documented in `openapi-correction-notes.md` but bear repeatin
 
 6. **PATCH semantics**: Partial update — only send fields you want to change. Omitted fields are unchanged.
 
-7. **Tags are strings**: Archive tags are comma-separated strings in the PATCH body, NOT JSON arrays. E.g., `"tags": "spoolman:42, vendor:Bambu Lab, ha_enriched:true"`.
+7. **Tags are strings**: Archive tags are comma-separated strings in the PATCH body, NOT JSON arrays. E.g., `"tags": "favorite, customer-sample"`.
 
 ---
 

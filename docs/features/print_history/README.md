@@ -279,7 +279,7 @@ Popup implementation notes for the current shipped path:
 For detailed design of the two major subsystems, see:
 
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
-- **[archive-enrichment.md](archive-enrichment.md)** — Spoolman data enrichment pipeline (tags + notes + cost, with phased compact note payload)
+- **[archive-enrichment.md](archive-enrichment.md)** — Current archive enrichment contract (native cost/status + notes; no auto metadata tags)
 - **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown is shipped, editing later

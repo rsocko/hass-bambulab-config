@@ -165,20 +165,20 @@
 #
 # B3.1  Enrichment on Successful Print
 #       Complete a print (or send print_complete webhook with archive_id)
-#       VERIFY: Automation trace shows tag building + PATCH call
-#       VERIFY: Tags include: spoolman:<id>, material:<name>, cost:$<x>,
-#               status:success, ha_enriched:true
+#       VERIFY: Automation trace shows note build + PATCH call
+#       VERIFY: PATCH includes native cost and native status=completed
 #       VERIFY: Notes include cost breakdown with per-tray details
+#       VERIFY: No new auto tags are written for spool/material/cost/status
 #       VERIFY: bambuddy_current_archive_id is cleared after enrichment
 #
 # B3.2  Enrichment on Failed Print
 #       Simulate print_failed webhook
-#       VERIFY: Tags include status:failed
+#       VERIFY: PATCH includes native status=failed
 #       VERIFY: Archive ID cleared after enrichment
 #
 # B3.3  Enrichment on Cancelled Print
 #       Simulate print_stopped webhook
-#       VERIFY: Tags include status:cancelled
+#       VERIFY: PATCH includes native status=cancelled
 #
 # B3.4  Enrichment with No Archive ID
 #       Clear bambuddy_current_archive_id, then send print_complete webhook

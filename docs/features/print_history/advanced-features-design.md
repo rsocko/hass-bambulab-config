@@ -424,7 +424,7 @@ From the completed archive and enrichment data:
 - `cost` — Total print cost
 - `extra_data.designer` — Model designer
 - `extra_data.makerworld_url` — Source link
-- Enrichment tags — Spoolman spool info, energy cost
+- HA enrichment notes — per-tray cost summary and best-effort spool/vendor details
 
 From the notification infrastructure:
 - `input_text.3dprinter_notification_service` — Target notify service
@@ -468,12 +468,12 @@ From the notification infrastructure:
 
 ### Data Sources
 
-From enrichment tags already created by the core enrichment:
-- `spoolman:42` — Spool IDs used in each archive
-- `tray:ams_2_tray_2:spoolman:42` — Per-tray spool assignments
+From the current enrichment notes:
+- human-readable per-tray `Spool ID: <id>` lines when the live tray map can resolve them
+- human-readable per-tray vendor lines when the live spool entity can resolve them
 
-From the Bambuddy search API:
-- `GET /archives/search?q=spoolman:42` — Find all archives tagged with a specific spool
+From future work that is not shipped yet:
+- compact machine-readable provenance in notes, or a separate HA-side provenance index
 
 ### Use Cases
 
@@ -485,16 +485,20 @@ From the Bambuddy search API:
 
 ### Implementation
 
-**Script: `bambuddy_spool_print_history`** — Takes `spool_id`, calls `GET /archives/search?q=spoolman:{spool_id}`, returns count and archive list.
+This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag strategy was removed from current enrichment, so this phase now depends on introducing a searchable provenance representation first.
+
+**Recommended prerequisite:** add a compact machine-readable provenance block to enrichment notes or build a dedicated HA-side archive provenance cache keyed by archive ID.
+
+**After that prerequisite exists:** build `bambuddy_spool_print_history` against the structured provenance source instead of `spoolman:` tag search.
 
 **Dashboard integration** — On filament catalog spool popup, add "Bambuddy Prints: N" badge that links to filtered Bambuddy view.
 
 ### Phase & Dependencies
 
 - **Phase**: 2.8
-- **Depends on**: print_history core (enrichment must tag archives with `spoolman:` tags first)
+- **Depends on**: print_history core adding structured searchable spool provenance first
 - **Package**: print_history (cross-feature with filament_catalog)
-- **Effort**: Low — one script, one REST call, dashboard badge
+- **Effort**: Medium — requires a provenance representation before the script and badge
 - **Value**: Medium — bridges Spoolman↔Bambuddy data, closes the loop
 
 ---

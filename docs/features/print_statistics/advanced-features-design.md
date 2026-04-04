@@ -188,17 +188,20 @@ From the archive's `extra_data._print_data.raw_data`:
 From `GET /stats`:
 - `prints_by_filament_type` — e.g., `{"PLA": 800, "PETG": 300, "TPU": 50}`
 
-From `GET /archives/tags` (after enrichment):
-- `material:PLA`, `material:PETG` — tags with counts
-- `vendor:Bambu Lab`, `vendor:Polymaker` — vendor distribution
+From current projected archive data:
+- native `filament_type`
+- native `cost`
+
+From future provenance work that is not shipped yet:
+- machine-readable vendor/spool provenance, if later added to notes or another archive-side index
 
 ### Use Cases
 
 1. **Filament type pie chart** — Dashboard card showing what percentage of prints use each material type. Donut chart with `prints_by_filament_type` data.
 
-2. **Vendor distribution** (from tags, requires enrichment running) — "60% Bambu Lab, 25% Polymaker, 15% Other"
+2. **Vendor distribution** — deferred until archive provenance is made machine-searchable again; the removed legacy enrichment tags should not be reintroduced just to support this chart
 
-3. **Cost per filament type** — Cross-reference stats with tag-based search to compute average cost per material type.
+3. **Cost per filament type** — Prefer native archive `cost` plus native `filament_type`, not tag-based search.
 
 ### Implementation
 

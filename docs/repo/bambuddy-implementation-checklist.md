@@ -58,7 +58,7 @@ Canonical sources:
 - [x] Archive-detail verification for photo uploads
 - [x] Read-only archive detail popup shipped
 - [ ] Archive detail `print_name` edit, compare actions, and richer deep links
-- [ ] Refine enrichment to use native `cost` and dual-purpose `notes` (human summary + compact structured payload)
+- [ ] Add compact machine-readable provenance to enrichment `notes` alongside the shipped native `cost`/`status` updates
 - [ ] Upgrade enrichment resolution toward the UUID-first design without requiring sidecar storage
 - [ ] Rich per-photo upload metadata and retries
 - [ ] Photo review delete/replace/set-cover scripts
@@ -96,7 +96,7 @@ Canonical sources:
 
 ## Next Implementation Order
 
-1. Refine `print_history` enrichment to the phased-notes design: tags + native cost + dual-purpose notes with compact structured payload.
+1. Refine `print_history` enrichment to the phased-notes design: keep native cost/status, add compact structured provenance payload, and improve spool resolution.
 2. Harden `print_history` upload handling or move to the Python worker.
 3. Build `print_queue` core lifecycle controls.
 4. Build `print_statistics` core sensors and cards.

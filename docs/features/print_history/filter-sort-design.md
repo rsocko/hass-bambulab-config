@@ -64,7 +64,7 @@ The `/slim` endpoint returns a minimal set of fields (~200 bytes/archive). But m
 
 1. **`id`** — Can't construct thumbnail URLs (`/archives/{id}/thumbnail`) without it. This alone makes slim insufficient for card rendering.
 2. **`is_favorite`** — Can't filter or highlight favorites.
-3. **`tags`** — Can't filter by enrichment tags (e.g., `vendor:Bambu Lab`, `spoolman:42`).
+3. **`tags`** — Can't filter by operator-managed archive tags.
 4. **`designer`** — Can't search by designer name.
 5. **`layer_height`** — Nice for display but not critical for filtering.
 6. **`filament_slots[]`** — Per-slot color hex codes and gram usage. Richer than the comma-separated `filament_color` string (which IS in slim). Useful for color swatch rendering.
@@ -177,7 +177,7 @@ The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed 
   "nozzle_diameter": 0.4,
   "designer": "StefBull85",
   "is_favorite": false,
-  "tags": "spoolman:42,vendor:Bambu Lab,ha_enriched:true",
+  "tags": "favorite,customer-sample",
   "notes": "",
   "failure_reason": ""
 }
@@ -692,7 +692,7 @@ Behavior:
 - Collects unique `printer_id` values (mapped to names if available) → updates `input_select.print_history_filter_printer`
 - Collects unique `designer` values (non-empty) → updates `input_select.print_history_filter_designer`
 - Collects unique `layer_height` values (formatted as strings) → updates `input_select.print_history_filter_layer_height`
-- Collects unique comma-separated archive `tags` values → updates `input_select.print_history_filter_tag`
+- Collects unique comma-separated archive `tags` values, excluding system-managed enrichment tags such as `spool:*`, `filament:*`, and `HA Enrichment:*` → updates `input_select.print_history_filter_tag`
 - Prepends `All` to each list
 - If current selection not in new list → HA resets the relevant helper to its default value
 
