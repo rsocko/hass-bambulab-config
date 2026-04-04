@@ -114,12 +114,6 @@ card:
         action: more-info
   styles: >-
     ${(() => {
-      const darkMode = typeof hass !== 'undefined'
-        ? Boolean(hass?.themes?.darkMode)
-        : Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      const logoUrl = darkMode
-        ? '/local/3d_printing/common/bambu-lab-logo-horizontal-light.svg'
-        : '/local/3d_printing/common/bambu-lab-logo-horizontal-dark.svg';
       return `
         .bubble-icon-container {
           width: 108px !important;
@@ -127,7 +121,7 @@ card:
           height: 34px !important;
           min-height: 34px !important;
           border-radius: 0 !important;
-          background: center / contain no-repeat url('${logoUrl}') !important;
+          background: center / contain no-repeat url('/local/3d_printing/common/trace%20(14).svg') !important;
           box-shadow: none !important;
         }
         .bubble-icon {
