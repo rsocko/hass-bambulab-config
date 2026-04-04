@@ -1017,27 +1017,96 @@ class TestNoHardcodedDeviceIds(unittest.TestCase):
 
 
 # =============================================================================
-# 13. TAGS FORMAT VALIDATION (Enrichment)
+# 13. ENRICHMENT PAYLOAD VALIDATION
 # =============================================================================
 
-class TestEnrichmentTagFormat(unittest.TestCase):
-    """Archive enrichment must use comma-separated tags (not JSON arrays)."""
+class TestEnrichmentArchiveUpdatePayload(unittest.TestCase):
+    """Archive enrichment should use native archive fields without auto-tags."""
 
-    def test_enrichment_builds_comma_separated_tags(self):
+    def test_enrichment_uses_native_cost_and_status_without_legacy_tags(self):
         content = (HISTORY / "automations" / "bambuddy_enrich_archive_on_complete.yaml").read_text("utf-8")
-        # The enrichment builds tags with join(',') — not tojson
-        self.assertIn("join(',')", content, "Tags must be comma-separated strings")
+        self.assertIn('status: "{{ archive_status }}"', content)
+        self.assertIn('cost: "{{ total_cost_value | round(2) }}"', content)
+        self.assertNotIn("spoolman:", content)
+        self.assertNotIn("material:", content)
+        self.assertNotIn("ha_enriched:true", content)
+        self.assertNotIn('tags: "{{', content)
 
-    def test_update_archive_payload_uses_tojson_for_strings(self):
-        """PATCH payload must JSON-encode string values (tojson), not wrap in array."""
+    def test_update_archive_payload_is_field_optional(self):
+        """PATCH payload should include only the fields explicitly passed to it."""
         content = (HISTORY / "rest_commands" / "bambuddy_update_archive.yaml").read_text("utf-8")
+        self.assertIn("namespace(body={})", content)
+        self.assertIn("{% if tags is defined %}", content)
+        self.assertIn("{% if notes is defined %}", content)
+        self.assertIn("{% if cost is defined %}", content)
         self.assertIn("tojson", content)
-        # Ensure it's not wrapping tags in an array
         self.assertNotIn('"tags": [', content)
 
 
 # =============================================================================
-# 14. PHOTO CAPTURE FLOW VALIDATION
+# =============================================================================
+# 14. TAG FILTER OPTIONS
+# =============================================================================
+
+class TestPrintHistoryTagFilterOptions(unittest.TestCase):
+    """Dropdown tag options should exclude system-managed archive tags."""
+
+    def test_sync_filter_options_excludes_system_tag_prefixes(self):
+        content = (HISTORY / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
+        self.assertIn("system_tag_prefixes", content)
+        self.assertIn("system_tag_values", content)
+        self.assertIn("spool:", content)
+        self.assertIn("filament:", content)
+        self.assertIn("ha enrichment:", content)
+        self.assertIn("spoolman:", content)
+        self.assertIn("material:", content)
+        self.assertIn("vendor:", content)
+        self.assertIn("cost:", content)
+        self.assertIn("status:", content)
+        self.assertIn("ha_enriched:true", content)
+        self.assertIn("not system_tag.value", content)
+
+
+# =============================================================================
+# 15. TAG COLOR CONSISTENCY
+# =============================================================================
+
+class TestPrintHistoryTagColors(unittest.TestCase):
+    """Archive tags should use stable deterministic colors across cards and popup."""
+
+    def test_archive_cards_and_popup_use_same_tag_color_hashing(self):
+        files = [
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml",
+        ]
+        expected_palette = "const tagPalette = ['#1565C0', '#2E7D32', '#6A1B9A', '#EF6C00', '#00838F', '#AD1457', '#455A64', '#7B1FA2', '#C62828', '#283593', '#0277BD', '#558B2F'];"
+
+        for path in files:
+            content = path.read_text("utf-8")
+            with self.subTest(file=path.relative_to(ROOT)):
+                self.assertIn(expected_palette, content)
+                self.assertIn("const tagColor = (tag) => {", content)
+                self.assertIn("const normalized = String(tag || '').trim().toLowerCase();", content)
+                self.assertIn("tagPalette[hash % tagPalette.length]", content)
+
+    def test_tag_rendering_no_longer_uses_single_hardcoded_blue(self):
+        files = [
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
+        ]
+
+        for path in files:
+            content = path.read_text("utf-8")
+            with self.subTest(file=path.relative_to(ROOT)):
+                self.assertNotIn('tags.map((tag) => `<span style="background:#1565C0', content)
+                self.assertIn('tags.map((tag) => `<span style="background:${tagColor(tag)}', content)
+
+
+# =============================================================================
+# 16. PHOTO CAPTURE FLOW VALIDATION
 # =============================================================================
 
 class TestPhotoCaptureFlow(unittest.TestCase):
@@ -1092,7 +1161,7 @@ class TestPhotoCaptureFlow(unittest.TestCase):
 
 
 # =============================================================================
-# 15. DOCUMENTATION COMPLETENESS
+# 17. DOCUMENTATION COMPLETENESS
 # =============================================================================
 
 class TestDocumentation(unittest.TestCase):
@@ -1118,7 +1187,7 @@ class TestDocumentation(unittest.TestCase):
 
 
 # =============================================================================
-# 16. PAGINATION LOGIC
+# 18. PAGINATION LOGIC
 # =============================================================================
 
 class TestPaginationLogic(unittest.TestCase):

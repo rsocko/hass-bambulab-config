@@ -76,11 +76,22 @@
           {% endfor %}
           {{ ns.values | sort }}
         tag_options: >-
+          {% set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] %}
+          {% set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] %}
           {% set ns = namespace(values=[]) %}
           {% for a in archives %}
             {% for tag in (a.get('tags', '') | string).split(',') %}
               {% set value = tag | trim %}
-              {% if value and value not in ns.values %}
+              {% set normalized = value | lower %}
+              {% set system_tag = namespace(value=(normalized in system_tag_values)) %}
+              {% if not system_tag.value %}
+                {% for prefix in system_tag_prefixes %}
+                  {% if normalized[0:(prefix | length)] == prefix %}
+                    {% set system_tag.value = true %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+              {% if value and not system_tag.value and value not in ns.values %}
                 {% set ns.values = ns.values + [value] %}
               {% endif %}
             {% endfor %}
