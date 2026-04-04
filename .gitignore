@@ -9,6 +9,11 @@ node_modules/
 
 # Intermediate screenshot capture frames (stitched into GIFs then discarded)
 docs/screenshots/_frames/
+bambuddy/Backup SD Card - 2026-04-03/
+
+# Python cache files
+__pycache__/
+*.pyc
 
 # OS files
 .DS_Store
