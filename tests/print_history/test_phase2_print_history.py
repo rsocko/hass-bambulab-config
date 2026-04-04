@@ -1097,6 +1097,7 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("spoolman_spools_response.content", content)
         self.assertIn("raw | from_json([])", content)
         self.assertIn("spoolman_spools_normalized", content)
+        self.assertNotIn("spoolman_spools: >-", content)
         self.assertIn("multiple Spoolman spools matched archived tray UUID", content)
 
     def test_spoolman_getspools_rest_command_supports_allow_archived_override(self):
