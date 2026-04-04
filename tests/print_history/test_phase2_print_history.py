@@ -1090,6 +1090,17 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(">Filament Colors<", content)
         self.assertIn(">Enrichment<", content)
 
+    def test_popup_content_derives_partial_status_and_review_badges(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0 || enrichmentAmbiguities.length > 0;", content)
+        self.assertIn("if (enrichmentStatusRaw === 'unavailable' && hasEnrichmentData) return 'partial';", content)
+        self.assertIn("return enrichmentRowsWithState.some((row) => row.needsReview) || enrichmentAmbiguities.length ? 'partial' : 'complete';", content)
+        self.assertIn("if (!hasResolvedEntityId(item?.s)) reviewReasons.push('Spool unresolved');", content)
+        self.assertIn("if (!hasResolvedEntityId(item?.f)) reviewReasons.push('Filament unresolved');", content)
+        self.assertIn("<span>Needs Review</span>", content)
+        self.assertIn("<span>Spool unresolved</span>", content)
+        self.assertIn("<span>Filament unresolved</span>", content)
+
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
         self.assertIn("existing_tags_raw", content)
