@@ -115,27 +115,29 @@ card:
   styles: >-
     ${(() => {
       return `
-        .bubble-icon-container {
-          width: 108px !important;
-          min-width: 108px !important;
-          height: 34px !important;
-          min-height: 34px !important;
-          border-radius: 0 !important;
-          background: center / contain no-repeat url('/local/3d_printing/common/trace%20(14).svg') !important;
-          box-shadow: none !important;
+        .bubble-container {
+          align-items: center !important;
         }
         .bubble-icon {
           opacity: 0 !important;
           width: 0 !important;
+          min-width: 0 !important;
+          height: 0 !important;
           margin: 0 !important;
+          padding: 0 !important;
         }
         .bubble-name {
+          display: inline-flex !important;
+          align-items: center !important;
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
           line-height: 1.2 !important;
           font-size: 15px !important;
           font-weight: 700 !important;
+          min-height: 34px !important;
+          padding-left: 118px !important;
+          background: left center / 108px 34px no-repeat url('/local/3d_printing/common/trace%20(14).svg') !important;
         }
         .bubble-line {
           opacity: 0.75;
