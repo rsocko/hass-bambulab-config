@@ -83,7 +83,7 @@ print_history_archive_card_compact:
           .replace(/>/g, '&gt;')
           .replace(/\"/g, '&quot;')
           .replace(/'/g, '&#39;');
-          const tagPalette = ['#AFC8FF', '#B8D8BA', '#D6C2F0', '#F3C4A7', '#A8DDD3', '#F0B7C8', '#E8D9A8', '#BCC7F4', '#C6E6B4', '#E6B8AF', '#D8C3A5', '#C7D0D9'];
+          const tagPalette = ['#BFD7FF', '#CBE7B8', '#E1CCFF', '#FFD3B6', '#BDEBE3', '#FFC7DE', '#FFF0A6', '#C9D4FF', '#FFDEA8', '#E6D7C3', '#D7C2B0', '#C9CED6'];
           const tagColor = (tag) => {
             const normalized = String(tag || '').trim().toLowerCase();
             if (!normalized) return tagPalette[0];
