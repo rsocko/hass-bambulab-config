@@ -1,0 +1,7 @@
+# Get Spoolman spools, optionally including archived inventory.
+# Uses Spoolman API v1 endpoint: GET /api/v1/spool?allow_archived={true|false}
+spoolman_getspools:
+  url: "http://spoolman.socko.us/api/v1/spool?allow_archived={{ allow_archived | default('false') }}"
+  method: GET
+  headers:
+    accept: "application/json, text/html"

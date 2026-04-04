@@ -256,8 +256,60 @@ reenrich_print_history_archive:
                   {% else %}
                     This archive does not contain enough archived filament usage detail for re-enrich to rebuild spool lineage safely.
                   {% endif %}
+            - action: rest_command.spoolman_getspools
+              data:
+                allow_archived: "true"
+              response_variable: spoolman_spools_response
+            - variables:
+                spoolman_spools: "{{ spoolman_spools_response.content | default([], true) }}"
+                spoolman_spools_normalized: >-
+                  {% set ns = namespace(rows=[]) %}
+                  {% for spool in spoolman_spools if spool is mapping %}
+                    {% set spool_extra = spool.extra | default({}, true) if spool.extra is mapping else {} %}
+                    {% set filament = spool.filament | default({}, true) if spool.filament is mapping else {} %}
+                    {% set filament_vendor = filament.vendor | default({}, true) if filament.vendor is mapping else {} %}
+                    {% set filament_extra = filament.extra | default({}, true) if filament.extra is mapping else {} %}
+                    {% set spool_uuid = spool_extra.spool_uuid | default('', true) | string | trim('"') | lower %}
+                    {% set color_raw = filament.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
+                    {% if color_raw | length == 8 %}
+                      {% set color_raw = color_raw[0:6] %}
+                    {% endif %}
+                    {% set color_value = '#' ~ color_raw.upper() if color_raw | length == 6 else none %}
+                    {% set filament_id_raw = filament.id | default('', true) | string | trim %}
+                    {% set filament_id_value = filament_id_raw | int(0) if filament_id_raw | regex_match('^\d+$') else none %}
+                    {% set multi = namespace(values=[], first='') %}
+                    {% for raw_hex in (filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}
+                      {% set parsed_hex = raw_hex | string | trim | replace('#', '') %}
+                      {% if parsed_hex | length == 8 %}
+                        {% set parsed_hex = parsed_hex[0:6] %}
+                      {% endif %}
+                      {% if parsed_hex | length == 6 %}
+                        {% if multi.first == '' %}
+                          {% set multi.first = parsed_hex %}
+                        {% endif %}
+                        {% if parsed_hex not in multi.values %}
+                          {% set multi.values = multi.values + [parsed_hex] %}
+                        {% endif %}
+                      {% endif %}
+                    {% endfor %}
+                    {% set ns.rows = ns.rows + [{
+                      'id': spool.id | int(0),
+                      'filament_id': filament_id_value,
+                      'display_name': filament.name | default(spool.name | default('Unknown Filament', true), true) | string,
+                      'color_hex': color_value,
+                      'material': filament.material | default('', true) | string,
+                      'vendor': filament_vendor.name | default('', true) | string,
+                      'profile_name': filament_extra.profile_name | default('', true) | string | trim('"'),
+                      'spool_uuid': spool_uuid,
+                      'multi_first': multi.first,
+                      'multi_any': multi.values,
+                      'location': spool.location | default('', true) | string,
+                      'sealed': spool_extra.sealed | default('', true) | string | lower == 'true',
+                      'archived': spool.archived | default(false, true)
+                    }] %}
+                  {% endfor %}
+                  {{ ns.rows | tojson | from_json }}
                 candidate_filaments: >-
-                  {% set spool_entities = states.sensor | selectattr('entity_id', 'match', '^sensor\\.spoolman_spool_\\d+$') | list %}
                   {% set ns = namespace(rows=[]) %}
                   {% for slot in archive_slot_rows %}
                     {% set target_uuid = slot.tray_uuid | default('', true) | string | trim('"') | lower %}
@@ -268,61 +320,38 @@ reenrich_print_history_archive:
                       {% set target_color = target_color[0:6] %}
                     {% endif %}
                     {% set bambu_only = ((target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu')) %}
-                    {% set ns_match = namespace(raw_candidates=[], matched_entity_id='', ambiguity_reason=slot.ambiguity_reason | default('', true) | string) %}
+                    {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_reason=slot.ambiguity_reason | default('', true) | string) %}
                     {% if ns_match.ambiguity_reason | length == 0 and target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
-                      {% for spool in spool_entities %}
-                        {% set is_sealed = state_attr(spool.entity_id, 'extra_sealed') | default('', true) | string | lower == 'true' %}
-                        {% if not is_sealed %}
-                          {% set spool_uuid = state_attr(spool.entity_id, 'extra_spool_uuid') | default('', true) | string | trim('"') | lower %}
-                          {% if spool_uuid == target_uuid %}
+                      {% for spool in spoolman_spools_normalized %}
+                        {% if not spool.sealed %}
+                          {% if spool.spool_uuid == target_uuid %}
                             {% set ns_match.raw_candidates = ns_match.raw_candidates + [spool] %}
                           {% endif %}
                         {% endif %}
                       {% endfor %}
                       {% if ns_match.raw_candidates | count == 1 %}
-                        {% set ns_match.matched_entity_id = ns_match.raw_candidates[0].entity_id %}
+                        {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
                       {% elif ns_match.raw_candidates | count > 1 %}
                         {% set ns_match.ambiguity_reason = 'multiple Spoolman spools matched archived tray UUID' %}
                       {% endif %}
                     {% endif %}
-                    {% if ns_match.matched_entity_id | length == 0 %}
+                    {% if not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) %}
                       {% set ns_color = namespace(single=[], multi_first=[], multi_any=[]) %}
-                      {% for spool in spool_entities %}
-                        {% set is_sealed = state_attr(spool.entity_id, 'extra_sealed') | default('', true) | string | lower == 'true' %}
-                        {% if is_sealed %}
+                      {% for spool in spoolman_spools_normalized %}
+                        {% if spool.sealed %}
                           {% continue %}
                         {% endif %}
-                        {% set spool_material = state_attr(spool.entity_id, 'filament_material') | default('', true) | string %}
-                        {% set spool_vendor = state_attr(spool.entity_id, 'filament_vendor_name') | default('', true) | string %}
-                        {% set spool_profile = state_attr(spool.entity_id, 'filament_extra_profile_name') | default(state_attr(spool.entity_id, 'extra_profile_name') | default('', true), true) | string | trim('"') %}
-                        {% set spool_color = state_attr(spool.entity_id, 'filament_color_hex') | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
-                        {% if spool_color | length == 8 %}
-                          {% set spool_color = spool_color[0:6] %}
-                        {% endif %}
-                        {% set multi_raw = state_attr(spool.entity_id, 'filament_multi_color_hexes') | default('', true) | string %}
-                        {% set ns_multi = namespace(values=[], first='') %}
-                        {% for raw_hex in multi_raw.split(',') %}
-                          {% set parsed_hex = raw_hex | string | trim | replace('#', '') | replace('"', '') | lower %}
-                          {% if parsed_hex | length == 8 %}
-                            {% set parsed_hex = parsed_hex[0:6] %}
-                          {% endif %}
-                          {% if parsed_hex | length == 6 %}
-                            {% if ns_multi.first == '' %}
-                              {% set ns_multi.first = parsed_hex %}
-                            {% endif %}
-                            {% set ns_multi.values = ns_multi.values + [parsed_hex] %}
-                          {% endif %}
-                        {% endfor %}
-                        {% set vendor_ok = (spool_vendor == 'Bambu Lab') if bambu_only else (spool_vendor != 'Bambu Lab') %}
-                        {% set profile_ok = (spool_profile == target_name) if (bambu_only and target_name | length > 0 and spool_profile | length > 0) else true %}
-                        {% set base_ok = (spool_material == target_type and vendor_ok and profile_ok) %}
+                        {% set vendor_ok = (spool.vendor == 'Bambu Lab') if bambu_only else (spool.vendor != 'Bambu Lab') %}
+                        {% set profile_ok = (spool.profile_name == target_name) if (bambu_only and target_name | length > 0 and spool.profile_name | length > 0) else true %}
+                        {% set spool_color = spool.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
+                        {% set base_ok = (spool.material == target_type and vendor_ok and profile_ok) %}
                         {% if base_ok and spool_color == target_color %}
                           {% set ns_color.single = ns_color.single + [spool] %}
                         {% endif %}
-                        {% if base_ok and ns_multi.first == target_color %}
+                        {% if base_ok and spool.multi_first == target_color %}
                           {% set ns_color.multi_first = ns_color.multi_first + [spool] %}
                         {% endif %}
-                        {% if base_ok and target_color in ns_multi.values %}
+                        {% if base_ok and target_color in spool.multi_any %}
                           {% set ns_color.multi_any = ns_color.multi_any + [spool] %}
                         {% endif %}
                       {% endfor %}
@@ -336,41 +365,35 @@ reenrich_print_history_archive:
                         {% set ns_match.raw_candidates = [] %}
                       {% endif %}
                       {% if ns_match.ambiguity_reason | length == 0 and ns_match.raw_candidates | count == 1 %}
-                        {% set ns_match.matched_entity_id = ns_match.raw_candidates[0].entity_id %}
+                        {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
                       {% elif ns_match.raw_candidates | count > 1 and ns_match.ambiguity_reason | length == 0 %}
                         {% set ns_match.ambiguity_reason = 'multiple Spoolman spools matched type+color' %}
                       {% endif %}
                     {% endif %}
                     {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), ambiguity_reason=ns_match.ambiguity_reason) %}
-                    {% if ns_match.matched_entity_id | length > 0 %}
-                      {% set ns_row.spool_id = ns_match.matched_entity_id.split('_')[-1] | int(0) %}
-                      {% set filament_id_raw = state_attr(ns_match.matched_entity_id, 'filament_id') | default('', true) | string | trim %}
-                      {% if filament_id_raw | regex_match('^\d+$') %}
-                        {% set ns_row.filament_id = filament_id_raw | int(0) %}
-                      {% endif %}
-                      {% set ns_row.display_name = state_attr(ns_match.matched_entity_id, 'filament_name') | default(state_attr(ns_match.matched_entity_id, 'friendly_name') | default(slot.name_hint | default('Unknown Filament', true), true), true) | string %}
+                    {% if ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined %}
+                      {% set ns_row.spool_id = ns_match.matched_spool.id | int(0) %}
+                      {% set ns_row.filament_id = ns_match.matched_spool.filament_id | default(none, true) %}
+                      {% set ns_row.display_name = ns_match.matched_spool.display_name | default(slot.name_hint | default('Unknown Filament', true), true) | string %}
                       {% set ns_row.ambiguity_reason = '' %}
                     {% else %}
-                      {% set ns_candidate = namespace(filament_ids=[], first_entity='') %}
+                      {% set ns_candidate = namespace(filament_ids=[], first_spool={}) %}
                       {% for candidate in ns_match.raw_candidates %}
-                        {% set candidate_filament = state_attr(candidate.entity_id, 'filament_id') | default('', true) | string | trim %}
-                        {% if ns_candidate.first_entity == '' %}
-                          {% set ns_candidate.first_entity = candidate.entity_id %}
+                        {% set candidate_filament = candidate.filament_id | default(none, true) %}
+                        {% if not (ns_candidate.first_spool is mapping and ns_candidate.first_spool.id is defined) %}
+                          {% set ns_candidate.first_spool = candidate %}
                         {% endif %}
-                        {% if candidate_filament | regex_match('^\d+$') and candidate_filament not in ns_candidate.filament_ids %}
+                        {% if candidate_filament is not none and candidate_filament not in ns_candidate.filament_ids %}
                           {% set ns_candidate.filament_ids = ns_candidate.filament_ids + [candidate_filament] %}
                         {% endif %}
                       {% endfor %}
                       {% if ns_candidate.filament_ids | count == 1 %}
                         {% set ns_row.filament_id = ns_candidate.filament_ids[0] | int(0) %}
-                        {% if ns_candidate.first_entity | length > 0 %}
-                          {% set ns_row.display_name = state_attr(ns_candidate.first_entity, 'filament_name') | default(state_attr(ns_candidate.first_entity, 'friendly_name') | default(slot.name_hint | default('Unknown Filament', true), true), true) | string %}
-                          {% set fallback_color = state_attr(ns_candidate.first_entity, 'filament_color_hex') | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
-                          {% if fallback_color | length == 8 %}
-                            {% set fallback_color = fallback_color[0:6] %}
-                          {% endif %}
-                          {% if ns_row.color_hex is none and fallback_color | length == 6 %}
-                            {% set ns_row.color_hex = '#' ~ fallback_color.upper() %}
+                        {% if ns_candidate.first_spool is mapping and ns_candidate.first_spool.id is defined %}
+                          {% set ns_row.display_name = ns_candidate.first_spool.display_name | default(slot.name_hint | default('Unknown Filament', true), true) | string %}
+                          {% set fallback_color = ns_candidate.first_spool.color_hex | default(none, true) %}
+                          {% if ns_row.color_hex is none and fallback_color is not none %}
+                            {% set ns_row.color_hex = fallback_color %}
                           {% endif %}
                         {% endif %}
                       {% endif %}

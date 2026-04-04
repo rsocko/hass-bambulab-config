@@ -1062,6 +1062,19 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("Print History Re-Enrich Saved Diagnostic Only", content)
         self.assertIn("hidden enrichment payload was updated with a", content)
 
+    def test_reenrich_fetches_spoolman_api_with_archived_spools(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("rest_command.spoolman_getspools", content)
+        self.assertIn('allow_archived: "true"', content)
+        self.assertIn("spoolman_spools_normalized", content)
+        self.assertIn("multiple Spoolman spools matched archived tray UUID", content)
+
+    def test_spoolman_getspools_rest_command_supports_allow_archived_override(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "spoolman_sync" / "rest_commands" / "spoolman_getspools.yaml").read_text("utf-8")
+        self.assertIn("spoolman_getspools:", content)
+        self.assertIn("allow_archived={{ allow_archived | default('false') }}", content)
+        self.assertIn("method: GET", content)
+
 
 # =============================================================================
 # =============================================================================

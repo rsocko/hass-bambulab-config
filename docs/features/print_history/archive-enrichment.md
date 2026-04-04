@@ -216,12 +216,19 @@ It currently:
 
 - reads Bambuddy archive detail for an older archive
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
-- attempts to map those rows back to current Spoolman entities
+- pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
 - writes managed tags plus the hidden `[HA_ENRICHMENT_V1]` payload when it has a usable candidate
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
+
+### Manual re-enrich performance notes
+
+- each manual re-enrich run now adds one direct `GET /api/v1/spool?allow_archived=true` call to Spoolman
+- that cost is acceptable for popup-triggered operator recovery, but it is intentionally not part of the live during-print enrichment hot path
+- larger Spoolman inventories will increase template work inside the script because the candidate catalog is normalized once per manual run before slot matching begins
+- if manual re-enrich becomes frequent or inventory growth makes the call noticeably slow, the next adjustment should be a narrower lookup path or a cached HA-side recovery index rather than pushing this full archived-spool fetch into the automatic enrichment flow
 
 ## Current Completeness
 
