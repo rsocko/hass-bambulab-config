@@ -297,6 +297,7 @@ reenrich_print_history_archive:
                     {% endif %}
                     {% if reason | length > 0 %}
                       {% set ns.items = ns.items + [{
+                        'label': row.name | default(slot.name_hint | default('Unknown filament', true), true),
                         'type': slot.type | default('', true),
                         'color': slot.color_hex | default(none, true),
                         'weight': slot.weight | default(0, true),
@@ -481,7 +482,8 @@ reenrich_print_history_archive:
                               filament rows could not be resolved to a unique spool.
 
                               {% for item in candidate_ambiguities %}
-                              - {{ item.type | default('Unknown', true) }} / {{ item.color | default('Unknown', true) }} / {{ item.weight | default(0, true) }}g: {{ item.reason }}
+                              - {{ item.label | default('Unknown filament', true) }}
+                                ({{ item.weight | default(0, true) }}g, {{ item.type | default('Unknown', true) }}, {{ item.color | default('Unknown', true) }}): {{ item.reason }}
                               {% endfor %}
                 - action: logbook.log
                   data:

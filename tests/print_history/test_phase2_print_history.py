@@ -69,6 +69,118 @@ def _extract_unique_ids(data) -> list[str]:
     return ids
 
 
+def _normalize_reenrich_hex(value: str | None) -> str | None:
+    raw = str(value or "").strip().replace("#", "").replace('"', "")
+    if len(raw) == 8:
+        raw = raw[:6]
+    return f"#{raw.upper()}" if len(raw) == 6 else None
+
+
+def _build_reenrich_rows(slot_rows: list[dict], raw_ams: list[dict], spool_entities: list[dict]) -> tuple[list[dict], list[dict], str]:
+    tray_candidates = []
+    for ams in raw_ams:
+        ams_index = int(ams.get("id", 0))
+        for tray in ams.get("tray", []):
+            tray_index = int(tray.get("id", 0))
+            if ams_index == 0:
+                tray_code = f"A{tray_index + 1}"
+            elif ams_index == 1:
+                tray_code = f"B{tray_index + 1}"
+            else:
+                tray_code = f"AMS{ams_index + 1}-{tray_index + 1}"
+            tray_candidates.append(
+                {
+                    "tray_code": tray_code,
+                    "tray_uuid": str(tray.get("tray_uuid", "")).strip('"'),
+                    "tray_type": str(tray.get("tray_type", "")),
+                    "color_hex": _normalize_reenrich_hex(tray.get("tray_color")),
+                    "profile_name": "",
+                }
+            )
+
+    rows = []
+    ambiguities = []
+    for index, slot in enumerate(slot_rows, start=1):
+        grams = float(slot.get("used_g", 0) or 0)
+        if grams <= 0:
+            continue
+        type_value = str(slot.get("type", ""))
+        color_value = _normalize_reenrich_hex(slot.get("color"))
+        tray_matches = [
+            tray for tray in tray_candidates
+            if tray.get("tray_type") == type_value and tray.get("color_hex") == color_value
+        ]
+        unique_tray = tray_matches[0] if len(tray_matches) == 1 else None
+        ambiguity_reason = "multiple archived AMS trays matched type+color" if len(tray_matches) > 1 else ""
+        name_hint = f"{type_value} {color_value}".strip() if type_value and color_value else f"Archive Slot {index}"
+
+        matched_spool = None
+        raw_candidates = []
+        if not ambiguity_reason and unique_tray and unique_tray.get("tray_uuid"):
+            uuid_matches = [spool for spool in spool_entities if str(spool.get("extra_spool_uuid", "")).lower() == str(unique_tray.get("tray_uuid", "")).lower()]
+            if len(uuid_matches) == 1:
+                matched_spool = uuid_matches[0]
+            elif len(uuid_matches) > 1:
+                ambiguity_reason = "multiple Spoolman spools matched archived tray UUID"
+
+        if not matched_spool:
+            raw_candidates = [
+                spool for spool in spool_entities
+                if spool.get("filament_material") == type_value
+                and _normalize_reenrich_hex(spool.get("filament_color_hex")) == color_value
+            ]
+            if not ambiguity_reason and len(raw_candidates) > 1:
+                ambiguity_reason = "multiple Spoolman spools matched type+color"
+
+        row = {
+            "name": name_hint,
+            "weight": round(grams, 1),
+            "tray": unique_tray.get("tray_code") if unique_tray else None,
+            "s": None,
+            "f": None,
+            "h": color_value,
+            "ambiguity": ambiguity_reason or None,
+        }
+        if matched_spool:
+            row["name"] = matched_spool.get("filament_name") or name_hint
+            row["s"] = matched_spool.get("spool_id")
+            row["f"] = matched_spool.get("filament_id")
+            row["ambiguity"] = None
+        else:
+            filament_ids = []
+            first_candidate = raw_candidates[0] if raw_candidates else None
+            for candidate in raw_candidates:
+                filament_id = candidate.get("filament_id")
+                if filament_id is not None and filament_id not in filament_ids:
+                    filament_ids.append(filament_id)
+            if len(filament_ids) == 1:
+                row["f"] = filament_ids[0]
+                if first_candidate and first_candidate.get("filament_name"):
+                    row["name"] = first_candidate["filament_name"]
+
+        if row["ambiguity"]:
+            ambiguities.append(
+                {
+                    "label": row["name"],
+                    "type": type_value,
+                    "color": color_value,
+                    "weight": row["weight"],
+                    "reason": row["ambiguity"],
+                }
+            )
+        rows.append(row)
+
+    if not rows:
+        status = "unavailable"
+    elif any(row["f"] is None for row in rows):
+        status = "unavailable"
+    elif ambiguities or any(row["s"] is None or row["h"] is None for row in rows):
+        status = "partial"
+    else:
+        status = "complete"
+    return rows, ambiguities, status
+
+
 # =============================================================================
 # 1. YAML SYNTAX VALIDATION
 # =============================================================================
@@ -830,7 +942,58 @@ class TestScripts(unittest.TestCase):
         self.assertIn("candidate_ambiguities", content)
         self.assertIn("multiple Spoolman spools matched type+color", content)
         self.assertIn("Print History Re-Enrich Saved With Ambiguities", content)
+        self.assertIn("item.label", content)
         self.assertNotIn("selectattr('attributes.location', 'equalto', 'AMS')", content)
+
+    def test_reenrich_duplicate_black_pla_is_partial_and_not_tray_assigned(self):
+        slot_rows = [
+            {"slot_id": 1, "used_g": 61.5, "type": "PLA", "color": "#000000"},
+        ]
+        raw_ams = [
+            {"id": "1", "tray": [
+                {"id": "1", "tray_type": "PLA", "tray_color": "000000FF", "tray_uuid": "UUID_A"},
+                {"id": "3", "tray_type": "PLA", "tray_color": "000000FF", "tray_uuid": "UUID_B"},
+            ]}
+        ]
+        spool_entities = [
+            {"spool_id": 200, "filament_id": 34, "filament_name": "Bambu PLA Basic Black", "filament_material": "PLA", "filament_color_hex": "000000", "extra_spool_uuid": "UUID_A"},
+            {"spool_id": 201, "filament_id": 34, "filament_name": "Bambu PLA Basic Black", "filament_material": "PLA", "filament_color_hex": "#000000", "extra_spool_uuid": "UUID_B"},
+        ]
+
+        rows, ambiguities, status = _build_reenrich_rows(slot_rows, raw_ams, spool_entities)
+
+        self.assertEqual(status, "partial")
+        self.assertEqual(len(rows), 1)
+        self.assertIsNone(rows[0]["tray"])
+        self.assertIsNone(rows[0]["s"])
+        self.assertEqual(rows[0]["f"], 34)
+        self.assertEqual(rows[0]["name"], "Bambu PLA Basic Black")
+        self.assertEqual(rows[0]["ambiguity"], "multiple archived AMS trays matched type+color")
+        self.assertEqual(len(ambiguities), 1)
+
+    def test_reenrich_ambiguous_row_keeps_operator_friendly_label(self):
+        slot_rows = [
+            {"slot_id": 1, "used_g": 61.5, "type": "PLA", "color": "#000000"},
+        ]
+        raw_ams = [
+            {"id": "1", "tray": [
+                {"id": "1", "tray_type": "PLA", "tray_color": "000000FF", "tray_uuid": "UUID_A"},
+                {"id": "3", "tray_type": "PLA", "tray_color": "000000FF", "tray_uuid": "UUID_B"},
+            ]}
+        ]
+
+        rows, ambiguities, status = _build_reenrich_rows(slot_rows, raw_ams, spool_entities=[])
+
+        self.assertEqual(status, "unavailable")
+        self.assertEqual(rows[0]["name"], "PLA #000000")
+        self.assertIsNone(rows[0]["tray"])
+        self.assertEqual(ambiguities[0]["label"], "PLA #000000")
+
+    def test_archive_popup_content_renders_enrichment_ambiguities(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("const enrichmentAmbiguities = Array.isArray(enrichmentPayload?.ambiguities)", content)
+        self.assertIn("Needs review", content)
+        self.assertIn("item?.ambiguity", content)
 
     def test_navigate_history_supports_all_directions(self):
         content = (HISTORY / "scripts" / "navigate_history.yaml").read_text("utf-8")
