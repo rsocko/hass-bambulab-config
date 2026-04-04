@@ -222,7 +222,7 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_HELPERS_INPUT_BOOLEAN = [
-        "input_boolean_bambuddy_history_fetch_enabled.yaml",
+        "input_boolean_bambuddy_history_sync_enabled.yaml",
         "input_boolean_capture_at_start.yaml",
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
@@ -1021,24 +1021,27 @@ class TestNoHardcodedDeviceIds(unittest.TestCase):
 # =============================================================================
 
 class TestEnrichmentArchiveUpdatePayload(unittest.TestCase):
-    """Archive enrichment should use native archive fields without auto-tags."""
+    """Archive enrichment should match the current shipped archive PATCH contract."""
 
-    def test_enrichment_uses_native_cost_and_status_without_legacy_tags(self):
+    def test_enrichment_uses_native_cost_with_managed_tags_and_notes(self):
         content = (HISTORY / "automations" / "bambuddy_enrich_archive_on_complete.yaml").read_text("utf-8")
-        self.assertIn('status: "{{ archive_status }}"', content)
-        self.assertIn('cost: "{{ total_cost_value | round(2) }}"', content)
-        self.assertNotIn("spoolman:", content)
-        self.assertNotIn("material:", content)
-        self.assertNotIn("ha_enriched:true", content)
-        self.assertNotIn('tags: "{{', content)
+        self.assertIn('cost: "{{ total_cost }}"', content)
+        self.assertIn('tags: "{{ merged_tags }}"', content)
+        self.assertIn('notes: "{{ merged_notes }}"', content)
+        self.assertIn("ha_enriched:true", content)
+        self.assertIn("'Filament:' ~ filament_id", content)
+        self.assertIn("'Spool:' ~ spool_id", content)
+        self.assertNotIn('status: "{{ archive_status }}"', content)
 
     def test_update_archive_payload_is_field_optional(self):
-        """PATCH payload should include only the fields explicitly passed to it."""
+        """PATCH payload should always include tags/notes and add native fields only when passed."""
         content = (HISTORY / "rest_commands" / "bambuddy_update_archive.yaml").read_text("utf-8")
-        self.assertIn("namespace(body={})", content)
-        self.assertIn("{% if tags is defined %}", content)
-        self.assertIn("{% if notes is defined %}", content)
+        self.assertIn("namespace(body={", content)
+        self.assertIn('"tags": tags | default(\'\', true)', content)
+        self.assertIn('"notes": notes | default(\'\', true)', content)
         self.assertIn("{% if cost is defined %}", content)
+        self.assertIn("{% if status is defined %}", content)
+        self.assertIn("{% if failure_reason is defined %}", content)
         self.assertIn("tojson", content)
         self.assertNotIn('"tags": [', content)
 
