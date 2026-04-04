@@ -107,7 +107,7 @@ Command pattern:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Full -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -FallbackArchiveId 189 -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf' -RecoverySource 'sd_cache_3mf'
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Full -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -FallbackArchiveId 189 -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf' -ExistingReplacementArchiveId 199 -RecoverySource 'sd_cache_3mf'
 ```
 
 Expected outcome:
@@ -115,6 +115,22 @@ Expected outcome:
 - old archive receives replacement linkage tags and notes
 - new archive receives recovery linkage tags and notes
 - original fallback timing remains visible in `[RECOVERY_AUDIT_V1]`
+
+## Timestamp model clarification
+
+The runtime timestamps are not restored from the `.3mf` file itself.
+
+Observed Bambuddy behavior from source:
+
+- when Bambuddy sees a live print start, it creates or updates the archive using Bambuddy-observed event timing
+- fallback archives created during a missing-3MF condition set `started_at` from `datetime.now(timezone.utc)` at fallback creation time
+- `archive_print()` also sets `started_at` and `completed_at` from current server time based on archive status, not from parsed 3MF metadata
+- upload recovery therefore creates a valid file-backed archive, but its canonical datetime fields reflect recovery-time processing, not the original historical print run
+
+Practical takeaway:
+
+- the 3MF is the source of sliced metadata such as print time estimate, filament usage, layers, temperatures, and thumbnails
+- the actual runtime start/end values come from Bambuddy's live print lifecycle handling, not from the uploaded 3MF artifact
 
 ## Recovery audit contract
 
@@ -141,6 +157,32 @@ If you do not want to use the helper script, the manual flow is:
 3. `PATCH /api/v1/archives/{fallback_id}` to append tags and notes
 4. `PATCH /api/v1/archives/{new_id}` to append tags and notes
 5. `GET /api/v1/archives/{new_id}` to verify the created record
+
+## Post-recovery cleanup runbook
+
+If the operator wants a cleaner archive list after successful recovery, cleanup must stay manual.
+
+Recommended decision order:
+
+1. verify the replacement archive has file metadata, thumbnail, content hash, and `[RECOVERY_AUDIT_V1]`
+2. verify the replacement archive notes include the original runtime values
+3. decide whether to keep the fallback archive as a historical exception record or delete it
+
+Default recommendation:
+
+- keep both records
+
+Optional manual deletion path:
+
+1. record the fallback archive ID and replacement archive ID in change notes
+2. confirm the replacement archive contains the original runtime values in notes
+3. issue `DELETE /api/v1/archives/{fallback_id}` from Bambuddy UI or API
+4. re-open the replacement archive and verify notes/tags still communicate provenance clearly
+
+Deletion warning:
+
+- deleting the fallback archive removes the easiest in-app copy of the original runtime record
+- after deletion, the recovered archive notes become the primary retained source for original timing context
 
 ## Source-project fallback test
 

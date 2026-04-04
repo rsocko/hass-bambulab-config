@@ -65,7 +65,7 @@ print_history_archive_popup:
       const archiveUserTags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));
       const archiveNotesInfo = splitArchiveNotes(archive?.notes);
       const archiveTags = archiveUserTags.join(', ');
-      const archiveNotes = String(archiveNotesInfo.userNotes || '');
+      const archiveNotes = String(archive?.user_notes ?? archiveNotesInfo.userNotes || '');
       const archiveFailureReason = String(archive?.failure_reason || '').trim();
       const normalizeStatusOption = (status) => {
         const raw = String(status || '').toLowerCase().trim();

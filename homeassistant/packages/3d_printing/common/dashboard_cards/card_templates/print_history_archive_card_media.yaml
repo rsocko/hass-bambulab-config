@@ -151,8 +151,7 @@ print_history_archive_card_media:
           return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));
         };
         const notesInfo = splitArchiveNotes(archive?.notes);
-        const enrichmentPayload = notesInfo.payload;
-        const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];
+        const enrichmentRows = Array.isArray(archive?.enrichment_filaments) ? archive.enrichment_filaments : Array.isArray(notesInfo.payload?.Filaments) ? notesInfo.payload.Filaments : [];
         const colors = String(archive?.filament_color || '').split(',').map((value) => normalizeHex(value)).filter(Boolean);
         const filamentChips = enrichmentRows.length
           ? enrichmentRows.map((item, index) => {

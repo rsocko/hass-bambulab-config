@@ -29,7 +29,8 @@
       unique_id: print_history_archives
       icon: mdi:database-outline
       state: >-
-        {% set payload = result.get('content', []) %}
+        {% set response = result if result is defined and result is mapping else {'content': []} %}
+        {% set payload = response.get('content', []) %}
         {% if payload is string %}
           {% set raw = payload | from_json %}
         {% elif payload is iterable %}
@@ -40,7 +41,8 @@
         {{ raw | length }}
       attributes:
         archives_json: >-
-          {% set payload = result.get('content', []) %}
+          {% set response = result if result is defined and result is mapping else {'content': []} %}
+          {% set payload = response.get('content', []) %}
           {% if payload is string %}
             {% set raw = payload | from_json %}
           {% elif payload is iterable %}
@@ -52,6 +54,21 @@
           {% for a in raw %}
             {% set extra = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
             {% set slots = extra.get('filament_slots', []) if extra is mapping else [] %}
+            {% set notes_raw = a.get('notes', '') | string %}
+            {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
+            {% set legacy_marker = '--- HA Enrichment ---' %}
+            {% set marker_index = notes_raw.find(enrichment_marker) %}
+            {% set legacy_index = notes_raw.find(legacy_marker) %}
+            {% set cutoff = marker_index if marker_index >= 0 else legacy_index %}
+            {% set user_notes = notes_raw.rstrip() %}
+            {% set enrichment_payload = {} %}
+            {% if cutoff >= 0 %}
+              {% set user_notes = notes_raw[0:cutoff].rstrip() %}
+              {% if cutoff == marker_index %}
+                {% set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim %}
+                {% set enrichment_payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} %}
+              {% endif %}
+            {% endif %}
             {% set ns.trimmed = ns.trimmed + [dict(
               id=a.get('id'),
               printer_id=a.get('printer_id'),
@@ -68,15 +85,21 @@
               started_at=a.get('started_at', ''),
               completed_at=a.get('completed_at'),
               created_at=a.get('created_at', ''),
+              sort_started_at=(a.get('started_at') if a.get('started_at') is not none and (a.get('started_at') | string) != '' else a.get('created_at', '')),
               cost=a.get('cost', 0) | float(0),
-                object_count=a.get('object_count', 1) | int(1),
+              object_count=a.get('object_count', 1) | int(1),
               layer_height=(a.get('layer_height') if a.get('layer_height') is not none else ''),
               total_layers=a.get('total_layers', 0) | int(0),
               nozzle_diameter=(a.get('nozzle_diameter') if a.get('nozzle_diameter') is not none else ''),
               designer=a.get('designer', ''),
               is_favorite=a.get('is_favorite', false),
               tags=a.get('tags', ''),
-              notes=a.get('notes', ''),
+              user_notes=user_notes,
+              enrichment_status=(enrichment_payload.get('status', '') if enrichment_payload is mapping else ''),
+              enrichment_source=(enrichment_payload.get('source', '') if enrichment_payload is mapping else ''),
+              enrichment_reason=(enrichment_payload.get('reason', '') if enrichment_payload is mapping else ''),
+              enrichment_filaments=(enrichment_payload.get('Filaments', []) if enrichment_payload is mapping else []),
+              enrichment_ambiguities=(enrichment_payload.get('ambiguities', []) if enrichment_payload is mapping else []),
               failure_reason=a.get('failure_reason', ''),
               thumbnail_path=a.get('thumbnail_path', '')
             )] %}

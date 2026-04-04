@@ -41,6 +41,13 @@ All three have the fallback signature:
 - missing `content_hash`
 - missing parser-derived metadata
 
+Live recovery validation performed on 2026-04-04:
+
+- archive `189` was successfully recovered to replacement archive `199`
+- archive `191` was successfully recovered to replacement archive `200`
+- both recoveries used the SD-cache sliced `.3mf` path and produced matching `content_hash` values
+- archive `174` remains the only unresolved fallback case and should still be treated as `medium` confidence
+
 ## Recovery Matrix
 
 | Fallback archive | Print name | Exact SD-card source file | Evidence | Confidence | Recommended recovery action |
@@ -48,6 +55,58 @@ All three have the fallback signature:
 | `174` | `200mm x 200mm Deadpool & Wolverine Hueforge` | `bambuddy/Backup SD Card - 2026-04-03/cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf` | matching `.bbl` sidecar `2_200mm x 200mm Deadpool & Wolverine Hueforge.bbl`; sidecar MD5 `FEAB4E6429CFA9E8A113295C3DB4B0CD` matches cached `.3mf`; cached `.3mf` SHA-256 `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` exactly matches successful live archive `181` | `medium` | recover only as a replacement/provenance archive, not as a guaranteed exact recreation of the original 174 run |
 | `189` | `Hulk Stainglass Style Hueforge` | `bambuddy/Backup SD Card - 2026-04-03/cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf` | matching `.bbl` sidecar `1_Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.bbl`; sidecar MD5 `824D5690965E5088B4C6F3894CFB8858` matches cached `.3mf`; no competing live archive with the same filename | `high` | good candidate for replacement-archive recovery |
 | `191` | `Captain America - Stainglass-style Hueforge` | `bambuddy/Backup SD Card - 2026-04-03/cache/200x200 - AMS Ready - Slice & Print.3mf` | matching `.bbl` sidecar `1_200x200 - AMS Ready - Slice & Print.bbl`; sidecar MD5 `0F00BC965D0D29A00DF496356B0526B1` matches cached `.3mf`; no competing live archive with the same filename | `high` | good candidate for replacement-archive recovery |
+
+## Confirmed Live Results
+
+### Archive 189
+
+- fallback archive: `189`
+- replacement archive: `199`
+- recovery source: `sd_cache_3mf`
+- outcome: success
+- result tags:
+	- old archive: `Hueforge,exception:missing_3mf,replaced_by:199`
+	- new archive: `repair:recovered,recovered_from:189,recovery_source:sd_cache_3mf`
+
+Validation summary:
+
+- upload created a canonical archive with file path, thumbnail, and content hash
+- `uploaded_content_hash` matched the SD-cache file SHA-256
+- full mode successfully linked the old and new records without creating a second replacement after helper enhancement
+
+### Archive 191
+
+- fallback archive: `191`
+- replacement archive: `200`
+- recovery source: `sd_cache_3mf`
+- outcome: success
+- result tags:
+	- old archive: `Hueforge,exception:missing_3mf,replaced_by:200`
+	- new archive: `repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf`
+
+Validation summary:
+
+- upload created a canonical archive with file path, thumbnail, and content hash
+- `uploaded_content_hash` matched the SD-cache file SHA-256
+- full mode successfully linked the old and new records
+
+### Timestamp conclusion from live validation
+
+- replacement archives `199` and `200` were created with recovery-time archive timestamps
+- the original runtime timestamps were not written back into the canonical archive datetime fields
+- current supported preservation path remains `[RECOVERY_AUDIT_V1]` notes on the recovered record
+
+### Optional cleanup choice after successful recovery
+
+After operator verification, there are two acceptable policies:
+
+1. keep the historical fallback archive and the recovered archive together
+2. manually delete the historical fallback archive through Bambuddy if the user prefers a cleaner archive list
+
+Recommendation:
+
+- keep both by default
+- if deleting the fallback archive, ensure the recovered archive already contains the original runtime values in notes so historical timing is not lost entirely
 
 ## Confidence Rules Used
 

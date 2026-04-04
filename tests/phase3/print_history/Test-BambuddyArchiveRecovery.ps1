@@ -15,6 +15,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceFilePath,
 
+    [int]$ExistingReplacementArchiveId,
+
     [ValidateSet('sd_cache_3mf', 'bambu_studio_exported_sliced_3mf', 'bambu_studio_source_3mf')]
     [string]$RecoverySource = 'sd_cache_3mf',
 
@@ -110,7 +112,7 @@ function Invoke-ArchiveUpload {
         $multipart = New-Object System.Net.Http.MultipartFormDataContent
         try {
             $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path))
-            $content = New-Object System.Net.Http.ByteArrayContent($bytes)
+            $content = New-Object System.Net.Http.ByteArrayContent -ArgumentList @(,$bytes)
             $content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('application/octet-stream')
             $fileName = [System.IO.Path]::GetFileName($Path)
             $multipart.Add($content, 'file', $fileName)
@@ -187,14 +189,23 @@ if ($Mode -eq 'Inspect') {
     return
 }
 
-$newArchive = Invoke-ArchiveUpload -Url $BaseUrl -TargetPrinterId $PrinterId -Path $resolvedSourcePath -Headers $headers
-[PSCustomObject]@{
-    uploaded_archive_id = $newArchive.id
-    uploaded_status = $newArchive.status
-    uploaded_file_path = $newArchive.file_path
-    uploaded_thumbnail_path = $newArchive.thumbnail_path
-    uploaded_content_hash = $newArchive.content_hash
-} | ConvertTo-Json -Depth 8
+if ($ExistingReplacementArchiveId -gt 0) {
+    if ($Mode -ne 'Full') {
+        throw 'ExistingReplacementArchiveId is only supported with Mode Full.'
+    }
+
+    $newArchive = Get-ArchiveDetail -Url $BaseUrl -ArchiveId $ExistingReplacementArchiveId -Headers $headers
+}
+else {
+    $newArchive = Invoke-ArchiveUpload -Url $BaseUrl -TargetPrinterId $PrinterId -Path $resolvedSourcePath -Headers $headers
+    [PSCustomObject]@{
+        uploaded_archive_id = $newArchive.id
+        uploaded_status = $newArchive.status
+        uploaded_file_path = $newArchive.file_path
+        uploaded_thumbnail_path = $newArchive.thumbnail_path
+        uploaded_content_hash = $newArchive.content_hash
+    } | ConvertTo-Json -Depth 8
+}
 
 if ($Mode -eq 'Upload') {
     return

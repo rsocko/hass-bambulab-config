@@ -176,6 +176,12 @@ Current Bambuddy behavior when uploading a `.3mf` without live print context is:
 - `started_at` is not reconstructed and remains empty
 - `completed_at` is set to the time the new archive record is created
 
+Current Bambuddy behavior when updating an archive through `PATCH /api/v1/archives/{id}` is:
+
+- writable fields are limited to metadata fields exposed by `ArchiveUpdate`
+- `started_at` and `completed_at` are not part of that schema
+- recovery cannot write the original runtime timestamps back into the archive's canonical datetime columns without a Bambuddy backend change or direct database intervention
+
 Important consequence:
 
 - the new archive's timeline reflects recovery time, not the original print execution time
@@ -224,6 +230,21 @@ Option 3: Preserve runtime values externally only.
 Recommended choice: Option 2.
 
 It preserves the missing historical context close to the archive record while accepting that Bambuddy's canonical timestamp columns will still reflect the new recovery event.
+
+### Can recovery write the actual print timestamps?
+
+Not with the current public Bambuddy API.
+
+Confirmed constraints from Bambuddy source:
+
+- `ArchiveUpdate` supports metadata fields such as `print_name`, `tags`, `notes`, `cost`, `failure_reason`, `quantity`, `external_url`, `printer_id`, `project_id`, and `status`
+- `ArchiveUpdate` does not include `started_at` or `completed_at`
+- `actual_time_seconds` is computed from `started_at` and `completed_at`, so it also cannot be restored as a canonical persisted field through normal API usage
+
+Implication:
+
+- the best current recovery behavior is to preserve original `started_at`, `completed_at`, and `actual_time_seconds` in machine-parseable notes
+- if canonical timestamp restoration becomes a requirement, that needs either a Bambuddy code change to widen the update schema or a direct database repair path outside the supported API
 
 ### Source project fallback viability
 
@@ -318,6 +339,30 @@ Implementation notes:
 - keep the recovery block machine-parseable and versioned
 - mirror only the fields that would otherwise be lost or misleading after replacement creation
 - do not duplicate large `extra_data` payloads into notes
+
+### Optional operator cleanup path
+
+Some users may prefer to keep the historical fallback archive as the runtime record. Others may prefer to remove it after they are satisfied that the recovered archive is complete.
+
+Recommended policy options:
+
+Option 1: Keep both records.
+
+- safest audit trail
+- preserves the original fallback archive as evidence of what happened
+- recommended default
+
+Option 2: Delete the historical fallback archive after operator review.
+
+- supported by Bambuddy's `DELETE /api/v1/archives/{id}` endpoint
+- only do this after verifying the replacement archive contains the expected file metadata, thumbnail, content hash, and recovery notes
+- only do this if the operator accepts that the original runtime timestamps will then survive only in the replacement archive notes or in external logs
+
+Recommended guardrails for deletion:
+
+- require a manual operator action, not automatic cleanup
+- require that the replacement archive already has a `[RECOVERY_AUDIT_V1]` block containing the original runtime fields
+- capture the deleted archive ID in external notes or changelog documentation if long-term auditability matters
 
 ## Option 3: Recovery By Uploading Source 3MF To Fallback Archive
 

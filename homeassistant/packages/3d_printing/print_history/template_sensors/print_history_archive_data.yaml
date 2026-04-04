@@ -64,16 +64,7 @@
           {%- for a in archives -%}
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status == 'failed' else 'cancelled' if raw_status in ['cancelled', 'aborted', 'stopped'] else 'printing' if raw_status == 'printing' else raw_status -%}
-            {%- set notes_raw = a.get('notes', '') | string -%}
-            {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
-            {%- set marker_index = notes_raw.find(enrichment_marker) -%}
-            {%- if marker_index >= 0 -%}
-              {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
-              {%- set enrichment_payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} -%}
-            {%- else -%}
-              {%- set enrichment_payload = {} -%}
-            {%- endif -%}
-            {%- set enrichment_status = enrichment_payload.get('status', '') | string | lower if enrichment_payload is mapping else '' -%}
+            {%- set enrichment_status = a.get('enrichment_status', '') | string | lower -%}
             {%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
@@ -142,7 +133,7 @@
             {%- endif -%}
           {%- endfor -%}
           {%- if sort_by == 'Date (Oldest)' -%}
-            {%- set sorted = ns.matches | sort(attribute='started_at') -%}
+            {%- set sorted = ns.matches | sort(attribute='sort_started_at') -%}
           {%- elif sort_by == 'Duration (Longest)' -%}
             {%- set sorted = ns.matches | sort(attribute='actual_time_seconds', reverse=true) -%}
           {%- elif sort_by == 'Duration (Shortest)' -%}
@@ -160,7 +151,7 @@
           {%- elif sort_by == 'Name (Z-A)' -%}
             {%- set sorted = ns.matches | sort(attribute='print_name', reverse=true) -%}
           {%- else -%}
-            {%- set sorted = ns.matches | sort(attribute='started_at', reverse=true) -%}
+            {%- set sorted = ns.matches | sort(attribute='sort_started_at', reverse=true) -%}
           {%- endif -%}
           {%- set total_pages = (((sorted | length) - 1) // page_size) + 1 if (sorted | length) > 0 else 1 -%}
           {%- set clamped_page = [1, [current_page, total_pages] | min] | max -%}
