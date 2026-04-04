@@ -105,8 +105,14 @@ print_history_archive_card_media:
           if (!Number.isFinite(numeric) || numeric <= 0) return '-';
           return `$${numeric.toFixed(2)}`;
         };
+        const isSystemTag = (tag) => {
+          const value = String(tag || '');
+          return value.startsWith('Filament:')
+            || value.startsWith('Spool:')
+            || value === 'ha_enriched:true';
+        };
         const colors = String(archive?.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
-        const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4);
+        const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).filter((tag) => !isSystemTag(tag)).slice(0, 4);
         const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
         const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
         const metadata = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm` : '', archive?.designer || ''].filter(Boolean).join(' · ');

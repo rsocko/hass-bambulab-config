@@ -119,12 +119,7 @@
             {% if cleaned | length > 0
                and not cleaned.startswith('Filament:')
                and not cleaned.startswith('Spool:')
-               and cleaned != 'ha_enriched:true'
-               and not cleaned.startswith('spoolman:')
-               and not cleaned.startswith('vendor:')
-               and not cleaned.startswith('material:')
-               and not cleaned.startswith('status:')
-               and not cleaned.startswith('cost:') %}
+               and cleaned != 'ha_enriched:true' %}
               {% set ns.result = ns.result + [cleaned] %}
             {% endif %}
           {% endfor %}

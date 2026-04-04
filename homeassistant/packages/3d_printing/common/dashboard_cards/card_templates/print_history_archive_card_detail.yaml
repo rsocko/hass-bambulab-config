@@ -105,8 +105,14 @@ print_history_archive_card_detail:
           if (!Number.isFinite(numeric) || numeric <= 0) return '-';
           return `$${numeric.toFixed(2)}`;
         };
+        const isSystemTag = (tag) => {
+          const value = String(tag || '');
+          return value.startsWith('Filament:')
+            || value.startsWith('Spool:')
+            || value === 'ha_enriched:true';
+        };
         const colors = String(archive?.filament_color || '').split(',').map((value) => value.trim()).filter(Boolean);
-        const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 6);
+        const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).filter((tag) => !isSystemTag(tag)).slice(0, 6);
         const facts = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm layer` : '', archive?.nozzle_diameter ? `${archive.nozzle_diameter}mm nozzle` : '', archive?.object_count ? `${archive.object_count} object${Number(archive.object_count) === 1 ? '' : 's'}` : '', archive?.designer ? `Designer: ${archive.designer}` : ''].filter(Boolean);
         const metadata = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm` : '', archive?.designer || ''].filter(Boolean).join(' · ');
         const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
