@@ -70,31 +70,7 @@ sections:
                     animation: printer-pulse 1.5s ease-in-out infinite;
                   }
                   {% endif %}
-            - type: custom:mushroom-template-card
-              entity: sensor.ntk_ryansoffice_3dprinter_task_name
-              primary: >-
-                {% set name = states('sensor.ntk_ryansoffice_3dprinter_task_name') %}
-                {% if name in ['unknown', 'unavailable', ''] %}No Active Print
-                {% else %}{{ name }}{% endif %}
-              secondary: >-
-                {% set plate = state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') %}
-                {% if plate is not none and plate | int(0) > 0 %}Plate {{ plate }}{% endif %}
-              icon: mdi:cube-outline
-              icon_color: >-
-                {% if states('sensor.ntk_ryansoffice_3dprinter_task_name') in ['unknown', 'unavailable', ''] %}grey{% else %}blue{% endif %}
-              tap_action:
-                action: more-info
-              card_mod:
-                style: |
-                  .primary {
-                    white-space: normal !important;
-                    overflow: visible !important;
-                    text-overflow: unset !important;
-                    font-size: 12px !important;
-                    line-height: 1.3 !important;
-                    word-break: break-word !important;
-                  }
-            - !include ../../common/dashboard_cards/print-detail-chips.yaml
+            - !include ../../common/dashboard_cards/home_title_separator.yaml
       grid_options:
         columns: full
         rows: auto
