@@ -130,8 +130,9 @@ card:
         action: more-info
   styles: >-
     ${(() => {
-      const darkMode = typeof hass !== 'undefined'
-        ? Boolean(hass?.themes?.darkMode)
+      const homeAssistantApp = document.querySelector('home-assistant');
+      const darkMode = homeAssistantApp?.hass
+        ? Boolean(homeAssistantApp.hass.themes?.darkMode)
         : Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
       const logoUrl = darkMode
         ? '/local/3d_printing/common/bambu-lab-header-logo-dark.svg'
