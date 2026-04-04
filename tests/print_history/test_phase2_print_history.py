@@ -819,6 +819,19 @@ class TestScripts(unittest.TestCase):
             "Re-enrich must not overwrite archived color with live Spoolman color",
         )
 
+    def test_reenrich_script_does_not_map_slot_id_to_ams_tray(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertNotIn("ns.tray_map.get(slot_id", content)
+        self.assertNotIn("tray_code = 'A' ~ (slot_id | int(0))", content)
+        self.assertIn("multiple archived AMS trays matched type+color", content)
+
+    def test_reenrich_script_treats_duplicate_matches_as_ambiguity(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("candidate_ambiguities", content)
+        self.assertIn("multiple Spoolman spools matched type+color", content)
+        self.assertIn("Print History Re-Enrich Saved With Ambiguities", content)
+        self.assertNotIn("selectattr('attributes.location', 'equalto', 'AMS')", content)
+
     def test_navigate_history_supports_all_directions(self):
         content = (HISTORY / "scripts" / "navigate_history.yaml").read_text("utf-8")
         for direction in ("prev", "next", "first", "last"):
