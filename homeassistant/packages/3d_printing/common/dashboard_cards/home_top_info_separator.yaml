@@ -143,6 +143,8 @@ card:
           justify-content: flex-start !important;
           gap: 8px !important;
           overflow: visible !important;
+          width: 100% !important;
+          min-width: 0 !important;
         }
         .bubble-icon {
           opacity: 0 !important;
@@ -185,11 +187,13 @@ card:
           overflow-y: hidden !important;
           scrollbar-width: none !important;
           -ms-overflow-style: none !important;
-          width: calc(100% - 100px) !important;
-          max-width: calc(100% - 100px) !important;
+          flex: 1 1 auto !important;
+          width: auto !important;
+          max-width: none !important;
           min-width: 0 !important;
           padding-top: 0 !important;
           padding-bottom: 0 !important;
+          padding-right: 0 !important;
           gap: 6px !important;
         }
         .bubble-sub-button-container::-webkit-scrollbar,

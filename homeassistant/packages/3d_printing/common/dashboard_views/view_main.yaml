@@ -6,6 +6,10 @@ sections:
 - !include ../../error_alerts/dashboard_cards/error-alert-section.yaml
 - type: grid
   cards:
+    - !include ../../common/dashboard_cards/home_top_info_separator.yaml
+  column_span: 3
+- type: grid
+  cards:
     - type: horizontal-stack
       cards:
         - type: picture-entity
@@ -454,5 +458,3 @@ sections:
         columns: 3
         rows: auto
 badges: []
-header:
-  card: !include ../../common/dashboard_cards/home_top_info_separator.yaml
