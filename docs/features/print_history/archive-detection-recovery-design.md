@@ -2,6 +2,14 @@
 
 > Analysis based on Bambuddy source (`maziggy/bambuddy`) and `ha_bambulab` source (`greghesp/ha-bambulab`) as reviewed on 2026-03-29.
 
+Related documents:
+
+- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](archive-runtime-field-impact-matrix.md)
+- [archive-runtime-repair-deployment-options.md](archive-runtime-repair-deployment-options.md)
+- [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
+- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
+
 ## Goal
 
 Add Home Assistant-side detection, exception surfacing, and best-effort recovery workflows for Bambuddy archives that were created through the fallback `no_3mf_available` path.
@@ -104,6 +112,12 @@ If `n8n` is not available initially, a local `shell_command` bridge may be used 
 ### Explicit deferral
 
 A dedicated sidecar service is deferred until there is evidence that recovery behavior is common enough to justify a maintained API boundary.
+
+For the current canonical runtime-repair options that sit alongside this detection-and-recovery design, see:
+
+- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
+- [archive-runtime-repair-deployment-options.md](archive-runtime-repair-deployment-options.md)
+- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
 
 ## Feasible Recovery Paths Without Changing Bambuddy
 
@@ -245,6 +259,12 @@ Implication:
 
 - the best current recovery behavior is to preserve original `started_at`, `completed_at`, and `actual_time_seconds` in machine-parseable notes
 - if canonical timestamp restoration becomes a requirement, that needs either a Bambuddy code change to widen the update schema or a direct database repair path outside the supported API
+
+The direct DB repair path, affected field surfaces, and adjacent deployment options are documented in:
+
+- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](archive-runtime-field-impact-matrix.md)
+- [archive-runtime-repair-deployment-options.md](archive-runtime-repair-deployment-options.md)
 
 ### Source project fallback viability
 

@@ -11,6 +11,10 @@ Related documents:
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
 - [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)
 - [archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)
+- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
+- [archive-runtime-field-impact-matrix.md](archive-runtime-field-impact-matrix.md)
+- [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
+- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
 - [../../repo/bambuddy-archive-recovery-approach.md](../../repo/bambuddy-archive-recovery-approach.md)
 
 ## Recommended Delivery Sequence
@@ -22,6 +26,11 @@ Goal: make incomplete Bambuddy archives visible and explainable in Home Assistan
 ### Phase 2: Manual recovery orchestration
 
 Goal: allow a user to trigger repair through an external recovery runner without changing Bambuddy.
+
+This phase now includes the optional canonical-runtime repair path for recovered or manually corrected archives. See:
+
+- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
+- [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
 
 ### Phase 3: Automated recovery orchestration
 
@@ -55,6 +64,10 @@ Best use cases:
 Use a dedicated sidecar service only if recovery becomes frequent enough to justify a maintained API boundary.
 
 This is the cleanest engineering boundary, but not the best first move.
+
+Sidecar API and compose shape:
+
+- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
 
 ## Home Assistant Design Contract
 
@@ -204,6 +217,10 @@ HA should eventually send a POST to an `n8n` webhook with:
 4. if file recovered, upload to Bambuddy via `POST /archives/upload`
 5. tag or annotate old and new archives
 6. return success or failure payload to HA
+
+If the workflow also needs canonical archive runtime repair after upload or after independent operator review, use the repair-script contract documented in:
+
+- [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
 
 ### Expected return payload
 

@@ -6,6 +6,14 @@ Define the recommended approach for handling Bambuddy fallback archives from thi
 
 This document is the repo-level decision record. Feature-level detail lives in [../features/print_history/archive-detection-recovery-design.md](../features/print_history/archive-detection-recovery-design.md).
 
+Additional print_history design references for canonical runtime repair and deployment patterns:
+
+- [../features/print_history/archive-runtime-db-repair-guide.md](../features/print_history/archive-runtime-db-repair-guide.md)
+- [../features/print_history/archive-runtime-field-impact-matrix.md](../features/print_history/archive-runtime-field-impact-matrix.md)
+- [../features/print_history/archive-runtime-repair-deployment-options.md](../features/print_history/archive-runtime-repair-deployment-options.md)
+- [../features/print_history/archive-runtime-repair-script-and-n8n-flow.md](../features/print_history/archive-runtime-repair-script-and-n8n-flow.md)
+- [../features/print_history/archive-runtime-sidecar-api-and-compose.md](../features/print_history/archive-runtime-sidecar-api-and-compose.md)
+
 ## Executive Summary
 
 The recommended approach is a three-part design:
@@ -46,6 +54,11 @@ The recommended orchestration stack is:
 2. **`n8n` for multi-step recovery orchestration**
 3. **`shell_command` only as a fallback bridge for manual recovery or proof-of-concept**
 4. **sidecar service only if recovery frequency or complexity later justifies it**
+
+Those adjacent repair patterns are now documented in the print_history feature docs so the archive-fix plan covers both:
+
+- replacement-archive recovery via `POST /archives/upload`
+- optional canonical runtime repair via direct DB repair tooling or a sidecar/admin boundary
 
 ### Explicitly not chosen
 
@@ -185,3 +198,5 @@ Proceed with design-first implementation planning inside `print_history` only:
 3. define the rest-command and script interfaces for archive integrity checks
 4. define the HA-to-`n8n` recovery contract, but do not implement it yet
 5. leave actual recovery execution external until the detection layer is stable
+
+That planning surface now includes the dedicated runtime-repair docs under `docs/features/print_history/` so archive-fix design covers both replacement-archive recovery and canonical runtime correction.
