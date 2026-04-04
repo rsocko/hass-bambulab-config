@@ -140,7 +140,9 @@ card:
       return `
         .bubble-container {
           align-items: center !important;
-          gap: 10px !important;
+          justify-content: flex-start !important;
+          gap: 8px !important;
+          overflow: visible !important;
         }
         .bubble-icon {
           opacity: 0 !important;
@@ -152,8 +154,8 @@ card:
         }
         .bubble-name {
           display: block !important;
-          width: 108px !important;
-          min-width: 108px !important;
+          width: 92px !important;
+          min-width: 92px !important;
           height: 34px !important;
           min-height: 34px !important;
           white-space: nowrap !important;
@@ -164,7 +166,8 @@ card:
           color: transparent !important;
           min-height: 34px !important;
           padding-left: 0 !important;
-          background: left center / 108px 34px no-repeat url('${logoUrl}') !important;
+          margin: 0 !important;
+          background: left center / 92px 34px no-repeat url('${logoUrl}') !important;
         }
         .bubble-line {
           display: none !important;
@@ -177,11 +180,25 @@ card:
         .bubble-sub-buttons-container {
           right: 0 !important;
           justify-content: flex-start !important;
-          flex-wrap: wrap !important;
+          flex-wrap: nowrap !important;
+          overflow-x: auto !important;
+          overflow-y: hidden !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+          width: calc(100% - 100px) !important;
+          max-width: calc(100% - 100px) !important;
+          min-width: 0 !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
           gap: 6px !important;
+        }
+        .bubble-sub-button-container::-webkit-scrollbar,
+        .bubble-sub-buttons-container::-webkit-scrollbar {
+          display: none !important;
         }
         .bubble-sub-button {
           min-height: 28px !important;
+          flex: 0 0 auto !important;
           background: rgba(255, 255, 255, 0.06) !important;
           box-shadow: none !important;
         }
