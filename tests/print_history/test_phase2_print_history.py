@@ -1068,7 +1068,41 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
 
 
 # =============================================================================
-# 15. TAG COLOR CONSISTENCY
+# 15. POPUP AND SAVE REGRESSIONS
+# =============================================================================
+
+class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
+    """Archive popup should hide system metadata while preserving it on save."""
+
+    def test_popup_wrapper_filters_lowercase_system_tags_for_editing(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup.yaml").read_text("utf-8")
+        self.assertIn("const systemTagPrefixes = ['filament:', 'spool:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];", content)
+        self.assertIn("const systemTagValues = ['ha_enriched:true'];", content)
+        self.assertIn("systemTagPrefixes.some((prefix) => normalized.startsWith(prefix))", content)
+        self.assertIn("const archiveUserTags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
+
+    def test_popup_content_shows_only_user_notes_and_filtered_tags(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("const notesInfo = splitArchiveNotes(archive?.notes);", content)
+        self.assertIn("const tags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
+        self.assertIn("notesInfo.userNotes", content)
+        self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];", content)
+        self.assertIn(">Filament Colors<", content)
+        self.assertIn(">Enrichment<", content)
+
+    def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
+        content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
+        self.assertIn("existing_tags_raw", content)
+        self.assertIn("existing_notes_suffix", content)
+        self.assertIn("existing_tags_raw.split(',')", content)
+        self.assertIn("lowered.startswith('spool:')", content)
+        self.assertIn("lowered.startswith('vendor:')", content)
+        self.assertIn("resolved_user_tags + preserved_system_tags", content)
+        self.assertIn("existing_notes_suffix | length > 0", content)
+
+
+# =============================================================================
+# 16. TAG COLOR CONSISTENCY
 # =============================================================================
 
 class TestPrintHistoryTagColors(unittest.TestCase):
@@ -1106,7 +1140,7 @@ class TestPrintHistoryTagColors(unittest.TestCase):
 
 
 # =============================================================================
-# 16. PHOTO CAPTURE FLOW VALIDATION
+# 17. PHOTO CAPTURE FLOW VALIDATION
 # =============================================================================
 
 class TestPhotoCaptureFlow(unittest.TestCase):
