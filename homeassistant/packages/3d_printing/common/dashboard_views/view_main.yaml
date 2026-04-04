@@ -70,7 +70,31 @@ sections:
                     animation: printer-pulse 1.5s ease-in-out infinite;
                   }
                   {% endif %}
-            - !include ../../common/dashboard_cards/home_title_separator.yaml
+            - type: custom:mushroom-template-card
+              entity: sensor.ntk_ryansoffice_3dprinter_task_name
+              primary: >-
+                {% set name = states('sensor.ntk_ryansoffice_3dprinter_task_name') %}
+                {% if name in ['unknown', 'unavailable', ''] %}No Active Print
+                {% else %}{{ name }}{% endif %}
+              secondary: >-
+                {% set plate = state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') %}
+                {% if plate is not none and plate | int(0) > 0 %}Plate {{ plate }}{% endif %}
+              icon: mdi:cube-outline
+              icon_color: >-
+                {% if states('sensor.ntk_ryansoffice_3dprinter_task_name') in ['unknown', 'unavailable', ''] %}grey{% else %}blue{% endif %}
+              tap_action:
+                action: more-info
+              card_mod:
+                style: |
+                  .primary {
+                    white-space: normal !important;
+                    overflow: visible !important;
+                    text-overflow: unset !important;
+                    font-size: 12px !important;
+                    line-height: 1.3 !important;
+                    word-break: break-word !important;
+                  }
+            - !include ../../common/dashboard_cards/print-detail-chips.yaml
       grid_options:
         columns: full
         rows: auto
@@ -429,69 +453,6 @@ sections:
       grid_options:
         columns: 3
         rows: auto
-badges:
-- type: entity
-  show_name: false
-  show_state: true
-  show_icon: true
-  entity: input_boolean.screenshot_mode
-  icon: mdi:eye-off
-- type: entity
-  show_name: false
-  show_state: true
-  show_icon: true
-  entity: sensor.3d_printer_ip_address_display
-  icon: mdi:ip-network
-- type: entity
-  show_name: true
-  show_state: true
-  show_icon: true
-  name: MQTT Mode
-  entity: sensor.ntk_ryansoffice_3dprinter_mqtt_connection_mode
-  icon: mdi:connection
-- type: entity
-  show_name: true
-  show_state: true
-  show_icon: true
-  name: SD Card Status
-  entity: sensor.3d_printer_sd_card_status
-  icon: mdi:sd
-- type: entity
-  show_name: true
-  show_state: true
-  show_icon: true
-  name: Serial Number
-  entity: sensor.3d_printer_serial_number_display
-  icon: mdi:barcode
-- type: entity
-  show_name: true
-  show_state: true
-  show_icon: true
-  name: Total Usage
-  entity: sensor.ntk_ryansoffice_3dprinter_total_usage
-  icon: mdi:timer
-- type: entity
-  show_name: true
-  show_state: true
-  show_icon: true
-  name: Wi-Fi Signal
-  entity: sensor.ntk_ryansoffice_3dprinter_wifi_signal
-  icon: mdi:wifi
-- type: entity
-  show_name: true
-  show_state: true
-  show_icon: true
-  name: Timelapse
-  entity: binary_sensor.ntk_ryansoffice_3dprinter_recording_timelapse
-  icon: mdi:video
+badges: []
 header:
-card:
-  type: markdown
-  text_only: true
-  content: |
-    <div style="display:flex;align-items:center;padding:4px 0;">
-      <div style="text-align:right;line-height:1.4;flex:1;">
-        <div style="font-size:11px;font-weight:400;opacity:0.55;">3D Printer</div>
-        <div style="font-size:22px;font-weight:700;">{{ states('sensor.3d_printer_name_display') }}</div>
-      </div>
-    </div>
+  card: !include ../../common/dashboard_cards/home_top_info_separator.yaml
