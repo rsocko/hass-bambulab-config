@@ -9,6 +9,7 @@
         - sensor.print_history_archives
         - sensor.print_history_filtered
         - input_select.print_history_filter_status
+        - input_select.print_history_filter_enrichment_status
         - input_select.print_history_filter_material
         - input_select.print_history_filter_printer
         - input_select.print_history_filter_date_range
@@ -40,6 +41,7 @@
             {% set archives = [] %}
           {% endif %}
           {%- set filter_status = states('input_select.print_history_filter_status') -%}
+          {%- set filter_enrichment_status = states('input_select.print_history_filter_enrichment_status') -%}
           {%- set filter_material = states('input_select.print_history_filter_material') -%}
           {%- set filter_printer = states('input_select.print_history_filter_printer') -%}
           {%- set filter_date = states('input_select.print_history_filter_date_range') -%}
@@ -61,7 +63,18 @@
           {%- set ns = namespace(matches=[]) -%}
           {%- for a in archives -%}
             {%- set raw_status = a.get('status', '') | string | lower -%}
-            {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status == 'failed' else 'cancelled' if raw_status in ['cancelled', 'aborted', 'stopped'] else raw_status -%}
+            {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status == 'failed' else 'cancelled' if raw_status in ['cancelled', 'aborted', 'stopped'] else 'printing' if raw_status == 'printing' else raw_status -%}
+            {%- set notes_raw = a.get('notes', '') | string -%}
+            {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
+            {%- set marker_index = notes_raw.find(enrichment_marker) -%}
+            {%- if marker_index >= 0 -%}
+              {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
+              {%- set enrichment_payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} -%}
+            {%- else -%}
+              {%- set enrichment_payload = {} -%}
+            {%- endif -%}
+            {%- set enrichment_status = enrichment_payload.get('status', '') | string | lower if enrichment_payload is mapping else '' -%}
+            {%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}
@@ -91,6 +104,7 @@
             {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
             {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
             {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
+            {%- set matches_enrichment_status = filter_enrichment_status == 'All' or enrichment_status == filter_enrichment_status | lower -%}
             {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
             {%- set color_match = namespace(value=(selected_colors | length == 0)) -%}
             {%- if not color_match.value -%}
@@ -123,7 +137,7 @@
             {%- else -%}
               {%- set matches_date = true -%}
             {%- endif -%}
-            {%- if matches_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_project and matches_layer_height and matches_tag and matches_search and matches_selected_day and matches_date -%}
+            {%- if matches_status and matches_enrichment_status and matches_material and matches_color and matches_printer and matches_favorite and matches_designer and matches_project and matches_layer_height and matches_tag and matches_search and matches_selected_day and matches_date -%}
               {%- set ns.matches = ns.matches + [a] -%}
             {%- endif -%}
           {%- endfor -%}

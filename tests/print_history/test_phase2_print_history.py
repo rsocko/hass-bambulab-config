@@ -243,6 +243,7 @@ class TestFileInventory(unittest.TestCase):
         "input_select_bambuddy_photo_review_state.yaml",
         "input_select_print_history_activity_metric.yaml",
         "input_select_print_history_filter_status.yaml",
+        "input_select_print_history_filter_enrichment_status.yaml",
         "input_select_print_history_filter_material.yaml",
         "input_select_print_history_filter_color.yaml",
         "input_select_print_history_filter_printer.yaml",
@@ -712,6 +713,26 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{% set ns.entries = ns.entries + [dict(color=color_key, names=[name])] %}", content)
         self.assertIn("{% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}", content)
 
+    def test_status_filters_split_archive_and_enrichment_status(self):
+        filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        page_content = (HISTORY / "template_sensors" / "print_history_archive_data.yaml").read_text("utf-8")
+        browser_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
+
+        self.assertIn("{%- set raw_status = a.get('status', '') | string | lower -%}", filtered_content)
+        self.assertIn("{%- set status = 'completed' -%}", filtered_content)
+        self.assertIn("{%- set filter_enrichment_status = states('input_select.print_history_filter_enrichment_status') -%}", filtered_content)
+        self.assertIn("{%- set notes_raw = a.get('notes', '') | string -%}", filtered_content)
+        self.assertIn("{%- set enrichment_status = enrichment_payload.get('status', '') | string | lower if enrichment_payload is mapping else '' -%}", filtered_content)
+        self.assertIn("{%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}", filtered_content)
+        self.assertIn("{%- set matches_enrichment_status = filter_enrichment_status == 'All' or enrichment_status == filter_enrichment_status | lower -%}", filtered_content)
+        self.assertIn("{%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}", page_content)
+        self.assertIn("input_select.print_history_filter_enrichment_status", browser_content)
+        self.assertIn("name: Enrichment", browser_content)
+        self.assertIn("name: Clear Enrichment Filter", browser_content)
+        self.assertIn("name: Clear", browser_content)
+        self.assertIn("service: script.clear_print_history_filters", browser_content)
+        self.assertNotIn("name: Clear Filters", browser_content)
+
 
 class TestHeatmapActivityCard(unittest.TestCase):
     """Heatmap card logic should match the projected archive schema and metric labels."""
@@ -891,17 +912,26 @@ class TestHelpers(unittest.TestCase):
                     self.assertNotIn("Filament Uses", options)
                     self.assertNotIn("Number of Different Filaments", options)
 
-    def test_status_helpers_use_cancelled_consistently(self):
+    def test_status_helpers_use_separate_archive_and_enrichment_statuses(self):
         filter_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_status.yaml"
+        enrichment_filter_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_enrichment_status.yaml"
         popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_status.yaml"
         filter_data = _load_yaml_safe(filter_path)
+        enrichment_filter_data = _load_yaml_safe(enrichment_filter_path)
         popup_data = _load_yaml_safe(popup_path)
 
         filter_options = next(iter(filter_data.values())).get("options", []) if isinstance(filter_data, dict) else []
+        enrichment_filter_options = next(iter(enrichment_filter_data.values())).get("options", []) if isinstance(enrichment_filter_data, dict) else []
         popup_options = next(iter(popup_data.values())).get("options", []) if isinstance(popup_data, dict) else []
 
-        self.assertIn("Cancelled", filter_options)
-        self.assertNotIn("Stopped", filter_options)
+        self.assertEqual(
+            filter_options,
+            ["All", "Completed", "Failed", "Cancelled", "Printing"],
+        )
+        self.assertEqual(
+            enrichment_filter_options,
+            ["All", "Complete", "Partial", "Unavailable", "Not Defined"],
+        )
         self.assertIn("Cancelled", popup_options)
         self.assertNotIn("Aborted", popup_options)
 
@@ -934,6 +964,7 @@ class TestCrossReferences(unittest.TestCase):
         "input_number.print_history_max_archives",
         "input_select.bambuddy_photo_review_state",
         "input_select.print_history_filter_status",
+        "input_select.print_history_filter_enrichment_status",
         "input_select.print_history_filter_material",
         "input_select.print_history_filter_color",
         "input_select.print_history_filter_printer",

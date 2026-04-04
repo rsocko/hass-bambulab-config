@@ -86,6 +86,7 @@ cards:
       .bubble-sub-button-container,
       .bubble-sub-buttons-container {
         gap: 8px !important;
+        - input_select.print_history_filter_enrichment_status
       }
       .bubble-sub-button-icon {
         --mdc-icon-size: 18px !important;
@@ -94,6 +95,7 @@ cards:
   - type: custom:config-template-card
     entities:
       - input_select.print_history_filter_status
+      - input_select.print_history_filter_enrichment_status
       - input_select.print_history_filter_material
       - input_select.print_history_filter_printer
       - input_select.print_history_filter_date_range
@@ -132,6 +134,16 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.print_history_filter_status']?.state !== (states['input_select.print_history_filter_status']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_status']?.state !== (states['input_select.print_history_filter_status']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_enrichment_status
+                sub_button_type: select
+                name: Enrichment
+                icon: mdi:database-search-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_enrichment_status']?.state !== (states['input_select.print_history_filter_enrichment_status']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_enrichment_status']?.state !== (states['input_select.print_history_filter_enrichment_status']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.print_history_filter_material
                 sub_button_type: select
@@ -272,6 +284,7 @@ cards:
       - type: custom:config-template-card
         entities:
           - input_select.print_history_filter_status
+          - input_select.print_history_filter_enrichment_status
           - input_select.print_history_filter_material
           - input_select.print_history_filter_printer
           - input_select.print_history_filter_date_range
@@ -311,6 +324,7 @@ cards:
                   pointer-events: auto !important;
                 }
                 .bubble-sub-button.clear-status-filter,
+                .bubble-sub-button.clear-enrichment-filter,
                 .bubble-sub-button.clear-material-filter,
                 .bubble-sub-button.clear-printer-filter,
                 .bubble-sub-button.clear-date-filter,
@@ -327,6 +341,7 @@ cards:
                   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
                 }
                 .bubble-sub-button.clear-status-filter ha-icon,
+                .bubble-sub-button.clear-enrichment-filter ha-icon,
                 .bubble-sub-button.clear-material-filter ha-icon,
                 .bubble-sub-button.clear-printer-filter ha-icon,
                 .bubble-sub-button.clear-date-filter ha-icon,
@@ -377,6 +392,26 @@ cards:
                 service: input_select.select_option
                 target:
                   entity_id: input_select.print_history_filter_status
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_enrichment_status
+              sub_button_type: default
+              name: Clear Enrichment Filter
+              icon: mdi:database-search-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_enrichment_status
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_enrichment_status
                 data:
                   option: "All"
             - entity: input_select.print_history_filter_material
@@ -597,12 +632,16 @@ cards:
                   entity_id: input_text.print_history_activity_selected_date
                 data:
                   value: ""
-            - name: Clear Filters
+            - sub_button_type: default
+              name: Clear
               icon: mdi:filter-remove
+              show_icon: true
               show_name: true
+              show_state: false
               show_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
               state_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
               state_color: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              fill_width: false
               tap_action:
                 action: call-service
                 service: script.clear_print_history_filters

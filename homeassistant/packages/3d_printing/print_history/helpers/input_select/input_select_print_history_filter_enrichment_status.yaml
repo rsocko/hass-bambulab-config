@@ -1,0 +1,10 @@
+print_history_filter_enrichment_status:
+  name: Print History Filter Enrichment Status
+  icon: mdi:database-search-outline
+  options:
+    - All
+    - Complete
+    - Partial
+    - Unavailable
+    - Not Defined
+  initial: All

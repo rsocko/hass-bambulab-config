@@ -9,6 +9,10 @@ clear_print_history_filters:
         option: All
     - action: input_select.select_option
       data:
+        entity_id: input_select.print_history_filter_enrichment_status
+        option: All
+    - action: input_select.select_option
+      data:
         entity_id: input_select.print_history_filter_material
         option: All
     - action: input_select.select_option
