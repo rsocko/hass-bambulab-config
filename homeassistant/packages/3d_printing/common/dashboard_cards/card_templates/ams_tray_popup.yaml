@@ -172,6 +172,17 @@ ams_tray_popup:
       const spoolUUID = spoolEntity?.attributes?.extra_spool_uuid || '';
       const shouldOfferSetUUID = !spoolUUID && hasValidTrayUUID;
       const filamentId = spoolEntity?.attributes?.filament_id;
+      const price = spoolEntity?.attributes?.price || spoolEntity?.attributes?.filament_price || null;
+      const purchasedFrom = spoolEntity?.attributes?.extra_purchased_from || '';
+      const purchaseDate = spoolEntity?.attributes?.extra_purchase_date || '';
+      const formattedPurchaseDate = purchaseDate
+        ? new Date(purchaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+      const purchaseParts = [];
+      if (formattedPurchaseDate) purchaseParts.push('Purchased on ' + formattedPurchaseDate);
+      if (purchasedFrom) purchaseParts.push('from ' + purchasedFrom);
+      const purchaseText = purchaseParts.join(' ');
+      const priceText = price ? '$' + Number(price).toFixed(2) : '';
       // Multi-color spool support (multiColorHexesRaw declared earlier for effective color)
       const multiColorDirection = spoolEntity?.attributes?.filament_multi_color_direction || '';
       const isMultiColor = !!multiColorHexesRaw;
@@ -1341,6 +1352,14 @@ ams_tray_popup:
                     }
                   }
                 },
+                ...((purchaseText || priceText) ? [{
+                  type: 'custom:mushroom-chips-card',
+                  alignment: 'center',
+                  chips: [
+                    ...(purchaseText ? [{ type: 'template', icon: 'mdi:shopping', icon_color: 'amber', content: purchaseText }] : []),
+                    ...(priceText ? [{ type: 'template', icon: 'mdi:currency-usd', icon_color: 'amber', content: priceText }] : [])
+                  ]
+                }] : []),
                 ...(usedNonFirstMultiHex ? [
                   {
                     type: 'custom:mushroom-template-card',

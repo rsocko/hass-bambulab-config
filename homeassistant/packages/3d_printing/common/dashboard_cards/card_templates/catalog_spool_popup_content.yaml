@@ -110,15 +110,16 @@ catalog_spool_popup_content:
         // Purchase info
         const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
         const purchaseDate = entity?.attributes?.extra_purchase_date || '';
-        let purchaseHTML = '';
-        if (purchasedFrom || purchaseDate || price) {
-          let parts = [];
-          if (purchasedFrom) parts.push('Purchased from ' + purchasedFrom);
-          if (purchaseDate) parts.push('on ' + new Date(purchaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
-          if (price) parts.push('for $' + Number(price).toFixed(2));
-          const txt = parts.join(' ');
-          purchaseHTML = '<div style="text-align:center;margin:4px 0;"><span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:shopping" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + txt + '</span></div>';
-        }
+          const purchaseParts = [];
+          if (purchaseDate) purchaseParts.push('Purchased on ' + new Date(purchaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+          if (purchasedFrom) purchaseParts.push('from ' + purchasedFrom);
+          const purchaseText = purchaseParts.join(' ');
+          const purchaseHTML = purchaseText
+            ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:shopping" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + purchaseText + '</span>'
+            : '';
+          const priceHTML = price
+            ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>$' + Number(price).toFixed(2) + '</span>'
+            : '';
 
         // Print settings
         const extTemp = entity?.attributes?.filament_settings_extruder_temp;
@@ -174,7 +175,7 @@ catalog_spool_popup_content:
 
             <!-- Purchase / Settings -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
-              ${purchaseHTML}${settingsHTML}
+              ${purchaseHTML}${priceHTML}${settingsHTML}
             </div>
           </div>
         `;
