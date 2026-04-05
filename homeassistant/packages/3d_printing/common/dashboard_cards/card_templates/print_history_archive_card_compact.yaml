@@ -152,8 +152,9 @@ print_history_archive_card_compact:
           return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));
         };
         const notesInfo = splitArchiveNotes(archive?.notes);
-        const enrichmentRows = Array.isArray(notesInfo.payload?.Filaments) ? notesInfo.payload.Filaments : [];
-        const enrichmentStatusRaw = String(notesInfo.payload?.status || '').toLowerCase();
+        const enrichmentPayload = notesInfo.payload;
+        const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];
+        const enrichmentStatusRaw = String(enrichmentPayload?.status || '').toLowerCase();
         const enrichmentStatusLabel = enrichmentStatusRaw
           ? enrichmentStatusRaw.charAt(0).toUpperCase() + enrichmentStatusRaw.slice(1)
           : 'Unavailable';
