@@ -10,8 +10,8 @@ a template, update the corresponding file here so the repo stays current.
 |------|--------------|---------|
 | `ams_header.yaml` | `ams_header` | AMS unit header separator — bubble-card with dynamic humidity/temperature indicators |
 | `ams_tray_label.yaml` | `ams_tray_label` | Slot label card (A1, A2, B1, etc.) — shows tray name + active-spool highlight |
-| `ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — filament name, desiccant status, remaining weight, print weight |
-| `ams_tray_popup.yaml` | `ams_tray_popup` | Tap-action popup — spool info dialog (inherited by `ams_tray_detail`) |
+| `ams_tray_detail.yaml` | `ams_tray_detail` | Full tray info card — filament name, desiccant status, remaining weight, print weight, and AMS/Spoolman mismatch marker |
+| `ams_tray_popup.yaml` | `ams_tray_popup` | Tap-action popup — spool info dialog (inherited by `ams_tray_detail`), including AMS/Spoolman mismatch warning below Remaining |
 
 ### Template Inheritance
 
@@ -150,6 +150,11 @@ Threshold logic is evaluated in Fahrenheit internally. If the source sensor is i
 | `trayLabel` | Yes | Human-readable label shown in the popup header (e.g. `AMS 1 · Slot 1`) |
 | `trayEntityId` | Yes | Entity ID of the AMS tray sensor |
 | `printWeightKey` | Yes | Logical key used to read per-tray print weight (`AMS 1 Tray 1`, etc.) from live print-weight attributes, with fallback to `input_text.print_weight_backup` after restart |
+
+Additional behavior:
+- `ams_tray_detail` shows a magenta `?` marker next to remaining weight when AMS `remain` and Spoolman remaining percentage differ by at least 15 percentage points
+- `ams_tray_popup` shows a matching magenta summary line below the Remaining card: `AMS X% vs Spoolman Y%`
+- The mismatch indicator is informational and intentionally uses `#d946ef` so it is visually distinct from the print sufficiency red/orange/yellow palette
 
 ## Sensor References
 

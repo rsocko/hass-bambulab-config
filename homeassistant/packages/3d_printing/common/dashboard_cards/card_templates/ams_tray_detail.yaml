@@ -77,15 +77,47 @@ ams_tray_detail:
         const tray = variables.tray;
         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
         const spoolId = map?.[tray]?.spool_id;
+        const trayEntity = states[variables.trayEntityId];
+        const mismatchThresholdPercent = 15;
+        const mismatchColor = '#d946ef';
         
         if (!spoolId) return '';
         
         const spoolEntity = states[`sensor.spoolman_spool_${spoolId}`];
         const weight = spoolEntity?.attributes?.remaining_weight;
+        const readPositiveNumber = (...values) => {
+          for (const value of values) {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && numeric > 0) return numeric;
+          }
+          return null;
+        };
+        const initialWeight = readPositiveNumber(
+          spoolEntity?.attributes?.initial_weight,
+          spoolEntity?.attributes?.filament_weight
+        );
+        const amsRemainPercentRaw = Number(trayEntity?.attributes?.remain);
+        const amsRemainPercent = Number.isFinite(amsRemainPercentRaw) && amsRemainPercentRaw >= 0 && amsRemainPercentRaw <= 100
+          ? amsRemainPercentRaw
+          : null;
+        const spoolRemainPercent = initialWeight !== null && Number.isFinite(Number(weight))
+          ? Math.max(0, Math.min(100, (Number(weight) / initialWeight) * 100))
+          : null;
+        const mismatchPercent = amsRemainPercent !== null && spoolRemainPercent !== null
+          ? Math.abs(amsRemainPercent - spoolRemainPercent)
+          : null;
+        const showMismatchWarning = mismatchPercent !== null && mismatchPercent >= mismatchThresholdPercent;
         
         if (weight === undefined || weight === null) return '';
+
+        const mismatchTooltip = showMismatchWarning
+          ? `Spool weight and AMS calculated weight differ by > ${mismatchThresholdPercent}% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately. AMS ${Math.round(amsRemainPercent)}% vs Spoolman ${Math.round(spoolRemainPercent)}%.`
+          : '';
+        const warningMarker = showMismatchWarning
+          ? `<span title="${mismatchTooltip}" style="font-size: 12px; line-height: 1; color: ${mismatchColor}; font-weight: 700; cursor: help;">?</span>`
+          : '';
         
-        return `<div style="display: flex; align-items: center; justify-content: flex-end; gap: 2px;"><span style="font-size: 12px; color: #888;">${weight.toFixed(1)}g</span><ha-icon icon="fapro:filament-2" style="--mdc-icon-size: 12px; color: #888;"></ha-icon></div>`;
+        return `<div style="display: flex; align-items: center; justify-content: flex-end; gap: 2px;"><span style="font-size: 12px; color: #888;">${weight.toFixed(1)}g</span>${warningMarker}<ha-icon icon="fapro:filament-2" style="--mdc-icon-size: 12px; color: #888;"></ha-icon></div>`;
       ]]]
     print_weight: |
       [[[

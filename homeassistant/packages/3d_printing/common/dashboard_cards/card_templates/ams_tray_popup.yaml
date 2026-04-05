@@ -137,6 +137,23 @@ ams_tray_popup:
         && !['none', 'unknown', 'unavailable'].includes(trayUUIDNormalized)
         && !/^0+$/.test(trayUUIDNormalized);
       const remainingWeight = spoolEntity?.attributes?.remaining_weight;
+      const readPositiveNumber = function() {
+        for (let index = 0; index < arguments.length; index += 1) {
+          const numeric = Number(arguments[index]);
+          if (Number.isFinite(numeric) && numeric > 0) return numeric;
+        }
+        return null;
+      };
+      const mismatchThresholdPercent = 15;
+      const mismatchColor = '#d946ef';
+      const spoolInitialWeight = readPositiveNumber(
+        spoolEntity?.attributes?.initial_weight,
+        spoolEntity?.attributes?.filament_weight
+      );
+      const spoolRemainingWeight = Number(remainingWeight);
+      const spoolRemainingPercent = Number.isFinite(spoolRemainingWeight) && spoolInitialWeight !== null
+        ? Math.max(0, Math.min(100, (spoolRemainingWeight / spoolInitialWeight) * 100))
+        : null;
       const firstUsed = spoolEntity?.attributes?.first_used;
       const material = spoolEntity?.attributes?.filament_material || 'Unknown';
       const vendor = spoolEntity?.attributes?.filament_vendor_name || 'Unknown';
@@ -826,6 +843,19 @@ ams_tray_popup:
       const amsRemainPercent = (!isExternalSpool && trayEntity?.attributes?.remain !== undefined && trayEntity?.attributes?.remain !== null)
         ? Number(trayEntity.attributes.remain)
         : null;
+      const normalizedAmsRemainPercent = Number.isFinite(amsRemainPercent) && amsRemainPercent >= 0 && amsRemainPercent <= 100
+        ? amsRemainPercent
+        : null;
+      const weightMismatchPercent = normalizedAmsRemainPercent !== null && spoolRemainingPercent !== null
+        ? Math.abs(normalizedAmsRemainPercent - spoolRemainingPercent)
+        : null;
+      const showWeightMismatchWarning = weightMismatchPercent !== null && weightMismatchPercent >= mismatchThresholdPercent;
+      const weightMismatchTooltip = showWeightMismatchWarning
+        ? 'Spool weight and AMS calculated weight differ by > ' + mismatchThresholdPercent + '% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately.'
+        : '';
+      const weightMismatchSummary = showWeightMismatchWarning
+        ? 'AMS ' + Math.round(normalizedAmsRemainPercent) + '% vs Spoolman ' + Math.round(spoolRemainingPercent) + '%'
+        : '';
       const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
         ? Number(remainingWeight)
         : null;
@@ -1386,14 +1416,26 @@ ams_tray_popup:
                           type: 'horizontal-stack',
                           cards: [
                             {
-                              type: 'custom:mushroom-template-card',
-                              primary: weightText,
-                              secondary: 'Remaining',
-                              icon: 'mdi:weight-gram',
-                              icon_color: 'teal',
-                              tap_action: openWeightEditorAction,
-                              layout: 'vertical',
-                              fill_container: true
+                              type: 'vertical-stack',
+                              cards: [
+                                {
+                                  type: 'custom:mushroom-template-card',
+                                  primary: weightText,
+                                  secondary: 'Remaining',
+                                  icon: 'mdi:weight-gram',
+                                  icon_color: 'teal',
+                                  tap_action: openWeightEditorAction,
+                                  layout: 'vertical',
+                                  fill_container: true
+                                },
+                                ...(showWeightMismatchWarning ? [{
+                                  type: 'markdown',
+                                  content: '<div style="margin-top: -8px; text-align: center; font-size: 12px; font-weight: 600; color: ' + mismatchColor + ';"><span title="' + weightMismatchTooltip + '">' + weightMismatchSummary + '</span></div>',
+                                  card_mod: {
+                                    style: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; min-height: 0 !important; } ha-markdown { padding: 0 !important; }'
+                                  }
+                                }] : [])
+                              ]
                             },
                             {
                               type: 'custom:mushroom-template-card',

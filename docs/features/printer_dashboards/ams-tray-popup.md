@@ -20,6 +20,7 @@ The popup is built entirely in JavaScript at click-time — all values are live 
 | Color Family | `filament_extra_color_family` attribute (e.g. Blacks & Whites, Browns, Rainbow) |
 | Filament attributes | `filament_extra_type_details` attribute (e.g. Matte, Metallic, Silk) |
 | Remaining weight | `remaining_weight` attribute |
+| AMS vs Spoolman mismatch warning | Tray `remain` percent compared against Spoolman remaining percent (`remaining_weight / initial_weight`) |
 | Total weight (all spools) | Sum of `remaining_weight` across all spools sharing same `filament_id` |
 | Current print usage | `sensor.ntk_ryansoffice_3dprinter_print_weight` |
 | Last dried date | `extra_last_dried` attribute |
@@ -69,6 +70,9 @@ Single `custom:mushroom-chips-card` with `alignment: 'center'` and three compact
 ### 6. Remaining / This Print / Total Weight (horizontal)
 Three items in one `horizontal-stack`:
 - **Remaining** — `mdi:weight-gram` teal — current remaining grams for this spool
+  - When the AMS tray's coarse `remain` percentage differs from the Spoolman-derived remaining percentage by at least **15 percentage points**, a magenta warning line appears directly below the Remaining card: `AMS X% vs Spoolman Y%`
+  - The warning uses `#d946ef` to avoid colliding with the existing red/orange/yellow print-runout severity palette
+  - Hovering the warning text shows guidance to review manual spool weight if needed, while noting the AMS may itself be inaccurate
 - **This Print** — grams required by current print job; color-coded to match dashboard: 🟢 green (sufficient, ≥ 20% buffer) → 🟡 yellow (within 20% buffer) → 🟠 orange (within 10% buffer) → 🔴 red with `mdi:printer-3d-nozzle-alert` icon (will run out)
 - **Total (all spools)** — `mdi:layers-triple` cyan — total remaining weight across all spools sharing the same `filament_id` in Spoolman, with spool count (e.g. `1052.4 g (4 spools)`)
 
@@ -216,6 +220,23 @@ const filamentName = spoolEntity?.attributes?.filament_name || material;
 
 The swatch uses `entity: spoolEntityId` in `custom:button-card` so the card automatically resolves and displays the Spoolman entity's icon. The icon is styled with a circular contrasting background (20% opacity black/white based on luminance) and a matching border.
 
+### AMS vs Spoolman Weight Drift Warning
+
+The popup now includes a separate mismatch indicator for cases where the printer's AMS-reported fill estimate appears materially different from the manually tracked Spoolman spool weight.
+
+```javascript
+const mismatchThresholdPercent = 15;
+const spoolRemainingPercent = (remaining_weight / initial_weight) * 100;
+const amsRemainPercent = trayEntity?.attributes?.remain;
+const showWeightMismatchWarning = Math.abs(amsRemainPercent - spoolRemainingPercent) >= mismatchThresholdPercent;
+```
+
+Implementation notes:
+- Uses `initial_weight` as the baseline for Spoolman remaining percent, with `filament_weight` as a fallback baseline when needed
+- Only renders when both percentages are available and valid
+- Designed to catch large drift such as `AMS 35%` vs `Spoolman 87%`, while ignoring normal AMS coarse-reporting noise
+- The mismatch warning is informational only; it does not affect tray matching or print-runout logic
+
 ---
 
 ## Tray Configuration Reference
@@ -298,6 +319,7 @@ let historyHours = 168;   // change to 336 (14 days), 720 (30 days), etc.
 | Enhancement           | Notes                                                                                                                                                                                                                                                      |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ~~Location dropdown~~ | **Implemented** — uses native `select.spoolman_spool_{id}_location` entity from Spoolman integration v1.1                                                                                                                                                  |
+| Configurable mismatch threshold helper | Add an `input_number` helper such as `input_number.ams_spool_weight_mismatch_threshold_percent`, then surface it in a user-facing dashboard config page or popup so the popup/detail-card warning threshold can be adjusted without editing template code or opening HA helper settings directly. |
 | ~~Reset Tray~~        | **Implemented** — clears filament metadata via `script.reset_tray_filament` with confirmation dialog; available in both matched-spool and no-spool popups. See [reset-tray-filament-design.md](../../features/spoolman_sync/reset-tray-filament-design.md) |
 | Total inventory       | **Implemented -** Sum weight across all spools of same material type                                                                                                                                                                                       |
 | Quality/age warnings  | Alert when `first_used` > configurable age threshold                                                                                                                                                                                                       |

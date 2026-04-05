@@ -17,6 +17,8 @@ The popup is built dynamically in JavaScript at click-time, so all values (color
 
 ![AMS tray popup — insufficient filament warning](../../screenshots/images/ams-popup-weight-warning.png)
 
+> **Note:** The current popup also includes a separate magenta mismatch warning under the Remaining/Spool Weight card when AMS `remain` and Spoolman remaining percentage differ by at least 15 percentage points. A dedicated screenshot for that state has not been captured yet.
+
 <!-- SCREENSHOT: id=ams-popup-desiccant-states | format=png | version=1.0 | package=printer_dashboards | added=2026-03-15 -->
 <!-- Capture: Close-up of desiccant row showing different color states (green fresh → red old) -->
 > **📸 Screenshot needed:** AMS tray popup — desiccant status color states *(png)*
@@ -94,8 +96,19 @@ Single `custom:mushroom-chips-card` with three compact template chips:
 | Card | Description |
 |------|-------------|
 | Color Swatch | Full background of filament color hex; text auto-adjusts to black/white for contrast |
-| Remaining | Current remaining weight in grams for this spool from Spoolman |
+| Remaining | Current remaining weight in grams for this spool from Spoolman; can show a magenta `AMS X% vs Spoolman Y%` warning line below when AMS fill estimate differs from Spoolman by ≥ 15 percentage points |
 | This Print | Weight required for current print job (from `sensor.ntk_ryansoffice_3dprinter_print_weight`); icon turns red with alert if spool won't have enough |
+
+### Weight Mismatch Warning
+
+The Remaining card can render a secondary informational warning state distinct from print-runout severity:
+
+| State | Color | Meaning |
+|-------|-------|---------|
+| Hidden | — | AMS `remain` and Spoolman remaining percentage are aligned closely enough, or one side is unavailable |
+| Visible | `#d946ef` | AMS `remain` differs from Spoolman remaining percentage by at least 15 percentage points; review manual spool weight if needed |
+
+This color is intentionally outside the existing red/orange/yellow warning palette used for print sufficiency so the two signals are not confused.
 
 ### Row 5 — Total Weight / Last Dried / Desiccant / Mark as Refilled
 Four items in one `horizontal-stack`:
@@ -266,6 +279,7 @@ The popup JavaScript is modular and easy to extend. Potential additions:
 | Spool age / quality warning | Compare `first_used` to today; warn if > 12 months |
 | Notes / ratings per spool | Use Spoolman `extra` fields; display in popup |
 | Print estimation comparison | Cross-check `remaining_weight` vs `print_weight` with visual bar |
+| Helper-tunable mismatch threshold | Replace the hard-coded 15-point AMS/Spoolman drift threshold with an `input_number` helper, and expose that helper in a dashboard config page or popup so users can tune warning sensitivity live from the UI |
 
 ---
 
