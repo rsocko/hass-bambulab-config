@@ -618,11 +618,48 @@
           {% endif %}
           {% set ns = namespace(values=[]) %}
           {% for a in archives %}
-            {% for color in (a.get('filament_color', '') | string | lower).split(',') %}
-              {% set value = color | trim %}
-              {% if value.startswith('#') and value | length > 0 and value not in ns.values %}
-                {% set ns.values = ns.values + [dict(color=value, tooltip=(value | upper))] %}
+              {% set notes_raw = a.get('notes', '') | string %}
+              {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
+              {% set marker_index = notes_raw.find(enrichment_marker) %}
+              {% if marker_index >= 0 %}
+                {% set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim %}
+                {% set payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} %}
+                {% set rows = payload.get('Filaments', []) if payload is mapping else [] %}
+              {% else %}
+                {% set rows = [] %}
+              {% endif %}
+              {% for item in rows %}
+                {% set name = item.get('name', '') | string | trim %}
+                {% set color_raw = item.get('h', '') | string | trim | replace('"', '') %}
+                {% if color_raw.startswith('#') %}
+                  {% set color_raw = color_raw[1:] %}
+                {% endif %}
+                {% if color_raw | length == 8 %}
+                  {% set color_raw = color_raw[0:6] %}
+                {% endif %}
+                {% if name and color_raw | regex_match('^[0-9a-fA-F]{6}$') %}
+                  {% set color_key = '#' ~ color_raw.lower() %}
+                  {% set existing_index = namespace(value=-1) %}
+                  {% for entry in ns.values %}
+                    {% if entry.color == color_key %}
+                      {% set existing_index.value = loop.index0 %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if existing_index.value >= 0 %}
+                    {% set current = ns.values[existing_index.value] %}
+                    {% if name not in current.names %}
+                      {% set updated = dict(color=current.color, names=current.names + [name]) %}
+                      {% set ns.values = ns.values[:existing_index.value] + [updated] + ns.values[existing_index.value + 1:] %}
+                    {% endif %}
+                  {% else %}
+                    {% set ns.values = ns.values + [dict(color=color_key, names=[name])] %}
+                  {% endif %}
               {% endif %}
             {% endfor %}
           {% endfor %}
-          {{ ns.values | sort(attribute='color') | tojson }}
+            {% set ns_tooltips = namespace(values=[]) %}
+            {% for entry in ns.values | sort(attribute='color') %}
+              {% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}
+              {% set ns_tooltips.values = ns_tooltips.values + [dict(color=entry.color, tooltip=tooltip)] %}
+            {% endfor %}
+            {{ ns_tooltips.values | tojson }}
