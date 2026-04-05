@@ -71,7 +71,7 @@ cards:
               - entity: input_select.filament_catalog_filter_scope
                 sub_button_type: select
                 name: Scope
-                icon: mdi:shape-outline
+                icon: mdi:view-grid
                 show_name: true
                 show_state: true
                 show_background: true
@@ -141,26 +141,25 @@ cards:
                 state_background: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.filament_catalog_filter_location']?.state !== (states['input_select.filament_catalog_filter_location']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
-              - entity: input_number.filament_catalog_stock_threshold
-                sub_button_type: slider
-                name: Stock Threshold
-                icon: mdi:weight-gram
-                show_name: true
-                show_state: true
-                show_background: true
-                state_background: false
-                state_color: false
-                tap_to_slide: true
-                fill_width: true
-              - entity: input_select.filament_catalog_filter_stock_level
+              - entity: input_select.filament_catalog_filter_spool_type
                 sub_button_type: select
-                name: Stock Level
-                icon: mdi:archive-alert-outline
+                name: Spool Type
+                icon: fapro:filament-2
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
+                state_background: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.filament_catalog_filter_clip_type
+                sub_button_type: select
+                name: Clip Type
+                icon: mdi:paperclip
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -198,25 +197,26 @@ cards:
             buttons_layout: inline
             justify_content: fill
           - group:
-              - entity: input_select.filament_catalog_filter_spool_type
-                sub_button_type: select
-                name: Spool Type
-                icon: fapro:filament-2
+              - entity: input_number.filament_catalog_stock_threshold
+                sub_button_type: slider
+                name: Stock Threshold
+                icon: mdi:weight-gram
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_spool_type']?.state !== (states['input_select.filament_catalog_filter_spool_type']?.attributes?.options?.[0] ?? '')}
+                state_background: false
+                state_color: false
+                tap_to_slide: true
                 fill_width: true
-              - entity: input_select.filament_catalog_filter_clip_type
+              - entity: input_select.filament_catalog_filter_stock_level
                 sub_button_type: select
-                name: Clip Type
-                icon: mdi:paperclip
+                name: Stock Level
+                icon: mdi:archive-alert-outline
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.filament_catalog_filter_clip_type']?.state !== (states['input_select.filament_catalog_filter_clip_type']?.attributes?.options?.[0] ?? '')}
+                state_background: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.filament_catalog_filter_stock_level']?.state !== (states['input_select.filament_catalog_filter_stock_level']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.filament_catalog_filter_inventory_rule
                 sub_button_type: select
@@ -402,7 +402,7 @@ cards:
             - entity: input_select.filament_catalog_filter_scope
               sub_button_type: default
               name: Clear Scope Filter
-              icon: mdi:shape-outline
+              icon: mdi:view-grid
               show_icon: true
               show_name: false
               show_state: false
