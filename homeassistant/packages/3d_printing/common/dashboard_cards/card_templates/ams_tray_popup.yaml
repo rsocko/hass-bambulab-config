@@ -864,7 +864,14 @@ ams_tray_popup:
       const weightMismatchHeaderHtml = showWeightMismatchWarning
         ? '<span title="' + weightMismatchTooltipText + '" style="color:' + mismatchColor + '; font-weight:600; cursor:help; pointer-events:auto;">AMS: ' + Math.round(normalizedAmsRemainPercent) + '%</span>' + weightMismatchMarker
         : '';
-      const remainingWeightPrimaryHtml = weightText + weightMismatchMarker;
+      const remainingWeightPrimaryHtml = [
+        '<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; line-height:1; width:100%;">',
+        '<ha-icon icon="mdi:weight-gram" style="--mdc-icon-size: 24px; color: teal;"></ha-icon>',
+        '<div style="display:inline-flex; align-items:center; justify-content:center;">',
+        '<span>' + weightText + '</span>' + weightMismatchMarker,
+        '</div>',
+        '</div>'
+      ].join('');
       const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
         ? Number(remainingWeight)
         : null;
@@ -1456,8 +1463,7 @@ ams_tray_popup:
                           cards: [
                             {
                               type: 'custom:button-card',
-                              icon: 'mdi:weight-gram',
-                              show_icon: true,
+                              show_icon: false,
                               show_name: true,
                               show_state: false,
                               name: remainingWeightPrimaryHtml,
@@ -1466,16 +1472,11 @@ ams_tray_popup:
                               tap_action: openWeightEditorAction,
                               styles: {
                                 grid: [
-                                  { 'grid-template-areas': '"i" "n" "l"' },
-                                  { 'grid-template-rows': 'min-content min-content min-content' },
+                                  { 'grid-template-areas': '"n" "l"' },
+                                  { 'grid-template-rows': 'min-content min-content' },
                                   { 'justify-items': 'center' },
-                                  { 'align-items': 'center' }
-                                ],
-                                img_cell: [
-                                  { 'justify-content': 'center' },
                                   { 'align-items': 'center' },
-                                  { width: '100%' },
-                                  { 'line-height': '1' }
+                                  { gap: '4px' }
                                 ],
                                 card: [
                                   { padding: '12px 8px 10px' },
@@ -1484,20 +1485,14 @@ ams_tray_popup:
                                   { 'box-sizing': 'border-box' },
                                   { 'justify-content': 'center' }
                                 ],
-                                icon: [
-                                  { color: 'teal' },
-                                  { width: '24px' },
-                                  { height: '24px' },
-                                  { 'margin-top': '2px' },
-                                  { 'margin-bottom': '6px' }
-                                ],
                                 name: [
                                   { color: 'var(--primary-text-color)' },
                                   { 'font-size': '17px' },
                                   { 'font-weight': '600' },
                                   { 'line-height': '1.1' },
                                   { 'text-align': 'center' },
-                                  { 'margin-top': '2px' }
+                                  { margin: '0' },
+                                  { width: '100%' }
                                 ],
                                 label: [
                                   { color: 'var(--secondary-text-color)' },
