@@ -1498,7 +1498,7 @@ ams_tray_popup:
                                     { 'line-height': '1' },
                                     { display: 'block' }
                                   ]
-                                ]
+                                }
                               }
                             },
                             {
