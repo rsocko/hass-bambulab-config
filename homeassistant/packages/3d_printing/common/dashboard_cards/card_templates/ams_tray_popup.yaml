@@ -854,7 +854,13 @@ ams_tray_popup:
         ? 'Spool weight and AMS calculated weight differ by > ' + Math.round(mismatchThresholdPercent) + '% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately.'
         : '';
       const weightMismatchSummary = showWeightMismatchWarning
-        ? 'AMS ' + Math.round(normalizedAmsRemainPercent) + '% vs Spoolman ' + Math.round(spoolRemainingPercent) + '%'
+        ? 'AMS ' + Math.round(normalizedAmsRemainPercent) + '%'
+        : '';
+      const weightMismatchDetail = showWeightMismatchWarning
+        ? '(>' + Math.round(mismatchThresholdPercent) + '% difference)'
+        : '';
+      const weightMismatchTooltipText = showWeightMismatchWarning
+        ? weightMismatchTooltip + ' AMS ' + Math.round(normalizedAmsRemainPercent) + '% vs Spoolman ' + Math.round(spoolRemainingPercent) + '%. '
         : '';
       const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
         ? Number(remainingWeight)
@@ -1430,7 +1436,7 @@ ams_tray_popup:
                                 },
                                 ...(showWeightMismatchWarning ? [{
                                   type: 'markdown',
-                                  content: '<div style="margin-top: -8px; text-align: center; font-size: 12px; font-weight: 600; color: ' + mismatchColor + ';"><span title="' + weightMismatchTooltip + '">' + weightMismatchSummary + '</span></div>',
+                                  content: '<div title="' + weightMismatchTooltipText + '" style="margin-top: -6px; text-align: center; color: ' + mismatchColor + ';"><div style="font-size: 14px; font-weight: 600; line-height: 1.1; white-space: nowrap;"><span>' + weightMismatchSummary + '</span><span style="display: inline-block; margin-left: 6px; color: ' + mismatchColor + '; font-size: 14px; font-weight: 700; cursor: help;">?</span></div><div style="font-size: 11px; font-weight: 500; line-height: 1.1; opacity: 0.95; white-space: nowrap;">' + weightMismatchDetail + '</div></div>',
                                   card_mod: {
                                     style: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; min-height: 0 !important; } ha-markdown { padding: 0 !important; }'
                                   }
