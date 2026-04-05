@@ -182,7 +182,7 @@ ams_tray_popup:
       if (formattedPurchaseDate) purchaseParts.push('Purchased on ' + formattedPurchaseDate);
       if (purchasedFrom) purchaseParts.push('from ' + purchasedFrom);
       const purchaseText = purchaseParts.join(' ');
-      const priceText = price ? '$' + Number(price).toFixed(2) : '';
+      const priceText = price ? Number(price).toFixed(2) : '';
       // Multi-color spool support (multiColorHexesRaw declared earlier for effective color)
       const multiColorDirection = spoolEntity?.attributes?.filament_multi_color_direction || '';
       const isMultiColor = !!multiColorHexesRaw;

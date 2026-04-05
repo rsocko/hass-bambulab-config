@@ -118,7 +118,7 @@ catalog_spool_popup_content:
             ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:shopping" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + purchaseText + '</span>'
             : '';
           const priceHTML = price
-            ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>$' + Number(price).toFixed(2) + '</span>'
+            ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + Number(price).toFixed(2) + '</span>'
             : '';
 
         // Print settings
