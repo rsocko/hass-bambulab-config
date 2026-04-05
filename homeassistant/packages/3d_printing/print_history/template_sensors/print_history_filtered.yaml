@@ -616,7 +616,7 @@
           {% else %}
             {% set archives = [] %}
           {% endif %}
-          {% set ns = namespace(values=[]) %}
+            {% set ns = namespace(entries=[]) %}
           {% for a in archives %}
               {% set notes_raw = a.get('notes', '') | string %}
               {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
@@ -638,28 +638,16 @@
                   {% set color_raw = color_raw[0:6] %}
                 {% endif %}
                 {% if name and color_raw | regex_match('^[0-9a-fA-F]{6}$') %}
-                  {% set color_key = '#' ~ color_raw.lower() %}
-                  {% set existing_index = namespace(value=-1) %}
-                  {% for entry in ns.values %}
-                    {% if entry.color == color_key %}
-                      {% set existing_index.value = loop.index0 %}
-                    {% endif %}
-                  {% endfor %}
-                  {% if existing_index.value >= 0 %}
-                    {% set current = ns.values[existing_index.value] %}
-                    {% if name not in current.names %}
-                      {% set updated = dict(color=current.color, names=current.names + [name]) %}
-                      {% set ns.values = ns.values[:existing_index.value] + [updated] + ns.values[existing_index.value + 1:] %}
-                    {% endif %}
-                  {% else %}
-                    {% set ns.values = ns.values + [dict(color=color_key, names=[name])] %}
-                  {% endif %}
-              {% endif %}
-            {% endfor %}
+                  {% set ns.entries = ns.entries + [dict(color=('#' ~ color_raw.lower()), name=name)] %}
+                {% endif %}
+              {% endfor %}
           {% endfor %}
             {% set ns_tooltips = namespace(values=[]) %}
-            {% for entry in ns.values | sort(attribute='color') %}
-              {% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}
-              {% set ns_tooltips.values = ns_tooltips.values + [dict(color=entry.color, tooltip=tooltip)] %}
+            {% for group in ns.entries | sort(attribute='color') | groupby('color') %}
+              {% set names = group.list | map(attribute='name') | unique | list %}
+              {% if names %}
+                {% set tooltip = (names | join(' or ')) ~ ' (' ~ (group.grouper | upper) ~ ')' %}
+                {% set ns_tooltips.values = ns_tooltips.values + [dict(color=group.grouper, tooltip=tooltip)] %}
+              {% endif %}
             {% endfor %}
             {{ ns_tooltips.values | tojson }}
