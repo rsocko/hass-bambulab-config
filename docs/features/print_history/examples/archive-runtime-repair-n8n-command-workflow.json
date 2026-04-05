@@ -1,0 +1,72 @@
+{
+  "name": "Bambuddy Archive Runtime Repair (Command Mode)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "bambuddy-archive-runtime-repair-command",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "id": "Webhook_Trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nif (!body.archive_id) { throw new Error('archive_id is required'); }\nreturn [{ json: body }];"
+      },
+      "id": "Validate_Request",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 240]
+    },
+    {
+      "parameters": {
+        "command": "docker exec bambuddy python /opt/repair/repair_archive_runtime.py --db-path /data/bambuddy.db --archive-id {{$json.archive_id}} {{$json.started_at ? '--started-at \"' + $json.started_at + '\"' : ''}} {{$json.completed_at ? '--completed-at \"' + $json.completed_at + '\"' : ''}} {{$json.created_at ? '--created-at \"' + $json.created_at + '\"' : ''}} {{$json.status ? '--status \"' + $json.status + '\"' : ''}} {{$json.failure_reason ? '--failure-reason \"' + $json.failure_reason + '\"' : ''}} {{$json.audit_note ? '--audit-note \"' + $json.audit_note + '\"' : ''}} --apply"
+      },
+      "id": "Execute_Repair_Command",
+      "name": "Execute Repair Command",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: JSON.parse($json.stdout || '{}') }];"
+      },
+      "id": "Parse_Result",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "Respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1300, 240]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Validate Request", "type": "main", "index": 0 }]]
+    },
+    "Validate Request": {
+      "main": [[{ "node": "Execute Repair Command", "type": "main", "index": 0 }]]
+    },
+    "Execute Repair Command": {
+      "main": [[{ "node": "Parse Result", "type": "main", "index": 0 }]]
+    },
+    "Parse Result": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  }
+}

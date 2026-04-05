@@ -6,6 +6,10 @@ Define a concrete repair-script contract and a practical `n8n` workflow that can
 
 This is the direct follow-on from the higher-level recovery design. The goal here is a script that is simple enough to run with `docker exec`, but structured enough to sit behind `n8n` or a future sidecar.
 
+Clarification:
+
+Once the sidecar exists, `n8n` is not required for runtime repair. The sidecar can be called directly from Home Assistant.
+
 ## Reference Script Location
 
 Reference implementation in this repo:
@@ -18,6 +22,8 @@ That script is intentionally operator-oriented:
 - archive-level validation before write
 - narrow writable field set
 - JSON output for orchestration tools
+
+If you do not want `n8n` to execute host commands, the same workflow can call the sidecar HTTP API instead. That is the preferred pattern for same-host Docker deployments.
 
 ## Script Interface
 
@@ -80,6 +86,33 @@ python repair_archive_runtime.py \
 
 ## Recommended `n8n` Flow
 
+Use this only when runtime repair is part of a larger orchestration path. For a direct repair button or popup action, prefer Home Assistant -> sidecar without `n8n`.
+
+There are two distinct `n8n` patterns:
+
+- HTTP mode: `n8n` calls the sidecar
+- command mode: `n8n` uses SSH or local command execution to invoke the shared CLI script directly
+
+For early testing, command mode is acceptable.
+
+## Drift Risk Clarification
+
+Using `n8n` with SSH or `docker exec` does not inherently create duplicate repair logic.
+
+Low drift risk:
+
+- `n8n` only validates minimal request shape
+- `n8n` invokes `tools/bambuddy/repair_archive_runtime.py`
+- the Python repair core remains the single implementation of validation and DB mutation
+
+Higher drift risk:
+
+- `n8n` starts embedding timestamp validation rules in code nodes
+- `n8n` starts constructing SQL directly
+- `n8n` becomes a second implementation of the repair logic instead of a wrapper
+
+The design intent in this repo is the low-drift version: `n8n` as wrapper, Python as source of truth.
+
 ## Topology
 
 1. HA sends webhook request to `n8n`
@@ -119,6 +152,30 @@ docker exec bambuddy python /opt/repair/repair_archive_runtime.py \
   --apply
 ```
 
+This command-based variant is mainly for proof of concept or operator-run hosts.
+
+Reference example workflow for this mode:
+
+- `examples/archive-runtime-repair-n8n-command-workflow.json`
+
+This is the right early-test option when:
+
+- the sidecar is not deployed yet
+- `n8n` already has host command or SSH access
+- you want to exercise the shared Python repair tool before standardizing on the sidecar
+
+## Preferred same-host Docker variant
+
+If `n8n` already runs in a container on the same host as Bambuddy, prefer an HTTP Request node that calls the sidecar directly:
+
+- URL: `http://bambuddy-runtime-repair:8080/admin/archive-runtime-repair`
+- Header: `Authorization: Bearer <token>`
+- Body: same runtime-repair payload sent from HA
+
+Reference example workflow for this mode:
+
+- `examples/archive-runtime-repair-n8n-workflow.json`
+
 ## Recommended `n8n` nodes
 
 ### Node 1: Webhook
@@ -140,6 +197,8 @@ Run over:
 - SSH to the Docker host
 - local shell on the host where `n8n` runs
 - or container exec wrapper
+
+For the preferred same-host Docker deployment, replace this with an HTTP Request node to the sidecar and skip host command execution entirely.
 
 ### Node 5: Parse Script JSON
 
@@ -176,3 +235,9 @@ That keeps the actual repair logic portable:
 - CLI today
 - `n8n` now
 - sidecar or upstream API later
+
+Practical guidance:
+
+- early test path: `n8n` command mode is fine
+- lower-ops steady state: Home Assistant -> sidecar directly
+- orchestrated steady state: Home Assistant -> `n8n` -> sidecar

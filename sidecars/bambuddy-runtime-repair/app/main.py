@@ -1,0 +1,88 @@
+from __future__ import annotations
+
+import logging
+import os
+from pathlib import Path
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Header, HTTPException
+
+from tools.bambuddy.runtime_repair_core import RepairValues, repair_archive_runtime
+from app.models import HealthResponse, RuntimeRepairRequest, RuntimeRepairResponse
+
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
+logger = logging.getLogger("bambuddy-runtime-repair")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info("Starting Bambuddy runtime repair sidecar (db_path=%s)", _db_path())
+    yield
+
+
+app = FastAPI(title="Bambuddy Runtime Repair Sidecar", version="0.1.0", lifespan=lifespan)
+
+
+def _expected_token() -> str:
+    token = os.environ.get("REPAIR_API_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(status_code=500, detail="REPAIR_API_TOKEN is not configured")
+    return token
+
+
+def _db_path() -> Path:
+    return Path(os.environ.get("BAMBUDDY_DB_PATH", "/data/bambuddy.db"))
+
+
+def _require_token(authorization: str | None) -> None:
+    expected = _expected_token()
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    provided = authorization.removeprefix("Bearer ").strip()
+    if provided != expected:
+        raise HTTPException(status_code=403, detail="Invalid bearer token")
+
+
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(status="ok", db_path=str(_db_path()))
+
+
+@app.post("/admin/archive-runtime-repair", response_model=RuntimeRepairResponse)
+def archive_runtime_repair(
+    request: RuntimeRepairRequest,
+    authorization: str | None = Header(default=None),
+) -> RuntimeRepairResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Runtime repair request archive_id=%s dry_run=%s",
+            request.archive_id,
+            request.dry_run,
+        )
+        result = repair_archive_runtime(
+            db_path=_db_path(),
+            archive_id=request.archive_id,
+            values=RepairValues(
+                started_at=request.started_at,
+                completed_at=request.completed_at,
+                created_at=request.created_at,
+                status=request.status,
+                failure_reason=request.failure_reason,
+                audit_note=request.audit_note,
+            ),
+            apply=not request.dry_run,
+        )
+        logger.info(
+            "Runtime repair completed archive_id=%s changed=%s applied=%s fields=%s",
+            result.archive_id,
+            result.changed,
+            result.applied,
+            ",".join(result.updated_fields),
+        )
+        return RuntimeRepairResponse(**result.to_dict())
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Runtime repair rejected archive_id=%s error=%s", request.archive_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

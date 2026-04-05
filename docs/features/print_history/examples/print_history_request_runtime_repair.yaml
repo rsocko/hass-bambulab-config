@@ -1,0 +1,54 @@
+script:
+  print_history_request_runtime_repair:
+    alias: Print History Request Runtime Repair
+    mode: queued
+    fields:
+      archive_id:
+        required: true
+        selector:
+          number:
+            min: 1
+            max: 999999
+      started_at:
+        required: false
+        selector:
+          text:
+      completed_at:
+        required: false
+        selector:
+          text:
+      created_at:
+        required: false
+        selector:
+          text:
+      status:
+        required: false
+        selector:
+          select:
+            options:
+              - archived
+              - printing
+              - completed
+              - failed
+              - cancelled
+      failure_reason:
+        required: false
+        selector:
+          text:
+      audit_note:
+        required: false
+        selector:
+          text:
+    sequence:
+      - action: rest_command.bambuddy_runtime_repair_request
+        data:
+          archive_id: "{{ archive_id }}"
+          started_at: "{{ started_at | default(None) }}"
+          completed_at: "{{ completed_at | default(None) }}"
+          created_at: "{{ created_at | default(None) }}"
+          status: "{{ status | default(None) }}"
+          failure_reason: "{{ failure_reason | default(None) }}"
+          audit_note: >-
+            {{ audit_note | default('Requested from Home Assistant print_history runtime repair action') }}
+          dry_run: false
+      - action: script.refresh_print_history_archives

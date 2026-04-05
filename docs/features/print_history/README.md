@@ -18,6 +18,7 @@ For fallback-archive canonical timestamp repair and adjacent orchestration desig
 - `archive-runtime-field-impact-matrix.md`
 - `archive-runtime-repair-deployment-options.md`
 - `archive-runtime-repair-script-and-n8n-flow.md`
+- `archive-runtime-ha-contract.md`
 - `archive-runtime-sidecar-api-and-compose.md`
 
 ## Event Source Split

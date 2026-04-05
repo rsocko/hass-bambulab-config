@@ -1,0 +1,20 @@
+rest_command:
+  bambuddy_runtime_repair_request:
+    url: "http://bambuddy-runtime-repair:8080/admin/archive-runtime-repair"
+    method: POST
+    headers:
+      Authorization: "Bearer !secret bambuddy_runtime_repair_token"
+      Content-Type: application/json
+    payload: >-
+      {{
+        {
+          "archive_id": archive_id | int,
+          "started_at": started_at,
+          "completed_at": completed_at,
+          "created_at": created_at,
+          "status": status,
+          "failure_reason": failure_reason,
+          "audit_note": audit_note,
+          "dry_run": dry_run | default(false)
+        } | tojson
+      }}
