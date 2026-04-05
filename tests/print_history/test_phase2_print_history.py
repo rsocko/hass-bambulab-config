@@ -191,6 +191,7 @@ class TestFileInventory(unittest.TestCase):
         "navigate_history.yaml",
         "refresh_print_history_archives.yaml",
         "clear_print_history_filters.yaml",
+        "print_history_payload_self_test.yaml",
     ]
 
     EXPECTED_REST_COMMANDS = [
@@ -207,6 +208,7 @@ class TestFileInventory(unittest.TestCase):
         "print_history_filtered.yaml",
         "print_history_page_info.yaml",
         "print_history_archive_data.yaml",
+        "print_history_payload_diagnostics.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_TEXT = [
@@ -478,7 +480,32 @@ class TestAutomationStructure(unittest.TestCase):
 
 
 # =============================================================================
-# 6. REST SENSOR CONFIGURATION
+# 6. PAYLOAD DIAGNOSTICS
+# =============================================================================
+
+class TestPayloadDiagnostics(unittest.TestCase):
+    """Payload guard files should stay wired to the print history chain."""
+
+    def test_payload_diagnostics_sensor_tracks_template_layers(self):
+        path = HISTORY / "template_sensors" / "print_history_payload_diagnostics.yaml"
+        content = path.read_text(encoding="utf-8")
+        self.assertIn("sensor.print_history_archives", content)
+        self.assertIn("sensor.print_history_filtered", content)
+        self.assertIn("sensor.print_history_page_archives", content)
+        self.assertIn("input_number.print_history_max_archives", content)
+        self.assertIn("160000", content)
+        self.assertIn("190000", content)
+
+    def test_payload_self_test_script_uses_notification(self):
+        path = HISTORY / "scripts" / "print_history_payload_self_test.yaml"
+        content = path.read_text(encoding="utf-8")
+        self.assertIn("persistent_notification.create", content)
+        self.assertIn("sensor.print_history_payload_diagnostics", content)
+        self.assertIn("print_history_payload_self_test", content)
+
+
+# =============================================================================
+# 7. REST SENSOR CONFIGURATION
 # =============================================================================
 
 class TestRestSensor(unittest.TestCase):
@@ -1193,7 +1220,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const notesInfo = splitArchiveNotes(archive?.notes);", content)
         self.assertIn("const tags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
         self.assertIn("notesInfo.userNotes", content)
-        self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];", content)
+        self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
+        self.assertIn("Array.isArray(notesInfo.payload?.Filaments)", content)
         self.assertIn(">Filament Colors<", content)
         self.assertIn(">Enrichment<", content)
 
@@ -1210,8 +1238,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
     def test_popup_content_surfaces_enrichment_reason_and_source(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
-        self.assertIn("const enrichmentReason = String(enrichmentPayload?.reason || '').trim();", content)
-        self.assertIn("const enrichmentSource = String(enrichmentPayload?.source || '').trim();", content)
+        self.assertIn("const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();", content)
+        self.assertIn("const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.source || '').trim();", content)
         self.assertIn("const enrichmentSourceLabel = enrichmentSource === 'archive_totals_single_color'", content)
         self.assertIn("Archive-level fallback", content)
         self.assertIn("${escapeHtml(enrichmentReason)}", content)
@@ -1275,9 +1303,14 @@ class TestPrintHistoryTagColors(unittest.TestCase):
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
                 self.assertIn("const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';", content)
-                self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];", content)
                 self.assertIn("const filamentChips = enrichmentRows.length", content)
-                self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
+                if path.name == "print_history_archive_popup_content.yaml":
+                    self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
+                    self.assertIn("Array.isArray(notesInfo.payload?.Filaments)", content)
+                    self.assertIn("tooltip: [hex, ambiguity].filter(Boolean).join(' | ')", content)
+                else:
+                    self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];", content)
+                    self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
                 self.assertIn("tooltip: hex", content)
                 self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)
 

@@ -24,6 +24,71 @@ sections:
           - entity: sensor.ntk_ryansoffice_3dprinter_current_stage
           - entity: sensor.ntk_ryansoffice_3dprinter_print_progress
       - type: entities
+        title: Print History Payload Guard
+        entities:
+          - entity: sensor.print_history_payload_diagnostics
+          - entity: input_number.print_history_max_archives
+          - type: attribute
+            entity: sensor.print_history_payload_diagnostics
+            attribute: archive_count
+            name: Cached Archives
+          - type: attribute
+            entity: sensor.print_history_payload_diagnostics
+            attribute: payload_chars
+            name: Layer 1 Payload Chars
+          - type: attribute
+            entity: sensor.print_history_payload_diagnostics
+            attribute: average_chars_per_archive
+            name: Avg Chars Per Archive
+          - type: attribute
+            entity: sensor.print_history_payload_diagnostics
+            attribute: estimated_comfortable_max_archives
+            name: Comfortable Max Archives
+          - type: attribute
+            entity: sensor.print_history_payload_diagnostics
+            attribute: estimated_upper_bound_archives
+            name: Risk Boundary Archives
+      - type: markdown
+        title: Print History Payload Notes
+        content: |
+          **Status:** {{ states('sensor.print_history_payload_diagnostics') | upper }}
+
+          {{ state_attr('sensor.print_history_payload_diagnostics', 'status_message') }}
+
+          Guidance:
+          - Current live baseline at 100 archives is about 138k chars in Layer 1.
+          - This guard warns above 160k chars.
+          - This guard fails above 190k chars or if Layer 1, 2, or 3 stop materializing.
+          - Re-run the self-test after raising `input_number.print_history_max_archives`.
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: Run Payload Self-Test
+            icon: mdi:test-tube
+            icon_height: 30px
+            tap_action:
+              action: perform-action
+              perform_action: script.print_history_payload_self_test
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(33,150,243,0.12);
+                  border: 1px solid rgba(33,150,243,0.4);
+                }
+          - type: button
+            name: Refresh Print History
+            icon: mdi:refresh
+            icon_height: 30px
+            tap_action:
+              action: perform-action
+              perform_action: script.refresh_print_history_archives
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(76,175,80,0.12);
+                  border: 1px solid rgba(76,175,80,0.4);
+                }
+      - type: entities
         title: Error Alert Test Controls
         entities:
           - entity: input_boolean.error_alert_test_mode

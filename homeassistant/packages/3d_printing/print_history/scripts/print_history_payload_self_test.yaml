@@ -1,0 +1,44 @@
+print_history_payload_self_test:
+  alias: Print History Payload Self-Test
+  description: >-
+    Summarize Layer 1 payload size and warn when the print history template
+    chain is approaching or exceeding a safe budget.
+  icon: mdi:test-tube
+  mode: single
+  sequence:
+    - variables:
+        status: "{{ states('sensor.print_history_payload_diagnostics') | upper }}"
+        archive_count: "{{ state_attr('sensor.print_history_payload_diagnostics', 'archive_count') | int(0) }}"
+        payload_chars: "{{ state_attr('sensor.print_history_payload_diagnostics', 'payload_chars') | int(0) }}"
+        avg_chars: "{{ state_attr('sensor.print_history_payload_diagnostics', 'average_chars_per_archive') | float(0) }}"
+        utilization: "{{ state_attr('sensor.print_history_payload_diagnostics', 'payload_utilization_percent') | float(0) }}"
+        current_max_archives: "{{ state_attr('sensor.print_history_payload_diagnostics', 'current_max_archives_setting') | int(0) }}"
+        comfortable_max: "{{ state_attr('sensor.print_history_payload_diagnostics', 'estimated_comfortable_max_archives') | int(0) }}"
+        upper_bound: "{{ state_attr('sensor.print_history_payload_diagnostics', 'estimated_upper_bound_archives') | int(0) }}"
+        layer_1_status: "{{ state_attr('sensor.print_history_payload_diagnostics', 'layer_1_status') | upper }}"
+        layer_2_status: "{{ state_attr('sensor.print_history_payload_diagnostics', 'layer_2_status') | upper }}"
+        layer_3_status: "{{ state_attr('sensor.print_history_payload_diagnostics', 'layer_3_status') | upper }}"
+        message: "{{ state_attr('sensor.print_history_payload_diagnostics', 'status_message') | default('No diagnostics message available.', true) }}"
+        recommended_action: "{{ state_attr('sensor.print_history_payload_diagnostics', 'recommended_action') | default('', true) }}"
+
+    - action: persistent_notification.create
+      data:
+        notification_id: print_history_payload_self_test
+        title: "Print History Payload Self-Test: {{ status }}"
+        message: >-
+          Status: {{ status }}
+
+          Current max archives helper: {{ current_max_archives }}
+          Cached archives: {{ archive_count }}
+          Layer 1 payload size: {{ payload_chars }} chars
+          Average chars per archive: {{ avg_chars }}
+          Payload utilization: {{ utilization }}% of the conservative budget
+          Conservative comfortable max: {{ comfortable_max }} archives
+          Risk boundary: {{ upper_bound }} archives
+          Layer health: L1={{ layer_1_status }}, L2={{ layer_2_status }}, L3={{ layer_3_status }}
+
+          {{ message }}
+
+          {{ recommended_action }}
+
+    - stop: Print history payload self-test complete
