@@ -31,7 +31,7 @@ actions:
         {%- set ns = namespace(
           materials=[], vendors=[], colors=[],
           color_families=[], types=[], locations=[],
-          spool_types=[], clip_types=[]
+          spool_types=[], clip_types=[], inventory_rules=[]
         ) -%}
         {%- for s in states.sensor
             if s.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
@@ -82,6 +82,28 @@ actions:
             {%- if v and v not in ['', 'None', 'none', 'unknown', 'unavailable'] and v not in ns.clip_types -%}
               {%- set ns.clip_types = ns.clip_types + [v] -%}
             {%- endif -%}
+            {%- set filament_id = attrs.get('filament_id') -%}
+            {%- set inventory_rule_source = attrs.get('filament_extra_inventory_rule', '') | string | trim -%}
+            {%- if inventory_rule_source in ['', 'None', 'none', 'unknown', 'unavailable'] and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
+              {%- set inventory_rule_source = state_attr('sensor.spoolman_filament_' ~ filament_id, 'extra_inventory_rule') | default('', true) | string | trim -%}
+            {%- endif -%}
+            {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
+            {%- set inventory_rule_aliases = {
+              'not defined': 'Not Defined',
+              'keep in stock': 'Keep In Stock',
+              'maintain backup spool': 'Maintain Backup Spool',
+              'max inventory': 'Max Inventory',
+              'as needed': 'As Needed',
+              'do not stock': 'Do Not Stock'
+            } -%}
+            {%- if inventory_rule_clean in ['', 'none', 'null', 'unknown', 'unavailable'] -%}
+              {%- set v = 'Not Defined' -%}
+            {%- else -%}
+              {%- set v = inventory_rule_aliases.get(inventory_rule_clean, inventory_rule_source | regex_replace('^"|"$', '')) -%}
+            {%- endif -%}
+            {%- if v and v not in ns.inventory_rules -%}
+              {%- set ns.inventory_rules = ns.inventory_rules + [v] -%}
+            {%- endif -%}
           {%- endif -%}
         {%- endfor -%}
         {{
@@ -93,7 +115,8 @@ actions:
             'types': ['All'] + (ns.types | sort),
             'locations': ['All'] + (ns.locations | sort),
             'spool_types': ['All'] + (ns.spool_types | sort),
-            'clip_types': ['All', 'None'] + (ns.clip_types | sort)
+            'clip_types': ['All', 'None'] + (ns.clip_types | sort),
+            'inventory_rules': ['All', 'Not Defined'] + ((ns.inventory_rules | reject('equalto', 'Not Defined') | list) | sort)
           }
         }}
 
@@ -144,3 +167,9 @@ actions:
       entity_id: input_select.filament_catalog_filter_clip_type
     data:
       options: "{{ filter_options.clip_types }}"
+
+  - action: input_select.set_options
+    target:
+      entity_id: input_select.filament_catalog_filter_inventory_rule
+    data:
+      options: "{{ filter_options.inventory_rules }}"

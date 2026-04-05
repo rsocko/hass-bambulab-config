@@ -28,6 +28,7 @@
           {%- set filter_location = states('input_select.filament_catalog_filter_location') -%}
           {%- set filter_spool_type = states('input_select.filament_catalog_filter_spool_type') | default('All', true) -%}
           {%- set filter_clip_type = states('input_select.filament_catalog_filter_clip_type') | default('All', true) -%}
+          {%- set filter_inventory_rule = states('input_select.filament_catalog_filter_inventory_rule') | default('All', true) -%}
           {%- set filter_qty_to_purchase = is_state('input_boolean.filament_catalog_filter_qty_to_purchase', 'on') -%}
           {%- set filter_sealed = states('input_select.filament_catalog_filter_sealed') -%}
           {%- set filter_data_quality = states('input_select.filament_catalog_filter_data_quality') | default('All', true) -%}
@@ -126,6 +127,24 @@
               {%- set clip_type_defined = clip_type not in ['', 'None', 'none', 'unknown', 'unavailable'] -%}
               {%- set remaining_weight = attrs.get('remaining_weight', 0) | float(0) -%}
               {%- set filament_id = attrs.get('filament_id') -%}
+              {%- set inventory_rule_source = attrs.get('filament_extra_inventory_rule', '') | string | trim -%}
+              {%- if inventory_rule_source in ['', 'None', 'none', 'unknown', 'unavailable'] and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
+                {%- set inventory_rule_source = state_attr('sensor.spoolman_filament_' ~ filament_id, 'extra_inventory_rule') | default('', true) | string | trim -%}
+              {%- endif -%}
+              {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
+              {%- set inventory_rule_aliases = {
+                'not defined': 'Not Defined',
+                'keep in stock': 'Keep In Stock',
+                'maintain backup spool': 'Maintain Backup Spool',
+                'max inventory': 'Max Inventory',
+                'as needed': 'As Needed',
+                'do not stock': 'Do Not Stock'
+              } -%}
+              {%- if inventory_rule_clean in ['', 'none', 'null', 'unknown', 'unavailable'] -%}
+                {%- set inventory_rule = 'Not Defined' -%}
+              {%- else -%}
+                {%- set inventory_rule = inventory_rule_aliases.get(inventory_rule_clean, inventory_rule_source | regex_replace('^"|"$', '')) -%}
+              {%- endif -%}
               {%- set spool_filled = attrs.get('extra_desiccant_filled', '') -%}
               {%- set purchase_date_raw = attrs.get('extra_purchase_date', '') -%}
               {%- set last_dried_raw = attrs.get('extra_last_dried', '') -%}
@@ -182,6 +201,7 @@
               {%- set matches_location = filter_location == 'All' or location | lower == filter_location | lower -%}
               {%- set matches_spool_type = filter_spool_type == 'All' or spool_type | lower == filter_spool_type | lower -%}
               {%- set matches_clip_type = filter_clip_type == 'All' or (filter_clip_type == 'None' and (not clip_type_defined)) or (clip_type_defined and clip_type | lower == filter_clip_type | lower) -%}
+              {%- set matches_inventory_rule = filter_inventory_rule == 'All' or inventory_rule == filter_inventory_rule -%}
               {%- set matches_qty_to_purchase = (not filter_qty_to_purchase) or has_qty_to_purchase -%}
               {%- set matches_sealed = filter_sealed == 'All' or (filter_sealed == 'Sealed' and is_sealed) or (filter_sealed == 'Unsealed' and (not is_sealed)) -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
@@ -221,7 +241,7 @@
               {%- set matches_needs_drying = (not filter_needs_drying) or is_needs_drying -%}
               {%- set matches_stale = (not filter_stale) or is_stale -%}
               {%- set matches_missing_desiccant = (filter_desiccant != 'All' and filter_desiccant != 'Missing Desiccant') or (not filter_missing_desiccant) or is_missing_desiccant -%}
-              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_spool_type and matches_clip_type and matches_qty_to_purchase and matches_sealed and matches_search and matches_data_quality and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_spool_type and matches_clip_type and matches_inventory_rule and matches_qty_to_purchase and matches_sealed and matches_search and matches_data_quality and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
                 {%- if group_attr == 'location' -%}
                   {%- set gv = location if location else 'Unknown' -%}
                 {%- elif group_attr == 'filament_material' -%}
@@ -352,6 +372,7 @@
           {%- if states('input_select.filament_catalog_filter_location') != 'All' -%}{%- set active = active + ['Location'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_spool_type') != 'All' -%}{%- set active = active + ['Spool Type'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_clip_type') != 'All' -%}{%- set active = active + ['Clip Type'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_inventory_rule') != 'All' -%}{%- set active = active + ['Inventory Rule'] -%}{%- endif -%}
           {%- if is_state('input_boolean.filament_catalog_filter_qty_to_purchase', 'on') -%}{%- set active = active + ['Qty To Purchase'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_sealed') != 'All' -%}{%- set active = active + ['Sealed State'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_data_quality') != 'All' -%}{%- set active = active + ['Data Quality'] -%}{%- endif -%}

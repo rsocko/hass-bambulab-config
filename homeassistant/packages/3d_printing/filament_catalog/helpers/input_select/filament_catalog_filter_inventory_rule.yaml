@@ -1,0 +1,8 @@
+filament_catalog_filter_inventory_rule:
+  name: Filament Catalog Inventory Rule
+  icon: mdi:playlist-check
+  # Options are dynamically populated by the sync_filter_options automation
+  options:
+    - All
+    - Not Defined
+  initial: All

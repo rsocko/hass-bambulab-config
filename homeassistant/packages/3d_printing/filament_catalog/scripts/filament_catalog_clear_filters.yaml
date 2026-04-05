@@ -14,6 +14,7 @@ filament_catalog_clear_filters:
           - input_select.filament_catalog_filter_location
           - input_select.filament_catalog_filter_spool_type
           - input_select.filament_catalog_filter_clip_type
+          - input_select.filament_catalog_filter_inventory_rule
           - input_select.filament_catalog_filter_sealed
           - input_select.filament_catalog_filter_data_quality
       data:
