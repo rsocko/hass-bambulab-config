@@ -95,6 +95,12 @@ catalog_spool_card:
         if (!loc) return '';
         return `<span style="font-size:11px; font-weight:500; color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${loc}</span>`;
       ]]]
+    purchase_qty: |
+      [[[ 
+        const qty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
+        if (qty <= 0) return '';
+        return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:var(--accent-color); white-space:nowrap;"><ha-icon icon="mdi:cart-plus" style="--mdc-icon-size:13px; color:var(--accent-color);"></ha-icon><span>${qty}</span></span>`;
+      ]]]
   styles:
     card:
       - padding: 6px 8px
@@ -163,9 +169,20 @@ catalog_spool_card:
             return `rgba(${r},${g},${b},0.25)`;
           ]]]
     grid:
-      - grid-template-areas: '"i n remaining_weight status_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label last_used last_used"'
+      - grid-template-areas: |
+          [[[ 
+            const qty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
+            if (qty > 0) {
+              return '"i n remaining_weight status_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label last_used last_used" "purchase_qty purchase_qty purchase_qty purchase_qty"';
+            }
+            return '"i n remaining_weight status_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label last_used last_used"';
+          ]]]
       - grid-template-columns: 44px minmax(0, 1fr) auto auto
-      - grid-template-rows: auto auto auto auto
+      - grid-template-rows: |
+          [[[ 
+            const qty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
+            return qty > 0 ? 'auto auto auto auto auto' : 'auto auto auto auto';
+          ]]]
       - align-items: center
       - gap: 1px 6px
     entity_picture:
@@ -208,3 +225,6 @@ catalog_spool_card:
       location_label:
         - justify-self: start
         - padding-top: 1px
+      purchase_qty:
+        - justify-self: start
+        - padding-top: 2px
