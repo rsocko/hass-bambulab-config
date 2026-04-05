@@ -111,6 +111,369 @@ Note: `filament_color` (comma-separated hex string like `#000000,#FFFFFF,#C12E1F
 - **Con**: Adds a runtime dependency (AppDaemon or custom component). Breaks the "pure YAML" approach. Overkill for <1000 archives.
 - **Verdict**: ❌ Deferred — only consider if Jinja2 becomes the bottleneck at 1000+ archives
 
+---
+
+## Future Architecture Escalation Paths
+
+The implemented YAML pipeline is the right baseline for this repository, but it is not the final scaling shape if print history continues to grow in archive count and feature scope.
+
+The important constraint is not just Bambuddy fetch size. It is where the browser cache lives and how much data Home Assistant has to materialize in entity attributes.
+
+### 2026-04-05 Reality Check
+
+Live measurements against the current repository and running system:
+
+- Raw Bambuddy `GET /archives/?limit=200` response: **~1.53 MB** (`~7633` chars/archive)
+- Current Layer 1 `sensor.print_history_archives.attributes.archives_json`: **223184 chars** (`~1116` chars/archive)
+- Current diagnostics status at 200 archives: **fail**
+- Current comfortable archive estimate: **143**
+- Current upper bound estimate: **170**
+
+That means the current Layer 1 projection already removes most of the Bambuddy payload, but the remaining HA-side attribute payload is still large enough to breach the browser budget.
+
+### Why Additional Trimming Alone Is Not The Long-Term Answer
+
+Some additional Layer 1 trimming is still worth doing, but the live numbers show the architectural boundary clearly:
+
+- `notes` are the largest single Layer 1 field by serialized share (`~18.8%`)
+- `filament_slots` are still larger than `tags`
+- `thumbnail_path` is also materially larger than `tags`
+- removing all note display names would only recover about `~6300` chars (`~2.8%` of payload)
+
+That is a useful optimization, but it does not change the fact that the browser is still moving a large cache through the HA state machine.
+
+The next-step architecture question is therefore:
+
+> Where should the canonical print-history browser cache, filtering, and paging logic live once YAML/Jinja2 stops being the comfortable boundary?
+
+### The Four Repo-Relevant Variants
+
+This repository has four realistic backend evolution paths:
+
+1. **AppDaemon query/cache layer**
+2. **Custom integration with HA-managed in-memory cache**
+3. **Custom integration with local materialized store**
+4. **Dedicated sidecar-backed browser cache**
+
+The frontend-only custom-card idea is intentionally **not** counted as a backend variant here. It can be paired with any of the four options below, but by itself it does not solve the Layer 1 payload ceiling.
+
+### At-A-Glance Comparison
+
+| Variant | Runtime Boundary | Keeps Browser Inside HA? | Keeps Giant Layer 1 Attribute? | Operational Cost | Best Use |
+|--------|------------------|--------------------------|--------------------------------|------------------|----------|
+| AppDaemon query/cache layer | AppDaemon app + HA entities/services | Mostly | No | Low-Medium | Fastest escape from Jinja2 |
+| Custom integration (in-memory) | HA custom component | Yes | No | Medium | Long-term HA-native browser logic |
+| Custom integration (local store) | HA custom component + SQLite/`.storage`-style cache | Yes | No | Medium-High | Durable HA-native indexing/search |
+| Dedicated sidecar-backed cache | Separate service + HA integration contract | No, HA becomes client/control plane | No | High | Browser becomes a small application |
+
+---
+
+## Variant 1: AppDaemon Query/Cache Layer
+
+### Target Shape In This Repo
+
+**Goal:** Move fetch, projection, filtering, and pagination out of Jinja2 quickly without committing to a full custom integration.
+
+**What moves:**
+
+- Bambuddy fetch and field projection move from `template_sensors/print_history_archives.yaml` into an AppDaemon app
+- filter/sort/page computation moves out of `template_sensors/print_history_filtered.yaml`
+- page-slice generation moves out of `template_sensors/print_history_archive_data.yaml`
+
+**What stays in HA YAML:**
+
+- existing filter helpers (`input_select`, `input_text`, `input_number`, `input_boolean`)
+- scripts and dashboard actions
+- the Lovelace card layouts
+- diagnostic/status entities exposed by the AppDaemon app
+
+**Likely entities/services exposed by AppDaemon:**
+
+- `sensor.print_history_browser_status`
+- `sensor.print_history_browser_page`
+- `sensor.print_history_browser_page_info`
+- optional `event` or service to refresh cache immediately
+
+**Suggested contract:**
+
+- AppDaemon reads the same helper values the current Layer 2 pipeline reads
+- AppDaemon publishes only the **current page slice** and compact page metadata back to HA
+- AppDaemon keeps the full archive index in Python memory, not in a HA attribute
+
+### What Happens To Layer 1?
+
+The current Layer 1 as a giant `archives_json` attribute should stop being authoritative.
+
+Best repo-specific shape:
+
+- retire the current `sensor.print_history_archives.attributes.archives_json`
+- replace it with a much smaller status sensor that exposes:
+  - cache health
+  - last refresh time
+  - total archive count
+  - sync status/error state
+
+So the answer is: **Layer 1 still exists conceptually, but not as a large HA-side payload cache.** It becomes a lightweight health/status surface over an AppDaemon-owned cache.
+
+### Pros
+
+- fastest path out of Jinja2 bottlenecks
+- low ceremony for prototyping filter/index behavior
+- can reuse almost all current HA helper and dashboard structure
+- minimal migration pressure on the current UI
+
+### Cons
+
+- additional runtime outside normal HA integration patterns
+- more ad hoc persistence/recovery choices
+- more split-brain debugging between HA and AppDaemon
+- not ideal as the final architecture if print history becomes a core feature area
+
+### Best Fit For This Repo
+
+Use this if the immediate goal is:
+
+- prove the next query model quickly
+- remove payload pressure fast
+- preserve the existing dashboard contract while buying time for a more durable architecture decision
+
+---
+
+## Variant 2: Custom Integration With HA-Managed In-Memory Cache
+
+### Target Shape In This Repo
+
+**Goal:** Keep print history fully HA-native, but move fetch/projection/filter logic into Python using normal HA integration patterns.
+
+**What moves:**
+
+- current Layer 1 fetch/projection becomes a coordinator-backed integration cache
+- current Layer 2 filtering and sort logic becomes integration code
+- current Layer 3 page payload comes from integration-managed entities or services
+
+**What stays in HA YAML:**
+
+- dashboard composition
+- helper-backed controls if desired
+- print-history scripts that are still naturally HA automations
+
+**Likely integration surfaces:**
+
+- a coordinator that fetches Bambuddy archives and stores a normalized in-memory list
+- one or more lightweight entities such as:
+  - `sensor.print_history_archive_count`
+  - `sensor.print_history_browser_page_info`
+  - `binary_sensor.print_history_cache_stale`
+- services like:
+  - `print_history.refresh_cache`
+  - `print_history.set_browser_filters`
+  - `print_history.next_page`
+  - `print_history.previous_page`
+
+### What Happens To Layer 1?
+
+The current YAML Layer 1 should be removed.
+
+In this shape, **Layer 1 becomes an integration-owned in-memory cache**, not a template sensor attribute. HA can still expose a tiny summary entity for observability, but the full archive list should not be serialized back into entity attributes unless a tiny debug-only view is needed.
+
+### Pros
+
+- best long-term HA-native developer experience
+- Python performance with native HA lifecycle patterns
+- easier to test and package than AppDaemon
+- avoids turning print history into a separate deployable service too early
+
+### Cons
+
+- more engineering effort than AppDaemon
+- custom integration maintenance burden over time
+- still requires careful entity contract design so HA is not used as a giant transport bus
+
+### Best Fit For This Repo
+
+Use this if the intended destination is:
+
+- print history remains part of the HA package ecosystem
+- browser logic should feel first-class and native
+- archive browsing becomes stable, long-lived product surface inside this repository
+
+---
+
+## Variant 3: Custom Integration With Local Materialized Store
+
+### Target Shape In This Repo
+
+**Goal:** Stay HA-native, but introduce a durable indexed store for print history so the browser, popup, search, and future provenance features are not forced through coordinator memory or giant attributes.
+
+**What changes beyond Variant 2:**
+
+- the custom integration owns a local persistent store (for example SQLite or a disciplined `.storage`-style schema)
+- Bambuddy data is normalized into tables/documents suited for browsing and lookup
+- the integration exposes query results, not raw archive arrays
+
+**Likely data model in this repo:**
+
+- `archives`
+- `archive_filament_rows`
+- `archive_tags`
+- `archive_note_payload_rows`
+- `archive_photos`
+- optional `archive_repair_lineage`
+
+**Likely HA contract:**
+
+- small summary entities only
+- services for paged/filter queries
+- optional per-archive detail service for popup hydration
+
+**Why this matters for this repo specifically:**
+
+The advanced roadmap already points toward richer archive behavior:
+
+- compare-on-failure
+- duplicate and reprint intelligence
+- searchable provenance
+- archive mismatch and repair workflows
+- richer popup/detail views
+
+Those features are much easier to support from a local indexed model than from one giant JSON attribute.
+
+### What Happens To Layer 1?
+
+The current Layer 1 no longer exists in its current form.
+
+Repo-specific answer:
+
+- **remove Layer 1 as a browser payload cache**
+- keep at most a small integration status entity such as `sensor.print_history_cache_status`
+- treat the materialized store as the true archive cache boundary
+
+So in this variant, **Layer 1 is replaced by the local database/store itself**.
+
+### Pros
+
+- durable HA-native cache with good query ergonomics
+- strong fit for popup/detail/provenance/search growth
+- keeps deployment simpler than a standalone service
+- avoids repeated large re-projection work on every reload
+
+### Cons
+
+- meaningfully more code and schema ownership
+- migration and recovery become your responsibility
+- more complexity than the in-memory integration variant
+
+### Best Fit For This Repo
+
+Use this if:
+
+- you want a serious long-term browser/search backend
+- you still want everything to ship as part of Home Assistant
+- you expect print history to keep gaining archive-centric features, but do not yet want a separate service boundary
+
+---
+
+## Variant 4: Dedicated Sidecar-Backed Browser Cache
+
+### Target Shape In This Repo
+
+**Goal:** Treat print history as a small archive application with HA as a client, automation plane, and dashboard host rather than the primary data-processing boundary.
+
+This extends naturally from the repair-oriented sidecar direction already described in `archive-runtime-sidecar-api-and-compose.md`.
+
+**Service responsibilities would expand to include:**
+
+- Bambuddy archive fetch and normalization
+- archive browser cache persistence
+- filtering, sorting, paging, and search endpoints
+- archive detail hydration
+- provenance lookup
+- optional repair/recovery/admin endpoints
+
+**HA responsibilities would narrow to:**
+
+- capture browser control state
+- render current page and popup views
+- call sidecar endpoints through REST commands or a thin integration wrapper
+- surface health/status summaries
+- continue handling automations that belong in HA
+
+**Likely repo-specific API surface:**
+
+- `GET /browser/archives?page=...&filters=...`
+- `GET /browser/archives/{id}`
+- `GET /browser/filter-options`
+- `POST /browser/refresh`
+- existing repair/admin endpoints remain alongside browser endpoints
+
+### What Happens To Layer 1?
+
+The current Layer 1/Layer 2/Layer 3 backend split is largely retired.
+
+Repo-specific answer:
+
+- Layer 1 is no longer needed as a HA entity cache
+- Layer 2 is no longer needed as a HA template filter engine
+- HA keeps only tiny status entities and action surfaces
+- the sidecar becomes the real browser backend
+
+So this is the variant where **Layer 1 should effectively disappear from the HA architecture**.
+
+### Pros
+
+- cleanest separation of concerns
+- no HA state-machine pressure from large archive caches
+- easiest path to real query/search/index features
+- strongest alignment with future repair/recovery/provenance workflows
+- easiest place to centralize audit logging and archive-admin operations
+
+### Cons
+
+- highest operational overhead
+- separate deployment, auth, backup, migration, and observability concerns
+- bigger architecture step than the repository currently needs for simple browsing alone
+
+### Best Fit For This Repo
+
+Use this if print history is becoming:
+
+- a serious archive system
+- a long-lived provenance and repair surface
+- something expected to scale in both data volume and workflow complexity beyond what should comfortably live inside HA
+
+---
+
+## Recommendation Ladder For This Repository
+
+Based on the current implementation, the live payload measurements, and the existing phase roadmap in `advanced-features-design.md`, the practical sequence is:
+
+1. **Short term:** keep the YAML browser, trim obvious Layer 1 bloat where it is low-risk, and lower archive count when needed
+2. **First architectural spike:** AppDaemon if the goal is to validate a non-Jinja cache/query contract quickly
+3. **Preferred HA-native destination:** custom integration, ideally upgraded to a local materialized store if provenance/search/detail workflows keep expanding
+4. **Full service boundary:** dedicated sidecar-backed browser cache only when the browser and repair/provenance/admin features justify owning a separate archive service
+
+### Decision Guidance
+
+| If your priority is... | Prefer... |
+|------------------------|-----------|
+| Fastest escape from Jinja2 | AppDaemon |
+| Long-term HA-native maintainability | Custom integration |
+| HA-native plus durable query/index model | Custom integration with local materialized store |
+| Strongest scaling and archive-admin boundary | Dedicated sidecar-backed browser cache |
+
+### Bottom Line On Layer 1
+
+For the current YAML implementation, Layer 1 is required.
+
+For every Python or sidecar evolution path above, the current giant `archives_json` attribute should stop being the browser cache boundary.
+
+In other words:
+
+- **AppDaemon:** Layer 1 becomes a small status surface over an AppDaemon-owned cache
+- **Custom integration (in-memory):** Layer 1 becomes an integration-owned cache, not a template sensor payload
+- **Custom integration (local store):** Layer 1 is replaced by the local persistent store
+- **Dedicated sidecar:** Layer 1 effectively disappears from HA and survives only as lightweight health telemetry
+
 ### Decision: Option C — Full Endpoint with Jinja2 Field Projection
 
 The Layer 1 sensor fetches `GET /archives/?limit=500` and projects to a trimmed schema:
