@@ -22,6 +22,71 @@ For fallback-archive canonical timestamp repair and adjacent orchestration desig
 - `archive-runtime-sidecar-api-and-compose.md`
 - `archive-historical-backfill-from-sd-card.md`
 
+## Historical Backfill Execution
+
+If you want to execute the new historical-import tooling, use this order.
+
+### 1. Generate a manifest from the SD backup
+
+```powershell
+c:/dev/hass-bambulab-config/.venv/Scripts/python.exe .\tools\bambuddy\generate_archive_backfill_manifest.py --source-root '.\bambuddy\Backup SD Card - 2026-04-03' --output '.\tmp\bambuddy-backfill-manifest.json'
+```
+
+What this does:
+
+- scans `.3mf` candidates
+- computes `MD5` and `SHA-256`
+- records basic sliced-versus-source classification
+- captures best-effort timestamp evidence from filesystem metadata, ZIP member times, sibling `.bbl` files, and selected config members inside the `.3mf`
+
+### 2. Inspect candidates without creating archives
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Inspect
+```
+
+What this does:
+
+- loads the manifest
+- fetches existing Bambuddy archives
+- skips exact `content_hash` duplicates
+- reports which candidates are ready, skipped, or need manual review
+
+### 3. Create and annotate new historical archives
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Full
+```
+
+What this does:
+
+- uploads non-duplicate candidates
+- skips raw source-project `.3mf` files by default
+- annotates created archives with `historical_import` tags and `[HISTORICAL_IMPORT_V1]` notes
+
+### 4. Optional: allow raw source-project imports
+
+Only do this for manual experiments or provenance-grade imports:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Full -AllowSourceProjectImport
+```
+
+### 5. Optional: repair canonical runtime fields after import
+
+If you have strong timing evidence, use the existing runtime repair tooling after upload. See:
+
+- `archive-runtime-db-repair-guide.md`
+- `archive-runtime-repair-script-and-n8n-flow.md`
+- `archive-runtime-sidecar-api-and-compose.md`
+
+Primary design reference for the historical-import workflow:
+
+- `archive-historical-backfill-from-sd-card.md`
+
 ## Event Source Split
 
 The current implementation mixes two data sources:

@@ -399,6 +399,62 @@ This manifest is the practical answer to avoiding duplicate imports over time.
 
 Do not rely only on archive tags for idempotency.
 
+## Initial Tooling In This Repo
+
+The repo now has two operator-side building blocks for this workflow:
+
+- `tools/bambuddy/generate_archive_backfill_manifest.py`
+- `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1 -Mode Backfill`
+
+### Manifest generator
+
+Example:
+
+```powershell
+python .\tools\bambuddy\generate_archive_backfill_manifest.py --source-root '.\bambuddy\Backup SD Card - 2026-04-03' --output '.\tmp\bambuddy-backfill-manifest.json'
+```
+
+What it records per candidate:
+
+- hashes
+- basic sliced-versus-source classification
+- sibling `.bbl` linkage if present
+- filesystem last-write time
+- ZIP entry min/max timestamps from the `.3mf`
+- best-effort timestamp candidates found in `.bbl` and selected config members inside the `.3mf`
+
+Important limit:
+
+- these timestamp candidates are evidence only until validated against known-good historical prints
+
+### Backfill helper mode
+
+Inspect only:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Inspect
+```
+
+Upload only high-confidence non-duplicate candidates:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Full
+```
+
+Behavior:
+
+- dedupes against existing Bambuddy archives by exact `content_hash`
+- skips raw source-project `.3mf` inputs by default
+- annotates created archives with `[HISTORICAL_IMPORT_V1]` notes and import tags in `Full` mode
+
+To force a project-level source upload for manual experimentation, add:
+
+```powershell
+-AllowSourceProjectImport
+```
+
 ## Recommended Notes Contract For Historical Imports
 
 Use a versioned block on imported records.
