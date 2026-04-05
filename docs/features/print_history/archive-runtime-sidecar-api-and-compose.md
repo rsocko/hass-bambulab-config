@@ -110,6 +110,752 @@ and would mean:
 
 This is a reasonable future extension, especially for the repaired-entry case you described, but the current sidecar does not support it.
 
+## Proposed Future Extension: `restore_from` Copy Mode
+
+The live `191` to `200` comparison is a useful reference case for what this mode should and should not do.
+
+Observed pattern:
+
+- source archive `191` preserved the original runtime truth and some fallback-only printer snapshot data
+- target archive `200` preserved the canonical file-backed metadata recreated from the recovered `.3mf`
+- neither record alone contained the full desired historical result
+
+That means `restore_from` should not behave like a blind row copy.
+
+It should behave like a field-aware merge with explicit precedence rules.
+
+## Goal Of `restore_from`
+
+Given:
+
+- a source archive that represents the original print run, often incomplete or fallback-derived
+- a target archive that represents the recovered file-backed replacement
+
+produce:
+
+- a target archive that keeps the replacement archive's canonical file metadata and parser-derived fields
+- plus selected original runtime and user metadata copied forward from the source archive when appropriate
+
+## Non-Goal Of `restore_from`
+
+The mode should not:
+
+- replace the recovered archive's parsed `.3mf` metadata with stale or lower-quality source values
+- copy the source archive's entire `extra_data` blob verbatim
+- propagate fallback markers onto the recovered archive as if they were still true
+- assume every field exists on the source archive
+- assume every differing field should be copied
+
+## Proposed Request Shape
+
+Example request:
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "copy_runtime_fields": true,
+  "copy_user_metadata": true,
+  "merge_tags": true,
+  "merge_notes": true,
+  "write_recovery_audit": true,
+  "dry_run": false
+}
+```
+
+Optional future refinement:
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "field_groups": ["runtime", "user_metadata", "lineage"],
+  "exclude_tags": ["exception:missing_3mf", "replaced_by:*"],
+  "preserve_target_parser_fields": true,
+  "copy_source_snapshot_subset": [],
+  "dry_run": true
+}
+```
+
+## Proposed Endpoint Contract
+
+### `POST /admin/archive-restore-from`
+
+This endpoint is a future extension for source-to-target recovery merge.
+
+It should be separate from `POST /admin/archive-runtime-repair` because the semantics are different:
+
+- runtime repair updates one archive from explicit caller-provided values
+- restore-from merge compares two archives and applies policy-driven field decisions
+
+### Request Model
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "field_groups": ["runtime", "user_metadata", "lineage"],
+  "tag_merge_mode": "merge_preserve_target",
+  "notes_merge_mode": "append_structured",
+  "preserve_target_parser_fields": true,
+  "copy_source_snapshot_subset": [],
+  "exclude_tags": ["exception:missing_3mf", "replaced_by:*"],
+  "include_tags": [],
+  "overrides": {
+    "status": "completed"
+  },
+  "dry_run": true
+}
+```
+
+### Required Request Fields
+
+- `source_archive_id`: integer
+- `target_archive_id`: integer
+- `dry_run`: boolean
+
+### Optional Request Fields
+
+- `field_groups`: array of enums
+- `tag_merge_mode`: enum
+- `notes_merge_mode`: enum
+- `preserve_target_parser_fields`: boolean, default `true`
+- `copy_source_snapshot_subset`: array of enums, default `[]`
+- `exclude_tags`: array of strings or wildcard patterns
+- `include_tags`: array of strings, optional allow-list override
+- `overrides`: object of explicit field overrides applied after merge planning
+
+### `field_groups` Enum
+
+Allowed values:
+
+- `runtime`
+- `user_metadata`
+- `lineage`
+- `snapshot_subset`
+
+Recommended default:
+
+```json
+["runtime", "user_metadata", "lineage"]
+```
+
+### `tag_merge_mode` Enum
+
+Allowed values:
+
+- `merge_preserve_target`
+- `source_only`
+- `target_only`
+
+Recommended default:
+
+- `merge_preserve_target`
+
+### `notes_merge_mode` Enum
+
+Allowed values:
+
+- `append_structured`
+- `target_only`
+- `source_then_target`
+
+Recommended default:
+
+- `append_structured`
+
+### `copy_source_snapshot_subset` Enum
+
+Allowed values:
+
+- `tray_uuids`
+- `source_subtask_name`
+- `ams_slot_summary`
+
+Recommended default:
+
+- `[]`
+
+### `overrides` Allowed Keys
+
+Allowed keys should stay narrow:
+
+- `started_at`
+- `completed_at`
+- `created_at`
+- `status`
+- `failure_reason`
+- `is_favorite`
+- `cost`
+- `quantity`
+- `external_url`
+
+Unknown override keys should be rejected.
+
+## Response Contract
+
+### Dry-Run Response
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "updated": false,
+  "applied": false,
+  "field_action_summary": {
+    "copy": 5,
+    "merge": 2,
+    "keep_target": 12,
+    "skip_equal": 3,
+    "skip_missing_source": 8,
+    "skip_disallowed": 41,
+    "override": 1
+  },
+  "field_actions": [
+    {
+      "field": "started_at",
+      "group": "runtime",
+      "action": "copy",
+      "source_value": "2026-04-02T16:37:22.828591",
+      "target_before": null,
+      "target_after": "2026-04-02T16:37:22.828591",
+      "reason": "runtime_truth_present_on_source"
+    },
+    {
+      "field": "file_path",
+      "group": "parser_target",
+      "action": "keep_target",
+      "source_value": "",
+      "target_before": "archive/.../200x200 - AMS Ready - Slice & Print.3mf",
+      "target_after": "archive/.../200x200 - AMS Ready - Slice & Print.3mf",
+      "reason": "target_parser_field_has_priority"
+    },
+    {
+      "field": "extra_data.no_3mf_available",
+      "group": "snapshot_subset",
+      "action": "skip_disallowed",
+      "source_value": true,
+      "target_before": null,
+      "target_after": null,
+      "reason": "fallback_marker_must_not_be_copied"
+    }
+  ],
+  "warnings": [
+    "source archive is incomplete and several requested fields are missing",
+    "target archive parser-derived metadata will be preserved"
+  ]
+}
+```
+
+### Apply Response
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "updated": true,
+  "applied": true,
+  "field_action_summary": {
+    "copy": 5,
+    "merge": 2,
+    "keep_target": 12,
+    "skip_equal": 3,
+    "skip_missing_source": 8,
+    "skip_disallowed": 41,
+    "override": 1
+  },
+  "updated_fields": ["started_at", "completed_at", "created_at", "status", "is_favorite", "tags", "notes"],
+  "writes": {
+    "archive_fields": ["started_at", "completed_at", "created_at", "status", "is_favorite"],
+    "tags_updated": true,
+    "notes_updated": true
+  }
+}
+```
+
+## Post-Merge Verification Endpoint
+
+### `POST /admin/archive-restore-verify`
+
+This endpoint is intended to be called after merge application or after a manual operator review.
+
+Its job is to:
+
+- compare source and target again using the same restore policy rules
+- report any actionable remaining differences
+- optionally remove the original source archive when verification is clean
+
+### Request Model
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "field_groups": ["runtime", "user_metadata", "lineage"],
+  "exclude_tags": ["exception:missing_3mf", "replaced_by:*"],
+  "remove_original": false,
+  "dry_run": true
+}
+```
+
+### Verification Semantics
+
+- `verified = true` means there are no actionable remaining differences under the current policy
+- `remaining_differences` should include only unresolved `copy`, `merge`, or `override` actions that would still change the target
+- `keep_target`, `skip_missing_source`, `skip_equal`, and `skip_disallowed` are not considered blocking verification failures
+
+### Optional Original Removal
+
+If all of the following are true:
+
+- `verified = true`
+- `remove_original = true`
+- `dry_run = false`
+
+then the sidecar may delete the source archive row.
+
+Recommended guardrail:
+
+- refuse deletion when actionable remaining differences still exist
+
+### Verification Response Example
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "verified": true,
+  "applied": false,
+  "removable": true,
+  "source_removed": false,
+  "blocking_difference_count": 0,
+  "non_blocking_difference_count": 19,
+  "remaining_difference_count": 0,
+  "remaining_difference_summary": {
+    "copy": 0,
+    "merge": 0,
+    "keep_target": 0,
+    "skip_equal": 0,
+    "skip_missing_source": 0,
+    "skip_disallowed": 0,
+    "override": 0
+  },
+  "remaining_differences": [],
+  "blocking_differences": [],
+  "non_blocking_differences": [],
+  "warnings": []
+}
+```
+
+## Action Enum
+
+Allowed `field_actions[].action` values:
+
+- `copy`
+- `merge`
+- `keep_target`
+- `skip_equal`
+- `skip_missing_source`
+- `skip_disallowed`
+- `override`
+
+## Reason Enum
+
+Suggested reasons:
+
+- `runtime_truth_present_on_source`
+- `source_missing`
+- `normalized_values_equal`
+- `target_parser_field_has_priority`
+- `fallback_marker_must_not_be_copied`
+- `transient_snapshot_not_supported`
+- `merged_tag_policy`
+- `merged_notes_policy`
+- `explicit_override`
+
+## Validation Rules For `restore_from`
+
+- source archive must exist
+- target archive must exist
+- source and target archive IDs must differ
+- requested enums must be valid
+- override keys must be in the allow-list
+- target archive should have at least one file-backed signal unless an explicit force flag is added later
+
+Recommended target validation signals:
+
+- non-empty `file_path`, or
+- non-null `content_hash`, or
+- non-null `thumbnail_path`
+
+Recommended warning conditions, not hard failures:
+
+- source archive has `extra_data.no_3mf_available = true`
+- source archive is missing all runtime fields requested by `field_groups`
+- source archive and target archive print names differ materially
+- source archive and target archive filenames differ materially
+
+## Merge Engine Pseudocode
+
+```text
+function restore_from(request):
+  source = load_archive(request.source_archive_id)
+  target = load_archive(request.target_archive_id)
+
+  validate_request(request, source, target)
+
+  matrix = load_field_matrix()
+  plan = []
+
+  for field_rule in matrix:
+    if field_rule.group not in request.field_groups and field_rule.group not in ["parser_target"]:
+      continue
+
+    source_value = get_field(source, field_rule.path)
+    target_value = get_field(target, field_rule.path)
+
+    if field_rule.path in request.overrides:
+      plan.add(action="override", field=field_rule.path, target_after=request.overrides[field_rule.path])
+      continue
+
+    if field_rule.policy == "disallowed":
+      plan.add(action="skip_disallowed", field=field_rule.path)
+      continue
+
+    normalized_source = normalize(field_rule.path, source_value)
+    normalized_target = normalize(field_rule.path, target_value)
+
+    if is_missing(normalized_source):
+      plan.add(action="skip_missing_source", field=field_rule.path)
+      continue
+
+    if normalized_source == normalized_target:
+      plan.add(action="skip_equal", field=field_rule.path)
+      continue
+
+    if field_rule.policy == "keep_target":
+      plan.add(action="keep_target", field=field_rule.path)
+      continue
+
+    if field_rule.policy == "copy_source":
+      plan.add(action="copy", field=field_rule.path, target_after=source_value)
+      continue
+
+    if field_rule.policy == "merge_tags":
+      merged_tags = merge_tags(source_value, target_value, request.exclude_tags, request.include_tags)
+      plan.add(action="merge", field=field_rule.path, target_after=merged_tags)
+      continue
+
+    if field_rule.policy == "merge_notes":
+      merged_notes = merge_notes(source_value, target_value, source, target, request)
+      plan.add(action="merge", field=field_rule.path, target_after=merged_notes)
+      continue
+
+  if request.dry_run:
+    return build_dry_run_response(plan)
+
+  apply_archive_field_updates(target.id, plan.scalar_writes)
+  apply_tag_update(target.id, plan.tags)
+  apply_notes_update(target.id, plan.notes)
+
+  return build_apply_response(plan)
+```
+
+## Reference Matrix
+
+The concrete field-by-field policy table for this merge logic lives in:
+
+- [archive-runtime-restore-from-field-matrix.md](archive-runtime-restore-from-field-matrix.md)
+
+## Proposed Execution Flow
+
+1. Load source and target archive rows.
+2. Validate that the target looks like a recovery/replacement candidate.
+3. Build a field action plan rather than writing immediately.
+4. For each supported field, decide one of:
+   - `copy`
+   - `keep_target`
+   - `merge`
+   - `skip_missing_source`
+   - `skip_equal`
+   - `skip_disallowed`
+5. Return the action plan in dry-run mode.
+6. Apply only the approved writes in non-dry-run mode.
+7. Append lineage and audit notes.
+
+## Field Classes
+
+### Class 1: Parser-authoritative target fields
+
+These should normally stay on the target archive because the recovered `.3mf` is the higher-quality source.
+
+Examples:
+
+- `file_path`
+- `file_size`
+- `content_hash`
+- `thumbnail_path`
+- `print_name`
+- `print_time_seconds`
+- `filament_used_grams`
+- `filament_type`
+- `filament_color`
+- `layer_height`
+- `total_layers`
+- `nozzle_diameter`
+- `nozzle_temperature`
+- `sliced_for_model`
+- `designer`
+- `makerworld_url`
+
+Default rule:
+
+- keep target value
+- do not overwrite from source, even if the source differs
+- only allow override through an explicit force option if a future operator workflow proves the parser output wrong
+
+### Class 2: Runtime-truth source fields
+
+These should normally copy from the source archive when present because they represent the original run timeline.
+
+Examples:
+
+- `started_at`
+- `completed_at`
+- `created_at`
+- `status`
+- `failure_reason`
+
+Derived implication:
+
+- `actual_time_seconds` should not be written directly if it is computed by the DB or application layer from the repaired timestamps
+
+Default rule:
+
+- if source value is present and differs, copy it to target
+- if source value is missing, leave target unchanged
+- if source and target already match, record `skip_equal`
+
+### Class 3: User-managed metadata fields
+
+These are good candidates for copy or merge because they reflect operator intent rather than parser output.
+
+Examples:
+
+- `is_favorite`
+- `cost`
+- `quantity`
+- `external_url`
+- `failure_reason`
+- user-authored tags
+- user-authored notes
+
+Default rule:
+
+- scalar fields copy from source when source is non-null and target is null or meaningfully different
+- tags merge by normalized token, not raw string replacement
+- notes merge by preserving existing target notes and appending structured recovery audit blocks only once
+
+### Class 4: Fallback-only or transient source fields
+
+These should not be copied wholesale.
+
+Examples:
+
+- `extra_data.no_3mf_available`
+- `extra_data._print_data.*`
+- raw AMS state snapshots
+- raw printer temperatures and humidity captured at fallback time
+- ephemeral progress or remaining-time values
+
+Default rule:
+
+- skip as `disallowed`
+- if a small subset proves useful later, extract it explicitly into a curated lineage block rather than copying the raw structure
+
+## Proposed Decision Rules
+
+For each supported field, evaluate in this order.
+
+### Rule 1: Missing source value
+
+If the source field is null, empty, or absent:
+
+- do not clear the target field
+- record `skip_missing_source`
+
+This is critical for incomplete fallback archives, because missing source data is common and should not degrade the recovered archive.
+
+### Rule 2: Equal values
+
+If the normalized source and target values are equal:
+
+- do nothing
+- record `skip_equal`
+
+This keeps the write set minimal and makes dry-run output easier to review.
+
+### Rule 3: Disallowed field class
+
+If the field belongs to the fallback-only or transient class:
+
+- do not copy
+- record `skip_disallowed`
+
+### Rule 4: Parser-authoritative target field
+
+If the field belongs to the parser-authoritative class:
+
+- keep target value by default
+- record `keep_target`
+
+### Rule 5: Runtime-truth source field
+
+If the field belongs to the runtime-truth class and the source value is present:
+
+- copy source to target
+- record `copy`
+
+### Rule 6: Merge field
+
+If the field is `tags` or `notes`:
+
+- merge instead of replace
+- record `merge`
+
+## Tag Merge Rules
+
+Tags need domain-specific handling.
+
+Source tags may include fallback-state markers that should remain on the source archive only.
+
+Recommended behavior:
+
+- split tags into normalized tokens
+- preserve target lineage tags such as `repair:recovered` and `recovered_from:<id>`
+- carry forward user tags such as `Hueforge`
+- exclude fallback-state tags such as `exception:missing_3mf`
+- exclude old-linkage tags such as `replaced_by:<id>` from being copied to the target
+- deduplicate case-insensitively after trimming
+
+For the `191` to `200` example, the target should keep:
+
+- `repair:recovered`
+- `recovered_from:191`
+- `recovery_source:sd_cache_3mf`
+- enrichment tags already written on `200`
+- `Hueforge` carried forward from `191`
+
+The target should not inherit:
+
+- `exception:missing_3mf`
+- `replaced_by:200`
+
+## Notes Merge Rules
+
+Notes should not be overwritten blindly.
+
+Recommended behavior:
+
+- preserve existing target notes content
+- append one structured recovery audit block if not already present
+- optionally append a second structured block for copied source metadata decisions
+- avoid duplicating the same `[RECOVERY_AUDIT_V1]` block on repeated runs
+- preserve non-structured user text when present
+
+## Optional Curated Snapshot Preservation
+
+Most of `extra_data._print_data.raw_data.*` is too noisy to copy.
+
+However, one future exception may be useful:
+
+- selected tray UUID or AMS provenance fields needed for downstream filament lineage
+
+If this is added later, it should be stored as a small curated audit payload such as:
+
+```json
+{
+  "source_archive_id": 191,
+  "selected_snapshot_fields": {
+    "tray_uuids": ["..."],
+    "source_subtask_name": "200x200 - AMS Ready - Slice & Print"
+  }
+}
+```
+
+This should live in a versioned audit block, not as a raw `extra_data` transplant.
+
+## Dry-Run Response Shape
+
+Dry-run should return an explicit decision per field.
+
+Example:
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "applied": false,
+  "field_actions": [
+    {"field": "started_at", "action": "copy", "source": "2026-04-02T16:37:22.828591", "target_before": null},
+    {"field": "status", "action": "copy", "source": "completed", "target_before": "archived"},
+    {"field": "print_time_seconds", "action": "keep_target", "source": null, "target_before": 22671},
+    {"field": "Hueforge", "action": "merge_tag", "source": true, "target_before": false},
+    {"field": "exception:missing_3mf", "action": "skip_disallowed", "source": true, "target_before": false},
+    {"field": "extra_data._print_data.raw_data", "action": "skip_disallowed"}
+  ]
+}
+```
+
+## Example: `191` To `200`
+
+Recommended `restore_from` outcome for this specific pair:
+
+- copy from source to target:
+  - `started_at`
+  - `completed_at`
+  - `created_at`
+  - `status`
+  - `is_favorite`
+- merge from source to target:
+  - user tag `Hueforge`
+  - structured recovery notes that preserve original runtime truth
+- keep target values:
+  - `file_path`
+  - `file_size`
+  - `content_hash`
+  - `thumbnail_path`
+  - `print_name`
+  - `print_time_seconds`
+  - `filament_used_grams`
+  - `filament_type`
+  - `filament_color`
+  - `layer_height`
+  - `total_layers`
+  - `designer`
+  - `makerworld_url`
+- explicitly ignore:
+  - `extra_data.no_3mf_available`
+  - `extra_data._print_data.raw_data.*`
+  - fallback tag `exception:missing_3mf`
+  - old-linkage tag `replaced_by:200`
+
+## Why This Design Handles Missing Or Non-Different Data Well
+
+This mode is designed for incomplete source archives.
+
+So the default posture must be conservative:
+
+- missing source values never blank out good target values
+- equal values generate no write
+- parser-derived target fields are preserved even when the source differs
+- merge fields preserve both history and recovered metadata without replacing one with the other
+
+That makes `restore_from` safe for both:
+
+- rich source archives that already contain some user metadata
+- sparse fallback archives where only a few original runtime fields are worth copying
+
 ### 2. Bulk repair
 
 Not implemented today.

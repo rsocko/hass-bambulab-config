@@ -7,8 +7,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
 
+from app.repair import restore_archive_from_source, restore_verify_after_merge
 from tools.bambuddy.runtime_repair_core import RepairValues, repair_archive_runtime
-from app.models import HealthResponse, RuntimeRepairRequest, RuntimeRepairResponse
+from app.models import (
+    HealthResponse,
+    RestoreFromRequest,
+    RestoreFromResponse,
+    RestoreVerifyRequest,
+    RestoreVerifyResponse,
+    RuntimeRepairRequest,
+    RuntimeRepairResponse,
+)
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger("bambuddy-runtime-repair")
@@ -85,4 +94,62 @@ def archive_runtime_repair(
         return RuntimeRepairResponse(**result.to_dict())
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Runtime repair rejected archive_id=%s error=%s", request.archive_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-restore-from", response_model=RestoreFromResponse)
+def archive_restore_from(
+    request: RestoreFromRequest,
+    authorization: str | None = Header(default=None),
+) -> RestoreFromResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Restore-from request source_archive_id=%s target_archive_id=%s dry_run=%s",
+            request.source_archive_id,
+            request.target_archive_id,
+            request.dry_run,
+        )
+        return restore_archive_from_source(db_path=_db_path(), request=request)
+    except NotImplementedError as exc:
+        logger.info(
+            "Restore-from endpoint not yet implemented source_archive_id=%s target_archive_id=%s",
+            request.source_archive_id,
+            request.target_archive_id,
+        )
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning(
+            "Restore-from request rejected source_archive_id=%s target_archive_id=%s error=%s",
+            request.source_archive_id,
+            request.target_archive_id,
+            exc,
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-restore-verify", response_model=RestoreVerifyResponse)
+def archive_restore_verify(
+    request: RestoreVerifyRequest,
+    authorization: str | None = Header(default=None),
+) -> RestoreVerifyResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Restore-verify request source_archive_id=%s target_archive_id=%s remove_original=%s dry_run=%s",
+            request.source_archive_id,
+            request.target_archive_id,
+            request.remove_original,
+            request.dry_run,
+        )
+        return restore_verify_after_merge(db_path=_db_path(), request=request)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning(
+            "Restore-verify request rejected source_archive_id=%s target_archive_id=%s error=%s",
+            request.source_archive_id,
+            request.target_archive_id,
+            exc,
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc

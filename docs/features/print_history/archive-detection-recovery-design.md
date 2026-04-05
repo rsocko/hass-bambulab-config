@@ -261,6 +261,8 @@ Implication:
 - the best current recovery behavior is to preserve original `started_at`, `completed_at`, and `actual_time_seconds` in machine-parseable notes
 - if canonical timestamp restoration becomes a requirement, that needs either a Bambuddy code change to widen the update schema or a direct database repair path outside the supported API
 
+If a future direct-DB sidecar adds source-to-target restore support, it should use field-aware merge rules rather than a blind copy. The replacement archive should keep parser-derived `.3mf` metadata, while original runtime fields and selected user metadata copy forward only when present on the source archive. The current proposed merge semantics for that mode are documented in [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md), and the concrete field-by-field policy table lives in [archive-runtime-restore-from-field-matrix.md](archive-runtime-restore-from-field-matrix.md).
+
 The direct DB repair path, affected field surfaces, and adjacent deployment options are documented in:
 
 - [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)

@@ -124,6 +124,62 @@ pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 \
   -Status completed
 ```
 
+## Planned `restore_from` Endpoint
+
+The sidecar now includes typed request and response models, plus a guarded endpoint stub for:
+
+- `POST /admin/archive-restore-from`
+- `POST /admin/archive-restore-verify`
+
+Current status:
+
+- request validation is implemented
+- response models are defined
+- merge-planning logic lives in `app/repair.py`
+- DB-backed `dry_run` planning is implemented
+- non-dry-run apply mode is implemented for actionable top-level restore fields
+- post-merge verification is implemented and can optionally remove the original archive when no actionable differences remain
+
+PowerShell helpers:
+
+- `tools/bambuddy/Test-RuntimeRepairSidecar.ps1`
+- `tools/bambuddy/Test-RestoreFromSidecar.ps1`
+
+## Verify Request Example
+
+```bash
+curl -X POST http://127.0.0.1:8818/admin/archive-restore-verify \
+  -H "Authorization: Bearer replace-me" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_archive_id": 191,
+    "target_archive_id": 200,
+    "remove_original": false,
+    "dry_run": true
+  }'
+```
+
+Use `remove_original: true` with `dry_run: false` only after verification reports `verified: true` and `remaining_difference_count: 0`.
+
+## Restore-From Request Example
+
+```bash
+curl -X POST http://127.0.0.1:8818/admin/archive-restore-from \
+  -H "Authorization: Bearer replace-me" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_archive_id": 191,
+    "target_archive_id": 200,
+    "dry_run": false
+  }'
+```
+
+Reference design documents:
+
+- `docs/features/print_history/archive-runtime-sidecar-api-and-compose.md`
+- `docs/features/print_history/archive-runtime-restore-from-field-matrix.md`
+- `docs/features/print_history/archive-runtime-restore-from-example-191-200.md`
+
 ## Deployment Recommendation
 
 For Dockhand-style registry deployment:
