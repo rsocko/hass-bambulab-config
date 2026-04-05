@@ -45,7 +45,7 @@
             {%- set status = raw_status -%}
           {%- endif -%}
           {%- set notes_raw = a.get('notes', '') | string -%}
-          {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
+          {%- set enrichment_marker = '[HA]' -%}
           {%- set marker_index = notes_raw.find(enrichment_marker) -%}
           {%- if marker_index >= 0 -%}
             {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
@@ -185,7 +185,7 @@
               {%- set status = raw_status -%}
             {%- endif -%}
             {%- set notes_raw = a.get('notes', '') | string -%}
-            {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
+            {%- set enrichment_marker = '[HA]' -%}
             {%- set marker_index = notes_raw.find(enrichment_marker) -%}
             {%- if marker_index >= 0 -%}
               {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
@@ -305,7 +305,7 @@
               {%- set status = raw_status -%}
             {%- endif -%}
             {%- set notes_raw = a.get('notes', '') | string -%}
-            {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
+            {%- set enrichment_marker = '[HA]' -%}
             {%- set marker_index = notes_raw.find(enrichment_marker) -%}
             {%- if marker_index >= 0 -%}
               {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
@@ -475,7 +475,7 @@
               {%- set status = raw_status -%}
             {%- endif -%}
             {%- set notes_raw = a.get('notes', '') | string -%}
-            {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
+            {%- set enrichment_marker = '[HA]' -%}
             {%- set marker_index = notes_raw.find(enrichment_marker) -%}
             {%- if marker_index >= 0 -%}
               {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
@@ -616,7 +616,7 @@
           {% else %}
             {% set archives = [] %}
           {% endif %}
-          {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
+          {% set enrichment_marker = '[HA]' %}
           {% set ns = namespace(entries=[]) %}
           {% for a in archives %}
             {% set notes_raw = a.get('notes', '') | string %}
@@ -624,12 +624,12 @@
             {% if marker_index >= 0 %}
               {% set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim %}
               {% set payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} %}
-              {% set rows = payload.get('Filaments', []) if payload is mapping else [] %}
+              {% set rows = payload.get('F', []) if payload is mapping else [] %}
             {% else %}
               {% set rows = [] %}
             {% endif %}
             {% for item in rows %}
-              {% set name = item.get('name', '') | string | trim %}
+              {% set name = item.get('n', '') | string | trim %}
               {% set color_raw = item.get('h', '') | string | trim | replace('"', '') %}
               {% if color_raw.startswith('#') %}
                 {% set color_raw = color_raw[1:] %}

@@ -77,8 +77,16 @@ print_history_archive_card_compact:
         const statusLabel = status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : status === 'cancelled' ? 'Cancelled' : status === 'printing' ? 'Printing' : 'Unknown';
         const statusColor = status === 'completed' ? '#2E7D32' : status === 'failed' ? '#C62828' : status === 'cancelled' ? '#EF6C00' : status === 'printing' ? '#1565C0' : '#546E7A';
         const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : status === 'cancelled' ? '⛔' : status === 'printing' ? '🖨️' : '⏳';
-        const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
-        const LEGACY_MARKER = '--- HA Enrichment ---';
+        const ENRICHMENT_MARKER = '[HA]';
+        const describeEnrichmentAmbiguity = (value) => {
+          const normalized = String(value || '').trim();
+          return ({
+            a_tc: 'Multiple archived AMS trays matched type+color',
+            a_fb: 'Multiple archived AMS trays matched archive-level fallback',
+            s_uuid: 'Multiple Spoolman spools matched archived tray UUID',
+            s_tc: 'Multiple Spoolman spools matched type+color'
+          })[normalized] || normalized;
+        };
         const normalizeHex = (value) => {
           const raw = String(value || '').trim().replace(/^#/, '').replace(/"/g, '');
           if (!raw) return '';
@@ -88,13 +96,7 @@ print_history_archive_card_compact:
         const splitArchiveNotes = (value) => {
           const raw = String(value || '');
           const markerIndex = raw.indexOf(ENRICHMENT_MARKER);
-          const legacyIndex = raw.indexOf(LEGACY_MARKER);
-          const indexes = [markerIndex, legacyIndex].filter((index) => index >= 0);
-          if (!indexes.length) {
-            return { payload: null };
-          }
-          const cutoff = Math.min(...indexes);
-          if (cutoff !== markerIndex) {
+          if (markerIndex < 0) {
             return { payload: null };
           }
           const payloadRaw = raw.slice(markerIndex + ENRICHMENT_MARKER.length).trim();
@@ -153,7 +155,7 @@ print_history_archive_card_compact:
         };
         const notesInfo = splitArchiveNotes(archive?.notes);
         const enrichmentPayload = notesInfo.payload;
-        const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];
+        const enrichmentRows = Array.isArray(enrichmentPayload?.F) ? enrichmentPayload.F : [];
         const enrichmentStatusRaw = String(enrichmentPayload?.status || '').toLowerCase();
         const enrichmentStatusLabel = enrichmentStatusRaw
           ? enrichmentStatusRaw.charAt(0).toUpperCase() + enrichmentStatusRaw.slice(1)
@@ -166,10 +168,10 @@ print_history_archive_card_compact:
         const colors = String(archive?.filament_color || '').split(',').map((value) => normalizeHex(value)).filter(Boolean);
         const filamentChips = enrichmentRows.length
           ? enrichmentRows.map((item, index) => {
-              const name = String(item?.name || '').trim() || `Filament ${index + 1}`;
-              const tray = String(item?.tray || '').trim();
+              const name = String(item?.n || '').trim() || `Filament ${index + 1}`;
+              const tray = String(item?.t || '').trim();
               const hex = normalizeHex(item?.h);
-              const ambiguity = String(item?.ambiguity || '').trim();
+              const ambiguity = describeEnrichmentAmbiguity(item?.am);
               return {
                 dotColor: hex || 'rgba(255,255,255,0.2)',
                 tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name

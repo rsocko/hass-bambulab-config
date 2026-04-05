@@ -65,7 +65,7 @@
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status == 'failed' else 'cancelled' if raw_status in ['cancelled', 'aborted', 'stopped'] else 'printing' if raw_status == 'printing' else raw_status -%}
             {%- set notes_raw = a.get('notes', '') | string -%}
-            {%- set enrichment_marker = '[HA_ENRICHMENT_V1]' -%}
+            {%- set enrichment_marker = '[HA]' -%}
             {%- set marker_index = notes_raw.find(enrichment_marker) -%}
             {%- if marker_index >= 0 -%}
               {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}

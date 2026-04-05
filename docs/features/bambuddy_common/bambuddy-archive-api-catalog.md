@@ -71,11 +71,11 @@ The `PATCH /{id}` endpoint accepts any combination of:
 ### Tag Format
 
 Tags are stored in the archive's `tags` field as comma-separated values.
-Each tag is a plain string. Current HA enrichment uses tags sparingly: it reserves managed system tags such as `Filament:<id>`, `Spool:<id>`, and `ha_enriched:true`, while still preserving operator-managed tags.
+Each tag is a plain string. Current HA enrichment uses tags sparingly: it reserves managed system tags such as `f:<id>` and `s:<id>`, while still preserving operator-managed tags.
 
 Example:
 ```
-favorite, customer-sample, Filament:34, Spool:123, ha_enriched:true
+favorite, customer-sample, f:34, s:123
 ```
 
 The recommended design is to keep numeric print totals such as filament cost in the archive's native `cost` field rather than encoding them as tags.

@@ -429,7 +429,7 @@ From the completed archive and enrichment data:
 - `cost` — Total print cost
 - `extra_data.designer` — Model designer
 - `extra_data.makerworld_url` — Source link
-- Hidden `[HA_ENRICHMENT_V1]` enrichment payload — compact per-tray filament rows with names, weights, tray labels, and best-effort spool or filament IDs when preserved
+- Hidden `[HA]` enrichment payload — compact per-tray filament rows with `n`/`w`/`t` keys and best-effort spool or filament IDs when preserved
 
 From the notification infrastructure:
 - `input_text.3dprinter_notification_service` — Target notify service
@@ -474,7 +474,7 @@ From the notification infrastructure:
 ### Data Sources
 
 From the current hidden enrichment payload:
-- Compact `Filaments[]` rows with tray labels, weights, spool IDs, filament IDs, names, and colors when the archive already carries preserved enrichment data
+- Compact `F[]` rows with tray labels, weights, spool IDs, filament IDs, names, colors, and optional ambiguity codes when the archive already carries preserved enrichment data
 
 From future work that is not shipped yet:
 - Compact machine-readable provenance in notes, or a separate HA-side provenance index

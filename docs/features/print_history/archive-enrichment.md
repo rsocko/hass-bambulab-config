@@ -8,7 +8,7 @@ The live enrichment flow currently does four things:
 
 - captures the Bambuddy `archive_id` at `print_started`
 - writes managed system tags to the archive: `f:<id>` and `s:<id>`
-- stores a hidden `[HA_ENRICHMENT_V1]` JSON payload in `notes` while preserving user-authored notes
+- stores a hidden `[HA]` JSON payload in `notes` while preserving user-authored notes
 - PATCHes Bambuddy's native `cost` field from `sensor.print_cost`
 
 Important current-state constraints:
@@ -86,7 +86,7 @@ The shipped enrichment automation reads these live sources:
 - `counter.bambuddy_captured_photo_count`
 - `GET /api/v1/archives/{id}` via `rest_command.bambuddy_get_archive_detail`
 
-That archive-detail lookup is important in the current implementation because it preserves existing user notes, preserves user tags, and avoids downgrading a richer previously stored `[HA_ENRICHMENT_V1]` payload.
+That archive-detail lookup is important in the current implementation because it preserves existing user notes, preserves user tags, and avoids downgrading a richer previously stored `[HA]` payload.
 
 The shipped automation does **not** currently inspect Bambuddy `extra_data._print_data.raw_data.ams` or archived tray UUID data when building the live enrichment payload.
 
@@ -128,7 +128,7 @@ The live automation stores enrichment in `notes` as:
 
 1. user-authored notes, if any
 2. two newlines
-3. the marker `[HA_ENRICHMENT_V1]`
+3. the marker `[HA]`
 4. a compact JSON payload
 
 Example stored form:
@@ -136,8 +136,7 @@ Example stored form:
 ```text
 Operator note about this print.
 
-[HA_ENRICHMENT_V1]
-{"status":"partial","Filaments":[{"name":"Bambu PLA Basic Blue","weight":41.2,"tray":"A2","s":123,"f":34,"h":"#C1C3C2"}]}
+[HA]{"status":"partial","F":[{"n":"Bambu PLA Basic Blue","w":41.2,"t":"A2","s":123,"f":34,"h":"#C1C3C2"}]}
 ```
 
 There is no longer a live human-readable `--- HA Enrichment ---` summary block in the shipped automation. That older marker is still recognized when splitting existing notes so legacy content is not accidentally overwritten.
@@ -149,11 +148,11 @@ The compact payload currently written by the live automation is:
 ```json
 {
   "status": "complete",
-  "Filaments": [
+  "F": [
     {
-      "name": "Bambu PLA Basic Blue",
-      "weight": 41.2,
-      "tray": "A2",
+      "n": "Bambu PLA Basic Blue",
+      "w": 41.2,
+      "t": "A2",
       "s": 123,
       "f": 34,
       "h": "#C1C3C2"
@@ -165,13 +164,22 @@ The compact payload currently written by the live automation is:
 Field meanings:
 
 - `status`: enrichment completeness only, one of `complete`, `partial`, or `unavailable`
-- `Filaments`: one row per tray with non-zero contribution
-- `name`: best available spool display name
-- `weight`: grams attributed to that tray
-- `tray`: short tray label such as `A1`, `B3`, or `External`
+- `F`: one row per tray with non-zero contribution
+- `n`: best available spool display name
+- `w`: grams attributed to that tray
+- `t`: short tray label such as `A1`, `B3`, or `External`
 - `s`: Spoolman spool ID when resolved, otherwise `null`
 - `f`: Spoolman filament ID when resolved, otherwise `null`
 - `h`: normalized `#RRGGBB` color when available, otherwise `null`
+
+Optional top-level manual re-enrich fields:
+
+- `src`: recovery source code. `afs` means archived filament slot rows. `at1` means archive-level single-color fallback.
+- `reason`: diagnostic text explaining why a manual re-enrich result is partial or unavailable.
+
+Optional row field used only when operator review is needed:
+
+- `am`: ambiguity code. `a_tc` = multiple archived AMS trays matched type+color. `a_fb` = multiple archived AMS trays matched archive-level fallback. `s_uuid` = multiple Spoolman spools matched archived tray UUID. `s_tc` = multiple Spoolman spools matched type+color.
 
 This payload `status` is **not** the Bambuddy archive outcome. It only describes the completeness of enrichment data.
 
@@ -198,7 +206,7 @@ The shipped popup/edit flow is already enrichment-aware.
 Current behavior:
 
 - popup cards and the popup detail view hide system tags from the user-facing tag display
-- popup notes editing hides the `[HA_ENRICHMENT_V1]` payload from the user-facing notes field
+- popup notes editing hides the `[HA]` payload from the user-facing notes field
 - popup detail derives `Partial` enrichment when the hidden payload contains filament rows or ambiguity data that still need review; `Unavailable` is reserved for archives with no preserved enrichment data
 - popup enrichment cards now show explicit colored `Needs Review`, `Spool unresolved`, and `Filament unresolved` badges so incomplete matches stand out during archive triage
 - `save_print_history_archive_popup_edits.yaml` fetches archive detail before saving so it can preserve hidden enrichment content and system tags
@@ -217,7 +225,7 @@ It currently:
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
 - pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
-- writes managed tags plus the hidden `[HA_ENRICHMENT_V1]` payload when it has a usable candidate
+- writes managed tags plus the hidden `[HA]` payload when it has a usable candidate
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
@@ -237,7 +245,7 @@ Shipped now:
 - during-print enrichment write when weight data is ready
 - terminal reconciliation on complete, failed, and stopped webhooks
 - managed `f:` / `s:` tags
-- hidden `[HA_ENRICHMENT_V1]` JSON note payload
+- hidden `[HA]` JSON note payload
 - native Bambuddy `cost` updates from `sensor.print_cost`
 - popup-safe preservation of hidden enrichment metadata during edits
 - manual re-enrich flow for older archives
@@ -280,21 +288,25 @@ That future direction is what drives the planned UUID-first hardening work and t
 
 #### Phase A: Compact Bambuddy-resident enrichment
 
-- keep the enrichment resident in Bambuddy using managed `f:` / `s:` tags, native `cost`, and a compact `[HA_ENRICHMENT_V1]` payload in `notes`
+- keep the enrichment resident in Bambuddy using managed `f:` / `s:` tags, native `cost`, and a compact `[HA]` payload in `notes`
 - keep the payload small and versioned so popup editing, search, and archive reads stay practical
 
-## Tag Migration Tool
+## Migration Tools
 
-`tools/bambuddy/migrate_archive_tag_format.py` rewrites existing Bambuddy archives from the old managed tags to the short format without changing the hidden notes payload.
+`tools/bambuddy/migrate_archive_tag_format.py` rewrites existing Bambuddy archives from the old managed tags to the short format.
+
+`tools/bambuddy/migrate_archive_notes_format.py` rewrites legacy hidden enrichment notes from `[HA_ENRICHMENT_V1]` to the compact `[HA]` schema.
 
 Recommended operator flow:
 
 1. Reload the updated print-history package code.
-2. Run the migration in dry-run mode and review the JSON summary.
-3. Re-run with `--apply` once the candidate set looks correct.
-4. Refresh the print history cache in Home Assistant.
+2. Run the tag migration in dry-run mode and review the JSON summary.
+3. Re-run the tag migration with `--apply` once the candidate set looks correct.
+4. Run the notes migration in dry-run mode and review the JSON summary.
+5. Re-run the notes migration with `--apply` once the candidate set looks correct.
+6. Refresh the print history cache in Home Assistant.
 
-Example dry run:
+Tag migration dry run:
 
 ```bash
 python tools/bambuddy/migrate_archive_tag_format.py \
@@ -302,10 +314,27 @@ python tools/bambuddy/migrate_archive_tag_format.py \
   --api-key YOUR_KEY
 ```
 
-Example apply run:
+Tag migration apply run:
 
 ```bash
 python tools/bambuddy/migrate_archive_tag_format.py \
+  --base-url http://bambuddy.local:8902 \
+  --api-key YOUR_KEY \
+  --apply
+```
+
+Notes migration dry run:
+
+```bash
+python tools/bambuddy/migrate_archive_notes_format.py \
+  --base-url http://bambuddy.local:8902 \
+  --api-key YOUR_KEY
+```
+
+Notes migration apply run:
+
+```bash
+python tools/bambuddy/migrate_archive_notes_format.py \
   --base-url http://bambuddy.local:8902 \
   --api-key YOUR_KEY \
   --apply
@@ -318,7 +347,7 @@ python tools/bambuddy/migrate_archive_tag_format.py \
 
 #### Phase C: Failed or cancelled print reconciliation
 
-- add a later-pass workflow for failed or cancelled prints that improves the `Filaments` payload beyond the initial during-print snapshot
+- add a later-pass workflow for failed or cancelled prints that improves the `F` payload beyond the initial during-print snapshot
 - preserve the first-write enrichment as fallback, but allow a later reconciliation pass to refine actual usage when better evidence exists
 
 #### Phase D: Archive-detail correction for partial or unavailable enrichment

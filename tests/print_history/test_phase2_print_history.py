@@ -744,8 +744,8 @@ class TestTemplateSensors(unittest.TestCase):
     def test_filtered_sensor_builds_color_tooltips_from_enrichment_notes(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("available_color_tooltips_json", content)
-        self.assertIn("{% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}", content)
-        self.assertIn("{% set rows = payload.get('Filaments', []) if payload is mapping else [] %}", content)
+        self.assertIn("{% set enrichment_marker = '[HA]' %}", content)
+        self.assertIn("{% set rows = payload.get('F', []) if payload is mapping else [] %}", content)
         self.assertIn("{% set ns.entries = ns.entries + [dict(color=color_key, names=[name])] %}", content)
         self.assertIn("{% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}", content)
 
@@ -1143,7 +1143,7 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
 
     def test_reenrich_supports_single_color_archive_total_fallback(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
-        self.assertIn("archive_totals_single_color", content)
+        self.assertIn("archive_row_source == 'at1'", content)
         self.assertIn("archive_detail.filament_used_grams", content)
         self.assertIn("archive_detail.filament_color", content)
         self.assertIn("archive_detail.filament_type", content)
@@ -1152,7 +1152,7 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
     def test_reenrich_payload_carries_reason_and_saves_unavailable_diagnostics(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("archive_row_reason", content)
-        self.assertIn("dict(payload, source=archive_row_source)", content)
+        self.assertIn("dict(payload, src=archive_row_source)", content)
         self.assertIn("dict(payload, reason=archive_row_reason)", content)
         self.assertIn("Print History Re-Enrich Saved Diagnostic Only", content)
         self.assertIn("hidden enrichment payload was updated with a", content)
@@ -1165,7 +1165,7 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("raw | from_json([])", content)
         self.assertIn("spoolman_spools_normalized", content)
         self.assertNotIn("spoolman_spools: >-", content)
-        self.assertIn("multiple Spoolman spools matched archived tray UUID", content)
+        self.assertIn("Multiple Spoolman spools matched the archived tray UUID.", content)
 
     def test_spoolman_getspools_rest_command_supports_allow_archived_override(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "spoolman_sync" / "rest_commands" / "spoolman_getspools.yaml").read_text("utf-8")
@@ -1229,15 +1229,15 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const tags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
         self.assertIn("notesInfo.userNotes", content)
         self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
-        self.assertIn("Array.isArray(notesInfo.payload?.Filaments)", content)
+        self.assertIn("Array.isArray(notesInfo.payload?.F)", content)
         self.assertIn(">Filament Colors<", content)
         self.assertIn(">Enrichment<", content)
 
     def test_popup_content_derives_partial_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
-        self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0 || enrichmentAmbiguities.length > 0;", content)
+        self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
         self.assertIn("if (enrichmentStatusRaw === 'unavailable' && hasEnrichmentData) return 'partial';", content)
-        self.assertIn("return enrichmentRowsWithState.some((row) => row.needsReview) || enrichmentAmbiguities.length ? 'partial' : 'complete';", content)
+        self.assertIn("return enrichmentRowsWithState.some((row) => row.needsReview) ? 'partial' : 'complete';", content)
         self.assertIn("if (!hasResolvedEntityId(item?.s)) reviewReasons.push('Spool unresolved');", content)
         self.assertIn("if (!hasResolvedEntityId(item?.f)) reviewReasons.push('Filament unresolved');", content)
         self.assertIn("<span>Needs Review</span>", content)
@@ -1247,20 +1247,22 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
     def test_popup_content_surfaces_enrichment_reason_and_source(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();", content)
-        self.assertIn("const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.source || '').trim();", content)
-        self.assertIn("const enrichmentSourceLabel = enrichmentSource === 'archive_totals_single_color'", content)
+        self.assertIn("const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.src || '').trim();", content)
+        self.assertIn("const enrichmentSourceLabel = enrichmentSource === 'at1'", content)
         self.assertIn("Archive-level fallback", content)
         self.assertIn("${escapeHtml(enrichmentReason)}", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
         self.assertIn("existing_tags_raw", content)
-        self.assertIn("existing_notes_suffix", content)
+        self.assertIn("existing_recovery_block", content)
+        self.assertIn("existing_payload", content)
         self.assertIn("existing_tags_raw.split(',')", content)
         self.assertIn("lowered.startswith('s:')", content)
         self.assertIn("lowered.startswith('vendor:')", content)
         self.assertIn("resolved_user_tags + preserved_system_tags", content)
-        self.assertIn("existing_notes_suffix | length > 0", content)
+        self.assertIn("existing_recovery_block | length > 0", content)
+        self.assertIn("existing_payload is mapping and existing_payload.status is defined", content)
 
 
 # =============================================================================
@@ -1310,14 +1312,14 @@ class TestPrintHistoryTagColors(unittest.TestCase):
         for path in files:
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
-                self.assertIn("const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';", content)
+                self.assertIn("const ENRICHMENT_MARKER = '[HA]';", content)
                 self.assertIn("const filamentChips = enrichmentRows.length", content)
                 if path.name == "print_history_archive_popup_content.yaml":
                     self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
-                    self.assertIn("Array.isArray(notesInfo.payload?.Filaments)", content)
+                    self.assertIn("Array.isArray(notesInfo.payload?.F)", content)
                     self.assertIn("tooltip: [hex, ambiguity].filter(Boolean).join(' | ')", content)
                 else:
-                    self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.Filaments) ? enrichmentPayload.Filaments : [];", content)
+                    self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.F) ? enrichmentPayload.F : [];", content)
                     self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
                 self.assertIn("tooltip: hex", content)
                 self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)

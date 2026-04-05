@@ -2,7 +2,7 @@
 reenrich_print_history_archive:
   alias: Re-Enrich Print History Archive
   description: >-
-    Rebuilds the managed [HA_ENRICHMENT_V1] payload for an older Bambuddy archive
+    Rebuilds the managed [HA] payload for an older Bambuddy archive
     while preserving user notes and user tags.
   fields:
     archive_id:
@@ -19,8 +19,8 @@ reenrich_print_history_archive:
           state: "on"
       then:
         - variables:
-            enrichment_marker: "[HA_ENRICHMENT_V1]"
-            legacy_marker: "--- HA Enrichment ---"
+            enrichment_marker: "[HA]"
+            recovery_marker: "[RECOVERY_AUDIT_V1]"
             requested_archive_id: "{{ archive_id | string | trim if archive_id is defined else '' }}"
             resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
         - if:
@@ -38,13 +38,13 @@ reenrich_print_history_archive:
                 existing_user_notes: >-
                   {% set raw = existing_notes_raw %}
                   {% set marker_index = raw.find(enrichment_marker) %}
-                  {% set legacy_index = raw.find(legacy_marker) %}
-                  {% if marker_index >= 0 and legacy_index >= 0 %}
-                    {% set cutoff = [marker_index, legacy_index] | min %}
+                  {% set recovery_index = raw.find(recovery_marker) %}
+                  {% if marker_index >= 0 and recovery_index >= 0 %}
+                    {% set cutoff = [marker_index, recovery_index] | min %}
                   {% elif marker_index >= 0 %}
                     {% set cutoff = marker_index %}
-                  {% elif legacy_index >= 0 %}
-                    {% set cutoff = legacy_index %}
+                  {% elif recovery_index >= 0 %}
+                    {% set cutoff = recovery_index %}
                   {% else %}
                     {% set cutoff = -1 %}
                   {% endif %}
@@ -52,6 +52,19 @@ reenrich_print_history_archive:
                     {{ raw[:cutoff] | regex_replace('\n+$', '') }}
                   {% else %}
                     {{ raw | regex_replace('\n+$', '') }}
+                  {% endif %}
+                existing_recovery_block: >-
+                  {% set raw = existing_notes_raw %}
+                  {% set marker_index = raw.find(enrichment_marker) %}
+                  {% set recovery_index = raw.find(recovery_marker) %}
+                  {% if recovery_index >= 0 %}
+                    {% if marker_index >= 0 and recovery_index < marker_index %}
+                      {{ raw[recovery_index:marker_index] | regex_replace('\n+$', '') }}
+                    {% else %}
+                      {{ raw[recovery_index:] | regex_replace('\n+$', '') }}
+                    {% endif %}
+                  {% else %}
+                    {{ '' }}
                   {% endif %}
                 existing_payload_raw: >-
                   {% set marker_index = existing_notes_raw.find(enrichment_marker) %}
@@ -150,10 +163,8 @@ reenrich_print_history_archive:
                         'profile_name': profile_name,
                         'vendor_hint': vendor_hint,
                         'name_hint': name_hint,
-                        'source': 'archived_filament_slots',
-                        'ambiguous': tray_matches.items | count > 1,
-                        'ambiguity_reason': ambiguity_reason,
-                        'archived_tray_match_count': tray_matches.items | count
+                        'src': 'afs',
+                        'am': 'a_tc' if ambiguity_reason | length > 0 else ''
                       }] %}
                     {% endif %}
                   {% endfor %}
@@ -196,10 +207,8 @@ reenrich_print_history_archive:
                         'profile_name': profile_name,
                         'vendor_hint': vendor_hint,
                         'name_hint': name_hint,
-                        'source': 'archive_totals_single_color',
-                        'ambiguous': tray_matches.items | count > 1,
-                        'ambiguity_reason': ambiguity_reason,
-                        'archived_tray_match_count': tray_matches.items | count
+                        'src': 'at1',
+                        'am': 'a_fb' if ambiguity_reason | length > 0 else ''
                       }] %}
                     {% endif %}
                   {% endif %}
@@ -207,10 +216,18 @@ reenrich_print_history_archive:
                 archive_row_source: >-
                   {% if archive_slot_rows | count == 0 %}
                     unavailable
-                  {% elif archive_slot_rows | selectattr('source', 'equalto', 'archive_totals_single_color') | list | count == archive_slot_rows | count %}
-                    archive_totals_single_color
+                  {% elif archive_slot_rows | selectattr('src', 'equalto', 'at1') | list | count == archive_slot_rows | count %}
+                    at1
                   {% else %}
-                    archived_filament_slots
+                    afs
+                  {% endif %}
+                archive_row_source_label: >-
+                  {% if archive_row_source == 'at1' %}
+                    archive-level fallback
+                  {% elif archive_row_source == 'afs' %}
+                    archived slot rows
+                  {% else %}
+                    unavailable
                   {% endif %}
                 archive_row_reason: >-
                   {% set extra = archive_detail.extra_data | default({}, true) %}
@@ -235,7 +252,7 @@ reenrich_print_history_archive:
                       {% endif %}
                     {% endif %}
                   {% endfor %}
-                  {% if archive_row_source == 'archive_totals_single_color' %}
+                  {% if archive_row_source == 'at1' %}
                     This archive has no archived filament slot rows, so re-enrich used the archive-level filament total as a single-color fallback.
                   {% elif archive_slot_rows | count > 0 %}
                     {{ '' }}
@@ -327,8 +344,8 @@ reenrich_print_history_archive:
                       {% set target_color = target_color[0:6] %}
                     {% endif %}
                     {% set bambu_only = ((target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu')) %}
-                    {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_reason=slot.ambiguity_reason | default('', true) | string) %}
-                    {% if ns_match.ambiguity_reason | length == 0 and target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
+                      {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_code=slot.am | default('', true) | string) %}
+                      {% if ns_match.ambiguity_code | length == 0 and target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
                       {% for spool in spoolman_spools_normalized %}
                         {% if not spool.sealed %}
                           {% if spool.spool_uuid == target_uuid %}
@@ -339,7 +356,7 @@ reenrich_print_history_archive:
                       {% if ns_match.raw_candidates | count == 1 %}
                         {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
                       {% elif ns_match.raw_candidates | count > 1 %}
-                        {% set ns_match.ambiguity_reason = 'multiple Spoolman spools matched archived tray UUID' %}
+                          {% set ns_match.ambiguity_code = 's_uuid' %}
                       {% endif %}
                     {% endif %}
                     {% if not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) %}
@@ -371,18 +388,18 @@ reenrich_print_history_archive:
                       {% else %}
                         {% set ns_match.raw_candidates = [] %}
                       {% endif %}
-                      {% if ns_match.ambiguity_reason | length == 0 and ns_match.raw_candidates | count == 1 %}
+                      {% if ns_match.ambiguity_code | length == 0 and ns_match.raw_candidates | count == 1 %}
                         {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
-                      {% elif ns_match.raw_candidates | count > 1 and ns_match.ambiguity_reason | length == 0 %}
-                        {% set ns_match.ambiguity_reason = 'multiple Spoolman spools matched type+color' %}
+                      {% elif ns_match.raw_candidates | count > 1 and ns_match.ambiguity_code | length == 0 %}
+                        {% set ns_match.ambiguity_code = 's_tc' %}
                       {% endif %}
                     {% endif %}
-                    {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), ambiguity_reason=ns_match.ambiguity_reason) %}
+                    {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code) %}
                     {% if ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined %}
                       {% set ns_row.spool_id = ns_match.matched_spool.id | int(0) %}
                       {% set ns_row.filament_id = ns_match.matched_spool.filament_id | default(none, true) %}
                       {% set ns_row.display_name = ns_match.matched_spool.display_name | default(slot.name_hint | default('Unknown Filament', true), true) | string %}
-                      {% set ns_row.ambiguity_reason = '' %}
+                      {% set ns_row.am = '' %}
                     {% else %}
                       {% set ns_candidate = namespace(filament_ids=[], first_spool={}) %}
                       {% for candidate in ns_match.raw_candidates %}
@@ -405,31 +422,46 @@ reenrich_print_history_archive:
                         {% endif %}
                       {% endif %}
                     {% endif %}
-                    {% set ns.rows = ns.rows + [{
-                      'name': ns_row.display_name,
-                      'weight': slot.weight,
-                      'tray': slot.tray,
+                    {% set row = {
+                      'n': ns_row.display_name,
+                      'w': slot.weight,
+                      't': slot.tray,
                       's': ns_row.spool_id,
                       'f': ns_row.filament_id,
-                      'h': ns_row.color_hex,
-                      'ambiguity': ns_row.ambiguity_reason if ns_row.ambiguity_reason | length > 0 else none
-                    }] %}
+                      'h': ns_row.color_hex
+                    } %}
+                    {% if ns_row.am | length > 0 %}
+                      {% set row = dict(row, am=ns_row.am) %}
+                    {% endif %}
+                    {% set ns.rows = ns.rows + [row] %}
                   {% endfor %}
                   {{ ns.rows | tojson | from_json }}
-                candidate_ambiguities: >-
+                candidate_ambiguity_rows: >-
                   {% set ns = namespace(items=[]) %}
                   {% for slot in archive_slot_rows %}
                     {% set row = candidate_filaments[loop.index0] if loop.index0 < (candidate_filaments | count) else {} %}
-                    {% set reason = slot.ambiguity_reason | default('', true) | string %}
-                    {% if reason | length == 0 and row is mapping %}
-                      {% set reason = row.ambiguity | default('', true) | string %}
+                    {% set code = slot.am | default('', true) | string %}
+                    {% if code | length == 0 and row is mapping %}
+                      {% set code = row.am | default('', true) | string %}
                     {% endif %}
-                    {% if reason | length > 0 %}
+                    {% if code | length > 0 %}
+                      {% if code == 'a_tc' %}
+                        {% set reason = 'Multiple archived AMS trays matched type+color.' %}
+                      {% elif code == 'a_fb' %}
+                        {% set reason = 'Multiple archived AMS trays matched the archive-level fallback.' %}
+                      {% elif code == 's_uuid' %}
+                        {% set reason = 'Multiple Spoolman spools matched the archived tray UUID.' %}
+                      {% elif code == 's_tc' %}
+                        {% set reason = 'Multiple Spoolman spools matched type+color.' %}
+                      {% else %}
+                        {% set reason = code %}
+                      {% endif %}
                       {% set ns.items = ns.items + [{
-                        'label': row.name | default(slot.name_hint | default('Unknown filament', true), true),
+                        'label': row.n | default(slot.name_hint | default('Unknown filament', true), true),
                         'type': slot.type | default('', true),
                         'color': slot.color_hex | default(none, true),
                         'weight': slot.weight | default(0, true),
+                        'am': code,
                         'reason': reason
                       }] %}
                     {% endif %}
@@ -450,7 +482,7 @@ reenrich_print_history_archive:
                     {% endfor %}
                     {% if ns.missing_filament %}
                       unavailable
-                    {% elif ns.missing_spool or (candidate_ambiguities | count > 0) %}
+                    {% elif ns.missing_spool or (candidate_ambiguity_rows | count > 0) %}
                       partial
                     {% else %}
                       complete
@@ -459,21 +491,17 @@ reenrich_print_history_archive:
                 candidate_payload: >-
                   {% set payload = {
                     'status': candidate_payload_status,
-                    'Filaments': candidate_filaments
+                    'F': candidate_filaments
                   } %}
                   {% if archive_row_source != 'unavailable' %}
-                    {% set payload = dict(payload, source=archive_row_source) %}
+                    {% set payload = dict(payload, src=archive_row_source) %}
                   {% endif %}
                   {% if archive_row_reason | length > 0 %}
                     {% set payload = dict(payload, reason=archive_row_reason) %}
                   {% endif %}
-                  {% if candidate_ambiguities | count > 0 %}
-                    {{ dict(payload, ambiguities=candidate_ambiguities) | tojson | from_json }}
-                  {% else %}
-                    {{ payload | tojson | from_json }}
-                  {% endif %}
+                  {{ payload | tojson | from_json }}
                 existing_filaments: >-
-                  {{ existing_payload.Filaments | default([], true) if existing_payload is mapping else [] }}
+                  {{ existing_payload.F | default([], true) if existing_payload is mapping else [] }}
                 existing_payload_status: >-
                   {% if existing_payload is mapping %}
                     {{ existing_payload.status | default('', true) | string | lower }}
@@ -523,7 +551,7 @@ reenrich_print_history_archive:
                   {{ (existing_payload if should_preserve_existing else candidate_payload) | tojson | from_json }}
                 effective_system_tags: >-
                   {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
-                  {% for item in effective_payload.Filaments | default([], true) %}
+                  {% for item in effective_payload.F | default([], true) %}
                     {% if item.f is not none %}
                       {% set filament_id = item.f | string %}
                       {% if filament_id not in ns.filament_ids %}
@@ -550,13 +578,17 @@ reenrich_print_history_archive:
                   {% endfor %}
                   {{ ns.all | join(',') }}
                 merged_notes: >-
+                  {% set parts = namespace(values=[]) %}
                   {% set user_notes = existing_user_notes | string | trim %}
-                  {% set payload_json = effective_payload | tojson %}
+                  {% set recovery_block = existing_recovery_block | string | trim %}
                   {% if user_notes | length > 0 %}
-                    {{ user_notes ~ '\n\n' ~ enrichment_marker ~ '\n' ~ payload_json }}
-                  {% else %}
-                    {{ enrichment_marker ~ '\n' ~ payload_json }}
+                    {% set parts.values = parts.values + [user_notes] %}
                   {% endif %}
+                  {% if recovery_block | length > 0 %}
+                    {% set parts.values = parts.values + [recovery_block] %}
+                  {% endif %}
+                  {% set parts.values = parts.values + [enrichment_marker ~ (effective_payload | to_json)] %}
+                  {{ parts.values | join('\n\n') }}
             - choose:
                 - conditions:
                     - condition: template
@@ -602,7 +634,7 @@ reenrich_print_history_archive:
                               {{ archive_row_reason }}
                     - conditions:
                         - condition: template
-                          value_template: "{{ candidate_ambiguities | count > 0 }}"
+                          value_template: "{{ candidate_ambiguity_rows | count > 0 }}"
                       sequence:
                         - action: persistent_notification.create
                           data:
@@ -612,7 +644,7 @@ reenrich_print_history_archive:
                               Archive **{{ resolved_archive_id }}** was updated, but one or more
                               filament rows could not be resolved to a unique spool.
 
-                              {% for item in candidate_ambiguities %}
+                              {% for item in candidate_ambiguity_rows %}
                               - {{ item.label | default('Unknown filament', true) }}
                                 ({{ item.weight | default(0, true) }}g, {{ item.type | default('Unknown', true) }}, {{ item.color | default('Unknown', true) }}): {{ item.reason }}
                               {% endfor %}
@@ -621,7 +653,7 @@ reenrich_print_history_archive:
                     name: Print History Re-Enrich
                     message: >-
                       Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status }}
-                      from {{ archive_row_source }} and {{ candidate_filament_rows }} filament row(s).
+                      from {{ archive_row_source_label }} and {{ candidate_filament_rows }} filament row(s).
           else:
             - action: logbook.log
               data:

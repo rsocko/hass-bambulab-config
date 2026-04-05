@@ -23,7 +23,7 @@ Archive re-enrichment is operating after the print is over. At that point:
 - the original spool may have been moved, consumed, archived, or replaced
 - `filament_slots[].slot_id` is not an AMS tray number and cannot be used as a direct identity key
 
-If the resolver guesses through duplicate `type + color` matches, it can write the wrong `Spool:<id>` tag and the wrong spool lineage into the archive.
+If the resolver guesses through duplicate `type + color` matches, it can write the wrong `s:<id>` tag and the wrong spool lineage into the archive.
 
 ## Relevant Archive Data Shape
 
@@ -93,8 +93,8 @@ the system cannot prove whether the contribution came from `UUID_A` or `UUID_B`.
 When duplicate normalized `type + color` candidates exist for a single contributing archive row, manual re-enrichment should:
 
 1. refuse to auto-select a spool candidate
-2. refuse to emit a guessed `Spool:<id>` tag
-3. emit `Filament:<id>` only if filament identity is still uniquely defensible
+2. refuse to emit a guessed `s:<id>` tag
+3. emit `f:<id>` only if filament identity is still uniquely defensible
 4. mark the result as ambiguous or partial rather than complete
 5. surface a clear operator-facing message describing why the row could not be safely auto-resolved
 

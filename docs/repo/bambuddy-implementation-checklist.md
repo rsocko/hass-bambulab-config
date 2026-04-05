@@ -60,7 +60,7 @@ Canonical sources:
 - [x] Archive-detail verification for photo uploads
 - [x] Read-only archive detail popup shipped
 - [ ] Archive detail compare actions and richer deep links
-- [ ] Extend enrichment beyond the shipped `[HA_ENRICHMENT_V1]` payload toward richer provenance and optional native archive-status integration
+- [ ] Extend enrichment beyond the shipped `[HA]` payload toward richer provenance and optional native archive-status integration
 - [ ] Upgrade enrichment resolution toward the UUID-first design without requiring sidecar storage
 - [ ] Ship manual re-enrich matching contract against archive `filament_slots[]` plus archived `ams[].tray[]`
 - [ ] Ship duplicate `type + color` ambiguity handling so re-enrich refuses guessed spool IDs and surfaces operator review instead
@@ -101,7 +101,7 @@ Canonical sources:
 
 ## Next Implementation Order
 
-1. Document and harden the shipped enrichment contract: managed tags + native cost + hidden `[HA_ENRICHMENT_V1]` notes payload.
+1. Document and harden the shipped enrichment contract: managed tags + native cost + hidden `[HA]` notes payload.
 2. Finish manual re-enrich hardening: archive `filament_slots[]` plus archived `ams[].tray[]`, duplicate `type + color` ambiguity handling, and operator-visible partial outcomes.
 3. Harden `print_history` upload handling or move to the Python worker.
 4. Build `print_queue` core lifecycle controls.

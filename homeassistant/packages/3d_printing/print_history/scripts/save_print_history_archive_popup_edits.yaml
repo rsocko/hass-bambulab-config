@@ -3,8 +3,8 @@ save_print_history_archive_popup_edits:
   alias: Save Print History Archive Popup Edits
   sequence:
     - variables:
-        enrichment_marker: "[HA_ENRICHMENT_V1]"
-        legacy_marker: "--- HA Enrichment ---"
+        enrichment_marker: "[HA]"
+        recovery_marker: "[RECOVERY_AUDIT_V1]"
         resolved_archive_id: "{{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}"
         resolved_print_name: "{{ states('input_text.print_history_popup_print_name') | default('', true) | string | trim }}"
         resolved_tags: "{{ states('input_text.print_history_popup_tags') | default('', true) | string }}"
@@ -25,13 +25,13 @@ save_print_history_archive_popup_edits:
         resolved_user_notes: >-
           {% set raw = resolved_notes %}
           {% set marker_index = raw.find(enrichment_marker) %}
-          {% set legacy_index = raw.find(legacy_marker) %}
-          {% if marker_index >= 0 and legacy_index >= 0 %}
-            {% set cutoff = [marker_index, legacy_index] | min %}
+          {% set recovery_index = raw.find(recovery_marker) %}
+          {% if marker_index >= 0 and recovery_index >= 0 %}
+            {% set cutoff = [marker_index, recovery_index] | min %}
           {% elif marker_index >= 0 %}
             {% set cutoff = marker_index %}
-          {% elif legacy_index >= 0 %}
-            {% set cutoff = legacy_index %}
+          {% elif recovery_index >= 0 %}
+            {% set cutoff = recovery_index %}
           {% else %}
             {% set cutoff = -1 %}
           {% endif %}
@@ -71,18 +71,20 @@ save_print_history_archive_popup_edits:
             existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
             existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
             existing_marker_index: "{{ existing_notes_raw.find(enrichment_marker) }}"
-            existing_legacy_marker_index: "{{ existing_notes_raw.find(legacy_marker) }}"
+            existing_recovery_index: "{{ existing_notes_raw.find(recovery_marker) }}"
             existing_payload_raw: >-
               {% if existing_marker_index >= 0 %}
                 {{ existing_notes_raw[existing_marker_index + (enrichment_marker | length):] | trim }}
               {% else %}
                 {{ '' }}
               {% endif %}
-            existing_notes_suffix: >-
-              {% if existing_marker_index >= 0 %}
-                {{ existing_notes_raw[existing_marker_index:] | trim }}
-              {% elif existing_legacy_marker_index >= 0 %}
-                {{ existing_notes_raw[existing_legacy_marker_index:] | trim }}
+            existing_recovery_block: >-
+              {% if existing_recovery_index >= 0 %}
+                {% if existing_marker_index >= 0 and existing_recovery_index < existing_marker_index %}
+                  {{ existing_notes_raw[existing_recovery_index:existing_marker_index] | regex_replace('\n+$', '') }}
+                {% else %}
+                  {{ existing_notes_raw[existing_recovery_index:] | regex_replace('\n+$', '') }}
+                {% endif %}
               {% else %}
                 {{ '' }}
               {% endif %}
@@ -110,7 +112,7 @@ save_print_history_archive_popup_edits:
                 {% endif %}
               {% endfor %}
               {% if existing_payload is mapping and existing_payload.status is defined %}
-                {% for item in existing_payload.Filaments | default([], true) %}
+                  {% for item in existing_payload.F | default([], true) %}
                   {% if item.f is not none %}
                     {% set filament_tag = 'f:' ~ (item.f | string) %}
                     {% if filament_tag | lower not in ns.seen %}
@@ -140,21 +142,17 @@ save_print_history_archive_popup_edits:
               {% endfor %}
               {{ ns.result | join(',') }}
             merged_notes: >-
-              {% if existing_payload is mapping and existing_payload.status is defined %}
-                {% if resolved_user_notes | length > 0 %}
-                  {{ resolved_user_notes ~ '\n\n' ~ enrichment_marker ~ '\n' ~ (existing_payload | tojson) }}
-                {% else %}
-                  {{ enrichment_marker ~ '\n' ~ (existing_payload | tojson) }}
-                {% endif %}
-              {% elif existing_notes_suffix | length > 0 %}
-                {% if resolved_user_notes | length > 0 %}
-                  {{ resolved_user_notes ~ '\n\n' ~ existing_notes_suffix }}
-                {% else %}
-                  {{ existing_notes_suffix }}
-                {% endif %}
-              {% else %}
-                {{ resolved_user_notes }}
+              {% set parts = namespace(values=[]) %}
+              {% if resolved_user_notes | length > 0 %}
+                {% set parts.values = parts.values + [resolved_user_notes] %}
               {% endif %}
+              {% if existing_recovery_block | length > 0 %}
+                {% set parts.values = parts.values + [existing_recovery_block] %}
+              {% endif %}
+              {% if existing_payload is mapping and existing_payload.status is defined %}
+                {% set parts.values = parts.values + [enrichment_marker ~ (existing_payload | to_json)] %}
+              {% endif %}
+              {{ parts.values | join('\n\n') }}
         - action: rest_command.bambuddy_update_archive
           data:
             archive_id: "{{ resolved_archive_id }}"

@@ -6,7 +6,7 @@
   id: bambuddy_enrich_archive_on_complete
   description: >
     Maintains the Phase A print-history enrichment contract in Bambuddy by
-    storing compact system tags plus the hidden [HA_ENRICHMENT_V1] notes block.
+    storing compact system tags plus the hidden [HA] notes block.
 
   triggers:
     - trigger: numeric_state
@@ -51,8 +51,8 @@
 
   actions:
     - variables:
-        enrichment_marker: "[HA_ENRICHMENT_V1]"
-        legacy_marker: "--- HA Enrichment ---"
+        enrichment_marker: "[HA]"
+        recovery_marker: "[RECOVERY_AUDIT_V1]"
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
         trigger_id: "{{ trigger.id | default('unknown') }}"
         is_terminal_trigger: "{{ trigger.id in ['print_complete', 'print_failed', 'print_stopped'] }}"
@@ -84,13 +84,13 @@
         existing_user_notes: >-
           {% set raw = existing_notes_raw %}
           {% set marker_index = raw.find(enrichment_marker) %}
-          {% set legacy_index = raw.find(legacy_marker) %}
-          {% if marker_index >= 0 and legacy_index >= 0 %}
-            {% set cutoff = [marker_index, legacy_index] | min %}
+          {% set recovery_index = raw.find(recovery_marker) %}
+          {% if marker_index >= 0 and recovery_index >= 0 %}
+            {% set cutoff = [marker_index, recovery_index] | min %}
           {% elif marker_index >= 0 %}
             {% set cutoff = marker_index %}
-          {% elif legacy_index >= 0 %}
-            {% set cutoff = legacy_index %}
+          {% elif recovery_index >= 0 %}
+            {% set cutoff = recovery_index %}
           {% else %}
             {% set cutoff = -1 %}
           {% endif %}
@@ -98,6 +98,19 @@
             {{ raw[:cutoff] | regex_replace('\n+$', '') }}
           {% else %}
             {{ raw | regex_replace('\n+$', '') }}
+          {% endif %}
+        existing_recovery_block: >-
+          {% set raw = existing_notes_raw %}
+          {% set marker_index = raw.find(enrichment_marker) %}
+          {% set recovery_index = raw.find(recovery_marker) %}
+          {% if recovery_index >= 0 %}
+            {% if marker_index >= 0 and recovery_index < marker_index %}
+              {{ raw[recovery_index:marker_index] | regex_replace('\n+$', '') }}
+            {% else %}
+              {{ raw[recovery_index:] | regex_replace('\n+$', '') }}
+            {% endif %}
+          {% else %}
+            {{ '' }}
           {% endif %}
         existing_payload_raw: >-
           {% set marker_index = existing_notes_raw.find(enrichment_marker) %}
@@ -181,9 +194,9 @@
                 {% set filament_id_value = none %}
               {% endif %}
               {% set ns.rows = ns.rows + [{
-                'name': spool_name,
-                'weight': grams | round(1),
-                'tray': tray_source.tray_code,
+                'n': spool_name,
+                'w': grams | round(1),
+                't': tray_source.tray_code,
                 's': spool_id_value,
                 'f': filament_id_value,
                 'h': color_norm
@@ -206,10 +219,10 @@
         current_payload: >-
           {{ {
             'status': current_payload_status,
-            'Filaments': current_filaments
+            'F': current_filaments
           } | tojson | from_json }}
         existing_filaments: >-
-          {{ existing_payload.Filaments | default([], true) if existing_payload is mapping else [] }}
+          {{ existing_payload.F | default([], true) if existing_payload is mapping else [] }}
         existing_payload_status: >-
           {% if existing_payload is mapping %}
             {{ existing_payload.status | default('', true) | string | lower }}
@@ -267,7 +280,7 @@
           {{ (existing_payload if use_existing_payload else current_payload) | tojson | from_json }}
         effective_system_tags: >-
           {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
-          {% for item in effective_payload.Filaments | default([], true) %}
+          {% for item in effective_payload.F | default([], true) %}
             {% if item.f is not none %}
               {% set filament_id = item.f | string %}
               {% if filament_id not in ns.filament_ids %}
@@ -294,13 +307,17 @@
           {% endfor %}
           {{ ns.all | join(',') }}
         merged_notes: >-
+          {% set parts = namespace(values=[]) %}
           {% set user_notes = existing_user_notes | string | trim %}
-          {% set payload_json = effective_payload | tojson %}
+          {% set recovery_block = existing_recovery_block | string | trim %}
           {% if user_notes | length > 0 %}
-            {{ user_notes ~ '\n\n' ~ enrichment_marker ~ '\n' ~ payload_json }}
-          {% else %}
-            {{ enrichment_marker ~ '\n' ~ payload_json }}
+            {% set parts.values = parts.values + [user_notes] %}
           {% endif %}
+          {% if recovery_block | length > 0 %}
+            {% set parts.values = parts.values + [recovery_block] %}
+          {% endif %}
+          {% set parts.values = parts.values + [enrichment_marker ~ (effective_payload | to_json)] %}
+          {{ parts.values | join('\n\n') }}
 
     - if:
         - condition: template

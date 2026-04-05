@@ -120,16 +120,15 @@ Unless a field explicitly says otherwise:
 - `repair:recovered`
 - `recovered_from:<id>`
 - `recovery_source:<value>`
-- `ha_enriched:true`
-- `Filament:<id>`
-- `Spool:<id>`
+- `f:<id>`
+- `s:<id>`
 
 ## Notes Policy Details
 
 ### Keep
 
 - existing target notes content
-- existing `[HA_ENRICHMENT_V1]` block on target
+- existing `[HA]` block on target
 - existing `[RECOVERY_AUDIT_V1]` block on target if already correct
 
 ### Append Or Update

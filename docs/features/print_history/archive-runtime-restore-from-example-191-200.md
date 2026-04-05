@@ -117,8 +117,8 @@ It preserved:
       "group": "user_metadata",
       "action": "merge",
       "source_value": "Hueforge,exception:missing_3mf,replaced_by:200",
-      "target_before": "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,ha_enriched:true,Filament:14,Spool:10,Filament:15,Spool:9",
-      "target_after": "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,ha_enriched:true,Filament:14,Spool:10,Filament:15,Spool:9,Hueforge",
+      "target_before": "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,f:15,s:9",
+      "target_after": "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,f:15,s:9,Hueforge",
       "reason": "merged_tag_policy"
     },
     {
@@ -126,7 +126,7 @@ It preserved:
       "group": "lineage",
       "action": "merge",
       "source_value": "[RECOVERY_AUDIT_V1] ... replaced_by_archive_id ...",
-      "target_before": "[RECOVERY_AUDIT_V1] ... recovered_from_archive_id ...\n\n[HA_ENRICHMENT_V1] ...",
+      "target_before": "[RECOVERY_AUDIT_V1] ... recovered_from_archive_id ...\n\n[HA]...",
       "target_after": "preserve target notes and append/update structured recovery audit without duplication",
       "reason": "merged_notes_policy"
     },

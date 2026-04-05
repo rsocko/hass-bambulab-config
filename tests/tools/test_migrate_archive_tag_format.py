@@ -25,8 +25,7 @@ def test_normalize_archive_tags_preserves_user_tags_and_deduplicates() -> None:
 def test_normalize_archive_tags_rebuilds_missing_short_tags_from_payload() -> None:
     notes = (
         "Operator note\n\n"
-        "[HA_ENRICHMENT_V1]\n"
-        '{"status":"complete","Filaments":[{"f":14,"s":10},{"f":15,"s":10}]}'
+        '[HA]{"status":"complete","F":[{"f":14,"s":10},{"f":15,"s":10}]}'
     )
 
     result = normalize_archive_tags("Hueforge", notes)

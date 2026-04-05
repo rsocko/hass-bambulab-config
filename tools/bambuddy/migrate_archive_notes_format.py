@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate Bambuddy archive system tags from the legacy enrichment format."""
+"""Migrate Bambuddy archive enrichment notes to the compact [HA] schema."""
 
 from __future__ import annotations
 
@@ -13,122 +13,116 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-ENRICHMENT_MARKERS = ("[HA]", "[HA_ENRICHMENT_V1]")
+LEGACY_MARKER = "[HA_ENRICHMENT_V1]"
+CURRENT_MARKER = "[HA]"
+
+SOURCE_CODE_MAP = {
+    "archived_filament_slots": "afs",
+    "archive_totals_single_color": "at1",
+    "afs": "afs",
+    "at1": "at1",
+}
+
+AMBIGUITY_CODE_MAP = {
+    "multiple archived ams trays matched type+color": "a_tc",
+    "multiple archived ams trays matched archive-level type+color fallback": "a_fb",
+    "multiple spoolman spools matched archived tray uuid": "s_uuid",
+    "multiple spoolman spools matched type+color": "s_tc",
+    "a_tc": "a_tc",
+    "a_fb": "a_fb",
+    "s_uuid": "s_uuid",
+    "s_tc": "s_tc",
+}
 
 
-def split_tags(raw_tags: str) -> list[str]:
-    return [tag.strip() for tag in str(raw_tags or "").split(",") if tag.strip()]
+def _compact_json(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=True)
 
 
-def normalize_system_tag(tag: str) -> str | None:
-    cleaned = str(tag or "").strip()
-    lowered = cleaned.lower()
-    if not cleaned:
+def _normalize_code(value: Any, mapping: dict[str, str]) -> str | None:
+    normalized = str(value or "").strip()
+    if not normalized:
         return None
-    if lowered == "ha_enriched:true":
-        return None
-    if lowered.startswith("filament:"):
-        value = cleaned.split(":", 1)[1].strip()
-        return f"f:{value}" if value else None
-    if lowered.startswith("spool:"):
-        value = cleaned.split(":", 1)[1].strip()
-        return f"s:{value}" if value else None
-    if lowered.startswith("f:"):
-        value = cleaned.split(":", 1)[1].strip()
-        return f"f:{value}" if value else None
-    if lowered.startswith("s:"):
-        value = cleaned.split(":", 1)[1].strip()
-        return f"s:{value}" if value else None
-    return cleaned
+    return mapping.get(normalized.lower())
 
 
-def extract_payload_short_tags(notes: str) -> list[str]:
-    raw_notes = str(notes or "")
-    payload_raw = ""
-    for marker in ENRICHMENT_MARKERS:
-        marker_index = raw_notes.find(marker)
-        if marker_index >= 0:
-            payload_raw = raw_notes[marker_index + len(marker) :].strip()
-            break
-    if not payload_raw:
-        return []
+def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
+    normalized = {
+        "n": row.get("n", row.get("name")),
+        "w": row.get("w", row.get("weight")),
+        "t": row.get("t", row.get("tray")),
+        "s": row.get("s"),
+        "f": row.get("f"),
+        "h": row.get("h"),
+    }
 
-    try:
-        payload = json.loads(payload_raw)
-    except json.JSONDecodeError:
-        return []
+    ambiguity = _normalize_code(row.get("am", row.get("ambiguity")), AMBIGUITY_CODE_MAP)
+    if ambiguity:
+        normalized["am"] = ambiguity
 
-    if not isinstance(payload, dict):
-        return []
+    return normalized
 
-    derived: list[str] = []
-    seen: set[str] = set()
+
+def transform_payload(payload: dict[str, Any]) -> dict[str, Any]:
     rows = payload.get("F") if isinstance(payload.get("F"), list) else payload.get("Filaments", [])
-    for item in rows:
-        if not isinstance(item, dict):
-            continue
-        filament_id = item.get("f")
-        spool_id = item.get("s")
-        if filament_id is not None:
-            tag = f"f:{filament_id}"
-            if tag not in seen:
-                derived.append(tag)
-                seen.add(tag)
-        if spool_id is not None:
-            tag = f"s:{spool_id}"
-            if tag not in seen:
-                derived.append(tag)
-                seen.add(tag)
-    return derived
+    transformed: dict[str, Any] = {
+        "status": payload.get("status", ""),
+        "F": [_normalize_row(item) for item in rows if isinstance(item, dict)],
+    }
+
+    source_code = _normalize_code(payload.get("src", payload.get("source")), SOURCE_CODE_MAP)
+    if source_code:
+        transformed["src"] = source_code
+
+    reason = payload.get("reason")
+    if isinstance(reason, str) and reason.strip():
+        transformed["reason"] = reason.strip()
+
+    return transformed
 
 
-def normalize_archive_tags(raw_tags: str, notes: str = "") -> str:
-    normalized: list[str] = []
-    seen: set[str] = set()
+def normalize_archive_notes(raw_notes: str) -> str:
+    notes = str(raw_notes or "")
+    marker_index = notes.find(LEGACY_MARKER)
+    marker = LEGACY_MARKER
+    if marker_index < 0:
+        marker_index = notes.find(CURRENT_MARKER)
+        marker = CURRENT_MARKER
+    if marker_index < 0:
+        return notes
 
-    for tag in split_tags(raw_tags):
-        normalized_tag = normalize_system_tag(tag)
-        if not normalized_tag:
-            continue
-        lowered = normalized_tag.lower()
-        if lowered in seen:
-            continue
-        normalized.append(normalized_tag)
-        seen.add(lowered)
+    prefix = notes[:marker_index].rstrip()
+    payload_raw = notes[marker_index + len(marker) :].strip()
+    if not payload_raw:
+        replacement = CURRENT_MARKER + _compact_json({"status": "", "F": []})
+    else:
+        payload = json.loads(payload_raw)
+        if not isinstance(payload, dict):
+            return notes
+        replacement = CURRENT_MARKER + _compact_json(transform_payload(payload))
 
-    for tag in extract_payload_short_tags(notes):
-        lowered = tag.lower()
-        if lowered in seen:
-            continue
-        normalized.append(tag)
-        seen.add(lowered)
-
-    return ",".join(normalized)
+    return f"{prefix}\n\n{replacement}" if prefix else replacement
 
 
-def archive_needs_migration(raw_tags: str) -> bool:
-    lowered_tags = [tag.lower() for tag in split_tags(raw_tags)]
-    return any(
-        tag == "ha_enriched:true" or tag.startswith("filament:") or tag.startswith("spool:")
-        for tag in lowered_tags
-    )
+def archive_needs_notes_migration(raw_notes: str) -> bool:
+    return LEGACY_MARKER in str(raw_notes or "")
 
 
 @dataclass
 class ArchiveResult:
     archive_id: int
-    before_tags: str
-    after_tags: str
     action: str
     reason: str
+    before_length: int
+    after_length: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "archive_id": self.archive_id,
-            "before_tags": self.before_tags,
-            "after_tags": self.after_tags,
             "action": self.action,
             "reason": self.reason,
+            "before_length": self.before_length,
+            "after_length": self.after_length,
         }
 
 
@@ -169,11 +163,7 @@ class BambuddyClient:
             raise RuntimeError(f"Non-JSON response for {method} {url}: {payload[:200]}") from exc
 
     def fetch_archives_page(self, limit: int, offset: int) -> list[dict[str, Any]]:
-        payload = self._request_json(
-            "GET",
-            "/api/v1/archives/",
-            query={"limit": limit, "offset": offset},
-        )
+        payload = self._request_json("GET", "/api/v1/archives/", query={"limit": limit, "offset": offset})
         if isinstance(payload, list):
             return [item for item in payload if isinstance(item, dict)]
         raise RuntimeError("Archive list response was not a JSON array")
@@ -184,16 +174,12 @@ class BambuddyClient:
             return payload
         raise RuntimeError(f"Archive detail response for {archive_id} was not a JSON object")
 
-    def patch_archive_tags(self, archive_id: int, tags: str, notes: str) -> None:
-        self._request_json(
-            "PATCH",
-            f"/api/v1/archives/{archive_id}",
-            body={"tags": tags, "notes": notes},
-        )
+    def patch_archive(self, archive_id: int, tags: str, notes: str) -> None:
+        self._request_json("PATCH", f"/api/v1/archives/{archive_id}", body={"tags": tags, "notes": notes})
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Migrate Bambuddy archive tags from Filament:/Spool:/ha_enriched:true to f:/s:")
+    parser = argparse.ArgumentParser(description="Migrate Bambuddy archive enrichment notes from [HA_ENRICHMENT_V1] to [HA].")
     parser.add_argument("--base-url", required=True, help="Bambuddy base URL, for example http://bambuddy.local:8902")
     parser.add_argument("--api-key", help="Bambuddy API key. Defaults to BAMBUDDY_API_KEY environment variable.")
     parser.add_argument("--batch-size", type=int, default=100, help="Archive page size for list calls. Default: 100")
@@ -221,10 +207,8 @@ def iter_archive_ids(client: BambuddyClient, batch_size: int, offset: int, max_a
 
         for archive in page:
             archive_id = archive.get("id")
-            if isinstance(archive_id, int):
-                tags = str(archive.get("tags", "") or "")
-                if archive_needs_migration(tags):
-                    archive_ids.append(archive_id)
+            if isinstance(archive_id, int) and archive_needs_notes_migration(str(archive.get("notes", "") or "")):
+                archive_ids.append(archive_id)
 
         current_offset += len(page)
         if remaining is not None:
@@ -237,31 +221,30 @@ def iter_archive_ids(client: BambuddyClient, batch_size: int, offset: int, max_a
 
 def migrate_archive(client: BambuddyClient, archive_id: int, apply: bool) -> ArchiveResult:
     detail = client.fetch_archive_detail(archive_id)
-    before_tags = str(detail.get("tags", "") or "")
-    notes = str(detail.get("notes", "") or "")
-    after_tags = normalize_archive_tags(before_tags, notes)
+    before_notes = str(detail.get("notes", "") or "")
+    after_notes = normalize_archive_notes(before_notes)
 
-    if after_tags == before_tags:
+    if after_notes == before_notes:
         return ArchiveResult(
             archive_id=archive_id,
-            before_tags=before_tags,
-            after_tags=after_tags,
             action="skip",
             reason="already normalized",
+            before_length=len(before_notes),
+            after_length=len(after_notes),
         )
 
     if apply:
-        client.patch_archive_tags(archive_id=archive_id, tags=after_tags, notes=notes)
+        client.patch_archive(archive_id=archive_id, tags=str(detail.get("tags", "") or ""), notes=after_notes)
         action = "patched"
     else:
         action = "dry-run"
 
     return ArchiveResult(
         archive_id=archive_id,
-        before_tags=before_tags,
-        after_tags=after_tags,
         action=action,
-        reason="rewrote legacy enrichment tags",
+        reason="rewrote legacy enrichment notes",
+        before_length=len(before_notes),
+        after_length=len(after_notes),
     )
 
 
@@ -278,12 +261,7 @@ def main() -> int:
         if args.archive_ids:
             archive_ids = args.archive_ids
         else:
-            archive_ids = iter_archive_ids(
-                client=client,
-                batch_size=args.batch_size,
-                offset=args.offset,
-                max_archives=args.max_archives,
-            )
+            archive_ids = iter_archive_ids(client=client, batch_size=args.batch_size, offset=args.offset, max_archives=args.max_archives)
 
         results: list[dict[str, Any]] = []
         changed = 0
