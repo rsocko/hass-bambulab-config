@@ -9,6 +9,7 @@ Related documents:
 - [archive-runtime-repair-deployment-options.md](archive-runtime-repair-deployment-options.md)
 - [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
 - [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
+- [archive-historical-backfill-from-sd-card.md](archive-historical-backfill-from-sd-card.md)
 
 ## Goal
 

@@ -20,6 +20,7 @@ For fallback-archive canonical timestamp repair and adjacent orchestration desig
 - `archive-runtime-repair-script-and-n8n-flow.md`
 - `archive-runtime-ha-contract.md`
 - `archive-runtime-sidecar-api-and-compose.md`
+- `archive-historical-backfill-from-sd-card.md`
 
 ## Event Source Split
 
