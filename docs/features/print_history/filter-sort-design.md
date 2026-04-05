@@ -416,6 +416,7 @@ bambuddy_fetch_archives:
 - **Uses full `/archives/` endpoint** — not `/slim`, because `/slim` lacks `id` (needed for thumbnail URLs), `is_favorite`, `tags`, `designer`, and `extra_data.filament_slots[]`
 - **~450 bytes/archive after projection** — vs ~200B (slim) and ~10-15 KB (raw full). 500 archives ≈ 225 KB.
 - **Projection happens once per fetch** (every 5 min or on events), NOT on every filter change. Filter changes re-evaluate the already-trimmed data in Layer 2.
+- **Layer 1 is intentionally streamlined** — avoid adding presentation-only labels, tooltip strings, or card-specific wording to the projected archive cache. Keep those transformations in Layer 2/Layer 3 unless the new field is part of the stable shared archive contract.
 
 ### What About the Existing REST Sensor?
 

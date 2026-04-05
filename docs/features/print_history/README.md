@@ -281,6 +281,7 @@ Implemented now:
 
 - Layer 1 archive fetch + projection via `sensor.print_history_archives`
 - Layer 2 filtering, sorting, page metadata, and page slice sensors
+- Layer 1 remains intentionally lean; display-oriented labels and tooltip text belong in Layer 2/Layer 3 rather than the archive projection cache
 - Browser header with search, matches, filter pills, settings popup, clear actions, and color chips
 - GitHub-style activity heatmap with count, weight, dominant-color, and outcome-mix modes, plus a separator chevron to collapse or expand the heatmap body
 - Day drill-in cards that can follow the active browser filters or ignore them
