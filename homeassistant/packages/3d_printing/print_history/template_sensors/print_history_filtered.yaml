@@ -616,38 +616,45 @@
           {% else %}
             {% set archives = [] %}
           {% endif %}
-            {% set ns = namespace(entries=[]) %}
+          {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
+          {% set ns = namespace(entries=[]) %}
           {% for a in archives %}
-              {% set notes_raw = a.get('notes', '') | string %}
-              {% set enrichment_marker = '[HA_ENRICHMENT_V1]' %}
-              {% set marker_index = notes_raw.find(enrichment_marker) %}
-              {% if marker_index >= 0 %}
-                {% set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim %}
-                {% set payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} %}
-                {% set rows = payload.get('Filaments', []) if payload is mapping else [] %}
-              {% else %}
-                {% set rows = [] %}
+            {% set notes_raw = a.get('notes', '') | string %}
+            {% set marker_index = notes_raw.find(enrichment_marker) %}
+            {% if marker_index >= 0 %}
+              {% set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim %}
+              {% set payload = payload_raw | from_json({}) if payload_raw | length > 0 else {} %}
+              {% set rows = payload.get('Filaments', []) if payload is mapping else [] %}
+            {% else %}
+              {% set rows = [] %}
+            {% endif %}
+            {% for item in rows %}
+              {% set name = item.get('name', '') | string | trim %}
+              {% set color_raw = item.get('h', '') | string | trim | replace('"', '') %}
+              {% if color_raw.startswith('#') %}
+                {% set color_raw = color_raw[1:] %}
               {% endif %}
-              {% for item in rows %}
-                {% set name = item.get('name', '') | string | trim %}
-                {% set color_raw = item.get('h', '') | string | trim | replace('"', '') %}
-                {% if color_raw.startswith('#') %}
-                  {% set color_raw = color_raw[1:] %}
+              {% if color_raw | length == 8 %}
+                {% set color_raw = color_raw[0:6] %}
+              {% endif %}
+              {% if name and color_raw | regex_match('^[0-9a-fA-F]{6}$') %}
+                {% set color_key = '#' ~ color_raw.lower() %}
+                {% set existing_index = namespace(value=-1) %}
+                {% for entry in ns.entries %}
+                  {% if entry.color == color_key %}
+                    {% set existing_index.value = loop.index0 %}
+                  {% endif %}
+                {% endfor %}
+                {% if existing_index.value >= 0 %}
+                  {% set current = ns.entries[existing_index.value] %}
+                  {% if name not in current.names %}
+                    {% set updated = dict(color=current.color, names=current.names + [name]) %}
+                    {% set ns.entries = ns.entries[:existing_index.value] + [updated] + ns.entries[existing_index.value + 1:] %}
+                  {% endif %}
+                {% else %}
+                  {% set ns.entries = ns.entries + [dict(color=color_key, names=[name])] %}
                 {% endif %}
-                {% if color_raw | length == 8 %}
-                  {% set color_raw = color_raw[0:6] %}
-                {% endif %}
-                {% if name and color_raw | regex_match('^[0-9a-fA-F]{6}$') %}
-                  {% set ns.entries = ns.entries + [dict(color=('#' ~ color_raw.lower()), name=name)] %}
-                {% endif %}
-              {% endfor %}
-          {% endfor %}
-            {% set ns_tooltips = namespace(values=[]) %}
-            {% for group in ns.entries | sort(attribute='color') | groupby('color') %}
-              {% set names = group.list | map(attribute='name') | unique | list %}
-              {% if names %}
-                {% set tooltip = (names | join(' or ')) ~ ' (' ~ (group.grouper | upper) ~ ')' %}
-                {% set ns_tooltips.values = ns_tooltips.values + [dict(color=group.grouper, tooltip=tooltip)] %}
               {% endif %}
             {% endfor %}
-            {{ ns_tooltips.values | tojson }}
+          {% endfor %}
+          {{ ns.entries | sort(attribute='color') | tojson }}

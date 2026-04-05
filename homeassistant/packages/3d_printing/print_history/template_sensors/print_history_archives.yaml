@@ -29,8 +29,7 @@
       unique_id: print_history_archives
       icon: mdi:database-outline
       state: >-
-        {% set response = result if result is defined and result is mapping else {'content': []} %}
-        {% set payload = response.get('content', []) %}
+        {% set payload = result.get('content', []) %}
         {% if payload is string %}
           {% set raw = payload | from_json %}
         {% elif payload is iterable %}
@@ -41,8 +40,7 @@
         {{ raw | length }}
       attributes:
         archives_json: >-
-          {% set response = result if result is defined and result is mapping else {'content': []} %}
-          {% set payload = response.get('content', []) %}
+          {% set payload = result.get('content', []) %}
           {% if payload is string %}
             {% set raw = payload | from_json %}
           {% elif payload is iterable %}
@@ -52,9 +50,12 @@
           {% endif %}
           {% set ns = namespace(trimmed=[]) %}
           {% for a in raw %}
+            {% set extra = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
+            {% set slots = extra.get('filament_slots', []) if extra is mapping else [] %}
             {% set ns.trimmed = ns.trimmed + [dict(
               id=a.get('id'),
               printer_id=a.get('printer_id'),
+              project_id=a.get('project_id'),
               project_name=(a.get('project_name') if a.get('project_name') is not none else ''),
               print_name=a.get('print_name', ''),
               print_time_seconds=a.get('print_time_seconds', 0) | int(0),
@@ -62,6 +63,7 @@
               filament_used_grams=a.get('filament_used_grams', 0) | float(0),
               filament_type=a.get('filament_type', ''),
               filament_color=a.get('filament_color', ''),
+              filament_slots=slots,
               status=a.get('status', ''),
               started_at=a.get('started_at', ''),
               completed_at=a.get('completed_at'),
@@ -76,11 +78,10 @@
               is_favorite=a.get('is_favorite', false),
               tags=a.get('tags', ''),
               notes=a.get('notes', ''),
-              failure_reason=a.get('failure_reason', '')
+              failure_reason=a.get('failure_reason', ''),
+              thumbnail_path=a.get('thumbnail_path', '')
             )] %}
           {% endfor %}
           {{ ns.trimmed | tojson }}
         last_fetch: "{{ now().isoformat() }}"
-        source_status: >-
-          {% set response = result if result is defined and result is mapping else {} %}
-          {{ response.get('status', 'unknown') }}
+        source_status: "{{ result.get('status', 'unknown') }}"
