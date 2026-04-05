@@ -111,7 +111,12 @@ ams_tray_detail:
         if (weight === undefined || weight === null) return '';
 
         const mismatchTooltip = showMismatchWarning
-          ? `Spool weight and AMS calculated weight differ by > ${Math.round(mismatchThresholdPercent)}% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately. AMS ${Math.round(amsRemainPercent)}% vs Spoolman ${Math.round(spoolRemainPercent)}%.`
+          ? [
+              `Spool weight and AMS weight differ by > ${Math.round(mismatchThresholdPercent)}%.`,
+              `AMS ${Math.round(amsRemainPercent)}% vs Spoolman ${Math.round(spoolRemainPercent)}%.`,
+              'Please review and update manual spool weight if needed.',
+              'You can ignore this if the AMS is reporting inaccurately.'
+            ].join('\n')
           : '';
         const warningMarker = showMismatchWarning
           ? `<span title="${mismatchTooltip}" style="font-size: 12px; line-height: 1; color: ${mismatchColor}; font-weight: 700; cursor: help;">?</span>`

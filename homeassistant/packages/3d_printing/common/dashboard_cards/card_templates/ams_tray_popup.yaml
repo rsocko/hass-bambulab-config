@@ -856,7 +856,7 @@ ams_tray_popup:
             'AMS ' + Math.round(normalizedAmsRemainPercent) + '% vs Spoolman ' + Math.round(spoolRemainingPercent) + '%.',
             'Please review and update manual spool weight if needed.',
             'You can ignore this if the AMS is reporting inaccurately.'
-          ].join('&#10;')
+          ].join('\n')
         : '';
       const weightMismatchMarker = showWeightMismatchWarning
         ? '<span title="' + weightMismatchTooltipText + '" style="display:inline-block; margin-left:6px; color:' + mismatchColor + '; font-size:12px; font-weight:700; cursor:help; vertical-align:top; pointer-events:auto;">?</span>'
@@ -1456,15 +1456,17 @@ ams_tray_popup:
                           cards: [
                             {
                               type: 'custom:button-card',
-                              icon: 'mdi:weight-gram',
-                              show_icon: true,
+                              show_icon: false,
+                              custom_fields: {
+                                weight_icon: '<ha-icon icon="mdi:weight-gram" style="--mdc-icon-size: 20px; color: teal;"></ha-icon>'
+                              },
                               name: remainingWeightPrimaryHtml,
                               label: 'Remaining',
                               show_label: true,
                               tap_action: openWeightEditorAction,
                               styles: {
                                 grid: [
-                                  { 'grid-template-areas': '"i" "n" "l"' },
+                                  { 'grid-template-areas': '"weight_icon" "n" "l"' },
                                   { 'grid-template-rows': 'min-content min-content min-content' },
                                   { 'justify-items': 'center' },
                                   { 'align-items': 'center' }
@@ -1475,13 +1477,6 @@ ams_tray_popup:
                                   { height: '100%' },
                                   { 'box-sizing': 'border-box' },
                                   { 'justify-content': 'center' }
-                                ],
-                                icon: [
-                                  { color: 'teal' },
-                                  { width: '20px' },
-                                  { height: '20px' },
-                                  { 'margin-bottom': '8px' },
-                                  { display: 'block' }
                                 ],
                                 name: [
                                   { color: 'var(--primary-text-color)' },
@@ -1496,6 +1491,13 @@ ams_tray_popup:
                                   { 'font-weight': '400' },
                                   { 'line-height': '1.1' },
                                   { 'text-align': 'center' }
+                                ],
+                                custom_fields: {
+                                  weight_icon: [
+                                    { 'margin-bottom': '8px' },
+                                    { 'line-height': '1' },
+                                    { display: 'block' }
+                                  ]
                                 ]
                               }
                             },
