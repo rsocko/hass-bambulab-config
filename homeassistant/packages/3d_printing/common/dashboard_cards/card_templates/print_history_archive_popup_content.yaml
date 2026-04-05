@@ -45,6 +45,7 @@ print_history_archive_popup_content:
         const archiveId = archive?.id;
         const ENRICHMENT_MARKER = '[HA_ENRICHMENT_V1]';
         const LEGACY_MARKER = '--- HA Enrichment ---';
+        const RECOVERY_MARKER = '[RECOVERY_AUDIT_V1]';
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
@@ -61,7 +62,8 @@ print_history_archive_popup_content:
           const raw = String(value || '');
           const markerIndex = raw.indexOf(ENRICHMENT_MARKER);
           const legacyIndex = raw.indexOf(LEGACY_MARKER);
-          const indexes = [markerIndex, legacyIndex].filter((index) => index >= 0);
+          const recoveryIndex = raw.indexOf(RECOVERY_MARKER);
+          const indexes = [markerIndex, legacyIndex, recoveryIndex].filter((index) => index >= 0);
           if (!indexes.length) {
             return { userNotes: raw.trimEnd(), payload: null };
           }
