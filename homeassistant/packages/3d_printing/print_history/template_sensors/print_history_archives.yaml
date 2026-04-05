@@ -68,6 +68,7 @@
               started_at=a.get('started_at', ''),
               completed_at=a.get('completed_at'),
               created_at=a.get('created_at', ''),
+              sort_started_at=(a.get('started_at') if a.get('started_at') is not none and (a.get('started_at') | string) != '' else a.get('created_at', '')),
               cost=a.get('cost', 0) | float(0),
                 object_count=a.get('object_count', 1) | int(1),
               layer_height=(a.get('layer_height') if a.get('layer_height') is not none else ''),
