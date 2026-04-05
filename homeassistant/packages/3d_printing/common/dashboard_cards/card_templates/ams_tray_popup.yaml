@@ -853,15 +853,16 @@ ams_tray_popup:
       const weightMismatchTooltip = showWeightMismatchWarning
         ? 'Spool weight and AMS calculated weight differ by > ' + Math.round(mismatchThresholdPercent) + '% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately.'
         : '';
-      const weightMismatchSummary = showWeightMismatchWarning
-        ? 'AMS ' + Math.round(normalizedAmsRemainPercent) + '%'
-        : '';
-      const weightMismatchDetail = showWeightMismatchWarning
-        ? '(>' + Math.round(mismatchThresholdPercent) + '% difference)'
-        : '';
       const weightMismatchTooltipText = showWeightMismatchWarning
         ? weightMismatchTooltip + ' AMS ' + Math.round(normalizedAmsRemainPercent) + '% vs Spoolman ' + Math.round(spoolRemainingPercent) + '%. '
         : '';
+      const weightMismatchMarker = showWeightMismatchWarning
+        ? '<span title="' + weightMismatchTooltipText + '" style="display:inline-block; margin-left:6px; color:' + mismatchColor + '; font-size:14px; font-weight:700; cursor:help; vertical-align:middle;">?</span>'
+        : '';
+      const weightMismatchHeaderHtml = showWeightMismatchWarning
+        ? '<span title="' + weightMismatchTooltipText + '" style="color:' + mismatchColor + '; font-weight:600; cursor:help;">AMS: ' + Math.round(normalizedAmsRemainPercent) + '%</span>' + weightMismatchMarker
+        : '';
+      const remainingWeightPrimaryHtml = weightText + weightMismatchMarker;
       const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
         ? Number(remainingWeight)
         : null;
@@ -915,19 +916,49 @@ ams_tray_popup:
                     type: 'vertical-stack',
                     cards: [
                       {
-                        type: 'custom:mushroom-template-card',
-                        primary: spoolName,
-                        secondary: (() => {
+                        type: 'custom:button-card',
+                        icon: 'mdi:weight-gram',
+                        name: spoolName,
+                        label: (() => {
                           const parts = [];
                           if (Number.isFinite(currentRemainingWeight)) parts.push(currentRemainingWeight.toFixed(1) + ' g');
                           if (remainingLength !== undefined && remainingLength !== null) parts.push(Math.round(Number(remainingLength)).toLocaleString() + ' mm');
-                          if (Number.isFinite(amsRemainPercent)) parts.push('AMS: ' + amsRemainPercent + '%');
-                          return parts.length > 0 ? 'Current remaining: ' + parts.join('  |  ') : 'Current remaining: N/A';
+                          const body = parts.length > 0 ? 'Current remaining: ' + parts.join('  |  ') : 'Current remaining: N/A';
+                          return weightMismatchHeaderHtml ? body + '  |  ' + weightMismatchHeaderHtml : body;
                         })(),
-                        icon: 'mdi:weight-gram',
-                        icon_color: 'teal',
-                        layout: 'horizontal',
-                        fill_container: true
+                        show_label: true,
+                        tap_action: { action: 'none' },
+                        styles: {
+                          grid: [
+                            { 'grid-template-areas': '"i n" "i l"' },
+                            { 'grid-template-columns': '40px 1fr' },
+                            { 'justify-items': 'start' },
+                            { 'align-items': 'center' }
+                          ],
+                          card: [
+                            { padding: '12px' },
+                            { 'box-shadow': 'none' },
+                            { 'border-radius': '12px' }
+                          ],
+                          icon: [
+                            { color: 'teal' },
+                            { width: '22px' },
+                            { height: '22px' },
+                            { 'justify-self': 'center' }
+                          ],
+                          name: [
+                            { color: 'var(--primary-text-color)' },
+                            { 'font-weight': '600' },
+                            { 'font-size': '14px' },
+                            { 'align-self': 'end' }
+                          ],
+                          label: [
+                            { color: 'var(--secondary-text-color)' },
+                            { 'font-size': '12px' },
+                            { 'line-height': '1.35' },
+                            { 'align-self': 'start' }
+                          ]
+                        }
                       },
                       {
                         type: 'entities',
@@ -1422,26 +1453,46 @@ ams_tray_popup:
                           type: 'horizontal-stack',
                           cards: [
                             {
-                              type: 'vertical-stack',
-                              cards: [
-                                {
-                                  type: 'custom:mushroom-template-card',
-                                  primary: weightText,
-                                  secondary: 'Remaining',
-                                  icon: 'mdi:weight-gram',
-                                  icon_color: 'teal',
-                                  tap_action: openWeightEditorAction,
-                                  layout: 'vertical',
-                                  fill_container: true
-                                },
-                                ...(showWeightMismatchWarning ? [{
-                                  type: 'markdown',
-                                  content: '<div title="' + weightMismatchTooltipText + '" style="margin-top: -6px; text-align: center; color: ' + mismatchColor + ';"><div style="font-size: 14px; font-weight: 600; line-height: 1.1; white-space: nowrap;"><span>' + weightMismatchSummary + '</span><span style="display: inline-block; margin-left: 6px; color: ' + mismatchColor + '; font-size: 14px; font-weight: 700; cursor: help;">?</span></div><div style="font-size: 11px; font-weight: 500; line-height: 1.1; opacity: 0.95; white-space: nowrap;">' + weightMismatchDetail + '</div></div>',
-                                  card_mod: {
-                                    style: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; min-height: 0 !important; } ha-markdown { padding: 0 !important; }'
-                                  }
-                                }] : [])
-                              ]
+                              type: 'custom:button-card',
+                              icon: 'mdi:weight-gram',
+                              name: remainingWeightPrimaryHtml,
+                              label: 'Remaining',
+                              show_label: true,
+                              tap_action: openWeightEditorAction,
+                              styles: {
+                                grid: [
+                                  { 'grid-template-areas': '"i" "n" "l"' },
+                                  { 'grid-template-rows': 'min-content min-content min-content' },
+                                  { 'justify-items': 'center' },
+                                  { 'align-items': 'center' }
+                                ],
+                                card: [
+                                  { padding: '12px 8px' },
+                                  { 'border-radius': '12px' },
+                                  { height: '100%' },
+                                  { 'box-sizing': 'border-box' }
+                                ],
+                                icon: [
+                                  { color: 'teal' },
+                                  { width: '24px' },
+                                  { height: '24px' },
+                                  { 'margin-bottom': '4px' }
+                                ],
+                                name: [
+                                  { color: 'var(--primary-text-color)' },
+                                  { 'font-size': '22px' },
+                                  { 'font-weight': '600' },
+                                  { 'line-height': '1.1' },
+                                  { 'text-align': 'center' }
+                                ],
+                                label: [
+                                  { color: 'var(--secondary-text-color)' },
+                                  { 'font-size': '14px' },
+                                  { 'font-weight': '400' },
+                                  { 'line-height': '1.1' },
+                                  { 'text-align': 'center' }
+                                ]
+                              }
                             },
                             {
                               type: 'custom:mushroom-template-card',
