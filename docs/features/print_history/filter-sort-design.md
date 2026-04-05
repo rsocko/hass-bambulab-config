@@ -452,6 +452,89 @@ Based on the current implementation, the live payload measurements, and the exis
 3. **Preferred HA-native destination:** custom integration, ideally upgraded to a local materialized store if provenance/search/detail workflows keep expanding
 4. **Full service boundary:** dedicated sidecar-backed browser cache only when the browser and repair/provenance/admin features justify owning a separate archive service
 
+### Preferred Target Architecture
+
+For this repository, the preferred medium-term destination is:
+
+**a custom integration with a local materialized store**
+
+That recommendation is specific to the current shape of this repo, not a general Home Assistant preference.
+
+#### Why this is the best fit here
+
+- The browser is already beyond a simple list view and now has a real data pipeline, dynamic filters, popup/detail flows, favorites, and enrichment-aware rendering.
+- The phase roadmap already points toward richer archive behaviors such as compare, duplicate intelligence, searchable provenance, and repair/mismatch workflows.
+- The live payload measurements show that simple YAML/Jinja trimming is no longer enough once archive count grows.
+- The repository still benefits from staying HA-native for deployment, packaging, and dashboard integration.
+
+In other words, this repo looks more like **"a serious HA feature that needs a real local data model"** than either:
+
+- a lightweight YAML-only browser that can keep scaling indefinitely, or
+- a full standalone archive service that must exist outside HA today.
+
+#### Why not stop at AppDaemon
+
+AppDaemon is still the best **spike** path if the goal is to validate the next query contract quickly.
+
+It is not the preferred destination because:
+
+- print history is already central enough in this repository to justify a first-class implementation path
+- long-term debugging, packaging, and maintenance are cleaner in a custom integration
+- AppDaemon would likely become a transitional cache owner rather than the final home of archive logic
+
+So the recommendation is:
+
+- use AppDaemon only if a short validation step is needed
+- do not treat it as the intended final architecture unless implementation speed becomes more important than long-term maintainability
+
+#### Why not stop at an in-memory custom integration
+
+An in-memory integration is a good first landing zone, but the repo-specific roadmap suggests it is likely to age into a local-store design anyway.
+
+The moment the browser needs durable indexed access for:
+
+- popup hydration
+- provenance lookups
+- duplicate/reprint relationships
+- archive mismatch review
+- richer search/filter metadata
+
+an integration-owned materialized store becomes the cleaner shape.
+
+That means the recommended practical path is:
+
+1. custom integration if you want the smallest durable HA-native step
+2. local materialized store as the intended end state once the archive model expands further
+
+#### Why not choose the dedicated sidecar now
+
+The sidecar-backed browser cache is architecturally strong, but it should be reserved for the point where print history becomes an explicit service boundary rather than an HA-native feature area.
+
+For this repo, that boundary likely starts to make sense only when one or more of the following become true:
+
+- repair/recovery/admin flows become frequent, not exceptional
+- the browser needs richer API semantics than HA services and entities should comfortably expose
+- archive count and query behavior justify a standalone indexed backend
+- the same backend needs to serve multiple clients or non-HA consumers
+
+Until then, the sidecar introduces more operational surface area than this browser likely needs.
+
+#### Recommended adoption sequence
+
+Use this as the intended architecture path unless new constraints emerge:
+
+1. Keep the current YAML pipeline only as a stabilization baseline.
+2. If needed, prototype the non-Jinja contract in AppDaemon.
+3. Build the durable implementation as a custom integration.
+4. Prefer a local materialized store once the integration needs durable archive indexing.
+5. Re-evaluate a dedicated sidecar only if print history clearly grows into a broader archive service.
+
+#### Decision Statement
+
+If development started on the long-term architecture today, the recommended target for this repository would be:
+
+> **Custom integration with a local materialized store, with AppDaemon allowed only as a validation spike and the dedicated sidecar deferred until print history becomes a true service boundary.**
+
 ### Decision Guidance
 
 | If your priority is... | Prefer... |
