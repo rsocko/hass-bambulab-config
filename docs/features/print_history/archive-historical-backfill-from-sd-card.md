@@ -449,6 +449,65 @@ Behavior:
 - skips raw source-project `.3mf` inputs by default
 - annotates created archives with `[HISTORICAL_IMPORT_V1]` notes and import tags in `Full` mode
 
+### How to interpret Backfill results
+
+The helper returns one result row per candidate.
+
+Status meanings:
+
+- `skipped_existing_content_hash`: a current Bambuddy archive already matches the file by exact hash; do not import again
+- `skipped_manifest_state`: the manifest already records the candidate as handled; use this as an idempotency guard
+- `inspect_ready`: candidate passed current automatic checks and is eligible for upload
+- `manual_review_source_only`: candidate is a raw source-project `.3mf`; import only if you accept weaker print-history parity
+- `uploaded`: archive was created, but the run did not add historical-import notes or tags because `BackfillAction` was `Upload`
+- `uploaded_and_annotated`: archive was created and annotated with historical provenance metadata
+
+Recommended operator policy:
+
+- treat `skipped_existing_content_hash` as a final skip unless you have a reason to annotate the already-existing archive
+- treat `inspect_ready` plus `source_type=sd_cache_3mf` as the main auto-import path
+- treat `manual_review_source_only` as a hold state, not a failure
+- prefer manual review whenever the source is not sliced, the filename is ambiguous, or you plan to repair canonical runtime fields afterward
+
+## What Makes A Candidate Strong Enough To Import
+
+Best-case signals:
+
+- `source_type = sd_cache_3mf`
+- `confidence = high`
+- `structural_signals.has_embedded_gcode = true`
+- `structural_signals.has_slice_info = true`
+- sibling `.bbl` exists and `structural_signals.bbl_hash_match = true`
+
+Still usable, but weaker:
+
+- `source_type = bambu_studio_exported_sliced_3mf`
+- medium confidence with sliced signals present
+- timestamps available only as filesystem or ZIP metadata
+
+Usually manual-review only:
+
+- `source_type = bambu_studio_source_3mf`
+- no embedded G-code
+- weak or conflicting timestamp evidence
+- filename collisions with existing known archives
+
+## How To Read Timestamp Evidence
+
+The manifest captures timestamp candidates from several places, but they are not all equally trustworthy.
+
+Interpret them like this:
+
+- filesystem `last_modified`: useful for rough ordering and possible completion-time hints
+- ZIP member timestamps from the `.3mf`: useful as supporting evidence for when the artifact was assembled
+- `.bbl` timestamp-like fields: promising, but must be validated against known-good historical prints before using them canonically
+- config-member timestamps inside the `.3mf`: useful for context, but not automatically equal to real printer runtime
+
+Default rule:
+
+- use timestamp evidence to rank confidence first
+- only use it for canonical Bambuddy runtime repair after independent validation
+
 To force a project-level source upload for manual experimentation, add:
 
 ```powershell

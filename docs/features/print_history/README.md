@@ -87,6 +87,33 @@ Primary design reference for the historical-import workflow:
 
 - `archive-historical-backfill-from-sd-card.md`
 
+### 6. Interpret the results
+
+The Backfill helper returns one result object per manifest candidate.
+
+Most important statuses:
+
+- `skipped_existing_content_hash` - Bambuddy already has an archive whose `content_hash` matches the source file
+- `skipped_manifest_state` - the manifest already records that this candidate was handled earlier
+- `inspect_ready` - candidate passed the current automatic checks and is eligible for upload
+- `manual_review_source_only` - candidate is a raw source-project `.3mf`; inspect manually before importing, or rerun with `-AllowSourceProjectImport` if you accept lower fidelity
+- `uploaded` - archive was created, but no provenance notes or tags were written because action was `Upload`
+- `uploaded_and_annotated` - archive was created and received historical-import provenance notes and tags
+
+Recommended decision rule:
+
+- import immediately when the candidate is `inspect_ready` and `source_type` is `sd_cache_3mf`
+- review manually when the candidate is source-project only, filename/date matching is ambiguous, or you expect canonical runtime repair afterward
+- skip confidently when the result is `skipped_existing_content_hash`
+
+What to look for in the manifest before importing:
+
+- `source_type` should usually be `sd_cache_3mf`
+- `confidence` should usually be `high` or at least defensible for the intended use
+- `structural_signals.has_embedded_gcode` is a strong sign that the file is a sliced artifact
+- `structural_signals.bbl_hash_match` is helpful supporting evidence when present
+- `timestamp_evidence.timestamp_candidates` should be treated as evidence, not canonical truth, unless validated against known-good history
+
 ## Event Source Split
 
 The current implementation mixes two data sources:
