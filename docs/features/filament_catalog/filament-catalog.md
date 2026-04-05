@@ -363,10 +363,10 @@ view_filament_catalog.yaml (panel: true + vertical-stack)
 │
 ├── Filter Bar (Phase 2)
 │   ├── Row 1: View ▼  Sort ▼
-│   ├── Row 2: Material ▼  Vendor ▼  Color ▼  Family ▼
-│   ├── Row 3: Type ▼  Location ▼  [Stock Threshold ━━━]  Stock Level ▼
+│   ├── Row 2: Scope ▼  Material ▼  Vendor ▼  Color ▼  Family ▼
+│   ├── Row 3: Type ▼  Location ▼  Spool Type ▼  Clip Type ▼
 │   ├── Row 4: Sealed ▼  Desiccant ▼  Data Quality ▼
-│   ├── Row 5: Spool Type ▼  Clip Type ▼  [Qty To Buy]  [Large Cards]
+│   ├── Row 5: [Stock Threshold ━━━]  Stock Level ▼  Inventory Rule ▼  [Qty To Buy]
 │   └── Row 6: 🔍 [search]  [123 Matches]  [Clear Filters]
 │
 └── Single auto-entities grid (columns: 5)
@@ -625,9 +625,9 @@ The view's `auto-entities` references this sensor to decide which catalog entiti
 ┌──────────────────────────────────────────────────────────────────┐
 │ Filters                       View ▼  Sort ▼  [Compact]         │
 │ Scope ▼  Material ▼  Vendor ▼  Color ▼  Family ▼                │
-│ Type ▼  Location ▼  [Stock Threshold ━━━]  Stock Level ▼        │
+│ Type ▼  Location ▼  Spool Type ▼  Clip Type ▼                   │
 │ Sealed ▼  Desiccant ▼  Data Quality ▼                           │
-│ Spool Type ▼  Clip Type ▼  Inventory Rule ▼  [Qty To Buy]       │
+│ [Stock Threshold ━━━]  Stock Level ▼  Inventory Rule ▼  [Qty To Buy] │
 │ 🔍 [___search___]              [123 Matches]  [Clear Filters]   │
 └──────────────────────────────────────────────────────────────────┘
 ```
