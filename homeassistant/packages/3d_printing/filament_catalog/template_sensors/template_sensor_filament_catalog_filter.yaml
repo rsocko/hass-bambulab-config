@@ -32,6 +32,7 @@
           {%- set filter_spool_type = states('input_select.filament_catalog_filter_spool_type') | default('All', true) -%}
           {%- set filter_clip_type = states('input_select.filament_catalog_filter_clip_type') | default('All', true) -%}
           {%- set filter_inventory_rule = states('input_select.filament_catalog_filter_inventory_rule') | default('All', true) -%}
+          {%- set filter_scope = states('input_select.filament_catalog_filter_scope') | default('In-Stock Spools', true) -%}
           {%- set filter_qty_to_purchase = is_state('input_boolean.filament_catalog_filter_qty_to_purchase', 'on') -%}
           {%- set filter_sealed = states('input_select.filament_catalog_filter_sealed') -%}
           {%- set filter_data_quality = states('input_select.filament_catalog_filter_data_quality') | default('All', true) -%}
@@ -103,6 +104,8 @@
           {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Filament': 'filament_group_name', 'By Color Family': 'filament_extra_color_family', 'By Hex Color': 'filament_color_hex'} -%}
           {%- set group_attr = group_attr_map.get(tab, '') -%}
           {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Purchase Date (Newest)', 'Desiccant Filled Date (Newest)', 'Qty to Purchase (Descending)', 'Cost (High to Low)'] -%}
+          {%- set include_archived_spools = filter_scope == 'Include Archived Spools' -%}
+          {%- set filament_summary_mode = filter_scope == 'All Filaments' -%}
           {%- set ns = namespace(matches=[]) -%}
 
            {# -----------------------------------------------------------------
@@ -112,7 +115,7 @@
             {%- set attrs = spool.attributes -%}
             {%- set archived_raw = attrs.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
-            {%- if not archived -%}
+            {%- if (not filament_summary_mode) and (include_archived_spools or not archived) -%}
               {%- set material = attrs.get('filament_material', '') | string -%}
               {%- set vendor = attrs.get('filament_vendor_name', '') | string -%}
               {%- set friendly_name = attrs.get('friendly_name', spool.name) | string -%}
@@ -178,7 +181,8 @@
                 {%- set filament_count = 0 -%}
                 {%- set filament_agg_weight = remaining_weight -%}
               {%- endif -%}
-              {%- set is_needs_repurchase = filament_count == 1 and remaining_weight < stock_threshold -%}
+              {%- set is_rule_shortage = ((inventory_rule in ['Keep In Stock', 'Not Defined']) and (filament_count < 1 or filament_agg_weight < stock_threshold)) or (inventory_rule == 'Maintain Backup Spool' and (filament_count < 2 or filament_agg_weight < stock_threshold)) -%}
+              {%- set is_needs_repurchase = has_qty_to_purchase or is_rule_shortage -%}
               {%- if spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
                 {%- set spool_filled_ts = as_timestamp(spool_filled, 0) | float(0) -%}
                 {%- set desiccant_age_days = ((now_ts - spool_filled_ts) / 86400) | float(0) if spool_filled_ts > 0 else 0 -%}
@@ -230,7 +234,7 @@
               {%- else -%}
                 {%- set matches_data_quality = true -%}
               {%- endif -%}
-              {%- set matches_low_stock = filter_stock_level not in ['Low Stock', 'Low Stock (by Filament)'] or (filter_stock_level == 'Low Stock' and is_low_stock) or (filter_stock_level == 'Low Stock (by Filament)' and filament_agg_weight < stock_threshold) -%}
+              {%- set matches_low_stock = filter_stock_level == 'Any Stock Level' or (filter_stock_level == 'Low Stock' and is_low_stock) or (filter_stock_level == 'Low Stock (by Filament)' and filament_agg_weight < stock_threshold) or (filter_stock_level == 'Needs Purchase' and is_needs_repurchase) -%}
               {%- if filter_desiccant == 'All' -%}
                 {%- set matches_desiccant = true -%}
               {%- elif filter_desiccant == 'Needs Desiccant (Any Age)' -%}
@@ -339,7 +343,7 @@
             {%- endif -%}
             {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
             {%- set current_weight = states(filament.entity_id) | float(0) -%}
-            {%- if filament_count == 0 and current_weight <= 0 -%}
+            {%- if filament_summary_mode or (filament_count == 0 and current_weight <= 0) -%}
               {%- set material = attrs.get('material', '') | string -%}
               {%- set vendor = attrs.get('vendor_name', '') | string -%}
               {%- set friendly_name = attrs.get('friendly_name', filament.name) | string -%}
@@ -356,7 +360,7 @@
                 {%- set filament_group_parts.items = filament_group_parts.items + [filament_display_name] -%}
               {%- endif -%}
               {%- set filament_group_name = filament_group_parts.items | join(' • ') if filament_group_parts.items | count > 0 else 'Unknown' -%}
-              {%- set location = 'No Spools' -%}
+              {%- set location = 'No Spools' if filament_count == 0 else 'In Inventory' -%}
               {%- set primary_color = attrs.get('extra_primary_color', '') | string | replace('"', '') | trim -%}
               {%- set spool_hex = attrs.get('color_hex', '') | string | replace('#', '') | lower | trim -%}
               {%- set color_family = attrs.get('extra_color_family', '') | string | replace('"', '') | trim -%}
@@ -388,7 +392,8 @@
               {%- set is_low_stock = current_weight < stock_threshold -%}
               {%- set is_nearly_empty = current_weight < 50 -%}
               {%- set filament_agg_weight = current_weight -%}
-              {%- set is_needs_repurchase = current_weight < stock_threshold -%}
+              {%- set is_rule_shortage = ((inventory_rule in ['Keep In Stock', 'Not Defined']) and (filament_count < 1 or filament_agg_weight < stock_threshold)) or (inventory_rule == 'Maintain Backup Spool' and (filament_count < 2 or filament_agg_weight < stock_threshold)) -%}
+              {%- set is_needs_repurchase = has_qty_to_purchase or is_rule_shortage -%}
               {%- set purchase_date_raw = attrs.get('registered', '') -%}
               {%- set purchase_date_ts = as_timestamp(purchase_date_raw, 0) | float(0) if purchase_date_raw not in [none, '', 'unknown', 'unavailable'] else 0 -%}
               {%- set search_blob = (friendly_name ~ ' ' ~ filament_name ~ ' ' ~ vendor ~ ' ' ~ primary_color ~ ' ' ~ color_family) | lower -%}
@@ -405,7 +410,7 @@
               {%- set matches_sealed = filter_sealed == 'All' -%}
               {%- set matches_search = search_text == '' or search_text in search_blob -%}
               {%- set matches_data_quality = filter_data_quality == 'All' -%}
-              {%- set matches_low_stock = filter_stock_level not in ['Low Stock', 'Low Stock (by Filament)'] or current_weight < stock_threshold -%}
+              {%- set matches_low_stock = filter_stock_level == 'Any Stock Level' or (filter_stock_level == 'Low Stock' and is_low_stock) or (filter_stock_level == 'Low Stock (by Filament)' and filament_agg_weight < stock_threshold) or (filter_stock_level == 'Needs Purchase' and is_needs_repurchase) -%}
               {%- set matches_desiccant = filter_desiccant == 'All' -%}
               {%- set matches_nearly_empty = (not filter_nearly_empty) or is_nearly_empty -%}
               {%- set matches_needs_repurchase = (not filter_needs_repurchase) or is_needs_repurchase -%}
@@ -534,6 +539,7 @@
         active_filter_summary: >-
           {%- set active = [] -%}
           {%- if states('input_select.filament_catalog_filter_material') != 'All' -%}{%- set active = active + ['Material'] -%}{%- endif -%}
+          {%- if states('input_select.filament_catalog_filter_scope') != 'In-Stock Spools' -%}{%- set active = active + ['Scope'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_vendor') != 'All' -%}{%- set active = active + ['Vendor'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_color') != 'All' -%}{%- set active = active + ['Color'] -%}{%- endif -%}
           {%- if states('input_select.filament_catalog_filter_color_family') != 'All' -%}{%- set active = active + ['Color Family'] -%}{%- endif -%}

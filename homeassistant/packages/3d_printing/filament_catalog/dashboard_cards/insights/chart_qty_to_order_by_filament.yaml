@@ -1,0 +1,15 @@
+type: custom:apex-direct-bar-card
+title: Qty to Order by Filament
+height: 240
+value_name: qty
+value_decimals: 0
+source_entity: sensor.filament_catalog_metrics
+source_attribute: qty_to_order_by_filament_json
+source_mode: array
+label_key: name
+value_key: qty
+color_key: hex
+horizontal: false
+max_items: 10
+legend_show: false
+default_color: '#78909C'

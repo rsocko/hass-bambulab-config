@@ -41,7 +41,8 @@ catalog_spool_card:
       [[[
         const w = entity?.attributes?.remaining_weight;
         if (w === undefined || w === null) return '';
-        const isLow = w < 100;
+        const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+        const isLow = w < stockThreshold;
         const color = isLow ? '#f44336' : 'var(--primary-text-color)';
         return `<span style="font-size:11px; font-weight:600; color:${color};">${w.toFixed(0)}g</span>`;
       ]]]
@@ -92,14 +93,46 @@ catalog_spool_card:
     location_label: |
       [[[
         const loc = entity?.attributes?.location || '';
-        if (!loc) return '';
-        return `<span style="font-size:11px; font-weight:500; color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${loc}</span>`;
+        const archivedRaw = entity?.attributes?.archived;
+        const archived = archivedRaw === true || archivedRaw === 'true' || archivedRaw === 'True' || archivedRaw === 1 || archivedRaw === '1';
+        const archiveChip = archived
+          ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;background:rgba(120,144,156,0.18);color:#607D8B;font-size:9px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">Archived</span>'
+          : '';
+        const locationText = loc
+          ? `<span style="font-size:11px; font-weight:500; color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${loc}</span>`
+          : '';
+        return [archiveChip, locationText].filter(Boolean).join(' ');
       ]]]
     purchase_qty: |
       [[[ 
         const qty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
-        if (qty <= 0) return '';
-        return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:var(--accent-color); white-space:nowrap;"><ha-icon icon="mdi:cart-plus" style="--mdc-icon-size:13px; color:var(--accent-color);"></ha-icon><span>${qty}</span></span>`;
+        const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+        const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals || {};
+        const filamentId = entity?.attributes?.filament_id;
+        const totalEntry = filamentId === undefined || filamentId === null ? null : (totals[String(filamentId)] || totals[filamentId] || null);
+        const filamentCount = Number(totalEntry?.count || 0);
+        const filamentWeight = Number(totalEntry?.weight || entity?.attributes?.remaining_weight || 0);
+        const filamentEntity = filamentId === undefined || filamentId === null ? null : states[`sensor.spoolman_filament_${filamentId}`];
+        const normalizeRule = (value) => {
+          const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+          const aliases = {
+            'not defined': 'Not Defined',
+            'keep in stock': 'Keep In Stock',
+            'maintain backup spool': 'Maintain Backup Spool',
+            'max inventory': 'Max Inventory',
+            'as needed': 'As Needed',
+            'do not stock': 'Do Not Stock'
+          };
+          return aliases[raw.toLowerCase()] || 'Not Defined';
+        };
+        const rule = normalizeRule(entity?.attributes?.filament_extra_inventory_rule || filamentEntity?.attributes?.extra_inventory_rule);
+        const ruleShortage = ((rule === 'Keep In Stock' || rule === 'Not Defined') && (filamentCount < 1 || filamentWeight < stockThreshold)) || (rule === 'Maintain Backup Spool' && (filamentCount < 2 || filamentWeight < stockThreshold));
+        const purchaseNeed = qty > 0 || ruleShortage;
+        if (!purchaseNeed) return '';
+        const color = ruleShortage ? '#C62828' : 'var(--accent-color)';
+        const icon = ruleShortage ? 'mdi:cart-alert' : 'mdi:cart-plus';
+        const label = qty > 0 ? `Buy ${qty}` : (rule === 'Maintain Backup Spool' ? 'Backup Low' : 'Needs Purchase');
+        return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; color:${color}; white-space:nowrap;"><ha-icon icon="${icon}" style="--mdc-icon-size:13px; color:${color};"></ha-icon><span>${label}</span></span>`;
       ]]]
   styles:
     card:
@@ -142,7 +175,8 @@ catalog_spool_card:
       - box-shadow: |
           [[[
             const w = entity?.attributes?.remaining_weight;
-            if (w !== undefined && w !== null && w < 100) {
+            const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+            if (w !== undefined && w !== null && w < stockThreshold) {
               return 'inset 0 0 0 1px rgba(244,67,54,0.4)';
             }
             return 'none';
@@ -172,7 +206,28 @@ catalog_spool_card:
       - grid-template-areas: |
           [[[ 
             const qty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
-            if (qty > 0) {
+            const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+            const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals || {};
+            const filamentId = entity?.attributes?.filament_id;
+            const totalEntry = filamentId === undefined || filamentId === null ? null : (totals[String(filamentId)] || totals[filamentId] || null);
+            const filamentCount = Number(totalEntry?.count || 0);
+            const filamentWeight = Number(totalEntry?.weight || entity?.attributes?.remaining_weight || 0);
+            const filamentEntity = filamentId === undefined || filamentId === null ? null : states[`sensor.spoolman_filament_${filamentId}`];
+            const normalizeRule = (value) => {
+              const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+              const aliases = {
+                'not defined': 'Not Defined',
+                'keep in stock': 'Keep In Stock',
+                'maintain backup spool': 'Maintain Backup Spool',
+                'max inventory': 'Max Inventory',
+                'as needed': 'As Needed',
+                'do not stock': 'Do Not Stock'
+              };
+              return aliases[raw.toLowerCase()] || 'Not Defined';
+            };
+            const rule = normalizeRule(entity?.attributes?.filament_extra_inventory_rule || filamentEntity?.attributes?.extra_inventory_rule);
+            const purchaseNeed = qty > 0 || ((rule === 'Keep In Stock' || rule === 'Not Defined') && (filamentCount < 1 || filamentWeight < stockThreshold)) || (rule === 'Maintain Backup Spool' && (filamentCount < 2 || filamentWeight < stockThreshold));
+            if (purchaseNeed) {
               return '"i n remaining_weight status_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label last_used last_used" "purchase_qty purchase_qty purchase_qty purchase_qty"';
             }
             return '"i n remaining_weight status_icon" "i l l l" "i weight_bar weight_bar weight_bar" "location_label location_label last_used last_used"';
@@ -181,7 +236,28 @@ catalog_spool_card:
       - grid-template-rows: |
           [[[ 
             const qty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
-            return qty > 0 ? 'auto auto auto auto auto' : 'auto auto auto auto';
+            const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+            const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals || {};
+            const filamentId = entity?.attributes?.filament_id;
+            const totalEntry = filamentId === undefined || filamentId === null ? null : (totals[String(filamentId)] || totals[filamentId] || null);
+            const filamentCount = Number(totalEntry?.count || 0);
+            const filamentWeight = Number(totalEntry?.weight || entity?.attributes?.remaining_weight || 0);
+            const filamentEntity = filamentId === undefined || filamentId === null ? null : states[`sensor.spoolman_filament_${filamentId}`];
+            const normalizeRule = (value) => {
+              const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+              const aliases = {
+                'not defined': 'Not Defined',
+                'keep in stock': 'Keep In Stock',
+                'maintain backup spool': 'Maintain Backup Spool',
+                'max inventory': 'Max Inventory',
+                'as needed': 'As Needed',
+                'do not stock': 'Do Not Stock'
+              };
+              return aliases[raw.toLowerCase()] || 'Not Defined';
+            };
+            const rule = normalizeRule(entity?.attributes?.filament_extra_inventory_rule || filamentEntity?.attributes?.extra_inventory_rule);
+            const purchaseNeed = qty > 0 || ((rule === 'Keep In Stock' || rule === 'Not Defined') && (filamentCount < 1 || filamentWeight < stockThreshold)) || (rule === 'Maintain Backup Spool' && (filamentCount < 2 || filamentWeight < stockThreshold));
+            return purchaseNeed ? 'auto auto auto auto auto' : 'auto auto auto auto';
           ]]]
       - align-items: center
       - gap: 1px 6px

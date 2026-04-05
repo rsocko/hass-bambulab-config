@@ -5,6 +5,11 @@ filament_catalog_clear_filters:
   sequence:
     - action: input_select.select_option
       target:
+        entity_id: input_select.filament_catalog_filter_scope
+      data:
+        option: In-Stock Spools
+    - action: input_select.select_option
+      target:
         entity_id:
           - input_select.filament_catalog_filter_material
           - input_select.filament_catalog_filter_vendor

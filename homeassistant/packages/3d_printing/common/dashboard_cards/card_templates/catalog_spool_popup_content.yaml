@@ -106,6 +106,27 @@ catalog_spool_popup_content:
         const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
         const ft = (filamentId != null && totals) ? totals[String(filamentId)] : null;
         const totalWt = ft ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g (' + ft.count + (ft.count === 1 ? ' spool' : ' spools') + ')' : 'N/A';
+        const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+        const archivedRaw = entity?.attributes?.archived;
+        const archived = archivedRaw === true || archivedRaw === 'true' || archivedRaw === 'True' || archivedRaw === 1 || archivedRaw === '1';
+        const normalizeRule = function(value) {
+          const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+          const aliases = {
+            'not defined': 'Not Defined',
+            'keep in stock': 'Keep In Stock',
+            'maintain backup spool': 'Maintain Backup Spool',
+            'max inventory': 'Max Inventory',
+            'as needed': 'As Needed',
+            'do not stock': 'Do Not Stock'
+          };
+          return aliases[raw.toLowerCase()] || 'Not Defined';
+        };
+        const inventoryRule = normalizeRule(entity?.attributes?.filament_extra_inventory_rule || states[`sensor.spoolman_filament_${filamentId}`]?.attributes?.extra_inventory_rule);
+        const purchaseQty = parseInt(entity?.attributes?.filament_extra_purchase_qty, 10) || 0;
+        const aggregateWeight = Number(ft?.weight || remainingWeight || 0);
+        const activeSpoolCount = Number(ft?.count || 0);
+        const ruleShortage = ((inventoryRule === 'Keep In Stock' || inventoryRule === 'Not Defined') && (activeSpoolCount < 1 || aggregateWeight < stockThreshold)) || (inventoryRule === 'Maintain Backup Spool' && (activeSpoolCount < 2 || aggregateWeight < stockThreshold));
+        const purchaseNeed = purchaseQty > 0 || ruleShortage;
 
         // Purchase info
         const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
@@ -142,6 +163,13 @@ catalog_spool_popup_content:
           return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;line-height:1;"><ha-icon icon="' + icon + '" style="--mdc-icon-size:16px;color:' + color + ';display:flex;"></ha-icon>' + text + '</span>';
         };
 
+        const purchasePills = [
+          archived ? pill('mdi:archive', 'Archived Spool', '#607D8B') : '',
+          pill('mdi:playlist-check', 'Rule: ' + inventoryRule, '#546E7A'),
+          ft ? pill('mdi:scale', totalWt, '#546E7A') : '',
+          purchaseNeed ? pill('mdi:cart-alert', purchaseQty > 0 ? 'Buy ' + purchaseQty : (inventoryRule === 'Maintain Backup Spool' ? 'Backup Low' : 'Needs Purchase'), ruleShortage ? '#C62828' : '#EF6C00') : ''
+        ].filter(Boolean).join('');
+
         return `
           <div style="display:flex;flex-direction:column;gap:8px;">
             <!-- Banner -->
@@ -157,6 +185,8 @@ catalog_spool_popup_content:
             </div>
 
             ${uuid ? '<div style="text-align:center;">' + pill('mdi:identifier', uuid, '#9E9E9E') + '</div>' : ''}
+
+            ${purchasePills ? '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">' + purchasePills + '</div>' : ''}
 
             <!-- Material / Vendor / Location -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">

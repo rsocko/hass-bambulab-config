@@ -5,4 +5,5 @@ filament_catalog_filter_stock_level:
     - Any Stock Level
     - Low Stock
     - Low Stock (by Filament)
+    - Needs Purchase
   initial: Any Stock Level

@@ -18,5 +18,8 @@ card:
       cards:
         - !include insights/chart_weight_by_color_family.yaml
         - !include insights/chart_count_by_spool_type_clip_type.yaml
-    - !include insights/chart_weight_by_primary_color.yaml
+    - type: horizontal-stack
+      cards:
+        - !include insights/chart_weight_by_primary_color.yaml
+        - !include insights/chart_qty_to_order_by_filament.yaml
     - !include insights/chart_alert_counts.yaml

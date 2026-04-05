@@ -1,0 +1,8 @@
+filament_catalog_filter_scope:
+  name: Filament Catalog Scope
+  icon: mdi:shape-outline
+  options:
+    - In-Stock Spools
+    - Include Archived Spools
+    - All Filaments
+  initial: In-Stock Spools

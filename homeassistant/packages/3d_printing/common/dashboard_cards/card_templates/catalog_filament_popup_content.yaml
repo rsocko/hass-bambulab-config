@@ -25,6 +25,9 @@ catalog_filament_popup_content:
         const filamentId = entity?.attributes?.id;
         const filamentName = entity?.attributes?.name || entity?.attributes?.friendly_name || 'Unknown Filament';
         const friendlyName = entity?.attributes?.friendly_name || filamentName;
+        const totals = states['sensor.spoolman_filament_totals']?.attributes?.totals || {};
+        const filamentTotals = totals[String(filamentId)] || totals[filamentId] || null;
+        const spoolCount = Number(filamentTotals?.count || 0);
         const material = entity?.attributes?.material || 'Unknown';
         const vendor = entity?.attributes?.vendor_name || 'Unknown';
         const price = entity?.attributes?.price;
@@ -45,11 +48,29 @@ catalog_filament_popup_content:
         const primaryColor = entity?.attributes?.extra_primary_color || 'Unknown';
         const profileName = entity?.attributes?.extra_profile_name || '';
         const totalWeight = Number.parseFloat(entity?.state) || 0;
+        const stockThreshold = parseFloat(states['input_number.filament_catalog_stock_threshold']?.state) || 150;
+        const purchaseQty = parseInt(entity?.attributes?.extra_purchase_qty, 10) || 0;
+        const normalizeRule = (value) => {
+          const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+          const aliases = {
+            'not defined': 'Not Defined',
+            'keep in stock': 'Keep In Stock',
+            'maintain backup spool': 'Maintain Backup Spool',
+            'max inventory': 'Max Inventory',
+            'as needed': 'As Needed',
+            'do not stock': 'Do Not Stock'
+          };
+          return aliases[raw.toLowerCase()] || 'Not Defined';
+        };
+        const inventoryRule = normalizeRule(entity?.attributes?.extra_inventory_rule);
+        const ruleShortage = ((inventoryRule === 'Keep In Stock' || inventoryRule === 'Not Defined') && (spoolCount < 1 || totalWeight < stockThreshold)) || (inventoryRule === 'Maintain Backup Spool' && (spoolCount < 2 || totalWeight < stockThreshold));
+        const purchaseNeed = purchaseQty > 0 || ruleShortage;
         const costPerKg = price && nominalWeight > 0 ? ((Number(price) / nominalWeight) * 1000) : null;
         const articleNumber = entity?.attributes?.article_number || '';
         const extTemp = entity?.attributes?.settings_extruder_temp;
         const bedTemp = entity?.attributes?.settings_bed_temp;
         const pill = (icon, text, color) => '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;line-height:1;"><ha-icon icon="' + icon + '" style="--mdc-icon-size:16px;color:' + color + ';display:flex;"></ha-icon>' + text + '</span>';
+        const inventorySummary = spoolCount > 0 ? `${spoolCount} active ${spoolCount === 1 ? 'spool' : 'spools'} · ${totalWeight.toFixed(1)} g` : `No spools · ${totalWeight.toFixed(1)} g`;
 
         return `
           <div style="display:flex;flex-direction:column;gap:8px;">
@@ -58,20 +79,26 @@ catalog_filament_popup_content:
                 ${entity?.attributes?.entity_picture ? '<img src="' + entity.attributes.entity_picture + '" style="width:48px;height:48px;border-radius:50%;border:2px solid ' + borderColor + ';flex:0 0 auto;">' : ''}
                 <div style="min-width:0;display:flex;flex-direction:column;gap:2px;">
                   <div style="font-size:18px;font-weight:700;color:${textColor};">${friendlyName}</div>
-                  <div style="font-size:12px;color:${textColor};opacity:0.88;line-height:1.4;">Filament #${filamentId} · No Spools</div>
+                  <div style="font-size:12px;color:${textColor};opacity:0.88;line-height:1.4;">Filament #${filamentId} · ${spoolCount === 0 ? 'No Spools' : spoolCount + ' ' + (spoolCount === 1 ? 'Spool' : 'Spools')}</div>
                   <div style="font-size:12px;color:${textColor};opacity:0.88;line-height:1.4;">${colorHex.toUpperCase()} · RGB(${r}, ${g}, ${b})</div>
                 </div>
               </div>
             </div>
 
             <div style="display:flex;justify-content:center;">
-              <span style="display:inline-flex;align-items:center;justify-content:center;padding:4px 12px;border-radius:999px;background:rgba(244,67,54,0.14);color:#f44336;font-size:11px;font-weight:700;letter-spacing:0.05em;">ZERO SPOOLS</span>
+              <span style="display:inline-flex;align-items:center;justify-content:center;padding:4px 12px;border-radius:999px;background:${spoolCount === 0 ? 'rgba(244,67,54,0.14)' : 'rgba(66,165,245,0.16)'};color:${spoolCount === 0 ? '#f44336' : '#1E88E5'};font-size:11px;font-weight:700;letter-spacing:0.05em;">${spoolCount === 0 ? 'ZERO SPOOLS' : 'FILAMENT SUMMARY'}</span>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${pill('mdi:playlist-check', 'Rule: ' + inventoryRule, '#546E7A')}
+              ${pill('mdi:scale', inventorySummary, '#546E7A')}
+              ${purchaseNeed ? pill('mdi:cart-alert', purchaseQty > 0 ? 'Buy ' + purchaseQty : (inventoryRule === 'Maintain Backup Spool' ? 'Backup Low' : 'Needs Purchase'), ruleShortage ? '#C62828' : '#EF6C00') : ''}
             </div>
 
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
               ${pill('mdi:texture-box', 'Material: ' + material, '#FF9800')}
               ${pill('mdi:factory', 'Vendor: ' + vendor, '#9C27B0')}
-              ${pill('mdi:map-marker-off', 'Location: No Spools', '#f44336')}
+              ${pill(spoolCount === 0 ? 'mdi:map-marker-off' : 'mdi:layers-triple', spoolCount === 0 ? 'Location: No Spools' : 'Mode: Filament Summary', spoolCount === 0 ? '#f44336' : '#1E88E5')}
             </div>
 
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
@@ -92,8 +119,10 @@ catalog_filament_popup_content:
               </div>
             ` : ''}
 
-            <div style="padding:10px 12px;border-radius:10px;background:rgba(244,67,54,0.08);border:1px solid rgba(244,67,54,0.18);font-size:12px;line-height:1.45;color:var(--primary-text-color);">
-              This catalog item is being rendered from the Spoolman filament entity because there are currently no spool entities for this filament. The filament aggregate weight is ${totalWeight.toFixed(1)} g and the current spool count is 0.
+            <div style="padding:10px 12px;border-radius:10px;background:${spoolCount === 0 ? 'rgba(244,67,54,0.08)' : 'rgba(66,165,245,0.08)'};border:1px solid ${spoolCount === 0 ? 'rgba(244,67,54,0.18)' : 'rgba(30,136,229,0.18)'};font-size:12px;line-height:1.45;color:var(--primary-text-color);">
+              ${spoolCount === 0
+                ? `This catalog item is being rendered from the Spoolman filament entity because there are currently no spool entities for this filament. The filament aggregate weight is ${totalWeight.toFixed(1)} g and the current spool count is 0.`
+                : `This catalog item is being rendered as a filament summary entry. It aggregates ${spoolCount} active ${spoolCount === 1 ? 'spool' : 'spools'} with a combined tracked weight of ${totalWeight.toFixed(1)} g.`}
             </div>
           </div>
         `;

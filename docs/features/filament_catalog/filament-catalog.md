@@ -1,7 +1,7 @@
 # Filament Catalog — Design Document
 
 > **Status**: Phase 1–4 and 5A complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
-> **Last updated**: 2026-03-27
+> **Last updated**: 2026-04-05
 
 ## Problem Statement
 
@@ -29,7 +29,7 @@ The current `view_filament_catalog.yaml` renders every Spoolman spool using a `c
 | **Default mobile view** | Location-grouped | Mirrors physical layout; no strong mobile-specific need yet |
 | **Card density** | Compact default (Phase 1); density toggle is a future phase | 165 spools demands compact; medium/spacious as future option |
 | **Cost info** | Include where appropriate | `price` is populated on spools; inventory value summary is viable |
-| **Archived spools** | Excluded by default | `archived: false` filter; 165 count is active spools only |
+| **Archived spools** | Excluded by default, optionally includable | The catalog defaults to active spool inventory, but the scope helper can switch to `Include Archived Spools` or `All Filaments`. Metrics and charts remain active-spool-only. |
 | **Filter dropdown options** | Dynamically populated from spoolman entities | Avoids stale hardcoded lists; `sync_filter_options` automation runs on HA start (2-min delay), spoolman changes, and every 6h. Supports manual trigger. |
 | **Feature placement** | New `filament_catalog/` feature package | See [Feature Structure](#feature-structure) below |
 
@@ -40,7 +40,7 @@ The current `view_filament_catalog.yaml` renders every Spoolman spool using a `c
 ### Why a Separate `filament_catalog/` Package
 
 The filament catalog has outgrown `common/`. It needs:
-- **Helpers**: `input_select` filter helpers, `input_text` search, `input_number` repurchase threshold
+- **Helpers**: `input_select` filter helpers (including scope and inventory-rule filters), `input_text` search, `input_number` stock threshold
 - **Template sensors**: Filtered spool list, alert computations, catalog metadata
 - **Dashboard cards**: `catalog_spool_card`, `catalog_spool_popup`, `catalog_location_header`, filter bar
 - **Dashboard view**: The view YAML itself
@@ -60,7 +60,7 @@ homeassistant/packages/3d_printing/
 │   ├── helpers/
 │   │   ├── input_boolean/                    ← Toggle filters (qty to purchase, desiccant old, nearly empty, needs repurchase, needs drying, stale, missing desiccant, unsealed only, compact cards, show insights)
 │   │   ├── input_number/                     ← Stock threshold + desiccant thresholds (yellow/orange/red days)
-│   │   ├── input_select/                     ← Dropdown filters (material, vendor, color, type, location, spool type, clip type) + stock level, desiccant, data quality, tab, sort, history range, sealed
+│   │   ├── input_select/                     ← Dropdown filters (scope, material, vendor, color, family, type, location, spool type, clip type, inventory rule) + stock level, desiccant, data quality, tab, sort, history range, sealed
 │   │   └── input_text/                       ← Free-text search
 │   ├── scripts/
 │   │   ├── filament_catalog_clear_filters.yaml  ← Reset all filters to defaults
@@ -84,6 +84,7 @@ homeassistant/packages/3d_printing/
 │   │       ├── chart_count_by_vendor.yaml
 │   │       ├── chart_count_by_spool_type_clip_type.yaml
 │   │       ├── chart_count_by_primary_color.yaml
+│   │       ├── chart_qty_to_order_by_filament.yaml
 │   │       ├── chart_spools_by_location.yaml
 │   │       └── chart_alert_counts.yaml
 │   └── dashboard_views/
@@ -94,11 +95,11 @@ homeassistant/packages/3d_printing/
 │   └── dashboard_cards/
 │       └── card_templates/
 │           ├── catalog_spool_card.yaml        ← Compact spool card (button-card template)
-│           ├── catalog_filament_card.yaml     ← Zero-spool filament card (hybrid entry)
+│           ├── catalog_filament_card.yaml     ← Filament summary card (zero-spool + all-filaments scope)
 │           ├── catalog_spool_popup.yaml       ← Lightweight popup trigger (~110 lines)
 │           ├── catalog_spool_popup_content.yaml ← Heavy popup display (~221 lines, on-demand)
-│           ├── catalog_filament_popup.yaml    ← Lightweight zero-spool popup trigger
-│           ├── catalog_filament_popup_content.yaml ← Heavy zero-spool popup display
+│           ├── catalog_filament_popup.yaml    ← Lightweight filament-summary popup trigger
+│           ├── catalog_filament_popup_content.yaml ← Heavy filament-summary popup display
 │           ├── catalog_location_header.yaml   ← Location section header (available for Phase 4)
 │           └── (ams_* templates stay here — shared by both printer view and catalog)
 ```
@@ -219,10 +220,23 @@ The entity state is already pre-computed by the integration as the aggregate rem
 
 The catalog now intentionally uses a hybrid server-side datasource:
 
-- **Primary path**: `sensor.spoolman_spool_*` entities for normal in-stock / spool-backed catalog cards.
-- **Secondary path**: `sensor.spoolman_filament_*` entities only when `sensor.spoolman_filament_totals` has no matching count for that filament and the filament aggregate state is `0`.
+- **Primary path**: `sensor.spoolman_spool_*` entities for normal spool-backed catalog cards.
+- **Secondary path**: `sensor.spoolman_filament_*` entities for zero-spool filament records and for the `All Filaments` summary scope.
 
-This keeps the view on one `auto-entities` grid while letting the catalog render zero-spool filament records without introducing a second browser-side datasource.
+This keeps the view on one `auto-entities` grid while letting the catalog render either spool cards or filament-summary cards without introducing a second browser-side datasource.
+
+### Catalog Scope Modes
+
+The catalog has three mutually exclusive scope modes controlled by `input_select.filament_catalog_filter_scope`:
+
+- **`In-Stock Spools`** — Default. Shows active spool entities only. Archived spools are hidden. Zero-spool filament records can still appear as fallback summary entries.
+- **`Include Archived Spools`** — Shows spool entities regardless of archive state, with archived cards and popup content visibly labeled.
+- **`All Filaments`** — Switches the grid into filament-summary mode. It does **not** render spool cards. Instead, it renders one filament card per `sensor.spoolman_filament_*` entity, including filaments that still have active spool inventory.
+
+The synthetic location labels used by filament-summary entries are:
+
+- **`No Spools`** — Filaments with zero active spools.
+- **`In Inventory`** — Filament summaries shown by the `All Filaments` scope when active spools still exist.
 
 ### Known Location Values (21 locations from Spoolman)
 
@@ -238,7 +252,7 @@ Ordered by display preference:
 | **Storage** | `Cereal Dry Box - Closet` |
 | **Synthetic hybrid group** | `No Spools` |
 
-> The view dynamically discovers locations from active spool entities and also injects a synthetic `No Spools` location when zero-spool filament entities are present in the hybrid datasource.
+> The view dynamically discovers locations from active spool entities and injects synthetic filament-summary locations as needed: `No Spools` for zero-spool filaments and `In Inventory` when the `All Filaments` scope is active for filaments that still have spool inventory.
 
 ### `select.spoolman_spool_{id}_location` — Location Select Entities
 
@@ -553,9 +567,11 @@ At 165 spools, client-side filtering via `config-template-card` is too slow. Ins
 | `input_select.filament_catalog_filter_location` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_spool_type` | input_select | Dropdown — options populated dynamically |
 | `input_select.filament_catalog_filter_clip_type` | input_select | Dropdown — options populated dynamically, plus `None` for spools with no clip type set |
+| `input_select.filament_catalog_filter_inventory_rule` | input_select | Dropdown — normalized inventory-rule filter (`Not Defined`, `Keep In Stock`, `Maintain Backup Spool`, `Max Inventory`, `As Needed`, `Do Not Stock`) |
+| `input_select.filament_catalog_filter_scope` | input_select | Dropdown — `In-Stock Spools`, `Include Archived Spools`, `All Filaments` |
 | `input_boolean.filament_catalog_filter_qty_to_purchase` | input_boolean | Toggle: only include spools where qty to purchase > 0 |
 | `input_select.filament_catalog_filter_sealed` | input_select | `All`, `Sealed`, `Unsealed` (static) |
-| `input_select.filament_catalog_filter_stock_level` | input_select | Tiered stock filter: `Any Stock Level`, `Low Stock`, `Low Stock (by Filament)` |
+| `input_select.filament_catalog_filter_stock_level` | input_select | Tiered stock filter: `Any Stock Level`, `Low Stock`, `Low Stock (by Filament)`, `Needs Purchase` |
 | `input_select.filament_catalog_filter_desiccant` | input_select | Tiered desiccant-age / missing-desiccant filter |
 | `input_select.filament_catalog_filter_data_quality` | input_select | Data quality issue filter |
 | `input_select.filament_catalog_history_range` | input_select | Popup chart history control: `Last 30 Days` or `Full History` (default `Full History`) |
@@ -580,9 +596,10 @@ Triggers:
 Behavior:
 - Single pass through all non-archived `sensor.spoolman_spool_*` entities
 - Supplemental pass through zero-spool `sensor.spoolman_filament_*` entities so filament-only metadata can appear in dropdowns and the synthetic `No Spools` location can be offered when needed
-- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location, Spool Type, Clip Type), and injects a `None` sentinel for Clip Type to target spools where no clip type is defined
+- Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location, Spool Type, Clip Type, Inventory Rule), and injects a `None` sentinel for Clip Type to target spools where no clip type is defined
 - Strips JSON outer quotes from `filament_extra_primary_color` and `filament_extra_color_family`
 - Flattens the `filament_extra_type_details` JSON array into individual type values
+- Normalizes inventory-rule strings to the shared UI labels used by the filter and cards
 - Calls `input_select.set_options` for each dropdown with `['All'] + sorted_unique_values`
 - If a user's current selection no longer exists in the updated list, HA automatically resets to `All` (first option)
 
@@ -592,23 +609,25 @@ This approach avoids constant recomputation — the automation only runs when sp
 
 Jinja2 template that:
 1. Iterates all `sensor.spoolman_spool_*` entities and applies the existing spool-backed logic
-2. Adds zero-spool `sensor.spoolman_filament_*` entities when the totals helper has no spool count for that filament and the filament aggregate state is `0`
-3. Applies each active dropdown filter (skip if `All`), including hybrid-safe handling for fields that only exist on spool entities
-4. Applies boolean filters such as Qty to Purchase and alert toggles when enabled
-5. Applies text search across spool-backed and filament-backed names/vendor/color metadata
-6. Outputs JSON list of matching entity IDs as `entity_ids_json` attribute
-7. Provides grouped output for the single-grid view and `active_filter_summary` for the filter bar
+2. Uses the scope helper to decide whether to show only active spools, include archived spools, or switch entirely to filament-summary mode
+3. Adds `sensor.spoolman_filament_*` entities for zero-spool records and for full filament-summary rendering when scope is `All Filaments`
+4. Normalizes inventory-rule values and computes rule-aware purchase state from `purchase_qty`, filament aggregate weight, spool count, and stock threshold
+5. Applies each active dropdown filter (skip if `All`), including hybrid-safe handling for fields that only exist on spool entities
+6. Applies boolean filters such as Qty to Purchase and alert toggles when enabled
+7. Applies text search across spool-backed and filament-backed names/vendor/color metadata
+8. Outputs JSON list of matching entity IDs as `entity_ids_json` attribute
+9. Provides grouped output for the single-grid view and `active_filter_summary` for the filter bar
 
-The view's `auto-entities` references this sensor to decide which catalog entities to display. Spool entities render spool cards; zero-spool filament entities render dedicated zero-spool filament cards.
+The view's `auto-entities` references this sensor to decide which catalog entities to display. Spool entities render spool cards; filament entities render filament-summary cards.
 
 ##### Filter Bar Design
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ Filter Spools                 View ▼  Sort ▼  [Compact]         │
-│ Material ▼  Vendor ▼  Color ▼  Family ▼                        │
+│ Filters                       View ▼  Sort ▼  [Compact]         │
+│ Scope ▼  Material ▼  Vendor ▼  Color ▼  Family ▼                │
 │ Type ▼  Location ▼  [Stock Threshold ━━━]  Stock Level ▼        │
 │ Sealed ▼  Desiccant ▼  Data Quality ▼                           │
-│ Spool Type ▼  Clip Type ▼  [Qty To Buy]                         │
+│ Spool Type ▼  Clip Type ▼  Inventory Rule ▼  [Qty To Buy]       │
 │ 🔍 [___search___]              [123 Matches]  [Clear Filters]   │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -620,9 +639,20 @@ Rendered using `custom:bubble-card` with `sub_button_type: select` for dropdowns
 | Filter | Logic | UI |
 |---|---|---|
 | **Desiccant Old** | `extra_desiccant_filled` age > 45 days | Toggle |
-| **Stock Level** | Threshold-based stock states (`Any Stock Level`, `Low Stock`, `Low Stock (by Filament)`) | Dropdown |
+| **Stock Level** | Threshold-based stock states (`Any Stock Level`, `Low Stock`, `Low Stock (by Filament)`, `Needs Purchase`) | Dropdown |
 | **Qty To Purchase** | `filament_extra_purchase_qty > 0` | Toggle |
 | **Sealed State** | `extra_sealed` true/false | Dropdown (`All`/`Sealed`/`Unsealed`) |
+
+`Needs Purchase` is rule-aware. It matches when either:
+
+- the filament has an explicit purchase quantity (`purchase_qty > 0`), or
+- the inventory rule is currently under target, based on active spool count and aggregate filament weight.
+
+Current rule handling:
+
+- **`Keep In Stock`** and **`Not Defined`**: purchase-needed when there are no active spools or aggregate filament weight is below the stock threshold.
+- **`Maintain Backup Spool`**: purchase-needed when fewer than 2 active spools remain or aggregate filament weight is below the stock threshold.
+- **`Max Inventory`**, **`As Needed`**, **`Do Not Stock`**: do not auto-trigger purchase-needed unless an explicit purchase quantity is set.
 
 #### Files Created/Modified
 
@@ -671,7 +701,7 @@ New `input_boolean.filament_catalog_compact_cards` helper — a simple on/off to
 | **Off** (default) | 4 | 2 | Default grid — all Phase 3 enhancements visible |
 | **On** | 4 | 2 | Compact grid — vertical card layout, no weight bar or last-used |
 
-The view uses two `conditional` card wrappers around `auto-entities` instances: one for default (shown when toggle is off/unavailable, uses `catalog_spool_card`) and one for compact (shown when toggle is on, uses `catalog_spool_card_compact`). Both use 4 columns on desktop and CSS `card_mod` media queries to switch to 2 columns on mobile (≤768px). The toggle button now lives in the `Filter Spools` separator row alongside `View` and `Sort`.
+The view uses two `conditional` card wrappers around `auto-entities` instances: one for default (shown when toggle is off/unavailable, uses `catalog_spool_card`) and one for compact (shown when toggle is on, uses `catalog_spool_card_compact`). Both use 4 columns on desktop and CSS `card_mod` media queries to switch to 2 columns on mobile (≤768px). The toggle button now lives in the `Filters` separator row alongside `View` and `Sort`.
 
 #### Files Modified / Created
 
@@ -744,15 +774,45 @@ New `input_select.filament_catalog_sort`:
 
 **Hybrid card branching**: The grid still uses one `auto-entities` instance. It branches per entity ID at render time:
 - `sensor.spoolman_spool_*` → `catalog_spool_card` / `catalog_spool_card_compact`
-- `sensor.spoolman_filament_*` zero-spool entries → `catalog_filament_card` / `catalog_filament_card_compact`
+- `sensor.spoolman_filament_*` filament-summary entries → `catalog_filament_card` / `catalog_filament_card_compact`
 
-This preserves the single-grid performance model while making zero-spool filament records first-class catalog entries.
+This preserves the single-grid performance model while making filament-summary records first-class catalog entries.
 
 **Sorting approach**: Two-pass stable sort in the template sensor: (1) sort by `sk` (sort key from selected sort option, with direction), (2) stable sort by `gv` (group attribute). This yields primary group ordering with secondary sort within groups.
 
 **"All" tab**: Flat sorted list, no group headers.
 
 **"By Filament" tab**: Shipped as a grouped spool view. It keeps the existing spool-card layout and groups sections by `Vendor • Material • Name` instead of introducing a separate aggregated card type.
+
+> **Important**: The tab selector and the scope selector are independent. `All` is a grouping mode; `All Filaments` is a data-scope mode. Selecting `All Filaments` changes the datasource to filament-summary cards only, even if the active tab is `All`.
+
+### Follow-On Enhancements (Issue #151)
+
+The April 2026 catalog follow-on work added three user-facing behaviors on top of the existing filter and hybrid-source architecture.
+
+#### 1. Scope Control and Archived-Spool Handling
+
+- Default scope remains `In-Stock Spools`, so archived spools are excluded from normal browsing.
+- `Include Archived Spools` adds archived spool cards back into the same grid and marks them clearly on both cards and popups.
+- `All Filaments` switches the catalog to one-card-per-filament summary mode and does not render spool cards.
+
+This keeps archived history opt-in while still allowing broad browsing when needed.
+
+#### 2. Rule-Aware Purchase Signals
+
+- The stock-level dropdown now includes `Needs Purchase`.
+- Spool cards, compact spool cards, filament-summary cards, and both popup bodies now surface purchase-needed status using the same rule-aware calculation.
+- Explicit `purchase_qty` continues to force a purchase-needed state, but inventory rules can now do the same even when `purchase_qty` is `0`.
+
+This makes the catalog treat replenishment as an inventory-policy outcome, not just a last-spool heuristic.
+
+#### 3. Metrics and Performance Semantics
+
+- `filament_catalog_metrics.yaml` still computes charts and alert counts from non-archived spool entities only.
+- Archived spools therefore do **not** change the current insights panel, KPI totals, or alert charts.
+- The filter sensor still iterates spool entities before applying the default archive exclusion, so archived spool growth increases template work over time even though archived spools stay hidden by default.
+
+This is the current tradeoff: user-facing analytics remain focused on active inventory, while archived history remains available as an explicit browsing scope.
 
 #### Files Created/Modified
 
@@ -836,7 +896,7 @@ The chart covers three categories of alerts:
 |---|---|---|
 | **Low Stock** | `remaining_weight` < stock threshold | [#103](https://github.com/rsocko/hass-bambulab-config/issues/103), [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
 | **Nearly Empty** | `remaining_weight` < 50g | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
-| **Needs Repurchase** | Last spool of `filament_id` AND `remaining_weight` < threshold | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
+| **Needs Repurchase** | Active-inventory shortage based on purchase quantity or inventory rule target | [#150](https://github.com/rsocko/hass-bambulab-config/issues/150) |
 | **Needs Drying** | `extra_last_dried` > 90 days AND `extra_sealed = false` | — |
 | **Unused (Stale)** | `last_used` > 6 months ago | — |
 

@@ -293,6 +293,24 @@
             {%- endif -%}
           {%- endfor -%}
           {{ buckets.data | tojson }}
+        qty_to_order_by_filament_json: >-
+          {%- set rows = namespace(items=[]) -%}
+          {%- for filament in states.sensor if filament.entity_id is match('^sensor\.spoolman_filament_\d+$') -%}
+            {%- set attrs = filament.attributes -%}
+            {%- set qty = attrs.get('extra_purchase_qty', 0) | int(0) -%}
+            {%- if qty > 0 -%}
+              {%- set filament_name = attrs.get('name', filament.name) | string | trim -%}
+              {%- set filament_name = filament_name if filament_name not in ['', 'unknown', 'unavailable', 'None', 'none'] else 'Unknown Filament' -%}
+              {%- set raw_hex = attrs.get('color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- set hex = '#' ~ raw_hex[0:6] if raw_hex | length >= 6 else '#9e9e9e' -%}
+              {%- set rows.items = rows.items + [{
+                'name': (hex | upper) ~ ' - ' ~ filament_name,
+                'qty': qty,
+                'hex': hex
+              }] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ rows.items | sort(attribute='qty', reverse=true) | tojson }}
         alert_counts_json: >-
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}

@@ -8,7 +8,7 @@ cards:
     card:
       type: custom:bubble-card
       card_type: separator
-      name: Filter Spools
+      name: Filters
       icon: mdi:filter-variant
       sub_button:
         - entity: input_select.filament_catalog_tab
@@ -41,6 +41,7 @@ cards:
             action: toggle
   - type: custom:config-template-card
     entities:
+      - input_select.filament_catalog_filter_scope
       - input_select.filament_catalog_filter_material
       - input_select.filament_catalog_filter_vendor
       - input_select.filament_catalog_filter_color
@@ -67,6 +68,16 @@ cards:
         bottom_layout: rows
         bottom:
           - group:
+              - entity: input_select.filament_catalog_filter_scope
+                sub_button_type: select
+                name: Scope
+                icon: mdi:shape-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.filament_catalog_filter_scope']?.state !== 'In-Stock Spools'}
+                state_color: ${states['input_select.filament_catalog_filter_scope']?.state !== 'In-Stock Spools'}
+                fill_width: true
               - entity: input_select.filament_catalog_filter_material
                 sub_button_type: select
                 name: Material
@@ -136,6 +147,9 @@ cards:
                 icon: mdi:weight-gram
                 show_name: true
                 show_state: true
+                show_background: true
+                state_background: false
+                state_color: false
                 tap_to_slide: true
                 fill_width: true
               - entity: input_select.filament_catalog_filter_stock_level
@@ -279,6 +293,7 @@ cards:
               action: none
       - type: custom:config-template-card
         entities:
+          - input_select.filament_catalog_filter_scope
           - input_select.filament_catalog_filter_material
           - input_select.filament_catalog_filter_vendor
           - input_select.filament_catalog_filter_color
@@ -306,8 +321,11 @@ cards:
           show_state: true
           styles: >-
             ${(() => {
-              const active = ['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_inventory_rule','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => {
+              const active = ['input_select.filament_catalog_filter_scope','input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_inventory_rule','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => {
                 const stateObj = states[id];
+                if (id === 'input_select.filament_catalog_filter_scope') {
+                  return (stateObj?.state || 'In-Stock Spools') !== 'In-Stock Spools';
+                }
                 return !!(stateObj && stateObj.attributes && stateObj.attributes.options && stateObj.state !== stateObj.attributes.options[0]);
               }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0);
               return `
@@ -324,6 +342,7 @@ cards:
                 .bubble-sub-button {
                   pointer-events: auto !important;
                 }
+                .bubble-sub-button.clear-scope-filter,
                 .bubble-sub-button.clear-material-filter,
                 .bubble-sub-button.clear-vendor-filter,
                 .bubble-sub-button.clear-color-filter,
@@ -343,6 +362,7 @@ cards:
                   color: var(--accent-color) !important;
                   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
                 }
+                .bubble-sub-button.clear-scope-filter ha-icon,
                 .bubble-sub-button.clear-material-filter ha-icon,
                 .bubble-sub-button.clear-vendor-filter ha-icon,
                 .bubble-sub-button.clear-color-filter ha-icon,
@@ -379,6 +399,26 @@ cards:
           double_tap_action:
             action: none
           sub_button:
+            - entity: input_select.filament_catalog_filter_scope
+              sub_button_type: default
+              name: Clear Scope Filter
+              icon: mdi:shape-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.filament_catalog_filter_scope
+                  state_not: "In-Stock Spools"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.filament_catalog_filter_scope
+                data:
+                  option: "In-Stock Spools"
             - entity: input_select.filament_catalog_filter_material
               sub_button_type: default
               name: Clear Material Filter
@@ -680,8 +720,10 @@ cards:
             - name: Clear Filters
               icon: mdi:filter-remove
               show_name: true
-              show_background: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_inventory_rule','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
-              state_color: ${(['input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_inventory_rule','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
+              show_background: >-
+                ${(['input_select.filament_catalog_filter_scope','input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_inventory_rule','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return id === 'input_select.filament_catalog_filter_scope' ? (s?.state || 'In-Stock Spools') !== 'In-Stock Spools' : !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
+              state_color: >-
+                ${(['input_select.filament_catalog_filter_scope','input_select.filament_catalog_filter_material','input_select.filament_catalog_filter_vendor','input_select.filament_catalog_filter_color','input_select.filament_catalog_filter_color_family','input_select.filament_catalog_filter_type','input_select.filament_catalog_filter_location','input_select.filament_catalog_filter_spool_type','input_select.filament_catalog_filter_clip_type','input_select.filament_catalog_filter_inventory_rule','input_select.filament_catalog_filter_stock_level','input_select.filament_catalog_filter_sealed','input_select.filament_catalog_filter_desiccant','input_select.filament_catalog_filter_data_quality'].some((id) => { const s = states[id]; return id === 'input_select.filament_catalog_filter_scope' ? (s?.state || 'In-Stock Spools') !== 'In-Stock Spools' : !!(s && s.attributes && s.attributes.options && s.state !== s.attributes.options[0]); }) || (states['input_boolean.filament_catalog_filter_qty_to_purchase']?.state === 'on') || ((states['input_text.filament_catalog_search']?.state || '').trim().length > 0))}
               tap_action:
                 action: call-service
                 service: script.filament_catalog_clear_filters
