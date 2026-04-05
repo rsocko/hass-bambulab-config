@@ -1,0 +1,5 @@
+# Stores the expected task name for the current archive binding.
+bambuddy_archive_binding_task:
+  name: Bambuddy Archive Binding Task
+  max: 255
+  icon: mdi:format-title

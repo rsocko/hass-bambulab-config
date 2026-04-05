@@ -1,0 +1,192 @@
+# Native runtime guard for archive binding lifecycle.
+# Clears stale binding state at print start/end when webhook exact binding is missing,
+# and surfaces warn/repair notifications from the health sensor.
+- alias: "Print History - Archive Binding Runtime Guard"
+  id: bambuddy_archive_binding_runtime_guard
+  description: >
+    Prevents stale archive bindings from surviving across prints when the
+    Bambuddy webhook path is missing or degraded.
+
+  triggers:
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+      id: native_status_change
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.bambuddy_history_sync_enabled
+      state: "on"
+
+  actions:
+    - variables:
+        binding_source: "{{ states('input_text.bambuddy_archive_binding_source') | string | lower | trim }}"
+        current_task_name: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
+             | default('', true) | string | trim }}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {% set from_state = trigger.from_state.state | string | lower if trigger.from_state is not none else '' %}
+                {% set to_state = trigger.to_state.state | string | lower if trigger.to_state is not none else '' %}
+                {{ to_state == 'running'
+                   and from_state in ['idle', 'finish', 'failed', 'offline', 'unknown', 'unavailable', 'prepare', 'init', 'slicing'] }}
+            - condition: template
+              value_template: "{{ binding_source != 'webhook' }}"
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_current_archive_id
+              data:
+                value: ""
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_archive_binding_source
+              data:
+                value: "awaiting_webhook"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_archive_binding_task
+              data:
+                value: "{{ current_task_name }}"
+            - action: counter.reset
+              target:
+                entity_id: counter.bambuddy_captured_photo_count
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_last_photo_upload_result
+              data:
+                value: "idle"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_tray_map_snapshot
+              data:
+                value: >-
+                  {% set tray_map = state_attr('sensor.spoolman_tray_map', 'tray_map') %}
+                  {% if tray_map is mapping %}
+                    {% set ns = namespace(entries=[]) %}
+                    {% for tray_name, tray in tray_map.items() %}
+                      {% if tray.spool_id is defined and tray.spool_id not in [None, '', 'None'] %}
+                        {% set ns.entries = ns.entries + [tray_name ~ ':' ~ tray.spool_id] %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ ns.entries | join(',') }}
+                  {% else %}
+                    unavailable
+                  {% endif %}
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.bambuddy_photo_review_state
+              data:
+                option: "idle"
+            - action: logbook.log
+              data:
+                name: Print History
+                message: >-
+                  Cleared stale archive runtime state at native print start.
+                  Awaiting exact Bambuddy webhook binding for '{{ current_task_name }}'.
+
+        - conditions:
+            - condition: template
+              value_template: >-
+                {% set from_state = trigger.from_state.state | string | lower if trigger.from_state is not none else '' %}
+                {% set to_state = trigger.to_state.state | string | lower if trigger.to_state is not none else '' %}
+                {{ from_state in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init']
+                   and to_state in ['finish', 'failed', 'idle', 'offline'] }}
+          sequence:
+            - delay:
+                seconds: 60
+            - condition: template
+              value_template: >-
+                {% set print_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim %}
+                {{ print_status not in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init']
+                   and states('input_text.bambuddy_current_archive_id') | string | trim != '' }}
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_current_archive_id
+              data:
+                value: ""
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_archive_binding_source
+              data:
+                value: "cleared"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_archive_binding_task
+              data:
+                value: ""
+            - action: logbook.log
+              data:
+                name: Print History
+                message: >-
+                  Cleared retained archive runtime state after native print end because
+                  the exact webhook terminal cleanup did not complete in time.
+
+  mode: queued
+
+- alias: "Print History - Archive Binding Notifications"
+  id: bambuddy_archive_binding_notifications
+  description: >
+    Publishes a persistent warning/repair notification when print_history is
+    running without a healthy archive binding.
+
+  triggers:
+    - trigger: state
+      entity_id: sensor.bambuddy_archive_binding_health
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+
+  actions:
+    - variables:
+        health: "{{ trigger.to_state.state | string | lower if trigger.to_state is not none else 'unknown' }}"
+        status_message: >-
+          {{ state_attr('sensor.bambuddy_archive_binding_health', 'status_message')
+             | default('No archive binding status message available.', true) }}
+        recommended_action: >-
+          {{ state_attr('sensor.bambuddy_archive_binding_health', 'recommended_action')
+             | default('No action recommendation available.', true) }}
+        binding_source: >-
+          {{ state_attr('sensor.bambuddy_archive_binding_health', 'binding_source')
+             | default('', true) }}
+        archive_id: >-
+          {{ state_attr('sensor.bambuddy_archive_binding_health', 'archive_id')
+             | default('', true) }}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ health in ['warn', 'repair'] }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: print_history_archive_binding_health
+                title: >-
+                  {% if health == 'repair' %}
+                    Print History Archive Binding Needs Repair
+                  {% else %}
+                    Print History Archive Binding Warning
+                  {% endif %}
+                message: >-
+                  {{ status_message }}
+
+                  Binding source: {{ binding_source if binding_source != '' else 'unknown' }}
+                  Archive ID: {{ archive_id if archive_id != '' else 'missing' }}
+
+                  {{ recommended_action }}
+        - conditions:
+            - condition: template
+              value_template: "{{ health in ['ok', 'disabled'] }}"
+          sequence:
+            - action: persistent_notification.dismiss
+              data:
+                notification_id: print_history_archive_binding_health
+
+  mode: restart

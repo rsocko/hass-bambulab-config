@@ -22,7 +22,16 @@
   actions:
     - variables:
         archive_id: "{{ trigger.event.data.archive_id | default('') }}"
-        print_name: "{{ trigger.event.data.print_name | default('') }}"
+        print_name: >-
+          {{ trigger.event.data.print_name
+             | default(states('sensor.ntk_ryansoffice_3dprinter_task_name'), true)
+             | string | trim }}
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_archive_binding_task
+      data:
+        value: "{{ print_name }}"
 
     # Store archive_id (primary path — from webhook payload)
     - if:
@@ -34,6 +43,11 @@
             entity_id: input_text.bambuddy_current_archive_id
           data:
             value: "{{ archive_id }}"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_archive_binding_source
+          data:
+            value: "webhook"
       else:
         # Fallback: try to resolve from API
         - action: script.resolve_current_archive_id
@@ -81,6 +95,7 @@
         name: Print History
         message: >-
           Print started: '{{ print_name }}'
-          (archive_id={{ states('input_text.bambuddy_current_archive_id') }})
+          (archive_id={{ states('input_text.bambuddy_current_archive_id') }},
+          source={{ states('input_text.bambuddy_archive_binding_source') }})
 
   mode: single

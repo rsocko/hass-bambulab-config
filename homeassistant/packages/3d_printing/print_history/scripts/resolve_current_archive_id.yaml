@@ -4,20 +4,30 @@
 resolve_current_archive_id:
   alias: "Resolve Current Archive ID"
   description: >-
-    Queries Bambuddy for the most recent archive and matches against the
-    current task name. Stores the archive_id if a match is found.
+    Queries Bambuddy for recent archives and resolves the active archive using
+    task-name, printer-id, and non-terminal status checks. Stores the archive_id
+    only when the fallback match is trustworthy.
   sequence:
     - action: rest_command.bambuddy_query_recent_archive
       response_variable: api_response
 
     - variables:
-        raw_task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | default('', true) | string | trim }}"
+        raw_task_name: >-
+          {{ states('input_text.bambuddy_archive_binding_task')
+             | default(states('sensor.ntk_ryansoffice_3dprinter_task_name'), true)
+             | string | trim }}
         normalized_task_name: >-
-          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
-             | default('', true) | string | lower | trim
+          {{ states('input_text.bambuddy_archive_binding_task')
+             | default(states('sensor.ntk_ryansoffice_3dprinter_task_name'), true)
+             | string | lower | trim
              | replace('_', ' ') | replace('.3mf', '') }}
+        configured_printer_id: >-
+          {{ states('input_text.bambuddy_printer_id') | default('', true) | string | trim }}
+        printer_status: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | default('', true) | string | lower | trim }}
+        printer_is_active: >-
+          {{ printer_status in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
         response_ok: "{{ api_response is defined and api_response.status == 200 }}"
-        # API returns a flat array: [ {archive}, ... ]
         archives: >-
           {% if response_ok %}
             {{ api_response.content | default([]) }}
@@ -26,20 +36,78 @@ resolve_current_archive_id:
           {% endif %}
         matched_id: >-
           {% set task = normalized_task_name %}
-          {% set ns = namespace(match='') %}
-          {% for archive in archives %}
+          {% set configured_printer = configured_printer_id %}
+          {% set ns = namespace(exact=[], loose=[]) %}
+          {% set terminal_statuses = ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] %}
+          {% for archive in archives if archive is mapping %}
+            {% set archive_printer_id = archive.printer_id | default('', true) | string | trim %}
+            {% set printer_match = configured_printer in ['', 'unknown', 'unavailable', 'none'] or archive_printer_id == configured_printer %}
+            {% set archive_status = archive.status | default('', true) | string | lower | trim %}
+            {% set archive_terminal = archive_status in terminal_statuses %}
             {% set archive_print_name = archive.print_name | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
             {% set archive_filename = archive.filename | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
-            {% if task and (
+            {% set exact_match = task != '' and (task == archive_print_name or task == archive_filename) %}
+            {% set loose_match = task != '' and not exact_match and (
               task in archive_print_name
               or archive_print_name in task
               or task in archive_filename
               or archive_filename in task
             ) %}
-              {% set ns.match = archive.id | string %}
+            {% set candidate_ok = printer_match and (not printer_is_active or not archive_terminal) %}
+            {% if candidate_ok and exact_match %}
+              {% set ns.exact = ns.exact + [archive.id | string] %}
+            {% elif candidate_ok and loose_match %}
+              {% set ns.loose = ns.loose + [archive.id | string] %}
             {% endif %}
           {% endfor %}
-          {{ ns.match }}
+          {% if ns.exact | count == 1 %}
+            {{ ns.exact[0] }}
+          {% elif ns.loose | count == 1 %}
+            {{ ns.loose[0] }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        resolution_reason: >-
+          {% set task = normalized_task_name %}
+          {% set configured_printer = configured_printer_id %}
+          {% set ns = namespace(exact=0, loose=0, terminal_task_matches=0) %}
+          {% set terminal_statuses = ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] %}
+          {% for archive in archives if archive is mapping %}
+            {% set archive_printer_id = archive.printer_id | default('', true) | string | trim %}
+            {% set printer_match = configured_printer in ['', 'unknown', 'unavailable', 'none'] or archive_printer_id == configured_printer %}
+            {% set archive_status = archive.status | default('', true) | string | lower | trim %}
+            {% set archive_terminal = archive_status in terminal_statuses %}
+            {% set archive_print_name = archive.print_name | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
+            {% set archive_filename = archive.filename | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
+            {% set exact_match = task != '' and (task == archive_print_name or task == archive_filename) %}
+            {% set loose_match = task != '' and not exact_match and (
+              task in archive_print_name
+              or archive_print_name in task
+              or task in archive_filename
+              or archive_filename in task
+            ) %}
+            {% if printer_match and archive_terminal and (exact_match or loose_match) %}
+              {% set ns.terminal_task_matches = ns.terminal_task_matches + 1 %}
+            {% endif %}
+            {% if printer_match and (not printer_is_active or not archive_terminal) and exact_match %}
+              {% set ns.exact = ns.exact + 1 %}
+            {% elif printer_match and (not printer_is_active or not archive_terminal) and loose_match %}
+              {% set ns.loose = ns.loose + 1 %}
+            {% endif %}
+          {% endfor %}
+          {% if task == '' %}
+            missing_task_name
+          {% elif ns.exact == 1 %}
+            exact_match
+          {% elif ns.loose == 1 %}
+            loose_match
+          {% elif ns.exact > 1 or ns.loose > 1 %}
+            ambiguous_recent_archives
+          {% elif printer_is_active and ns.terminal_task_matches > 0 %}
+            matched_only_terminal_archives
+          {% else %}
+            no_recent_match
+          {% endif %}
 
     - if:
         - condition: template
@@ -50,13 +118,32 @@ resolve_current_archive_id:
             entity_id: input_text.bambuddy_current_archive_id
           data:
             value: "{{ matched_id | trim }}"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_archive_binding_source
+          data:
+            value: "api_fallback"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_archive_binding_task
+          data:
+            value: "{{ raw_task_name }}"
         - action: logbook.log
           data:
             name: Print History
-            message: "Resolved archive_id={{ matched_id | trim }} for '{{ raw_task_name }}' (fallback)"
+            message: >-
+              Resolved archive_id={{ matched_id | trim }} for '{{ raw_task_name }}'
+              (fallback, reason={{ resolution_reason }}).
       else:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_current_archive_id
+          data:
+            value: ""
         - action: logbook.log
           data:
             name: Print History
-            message: "Could not resolve archive_id for '{{ raw_task_name }}'"
+            message: >-
+              Could not resolve archive_id for '{{ raw_task_name }}'
+              (reason={{ resolution_reason }}).
   mode: single

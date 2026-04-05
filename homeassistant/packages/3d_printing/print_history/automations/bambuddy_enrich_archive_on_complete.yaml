@@ -54,8 +54,16 @@
         enrichment_marker: "+>"
         recovery_marker: "[RECOVERY_AUDIT_V1]"
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+        binding_source: "{{ states('input_text.bambuddy_archive_binding_source') | string | lower | trim }}"
+        binding_task_name: >-
+          {{ states('input_text.bambuddy_archive_binding_task')
+             | default(states('sensor.ntk_ryansoffice_3dprinter_task_name'), true)
+             | string | trim }}
         trigger_id: "{{ trigger.id | default('unknown') }}"
         is_terminal_trigger: "{{ trigger.id in ['print_complete', 'print_failed', 'print_stopped'] }}"
+        printer_is_active: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim
+             in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
         weight_data_available: >-
           {{ state_attr('sensor.print_weight_effective', 'weight_data_available') | string | lower == 'true' }}
         effective_total_weight: "{{ states('sensor.print_weight_effective') | float(0) }}"
@@ -79,6 +87,22 @@
 
     - variables:
         archive_detail: "{{ archive_detail_response.content | default({}, true) }}"
+        archive_status: "{{ archive_detail.status | default('', true) | string | lower | trim }}"
+        archive_is_terminal: >-
+          {{ archive_status in ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] }}
+        archive_task_matches: >-
+          {% set current_task = binding_task_name | lower | replace('_', ' ') | replace('.3mf', '') | trim %}
+          {% set archive_print_name = archive_detail.print_name | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
+          {% set archive_filename = archive_detail.filename | default('', true) | string | lower | trim | replace('_', ' ') | replace('.3mf', '') %}
+          {{ current_task not in ['', 'unknown']
+             and (
+               current_task in archive_print_name
+               or archive_print_name in current_task
+               or current_task in archive_filename
+               or archive_filename in current_task
+             ) }}
+        archive_binding_valid: >-
+          {{ archive_task_matches and (is_terminal_trigger or not printer_is_active or not archive_is_terminal) }}
         existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
         existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
         existing_user_notes: >-
@@ -137,6 +161,41 @@
             {% endif %}
           {% endfor %}
           {{ ns.result | tojson | from_json }}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ not archive_binding_valid }}"
+          sequence:
+            - action: system_log.write
+              data:
+                message: >-
+                  Print History rejected archive {{ archive_id }} before enrichment because
+                  the current archive binding was not trustworthy.
+                  source={{ binding_source if binding_source != '' else 'unknown' }},
+                  binding_task='{{ binding_task_name }}',
+                  archive_status={{ archive_status if archive_status != '' else 'unknown' }},
+                  printer_active={{ printer_is_active }},
+                  trigger={{ trigger_id }}.
+                level: warning
+                logger: homeassistant.components.bambulab.print_history
+            - action: persistent_notification.create
+              data:
+                notification_id: print_history_archive_binding_health
+                title: "Print History Archive Binding Warning"
+                message: >-
+                  Home Assistant skipped automatic archive enrichment because the current
+                  archive binding did not validate safely.
+
+                  Binding source: {{ binding_source if binding_source != '' else 'unknown' }}
+                  Binding task: {{ binding_task_name if binding_task_name != '' else 'missing' }}
+                  Archive ID: {{ archive_id if archive_id != '' else 'missing' }}
+                  Archive status: {{ archive_status if archive_status != '' else 'unknown' }}
+                  Trigger: {{ trigger_id }}
+
+                  Configure the Bambuddy webhook for exact archive_id binding, or re-run
+                  enrichment manually after confirming the correct archive.
+            - stop: Archive binding validation failed.
 
     - variables:
         current_filaments: >-
@@ -428,6 +487,16 @@
         - action: input_text.set_value
           target:
             entity_id: input_text.bambuddy_current_archive_id
+          data:
+            value: ""
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_archive_binding_source
+          data:
+            value: "cleared"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.bambuddy_archive_binding_task
           data:
             value: ""
         - action: logbook.log

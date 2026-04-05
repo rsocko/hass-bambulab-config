@@ -1,0 +1,69 @@
+# Runtime guard for archive binding health.
+# Surfaces when print_history sync is running without an exact webhook-bound archive.
+- trigger:
+    - trigger: state
+      entity_id:
+        - input_boolean.bambuddy_integration_enabled
+        - input_boolean.bambuddy_history_sync_enabled
+        - sensor.ntk_ryansoffice_3dprinter_print_status
+        - input_text.bambuddy_current_archive_id
+        - input_text.bambuddy_archive_binding_source
+        - input_text.bambuddy_archive_binding_task
+  sensor:
+    - name: Bambuddy Archive Binding Health
+      unique_id: bambuddy_archive_binding_health
+      icon: mdi:link-variant-alert
+      state: >-
+        {% set integration_enabled = is_state('input_boolean.bambuddy_integration_enabled', 'on') %}
+        {% set sync_enabled = is_state('input_boolean.bambuddy_history_sync_enabled', 'on') %}
+        {% set print_status = states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim %}
+        {% set active_statuses = ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] %}
+        {% set printer_is_active = print_status in active_statuses %}
+        {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+        {% set binding_source = states('input_text.bambuddy_archive_binding_source') | string | lower | trim %}
+        {% if not integration_enabled or not sync_enabled %}
+          disabled
+        {% elif printer_is_active and archive_id == '' %}
+          repair
+        {% elif printer_is_active and binding_source in ['', 'unknown', 'unavailable', 'none', 'awaiting_webhook'] %}
+          repair
+        {% elif printer_is_active and binding_source == 'api_fallback' %}
+          warn
+        {% elif not printer_is_active and archive_id != '' %}
+          warn
+        {% else %}
+          ok
+        {% endif %}
+      attributes:
+        printer_status: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | string }}
+        archive_id: >-
+          {{ states('input_text.bambuddy_current_archive_id') | string | trim }}
+        binding_source: >-
+          {{ states('input_text.bambuddy_archive_binding_source') | string | trim }}
+        binding_task: >-
+          {{ states('input_text.bambuddy_archive_binding_task') | string | trim }}
+        status_message: >-
+          {% set health = states('sensor.bambuddy_archive_binding_health') | lower %}
+          {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+          {% set binding_source = states('input_text.bambuddy_archive_binding_source') | string | lower | trim %}
+          {% if health == 'repair' %}
+            Print History sync is active, but no exact Bambuddy webhook archive binding is available for the current print. Automatic enrichment and photo upload are being held to avoid writing to the wrong archive.
+          {% elif health == 'warn' and binding_source == 'api_fallback' %}
+            Print History is running on archive-API fallback for the current print (archive_id={{ archive_id if archive_id != '' else 'missing' }}). This is safer than using stale state, but it is still less reliable than the Bambuddy webhook path.
+          {% elif health == 'warn' %}
+            Print History still has archive runtime state retained while the printer is not active. The next native print start will clear it, but this indicates the webhook-driven terminal cleanup did not run.
+          {% elif health == 'disabled' %}
+            Bambuddy integration or print-history sync is disabled, so archive binding checks are inactive.
+          {% else %}
+            Archive binding is healthy for the current runtime state.
+          {% endif %}
+        recommended_action: >-
+          {% set health = states('sensor.bambuddy_archive_binding_health') | lower %}
+          {% if health == 'repair' %}
+            Configure the Bambuddy webhook for exact archive_id binding, or leave print-history sync disabled until webhook setup is complete.
+          {% elif health == 'warn' %}
+            Treat the current print as degraded sync mode. Review archive updates after the print, and configure the Bambuddy webhook to remove the fallback risk.
+          {% else %}
+            No action required.
+          {% endif %}

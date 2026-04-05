@@ -18,11 +18,13 @@ capture_and_upload_snapshot:
   sequence:
     - variables:
         raw_task_name: >-
-          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
-             | default('unknown', true) | string | trim }}
+         {{ states('input_text.bambuddy_archive_binding_task')
+           | default(states('sensor.ntk_ryansoffice_3dprinter_task_name'), true)
+           | default('unknown', true) | string | trim }}
         task_name: >-
-          {{ states('sensor.ntk_ryansoffice_3dprinter_task_name')
-             | default('unknown', true) | string | trim
+         {{ states('input_text.bambuddy_archive_binding_task')
+           | default(states('sensor.ntk_ryansoffice_3dprinter_task_name'), true)
+           | default('unknown', true) | string | trim
              | replace(' ', '_') | replace('/', '_') }}
         timestamp: "{{ now().strftime('%Y%m%d_%H%M%S') }}"
         primary_camera: "camera.ntk_ryansoffice_3dprinter_camera"
@@ -47,6 +49,9 @@ capture_and_upload_snapshot:
              and secondary_camera_state not in ['', 'unknown', 'unavailable', 'none'] }}
         has_light: >-
           {{ snapshot_light not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+        printer_is_active: >-
+          {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim
+             in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
 
     # --- Turn on snapshot light (if configured, reuses notifications helper) ---
     - if:
@@ -111,6 +116,16 @@ capture_and_upload_snapshot:
           response_variable: current_archive_response
 
     - variables:
+        current_archive_status: >-
+          {% if had_archive_id
+                and current_archive_response is defined
+                and current_archive_response.status == 200 %}
+            {{ current_archive_response.content.status | default('', true) | string | lower | trim }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        current_archive_is_terminal: >-
+          {{ current_archive_status in ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] }}
         current_archive_matches_task: >-
           {% if had_archive_id
                 and current_archive_response is defined
@@ -124,7 +139,8 @@ capture_and_upload_snapshot:
                  or archive_print_name in current_task
                  or current_task in archive_filename
                  or archive_filename in current_task
-               ) }}
+               )
+               and (not printer_is_active or not current_archive_is_terminal) }}
           {% else %}
             false
           {% endif %}
@@ -152,6 +168,16 @@ capture_and_upload_snapshot:
           response_variable: validated_archive_response
 
     - variables:
+        validated_archive_status: >-
+          {% if resolved_archive_present
+                and validated_archive_response is defined
+                and validated_archive_response.status == 200 %}
+            {{ validated_archive_response.content.status | default('', true) | string | lower | trim }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        validated_archive_is_terminal: >-
+          {{ validated_archive_status in ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] }}
         archive_matches_task: >-
           {% if resolved_archive_present
                 and validated_archive_response is defined
@@ -165,7 +191,8 @@ capture_and_upload_snapshot:
                  or archive_print_name in current_task
                  or current_task in archive_filename
                  or archive_filename in current_task
-               ) }}
+               )
+               and (not printer_is_active or not validated_archive_is_terminal) }}
           {% else %}
             false
           {% endif %}
@@ -175,6 +202,7 @@ capture_and_upload_snapshot:
           {{ resolved_archive_present and archive_matches_task }}
         archive_lookup_status: >-
           {% if resolved_archive_present and archive_matches_task %}validated
+          {% elif resolved_archive_present and validated_archive_is_terminal %}skipped_terminal_archive
           {% elif had_archive_id and not current_archive_matches_task %}skipped_stale_archive
           {% else %}skipped_no_archive
           {% endif %}

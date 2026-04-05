@@ -206,6 +206,28 @@ The archive pull is not a full replacement for webhook events in the current pac
 
 `script.capture_and_upload_snapshot` now validates the currently stored `input_text.bambuddy_current_archive_id` against the current print task before upload. If the stored archive detail does not match the active task, the script treats it as stale, attempts fallback resolution again, and skips upload rather than attaching photos to the wrong archive.
 
+As of the latest hardening pass, the guard is stricter than task-name matching alone:
+
+- native print start clears any stale retained archive binding when the exact Bambuddy webhook path has not run yet
+- fallback resolution now checks the configured Bambuddy printer id and searches the recent archive window instead of trusting a single newest archive
+- while the printer is active, fallback resolution rejects terminal archives such as `completed`, `failed`, or `archived`
+- enrichment and photo upload both re-validate the candidate archive against the active task context before writing anything
+
+This means the system now prefers to skip upload/enrichment and raise a repair warning rather than risk updating the prior archive.
+
+### Archive Binding Health Signal
+
+The package now exposes `sensor.bambuddy_archive_binding_health` to make degraded binding visible when print-history sync is enabled without an exact webhook-bound archive.
+
+| State | Meaning |
+|---|---|
+| `ok` | Exact webhook binding is present, or no active print needs archive binding |
+| `warn` | Sync is running on validated API fallback for the current print |
+| `repair` | No safe current archive binding is available for an active print |
+| `disabled` | Bambuddy integration or print-history sync is disabled |
+
+When the sensor enters `warn` or `repair`, the package publishes a persistent notification so the degraded mode is visible during the print instead of silently continuing.
+
 ### Current Recommendation
 
 - If the goal is only start/mid/near-complete photo capture with upload verification on a single printer, webhook can remain optional.

@@ -1,0 +1,5 @@
+# Tracks how the current archive binding was established.
+bambuddy_archive_binding_source:
+  name: Bambuddy Archive Binding Source
+  max: 64
+  icon: mdi:link-variant
