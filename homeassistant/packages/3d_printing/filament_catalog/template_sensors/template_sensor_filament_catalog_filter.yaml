@@ -91,7 +91,7 @@
             {%- endif -%}
           {%- endfor -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
-          {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Color Family': 'filament_extra_color_family', 'By Hex Color': 'filament_color_hex'} -%}
+          {%- set group_attr_map = {'By Location': 'location', 'By Material': 'filament_material', 'By Vendor': 'filament_vendor_name', 'By Filament': 'filament_group_name', 'By Color Family': 'filament_extra_color_family', 'By Hex Color': 'filament_color_hex'} -%}
           {%- set group_attr = group_attr_map.get(tab, '') -%}
           {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Purchase Date (Newest)', 'Desiccant Filled Date (Newest)', 'Qty to Purchase (Descending)', 'Cost (High to Low)'] -%}
           {%- set ns = namespace(matches=[]) -%}
@@ -104,6 +104,18 @@
               {%- set vendor = attrs.get('filament_vendor_name', '') | string -%}
               {%- set friendly_name = attrs.get('friendly_name', spool.name) | string -%}
               {%- set filament_name = attrs.get('filament_name', '') | string -%}
+              {%- set filament_display_name = filament_name if filament_name not in ['', 'unknown', 'unavailable', 'None', 'none'] else friendly_name -%}
+              {%- set filament_group_parts = namespace(items=[]) -%}
+              {%- if vendor not in ['', 'unknown', 'unavailable', 'None', 'none'] -%}
+                {%- set filament_group_parts.items = filament_group_parts.items + [vendor] -%}
+              {%- endif -%}
+              {%- if material not in ['', 'unknown', 'unavailable', 'None', 'none'] -%}
+                {%- set filament_group_parts.items = filament_group_parts.items + [material] -%}
+              {%- endif -%}
+              {%- if filament_display_name not in ['', 'unknown', 'unavailable', 'None', 'none'] and filament_display_name not in filament_group_parts.items -%}
+                {%- set filament_group_parts.items = filament_group_parts.items + [filament_display_name] -%}
+              {%- endif -%}
+              {%- set filament_group_name = filament_group_parts.items | join(' • ') if filament_group_parts.items | count > 0 else 'Unknown' -%}
               {%- set location = attrs.get('location', '') | string -%}
               {%- set primary_color = attrs.get('filament_extra_primary_color', '') | string | replace('"', '') -%}
               {%- set spool_hex = attrs.get('filament_color_hex', '') | string | replace('#', '') | lower | trim -%}
@@ -216,6 +228,8 @@
                   {%- set gv = material if material else 'Unknown' -%}
                 {%- elif group_attr == 'filament_vendor_name' -%}
                   {%- set gv = vendor if vendor else 'Unknown' -%}
+                {%- elif group_attr == 'filament_group_name' -%}
+                  {%- set gv = filament_group_name -%}
                 {%- elif group_attr == 'filament_extra_color_family' -%}
                   {%- set gv = color_family if color_family else 'Unknown' -%}
                 {%- elif group_attr == 'filament_color_hex' -%}

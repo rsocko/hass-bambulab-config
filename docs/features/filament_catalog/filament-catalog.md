@@ -672,14 +672,15 @@ Row 4: [location_label]                   [last_used]
 
 #### Tab Structure
 ```
-[ By Location | By Material | By Vendor | By Color Family | By Filament | All ]
+[ By Location | By Material | By Vendor | By Filament | By Color Family | By Hex Color | All ]
 ```
 
 - **By Location** (default): Current Phase 1 layout — single auto-entities sorted by `location` attribute
 - **By Material**: Sections: PLA, PETG, ABS, TPU, etc.
 - **By Vendor**: Sections: Bambu Lab, Sunlu, ELEGOO, etc.
 - **By Color Family**: Sections: Blues, Reds, Greens, Blacks & Whites, Rainbow, etc.
-- **By Filament**: Aggregated view from `spoolman_filament_totals` — one row per `filament_id` with expandable spool list. Collapses 165 spools → 132 rows (and many are single-spool, so effectively shorter).
+- **By Filament**: Groups spools by filament identity and labels each section as `Vendor • Material • Name` with fallback to the best available values.
+- **By Hex Color**: Sections by normalized spool hex color for duplicate-color inspection and color-centric browsing.
 - **All**: Single flat grid with sort control
 
 > **Note**: "Alerts" was originally a tab but was removed since it behaves as a filter, not a grouping perspective. The existing stock/desiccant/data-quality controls and alert-oriented boolean filters in the filter bar serve this purpose.
@@ -705,13 +706,13 @@ New `input_select.filament_catalog_sort`:
 
 **"All" tab**: Flat sorted list, no group headers.
 
-**"By Filament" tab**: Deferred to future phase — requires aggregated view with different card template.
+**"By Filament" tab**: Shipped as a grouped spool view. It keeps the existing spool-card layout and groups sections by `Vendor • Material • Name` instead of introducing a separate aggregated card type.
 
 #### Files Created/Modified
 
 | File | Action | Notes |
 |---|---|---|
-| `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Color Family, All |
+| `filament_catalog/helpers/input_select/filament_catalog_tab.yaml` | **Created** | Tab selector: By Location, By Material, By Vendor, By Filament, By Color Family, By Hex Color, All |
 | `filament_catalog/helpers/input_select/filament_catalog_sort.yaml` | **Created** | Sort options: Name, Weight, Last Used, Purchase Date, Desiccant Filled Date, Qty to Purchase, Cost, Vendor then Name, Hue |
 | `common/dashboard_cards/card_templates/catalog_group_header.yaml` | **Created** | Lightweight group separator — reads variables only, no entity iteration |
 | `filament_catalog/template_sensors/template_sensor_filament_catalog_filter.yaml` | **Modified** | Added `grouped_entity_ids_json` attribute, tab/sort logic, derived `entity_ids_json` from grouped output |
@@ -836,7 +837,7 @@ The data quality checks from the original design are all implemented:
 | **Missing Profile** | ✅ In alert chart (expanded beyond original design) | Bambu Lab spools only |
 | **Orphan Filaments** | ⏳ Deferred to future phase | See note below |
 
-> **Orphan Filaments ([#118](https://github.com/rsocko/hass-bambulab-config/issues/118))**: Deferred from Phase 5A. This check requires detecting filament definitions with zero associated spools, but the Spoolman HA integration only creates entities for spools (`sensor.spoolman_spool_*`), not for filaments. The current catalog UI renders spool cards — showing an orphan filament (which has no spool entity) would require a different card template and data source. This is better suited for a future phase that adds a "By Filament" aggregated view with access to filament-level data from the Spoolman API.
+> **Orphan Filaments ([#118](https://github.com/rsocko/hass-bambulab-config/issues/118))**: Deferred from Phase 5A. This check requires detecting filament definitions with zero associated spools, but the Spoolman HA integration only creates entities for spools (`sensor.spoolman_spool_*`), not for filaments. The current catalog UI renders spool cards, including the shipped "By Filament" grouped spool view. Showing an orphan filament, which has no spool entity, would still require a separate filament-level data source and card template.
 
 > **Scope decision**: AMS vs. Spoolman weight drift is removed from Filament Catalog quality checks. This signal is more actionable on the main dashboard while a spool is actively in AMS, and provides limited value in static catalog analytics.
 
@@ -1331,7 +1332,7 @@ Our Phase 1 catalog achieves the same organizational structure but scaled for 21
 
 5. **QR/NFC quick access** — Link from catalog cards to the filament_tag scanning view.
 
-6. **"By Filament" aggregated tab** — Groups 165 spools → 132 filaments. Each row shows total weight across all spools of that filament, expandable to individual spools.
+6. **Filament summary view** — Future aggregated filament-level view that groups many spools into one summary row per filament with total weight and expandable spool details.
 
 7. **Print compatibility check** — If a print is active, highlight catalog spools that have enough weight for the current print.
 
