@@ -567,6 +567,10 @@ The concrete field-by-field policy table for this merge logic lives in:
 
 - [archive-runtime-restore-from-field-matrix.md](archive-runtime-restore-from-field-matrix.md)
 
+Operator-oriented request examples and the recommended merge/verify/remove sequence live in:
+
+- [archive-runtime-restore-from-runbook.md](archive-runtime-restore-from-runbook.md)
+
 ## Proposed Execution Flow
 
 1. Load source and target archive rows.
