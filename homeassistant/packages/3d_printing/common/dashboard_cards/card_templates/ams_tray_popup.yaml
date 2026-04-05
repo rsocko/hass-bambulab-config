@@ -144,7 +144,7 @@ ams_tray_popup:
         }
         return null;
       };
-      const mismatchThresholdPercent = 15;
+      const mismatchThresholdPercent = parseFloat(states['input_number.ams_spool_weight_mismatch_threshold_percent']?.state) || 15;
       const mismatchColor = '#d946ef';
       const spoolInitialWeight = readPositiveNumber(
         spoolEntity?.attributes?.initial_weight,
@@ -851,7 +851,7 @@ ams_tray_popup:
         : null;
       const showWeightMismatchWarning = weightMismatchPercent !== null && weightMismatchPercent >= mismatchThresholdPercent;
       const weightMismatchTooltip = showWeightMismatchWarning
-        ? 'Spool weight and AMS calculated weight differ by > ' + mismatchThresholdPercent + '% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately.'
+        ? 'Spool weight and AMS calculated weight differ by > ' + Math.round(mismatchThresholdPercent) + '% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately.'
         : '';
       const weightMismatchSummary = showWeightMismatchWarning
         ? 'AMS ' + Math.round(normalizedAmsRemainPercent) + '% vs Spoolman ' + Math.round(spoolRemainingPercent) + '%'

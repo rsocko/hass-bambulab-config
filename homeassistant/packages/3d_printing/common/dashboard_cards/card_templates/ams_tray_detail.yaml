@@ -78,7 +78,7 @@ ams_tray_detail:
         const map = states['sensor.spoolman_tray_map']?.attributes?.tray_map;
         const spoolId = map?.[tray]?.spool_id;
         const trayEntity = states[variables.trayEntityId];
-        const mismatchThresholdPercent = 15;
+        const mismatchThresholdPercent = parseFloat(states['input_number.ams_spool_weight_mismatch_threshold_percent']?.state) || 15;
         const mismatchColor = '#d946ef';
         
         if (!spoolId) return '';
@@ -111,7 +111,7 @@ ams_tray_detail:
         if (weight === undefined || weight === null) return '';
 
         const mismatchTooltip = showMismatchWarning
-          ? `Spool weight and AMS calculated weight differ by > ${mismatchThresholdPercent}% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately. AMS ${Math.round(amsRemainPercent)}% vs Spoolman ${Math.round(spoolRemainPercent)}%.`
+          ? `Spool weight and AMS calculated weight differ by > ${Math.round(mismatchThresholdPercent)}% - please review and update manual spool weight if needed. You can ignore this if the AMS is reporting inaccurately. AMS ${Math.round(amsRemainPercent)}% vs Spoolman ${Math.round(spoolRemainPercent)}%.`
           : '';
         const warningMarker = showMismatchWarning
           ? `<span title="${mismatchTooltip}" style="font-size: 12px; line-height: 1; color: ${mismatchColor}; font-weight: 700; cursor: help;">?</span>`

@@ -1,0 +1,8 @@
+ams_spool_weight_mismatch_threshold_percent:
+  name: AMS Spool Weight Mismatch Threshold (%)
+  icon: mdi:tune-variant
+  min: 5
+  max: 50
+  step: 1
+  unit_of_measurement: '%'
+  mode: box
