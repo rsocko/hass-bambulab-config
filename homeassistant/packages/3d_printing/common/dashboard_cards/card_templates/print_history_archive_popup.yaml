@@ -32,8 +32,8 @@ print_history_archive_popup:
         .split(',')
         .map((tag) => tag.trim())
         .filter(Boolean);
-      const systemTagPrefixes = ['filament:', 'spool:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];
-      const systemTagValues = ['ha_enriched:true'];
+      const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'];
+      const systemTagValues = [];
       const isSystemTag = (tag) => {
         const normalized = String(tag || '').trim().toLowerCase();
         return systemTagValues.includes(normalized)

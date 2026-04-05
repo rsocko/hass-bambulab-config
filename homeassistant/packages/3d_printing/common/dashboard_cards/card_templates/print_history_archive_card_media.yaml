@@ -144,8 +144,8 @@ print_history_archive_card_media:
           if (!Number.isFinite(numeric) || numeric <= 0) return '-';
           return `$${numeric.toFixed(2)}`;
         };
-        const systemTagPrefixes = ['filament:', 'spool:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];
-        const systemTagValues = ['ha_enriched:true'];
+        const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'];
+        const systemTagValues = [];
         const isSystemTag = (tag) => {
           const normalized = String(tag || '').trim().toLowerCase();
           return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));

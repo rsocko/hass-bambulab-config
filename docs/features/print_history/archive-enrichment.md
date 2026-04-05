@@ -7,7 +7,7 @@ This document describes the archive enrichment flow that is actually shipped in 
 The live enrichment flow currently does four things:
 
 - captures the Bambuddy `archive_id` at `print_started`
-- writes managed system tags to the archive: `Filament:<id>`, `Spool:<id>`, and `ha_enriched:true`
+- writes managed system tags to the archive: `f:<id>` and `s:<id>`
 - stores a hidden `[HA_ENRICHMENT_V1]` JSON payload in `notes` while preserving user-authored notes
 - PATCHes Bambuddy's native `cost` field from `sensor.print_cost`
 
@@ -109,9 +109,8 @@ That means the shipped enrichment contract is still a managed-tags plus managed-
 
 The live automation generates these reserved system tags from the effective filament payload:
 
-- `ha_enriched:true`
-- one `Filament:<id>` tag per unique resolved filament ID
-- one `Spool:<id>` tag per unique resolved spool ID
+- one `f:<id>` tag per unique resolved filament ID
+- one `s:<id>` tag per unique resolved spool ID
 
 Existing user tags are preserved and merged with the generated system tags before every write.
 
@@ -204,7 +203,7 @@ Current behavior:
 - popup enrichment cards now show explicit colored `Needs Review`, `Spool unresolved`, and `Filament unresolved` badges so incomplete matches stand out during archive triage
 - `save_print_history_archive_popup_edits.yaml` fetches archive detail before saving so it can preserve hidden enrichment content and system tags
 - the save flow PATCHes `print_name`, `tags`, `notes`, `status`, and `failure_reason`
-- current popup saves preserve the managed `Filament:` / `Spool:` / `ha_enriched:true` tags and the hidden payload when present
+- current popup saves preserve the managed `f:` / `s:` tags and the hidden payload when present
 
 So while the enrichment automation still manages tags and notes, the popup already treats those managed portions as hidden system metadata rather than operator-editable text.
 
@@ -237,7 +236,7 @@ Shipped now:
 - archive ID capture
 - during-print enrichment write when weight data is ready
 - terminal reconciliation on complete, failed, and stopped webhooks
-- managed `Filament:` / `Spool:` / `ha_enriched:true` tags
+- managed `f:` / `s:` tags
 - hidden `[HA_ENRICHMENT_V1]` JSON note payload
 - native Bambuddy `cost` updates from `sensor.print_cost`
 - popup-safe preservation of hidden enrichment metadata during edits
@@ -281,8 +280,36 @@ That future direction is what drives the planned UUID-first hardening work and t
 
 #### Phase A: Compact Bambuddy-resident enrichment
 
-- keep the enrichment resident in Bambuddy using managed `Filament:` / `Spool:` / `ha_enriched:true` tags, native `cost`, and a compact `[HA_ENRICHMENT_V1]` payload in `notes`
+- keep the enrichment resident in Bambuddy using managed `f:` / `s:` tags, native `cost`, and a compact `[HA_ENRICHMENT_V1]` payload in `notes`
 - keep the payload small and versioned so popup editing, search, and archive reads stay practical
+
+## Tag Migration Tool
+
+`tools/bambuddy/migrate_archive_tag_format.py` rewrites existing Bambuddy archives from the old managed tags to the short format without changing the hidden notes payload.
+
+Recommended operator flow:
+
+1. Reload the updated print-history package code.
+2. Run the migration in dry-run mode and review the JSON summary.
+3. Re-run with `--apply` once the candidate set looks correct.
+4. Refresh the print history cache in Home Assistant.
+
+Example dry run:
+
+```bash
+python tools/bambuddy/migrate_archive_tag_format.py \
+  --base-url http://bambuddy.local:8902 \
+  --api-key YOUR_KEY
+```
+
+Example apply run:
+
+```bash
+python tools/bambuddy/migrate_archive_tag_format.py \
+  --base-url http://bambuddy.local:8902 \
+  --api-key YOUR_KEY \
+  --apply
+```
 
 #### Phase B: Operational hardening
 

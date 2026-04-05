@@ -1120,9 +1120,9 @@ class TestEnrichmentArchiveUpdatePayload(unittest.TestCase):
         self.assertIn('cost: "{{ total_cost }}"', content)
         self.assertIn('tags: "{{ merged_tags }}"', content)
         self.assertIn('notes: "{{ merged_notes }}"', content)
-        self.assertIn("ha_enriched:true", content)
-        self.assertIn("'Filament:' ~ filament_id", content)
-        self.assertIn("'Spool:' ~ spool_id", content)
+        self.assertNotIn("ha_enriched:true", content)
+        self.assertIn("'f:' ~ filament_id", content)
+        self.assertIn("'s:' ~ spool_id", content)
         self.assertNotIn('status: "{{ archive_status }}"', content)
 
     def test_update_archive_payload_is_field_optional(self):
@@ -1186,15 +1186,14 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         content = (HISTORY / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
         self.assertIn("system_tag_prefixes", content)
         self.assertIn("system_tag_values", content)
-        self.assertIn("spool:", content)
-        self.assertIn("filament:", content)
-        self.assertIn("ha enrichment:", content)
+        self.assertIn("s:", content)
+        self.assertIn("f:", content)
         self.assertIn("spoolman:", content)
         self.assertIn("material:", content)
         self.assertIn("vendor:", content)
         self.assertIn("cost:", content)
         self.assertIn("status:", content)
-        self.assertIn("ha_enriched:true", content)
+        self.assertIn("system_tag_values = []", content)
         self.assertIn("not system_tag.value", content)
         self.assertIn("['All', 'None'] + (ns.values | sort)", content)
 
@@ -1219,8 +1218,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
     def test_popup_wrapper_filters_lowercase_system_tags_for_editing(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup.yaml").read_text("utf-8")
-        self.assertIn("const systemTagPrefixes = ['filament:', 'spool:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];", content)
-        self.assertIn("const systemTagValues = ['ha_enriched:true'];", content)
+        self.assertIn("const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'];", content)
+        self.assertIn("const systemTagValues = [];", content)
         self.assertIn("systemTagPrefixes.some((prefix) => normalized.startsWith(prefix))", content)
         self.assertIn("const archiveUserTags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
 
@@ -1258,7 +1257,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("existing_tags_raw", content)
         self.assertIn("existing_notes_suffix", content)
         self.assertIn("existing_tags_raw.split(',')", content)
-        self.assertIn("lowered.startswith('spool:')", content)
+        self.assertIn("lowered.startswith('s:')", content)
         self.assertIn("lowered.startswith('vendor:')", content)
         self.assertIn("resolved_user_tags + preserved_system_tags", content)
         self.assertIn("existing_notes_suffix | length > 0", content)

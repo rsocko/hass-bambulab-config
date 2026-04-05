@@ -45,8 +45,7 @@
 # │   Format: ams_1_tray_1:25,ams_1_tray_2:72,.. │        │ < 255 limit   │
 # │                                                                        │
 # │ ENRICHMENT TAG GENERATION (live)              │ PASS   │               │
-# │   System tags: Filament:<id>, Spool:<id>      │        │ deduplicated  │
-# │   Marker tag: ha_enriched:true                │        │               │
+# │   System tags: f:<id>, s:<id>                 │        │ deduplicated  │
 # │   Hidden notes payload: [HA_ENRICHMENT_V1]    │ PASS   │ compact JSON  │
 # │                                                                        │
 # │ MQTT SENSOR (bambuddy_printer_status)         │ PASS   │ RUNNING       │
@@ -166,7 +165,7 @@
 #       Complete a print (or send print_complete webhook with archive_id)
 #       VERIFY: Automation trace shows payload build + PATCH call
 #       VERIFY: PATCH includes managed tags, hidden notes payload, and native cost
-#       VERIFY: Tags include `Filament:<id>`, `Spool:<id>`, and `ha_enriched:true`
+#       VERIFY: Tags include `f:<id>` and `s:<id>`
 #       VERIFY: Notes include a hidden `[HA_ENRICHMENT_V1]` JSON block
 #       VERIFY: bambuddy_current_archive_id is cleared after enrichment
 #
@@ -345,7 +344,7 @@
 #   12. [ ] VERIFY: Bambuddy fires print_complete webhook
 #   13. [ ] VERIFY: Finish photo captured
 #   14. [ ] VERIFY: Enrichment automation runs (check traces)
-#   15. [ ] VERIFY: Archive in Bambuddy has managed `Filament:` / `Spool:` / `ha_enriched:true` tags plus hidden `[HA_ENRICHMENT_V1]` notes payload
+#   15. [ ] VERIFY: Archive in Bambuddy has managed `f:` / `s:` tags plus hidden `[HA_ENRICHMENT_V1]` notes payload
 #   16. [ ] VERIFY: History sensor refreshes (5s delay then update)
 #   17. [ ] VERIFY: Template sensors show latest print data
 #   18. [ ] VERIFY: bambuddy_current_archive_id cleared

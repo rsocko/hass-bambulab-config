@@ -85,8 +85,8 @@
           {% endfor %}
           {{ ns.values | sort }}
         tag_options: >-
-          {% set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] %}
-          {% set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] %}
+          {% set system_tag_prefixes = ['s:', 'f:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'] %}
+          {% set system_tag_values = [] %}
           {% set ns = namespace(values=[]) %}
           {% for a in archives %}
             {% for tag in (a.get('tags', '') | string).split(',') %}

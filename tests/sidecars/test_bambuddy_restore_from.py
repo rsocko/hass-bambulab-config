@@ -126,7 +126,7 @@ def _create_test_db(tmp_path: Path) -> Path:
                 1.47,
                 None,
                 None,
-                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,ha_enriched:true,Filament:14,Spool:10",
+                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10",
                 "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n[HA_ENRICHMENT_V1]\n{\"source\":\"archived_filament_slots\"}",
                 "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/200x200 - AMS Ready - Slice & Print.3mf",
                 12005447,
@@ -156,7 +156,7 @@ def _create_test_db(tmp_path: Path) -> Path:
 def test_merge_tags_excludes_fallback_markers_and_preserves_target() -> None:
     merged = merge_tags(
         "Hueforge,exception:missing_3mf,replaced_by:200",
-        "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,ha_enriched:true,Filament:14,Spool:10",
+        "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10",
         ["exception:missing_3mf", "replaced_by:*"],
         [],
     )
@@ -307,7 +307,7 @@ def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differe
                 "2026-04-02T16:37:22",
                 "completed",
                 1,
-                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,ha_enriched:true,Filament:14,Spool:10,Hueforge",
+                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
                 "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n[HA_ENRICHMENT_V1]\n{\"source\":\"archived_filament_slots\"}",
                 200,
             ),

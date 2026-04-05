@@ -70,10 +70,10 @@ reenrich_print_history_archive:
                   {% set ns = namespace(result=[]) %}
                   {% for tag in existing_tags_raw.split(',') %}
                     {% set cleaned = tag | string | trim %}
+                    {% set lowered = cleaned | lower %}
                     {% if cleaned | length > 0
-                       and not cleaned.startswith('Filament:')
-                       and not cleaned.startswith('Spool:')
-                       and cleaned != 'ha_enriched:true'
+                       and not lowered.startswith('f:')
+                       and not lowered.startswith('s:')
                        and cleaned not in ns.result %}
                       {% set ns.result = ns.result + [cleaned] %}
                     {% endif %}
@@ -522,20 +522,20 @@ reenrich_print_history_archive:
                 effective_payload: >-
                   {{ (existing_payload if should_preserve_existing else candidate_payload) | tojson | from_json }}
                 effective_system_tags: >-
-                  {% set ns = namespace(tags=['ha_enriched:true'], spool_ids=[], filament_ids=[]) %}
+                  {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
                   {% for item in effective_payload.Filaments | default([], true) %}
                     {% if item.f is not none %}
                       {% set filament_id = item.f | string %}
                       {% if filament_id not in ns.filament_ids %}
                         {% set ns.filament_ids = ns.filament_ids + [filament_id] %}
-                        {% set ns.tags = ns.tags + ['Filament:' ~ filament_id] %}
+                        {% set ns.tags = ns.tags + ['f:' ~ filament_id] %}
                       {% endif %}
                     {% endif %}
                     {% if item.s is not none %}
                       {% set spool_id = item.s | string %}
                       {% if spool_id not in ns.spool_ids %}
                         {% set ns.spool_ids = ns.spool_ids + [spool_id] %}
-                        {% set ns.tags = ns.tags + ['Spool:' ~ spool_id] %}
+                        {% set ns.tags = ns.tags + ['s:' ~ spool_id] %}
                       {% endif %}
                     {% endif %}
                   {% endfor %}

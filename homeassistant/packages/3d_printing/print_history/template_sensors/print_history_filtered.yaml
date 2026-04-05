@@ -27,8 +27,8 @@
         {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
         {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
         {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
-        {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
-        {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
+        {%- set system_tag_prefixes = ['s:', 'f:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'] -%}
+        {%- set system_tag_values = [] -%}
         {%- set now_ts = as_timestamp(now()) | float(0) -%}
         {%- set ns = namespace(matches=[]) -%}
         {%- for a in archives -%}
@@ -167,8 +167,8 @@
           {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
-          {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
-          {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
+          {%- set system_tag_prefixes = ['s:', 'f:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'] -%}
+          {%- set system_tag_values = [] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(days=[]) -%}
           {%- for a in archives -%}
@@ -287,8 +287,8 @@
           {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
-          {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
-          {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
+          {%- set system_tag_prefixes = ['s:', 'f:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'] -%}
+          {%- set system_tag_values = [] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set ns = namespace(total_prints=0, total_weight=0, total_objects=0, total_cost=0, total_duration_seconds=0, total_filaments=0) -%}
           {%- for a in archives -%}
@@ -455,8 +455,8 @@
           {%- set selected_day = states('input_text.print_history_activity_selected_date') | trim -%}
           {%- set selected_colors_raw = states('input_text.print_history_filter_colors') | lower | trim -%}
           {%- set selected_colors = selected_colors_raw.split(',') | map('trim') | reject('equalto', '') | list if selected_colors_raw not in ['', 'unknown', 'unavailable'] else [] -%}
-          {%- set system_tag_prefixes = ['spool:', 'filament:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:', 'ha_enriched:'] -%}
-          {%- set system_tag_values = ['ha enrichment', 'ha_enrichment', 'ha_enriched:true'] -%}
+          {%- set system_tag_prefixes = ['s:', 'f:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'] -%}
+          {%- set system_tag_values = [] -%}
           {%- set now_ts = as_timestamp(now()) | float(0) -%}
           {%- set page_size = states('input_number.print_history_page_size') | int(10) -%}
           {%- set current_page = states('input_number.history_current_page') | int(1) -%}

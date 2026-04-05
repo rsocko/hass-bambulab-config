@@ -1,7 +1,7 @@
 # Update a Bambuddy archive — tags, notes, name, and optional native fields.
 # Tags are a comma-separated string, not a JSON array.
 # Usage: service: rest_command.bambuddy_update_archive
-# Data: { "archive_id": "42", "print_name": "Benchy", "tags": "hueforge,Filament:34,Spool:123,ha_enriched:true", "notes": "...", "cost": 1.23, "status": "failed", "failure_reason": "Layer shift" }
+# Data: { "archive_id": "42", "print_name": "Benchy", "tags": "hueforge,f:34,s:123", "notes": "...", "cost": 1.23, "status": "failed", "failure_reason": "Layer shift" }
 # Docs: docs/features/print_history/archive-enrichment.md
 bambuddy_update_archive:
   url: >-
