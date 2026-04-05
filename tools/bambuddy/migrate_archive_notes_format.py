@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate Bambuddy archive enrichment notes to the compact [HA] schema."""
+"""Migrate Bambuddy archive enrichment notes to the compact +> schema."""
 
 from __future__ import annotations
 
@@ -13,8 +13,17 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-LEGACY_MARKER = "[HA_ENRICHMENT_V1]"
-CURRENT_MARKER = "[HA]"
+LEGACY_MARKERS = ("[HA_ENRICHMENT_V1]", "[HA]")
+CURRENT_MARKER = "+>"
+
+STATUS_CODE_MAP = {
+    "complete": "c",
+    "partial": "p",
+    "unavailable": "u",
+    "c": "c",
+    "p": "p",
+    "u": "u",
+}
 
 SOURCE_CODE_MAP = {
     "archived_filament_slots": "afs",
@@ -63,10 +72,15 @@ def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _normalize_status_code(payload: dict[str, Any]) -> str:
+    status_code = _normalize_code(payload.get("s", payload.get("status")), STATUS_CODE_MAP)
+    return status_code or ""
+
+
 def transform_payload(payload: dict[str, Any]) -> dict[str, Any]:
     rows = payload.get("F") if isinstance(payload.get("F"), list) else payload.get("Filaments", [])
     transformed: dict[str, Any] = {
-        "status": payload.get("status", ""),
+        "s": _normalize_status_code(payload),
         "F": [_normalize_row(item) for item in rows if isinstance(item, dict)],
     }
 
@@ -83,18 +97,20 @@ def transform_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def normalize_archive_notes(raw_notes: str) -> str:
     notes = str(raw_notes or "")
-    marker_index = notes.find(LEGACY_MARKER)
-    marker = LEGACY_MARKER
-    if marker_index < 0:
-        marker_index = notes.find(CURRENT_MARKER)
-        marker = CURRENT_MARKER
+    marker_index = -1
+    marker = ""
+    for candidate in (*LEGACY_MARKERS, CURRENT_MARKER):
+        marker_index = notes.find(candidate)
+        if marker_index >= 0:
+            marker = candidate
+            break
     if marker_index < 0:
         return notes
 
     prefix = notes[:marker_index].rstrip()
     payload_raw = notes[marker_index + len(marker) :].strip()
     if not payload_raw:
-        replacement = CURRENT_MARKER + _compact_json({"status": "", "F": []})
+        replacement = CURRENT_MARKER + _compact_json({"s": "", "F": []})
     else:
         payload = json.loads(payload_raw)
         if not isinstance(payload, dict):
@@ -105,7 +121,8 @@ def normalize_archive_notes(raw_notes: str) -> str:
 
 
 def archive_needs_notes_migration(raw_notes: str) -> bool:
-    return LEGACY_MARKER in str(raw_notes or "")
+    notes = str(raw_notes or "")
+    return any(marker in notes for marker in LEGACY_MARKERS)
 
 
 @dataclass
@@ -179,7 +196,7 @@ class BambuddyClient:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Migrate Bambuddy archive enrichment notes from [HA_ENRICHMENT_V1] to [HA].")
+    parser = argparse.ArgumentParser(description="Migrate Bambuddy archive enrichment notes from legacy markers to the compact +> schema.")
     parser.add_argument("--base-url", required=True, help="Bambuddy base URL, for example http://bambuddy.local:8902")
     parser.add_argument("--api-key", help="Bambuddy API key. Defaults to BAMBUDDY_API_KEY environment variable.")
     parser.add_argument("--batch-size", type=int, default=100, help="Archive page size for list calls. Default: 100")

@@ -744,7 +744,7 @@ class TestTemplateSensors(unittest.TestCase):
     def test_filtered_sensor_builds_color_tooltips_from_enrichment_notes(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("available_color_tooltips_json", content)
-        self.assertIn("{% set enrichment_marker = '[HA]' %}", content)
+        self.assertIn("{% set enrichment_marker = '+>' %}", content)
         self.assertIn("{% set rows = payload.get('F', []) if payload is mapping else [] %}", content)
         self.assertIn("{% set ns.entries = ns.entries + [dict(color=color_key, names=[name])] %}", content)
         self.assertIn("{% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}", content)
@@ -758,10 +758,10 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{%- set status = 'completed' -%}", filtered_content)
         self.assertIn("{%- set filter_enrichment_status = states('input_select.print_history_filter_enrichment_status') -%}", filtered_content)
         self.assertIn("{%- set notes_raw = a.get('notes', '') | string -%}", filtered_content)
-        self.assertIn("{%- set enrichment_status = enrichment_payload.get('status', '') | string | lower if enrichment_payload is mapping else '' -%}", filtered_content)
-        self.assertIn("{%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}", filtered_content)
+        self.assertIn("{%- set enrichment_status_code = enrichment_payload.get('s', '') | string | lower if enrichment_payload is mapping else '' -%}", filtered_content)
+        self.assertIn("{%- set enrichment_status = 'complete' if enrichment_status_code == 'c' else 'partial' if enrichment_status_code == 'p' else 'unavailable' if enrichment_status_code == 'u' else 'not defined' -%}", filtered_content)
         self.assertIn("{%- set matches_enrichment_status = filter_enrichment_status == 'All' or enrichment_status == filter_enrichment_status | lower -%}", filtered_content)
-        self.assertIn("{%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}", page_content)
+        self.assertIn("{%- set enrichment_status = 'complete' if enrichment_status_code == 'c' else 'partial' if enrichment_status_code == 'p' else 'unavailable' if enrichment_status_code == 'u' else 'not defined' -%}", page_content)
         self.assertIn("input_select.print_history_filter_enrichment_status", browser_content)
         self.assertIn("name: Enrichment", browser_content)
         self.assertIn("name: Clear Enrichment Filter", browser_content)
@@ -1262,7 +1262,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("lowered.startswith('vendor:')", content)
         self.assertIn("resolved_user_tags + preserved_system_tags", content)
         self.assertIn("existing_recovery_block | length > 0", content)
-        self.assertIn("existing_payload is mapping and existing_payload.status is defined", content)
+        self.assertIn("existing_payload is mapping and existing_payload.s is defined", content)
 
 
 # =============================================================================
@@ -1312,7 +1312,7 @@ class TestPrintHistoryTagColors(unittest.TestCase):
         for path in files:
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
-                self.assertIn("const ENRICHMENT_MARKER = '[HA]';", content)
+                self.assertIn("const ENRICHMENT_MARKER = '+>';", content)
                 self.assertIn("const filamentChips = enrichmentRows.length", content)
                 if path.name == "print_history_archive_popup_content.yaml":
                     self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
@@ -1340,7 +1340,7 @@ class TestPrintHistoryTagColors(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml"
         ).read_text("utf-8")
 
-        self.assertIn("const enrichmentStatusRaw = String(enrichmentPayload?.status || '').toLowerCase();", content)
+        self.assertIn("const enrichmentStatusCode = String(enrichmentPayload?.s || '').toLowerCase();", content)
         self.assertIn("const archiveIdLabel = archiveId !== undefined && archiveId !== null && archiveId !== '' ? `Archive #${archiveId}` : 'Archive unavailable';", content)
         self.assertIn("Enrichment ${escapeHtml(enrichmentStatusLabel)}", content)
         self.assertIn("const prefixKey = normalized.includes(':') ? normalized.split(':', 1)[0] : normalized;", content)

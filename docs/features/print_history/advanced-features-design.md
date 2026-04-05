@@ -429,7 +429,7 @@ From the completed archive and enrichment data:
 - `cost` — Total print cost
 - `extra_data.designer` — Model designer
 - `extra_data.makerworld_url` — Source link
-- Hidden `[HA]` enrichment payload — compact per-tray filament rows with `n`/`w`/`t` keys and best-effort spool or filament IDs when preserved
+- Hidden `+>` enrichment payload — compact per-tray filament rows with `n`/`w`/`t` keys and best-effort spool or filament IDs when preserved
 
 From the notification infrastructure:
 - `input_text.3dprinter_notification_service` — Target notify service

@@ -3,7 +3,7 @@ save_print_history_archive_popup_edits:
   alias: Save Print History Archive Popup Edits
   sequence:
     - variables:
-        enrichment_marker: "[HA]"
+        enrichment_marker: "+>"
         recovery_marker: "[RECOVERY_AUDIT_V1]"
         resolved_archive_id: "{{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}"
         resolved_print_name: "{{ states('input_text.print_history_popup_print_name') | default('', true) | string | trim }}"
@@ -111,8 +111,8 @@ save_print_history_archive_popup_edits:
                   {% set ns.seen = ns.seen + [lowered] %}
                 {% endif %}
               {% endfor %}
-              {% if existing_payload is mapping and existing_payload.status is defined %}
-                  {% for item in existing_payload.F | default([], true) %}
+              {% if existing_payload is mapping and existing_payload.s is defined %}
+                {% for item in existing_payload.F | default([], true) %}
                   {% if item.f is not none %}
                     {% set filament_tag = 'f:' ~ (item.f | string) %}
                     {% if filament_tag | lower not in ns.seen %}
@@ -149,7 +149,7 @@ save_print_history_archive_popup_edits:
               {% if existing_recovery_block | length > 0 %}
                 {% set parts.values = parts.values + [existing_recovery_block] %}
               {% endif %}
-              {% if existing_payload is mapping and existing_payload.status is defined %}
+              {% if existing_payload is mapping and existing_payload.s is defined %}
                 {% set parts.values = parts.values + [enrichment_marker ~ (existing_payload | to_json)] %}
               {% endif %}
               {{ parts.values | join('\n\n') }}

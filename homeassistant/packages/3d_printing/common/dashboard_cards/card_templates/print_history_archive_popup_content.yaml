@@ -43,7 +43,7 @@ print_history_archive_popup_content:
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
         const archiveId = archive?.id;
-        const ENRICHMENT_MARKER = '[HA]';
+        const ENRICHMENT_MARKER = '+>';
         const RECOVERY_MARKER = '[RECOVERY_AUDIT_V1]';
         const describeEnrichmentAmbiguity = (value) => {
           const normalized = String(value || '').trim();
@@ -210,7 +210,8 @@ print_history_archive_popup_content:
           : Array.isArray(notesInfo.payload?.F)
             ? notesInfo.payload.F
             : [];
-        const enrichmentStatusRaw = String(archive?.enrichment_status || notesInfo.payload?.status || '').toLowerCase();
+        const enrichmentStatusCode = String(archive?.enrichment_status || notesInfo.payload?.s || '').toLowerCase();
+        const enrichmentStatusRaw = ({ c: 'complete', p: 'partial', u: 'unavailable' })[enrichmentStatusCode] || '';
         const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();
         const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.src || '').trim();
         const hasEnrichmentPayload = Boolean(notesInfo.payload)

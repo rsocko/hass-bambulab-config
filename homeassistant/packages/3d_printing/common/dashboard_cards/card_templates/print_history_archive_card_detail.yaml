@@ -77,7 +77,7 @@ print_history_archive_card_detail:
         const statusLabel = status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : status === 'cancelled' ? 'Cancelled' : status === 'printing' ? 'Printing' : 'Unknown';
         const statusColor = status === 'completed' ? '#2E7D32' : status === 'failed' ? '#C62828' : status === 'cancelled' ? '#EF6C00' : status === 'printing' ? '#1565C0' : '#546E7A';
         const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : status === 'cancelled' ? '⛔' : status === 'printing' ? '🖨️' : '⏳';
-        const ENRICHMENT_MARKER = '[HA]';
+        const ENRICHMENT_MARKER = '+>';
         const describeEnrichmentAmbiguity = (value) => {
           const normalized = String(value || '').trim();
           return ({

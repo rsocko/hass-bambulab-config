@@ -127,7 +127,7 @@ def _create_test_db(tmp_path: Path) -> Path:
                 None,
                 None,
                 "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10",
-                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n[HA]{\"src\":\"afs\"}",
+                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"src\":\"afs\"}",
                 "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/200x200 - AMS Ready - Slice & Print.3mf",
                 12005447,
                 "4eba6b4eace8d55a2c39c583e610ab7dd3de22dba54ab6d98c16f68afd001953",
@@ -171,12 +171,12 @@ def test_merge_tags_excludes_fallback_markers_and_preserves_target() -> None:
 def test_merge_notes_preserves_target_structured_blocks() -> None:
     merged = merge_notes(
         "[RECOVERY_AUDIT_V1]\n{\"replaced_by_archive_id\":200}",
-        "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n[HA]{\"src\":\"afs\"}",
+        "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"src\":\"afs\"}",
     )
 
     assert merged is not None
     assert "recovered_from_archive_id" in merged
-    assert "[HA]" in merged
+    assert "+>" in merged
     assert "replaced_by_archive_id" not in merged
 
 
@@ -308,7 +308,7 @@ def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differe
                 "completed",
                 1,
                 "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
-                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n[HA]{\"src\":\"afs\"}",
+                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"src\":\"afs\"}",
                 200,
             ),
         )

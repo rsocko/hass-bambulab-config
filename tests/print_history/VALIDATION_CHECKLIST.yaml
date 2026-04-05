@@ -46,7 +46,7 @@
 # │                                                                        │
 # │ ENRICHMENT TAG GENERATION (live)              │ PASS   │               │
 # │   System tags: f:<id>, s:<id>                 │        │ deduplicated  │
-# │   Hidden notes payload: [HA]                  │ PASS   │ compact JSON  │
+# │   Hidden notes payload: +>                    │ PASS   │ compact JSON  │
 # │                                                                        │
 # │ MQTT SENSOR (bambuddy_printer_status)         │ PASS   │ RUNNING       │
 # │   Connected, progress, temps, print name      │        │ Full attrs    │
@@ -73,8 +73,8 @@
 #    http://bambuddy.socko.us/api/v1/archives from HA shell.
 #
 # 2. ENRICHMENT STATUS IS NOT ARCHIVE STATUS — The live enrichment payload
-#    stores completeness in the hidden `[HA]` JSON block.
-#    That `status` is `complete|partial|unavailable` for enrichment quality,
+#    stores completeness in the hidden `+>` JSON block.
+#    That `s` field is `c|p|u` for enrichment quality,
 #    not Bambuddy's top-level archive outcome.
 #    ACTION: If native archive `status` writes are desired, add them as an
 #    explicit follow-on change; they are not part of the current automation.
@@ -166,7 +166,7 @@
 #       VERIFY: Automation trace shows payload build + PATCH call
 #       VERIFY: PATCH includes managed tags, hidden notes payload, and native cost
 #       VERIFY: Tags include `f:<id>` and `s:<id>`
-#       VERIFY: Notes include a hidden `[HA]` JSON block
+#       VERIFY: Notes include a hidden `+>` JSON block
 #       VERIFY: bambuddy_current_archive_id is cleared after enrichment
 #
 # B3.2  Enrichment on Failed Print
@@ -186,7 +186,7 @@
 # B3.5  Verify Stored Enrichment in Bambuddy
 #       After enrichment, open the archive in Bambuddy UI
 #       VERIFY: Tags display correctly (comma-separated, not JSON array)
-#       VERIFY: Notes section contains the hidden `[HA]` payload after any user notes
+#       VERIFY: Notes section contains the hidden `+>` payload after any user notes
 #
 # ── B4. REST SENSOR & HISTORY BROWSING ────────────────────────────────────────
 #
@@ -344,7 +344,7 @@
 #   12. [ ] VERIFY: Bambuddy fires print_complete webhook
 #   13. [ ] VERIFY: Finish photo captured
 #   14. [ ] VERIFY: Enrichment automation runs (check traces)
-#   15. [ ] VERIFY: Archive in Bambuddy has managed `f:` / `s:` tags plus hidden `[HA]` notes payload
+#   15. [ ] VERIFY: Archive in Bambuddy has managed `f:` / `s:` tags plus hidden `+>` notes payload
 #   16. [ ] VERIFY: History sensor refreshes (5s delay then update)
 #   17. [ ] VERIFY: Template sensors show latest print data
 #   18. [ ] VERIFY: bambuddy_current_archive_id cleared
@@ -391,5 +391,5 @@
 #     Verified in: test_has_reasonable_scan_interval (pytest)
 #
 # D7. Hidden payload status is enrichment completeness only
-#     `[HA].status` is `complete|partial|unavailable` for
+#     `+>.s` is `c|p|u` for
 #     enrichment fidelity. It is not Bambuddy's top-level archive outcome.

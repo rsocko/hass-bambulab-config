@@ -67,7 +67,7 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
-| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `f:` / `s:` tags, and a hidden `[HA]` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
+| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `f:` / `s:` tags, and a hidden `+>` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
 | 21 | Browser paging scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml`, `refresh_print_history_archives.yaml`, `clear_print_history_filters.yaml`, `toggle_print_history_color_filter.yaml` |
 | 22 | Template sensors (modern format) | **Done** | Layer 1 cache (`print_history_archives`), Layer 2 filter metadata (`print_history_filtered`), page label, and current page slice |
@@ -217,7 +217,7 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 - **Archive creation**: Bambuddy auto-creates at print start
 - **Webhook**: Single receiver → HA event; features listen to the event
 - **Photos**: HA owns multi-camera, multi-stage capture; uploads directly to Bambuddy
-- **Enrichment**: current shipped flow writes `f:` / `s:` tags, native `cost`, and a hidden `[HA]` structured payload in `notes`; native archive `status` remains outside the current enrichment automation
+- **Enrichment**: current shipped flow writes `f:` / `s:` tags, native `cost`, and a hidden `+>` structured payload in `notes`; native archive `status` remains outside the current enrichment automation
 - **Maintenance**: Bambuddy is source of truth; HA reads + surfaces + allows mark-complete
 - **Print Log**: Skipped (subset of archives)
 - **AMS History**: Skipped (HA already records via ha-bambulab sensors)

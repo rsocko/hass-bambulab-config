@@ -6,7 +6,7 @@
   id: bambuddy_enrich_archive_on_complete
   description: >
     Maintains the Phase A print-history enrichment contract in Bambuddy by
-    storing compact system tags plus the hidden [HA] notes block.
+    storing compact system tags plus the hidden +> notes block.
 
   triggers:
     - trigger: numeric_state
@@ -51,7 +51,7 @@
 
   actions:
     - variables:
-        enrichment_marker: "[HA]"
+        enrichment_marker: "+>"
         recovery_marker: "[RECOVERY_AUDIT_V1]"
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
         trigger_id: "{{ trigger.id | default('unknown') }}"
@@ -206,7 +206,7 @@
           {{ ns.rows | tojson | from_json }}
         current_payload_status: >-
           {% if current_filaments | count == 0 %}
-            unavailable
+            u
           {% else %}
             {% set ns = namespace(incomplete=false) %}
             {% for row in current_filaments %}
@@ -214,21 +214,23 @@
                 {% set ns.incomplete = true %}
               {% endif %}
             {% endfor %}
-            {{ 'partial' if ns.incomplete else 'complete' }}
+            {{ 'p' if ns.incomplete else 'c' }}
           {% endif %}
         current_payload: >-
           {{ {
-            'status': current_payload_status,
+            's': current_payload_status,
             'F': current_filaments
           } | tojson | from_json }}
         existing_filaments: >-
           {{ existing_payload.F | default([], true) if existing_payload is mapping else [] }}
         existing_payload_status: >-
           {% if existing_payload is mapping %}
-            {{ existing_payload.status | default('', true) | string | lower }}
+            {{ existing_payload.s | default('', true) | string | lower }}
           {% else %}
             {{ '' }}
           {% endif %}
+        current_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(current_payload_status, current_payload_status) }}"
+        existing_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
         current_resolved_rows: >-
           {% set ns = namespace(count=0) %}
           {% for row in current_filaments %}
@@ -248,10 +250,10 @@
         current_filament_rows: "{{ current_filaments | count }}"
         existing_filament_rows: "{{ existing_filaments | count }}"
         current_payload_rank: >-
-          {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+          {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
           {{ rank.get(current_payload_status, -1) }}
         existing_payload_rank: >-
-          {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+          {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
           {{ rank.get(existing_payload_status, -1) }}
         current_detail_score: >-
           {{
@@ -268,7 +270,7 @@
         use_existing_payload: >-
           {{ existing_payload is mapping and (existing_detail_score | int(-1)) > (current_detail_score | int(-1)) }}
         has_existing_enrichment: >-
-          {{ existing_payload is mapping and existing_payload_status in ['complete', 'partial', 'unavailable'] }}
+          {{ existing_payload is mapping and existing_payload_status in ['c', 'p', 'u'] }}
         terminal_data_insufficient: >-
           {{ is_terminal_trigger and (current_detail_score | int(0)) <= 0 }}
         terminal_preserving_existing: >-
@@ -278,6 +280,7 @@
         effective_payload_source: "{{ 'preserved_existing' if use_existing_payload else 'current_recomputed' }}"
         effective_payload: >-
           {{ (existing_payload if use_existing_payload else current_payload) | tojson | from_json }}
+        effective_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }}"
         effective_system_tags: >-
           {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
           {% for item in effective_payload.F | default([], true) %}
@@ -328,8 +331,8 @@
             message: >-
               Print History reconciliation preserved the existing enrichment for archive {{ archive_id }}
               because current terminal data was lower fidelity.
-              current_status={{ current_payload_status }}, current_rows={{ current_filament_rows }},
-              current_resolved={{ current_resolved_rows }}, existing_status={{ existing_payload_status }},
+              current_status={{ current_payload_status_label }}, current_rows={{ current_filament_rows }},
+              current_resolved={{ current_resolved_rows }}, existing_status={{ existing_payload_status_label }},
               existing_rows={{ existing_filament_rows }}, existing_resolved={{ existing_resolved_rows }}.
             level: warning
             logger: homeassistant.components.bambulab.print_history
@@ -338,8 +341,8 @@
             name: Print History Reconciliation
             message: >-
               Preserved existing archive enrichment because the terminal data was less complete
-              (current={{ current_payload_status }}/{{ current_resolved_rows }} resolved rows,
-              existing={{ existing_payload_status }}/{{ existing_resolved_rows }} resolved rows).
+              (current={{ current_payload_status_label }}/{{ current_resolved_rows }} resolved rows,
+              existing={{ existing_payload_status_label }}/{{ existing_resolved_rows }} resolved rows).
         - action: persistent_notification.create
           data:
             notification_id: "print_history_reconciliation_preserved_{{ archive_id }}"
@@ -351,12 +354,12 @@
               Existing enrichment was preserved and the archive was **not downgraded**.
 
               Current terminal data:
-              - status: `{{ current_payload_status }}`
+              - status: `{{ current_payload_status_label }}`
               - filament rows: `{{ current_filament_rows }}`
               - fully resolved rows: `{{ current_resolved_rows }}`
 
               Existing stored data:
-              - status: `{{ existing_payload_status }}`
+              - status: `{{ existing_payload_status_label }}`
               - filament rows: `{{ existing_filament_rows }}`
               - fully resolved rows: `{{ existing_resolved_rows }}`
 
@@ -378,7 +381,7 @@
               or empty payload.
 
               Current terminal data:
-              - status: `{{ current_payload_status }}`
+              - status: `{{ current_payload_status_label }}`
               - filament rows: `{{ current_filament_rows }}`
               - fully resolved rows: `{{ current_resolved_rows }}`
 
@@ -388,7 +391,7 @@
             message: >-
               Print History WARNING: No reliable per-tray enrichment data was available for archive {{ archive_id }}
               at terminal reconciliation. Archive enrichment was not updated automatically.
-              current_status={{ current_payload_status }}, current_rows={{ current_filament_rows }},
+              current_status={{ current_payload_status_label }}, current_rows={{ current_filament_rows }},
               current_resolved={{ current_resolved_rows }}.
             level: warning
             logger: homeassistant.components.bambulab.print_history
@@ -435,7 +438,7 @@
                 Terminal reconciliation found no reliable per-tray enrichment data for archive {{ archive_id }}.
                 Archive enrichment was not updated automatically.
               {% else %}
-                Reconciled archive {{ archive_id }} with {{ effective_payload.status }}
+                Reconciled archive {{ archive_id }} with {{ effective_payload_status_label }}
                 enrichment data (source={{ effective_payload_source }}),
                 cost=${{ total_cost | float(0) | round(2) }},
                 tags={{ merged_tags | truncate(100) }},
@@ -447,7 +450,7 @@
             name: Print History
             message: >-
               Wrote during-print enrichment for archive {{ archive_id }}
-              using {{ effective_payload.status }} payload data
+              using {{ effective_payload_status_label }} payload data
               (source={{ effective_payload_source }}).
 
   mode: queued

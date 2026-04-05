@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-ENRICHMENT_MARKERS = ("[HA]", "[HA_ENRICHMENT_V1]")
+ENRICHMENT_MARKERS = ("+>", "[HA]", "[HA_ENRICHMENT_V1]")
 
 
 def split_tags(raw_tags: str) -> list[str]:

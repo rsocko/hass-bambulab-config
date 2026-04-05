@@ -8,7 +8,7 @@ The live enrichment flow currently does four things:
 
 - captures the Bambuddy `archive_id` at `print_started`
 - writes managed system tags to the archive: `f:<id>` and `s:<id>`
-- stores a hidden `[HA]` JSON payload in `notes` while preserving user-authored notes
+- stores a hidden `+>` JSON payload in `notes` while preserving user-authored notes
 - PATCHes Bambuddy's native `cost` field from `sensor.print_cost`
 
 Important current-state constraints:
@@ -86,7 +86,7 @@ The shipped enrichment automation reads these live sources:
 - `counter.bambuddy_captured_photo_count`
 - `GET /api/v1/archives/{id}` via `rest_command.bambuddy_get_archive_detail`
 
-That archive-detail lookup is important in the current implementation because it preserves existing user notes, preserves user tags, and avoids downgrading a richer previously stored `[HA]` payload.
+That archive-detail lookup is important in the current implementation because it preserves existing user notes, preserves user tags, and avoids downgrading a richer previously stored `+>` payload.
 
 The shipped automation does **not** currently inspect Bambuddy `extra_data._print_data.raw_data.ams` or archived tray UUID data when building the live enrichment payload.
 
@@ -128,7 +128,7 @@ The live automation stores enrichment in `notes` as:
 
 1. user-authored notes, if any
 2. two newlines
-3. the marker `[HA]`
+3. the marker `+>`
 4. a compact JSON payload
 
 Example stored form:
@@ -136,7 +136,7 @@ Example stored form:
 ```text
 Operator note about this print.
 
-[HA]{"status":"partial","F":[{"n":"Bambu PLA Basic Blue","w":41.2,"t":"A2","s":123,"f":34,"h":"#C1C3C2"}]}
++>{"s":"p","F":[{"n":"Bambu PLA Basic Blue","w":41.2,"t":"A2","s":123,"f":34,"h":"#C1C3C2"}]}
 ```
 
 There is no longer a live human-readable `--- HA Enrichment ---` summary block in the shipped automation. That older marker is still recognized when splitting existing notes so legacy content is not accidentally overwritten.
@@ -147,7 +147,7 @@ The compact payload currently written by the live automation is:
 
 ```json
 {
-  "status": "complete",
+  "s": "c",
   "F": [
     {
       "n": "Bambu PLA Basic Blue",
@@ -163,7 +163,7 @@ The compact payload currently written by the live automation is:
 
 Field meanings:
 
-- `status`: enrichment completeness only, one of `complete`, `partial`, or `unavailable`
+- `s`: enrichment completeness only. `c` = complete, `p` = partial, `u` = unavailable
 - `F`: one row per tray with non-zero contribution
 - `n`: best available spool display name
 - `w`: grams attributed to that tray
@@ -181,7 +181,7 @@ Optional row field used only when operator review is needed:
 
 - `am`: ambiguity code. `a_tc` = multiple archived AMS trays matched type+color. `a_fb` = multiple archived AMS trays matched archive-level fallback. `s_uuid` = multiple Spoolman spools matched archived tray UUID. `s_tc` = multiple Spoolman spools matched type+color.
 
-This payload `status` is **not** the Bambuddy archive outcome. It only describes the completeness of enrichment data.
+This payload `s` value is **not** the Bambuddy archive outcome. It only describes the completeness of enrichment data.
 
 ## Cost Handling
 
@@ -206,7 +206,7 @@ The shipped popup/edit flow is already enrichment-aware.
 Current behavior:
 
 - popup cards and the popup detail view hide system tags from the user-facing tag display
-- popup notes editing hides the `[HA]` payload from the user-facing notes field
+- popup notes editing hides the `+>` payload from the user-facing notes field
 - popup detail derives `Partial` enrichment when the hidden payload contains filament rows or ambiguity data that still need review; `Unavailable` is reserved for archives with no preserved enrichment data
 - popup enrichment cards now show explicit colored `Needs Review`, `Spool unresolved`, and `Filament unresolved` badges so incomplete matches stand out during archive triage
 - `save_print_history_archive_popup_edits.yaml` fetches archive detail before saving so it can preserve hidden enrichment content and system tags
@@ -225,7 +225,7 @@ It currently:
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
 - pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
-- writes managed tags plus the hidden `[HA]` payload when it has a usable candidate
+- writes managed tags plus the hidden `+>` payload when it has a usable candidate
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
@@ -245,7 +245,7 @@ Shipped now:
 - during-print enrichment write when weight data is ready
 - terminal reconciliation on complete, failed, and stopped webhooks
 - managed `f:` / `s:` tags
-- hidden `[HA]` JSON note payload
+- hidden `+>` JSON note payload
 - native Bambuddy `cost` updates from `sensor.print_cost`
 - popup-safe preservation of hidden enrichment metadata during edits
 - manual re-enrich flow for older archives
@@ -288,14 +288,14 @@ That future direction is what drives the planned UUID-first hardening work and t
 
 #### Phase A: Compact Bambuddy-resident enrichment
 
-- keep the enrichment resident in Bambuddy using managed `f:` / `s:` tags, native `cost`, and a compact `[HA]` payload in `notes`
+- keep the enrichment resident in Bambuddy using managed `f:` / `s:` tags, native `cost`, and a compact `+>` payload in `notes`
 - keep the payload small and versioned so popup editing, search, and archive reads stay practical
 
 ## Migration Tools
 
 `tools/bambuddy/migrate_archive_tag_format.py` rewrites existing Bambuddy archives from the old managed tags to the short format.
 
-`tools/bambuddy/migrate_archive_notes_format.py` rewrites legacy hidden enrichment notes from `[HA_ENRICHMENT_V1]` to the compact `[HA]` schema.
+`tools/bambuddy/migrate_archive_notes_format.py` rewrites legacy hidden enrichment notes from `[HA_ENRICHMENT_V1]` or `[HA]` to the compact `+>` schema.
 
 Recommended operator flow:
 

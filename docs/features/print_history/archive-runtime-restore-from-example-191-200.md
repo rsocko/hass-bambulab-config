@@ -126,7 +126,7 @@ It preserved:
       "group": "lineage",
       "action": "merge",
       "source_value": "[RECOVERY_AUDIT_V1] ... replaced_by_archive_id ...",
-      "target_before": "[RECOVERY_AUDIT_V1] ... recovered_from_archive_id ...\n\n[HA]...",
+      "target_before": "[RECOVERY_AUDIT_V1] ... recovered_from_archive_id ...\n\n+>...",
       "target_after": "preserve target notes and append/update structured recovery audit without duplication",
       "reason": "merged_notes_policy"
     },

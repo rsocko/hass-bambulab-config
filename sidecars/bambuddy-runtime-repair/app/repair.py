@@ -147,7 +147,7 @@ def _split_note_segments(value: str | None) -> tuple[list[str], list[str]]:
     plain_segments: list[str] = []
     structured_segments: list[str] = []
     for segment in [part.strip() for part in value.split("\n\n") if part.strip()]:
-        if segment.startswith("[") and "]" in segment:
+        if (segment.startswith("[") and "]" in segment) or segment.startswith("+>"):
             structured_segments.append(segment)
         else:
             plain_segments.append(segment)

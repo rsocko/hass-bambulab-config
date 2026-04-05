@@ -25,7 +25,7 @@ print_history_archive_popup:
       }
 
       const archiveName = archive?.print_name || `Archive ${archiveId}`;
-      const ENRICHMENT_MARKER = '[HA]';
+      const ENRICHMENT_MARKER = '+>';
       const RECOVERY_MARKER = '[RECOVERY_AUDIT_V1]';
       const parseTags = (value) => String(value || '')
         .split(',')

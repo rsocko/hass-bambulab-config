@@ -128,7 +128,7 @@ Unless a field explicitly says otherwise:
 ### Keep
 
 - existing target notes content
-- existing `[HA]` block on target
+- existing `+>` block on target
 - existing `[RECOVERY_AUDIT_V1]` block on target if already correct
 
 ### Append Or Update

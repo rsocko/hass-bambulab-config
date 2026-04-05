@@ -65,7 +65,7 @@
             {%- set raw_status = a.get('status', '') | string | lower -%}
             {%- set status = 'completed' if raw_status in ['completed', 'success'] else 'failed' if raw_status == 'failed' else 'cancelled' if raw_status in ['cancelled', 'aborted', 'stopped'] else 'printing' if raw_status == 'printing' else raw_status -%}
             {%- set notes_raw = a.get('notes', '') | string -%}
-            {%- set enrichment_marker = '[HA]' -%}
+            {%- set enrichment_marker = '+>' -%}
             {%- set marker_index = notes_raw.find(enrichment_marker) -%}
             {%- if marker_index >= 0 -%}
               {%- set payload_raw = notes_raw[marker_index + (enrichment_marker | length):] | trim -%}
@@ -73,8 +73,8 @@
             {%- else -%}
               {%- set enrichment_payload = {} -%}
             {%- endif -%}
-            {%- set enrichment_status = enrichment_payload.get('status', '') | string | lower if enrichment_payload is mapping else '' -%}
-            {%- set enrichment_status = enrichment_status if enrichment_status in ['complete', 'partial', 'unavailable'] else 'not defined' -%}
+            {%- set enrichment_status_code = enrichment_payload.get('s', '') | string | lower if enrichment_payload is mapping else '' -%}
+            {%- set enrichment_status = 'complete' if enrichment_status_code == 'c' else 'partial' if enrichment_status_code == 'p' else 'unavailable' if enrichment_status_code == 'u' else 'not defined' -%}
             {%- set material = a.get('filament_type', '') | string -%}
             {%- set archive_colors = (a.get('filament_color', '') | string | lower).split(',') | map('trim') | reject('equalto', '') | list -%}
             {%- set printer = a.get('printer_id', '') | string -%}

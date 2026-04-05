@@ -2,7 +2,7 @@
 reenrich_print_history_archive:
   alias: Re-Enrich Print History Archive
   description: >-
-    Rebuilds the managed [HA] payload for an older Bambuddy archive
+    Rebuilds the managed +> payload for an older Bambuddy archive
     while preserving user notes and user tags.
   fields:
     archive_id:
@@ -19,7 +19,7 @@ reenrich_print_history_archive:
           state: "on"
       then:
         - variables:
-            enrichment_marker: "[HA]"
+            enrichment_marker: "+>"
             recovery_marker: "[RECOVERY_AUDIT_V1]"
             requested_archive_id: "{{ archive_id | string | trim if archive_id is defined else '' }}"
             resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
@@ -469,7 +469,7 @@ reenrich_print_history_archive:
                   {{ ns.items | tojson | from_json }}
                 candidate_payload_status: >-
                   {% if candidate_filaments | count == 0 %}
-                    unavailable
+                    u
                   {% else %}
                     {% set ns = namespace(missing_filament=false, missing_spool=false) %}
                     {% for row in candidate_filaments %}
@@ -481,16 +481,16 @@ reenrich_print_history_archive:
                       {% endif %}
                     {% endfor %}
                     {% if ns.missing_filament %}
-                      unavailable
+                      u
                     {% elif ns.missing_spool or (candidate_ambiguity_rows | count > 0) %}
-                      partial
+                      p
                     {% else %}
-                      complete
+                      c
                     {% endif %}
                   {% endif %}
                 candidate_payload: >-
                   {% set payload = {
-                    'status': candidate_payload_status,
+                    's': candidate_payload_status,
                     'F': candidate_filaments
                   } %}
                   {% if archive_row_source != 'unavailable' %}
@@ -504,10 +504,12 @@ reenrich_print_history_archive:
                   {{ existing_payload.F | default([], true) if existing_payload is mapping else [] }}
                 existing_payload_status: >-
                   {% if existing_payload is mapping %}
-                    {{ existing_payload.status | default('', true) | string | lower }}
+                    {{ existing_payload.s | default('', true) | string | lower }}
                   {% else %}
                     {{ '' }}
                   {% endif %}
+                candidate_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(candidate_payload_status, candidate_payload_status) }}"
+                existing_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
                 candidate_resolved_rows: >-
                   {% set ns = namespace(count=0) %}
                   {% for row in candidate_filaments %}
@@ -527,10 +529,10 @@ reenrich_print_history_archive:
                 candidate_filament_rows: "{{ candidate_filaments | count }}"
                 existing_filament_rows: "{{ existing_filaments | count }}"
                 candidate_payload_rank: >-
-                  {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+                  {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
                   {{ rank.get(candidate_payload_status, -1) }}
                 existing_payload_rank: >-
-                  {% set rank = {'complete': 2, 'partial': 1, 'unavailable': 0} %}
+                  {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
                   {{ rank.get(existing_payload_status, -1) }}
                 candidate_detail_score: >-
                   {{
@@ -602,8 +604,8 @@ reenrich_print_history_archive:
                           Archive **{{ resolved_archive_id }}** already contains richer enrichment
                           data than the current manual re-enrich candidate.
 
-                          Existing status: `{{ existing_payload_status }}`
-                          Candidate status: `{{ candidate_payload_status }}`
+                          Existing status: `{{ existing_payload_status_label }}`
+                          Candidate status: `{{ candidate_payload_status_label }}`
                     - action: logbook.log
                       data:
                         name: Print History Re-Enrich
@@ -652,7 +654,7 @@ reenrich_print_history_archive:
                   data:
                     name: Print History Re-Enrich
                     message: >-
-                      Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status }}
+                      Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status_label }}
                       from {{ archive_row_source_label }} and {{ candidate_filament_rows }} filament row(s).
           else:
             - action: logbook.log

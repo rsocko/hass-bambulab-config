@@ -341,7 +341,7 @@ Deferred advanced scripts:
 | `bambuddy_capture_archive_id` | `bambuddy_webhook_event` where event=`print_started` | Store archive_id from payload (or fallback lookup) |
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
-| `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `[HA]` notes payload, and native `cost`; clear archive_id on terminal pass |
+| `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
 | `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Refresh REST sensor + Layer 1 archive cache |
 | `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
@@ -429,7 +429,7 @@ For detailed design of the two major subsystems, see:
 - Multi-stage photo capture automations (start, mid, near-complete, error)
 - `capture_and_upload_snapshot` script with multi-camera + light control + verified upload bridge
 - `resolve_current_archive_id` fallback script
-- Enrichment automation (managed `f:` / `s:` tags + hidden `[HA]` note payload + native cost)
+- Enrichment automation (managed `f:` / `s:` tags + hidden `+>` note payload + native cost)
 - Pagination scripts and template sensors
 - Configurable capture stage toggles and secondary camera helper
 - Dedicated history view (`view_print_history.yaml`)
