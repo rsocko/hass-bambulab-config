@@ -1456,17 +1456,15 @@ ams_tray_popup:
                           cards: [
                             {
                               type: 'custom:button-card',
-                              show_icon: false,
-                              custom_fields: {
-                                weight_icon: '<ha-icon icon="mdi:weight-gram" style="--mdc-icon-size: 24px; color: teal;"></ha-icon>'
-                              },
+                              icon: 'mdi:weight-gram',
+                              show_icon: true,
                               name: remainingWeightPrimaryHtml,
                               label: 'Remaining',
                               show_label: true,
                               tap_action: openWeightEditorAction,
                               styles: {
                                 grid: [
-                                  { 'grid-template-areas': '"weight_icon" "n" "l"' },
+                                  { 'grid-template-areas': '"i" "n" "l"' },
                                   { 'grid-template-rows': 'min-content min-content min-content' },
                                   { 'justify-items': 'center' },
                                   { 'align-items': 'center' }
@@ -1477,6 +1475,13 @@ ams_tray_popup:
                                   { height: '100%' },
                                   { 'box-sizing': 'border-box' },
                                   { 'justify-content': 'center' }
+                                ],
+                                icon: [
+                                  { color: 'teal' },
+                                  { width: '24px' },
+                                  { height: '24px' },
+                                  { 'margin-top': '2px' },
+                                  { 'margin-bottom': '6px' }
                                 ],
                                 name: [
                                   { color: 'var(--primary-text-color)' },
@@ -1492,15 +1497,7 @@ ams_tray_popup:
                                   { 'font-weight': '400' },
                                   { 'line-height': '1.1' },
                                   { 'text-align': 'center' }
-                                ],
-                                custom_fields: {
-                                  weight_icon: [
-                                    { 'margin-top': '2px' },
-                                    { 'margin-bottom': '6px' },
-                                    { 'line-height': '1' },
-                                    { display: 'block' }
-                                  ]
-                                }
+                                ]
                               }
                             },
                             {
