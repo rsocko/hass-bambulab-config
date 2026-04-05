@@ -707,6 +707,15 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("project_id=a.get('project_id')", content)
         self.assertIn("project_name=(a.get('project_name') if a.get('project_name') is not none else '')", content)
 
+    def test_archive_projection_drops_slot_id_from_filament_slots(self):
+        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        self.assertIn("{% set slot_ns = namespace(values=[]) %}", content)
+        self.assertIn("color=slot.get('color')", content)
+        self.assertIn("type=slot.get('type')", content)
+        self.assertIn("used_g=slot.get('used_g')", content)
+        self.assertIn("filament_slots=slot_ns.values", content)
+        self.assertNotIn("filament_slots=slots", content)
+
     def test_filtered_sensor_uses_object_count_and_separate_print_count(self):
         content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("ns.total_prints = ns.total_prints + 1", content)

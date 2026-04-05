@@ -51,7 +51,15 @@
           {% set ns = namespace(trimmed=[]) %}
           {% for a in raw %}
             {% set extra = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
-            {% set slots = extra.get('filament_slots', []) if extra is mapping else [] %}
+            {% set raw_slots = extra.get('filament_slots', []) if extra is mapping else [] %}
+            {% set slot_ns = namespace(values=[]) %}
+            {% for slot in raw_slots if slot is mapping %}
+              {% set slot_ns.values = slot_ns.values + [dict(
+                color=slot.get('color'),
+                type=slot.get('type'),
+                used_g=slot.get('used_g')
+              )] %}
+            {% endfor %}
             {% set ns.trimmed = ns.trimmed + [dict(
               id=a.get('id'),
               printer_id=a.get('printer_id'),
@@ -63,7 +71,7 @@
               filament_used_grams=a.get('filament_used_grams', 0) | float(0),
               filament_type=a.get('filament_type', ''),
               filament_color=a.get('filament_color', ''),
-              filament_slots=slots,
+              filament_slots=slot_ns.values,
               status=a.get('status', ''),
               started_at=a.get('started_at', ''),
               completed_at=a.get('completed_at'),
