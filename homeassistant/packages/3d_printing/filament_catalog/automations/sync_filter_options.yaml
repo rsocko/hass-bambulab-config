@@ -28,6 +28,12 @@ actions:
 
   - variables:
       filter_options: >-
+        {%- set totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+        {%- if totals_raw is mapping -%}
+          {%- set totals = totals_raw -%}
+        {%- else -%}
+          {%- set totals = {} -%}
+        {%- endif -%}
         {%- set ns = namespace(
           materials=[], vendors=[], colors=[],
           color_families=[], types=[], locations=[],
@@ -87,6 +93,73 @@ actions:
             {%- if inventory_rule_source in ['', 'None', 'none', 'unknown', 'unavailable'] and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
               {%- set inventory_rule_source = state_attr('sensor.spoolman_filament_' ~ filament_id, 'extra_inventory_rule') | default('', true) | string | trim -%}
             {%- endif -%}
+            {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
+            {%- set inventory_rule_aliases = {
+              'not defined': 'Not Defined',
+              'keep in stock': 'Keep In Stock',
+              'maintain backup spool': 'Maintain Backup Spool',
+              'max inventory': 'Max Inventory',
+              'as needed': 'As Needed',
+              'do not stock': 'Do Not Stock'
+            } -%}
+            {%- if inventory_rule_clean in ['', 'none', 'null', 'unknown', 'unavailable'] -%}
+              {%- set v = 'Not Defined' -%}
+            {%- else -%}
+              {%- set v = inventory_rule_aliases.get(inventory_rule_clean, inventory_rule_source | regex_replace('^"|"$', '')) -%}
+            {%- endif -%}
+            {%- if v and v not in ns.inventory_rules -%}
+              {%- set ns.inventory_rules = ns.inventory_rules + [v] -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- for f in states.sensor if f.entity_id is match('^sensor\\.spoolman_filament_\\d+$') -%}
+          {%- set attrs = f.attributes -%}
+          {%- set filament_id = attrs.get('id') -%}
+          {%- set fil_total = totals.get(filament_id) if filament_id is not none else none -%}
+          {%- if fil_total in [none, ''] and filament_id is not none -%}
+            {%- set fil_total = totals.get(filament_id | string) -%}
+          {%- endif -%}
+          {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
+          {%- set filament_weight = states(f.entity_id) | float(0) -%}
+          {%- if filament_count == 0 and filament_weight <= 0 -%}
+            {%- set v = attrs.get('material', '') | string | trim -%}
+            {%- if v and v not in ns.materials -%}
+              {%- set ns.materials = ns.materials + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('vendor_name', '') | string | trim -%}
+            {%- if v and v not in ns.vendors -%}
+              {%- set ns.vendors = ns.vendors + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('extra_primary_color', '') | string | replace('"', '') | trim -%}
+            {%- if v and v not in ns.colors -%}
+              {%- set ns.colors = ns.colors + [v] -%}
+            {%- endif -%}
+            {%- set v = attrs.get('extra_color_family', '') | string | replace('"', '') | trim -%}
+            {%- if v and v not in ns.color_families -%}
+              {%- set ns.color_families = ns.color_families + [v] -%}
+            {%- endif -%}
+            {%- set raw = attrs.get('extra_type_details', []) -%}
+            {%- if raw is string -%}
+              {%- set items = raw | replace('[', '') | replace(']', '') | replace('"', '') -%}
+              {%- for t in items.split(',') -%}
+                {%- set v = t | trim -%}
+                {%- if v and v not in ns.types -%}
+                  {%- set ns.types = ns.types + [v] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- elif raw is iterable -%}
+              {%- for t in raw -%}
+                {%- set v = t | string | trim -%}
+                {%- if v and v not in ns.types -%}
+                  {%- set ns.types = ns.types + [v] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- set v = 'No Spools' -%}
+            {%- if v not in ns.locations -%}
+              {%- set ns.locations = ns.locations + [v] -%}
+            {%- endif -%}
+            {%- set inventory_rule_source = attrs.get('extra_inventory_rule', '') | string | trim -%}
             {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
             {%- set inventory_rule_aliases = {
               'not defined': 'Not Defined',

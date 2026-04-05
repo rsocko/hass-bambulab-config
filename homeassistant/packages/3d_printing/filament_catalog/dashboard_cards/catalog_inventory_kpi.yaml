@@ -5,6 +5,7 @@
 type: custom:config-template-card
 entities:
   - sensor.spoolman_filament_totals
+  - sensor.filament_catalog_filtered_spools
   - input_boolean.filament_catalog_show_insights
 card:
   type: custom:bubble-card
@@ -35,12 +36,10 @@ card:
       sub_button_type: default
       name: >-
         ${(() => {
-          const allSpools = Object.values(states).filter((entry) =>
-            /^sensor\.spoolman_spool_\d+$/.test(entry.entity_id) &&
-            !entry.attributes.archived
+          const allFilaments = Object.values(states).filter((entry) =>
+            /^sensor\.spoolman_filament_\d+$/.test(entry.entity_id)
           );
-          const filamentIds = new Set(allSpools.map((spool) => spool.attributes.filament_id).filter(Boolean));
-          return `${filamentIds.size} filaments`;
+          return `${allFilaments.length} filaments`;
         })()}
       icon: mdi:layers-triple
       show_icon: true

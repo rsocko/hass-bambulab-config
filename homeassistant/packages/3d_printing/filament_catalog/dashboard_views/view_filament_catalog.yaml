@@ -112,10 +112,11 @@ cards:
                     }] %}
                   {% endif %}
                   {% for entity_id in group.get('entities', []) %}
+                    {% set template_name = 'catalog_filament_card' if entity_id is match('^sensor\\.spoolman_filament_\\d+$') else 'catalog_spool_card' %}
                     {% set cards.items = cards.items + [{
                       'entity': entity_id,
                       'type': 'custom:button-card',
-                      'template': 'catalog_spool_card'
+                      'template': template_name
                     }] %}
                   {% endfor %}
                 {% endfor %}
@@ -186,10 +187,11 @@ cards:
                     }] %}
                   {% endif %}
                   {% for entity_id in group.get('entities', []) %}
+                    {% set template_name = 'catalog_filament_card_compact' if entity_id is match('^sensor\\.spoolman_filament_\\d+$') else 'catalog_spool_card_compact' %}
                     {% set cards.items = cards.items + [{
                       'entity': entity_id,
                       'type': 'custom:button-card',
-                      'template': 'catalog_spool_card_compact'
+                      'template': template_name
                     }] %}
                   {% endfor %}
                 {% endfor %}

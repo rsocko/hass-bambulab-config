@@ -94,8 +94,11 @@ homeassistant/packages/3d_printing/
 │   └── dashboard_cards/
 │       └── card_templates/
 │           ├── catalog_spool_card.yaml        ← Compact spool card (button-card template)
+│           ├── catalog_filament_card.yaml     ← Zero-spool filament card (hybrid entry)
 │           ├── catalog_spool_popup.yaml       ← Lightweight popup trigger (~110 lines)
 │           ├── catalog_spool_popup_content.yaml ← Heavy popup display (~221 lines, on-demand)
+│           ├── catalog_filament_popup.yaml    ← Lightweight zero-spool popup trigger
+│           ├── catalog_filament_popup_content.yaml ← Heavy zero-spool popup display
 │           ├── catalog_location_header.yaml   ← Location section header (available for Phase 4)
 │           └── (ams_* templates stay here — shared by both printer view and catalog)
 ```
@@ -186,6 +189,41 @@ totals[filament_id] = {
 }
 ```
 
+### `sensor.spoolman_filament_{id}` Attributes
+
+The Spoolman integration also exposes a filament entity for each filament record under the single `Filaments` device. These entities are the catalog's secondary server-side input for the hybrid datasource.
+
+Relevant attributes observed on live entities:
+
+| Attribute | Type | Use in Catalog |
+|---|---|---|
+| `id` | int | Filament identifier |
+| `name` | string | Base filament name |
+| `vendor_name` | string | Vendor display name |
+| `material` | string | Material grouping/filtering |
+| `price` | float/null | Filament-level price |
+| `weight` | float | Nominal spool weight for cost-per-kg math |
+| `color_hex` | string | Color swatch / color grouping |
+| `extra_color_family` | string | Family filter/grouping |
+| `extra_primary_color` | string | Primary color filter/grouping |
+| `extra_profile_name` | string | Profile display in popup |
+| `extra_type_details` | list/string | Type filter and label text |
+| `extra_purchase_qty` | int | Qty-to-order control |
+| `extra_inventory_rule` | string | Inventory rule helper sync |
+| `entity_picture` | string | Filament image |
+| `registered` | string | Fallback purchase/registration sort key |
+
+The entity state is already pre-computed by the integration as the aggregate remaining grams across all spools of that filament.
+
+### Hybrid Catalog Source
+
+The catalog now intentionally uses a hybrid server-side datasource:
+
+- **Primary path**: `sensor.spoolman_spool_*` entities for normal in-stock / spool-backed catalog cards.
+- **Secondary path**: `sensor.spoolman_filament_*` entities only when `sensor.spoolman_filament_totals` has no matching count for that filament and the filament aggregate state is `0`.
+
+This keeps the view on one `auto-entities` grid while letting the catalog render zero-spool filament records without introducing a second browser-side datasource.
+
 ### Known Location Values (21 locations from Spoolman)
 
 Ordered by display preference:
@@ -198,8 +236,9 @@ Ordered by display preference:
 | **Closet racks** | `Closet Rack 1`, `Closet Rack 2`, `Closet Rack 3`, `Closet Rack 4` |
 | **Closet under-racks** | `Closet Under Rack 1`, `Closet Under Rack 2`, `Closet Under Rack 3`, `Closet Under Rack 4` |
 | **Storage** | `Cereal Dry Box - Closet` |
+| **Synthetic hybrid group** | `No Spools` |
 
-> The view dynamically discovers all locations from spool entities. The preferred display order is defined in the view; unknown/new locations appear at the end.
+> The view dynamically discovers locations from active spool entities and also injects a synthetic `No Spools` location when zero-spool filament entities are present in the hybrid datasource.
 
 ### `select.spoolman_spool_{id}_location` — Location Select Entities
 
@@ -540,6 +579,7 @@ Triggers:
 
 Behavior:
 - Single pass through all non-archived `sensor.spoolman_spool_*` entities
+- Supplemental pass through zero-spool `sensor.spoolman_filament_*` entities so filament-only metadata can appear in dropdowns and the synthetic `No Spools` location can be offered when needed
 - Collects unique values for each filter dimension (Material, Vendor, Primary Color, Color Family, Type, Location, Spool Type, Clip Type), and injects a `None` sentinel for Clip Type to target spools where no clip type is defined
 - Strips JSON outer quotes from `filament_extra_primary_color` and `filament_extra_color_family`
 - Flattens the `filament_extra_type_details` JSON array into individual type values
@@ -551,15 +591,15 @@ This approach avoids constant recomputation — the automation only runs when sp
 ##### Template Sensor: `sensor.filament_catalog_filtered_spools`
 
 Jinja2 template that:
-1. Iterates all `sensor.spoolman_spool_*` entities
-2. Excludes `archived = true`
-3. Applies each active dropdown filter (skip if `All`), including Spool Type and Clip Type
+1. Iterates all `sensor.spoolman_spool_*` entities and applies the existing spool-backed logic
+2. Adds zero-spool `sensor.spoolman_filament_*` entities when the totals helper has no spool count for that filament and the filament aggregate state is `0`
+3. Applies each active dropdown filter (skip if `All`), including hybrid-safe handling for fields that only exist on spool entities
 4. Applies boolean filters such as Qty to Purchase and alert toggles when enabled
-5. Applies text search (case-insensitive match on `friendly_name`, `filament_name`, `filament_vendor_name`, `filament_extra_primary_color`, `filament_extra_color_family`)
+5. Applies text search across spool-backed and filament-backed names/vendor/color metadata
 6. Outputs JSON list of matching entity IDs as `entity_ids_json` attribute
-7. Provides `active_filter_summary` attribute listing active filter names
+7. Provides grouped output for the single-grid view and `active_filter_summary` for the filter bar
 
-The view's `auto-entities` references this sensor to decide which spools to display.
+The view's `auto-entities` references this sensor to decide which catalog entities to display. Spool entities render spool cards; zero-spool filament entities render dedicated zero-spool filament cards.
 
 ##### Filter Bar Design
 ```
@@ -702,6 +742,12 @@ New `input_select.filament_catalog_sort`:
 
 **Grouping approach**: Server-side grouped output in `sensor.filament_catalog_filtered_spools` → `grouped_entity_ids_json` attribute. Each group is `{name, count, entities}`. The auto-entities filter template iterates groups and injects `catalog_group_header` cards at boundaries. Groups span all grid columns via `card_mod: style: ':host { grid-column: 1 / -1 !important; }'`.
 
+**Hybrid card branching**: The grid still uses one `auto-entities` instance. It branches per entity ID at render time:
+- `sensor.spoolman_spool_*` → `catalog_spool_card` / `catalog_spool_card_compact`
+- `sensor.spoolman_filament_*` zero-spool entries → `catalog_filament_card` / `catalog_filament_card_compact`
+
+This preserves the single-grid performance model while making zero-spool filament records first-class catalog entries.
+
 **Sorting approach**: Two-pass stable sort in the template sensor: (1) sort by `sk` (sort key from selected sort option, with direction), (2) stable sort by `gv` (group attribute). This yields primary group ordering with secondary sort within groups.
 
 **"All" tab**: Flat sorted list, no group headers.
@@ -835,9 +881,9 @@ The data quality checks from the original design are all implemented:
 | **Missing UUID** | ✅ In alert chart (expanded beyond original design) | Bambu Lab spools only |
 | **Tag ≠ UUID** | ✅ In alert chart (expanded beyond original design) | Cross-checks tag and UUID consistency |
 | **Missing Profile** | ✅ In alert chart (expanded beyond original design) | Bambu Lab spools only |
-| **Orphan Filaments** | ⏳ Deferred to future phase | See note below |
+| **Orphan Filaments** | ✅ Implemented in hybrid catalog datasource | See note below |
 
-> **Orphan Filaments ([#118](https://github.com/rsocko/hass-bambulab-config/issues/118))**: Deferred from Phase 5A. This check requires detecting filament definitions with zero associated spools, but the Spoolman HA integration only creates entities for spools (`sensor.spoolman_spool_*`), not for filaments. The current catalog UI renders spool cards, including the shipped "By Filament" grouped spool view. Showing an orphan filament, which has no spool entity, would still require a separate filament-level data source and card template.
+> **Orphan Filaments ([#118](https://github.com/rsocko/hass-bambulab-config/issues/118))**: The catalog datasource now renders zero-spool filament records by using `sensor.spoolman_filament_*` as a secondary server-side source when the totals helper has no spool count for that filament and the filament aggregate state is `0`. This solves the browsing/card/popup problem without adding a second client-side datasource. A future follow-up can still add a dedicated alert-chart segment if orphan-filament counts need explicit analytics treatment.
 
 > **Scope decision**: AMS vs. Spoolman weight drift is removed from Filament Catalog quality checks. This signal is more actionable on the main dashboard while a spool is actively in AMS, and provides limited value in static catalog analytics.
 

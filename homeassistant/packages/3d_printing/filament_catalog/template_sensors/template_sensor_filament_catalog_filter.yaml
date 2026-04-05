@@ -15,7 +15,10 @@
         {% endif %}
       attributes:
         # ================================================================
-        # Primary computation: filter, sort, and group all spools.
+        # Primary computation: filter, sort, and group all catalog entries.
+        # This is intentionally hybrid and server-side:
+        # - spool entities for in-stock / historical spool cards
+        # - filament entities for zero-spool filament records only
         # Output: list of {name, count, entities} group objects.
         # For non-grouped tabs (All), a single group with name "".
         # ================================================================
@@ -46,7 +49,12 @@
           {%- set filter_missing_desiccant = is_state('input_boolean.filament_catalog_filter_missing_desiccant', 'on') -%}
           {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
           {%- set sort_option = states('input_select.filament_catalog_sort') | default('Name (A-Z)', true) -%}
-          {%- set totals = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+          {%- set totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+          {%- if totals_raw is mapping -%}
+            {%- set totals = totals_raw -%}
+          {%- else -%}
+            {%- set totals = {} -%}
+          {%- endif -%}
           {%- set quality_raw = state_attr('sensor.filament_catalog_metrics', 'data_quality_json') | default('{}', true) -%}
           {%- if quality_raw is string -%}
             {%- set quality_data = quality_raw | from_json -%}
@@ -96,6 +104,10 @@
           {%- set group_attr = group_attr_map.get(tab, '') -%}
           {%- set sort_reverse = sort_option in ['Name (Z-A)', 'Weight (High to Low)', 'Last Used (Recent)', 'Purchase Date (Newest)', 'Desiccant Filled Date (Newest)', 'Qty to Purchase (Descending)', 'Cost (High to Low)'] -%}
           {%- set ns = namespace(matches=[]) -%}
+
+           {# -----------------------------------------------------------------
+             Spool-backed catalog entries
+             ----------------------------------------------------------------- #}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
             {%- set attrs = spool.attributes -%}
             {%- set archived_raw = attrs.get('archived', false) -%}
@@ -309,6 +321,163 @@
                   {%- set sk = (filament_name if filament_name else friendly_name) | lower -%}
                 {%- endif -%}
                 {%- set ns.matches = ns.matches + [{'eid': spool.entity_id, 'gv': gv, 'sk': sk}] -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+
+          {# -----------------------------------------------------------------
+             Filament-backed catalog entries for zero-spool filament records only.
+             We treat a filament as zero-spool when it has no totals entry/count,
+             while still using the filament entity as the canonical source.
+             ----------------------------------------------------------------- #}
+          {%- for filament in states.sensor if filament.entity_id is match('^sensor\\.spoolman_filament_\\d+$') -%}
+            {%- set attrs = filament.attributes -%}
+            {%- set filament_id = attrs.get('id') -%}
+            {%- set fil_total = totals.get(filament_id) if filament_id is not none else none -%}
+            {%- if fil_total in [none, ''] and filament_id is not none -%}
+              {%- set fil_total = totals.get(filament_id | string) -%}
+            {%- endif -%}
+            {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
+            {%- set current_weight = states(filament.entity_id) | float(0) -%}
+            {%- if filament_count == 0 and current_weight <= 0 -%}
+              {%- set material = attrs.get('material', '') | string -%}
+              {%- set vendor = attrs.get('vendor_name', '') | string -%}
+              {%- set friendly_name = attrs.get('friendly_name', filament.name) | string -%}
+              {%- set filament_name = attrs.get('name', '') | string -%}
+              {%- set filament_display_name = filament_name if filament_name not in ['', 'unknown', 'unavailable', 'None', 'none'] else friendly_name -%}
+              {%- set filament_group_parts = namespace(items=[]) -%}
+              {%- if vendor not in ['', 'unknown', 'unavailable', 'None', 'none'] -%}
+                {%- set filament_group_parts.items = filament_group_parts.items + [vendor] -%}
+              {%- endif -%}
+              {%- if material not in ['', 'unknown', 'unavailable', 'None', 'none'] -%}
+                {%- set filament_group_parts.items = filament_group_parts.items + [material] -%}
+              {%- endif -%}
+              {%- if filament_display_name not in ['', 'unknown', 'unavailable', 'None', 'none'] and filament_display_name not in filament_group_parts.items -%}
+                {%- set filament_group_parts.items = filament_group_parts.items + [filament_display_name] -%}
+              {%- endif -%}
+              {%- set filament_group_name = filament_group_parts.items | join(' • ') if filament_group_parts.items | count > 0 else 'Unknown' -%}
+              {%- set location = 'No Spools' -%}
+              {%- set primary_color = attrs.get('extra_primary_color', '') | string | replace('"', '') | trim -%}
+              {%- set spool_hex = attrs.get('color_hex', '') | string | replace('#', '') | lower | trim -%}
+              {%- set color_family = attrs.get('extra_color_family', '') | string | replace('"', '') | trim -%}
+              {%- set type_raw = attrs.get('extra_type_details', []) -%}
+              {%- if type_raw is string -%}
+                {%- set type_details = type_raw | replace('[', '') | replace(']', '') | replace('"', '') | lower -%}
+              {%- elif type_raw is iterable -%}
+                {%- set type_details = type_raw | join(', ') | lower -%}
+              {%- else -%}
+                {%- set type_details = '' -%}
+              {%- endif -%}
+              {%- set inventory_rule_source = attrs.get('extra_inventory_rule', '') | string | trim -%}
+              {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
+              {%- set inventory_rule_aliases = {
+                'not defined': 'Not Defined',
+                'keep in stock': 'Keep In Stock',
+                'maintain backup spool': 'Maintain Backup Spool',
+                'max inventory': 'Max Inventory',
+                'as needed': 'As Needed',
+                'do not stock': 'Do Not Stock'
+              } -%}
+              {%- if inventory_rule_clean in ['', 'none', 'null', 'unknown', 'unavailable'] -%}
+                {%- set inventory_rule = 'Not Defined' -%}
+              {%- else -%}
+                {%- set inventory_rule = inventory_rule_aliases.get(inventory_rule_clean, inventory_rule_source | regex_replace('^"|"$', '')) -%}
+              {%- endif -%}
+              {%- set purchase_qty = attrs.get('extra_purchase_qty', 0) | int(0) -%}
+              {%- set has_qty_to_purchase = purchase_qty > 0 -%}
+              {%- set is_low_stock = current_weight < stock_threshold -%}
+              {%- set is_nearly_empty = current_weight < 50 -%}
+              {%- set filament_agg_weight = current_weight -%}
+              {%- set is_needs_repurchase = current_weight < stock_threshold -%}
+              {%- set purchase_date_raw = attrs.get('registered', '') -%}
+              {%- set purchase_date_ts = as_timestamp(purchase_date_raw, 0) | float(0) if purchase_date_raw not in [none, '', 'unknown', 'unavailable'] else 0 -%}
+              {%- set search_blob = (friendly_name ~ ' ' ~ filament_name ~ ' ' ~ vendor ~ ' ' ~ primary_color ~ ' ' ~ color_family) | lower -%}
+              {%- set matches_material = filter_material == 'All' or material | lower == filter_material | lower -%}
+              {%- set matches_vendor = filter_vendor == 'All' or vendor | lower == filter_vendor | lower -%}
+              {%- set matches_color = filter_color == 'All' or primary_color | lower == filter_color | lower -%}
+              {%- set matches_color_family = filter_color_family == 'All' or color_family | lower == filter_color_family | lower -%}
+              {%- set matches_type = filter_type == 'All' or filter_type | lower in type_details -%}
+              {%- set matches_location = filter_location == 'All' or filter_location == location -%}
+              {%- set matches_spool_type = filter_spool_type == 'All' -%}
+              {%- set matches_clip_type = filter_clip_type == 'All' -%}
+              {%- set matches_inventory_rule = filter_inventory_rule == 'All' or inventory_rule == filter_inventory_rule -%}
+              {%- set matches_qty_to_purchase = (not filter_qty_to_purchase) or has_qty_to_purchase -%}
+              {%- set matches_sealed = filter_sealed == 'All' -%}
+              {%- set matches_search = search_text == '' or search_text in search_blob -%}
+              {%- set matches_data_quality = filter_data_quality == 'All' -%}
+              {%- set matches_low_stock = filter_stock_level not in ['Low Stock', 'Low Stock (by Filament)'] or current_weight < stock_threshold -%}
+              {%- set matches_desiccant = filter_desiccant == 'All' -%}
+              {%- set matches_nearly_empty = (not filter_nearly_empty) or is_nearly_empty -%}
+              {%- set matches_needs_repurchase = (not filter_needs_repurchase) or is_needs_repurchase -%}
+              {%- set matches_needs_drying = not filter_needs_drying -%}
+              {%- set matches_stale = not filter_stale -%}
+              {%- set matches_missing_desiccant = not filter_missing_desiccant -%}
+              {%- if matches_material and matches_vendor and matches_color and matches_color_family and matches_type and matches_location and matches_spool_type and matches_clip_type and matches_inventory_rule and matches_qty_to_purchase and matches_sealed and matches_search and matches_data_quality and matches_desiccant and matches_low_stock and matches_nearly_empty and matches_needs_repurchase and matches_needs_drying and matches_stale and matches_missing_desiccant -%}
+                {%- if group_attr == 'location' -%}
+                  {%- set gv = location -%}
+                {%- elif group_attr == 'filament_material' -%}
+                  {%- set gv = material if material else 'Unknown' -%}
+                {%- elif group_attr == 'filament_vendor_name' -%}
+                  {%- set gv = vendor if vendor else 'Unknown' -%}
+                {%- elif group_attr == 'filament_group_name' -%}
+                  {%- set gv = filament_group_name -%}
+                {%- elif group_attr == 'filament_extra_color_family' -%}
+                  {%- set gv = color_family if color_family else 'Unknown' -%}
+                {%- elif group_attr == 'filament_color_hex' -%}
+                  {%- set gv = ('#' ~ spool_hex[0:6]) if spool_hex | length >= 6 else 'Unknown' -%}
+                {%- else -%}
+                  {%- set gv = '' -%}
+                {%- endif -%}
+                {%- if sort_option in ['Name (A-Z)', 'Name (Z-A)'] -%}
+                  {%- set sk = filament_display_name | lower -%}
+                {%- elif sort_option in ['Weight (Low to High)', 'Weight (High to Low)'] -%}
+                  {%- set sk = current_weight -%}
+                {%- elif sort_option in ['Last Used (Recent)', 'Last Used (Oldest)'] -%}
+                  {%- set sk = 0.0 -%}
+                {%- elif sort_option in ['Purchase Date (Newest)', 'Purchase Date (Oldest)'] -%}
+                  {%- set sk = purchase_date_ts -%}
+                {%- elif sort_option in ['Desiccant Filled Date (Newest)', 'Desiccant Filled Date (Oldest)'] -%}
+                  {%- set sk = 0.0 -%}
+                {%- elif sort_option in ['Qty to Purchase (Ascending)', 'Qty to Purchase (Descending)'] -%}
+                  {%- set sk = purchase_qty -%}
+                {%- elif sort_option in ['Cost (High to Low)', 'Cost (Low to High)'] -%}
+                  {%- set sk = (attrs.get('price', 0) or 0) | float(0) -%}
+                {%- elif sort_option == 'Vendor then Name' -%}
+                  {%- set sk = (vendor ~ ' ' ~ filament_display_name) | lower -%}
+                {%- elif sort_option == 'Hue' -%}
+                  {%- if spool_hex | length >= 6 -%}
+                    {%- set r_f = (spool_hex[0:2] | int(0, 16)) / 255.0 -%}
+                    {%- set g_f = (spool_hex[2:4] | int(0, 16)) / 255.0 -%}
+                    {%- set b_f = (spool_hex[4:6] | int(0, 16)) / 255.0 -%}
+                    {%- set cmax = [r_f, g_f, b_f] | max -%}
+                    {%- set cmin = [r_f, g_f, b_f] | min -%}
+                    {%- set delta = cmax - cmin -%}
+                    {%- if delta < 0.001 -%}
+                      {%- set hue_val = 0.0 -%}
+                      {%- set sat_val = 0.0 -%}
+                    {%- elif (cmax - r_f) | abs < 0.001 -%}
+                      {%- set hue_val = 60.0 * (((g_f - b_f) / delta) % 6) -%}
+                      {%- set sat_val = delta / cmax -%}
+                    {%- elif (cmax - g_f) | abs < 0.001 -%}
+                      {%- set hue_val = 60.0 * (((b_f - r_f) / delta) + 2) -%}
+                      {%- set sat_val = delta / cmax -%}
+                    {%- else -%}
+                      {%- set hue_val = 60.0 * (((r_f - g_f) / delta) + 4) -%}
+                      {%- set sat_val = delta / cmax -%}
+                    {%- endif -%}
+                    {%- set hue_norm = hue_val if hue_val >= 0 else hue_val + 360.0 -%}
+                    {%- if sat_val < 0.08 -%}
+                      {%- set sk = 361.0 + cmax -%}
+                    {%- else -%}
+                      {%- set sk = hue_norm -%}
+                    {%- endif -%}
+                  {%- else -%}
+                    {%- set sk = 999.0 -%}
+                  {%- endif -%}
+                {%- else -%}
+                  {%- set sk = filament_display_name | lower -%}
+                {%- endif -%}
+                {%- set ns.matches = ns.matches + [{'eid': filament.entity_id, 'gv': gv, 'sk': sk}] -%}
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}

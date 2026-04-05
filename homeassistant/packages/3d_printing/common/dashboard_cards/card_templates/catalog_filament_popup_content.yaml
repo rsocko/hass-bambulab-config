@@ -1,0 +1,100 @@
+# catalog_filament_popup_content.yaml
+# Heavy display template for the hybrid catalog popup when a filament has zero spools.
+
+catalog_filament_popup_content:
+  show_icon: false
+  show_name: false
+  show_state: false
+  styles:
+    card:
+      - background: none
+      - border: none
+      - box-shadow: none
+      - padding: 0
+      - margin: 0
+    grid:
+      - grid-template-areas: '"content"'
+      - grid-template-columns: 1fr
+    custom_fields:
+      content:
+        - padding: 0
+        - margin: 0
+  custom_fields:
+    content: |
+      [[[ 
+        const filamentId = entity?.attributes?.id;
+        const filamentName = entity?.attributes?.name || entity?.attributes?.friendly_name || 'Unknown Filament';
+        const friendlyName = entity?.attributes?.friendly_name || filamentName;
+        const material = entity?.attributes?.material || 'Unknown';
+        const vendor = entity?.attributes?.vendor_name || 'Unknown';
+        const price = entity?.attributes?.price;
+        const nominalWeight = Number(entity?.attributes?.weight || 1000);
+        const colorHexRaw = String(entity?.attributes?.color_hex || '888888').replace('#', '');
+        const colorHex = '#' + colorHexRaw;
+        const r = parseInt(colorHexRaw.substring(0, 2), 16) || 128;
+        const g = parseInt(colorHexRaw.substring(2, 4), 16) || 128;
+        const b = parseInt(colorHexRaw.substring(4, 6), 16) || 128;
+        const luminance = (r * 299 + g * 587 + b * 114) / 1000;
+        const textColor = luminance > 128 ? '#000' : '#fff';
+        const borderColor = luminance > 128 ? '#333' : '#fff';
+        const typeRaw = entity?.attributes?.extra_type_details || [];
+        const typeList = Array.isArray(typeRaw)
+          ? typeRaw
+          : String(typeRaw || '').replace(/[\[\]"]/g, '').split(',').map((item) => item.trim()).filter(Boolean);
+        const colorFamily = entity?.attributes?.extra_color_family || 'Unknown';
+        const primaryColor = entity?.attributes?.extra_primary_color || 'Unknown';
+        const profileName = entity?.attributes?.extra_profile_name || '';
+        const totalWeight = Number.parseFloat(entity?.state) || 0;
+        const costPerKg = price && nominalWeight > 0 ? ((Number(price) / nominalWeight) * 1000) : null;
+        const articleNumber = entity?.attributes?.article_number || '';
+        const extTemp = entity?.attributes?.settings_extruder_temp;
+        const bedTemp = entity?.attributes?.settings_bed_temp;
+        const pill = (icon, text, color) => '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;line-height:1;"><ha-icon icon="' + icon + '" style="--mdc-icon-size:16px;color:' + color + ';display:flex;"></ha-icon>' + text + '</span>';
+
+        return `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="background:${colorHex};border:3px solid ${borderColor};border-radius:10px;padding:14px 16px;user-select:text;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:12px;text-align:left;">
+                ${entity?.attributes?.entity_picture ? '<img src="' + entity.attributes.entity_picture + '" style="width:48px;height:48px;border-radius:50%;border:2px solid ' + borderColor + ';flex:0 0 auto;">' : ''}
+                <div style="min-width:0;display:flex;flex-direction:column;gap:2px;">
+                  <div style="font-size:18px;font-weight:700;color:${textColor};">${friendlyName}</div>
+                  <div style="font-size:12px;color:${textColor};opacity:0.88;line-height:1.4;">Filament #${filamentId} · No Spools</div>
+                  <div style="font-size:12px;color:${textColor};opacity:0.88;line-height:1.4;">${colorHex.toUpperCase()} · RGB(${r}, ${g}, ${b})</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:center;">
+              <span style="display:inline-flex;align-items:center;justify-content:center;padding:4px 12px;border-radius:999px;background:rgba(244,67,54,0.14);color:#f44336;font-size:11px;font-weight:700;letter-spacing:0.05em;">ZERO SPOOLS</span>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${pill('mdi:texture-box', 'Material: ' + material, '#FF9800')}
+              ${pill('mdi:factory', 'Vendor: ' + vendor, '#9C27B0')}
+              ${pill('mdi:map-marker-off', 'Location: No Spools', '#f44336')}
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${pill('mdi:palette-swatch-variant', 'Family: ' + colorFamily, '#3F51B5')}
+              ${pill('mdi:circle', 'Primary: ' + primaryColor, colorHex)}
+              ${typeList.length > 0 ? pill('mdi:tag-multiple', 'Type: ' + typeList.join(', '), '#4CAF50') : ''}
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+              ${price ? pill('mdi:currency-usd', '$' + Number(price).toFixed(2), '#4CAF50') : ''}
+              ${costPerKg !== null ? pill('mdi:cash-100', '$' + costPerKg.toFixed(2) + '/kg', '#26A69A') : ''}
+              ${articleNumber ? pill('mdi:barcode', articleNumber, '#78909C') : ''}
+            </div>
+
+            ${profileName || extTemp || bedTemp ? `
+              <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+                ${pill('mdi:printer-3d-nozzle', (profileName ? profileName + ' · ' : '') + (extTemp ? extTemp + 'C' : '?') + ' / ' + (bedTemp ? bedTemp + 'C' : '?'), '#607D8B')}
+              </div>
+            ` : ''}
+
+            <div style="padding:10px 12px;border-radius:10px;background:rgba(244,67,54,0.08);border:1px solid rgba(244,67,54,0.18);font-size:12px;line-height:1.45;color:var(--primary-text-color);">
+              This catalog item is being rendered from the Spoolman filament entity because there are currently no spool entities for this filament. The filament aggregate weight is ${totalWeight.toFixed(1)} g and the current spool count is 0.
+            </div>
+          </div>
+        `;
+      ]]]
