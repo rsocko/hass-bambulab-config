@@ -90,12 +90,6 @@ catalog_filament_popup_content:
             </div>
 
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
-              ${pill('mdi:playlist-check', 'Rule: ' + inventoryRule, '#546E7A')}
-              ${pill('mdi:scale', inventorySummary, '#546E7A')}
-              ${purchaseNeed ? pill('mdi:cart-alert', purchaseQty > 0 ? 'Buy ' + purchaseQty : (inventoryRule === 'Maintain Backup Spool' ? 'Backup Low' : 'Needs Purchase'), ruleShortage ? '#C62828' : '#EF6C00') : ''}
-            </div>
-
-            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
               ${pill('mdi:texture-box', 'Material: ' + material, '#FF9800')}
               ${pill('mdi:factory', 'Vendor: ' + vendor, '#9C27B0')}
               ${pill(spoolCount === 0 ? 'mdi:map-marker-off' : 'mdi:layers-triple', spoolCount === 0 ? 'Location: No Spools' : 'Mode: Filament Summary', spoolCount === 0 ? '#f44336' : '#1E88E5')}

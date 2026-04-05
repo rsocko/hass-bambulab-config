@@ -139,7 +139,7 @@ catalog_spool_popup_content:
             ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:shopping" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + purchaseText + '</span>'
             : '';
           const priceHTML = price
-            ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:16px;color:#FFC107;"></ha-icon>' + Number(price).toFixed(2) + '</span>'
+                ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:16px;color:#4CAF50;"></ha-icon>' + Number(price).toFixed(2) + '</span>'
             : '';
 
         // Print settings
@@ -164,10 +164,7 @@ catalog_spool_popup_content:
         };
 
         const purchasePills = [
-          archived ? pill('mdi:archive', 'Archived Spool', '#607D8B') : '',
-          pill('mdi:playlist-check', 'Rule: ' + inventoryRule, '#546E7A'),
-          ft ? pill('mdi:scale', totalWt, '#546E7A') : '',
-          purchaseNeed ? pill('mdi:cart-alert', purchaseQty > 0 ? 'Buy ' + purchaseQty : (inventoryRule === 'Maintain Backup Spool' ? 'Backup Low' : 'Needs Purchase'), ruleShortage ? '#C62828' : '#EF6C00') : ''
+           archived ? pill('mdi:archive', 'Archived Spool', '#607D8B') : ''
         ].filter(Boolean).join('');
 
         return `

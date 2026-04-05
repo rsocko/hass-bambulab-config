@@ -1426,7 +1426,7 @@ ams_tray_popup:
                   alignment: 'center',
                   chips: [
                     ...(purchaseText ? [{ type: 'template', icon: 'mdi:shopping', icon_color: 'amber', content: purchaseText }] : []),
-                    ...(priceText ? [{ type: 'template', icon: 'mdi:currency-usd', icon_color: 'amber', content: priceText }] : [])
+                    ...(priceText ? [{ type: 'template', icon: 'mdi:currency-usd', icon_color: 'green', content: priceText }] : [])
                   ]
                 }] : []),
                 ...(usedNonFirstMultiHex ? [
