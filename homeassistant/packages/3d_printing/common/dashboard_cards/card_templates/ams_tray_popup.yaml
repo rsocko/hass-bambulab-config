@@ -1458,6 +1458,8 @@ ams_tray_popup:
                               type: 'custom:button-card',
                               icon: 'mdi:weight-gram',
                               show_icon: true,
+                              show_name: true,
+                              show_state: false,
                               name: remainingWeightPrimaryHtml,
                               label: 'Remaining',
                               show_label: true,
@@ -1468,6 +1470,12 @@ ams_tray_popup:
                                   { 'grid-template-rows': 'min-content min-content min-content' },
                                   { 'justify-items': 'center' },
                                   { 'align-items': 'center' }
+                                ],
+                                img_cell: [
+                                  { 'justify-content': 'center' },
+                                  { 'align-items': 'center' },
+                                  { width: '100%' },
+                                  { 'line-height': '1' }
                                 ],
                                 card: [
                                   { padding: '12px 8px 10px' },
