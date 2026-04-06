@@ -193,7 +193,7 @@
                   Archive status: {{ archive_status if archive_status != '' else 'unknown' }}
                   Trigger: {{ trigger_id }}
 
-                  Configure the Bambuddy webhook for exact archive_id binding, or re-run
+                  Review the Bambuddy archive binding for this print, or re-run
                   enrichment manually after confirming the correct archive.
             - stop: Archive binding validation failed.
 

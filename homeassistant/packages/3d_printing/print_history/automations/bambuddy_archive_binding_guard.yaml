@@ -1,5 +1,5 @@
 # Native runtime guard for archive binding lifecycle.
-# Clears stale binding state at print start/end when webhook exact binding is missing,
+# Clears stale binding state at print start/end, kicks off native archive polling,
 # and surfaces warn/repair notifications from the health sensor.
 - alias: "Print History - Archive Binding Runtime Guard"
   id: bambuddy_archive_binding_runtime_guard
@@ -47,7 +47,7 @@
               target:
                 entity_id: input_text.bambuddy_archive_binding_source
               data:
-                value: "awaiting_webhook"
+                value: "awaiting_archive_lookup"
             - action: input_text.set_value
               target:
                 entity_id: input_text.bambuddy_archive_binding_task
@@ -88,7 +88,15 @@
                 name: Print History
                 message: >-
                   Cleared stale archive runtime state at native print start.
-                  Awaiting exact Bambuddy webhook binding for '{{ current_task_name }}'.
+                  Waiting for Bambuddy archive lookup for '{{ current_task_name }}'.
+            - delay:
+                seconds: 10
+            - condition: template
+              value_template: >-
+                {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim
+                   in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init']
+                   and states('input_text.bambuddy_current_archive_id') | string | trim == '' }}
+            - action: script.resolve_current_archive_id
 
         - conditions:
             - condition: template
