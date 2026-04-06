@@ -38,9 +38,17 @@ resolve_current_archive_id:
 
           - variables:
               response_ok: "{{ api_response is defined and api_response.status == 200 }}"
-              archives: >-
+              archives_raw: >-
                 {% if response_ok %}
                   {{ api_response.content | default([]) }}
+                {% else %}
+                  []
+                {% endif %}
+              archives: >-
+                {% if archives_raw is string and archives_raw | trim not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+                  {{ archives_raw | from_json([]) }}
+                {% elif archives_raw is list %}
+                  {{ archives_raw }}
                 {% else %}
                   []
                 {% endif %}
