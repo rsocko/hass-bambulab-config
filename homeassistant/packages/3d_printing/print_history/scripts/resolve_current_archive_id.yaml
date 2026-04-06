@@ -52,7 +52,7 @@ resolve_current_archive_id:
                 {% else %}
                   []
                 {% endif %}
-              selection_json: >-
+              selection: >-
                 {% set task = normalized_task_name %}
                 {% set configured_printer = configured_printer_id %}
                 {% set ns = namespace(candidates=[], exact=[], loose=[]) %}
@@ -120,13 +120,7 @@ resolve_current_archive_id:
                   'matched_display_name': chosen.display_name if chosen is not none else '',
                   'match_kind': chosen.match_kind if chosen is not none else 'none',
                   'reason': reason
-                } | tojson }}
-              selection: >-
-                {% if selection_json | string | trim != '' %}
-                  {{ selection_json | from_json }}
-                {% else %}
-                  {{ {} }}
-                {% endif %}
+                } | tojson | from_json({}) }}
               matched_id: "{{ selection.matched_id | default('', true) | string | trim }}"
               matched_display_name: "{{ selection.matched_display_name | default('', true) | string | trim }}"
               match_kind: "{{ selection.match_kind | default('none', true) | string | lower | trim }}"
