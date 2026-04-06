@@ -29,6 +29,8 @@ card:
       show_name: true
       show_state: false
       show_background: true
+      state_background: false
+      state_color: false
       fill_width: false
       tap_action:
         action: none
@@ -48,6 +50,8 @@ card:
       show_name: true
       show_state: false
       show_background: true
+      state_background: false
+      state_color: false
       fill_width: false
       tap_action:
         action: none
@@ -67,6 +71,8 @@ card:
       show_name: true
       show_state: false
       show_background: true
+      state_background: false
+      state_color: false
       fill_width: false
       tap_action:
         action: none
@@ -88,6 +94,8 @@ card:
       show_name: true
       show_state: false
       show_background: true
+      state_background: false
+      state_color: false
       fill_width: false
       tap_action:
         action: none
@@ -118,6 +126,20 @@ card:
       width: auto !important;
       min-width: 0 !important;
       padding: 0 10px !important;
+    }
+    .bubble-sub-button:nth-child(2),
+    .bubble-sub-button:nth-child(3),
+    .bubble-sub-button:nth-child(4),
+    .bubble-sub-button:nth-child(5) {
+      background-color: color-mix(in srgb, var(--card-background-color) 88%, transparent) !important;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--divider-color) 78%, transparent) !important;
+      color: var(--primary-text-color) !important;
+    }
+    .bubble-sub-button:nth-child(2) .bubble-sub-button-text,
+    .bubble-sub-button:nth-child(3) .bubble-sub-button-text,
+    .bubble-sub-button:nth-child(4) .bubble-sub-button-text,
+    .bubble-sub-button:nth-child(5) .bubble-sub-button-text {
+      color: var(--primary-text-color) !important;
     }
     .bubble-sub-button-icon {
       --mdc-icon-size: 16px !important;
