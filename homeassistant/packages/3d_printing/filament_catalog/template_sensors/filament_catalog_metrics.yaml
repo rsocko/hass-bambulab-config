@@ -20,6 +20,31 @@
         {{ ns.total }}
       attributes:
         generated_at: "{{ now().isoformat() }}"
+        inventory_summary_json: >-
+          {%- set summary = namespace(spool_count=0, filament_count=0, total_weight=0.0, priced_cost_total=0.0, priced_spool_count=0) -%}
+          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+            {%- set archived_raw = spool.attributes.get('archived', false) -%}
+            {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
+            {%- if not archived -%}
+              {%- set summary.spool_count = summary.spool_count + 1 -%}
+              {%- set summary.total_weight = summary.total_weight + (spool.attributes.get('remaining_weight', 0) | float(0)) -%}
+              {%- set price = (spool.attributes.get('price', spool.attributes.get('filament_price', 0)) or 0) | float(0) -%}
+              {%- set initial_weight = spool.attributes.get('initial_weight', 1000) | float(0) -%}
+              {%- if price > 0 and initial_weight > 0 -%}
+                {%- set summary.priced_cost_total = summary.priced_cost_total + ((price / initial_weight) * 1000) -%}
+                {%- set summary.priced_spool_count = summary.priced_spool_count + 1 -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- for filament in states.sensor if filament.entity_id is match('^sensor\.spoolman_filament_\d+$') -%}
+            {%- set summary.filament_count = summary.filament_count + 1 -%}
+          {%- endfor -%}
+          {{ {
+            'spool_count': summary.spool_count,
+            'filament_count': summary.filament_count,
+            'total_weight_grams': summary.total_weight | round(1),
+            'average_cost_per_kg': ((summary.priced_cost_total / summary.priced_spool_count) | round(2)) if summary.priced_spool_count > 0 else none
+          } | tojson }}
         weight_by_material_json: >-
           {%- set buckets = namespace(data={}) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}

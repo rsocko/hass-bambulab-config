@@ -524,7 +524,7 @@ Key design choices:
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-Computed via JS in a `custom:button-card` that iterates all `sensor.spoolman_spool_*` entities. Shows total spools (excluding archived), unique filament count, total remaining weight, and average cost per kg across spools with known prices.
+Computed from the server-side `sensor.filament_catalog_metrics` summary attribute so the KPI bar does not scan the full Home Assistant state map on every dashboard render. Shows total active spools, total filament records, total remaining weight, and average cost per kg across priced spools.
 
 #### Files Created/Modified
 

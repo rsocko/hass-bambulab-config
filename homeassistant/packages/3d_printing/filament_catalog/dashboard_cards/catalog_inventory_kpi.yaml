@@ -4,25 +4,25 @@
 
 type: custom:config-template-card
 entities:
-  - sensor.spoolman_filament_totals
-  - sensor.filament_catalog_filtered_spools
+  - sensor.filament_catalog_metrics
   - input_boolean.filament_catalog_show_insights
 card:
   type: custom:bubble-card
   card_type: separator
   name: Filament Catalog
   icon: fapro:filament-2
-  entity: sensor.spoolman_filament_totals
+  entity: sensor.filament_catalog_metrics
   sub_button:
-    - entity: sensor.spoolman_filament_totals
+    - entity: sensor.filament_catalog_metrics
       sub_button_type: default
       name: >-
         ${(() => {
-          const allSpools = Object.values(states).filter((entry) =>
-            /^sensor\.spoolman_spool_\d+$/.test(entry.entity_id) &&
-            !entry.attributes.archived
-          );
-          return `${allSpools.length} spools`;
+          const raw = states['sensor.filament_catalog_metrics']?.attributes?.inventory_summary_json;
+          let summary = raw || {};
+          if (typeof raw === 'string') {
+            try { summary = JSON.parse(raw || '{}'); } catch (e) { summary = {}; }
+          }
+          return `${Number(summary?.spool_count || 0)} spools`;
         })()}
       icon: fapro:filament-2
       show_icon: true
@@ -32,14 +32,16 @@ card:
       fill_width: false
       tap_action:
         action: none
-    - entity: sensor.spoolman_filament_totals
+    - entity: sensor.filament_catalog_metrics
       sub_button_type: default
       name: >-
         ${(() => {
-          const allFilaments = Object.values(states).filter((entry) =>
-            /^sensor\.spoolman_filament_\d+$/.test(entry.entity_id)
-          );
-          return `${allFilaments.length} filaments`;
+          const raw = states['sensor.filament_catalog_metrics']?.attributes?.inventory_summary_json;
+          let summary = raw || {};
+          if (typeof raw === 'string') {
+            try { summary = JSON.parse(raw || '{}'); } catch (e) { summary = {}; }
+          }
+          return `${Number(summary?.filament_count || 0)} filaments`;
         })()}
       icon: mdi:layers-triple
       show_icon: true
@@ -49,16 +51,16 @@ card:
       fill_width: false
       tap_action:
         action: none
-    - entity: sensor.spoolman_filament_totals
+    - entity: sensor.filament_catalog_metrics
       sub_button_type: default
       name: >-
         ${(() => {
-          const allSpools = Object.values(states).filter((entry) =>
-            /^sensor\.spoolman_spool_\d+$/.test(entry.entity_id) &&
-            !entry.attributes.archived
-          );
-          const totalWeight = allSpools.reduce((sum, spool) => sum + (spool.attributes.remaining_weight || 0), 0);
-          return `${(totalWeight / 1000).toFixed(1)} kg`;
+          const raw = states['sensor.filament_catalog_metrics']?.attributes?.inventory_summary_json;
+          let summary = raw || {};
+          if (typeof raw === 'string') {
+            try { summary = JSON.parse(raw || '{}'); } catch (e) { summary = {}; }
+          }
+          return `${(Number(summary?.total_weight_grams || 0) / 1000).toFixed(1)} kg`;
         })()}
       icon: mdi:weight-gram
       show_icon: true
@@ -68,25 +70,17 @@ card:
       fill_width: false
       tap_action:
         action: none
-    - entity: sensor.spoolman_filament_totals
+    - entity: sensor.filament_catalog_metrics
       sub_button_type: default
       name: >-
         ${(() => {
-          const allSpools = Object.values(states).filter((entry) =>
-            /^sensor\.spoolman_spool_\d+$/.test(entry.entity_id) &&
-            !entry.attributes.archived
-          );
-          let totalCostPerKg = 0;
-          let pricedSpoolCount = 0;
-          allSpools.forEach((spool) => {
-            const price = spool.attributes.price || spool.attributes.filament_price || 0;
-            const initialWeight = spool.attributes.initial_weight || 1000;
-            if (price > 0 && initialWeight > 0) {
-              totalCostPerKg += (price / initialWeight) * 1000;
-              pricedSpoolCount += 1;
-            }
-          });
-          const average = pricedSpoolCount > 0 ? `$${(totalCostPerKg / pricedSpoolCount).toFixed(2)}/kg` : 'N/A';
+          const raw = states['sensor.filament_catalog_metrics']?.attributes?.inventory_summary_json;
+          let summary = raw || {};
+          if (typeof raw === 'string') {
+            try { summary = JSON.parse(raw || '{}'); } catch (e) { summary = {}; }
+          }
+          const avgCost = Number(summary?.average_cost_per_kg);
+          const average = Number.isFinite(avgCost) ? `$${avgCost.toFixed(2)}/kg` : 'N/A';
           return `Avg ${average}`;
         })()}
       icon: mdi:currency-usd
