@@ -92,27 +92,27 @@ sections:
               tap_action:
                 action: more-info
               card_mod:
-                style:
-                  mushroom-state-info$: |
-                    .container {
-                      align-items: flex-start;
-                    }
-                    .primary {
-                      white-space: normal !important;
-                      display: -webkit-box !important;
-                      -webkit-box-orient: vertical !important;
-                      -webkit-line-clamp: 2 !important;
-                      overflow: hidden !important;
-                      text-overflow: ellipsis !important;
-                      word-break: break-word !important;
-                      overflow-wrap: anywhere !important;
-                      font-size: 0.88rem !important;
-                      line-height: 1.25 !important;
-                    }
-                  .: |
-                    ha-card {
-                      overflow: visible !important;
-                    }
+                style: |
+                  ha-card {
+                    overflow: visible !important;
+                    --card-primary-font-size: 0.88rem;
+                    --card-primary-line-height: 1.25rem;
+                  }
+                  mushroom-state-info {
+                    overflow: visible !important;
+                    align-self: flex-start;
+                  }
+                  .primary {
+                    white-space: normal !important;
+                    display: -webkit-box !important;
+                    -webkit-box-orient: vertical !important;
+                    -webkit-line-clamp: 2 !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    word-break: break-word !important;
+                    overflow-wrap: anywhere !important;
+                    line-height: 1.25 !important;
+                  }
             - !include ../../common/dashboard_cards/print-detail-chips.yaml
       grid_options:
         columns: full
