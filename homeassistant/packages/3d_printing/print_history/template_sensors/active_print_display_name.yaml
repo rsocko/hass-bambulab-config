@@ -1,0 +1,138 @@
+# Layer 2 projection for the currently active print title in the main dashboard.
+# Prefers the Bambuddy archive print_name for the bound current archive, then
+# falls back to the live ha-bambulab task sensor.
+- sensor:
+    - name: Active Print Display Name
+      unique_id: active_print_display_name
+      icon: mdi:cube-outline
+      state: >-
+        {% set task_name = states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim %}
+        {% set task_valid = task_name not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+        {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+        {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+        {% if raw is string %}
+          {% set archives = raw | from_json %}
+        {% elif raw is iterable %}
+          {% set archives = raw | list %}
+        {% else %}
+          {% set archives = [] %}
+        {% endif %}
+        {% set match = namespace(value={}) %}
+        {% if archive_id != '' %}
+          {% for archive in archives if archive is mapping %}
+            {% if archive.get('id') | string == archive_id %}
+              {% set match.value = archive %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {% set archive_name = match.value.get('print_name', '') | string | trim if match.value is mapping else '' %}
+        {% if archive_name not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+          {{ archive_name }}
+        {% elif task_valid %}
+          {{ task_name }}
+        {% else %}
+          No Active Print
+        {% endif %}
+      attributes:
+        archive_id: >-
+          {{ states('input_text.bambuddy_current_archive_id') | string | trim }}
+        source: >-
+          {% set task_name = states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim %}
+          {% set task_valid = task_name not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+          {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set match = namespace(value={}) %}
+          {% if archive_id != '' %}
+            {% for archive in archives if archive is mapping %}
+              {% if archive.get('id') | string == archive_id %}
+                {% set match.value = archive %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% set archive_name = match.value.get('print_name', '') | string | trim if match.value is mapping else '' %}
+          {% if archive_name not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+            bambuddy_archive
+          {% elif task_valid %}
+            printer_task
+          {% else %}
+            none
+          {% endif %}
+        bambuddy_print_name: >-
+          {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set match = namespace(value={}) %}
+          {% if archive_id != '' %}
+            {% for archive in archives if archive is mapping %}
+              {% if archive.get('id') | string == archive_id %}
+                {% set match.value = archive %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {{ match.value.get('print_name', '') | string | trim if match.value is mapping else '' }}
+        archive_status: >-
+          {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set match = namespace(value={}) %}
+          {% if archive_id != '' %}
+            {% for archive in archives if archive is mapping %}
+              {% if archive.get('id') | string == archive_id %}
+                {% set match.value = archive %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {{ match.value.get('status', '') | string | trim if match.value is mapping else '' }}
+        fallback_task_name: >-
+          {% set task_name = states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim %}
+          {{ '' if task_name in ['', 'unknown', 'unavailable', 'none', 'None'] else task_name }}
+        plate_num: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') }}
+        secondary_label: >-
+          {% set task_name = states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim %}
+          {% set task_valid = task_name not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+          {% set archive_id = states('input_text.bambuddy_current_archive_id') | string | trim %}
+          {% set raw = state_attr('sensor.print_history_archives', 'archives_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set archives = raw | from_json %}
+          {% elif raw is iterable %}
+            {% set archives = raw | list %}
+          {% else %}
+            {% set archives = [] %}
+          {% endif %}
+          {% set match = namespace(value={}) %}
+          {% if archive_id != '' %}
+            {% for archive in archives if archive is mapping %}
+              {% if archive.get('id') | string == archive_id %}
+                {% set match.value = archive %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% set archive_name = match.value.get('print_name', '') | string | trim if match.value is mapping else '' %}
+          {% set plate_num = state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') %}
+          {% if archive_name not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+            
+          {% elif task_valid and plate_num is not none and plate_num | int(0) > 0 %}
+            Plate {{ plate_num }}
+          {% else %}
+            
+          {% endif %}

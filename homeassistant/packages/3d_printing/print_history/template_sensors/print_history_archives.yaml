@@ -12,6 +12,10 @@
     - trigger: event
       event_type: bambuddy_webhook_event
       event_data:
+        event: print_started
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
         event: print_complete
     - trigger: event
       event_type: bambuddy_webhook_event

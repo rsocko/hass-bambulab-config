@@ -79,17 +79,16 @@ sections:
                   }
                   {% endif %}
             - type: custom:mushroom-template-card
-              entity: sensor.ntk_ryansoffice_3dprinter_task_name
+              entity: sensor.active_print_display_name
               primary: >-
-                {% set name = states('sensor.ntk_ryansoffice_3dprinter_task_name') %}
+                {% set name = states('sensor.active_print_display_name') %}
                 {% if name in ['unknown', 'unavailable', ''] %}No Active Print
                 {% else %}{{ name }}{% endif %}
               secondary: >-
-                {% set plate = state_attr('sensor.ntk_ryansoffice_3dprinter_task_name', 'plate_num') %}
-                {% if plate is not none and plate | int(0) > 0 %}Plate {{ plate }}{% endif %}
+                {{ state_attr('sensor.active_print_display_name', 'secondary_label') | default('', true) }}
               icon: mdi:cube-outline
               icon_color: >-
-                {% if states('sensor.ntk_ryansoffice_3dprinter_task_name') in ['unknown', 'unavailable', ''] %}grey{% else %}blue{% endif %}
+                {% if states('sensor.active_print_display_name') in ['unknown', 'unavailable', '', 'No Active Print'] %}grey{% else %}blue{% endif %}
               tap_action:
                 action: more-info
               card_mod:

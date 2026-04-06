@@ -43,7 +43,7 @@
           {% endif %}
         print_name: >-
           {% if is_api_format %}
-            {{ trigger.json.data.name | default('') }}
+            {{ trigger.json.data.print_name | default(trigger.json.data.name, true) | default('') }}
           {% else %}
             {{ trigger.json.print_name | default('') }}
           {% endif %}
