@@ -97,21 +97,31 @@ sections:
                     ha-card {
                       overflow: visible !important;
                     }
+                    .content {
+                      gap: 6px !important;
+                      align-items: flex-start !important;
+                    }
+                    ha-tile-icon {
+                      width: 34px !important;
+                      height: 34px !important;
+                      min-width: 34px !important;
+                      flex: 0 0 34px !important;
+                    }
                   ha-tile-info$: |
                     .container {
                       align-items: flex-start !important;
                     }
-                    span {
+                    slot[name="primary"]::slotted(*) {
                       white-space: normal !important;
                       display: -webkit-box !important;
                       -webkit-box-orient: vertical !important;
-                      -webkit-line-clamp: 2 !important;
+                      -webkit-line-clamp: 3 !important;
                       overflow: hidden !important;
                       text-overflow: ellipsis !important;
                       word-break: break-word !important;
                       overflow-wrap: anywhere !important;
-                      font-size: 0.88rem !important;
-                      line-height: 1.25 !important;
+                      font-size: 0.78rem !important;
+                      line-height: 1.05 !important;
                     }
             - !include ../../common/dashboard_cards/print-detail-chips.yaml
       grid_options:
