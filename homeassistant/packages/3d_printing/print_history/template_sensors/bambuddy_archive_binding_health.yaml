@@ -28,7 +28,7 @@
         {% elif printer_is_active and binding_source in ['', 'unknown', 'unavailable', 'none', 'awaiting_webhook', 'awaiting_archive_lookup'] %}
           repair
         {% elif printer_is_active and binding_source.startswith('api_fallback') %}
-          warn
+          info
         {% elif not printer_is_active and archive_id != '' %}
           warn
         {% else %}
@@ -49,8 +49,8 @@
           {% set binding_source = states('input_text.bambuddy_archive_binding_source') | string | lower | trim %}
           {% if health == 'repair' %}
             Print History sync is active, but no Bambuddy archive binding is available for the current print yet. Automatic enrichment and photo upload are being held until native archive lookup or another trusted binding path succeeds.
-          {% elif health == 'warn' and binding_source.startswith('api_fallback') %}
-            Print History is running on archive-API fallback for the current print (archive_id={{ archive_id if archive_id != '' else 'missing' }}). This is safer than using stale state, but it is still less reliable than the Bambuddy webhook path.
+          {% elif health == 'info' and binding_source.startswith('api_fallback') %}
+            Print History is using the archive-API binding path for the current print (archive_id={{ archive_id if archive_id != '' else 'missing' }}). This is the expected runtime path for this setup, and enrichment can proceed normally once archive data is available.
           {% elif health == 'warn' %}
             Print History still has archive runtime state retained while the printer is not active. The next native print start will clear it, but this indicates the webhook-driven terminal cleanup did not run.
           {% elif health == 'disabled' %}
@@ -62,8 +62,10 @@
           {% set health = states('sensor.bambuddy_archive_binding_health') | lower %}
           {% if health == 'repair' %}
             Wait for the native Bambuddy archive lookup retries to finish. If binding still fails, verify that Bambuddy created a printing archive for this printer and review webhook setup only as an optional secondary path.
+          {% elif health == 'info' %}
+            No action required. Archive-API fallback is the primary binding path for this setup.
           {% elif health == 'warn' %}
-            Treat the current print as degraded sync mode. Review archive updates after the print, and configure the Bambuddy webhook only if you want an exact event-driven binding path in addition to API polling.
+            Review archive cleanup after the print. Runtime state remained populated after the printer stopped, so terminal cleanup did not complete normally.
           {% else %}
             No action required.
           {% endif %}
