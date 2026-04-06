@@ -54,7 +54,7 @@ resolve_current_archive_id:
                 {% endif %}
               selection: >-
                 {% set task = normalized_task_name %}
-                {% set configured_printer = configured_printer_id %}
+                {% set configured_printer = configured_printer_id | string | trim %}
                 {% set ns = namespace(candidates=[], exact=[], loose=[]) %}
                 {% for archive in archives if archive is mapping %}
                   {% set archive_printer_id = archive.printer_id | default('', true) | string | trim %}
