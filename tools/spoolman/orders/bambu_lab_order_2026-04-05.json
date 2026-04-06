@@ -1,0 +1,83 @@
+{
+  "order_name": "Bambu Lab purchase 2026-04-05",
+  "base_url": "http://spoolman.socko.us/api/v1",
+  "currency": "USD",
+  "defaults": {
+    "location": "Ordered",
+    "purchase_date": "NOW",
+    "purchased_from": "Bambu Lab",
+    "set_sealed": true
+  },
+  "items": [
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Black",
+      "article_number": "10101",
+      "quantity": 4,
+      "line_total": "51.97",
+      "spool_type": "Refill",
+      "expected_filament_id": 5
+    },
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Blue",
+      "article_number": "10601",
+      "quantity": 1,
+      "line_total": "12.99",
+      "spool_type": "Refill",
+      "expected_filament_id": 2
+    },
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Mistletoe Green",
+      "article_number": "10502",
+      "quantity": 1,
+      "line_total": "12.99",
+      "spool_type": "Refill",
+      "expected_filament_id": 4
+    },
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Silver",
+      "article_number": "10102",
+      "quantity": 1,
+      "line_total": "12.99",
+      "spool_type": "Refill",
+      "expected_filament_id": 19
+    },
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Maroon Red",
+      "article_number": "10205",
+      "quantity": 1,
+      "line_total": "12.99",
+      "spool_type": "Refill",
+      "expected_filament_id": 59
+    },
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Matte Charcoal",
+      "article_number": "11101",
+      "quantity": 3,
+      "line_total": "38.98",
+      "spool_type": "Refill",
+      "expected_filament_id": 8
+    },
+    {
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "name": "Matte Ash Gray",
+      "article_number": "11102",
+      "quantity": 1,
+      "line_total": "12.99",
+      "spool_type": "Refill",
+      "expected_filament_id": 12
+    }
+  ]
+}
