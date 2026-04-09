@@ -36,6 +36,8 @@ The registry is also not fixed in code. The workflow takes a `registry` input an
 
 The workflow only builds and optionally pushes the image. It does not deploy or restart the sidecar automatically in Home Assistant or Dockhand.
 
+The AppDaemon HASS plugin config now explicitly sets `ws_max_msg_size: 16777216`. This is required because the default `4 MB` websocket limit is not sufficient once Home Assistant's full startup state snapshot grows past that threshold.
+
 ## Why This Is Not Pure Throwaway
 
 Reusable for Variant 2, 3, or 4:
@@ -57,6 +59,7 @@ That means Variant 1 is a valid spike, not wasted work. The query core and contr
 - The heatmap and popup flows now read from `sensor.print_history_browser_activity`, which is an AppDaemon-owned compatibility cache.
 - This is intentionally a compatibility bridge so the browser can move off the Jinja pipeline without forcing a custom-card rewrite in the same step.
 - If the repo later moves to Variant 2 or 3, that compatibility sensor should likely become a dedicated activity payload or per-archive detail API rather than a long-lived broad archive attribute.
+- The compatibility activity sensor is still payload-heavy by design because the current heatmap and popup cards read `archives_json` from it. That increases Home Assistant state size, but the live `5.3-5.5 MB` AppDaemon startup failure was not explained by the current `50`-archive legacy Layer 1 payload alone.
 
 ## Legacy Runtime Hooks Kept For Fallback
 

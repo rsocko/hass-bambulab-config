@@ -8,6 +8,10 @@ appdaemon:
       type: hass
       ha_url: !env_var HA_URL
       token: !env_var HA_TOKEN
+      ws_max_msg_size: 16777216
+      plugin_startup_conditions:
+        event:
+          event_type: homeassistant_started
 
 http:
   url: http://0.0.0.0:5050
