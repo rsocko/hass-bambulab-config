@@ -67,7 +67,15 @@ save_print_history_archive_popup_edits:
             archive_id: "{{ resolved_archive_id }}"
           response_variable: archive_detail_response
         - variables:
-            archive_detail: "{{ archive_detail_response.content | default({}, true) }}"
+            archive_detail: >-
+              {% set content = archive_detail_response.content | default({}, true) %}
+              {% if content is mapping %}
+                {{ content | tojson | from_json }}
+              {% elif content is string and content | length > 0 %}
+                {{ content | from_json({}) }}
+              {% else %}
+                {{ {} }}
+              {% endif %}
             existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
             existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
             existing_marker_index: "{{ existing_notes_raw.find(enrichment_marker) }}"
@@ -88,8 +96,20 @@ save_print_history_archive_popup_edits:
               {% else %}
                 {{ '' }}
               {% endif %}
+            existing_hidden_notes_suffix: >-
+              {% if existing_marker_index >= 0 and existing_recovery_index >= 0 %}
+                {{ existing_notes_raw[[existing_marker_index, existing_recovery_index] | min:] | regex_replace('\n+$', '') }}
+              {% elif existing_marker_index >= 0 %}
+                {{ existing_notes_raw[existing_marker_index:] | regex_replace('\n+$', '') }}
+              {% elif existing_recovery_index >= 0 %}
+                {{ existing_notes_raw[existing_recovery_index:] | regex_replace('\n+$', '') }}
+              {% else %}
+                {{ '' }}
+              {% endif %}
             existing_payload: >-
-              {% if existing_payload_raw | length > 0 %}
+              {% if existing_payload_raw is mapping %}
+                {{ existing_payload_raw | tojson | from_json }}
+              {% elif existing_payload_raw is string and existing_payload_raw | length > 0 %}
                 {{ existing_payload_raw | from_json({}) }}
               {% else %}
                 {{ {} }}
@@ -146,11 +166,13 @@ save_print_history_archive_popup_edits:
               {% if resolved_user_notes | length > 0 %}
                 {% set parts.values = parts.values + [resolved_user_notes] %}
               {% endif %}
-              {% if existing_recovery_block | length > 0 %}
-                {% set parts.values = parts.values + [existing_recovery_block] %}
-              {% endif %}
               {% if existing_payload is mapping and existing_payload.s is defined %}
+                {% if existing_recovery_block | length > 0 %}
+                  {% set parts.values = parts.values + [existing_recovery_block] %}
+                {% endif %}
                 {% set parts.values = parts.values + [enrichment_marker ~ (existing_payload | to_json)] %}
+              {% elif existing_hidden_notes_suffix | length > 0 %}
+                {% set parts.values = parts.values + [existing_hidden_notes_suffix] %}
               {% endif %}
               {{ parts.values | join('\n\n') }}
         - action: rest_command.bambuddy_update_archive

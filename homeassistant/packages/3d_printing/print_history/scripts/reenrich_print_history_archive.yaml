@@ -32,7 +32,15 @@ reenrich_print_history_archive:
                 archive_id: "{{ resolved_archive_id }}"
               response_variable: archive_detail_response
             - variables:
-                archive_detail: "{{ archive_detail_response.content | default({}, true) }}"
+                archive_detail: >-
+                  {% set content = archive_detail_response.content | default({}, true) %}
+                  {% if content is mapping %}
+                    {{ content | tojson | from_json }}
+                  {% elif content is string and content | length > 0 %}
+                    {{ content | from_json({}) }}
+                  {% else %}
+                    {{ {} }}
+                  {% endif %}
                 existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
                 existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
                 existing_user_notes: >-
@@ -74,7 +82,9 @@ reenrich_print_history_archive:
                     {{ '' }}
                   {% endif %}
                 existing_payload: >-
-                  {% if existing_payload_raw | length > 0 %}
+                  {% if existing_payload_raw is mapping %}
+                    {{ existing_payload_raw | tojson | from_json }}
+                  {% elif existing_payload_raw is string and existing_payload_raw | length > 0 %}
                     {{ existing_payload_raw | from_json({}) }}
                   {% else %}
                     {{ {} }}
