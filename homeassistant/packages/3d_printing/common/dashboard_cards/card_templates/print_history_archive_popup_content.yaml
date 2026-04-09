@@ -148,12 +148,38 @@ print_history_archive_popup_content:
             minute: '2-digit'
           });
         };
+          const formatTimelineDate = (value) => {
+            if (!value) return '-';
+            const raw = String(value);
+            const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}Z`;
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) return '-';
+            return parsed.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            });
+          };
         const formatDuration = (secondsValue) => {
           const seconds = Number(secondsValue || 0);
           if (!seconds) return '-';
           if (seconds >= 3600) return `${Math.round((seconds / 3600) * 10) / 10}h`;
           return `${Math.round(seconds / 60)}m`;
         };
+          const formatTimelineDuration = (secondsValue) => {
+            const seconds = Number(secondsValue || 0);
+            if (!Number.isFinite(seconds) || seconds <= 0) return '-';
+            const totalMinutes = Math.max(1, Math.round(seconds / 60));
+            const days = Math.floor(totalMinutes / 1440);
+            const hours = Math.floor((totalMinutes % 1440) / 60);
+            const minutes = totalMinutes % 60;
+            const parts = [];
+            if (days) parts.push(`${days}D`);
+            if (hours || days) parts.push(`${hours}H`);
+            if (minutes || (!days && !hours)) parts.push(`${minutes}M`);
+            return parts.join(' ');
+          };
         const formatNumber = (value, digits = 1, suffix = '') => {
           const numeric = Number(value);
           if (!Number.isFinite(numeric) || numeric <= 0) return '-';
@@ -164,15 +190,19 @@ print_history_archive_popup_content:
           if (!Number.isFinite(numeric) || numeric <= 0) return '-';
           return `$${numeric.toFixed(2)}`;
         };
-        const parseTags = (value) => String(value || '')
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean);
-        const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];
-        const systemTagValues = ['ha_enriched:true'];
-        const isSystemTag = (tag) => {
-          const normalized = String(tag || '').trim().toLowerCase();
-          return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));
+          const formatCurrencyValue = (value) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric <= 0) return '-';
+            return numeric.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+          };
+          const renderInfoChip = (icon, value, options = {}) => {
+            if (!hasMeaningfulValue(value)) return '';
+            const background = options.background || 'rgba(255,255,255,0.05)';
+            const border = options.border || '1px solid rgba(255,255,255,0.08)';
+            const color = options.color || 'var(--primary-text-color)';
+            const fontWeight = options.fontWeight || 600;
+            const title = options.title ? ` title="${escapeHtml(options.title)}"` : '';
+            return `<span${title} style="display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:${background};border:${border};color:${color};font-size:12px;font-weight:${fontWeight};line-height:1.2;max-width:100%;min-width:0;"><ha-icon icon="${icon}" style="--mdc-icon-size:15px;flex:0 0 auto;color:${color};"></ha-icon><span style="min-width:0;overflow-wrap:anywhere;word-break:break-word;">${escapeHtml(String(value))}</span></span>`;
         };
         const hasMeaningfulValue = (value) => {
           if (value === null || value === undefined) return false;
@@ -193,20 +223,29 @@ print_history_archive_popup_content:
           return reviewReasons;
         };
 
-        const metadataRows = [
-          ['Started', formatDate(archive?.started_at)],
-          ['Completed', formatDate(archive?.completed_at)],
-          ['Duration', formatDuration(archive?.actual_time_seconds || archive?.print_time_seconds)],
-          ['Filament', formatNumber(archive?.filament_used_grams, 1, 'g')],
-          ['Cost', formatCurrency(archive?.cost)],
-          ['Objects', archive?.object_count || '-'],
-          ['Material', archive?.filament_type || '-'],
-          ['Layer Height', archive?.layer_height ? `${archive.layer_height} mm` : '-'],
-          ['Nozzle', archive?.nozzle_diameter ? `${archive.nozzle_diameter} mm` : '-'],
-          ['Total Layers', archive?.total_layers || '-'],
-          ['Printer', archive?.printer_id || '-'],
-          ['Designer', archive?.designer || '-']
-        ];
+        const startedDisplay = formatTimelineDate(archive?.started_at || archive?.created_at);
+        const completedDisplay = archive?.completed_at
+          ? formatTimelineDate(archive.completed_at)
+          : (status === 'printing' ? 'In progress' : '-');
+        const timelineDuration = formatTimelineDuration(archive?.actual_time_seconds || archive?.print_time_seconds);
+        const favoriteChip = `<span title="${archive?.is_favorite ? 'Favorite archive' : 'Not marked as favorite'}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:${archive?.is_favorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.05)'};border:1px solid ${archive?.is_favorite ? 'rgba(245,194,66,0.35)' : 'rgba(255,255,255,0.08)'};flex:0 0 auto;"><ha-icon icon="${archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:18px;color:${archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)'};"></ha-icon></span>`;
+        const summaryRowChips = [
+          `<span style="background:${statusColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><span>${statusIcon}</span><span>${escapeHtml(statusLabel)}</span></span>`,
+          renderInfoChip('mdi:palette-swatch-outline', archive?.designer, { fontWeight: 500 }),
+          favoriteChip
+        ].filter(Boolean).join('');
+        const metricChips = [
+          renderInfoChip('mdi:weight-gram', formatNumber(archive?.filament_used_grams, 1, 'g')),
+          Number(archive?.object_count || 0) > 1 ? renderInfoChip('mdi:shape-outline', String(archive.object_count)) : '',
+          renderInfoChip('mdi:currency-usd', formatCurrencyValue(archive?.cost)),
+          renderInfoChip('mdi:flask-outline', archive?.filament_type)
+        ].filter(Boolean).join('');
+        const printerDetailChips = [
+          renderInfoChip('mdi:printer-3d', archive?.printer_name || archive?.printer_id),
+          renderInfoChip('mdi:printer-3d-nozzle', archive?.nozzle_diameter ? `${archive.nozzle_diameter} mm` : ''),
+          renderInfoChip('mdi:layers-outline', archive?.total_layers || ''),
+          renderInfoChip('mdi:arrow-expand-vertical', archive?.layer_height ? `${archive.layer_height} mm` : '')
+        ].filter(Boolean).join('');
         const notesInfo = splitArchiveNotes(archive?.notes);
         const archiveUserNotes = String(archive?.user_notes || notesInfo.userNotes || '').trim();
         const enrichmentRows = Array.isArray(archive?.enrichment_filaments)
@@ -290,19 +329,28 @@ print_history_archive_popup_content:
 
         return `
           <div style="display:flex;flex-direction:column;gap:14px;">
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-              <span style="background:${statusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">${statusIcon} ${escapeHtml(statusLabel)}</span>
-              <span style="display:inline-flex;align-items:center;gap:6px;color:${archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)'};font-size:13px;font-weight:700;">
-                <ha-icon icon="${archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:16px;"></ha-icon>
-                ${archive?.is_favorite ? 'Favorite' : ''}
-              </span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
-              ${metadataRows.map(([label, value]) => `
-                <div style="padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04);">
-                  <div style="color:var(--secondary-text-color);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">${escapeHtml(label)}</div>
-                  <div style="font-size:14px;line-height:1.4;overflow-wrap:anywhere;">${escapeHtml(String(value))}</div>
-                </div>`).join('')}
+            <div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,220px) minmax(0,1fr);gap:12px;align-items:center;min-width:0;">
+                <div style="min-width:0;display:flex;flex-direction:column;gap:4px;">
+                  <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);">Start</div>
+                  <div style="font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;">${escapeHtml(startedDisplay)}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;min-width:140px;">
+                  <div style="position:relative;width:100%;height:18px;">
+                    <span style="position:absolute;left:10px;right:10px;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
+                    <span style="position:absolute;left:8px;top:50%;width:10px;height:10px;border-radius:999px;background:${statusColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
+                    <span style="position:absolute;right:8px;top:50%;width:10px;height:10px;border-radius:999px;background:${statusColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
+                  </div>
+                  <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;">${escapeHtml(timelineDuration)}</span>
+                </div>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:4px;text-align:right;">
+                  <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);">End</div>
+                  <div style="font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;">${escapeHtml(completedDisplay)}</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${summaryRowChips}</div>
+              ${metricChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${metricChips}</div>` : ''}
+              ${printerDetailChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${printerDetailChips}</div>` : ''}
             </div>
                   ${!hasEnrichmentPayload && filamentChips.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Filament Colors</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${filamentChips.map((chip) => `<span title="${escapeHtml(chip.tooltip)}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;"><span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(chip.dotColor)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(chip.label)}</span></span>`).join('')}</div></div>` : ''}
                 ${hasEnrichmentPayload || hasEnrichmentData ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Enrichment</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${enrichmentSourceLabel ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(21,101,192,0.16);color:#BBDEFB;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentSourceLabel)}</span>` : ''}<span style="background:${enrichmentStatusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentStatusLabel)}</span></div></div>${enrichmentReason ? `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.12)' : 'rgba(239,108,0,0.12)'};border:1px solid ${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.28)' : 'rgba(239,108,0,0.28)'};"><ha-icon icon="${enrichmentStatus === 'complete' ? 'mdi:information-outline' : 'mdi:alert-outline'}" style="--mdc-icon-size:16px;color:${enrichmentStatus === 'complete' ? '#90CAF9' : '#FFCC80'};margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:${enrichmentStatus === 'complete' ? '#E3F2FD' : '#FFE0B2'};overflow-wrap:anywhere;">${escapeHtml(enrichmentReason)}</div></div>` : ''}${enrichmentRowsWithState.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">${enrichmentRowsWithState.map(({ item, reviewReasons, needsReview, filamentHex, cardBackground, cardBorder, railColor }) => `<div style="padding:12px 14px 12px 16px;border-radius:14px;background:${cardBackground};border:1px solid ${cardBorder};box-shadow:${needsReview ? `inset 4px 0 0 ${railColor}` : 'none'};display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div style="font-size:14px;font-weight:700;overflow-wrap:anywhere;">${escapeHtml(item?.n || 'Unknown Filament')}</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${hasMeaningfulValue(item?.t) ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);padding:4px 8px;border-radius:999px;font-size:12px;">${escapeHtml(String(item.t))}</span>` : ''}${needsReview ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,124,0,0.18);color:#FFCC80;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>Needs Review</span></span>` : ''}</div></div><div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;"><span style="color:var(--secondary-text-color);">${escapeHtml(formatNumber(item?.w, 1, 'g'))}</span>${hasResolvedEntityId(item?.s) ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);padding:4px 8px;border-radius:999px;">Spool #${escapeHtml(String(item.s))}</span>` : `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,124,0,0.18);color:#FFCC80;padding:4px 8px;border-radius:999px;font-weight:700;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>Spool unresolved</span></span>`}${hasResolvedEntityId(item?.f) ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);padding:4px 8px;border-radius:999px;">Filament #${escapeHtml(String(item.f))}</span>` : `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,124,0,0.18);color:#FFCC80;padding:4px 8px;border-radius:999px;font-weight:700;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>Filament unresolved</span></span>`}</div>${filamentHex ? `<div style="display:inline-flex;align-items:center;gap:8px;width:max-content;background:rgba(255,255,255,0.08);padding:4px 8px;border-radius:999px;"><span style="width:12px;height:12px;border-radius:999px;background:${escapeHtml(filamentHex)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(filamentHex)}</span></div>` : ''}${item?.am ? `<div style="display:inline-flex;align-items:center;gap:8px;width:max-content;background:rgba(239,108,0,0.16);color:#FFCC80;padding:4px 8px;border-radius:999px;font-size:12px;"><ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:14px;"></ha-icon><span>${escapeHtml(describeEnrichmentAmbiguity(item?.am))}</span></div>` : ''}${reviewReasons.length ? `<div style="font-size:12px;line-height:1.4;color:var(--secondary-text-color);overflow-wrap:anywhere;">${escapeHtml(reviewReasons.join(' • '))}</div>` : ''}</div>`).join('')}</div>` : `<div style="font-size:13px;color:var(--secondary-text-color);">${escapeHtml(enrichmentReason || 'No structured filament rows were preserved for this archive.')}</div>`}</div>` : ''}
