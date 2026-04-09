@@ -5,7 +5,7 @@ cards:
       - input_select.print_history_activity_metric
       - input_text.print_history_activity_selected_date
       - input_boolean.print_history_show_activity_heatmap
-      - sensor.print_history_filtered
+      - sensor.print_history_browser_filtered
     card:
       type: custom:bubble-card
       card_type: separator
@@ -21,7 +21,7 @@ cards:
           show_state: true
           show_background: true
           fill_width: false
-        - entity: sensor.print_history_filtered
+        - entity: sensor.print_history_browser_filtered
           sub_button_type: default
           name: Active Days
           icon: mdi:calendar-range
@@ -34,7 +34,7 @@ cards:
           fill_width: false
           tap_action:
             action: none
-        - entity: sensor.print_history_filtered
+        - entity: sensor.print_history_browser_filtered
           sub_button_type: default
           name: Metric Total
           icon: >-

@@ -104,11 +104,11 @@ cards:
       - input_select.print_history_filter_layer_height
       - input_select.print_history_filter_tag
       - input_boolean.print_history_filter_favorites_only
-      - sensor.print_history_filtered
+      - sensor.print_history_browser_filtered
     card:
       type: custom:bubble-card
       card_type: sub-buttons
-      entity: sensor.print_history_filtered
+      entity: sensor.print_history_browser_filtered
       hide_main_background: false
       rows: 1.84
       styles: |
@@ -296,19 +296,19 @@ cards:
           - input_text.print_history_search
           - input_text.print_history_filter_colors
           - input_text.print_history_activity_selected_date
-          - sensor.print_history_filtered
+          - sensor.print_history_browser_filtered
         card:
           type: custom:bubble-card
           card_type: button
           button_type: state
-          entity: sensor.print_history_filtered
+          entity: sensor.print_history_browser_filtered
           name: Matches
           icon: mdi:counter
           show_name: true
           show_state: true
           styles: >-
             ${(() => {
-              const active = states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True';
+              const active = states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === 'True';
               return `
                 .bubble-button-card-container {
                   pointer-events: none !important;
@@ -638,16 +638,16 @@ cards:
               show_icon: true
               show_name: true
               show_state: false
-              show_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
-              state_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
-              state_color: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              show_background: ${!!(states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === 'True')}
+              state_background: ${!!(states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === 'True')}
+              state_color: ${!!(states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_browser_filtered']?.attributes?.has_active_filters === 'True')}
               fill_width: false
               tap_action:
                 action: call-service
                 service: script.clear_print_history_filters
 
   - type: custom:print-history-color-filter-card
-    colors_entity: sensor.print_history_filtered
+    colors_entity: sensor.print_history_browser_filtered
     colors_attribute: available_colors_json
     selected_entity: input_text.print_history_filter_colors
     toggle_script: script.toggle_print_history_color_filter

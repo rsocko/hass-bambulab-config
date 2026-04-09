@@ -1,5 +1,5 @@
 type: custom:print-history-activity-heatmap-card
-source_entity: sensor.print_history_archives
+source_entity: sensor.print_history_browser_activity
 source_attribute: archives_json
 mode_entity: input_select.print_history_activity_metric
 selected_date_entity: input_text.print_history_activity_selected_date

@@ -2,6 +2,7 @@
 # Docs: docs/features/print_history/filter-sort-design.md
 - alias: Print History - Sync Filter Options
   id: print_history_sync_filter_options
+  initial_state: false
   triggers:
     - trigger: state
       entity_id: sensor.print_history_archives
