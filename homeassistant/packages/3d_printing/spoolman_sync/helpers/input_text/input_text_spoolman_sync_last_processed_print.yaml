@@ -1,0 +1,4 @@
+spoolman_sync_last_processed_print:
+  name: Last Spoolman Sync Processed Print
+  max: 255
+  icon: mdi:check-decagram

@@ -4,17 +4,47 @@
   description: >
     Updates Spoolman with filament usage when print completes.
     Includes fallback to backed-up print_weight attributes if HA restarted during print.
+    Includes a guarded native print-status fallback when the device finish event is missed.
     Includes persistent error logging when a spool cannot be found in Spoolman.
   triggers:
   - device_id: 210dfdfa64085e8cf073e50eae757d90
     domain: bambu_lab
     type: event_print_finished
     trigger: device
+    id: event_print_finished
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: finish
+    for:
+      seconds: 45
+    id: status_finish
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: failed
+    for:
+      seconds: 45
+    id: status_failed
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: idle
+    for:
+      seconds: 45
+    id: status_idle
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: offline
+    for:
+      seconds: 45
+    id: status_offline
   conditions: []
   actions:
   # Determine which data source to use
   - variables:
+      trigger_id: "{{ trigger.id | default('unknown', true) }}"
+      trigger_from_status: "{{ trigger.from_state.state | string | lower if trigger.from_state is not none else '' }}"
+      trigger_to_status: "{{ trigger.to_state.state | string | lower if trigger.to_state is not none else '' }}"
       task_name_current: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
+      current_total_weight_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | string }}"
       current_has_attributes: >-
         {{ states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.keys() |
            select('match', '^(AMS|External)') | list | length > 0 }}
@@ -29,6 +59,93 @@
         {{ backup_present and
            (backup_raw_trimmed is mapping or backup_parsed is mapping) }}
       backup_invalid: "{{ backup_present and not backup_available }}"
+  - variables:
+      backup_metadata_raw: "{{ states('input_text.print_metadata_backup') | string }}"
+      backup_metadata_parts: "{{ backup_metadata_raw.split('|') }}"
+      backup_metadata_task: "{{ backup_metadata_parts[0] if backup_metadata_parts | count > 0 else '' }}"
+      backup_metadata_started_at_raw: "{{ backup_metadata_parts[1] if backup_metadata_parts | count > 1 else '' }}"
+      backup_metadata_total_weight_raw: "{{ backup_metadata_parts[2] if backup_metadata_parts | count > 2 else '' }}"
+      backup_metadata_valid: "{{ backup_metadata_parts | count >= 3 }}"
+      backup_age_seconds: >-
+        {% if backup_metadata_valid and backup_metadata_started_at_raw not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+          {{ (as_timestamp(now()) - as_timestamp(backup_metadata_started_at_raw, 0)) | float(0) }}
+        {% else %}
+          999999
+        {% endif %}
+      status_fallback_trigger: "{{ trigger_id in ['status_finish', 'status_failed', 'status_idle', 'status_offline'] }}"
+      status_fallback_candidate: >-
+        {{
+          status_fallback_trigger and
+          trigger_from_status in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] and
+          backup_present and
+          backup_metadata_valid and
+          backup_age_seconds <= 21600
+        }}
+      status_fallback_skip_reason: >-
+        {% if not status_fallback_trigger %}
+          not_status_trigger
+        {% elif trigger_from_status not in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] %}
+          from_state_not_active
+        {% elif not backup_present %}
+          backup_missing
+        {% elif not backup_metadata_valid %}
+          backup_metadata_invalid
+        {% elif backup_age_seconds > 21600 %}
+          backup_too_old
+        {% else %}
+          ok
+        {% endif %}
+      last_processed_raw: "{{ states('input_text.spoolman_sync_last_processed_print') | string }}"
+      last_processed_parts: "{{ last_processed_raw.split('|') }}"
+      last_processed_task: "{{ last_processed_parts[0] if last_processed_parts | count > 0 else '' }}"
+      last_processed_total_weight_raw: "{{ last_processed_parts[1] if last_processed_parts | count > 1 else '' }}"
+      last_processed_processed_at_raw: "{{ last_processed_parts[2] if last_processed_parts | count > 2 else '' }}"
+      last_processed_recent: >-
+        {% if last_processed_processed_at_raw not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+          {{ (as_timestamp(now()) - as_timestamp(last_processed_processed_at_raw, 0)) | float(0) <= 1800 }}
+        {% else %}
+          false
+        {% endif %}
+      duplicate_recent_completion: >-
+        {{
+          (not backup_present) and
+          last_processed_recent and
+          last_processed_task == task_name_current and
+          last_processed_total_weight_raw == current_total_weight_raw
+        }}
+
+  - if:
+      - condition: template
+        value_template: "{{ duplicate_recent_completion }}"
+        alias: Ignore duplicate completion after prior successful processing
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Complete: Ignoring duplicate completion trigger {{ trigger_id }} for
+            "{{ task_name_current }}" because this task/weight combination was already
+            processed at {{ last_processed_processed_at_raw }}.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - stop: Duplicate print completion ignored.
+
+  - if:
+      - condition: template
+        value_template: "{{ status_fallback_trigger and not status_fallback_candidate }}"
+        alias: Ignore status fallback when guard conditions are not met
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Complete: Ignoring status fallback trigger {{ trigger_id }}.
+            Reason={{ status_fallback_skip_reason }}, from={{ trigger_from_status }},
+            to={{ trigger_to_status }}, backup_present={{ backup_present }},
+            backup_metadata_valid={{ backup_metadata_valid }}.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - stop: Status fallback ignored.
 
   # If we may need backup data, give print_weight state a short chance to repopulate after restart.
   - if:
@@ -48,18 +165,12 @@
 
   # Validate whether backup belongs to the current task and (when possible) matches total print weight.
   - variables:
-      backup_metadata_raw: "{{ states('input_text.print_metadata_backup') | string }}"
-      backup_metadata_parts: "{{ backup_metadata_raw.split('|') }}"
-      backup_metadata_task: "{{ backup_metadata_parts[0] if backup_metadata_parts | count > 0 else '' }}"
-      backup_metadata_total_weight_raw: "{{ backup_metadata_parts[2] if backup_metadata_parts | count > 2 else '' }}"
-      backup_metadata_valid: "{{ backup_metadata_parts | count >= 3 }}"
       backup_task_matches: >-
         {{
           backup_metadata_valid and
           backup_metadata_task == task_name_current and
           task_name_current not in ['unknown', 'unavailable', 'none', 'None', '']
         }}
-      current_total_weight_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | string }}"
       current_total_weight_valid: >-
         {{ current_total_weight_raw is match('^-?\\d+(\\.\\d+)?$') }}
       backup_total_weight_valid: >-
@@ -266,7 +377,10 @@
         - variables:
             tray_info: "{{ repeat.item.strip() }}"
             tray_name: "{{ tray_info.split(':')[0].strip() }}"
-            tray_print_weight: "{{ tray_info.split(':')[1] | int }}"
+            tray_print_weight: "{{ tray_info.split(':')[1] | float(0) }}"
+            tray_print_weight_display: >-
+              {% set weight = tray_info.split(':')[1] | float(0) %}
+              {{ ('%.2f' | format(weight)).rstrip('0').rstrip('.') }}
   
         # Skip empty items and trays with zero weight
         - condition: template
@@ -321,7 +435,7 @@
 
                   **Tray:** {{ tray_name }}
 
-                  **Weight:** {{ tray_print_weight }}g
+                  **Weight:** {{ tray_print_weight_display }}g
 
                   **Reason:** The tray UUID is missing for {{ tray_name }}.
                   This commonly happens when a spool runs out or is swapped during print.
@@ -333,7 +447,7 @@
                 message: >-
                   Print Complete WARNING: Skipping Spoolman update for {{ tray_name }} because tray UUID is missing
                   (entity: {{ tray_entity_id }}, task: {{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}).
-                  Possible spool runout/swap during print. Weight {{ tray_print_weight }}g not auto-applied.
+                  Possible spool runout/swap during print. Weight {{ tray_print_weight_display }}g not auto-applied.
                 level: warning
                 logger: homeassistant.components.bambulab.spoolman_sync
             - action: logbook.log
@@ -341,7 +455,7 @@
               data:
                 name: Spoolman Sync Skipped
                 message: >-
-                  Skipped filament update for {{ tray_name }} ({{ tray_print_weight }}g) because tray UUID was missing.
+                  Skipped filament update for {{ tray_name }} ({{ tray_print_weight_display }}g) because tray UUID was missing.
                   Possible spool runout/swap during print.
   
         - condition: template
@@ -387,7 +501,7 @@
                       states('sensor.ntk_ryansoffice_3dprinter_task_name') }}.
                       Spool ID {{ find_spool_response.spool.id }} ({{
                       find_spool_response.spool.filament.name }}). Used {{
-                      tray_print_weight }} grams.
+                      tray_print_weight_display }} grams.
                     level: info
                     logger: homeassistant.components.bambulab.spoolman_sync
                 - action: logbook.log
@@ -400,7 +514,7 @@
                       }}     Updated Filament Usage for {{ tray_name }}. Spool
                       ID {{ find_spool_response.spool.id }} ({{
                       find_spool_response.spool.filament.name }}). Used {{
-                      tray_print_weight }} grams.
+                      tray_print_weight_display }} grams.
                   alias: Log the Filament Usage
                 - action: persistent_notification.create
                   metadata: {}
@@ -419,7 +533,7 @@
                       find_spool_response.spool.id }}).
 
 
-                      Used {{ tray_print_weight }} grams.
+                      Used {{ tray_print_weight_display }} grams.
                     notification_id: >-
                       spoolman_print_complete_{{
                       states('sensor.ntk_ryansoffice_3dprinter_task_name') |
@@ -440,7 +554,7 @@
                   {% endif %}
                 error_details: >-
                   {{ error_timestamp }}|{{ tray_name }}|{{
-                  find_spool_response.message }}|{{ tray_print_weight }}|{{
+                  find_spool_response.message }}|{{ tray_print_weight_display }}|{{
                   selected_tray.uuid }}|{{ selected_tray.color }}|{{
                   selected_tray.type }}|{{ tray_entity_id }}|{{ probable_cause }}
                 current_error_log: "{{ state_attr('sensor.spoolman_sync_error_log_storage', 'log') | default('') }}"
@@ -474,7 +588,7 @@
   
                   **Tray:** {{ tray_name }}
   
-                  **Print Weight:** {{ tray_print_weight }} grams
+                  **Print Weight:** {{ tray_print_weight_display }} grams
   
                   **Error:** {{ find_spool_response.message }}
   
@@ -491,7 +605,7 @@
 
 
                   To manually update Spoolman, find the matching spool and
-                  reduce its weight by {{ tray_print_weight }}g. You can also
+                  reduce its weight by {{ tray_print_weight_display }}g. You can also
                   use the Manual Recovery script from the dashboard.
             - action: system_log.write
               metadata: {}
@@ -503,7 +617,7 @@
                   UUID: {{ selected_tray.uuid }}, Type: {{ selected_tray.type
                   }}, Color: {{ selected_tray.color }}, Entity: {{
                   tray_entity_id }}. Used {{
-                  tray_print_weight }} grams. Error: {{
+                  tray_print_weight_display }} grams. Error: {{
                   find_spool_response.message }}
                 level: error
                 logger: homeassistant.components.bambulab.spoolman_sync
@@ -513,11 +627,17 @@
                 name: Spoolman Sync Error
                 message: >-
                   Failed to update filament usage for {{ tray_name }} after
-                  print "{{ task_name }}". Weight: {{ tray_print_weight }}g.
+                  print "{{ task_name }}". Weight: {{ tray_print_weight_display }}g.
                   Error: {{ find_spool_response.message }}. Likely cause: {{
                   probable_cause }}
       for_each: "{{ ams_tray_list }}"
   
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.spoolman_sync_last_processed_print
+    data:
+      value: "{{ task_name_current }}|{{ current_total_weight_raw }}|{{ now().isoformat() }}"
+
   # Clear the backup after processing to avoid stale data on next print
   - action: input_text.set_value
     target:
