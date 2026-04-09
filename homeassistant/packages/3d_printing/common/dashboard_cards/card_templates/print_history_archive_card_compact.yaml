@@ -196,7 +196,7 @@ print_history_archive_card_compact:
         return `
           <div style="display:flex;flex-direction:column;gap:14px;height:100%;">
             <div style="display:grid;grid-template-columns:${thumbnailUrl ? '120px minmax(0, 1fr)' : 'minmax(0, 1fr)'};gap:14px;align-items:start;min-width:0;height:100%;">
-              ${thumbnailUrl ? `<div><img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:180px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}"></div>` : ''}
+              ${thumbnailUrl ? `<div style="display:flex;align-items:center;justify-content:center;height:180px;padding:6px;border-radius:16px;background:rgba(255,255,255,0.04);overflow:hidden;"><img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:100%;object-fit:contain;object-position:center;border-radius:12px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}"></div>` : ''}
               <div style="display:flex;flex-direction:column;gap:8px;min-width:0;height:100%;justify-content:flex-start;">
                 <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0;">
                   <div style="min-width:0;flex:1 1 220px;max-width:100%;">
