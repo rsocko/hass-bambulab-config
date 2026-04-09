@@ -4,6 +4,7 @@ class PrintHistoryTagEditorCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._hass = null;
     this._config = null;
+    this._elements = null;
     this._entityValue = "";
     this._suggestionsSignature = "";
     this._tags = [];
@@ -289,14 +290,14 @@ class PrintHistoryTagEditorCard extends HTMLElement {
   }
 
   _bindEvents() {
-    const input = this.shadowRoot.querySelector("input");
+    const input = this._elements?.input;
     if (!input) {
       return;
     }
 
     input.addEventListener("focus", () => {
       this._focused = true;
-      this._render();
+      this._renderSuggestions();
     });
 
     input.addEventListener("blur", () => {
@@ -305,7 +306,7 @@ class PrintHistoryTagEditorCard extends HTMLElement {
         if (this._draft.trim()) {
           await this._commitDraft();
         } else {
-          this._render();
+          this._renderSuggestions();
         }
       }, 0);
     });
@@ -321,7 +322,8 @@ class PrintHistoryTagEditorCard extends HTMLElement {
         this._draft = nextValue;
       }
       this._highlightedIndex = 0;
-      this._render();
+      this._renderInputValue();
+      this._renderSuggestions();
     });
 
     input.addEventListener("keydown", async (event) => {
@@ -329,14 +331,14 @@ class PrintHistoryTagEditorCard extends HTMLElement {
       if (event.key === "ArrowDown" && suggestions.length) {
         event.preventDefault();
         this._highlightedIndex = Math.min(this._highlightedIndex + 1, suggestions.length - 1);
-        this._render();
+        this._renderSuggestions();
         return;
       }
 
       if (event.key === "ArrowUp" && suggestions.length) {
         event.preventDefault();
         this._highlightedIndex = Math.max(this._highlightedIndex - 1, 0);
-        this._render();
+        this._renderSuggestions();
         return;
       }
 
@@ -360,67 +362,20 @@ class PrintHistoryTagEditorCard extends HTMLElement {
       if (event.key === "Escape") {
         this._focused = false;
         this._highlightedIndex = 0;
-        this._render();
+        input.blur();
       }
-    });
-
-    this.shadowRoot.querySelectorAll("button[data-tag-index]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        await this._removeTag(Number(button.dataset.tagIndex));
-      });
-    });
-
-    this.shadowRoot.querySelectorAll("button[data-suggestion]").forEach((button) => {
-      button.addEventListener("mousedown", (event) => {
-        event.preventDefault();
-      });
-      button.addEventListener("click", async () => {
-        await this._commitDraft(button.dataset.suggestion || "");
-      });
     });
   }
 
-  _render() {
-    if (!this._config || !this.shadowRoot) {
+  _ensureFrame() {
+    if (!this._config || !this.shadowRoot || this._elements) {
       return;
     }
 
-    const suggestions = this._filteredSuggestions();
-    const showSuggestions = this._focused && suggestions.length > 0;
     const safeTitle = this._escapeHtml(this._config.title);
     const safePlaceholder = this._escapeHtml(this._config.placeholder);
     const safeHelper = this._escapeHtml(this._config.helper);
     const safeIcon = this._escapeHtml(this._config.icon);
-    const tagsMarkup = this._tags.length
-      ? this._tags
-          .map((tag, index) => {
-            const background = this._tagColor(tag);
-            return `
-              <button class="tag-pill" type="button" data-tag-index="${index}" style="background:${background};">
-                <span class="tag-label">${this._escapeHtml(tag)}</span>
-                <span class="tag-remove" aria-hidden="true">×</span>
-              </button>`;
-          })
-          .join("")
-      : '<div class="empty-state">No tags yet. Start typing to add one.</div>';
-    const suggestionsMarkup = showSuggestions
-      ? `<div class="suggestions" role="listbox">${suggestions
-          .map((suggestion, index) => {
-            const isActive = index === this._highlightedIndex;
-            return `
-              <button
-                class="suggestion ${isActive ? "active" : ""}"
-                type="button"
-                data-suggestion="${this._escapeHtml(suggestion)}"
-                role="option"
-                aria-selected="${isActive ? "true" : "false"}"
-              >
-                <span>${this._escapeHtml(suggestion)}</span>
-                <span class="suggestion-meta">Existing tag</span>
-              </button>`;
-          })
-          .join("")}</div>`
-      : "";
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -578,19 +533,118 @@ class PrintHistoryTagEditorCard extends HTMLElement {
           <span>${safeTitle}</span>
         </div>
         <div class="editor">
-          <div class="tag-list">${tagsMarkup}</div>
+          <div class="tag-list"></div>
           <div class="input-shell">
             <div class="input-row">
               <ha-icon icon="mdi:magnify" style="--mdc-icon-size:18px;color:var(--secondary-text-color);"></ha-icon>
-              <input type="text" value="${this._escapeHtml(this._draft)}" placeholder="${safePlaceholder}" />
+              <input type="text" placeholder="${safePlaceholder}" />
             </div>
-            ${suggestionsMarkup}
+            <div class="suggestions" role="listbox"></div>
           </div>
           <div class="helper">${safeHelper}</div>
         </div>
       </ha-card>`;
 
+    this._elements = {
+      tagList: this.shadowRoot.querySelector(".tag-list"),
+      input: this.shadowRoot.querySelector("input"),
+      suggestions: this.shadowRoot.querySelector(".suggestions"),
+    };
     this._bindEvents();
+  }
+
+  _renderInputValue() {
+    const input = this._elements?.input;
+    if (!input) {
+      return;
+    }
+
+    if (input.value !== this._draft) {
+      input.value = this._draft;
+    }
+  }
+
+  _renderTagList() {
+    const tagList = this._elements?.tagList;
+    if (!tagList) {
+      return;
+    }
+
+    if (!this._tags.length) {
+      tagList.innerHTML = '<div class="empty-state">No tags yet. Start typing to add one.</div>';
+      return;
+    }
+
+    tagList.innerHTML = this._tags
+      .map((tag, index) => {
+        const background = this._tagColor(tag);
+        return `
+          <button class="tag-pill" type="button" data-tag-index="${index}" style="background:${background};">
+            <span class="tag-label">${this._escapeHtml(tag)}</span>
+            <span class="tag-remove" aria-hidden="true">×</span>
+          </button>`;
+      })
+      .join("");
+
+    tagList.querySelectorAll("button[data-tag-index]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await this._removeTag(Number(button.dataset.tagIndex));
+      });
+    });
+  }
+
+  _renderSuggestions() {
+    const suggestionsRoot = this._elements?.suggestions;
+    if (!suggestionsRoot) {
+      return;
+    }
+
+    const suggestions = this._filteredSuggestions();
+    const showSuggestions = (this._focused || this._draft.trim()) && suggestions.length > 0;
+
+    if (!showSuggestions) {
+      suggestionsRoot.innerHTML = "";
+      suggestionsRoot.style.display = "none";
+      return;
+    }
+
+    suggestionsRoot.style.display = "flex";
+    suggestionsRoot.innerHTML = suggestions
+      .map((suggestion, index) => {
+        const isActive = index === this._highlightedIndex;
+        return `
+          <button
+            class="suggestion ${isActive ? "active" : ""}"
+            type="button"
+            data-suggestion="${this._escapeHtml(suggestion)}"
+            role="option"
+            aria-selected="${isActive ? "true" : "false"}"
+          >
+            <span>${this._escapeHtml(suggestion)}</span>
+            <span class="suggestion-meta">Existing tag</span>
+          </button>`;
+      })
+      .join("");
+
+    suggestionsRoot.querySelectorAll("button[data-suggestion]").forEach((button) => {
+      button.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+      });
+      button.addEventListener("click", async () => {
+        await this._commitDraft(button.dataset.suggestion || "");
+      });
+    });
+  }
+
+  _render() {
+    if (!this._config || !this.shadowRoot) {
+      return;
+    }
+
+    this._ensureFrame();
+    this._renderInputValue();
+    this._renderTagList();
+    this._renderSuggestions();
   }
 }
 

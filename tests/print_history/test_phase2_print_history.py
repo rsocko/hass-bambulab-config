@@ -1341,7 +1341,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
 
     def test_tag_editor_card_resource_is_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=2", content)
 
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (
@@ -1354,6 +1354,18 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('value: joinedValue,', content)
         self.assertIn('split(",")', content)
         self.assertIn('Press Enter or comma to add.', content)
+
+    def test_tag_editor_card_keeps_input_element_stable_during_updates(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_ensureFrame()", content)
+        self.assertIn("this._elements = {", content)
+        self.assertIn("_renderInputValue()", content)
+        self.assertIn("_renderTagList()", content)
+        self.assertIn("_renderSuggestions()", content)
+        self.assertNotIn('this.shadowRoot.innerHTML = `\n      <style>', content.split("_render() {")[1])
 
     def test_color_filter_card_uses_precomputed_tooltip_metadata(self):
         content = (
