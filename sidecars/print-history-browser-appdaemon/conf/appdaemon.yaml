@@ -1,0 +1,21 @@
+appdaemon:
+  latitude: !env_var APPDAEMON_LATITUDE
+  longitude: !env_var APPDAEMON_LONGITUDE
+  elevation: !env_var APPDAEMON_ELEVATION
+  time_zone: !env_var APPDAEMON_TIME_ZONE
+  plugins:
+    HASS:
+      type: hass
+      ha_url: !env_var HA_URL
+      token: !env_var HA_TOKEN
+
+http:
+  url: http://0.0.0.0:5050
+
+admin:
+
+api:
+
+logs:
+  main_log:
+    level: !env_var APPDAEMON_LOG_LEVEL

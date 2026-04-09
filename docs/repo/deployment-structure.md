@@ -71,6 +71,21 @@ The workflow sync source root is `homeassistant/` and deploys into Home Assistan
 - `homelab/` and `.github/`:
   - Infrastructure and CI/CD only; not synced to Home Assistant config.
 
+## Sidecar Boundary
+
+Runtime sidecars under `sidecars/` are not deployed by the Home Assistant config sync workflow.
+
+That matters for:
+
+- `sidecars/bambuddy-runtime-repair/`
+- `sidecars/print-history-browser-appdaemon/`
+
+For those runtimes:
+
+1. build or pull a container image separately
+2. deploy through a compose or Dockhand-style stack
+3. keep HA YAML and frontend asset deploys on the existing `homeassistant/` workflow
+
 ## Recommended Workflow Usage
 
 - Small package-only change:

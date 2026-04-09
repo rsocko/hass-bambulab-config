@@ -10,6 +10,17 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are toggleable from both the card views and the popup, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
 
+## AppDaemon Browser Variant
+
+Variant 1 now has an implemented spike under `sidecars/print-history-browser-appdaemon/`.
+
+Use it when you want the print-history browser to stop depending on the Jinja Layer 1/2/3 pipeline for fetch, filter, sort, and page behavior while keeping the existing YAML path in the repo as a fallback.
+
+Design and deployment notes:
+
+- `appdaemon-query-cache.md`
+- `filter-sort-design.md`
+
 ## Related Runtime Repair Docs
 
 For fallback-archive canonical timestamp repair and adjacent orchestration design, see:

@@ -1,0 +1,12 @@
+print_history_browser:
+  module: print_history_browser
+  class: PrintHistoryBrowserApp
+  bambuddy_api_base_url: !env_var BAMBUDDY_API_BASE_URL
+  bambuddy_api_key: !env_var BAMBUDDY_API_KEY
+  refresh_interval_seconds: 300
+  fetch_timeout_seconds: 30
+  browser_status_entity: sensor.print_history_browser_status
+  filtered_entity: sensor.print_history_browser_filtered
+  page_entity: sensor.print_history_browser_page_archives
+  page_info_entity: sensor.print_history_browser_page_info
+  activity_entity: sensor.print_history_browser_activity

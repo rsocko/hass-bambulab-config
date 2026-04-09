@@ -1,0 +1,18 @@
+services:
+  print-history-browser-appdaemon:
+    image: registry.local:5000/print-history-browser-appdaemon:0.1.0
+    container_name: print-history-browser-appdaemon
+    restart: unless-stopped
+    environment:
+      TZ: America/Chicago
+      HA_URL: http://homeassistant:8123
+      HA_TOKEN: ${HA_TOKEN}
+      BAMBUDDY_API_BASE_URL: http://bambuddy:8000
+      BAMBUDDY_API_KEY: ${BAMBUDDY_API_KEY}
+      APPDAEMON_LATITUDE: 0
+      APPDAEMON_LONGITUDE: 0
+      APPDAEMON_ELEVATION: 0
+      APPDAEMON_TIME_ZONE: America/Chicago
+      APPDAEMON_LOG_LEVEL: INFO
+    ports:
+      - "127.0.0.1:5050:5050"
