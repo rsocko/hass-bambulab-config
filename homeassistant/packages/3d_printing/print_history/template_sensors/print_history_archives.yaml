@@ -56,6 +56,7 @@
           {% for a in raw %}
             {% set extra = a.get('extra_data', {}) if a.get('extra_data') is mapping else {} %}
             {% set raw_slots = extra.get('filament_slots', []) if extra is mapping else [] %}
+            {% set raw_photos = a.get('photos', []) if a.get('photos') is iterable and a.get('photos') is not string else [] %}
             {% set slot_ns = namespace(values=[]) %}
             {% for slot in raw_slots if slot is mapping %}
               {% set slot_ns.values = slot_ns.values + [dict(
@@ -63,6 +64,13 @@
                 type=slot.get('type'),
                 used_g=slot.get('used_g')
               )] %}
+            {% endfor %}
+            {% set photo_ns = namespace(values=[]) %}
+            {% for photo in raw_photos %}
+              {% set filename = photo | string | trim %}
+              {% if filename != '' %}
+                {% set photo_ns.values = photo_ns.values + [filename] %}
+              {% endif %}
             {% endfor %}
             {% set ns.trimmed = ns.trimmed + [dict(
               id=a.get('id'),
@@ -91,7 +99,8 @@
               tags=a.get('tags', ''),
               notes=a.get('notes', ''),
               failure_reason=a.get('failure_reason', ''),
-              thumbnail_path=a.get('thumbnail_path', '')
+              thumbnail_path=a.get('thumbnail_path', ''),
+              photos=photo_ns.values
             )] %}
           {% endfor %}
           {{ ns.trimmed | tojson }}
