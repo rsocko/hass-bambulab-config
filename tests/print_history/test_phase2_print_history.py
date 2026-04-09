@@ -1283,21 +1283,31 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 class TestPrintHistoryTagColors(unittest.TestCase):
     """Archive tags should use stable deterministic colors across cards and popup."""
 
-    def test_archive_cards_and_popup_use_same_tag_color_hashing(self):
+    def test_archive_cards_use_shared_tag_color_helper(self):
         files = [
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
         ]
-        expected_palette = "const tagPalette = ['#86EFAC', '#93C5FD', '#F9A8D4', '#7DD3FC', '#C4B5FD', '#FCD34D', '#4ADE80', '#60A5FA', '#EC4899', '#38BDF8', '#A78BFA', '#F59E0B'];"
 
         for path in files:
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
-                self.assertIn(expected_palette, content)
-                self.assertIn("const tagColor = (tag) => {", content)
-                self.assertIn("const normalized = String(tag || '').trim().toLowerCase();", content)
-                self.assertIn("tagPalette[hash % tagPalette.length]", content)
+                self.assertIn("const tagColorHelper = window.PrintHistoryTagColors;", content)
+                self.assertIn("const tagColor = (tag) =>", content)
+                self.assertIn("tagColorHelper.colorForTag(tag)", content)
+                self.assertNotIn("const tagPalette =", content)
+
+    def test_shared_tag_color_helper_uses_prefix_hashing_and_twenty_four_colors(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-colors.js"
+        ).read_text("utf-8")
+
+        self.assertIn("const TAG_PALETTE = Object.freeze([", content)
+        self.assertGreaterEqual(content.count("#"), 24)
+        self.assertIn('return normalized.includes(":") ? normalized.split(":", 1)[0] : normalized;', content)
+        self.assertIn("return TAG_PALETTE[hash % TAG_PALETTE.length];", content)
+        self.assertIn("window.PrintHistoryTagColors = PrintHistoryTagColors;", content)
 
     def test_tag_rendering_no_longer_uses_single_hardcoded_blue(self):
         files = [
@@ -1338,9 +1348,10 @@ class TestPrintHistoryTagColors(unittest.TestCase):
 class TestPrintHistoryTagEditorCard(unittest.TestCase):
     """The popup tag editor should use the filter tag list as its suggestion source."""
 
-    def test_tag_editor_card_resource_is_registered(self):
+    def test_tag_editor_card_resources_are_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=2", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
 
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (
@@ -1353,6 +1364,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('value: joinedValue,', content)
         self.assertIn('split(",")', content)
         self.assertIn('Press Enter or comma to add.', content)
+        self.assertIn('const helper = window.PrintHistoryTagColors;', content)
+        self.assertIn('return helper.colorForTag(tag);', content)
 
     def test_tag_editor_card_keeps_input_element_stable_during_updates(self):
         content = (
@@ -1385,7 +1398,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("const enrichmentStatusCode = String(enrichmentPayload?.s || '').toLowerCase();", content)
         self.assertIn("const archiveIdLabel = archiveId !== undefined && archiveId !== null && archiveId !== '' ? `Archive #${archiveId}` : 'Archive unavailable';", content)
         self.assertIn("Enrichment ${escapeHtml(enrichmentStatusLabel)}", content)
-        self.assertIn("const prefixKey = normalized.includes(':') ? normalized.split(':', 1)[0] : normalized;", content)
+        self.assertIn("const tagColorHelper = window.PrintHistoryTagColors;", content)
+        self.assertIn("tagColorHelper.colorForTag(tag)", content)
         self.assertIn("const tagLimit = 3;", content)
         self.assertIn("const hiddenTagCount = Math.max(0, allTags.length - tagLimit);", content)
         self.assertIn("… +${hiddenTagCount}", content)

@@ -141,30 +141,12 @@ class PrintHistoryTagEditorCard extends HTMLElement {
   }
 
   _tagColor(tag) {
-    const palette = [
-      "#86EFAC",
-      "#93C5FD",
-      "#F9A8D4",
-      "#7DD3FC",
-      "#C4B5FD",
-      "#FCD34D",
-      "#4ADE80",
-      "#60A5FA",
-      "#EC4899",
-      "#38BDF8",
-      "#A78BFA",
-      "#F59E0B",
-    ];
-    const normalized = this._normalizeTag(tag);
-    if (!normalized) {
-      return palette[0];
+    const helper = window.PrintHistoryTagColors;
+    if (!helper || typeof helper.colorForTag !== "function") {
+      return "#86EFAC";
     }
 
-    let hash = 0;
-    for (let index = 0; index < normalized.length; index += 1) {
-      hash = ((hash << 5) - hash + normalized.charCodeAt(index)) >>> 0;
-    }
-    return palette[hash % palette.length];
+    return helper.colorForTag(tag);
   }
 
   _filteredSuggestions() {
