@@ -337,7 +337,7 @@ print_history_archive_popup_content:
           <div style="display:flex;flex-direction:column;gap:14px;">
             <div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);">
               <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px) minmax(0,1fr);gap:12px;align-items:center;min-width:0;">
-                <div style="min-width:0;display:flex;flex-direction:column;gap:4px;">
+                <div style="min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;">
                   <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);">Start</div>
                   <div style="font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;">${escapeHtml(startedDisplay)}</div>
                 </div>
@@ -349,7 +349,7 @@ print_history_archive_popup_content:
                   </div>
                   <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;">${escapeHtml(timelineDuration)}</span>
                 </div>
-                <div style="min-width:0;display:flex;flex-direction:column;gap:4px;text-align:right;">
+                <div style="min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;">
                   <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);">End</div>
                   <div style="font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;">${escapeHtml(completedDisplay)}</div>
                 </div>
