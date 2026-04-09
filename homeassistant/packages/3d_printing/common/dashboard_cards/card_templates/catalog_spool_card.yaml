@@ -298,9 +298,12 @@ catalog_spool_card:
         - justify-self: end
       last_used:
         - justify-self: end
+        - min-width: max-content
       location_label:
         - justify-self: start
         - padding-top: 1px
       purchase_qty:
         - justify-self: end
         - align-self: center
+        - min-width: max-content
+        - overflow: visible
