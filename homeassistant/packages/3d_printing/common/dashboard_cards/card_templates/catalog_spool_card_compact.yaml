@@ -103,7 +103,7 @@ catalog_spool_card_compact:
         if (!purchaseNeed) return '';
         const iconColor = '#FF9800';
         const label = qty > 0 ? `Buy ${qty}` : (rule === 'Maintain Backup Spool' ? 'Backup Low' : 'Needs Purchase');
-        const icon = ruleShortage ? 'mdi:cart-alert' : 'mdi:cart-plus';
+        const icon = 'mdi:cart-plus';
         return `<span style="display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:999px; background:rgba(0,0,0,0.18); font-size:10px; font-weight:700; white-space:nowrap;"><ha-icon icon="${icon}" style="--mdc-icon-size:13px; color:${iconColor};"></ha-icon><span style="color:#ffffff;">${label}</span></span>`;
       ]]]
   styles:
