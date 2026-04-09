@@ -7,6 +7,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._activeIndex = 0;
     this._expanded = false;
     this._boundKeydownHandler = this._handleKeydown.bind(this);
+    this._boundClickHandler = this._handleHostClick.bind(this);
   }
 
   setConfig(config) {
@@ -14,8 +15,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
       archive_entity: config && config.archive_entity ? config.archive_entity : "sensor.print_history_archives",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
+      visibility_entity: config && config.visibility_entity ? config.visibility_entity : "",
       title: config && config.title ? config.title : "Archive Photos",
       include_thumbnail: !config || config.include_thumbnail !== false,
+      compact: !!(config && config.compact),
     };
     this._activeIndex = 0;
     this._expanded = false;
@@ -29,10 +32,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
   connectedCallback() {
     window.addEventListener("keydown", this._boundKeydownHandler);
+    this.addEventListener("click", this._boundClickHandler);
   }
 
   disconnectedCallback() {
     window.removeEventListener("keydown", this._boundKeydownHandler);
+    this.removeEventListener("click", this._boundClickHandler);
   }
 
   getCardSize() {
@@ -44,17 +49,24 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return;
     }
     if (event.key === "Escape") {
+      event.stopPropagation();
       this._expanded = false;
       this._render();
       return;
     }
     if (event.key === "ArrowLeft") {
+      event.stopPropagation();
       this._moveActiveIndex(-1);
       return;
     }
     if (event.key === "ArrowRight") {
+      event.stopPropagation();
       this._moveActiveIndex(1);
     }
+  }
+
+  _handleHostClick(event) {
+    event.stopPropagation();
   }
 
   _parseArchive() {
@@ -106,6 +118,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ? this._hass.states[entityId].state
       : "";
     return String(raw || "").replace(/\/$/, "");
+  }
+
+  _isVisible() {
+    var entityId = this._config ? this._config.visibility_entity : "";
+    if (!entityId) {
+      return true;
+    }
+    var state = this._hass && this._hass.states && this._hass.states[entityId]
+      ? this._hass.states[entityId].state
+      : "on";
+    return state !== "off";
   }
 
   _buildImages(archive) {
@@ -177,6 +200,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return;
     }
 
+    if (!this._isVisible()) {
+      this.shadowRoot.innerHTML = "<style>:host{display:none}</style>";
+      return;
+    }
+
     var archive = this._resolveArchive();
     var images = this._buildImages(archive);
     if (!images.length) {
@@ -194,11 +222,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var subtitle = photoCount > 0
       ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
       : "Thumbnail only";
+    var compact = !!this._config.compact;
 
     this.shadowRoot.innerHTML =
       "<style>" +
       ":host{display:block;}" +
-      "ha-card{padding:0;overflow:hidden;border-radius:18px;}" +
+      "ha-card{padding:0;overflow:hidden;border-radius:18px;box-shadow:none;background:none;}" +
       ".wrap{display:flex;flex-direction:column;gap:10px;padding:0;}" +
       ".stage{position:relative;border-radius:18px;overflow:hidden;background:rgba(15,23,42,0.32);min-height:220px;}" +
       ".stage-button{appearance:none;border:none;background:none;padding:0;display:block;width:100%;cursor:zoom-in;}" +
@@ -233,6 +262,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".overlay-thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;flex:0 0 auto;}" +
       ".overlay-thumb.active{border-color:#90caf9;}" +
       ".overlay-thumb img{display:block;width:88px;height:88px;object-fit:cover;background:rgba(15,23,42,0.35);}" +
+      ":host([compact]) .wrap{gap:8px;}" +
+      ":host([compact]) .stage{border-radius:16px;}" +
+      ":host([compact]) .stage-image{max-height:220px;min-height:220px;}" +
+      ":host([compact]) .thumb img{width:64px;height:64px;}" +
       "@media (max-width: 640px){.stage-image{max-height:260px;min-height:180px;}.overlay{padding:14px 14px 12px;}.overlay-thumb img{width:72px;height:72px;}.overlay-nav{width:44px;height:44px;}}" +
       "</style>" +
       "<ha-card>" +
@@ -247,10 +280,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +
-      '<div class="meta">' +
+      (compact ? "" : ('<div class="meta">' +
       '<div><div class="title">' + this._escapeHtml(this._config.title) + "</div><div class=\"subtitle\">" + this._escapeHtml(archiveName) + " \u00b7 " + this._escapeHtml(subtitle) + "</div></div>" +
       '<button class="expand" type="button" data-action="expand">Expand</button>' +
-      "</div>" +
+      "</div>")) +
       '<div class="thumbs">' + images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
           '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || archiveName) + '">' +
@@ -278,7 +311,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var self = this;
     Array.from(this.shadowRoot.querySelectorAll("[data-index]"))
       .forEach(function (button) {
-        button.addEventListener("click", function () {
+        button.addEventListener("click", function (event) {
+          event.stopPropagation();
           var index = Number(button.getAttribute("data-index"));
           if (!Number.isFinite(index)) {
             return;
@@ -290,7 +324,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     Array.from(this.shadowRoot.querySelectorAll("[data-action]"))
       .forEach(function (button) {
-        button.addEventListener("click", function () {
+        button.addEventListener("click", function (event) {
+          event.stopPropagation();
           var action = button.getAttribute("data-action");
           if (action === "prev") {
             self._moveActiveIndex(-1);
@@ -311,6 +346,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           }
         });
       });
+
+    if (compact) {
+      this.setAttribute("compact", "");
+    } else {
+      this.removeAttribute("compact");
+    }
   }
 }
 

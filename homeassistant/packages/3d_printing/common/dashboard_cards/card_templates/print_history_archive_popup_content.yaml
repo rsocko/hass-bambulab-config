@@ -193,6 +193,9 @@ print_history_archive_popup_content:
           return reviewReasons;
         };
 
+        const thumbnailUrl = baseUrl && archiveId
+          ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail`
+          : '';
         const metadataRows = [
           ['Started', formatDate(archive?.started_at)],
           ['Completed', formatDate(archive?.completed_at)],
@@ -290,6 +293,7 @@ print_history_archive_popup_content:
 
         return `
           <div style="display:flex;flex-direction:column;gap:14px;">
+            ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" style="width:100%;max-height:260px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}">` : ''}
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
               <span style="background:${statusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">${statusIcon} ${escapeHtml(statusLabel)}</span>
               <span style="display:inline-flex;align-items:center;gap:6px;color:${archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)'};font-size:13px;font-weight:700;">
