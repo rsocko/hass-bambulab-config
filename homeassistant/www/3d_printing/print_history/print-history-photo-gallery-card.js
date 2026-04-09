@@ -14,6 +14,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._config = {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
       archive_entity: config && config.archive_entity ? config.archive_entity : "sensor.print_history_archives",
+      detail_entity: config && config.detail_entity ? config.detail_entity : "",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
       visibility_entity: config && config.visibility_entity ? config.visibility_entity : "",
       title: config && config.title ? config.title : "Archive Photos",
@@ -98,18 +99,73 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return snapshotArchive;
     }
 
+    var archive = snapshotArchive;
+
     try {
       var archiveCache = Array.isArray(raw) ? raw : JSON.parse(raw || "[]");
       if (Array.isArray(archiveCache)) {
-        return archiveCache.find(function (item) {
+        archive = archiveCache.find(function (item) {
           return String(item && item.id) === String(archiveId);
         }) || snapshotArchive;
       }
     } catch (_error) {
-      return snapshotArchive;
+      archive = snapshotArchive;
     }
 
-    return snapshotArchive;
+    return this._mergeDetailArchive(archive, archiveId);
+  }
+
+  _mergeDetailArchive(archive, archiveId) {
+    var detail = this._getDetailArchive(archiveId);
+    if (!detail) {
+      return archive;
+    }
+
+    var merged = Object.assign({}, archive || {}, detail || {});
+    var detailPhotos = Array.isArray(detail.photos) ? detail.photos : [];
+    var archivePhotos = Array.isArray(archive && archive.photos) ? archive.photos : [];
+
+    if (detailPhotos.length) {
+      merged.photos = detailPhotos;
+    } else if (archivePhotos.length) {
+      merged.photos = archivePhotos;
+    }
+
+    if (!merged.thumbnail_path && archive && archive.thumbnail_path) {
+      merged.thumbnail_path = archive.thumbnail_path;
+    }
+
+    return merged;
+  }
+
+  _getDetailArchive(archiveId) {
+    var entityId = this._config ? this._config.detail_entity : "";
+    if (!entityId || !this._hass || !this._hass.states || !this._hass.states[entityId]) {
+      return null;
+    }
+
+    var detailState = this._hass.states[entityId];
+    if (String(detailState.state || "") !== String(archiveId)) {
+      return null;
+    }
+
+    var raw = detailState.attributes ? detailState.attributes.archive_json : null;
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      var detail = typeof raw === "string" ? JSON.parse(raw || "{}") : raw;
+      if (!detail || typeof detail !== "object") {
+        return null;
+      }
+      if (detail.id != null && String(detail.id) !== String(archiveId)) {
+        return null;
+      }
+      return detail;
+    } catch (_error) {
+      return null;
+    }
   }
 
   _getBaseUrl() {

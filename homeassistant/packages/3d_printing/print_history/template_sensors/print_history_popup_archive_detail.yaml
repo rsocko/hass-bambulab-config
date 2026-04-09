@@ -1,0 +1,77 @@
+# Popup-scoped archive detail cache for gallery/photo fallback.
+# Fetches the selected archive detail when the popup archive id changes so
+# popup-only UI can access fields omitted by the list endpoint, such as photos.
+- trigger:
+    - trigger: state
+      entity_id: input_text.print_history_popup_archive_id
+    - trigger: homeassistant
+      event: start
+  action:
+    - variables:
+        archive_id: "{{ states('input_text.print_history_popup_archive_id') | string | trim }}"
+    - if:
+        - condition: template
+          value_template: "{{ archive_id != '' }}"
+      then:
+        - action: rest_command.bambuddy_get_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
+          response_variable: result
+  sensor:
+    - name: Print History Popup Archive Detail
+      unique_id: print_history_popup_archive_detail
+      icon: mdi:image-multiple
+      state: >-
+        {{ states('input_text.print_history_popup_archive_id') | string | trim }}
+      attributes:
+        archive_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            {}
+          {% else %}
+            {% set content = result.get('content', {}) if result is defined and result is mapping else {} %}
+            {% if content is string %}
+              {% set detail = content | from_json({}) %}
+            {% elif content is mapping %}
+              {% set detail = content %}
+            {% else %}
+              {% set detail = {} %}
+            {% endif %}
+            {{ detail | tojson }}
+          {% endif %}
+        photos_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            []
+          {% else %}
+            {% set content = result.get('content', {}) if result is defined and result is mapping else {} %}
+            {% if content is string %}
+              {% set detail = content | from_json({}) %}
+            {% elif content is mapping %}
+              {% set detail = content %}
+            {% else %}
+              {% set detail = {} %}
+            {% endif %}
+            {% set raw_photos = detail.get('photos', []) if detail is mapping and detail.get('photos') is iterable and detail.get('photos') is not string else [] %}
+            {% set ns = namespace(values=[]) %}
+            {% for photo in raw_photos %}
+              {% set filename = photo | string | trim %}
+              {% if filename != '' %}
+                {% set ns.values = ns.values + [filename] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.values | tojson }}
+          {% endif %}
+        photo_count: >-
+          {% set raw = state_attr('sensor.print_history_popup_archive_detail', 'photos_json') | default('[]', true) %}
+          {% if raw is string %}
+            {% set photos = raw | from_json([]) %}
+          {% elif raw is iterable %}
+            {% set photos = raw | list %}
+          {% else %}
+            {% set photos = [] %}
+          {% endif %}
+          {{ photos | count }}
+        source_status: >-
+          {{ result.get('status', 'idle') if result is defined and result is mapping else 'idle' }}
+        last_fetch: "{{ now().isoformat() }}"
