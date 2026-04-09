@@ -210,8 +210,15 @@ print_history_archive_popup:
           hold_action: { action: 'none' }
         },
         {
+          type: 'custom:print-history-tag-editor-card',
+          entity: 'input_text.print_history_popup_tags',
+          suggestions_entity: 'input_select.print_history_filter_tag',
+          title: 'Tags',
+          placeholder: 'Add a tag and press Enter',
+          helper: 'Reuse an existing tag or create a new one. Press Enter or comma to add.'
+        },
+        {
           type: 'entities',
-          title: 'Edit Archive',
           show_header_toggle: false,
           entities: [
             {
@@ -255,14 +262,6 @@ print_history_archive_popup:
               icon: 'mdi:text-box-outline'
             }
           ]
-        },
-        {
-          type: 'custom:print-history-tag-editor-card',
-          entity: 'input_text.print_history_popup_tags',
-          suggestions_entity: 'input_select.print_history_filter_tag',
-          title: 'Tags',
-          placeholder: 'Add a tag and press Enter',
-          helper: 'Reuse an existing tag or create a new one. Press Enter or comma to add.'
         },
         ...((printNameWasTrimmed || notesWereTrimmed || tagsWereTrimmed || hasCustomFailureReason) ? [{
           type: 'markdown',
