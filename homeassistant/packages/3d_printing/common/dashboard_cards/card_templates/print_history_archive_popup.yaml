@@ -190,6 +190,14 @@ print_history_archive_popup:
       ];
       const cards = [
         {
+          type: 'custom:print-history-photo-gallery-card',
+          archive_json: variables?.archive_json || '{}',
+          archive_entity: 'sensor.print_history_archives',
+          api_base_entity: 'input_text.bambuddy_api_base_url',
+          visibility_entity: 'input_boolean.print_history_show_images',
+          include_thumbnail: true
+        },
+        {
           type: 'custom:button-card',
           template: 'print_history_archive_popup_content',
           entity: 'sensor.print_history_archives',

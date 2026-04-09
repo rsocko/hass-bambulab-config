@@ -64,9 +64,6 @@ print_history_archive_card_media:
           archive = snapshotArchive;
         }
 
-        const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
-        const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
-        const archiveId = archive?.id;
         const normalizeStatus = (status) => {
           const raw = String(status || '').toLowerCase();
           if (raw === 'completed' || raw === 'success') return 'completed';
@@ -142,6 +139,8 @@ print_history_archive_card_media:
           if (!Number.isFinite(numeric) || numeric <= 0) return '-';
           return `$${numeric.toFixed(2)}`;
         };
+        const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
+        const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
         const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'];
         const systemTagValues = [];
         const isSystemTag = (tag) => {
@@ -169,13 +168,14 @@ print_history_archive_card_media:
             }));
         const tags = String(archive?.tags || '').split(',').map((value) => value.trim()).filter(Boolean).filter((tag) => !isSystemTag(tag)).slice(0, 4);
         const showImages = states['input_boolean.print_history_show_images']?.state !== 'off';
-        const thumbnailUrl = showImages && baseUrl && archiveId ? `${baseUrl}/api/v1/archives/${archiveId}/thumbnail` : '';
+        const thumbnailUrl = showImages && baseUrl && snapshotArchiveId ? `${baseUrl}/api/v1/archives/${snapshotArchiveId}/thumbnail` : '';
         const metadata = [archive?.filament_type || 'Unknown material', archive?.layer_height ? `${archive.layer_height}mm` : '', archive?.designer || ''].filter(Boolean).join(' · ');
 
         return `
           <div style="display:flex;flex-direction:column;gap:0;">
-            ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:220px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}">` : ''}
-            <div style="padding:${thumbnailUrl ? '16px 2px 2px' : '0'} 0 0;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:grid;grid-template-columns:${thumbnailUrl ? 'minmax(148px, 188px) minmax(0, 1fr)' : 'minmax(0, 1fr)'};gap:16px 18px;align-items:flex-start;width:100%;min-width:0;">
+              ${thumbnailUrl ? `<div style="min-width:0;width:100%;"><img src="${escapeHtml(thumbnailUrl)}" style="width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;" alt="${escapeHtml(archive?.print_name || 'Archive thumbnail')}"></div>` : ''}
+              <div style="padding:16px 2px 2px 0;display:flex;flex-direction:column;gap:10px;min-width:0;">
               <div style="display:flex;justify-content:space-between;gap:10px;row-gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0;">
                 <div style="min-width:0;flex:1 1 220px;max-width:100%;">
                   <div style="font-weight:700;font-size:18px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:100%;">${escapeHtml(archive?.print_name || 'Unnamed')}</div>
@@ -194,6 +194,7 @@ print_history_archive_card_media:
               ${filamentChips.length ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${filamentChips.slice(0, 6).map((chip) => `<span title="${escapeHtml(chip.tooltip)}" style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(chip.dotColor)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span>`).join('')}</div>` : ''}
               ${tags.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${tags.map((tag) => `<span style="background:${tagColor(tag)};color:#243242;border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
               ${archive?.failure_reason ? `<div style="font-size:12px;color:#ffb4ab;line-height:1.4;">${escapeHtml(archive.failure_reason)}</div>` : ''}
+              </div>
             </div>
           </div>`;
       ]]]
