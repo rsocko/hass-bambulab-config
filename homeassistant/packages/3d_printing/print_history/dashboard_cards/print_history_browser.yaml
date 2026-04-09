@@ -308,7 +308,6 @@ cards:
           show_state: true
           styles: >-
             ${(() => {
-              const active = states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True';
               return `
                 .bubble-button-card-container {
                   pointer-events: none !important;
@@ -323,48 +322,6 @@ cards:
                 .bubble-sub-button {
                   pointer-events: auto !important;
                 }
-                .bubble-sub-button.clear-status-filter,
-                .bubble-sub-button.clear-enrichment-filter,
-                .bubble-sub-button.clear-material-filter,
-                .bubble-sub-button.clear-printer-filter,
-                .bubble-sub-button.clear-date-filter,
-                .bubble-sub-button.clear-designer-filter,
-                .bubble-sub-button.clear-project-filter,
-                .bubble-sub-button.clear-layer-filter,
-                .bubble-sub-button.clear-tag-filter,
-                .bubble-sub-button.clear-favorites-filter,
-                .bubble-sub-button.clear-search-filter,
-                .bubble-sub-button.clear-colors-filter,
-                .bubble-sub-button.clear-selected-day-filter {
-                  background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
-                  color: var(--accent-color) !important;
-                  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
-                }
-                .bubble-sub-button.clear-status-filter ha-icon,
-                .bubble-sub-button.clear-enrichment-filter ha-icon,
-                .bubble-sub-button.clear-material-filter ha-icon,
-                .bubble-sub-button.clear-printer-filter ha-icon,
-                .bubble-sub-button.clear-date-filter ha-icon,
-                .bubble-sub-button.clear-designer-filter ha-icon,
-                .bubble-sub-button.clear-project-filter ha-icon,
-                .bubble-sub-button.clear-layer-filter ha-icon,
-                .bubble-sub-button.clear-tag-filter ha-icon,
-                .bubble-sub-button.clear-favorites-filter ha-icon,
-                .bubble-sub-button.clear-search-filter ha-icon,
-                .bubble-sub-button.clear-colors-filter ha-icon,
-                .bubble-sub-button.clear-selected-day-filter ha-icon {
-                  color: var(--accent-color) !important;
-                }
-                ${active ? `
-                .bubble-sub-button:last-child {
-                  background-color: color-mix(in srgb, var(--accent-color) 18%, var(--card-background-color)) !important;
-                  color: var(--accent-color) !important;
-                  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
-                }
-                .bubble-sub-button:last-child ha-icon {
-                  color: var(--accent-color) !important;
-                }
-                ` : ''}
               `;
             })()}
           tap_action:
@@ -639,8 +596,8 @@ cards:
               show_name: true
               show_state: false
               show_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
-              state_background: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
-              state_color: ${!!(states['sensor.print_history_filtered']?.attributes?.has_active_filters === true || states['sensor.print_history_filtered']?.attributes?.has_active_filters === 'True')}
+              state_background: false
+              state_color: false
               fill_width: false
               tap_action:
                 action: call-service
