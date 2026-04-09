@@ -1231,15 +1231,15 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("suggestions_entity: 'input_select.print_history_filter_tag'", content)
         self.assertIn("Press Enter or comma to add.", content)
 
-    def test_popup_content_shows_only_user_notes_and_filtered_tags(self):
+    def test_popup_content_shows_only_user_notes(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const notesInfo = splitArchiveNotes(archive?.notes);", content)
-        self.assertIn("const tags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
         self.assertIn("notesInfo.userNotes", content)
         self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
         self.assertIn("Array.isArray(notesInfo.payload?.F)", content)
         self.assertIn(">Filament Colors<", content)
         self.assertIn(">Enrichment<", content)
+        self.assertNotIn(">Tags<", content)
 
     def test_popup_content_derives_partial_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
@@ -1288,7 +1288,6 @@ class TestPrintHistoryTagColors(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml",
         ]
         expected_palette = "const tagPalette = ['#86EFAC', '#93C5FD', '#F9A8D4', '#7DD3FC', '#C4B5FD', '#FCD34D', '#4ADE80', '#60A5FA', '#EC4899', '#38BDF8', '#A78BFA', '#F59E0B'];"
 
