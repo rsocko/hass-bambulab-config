@@ -228,6 +228,12 @@ print_history_archive_popup_content:
           ? formatTimelineDate(archive.completed_at)
           : (status === 'printing' ? 'In progress' : '-');
         const timelineDuration = formatTimelineDuration(archive?.actual_time_seconds || archive?.print_time_seconds);
+        const timelineStartColor = '#1565C0';
+        const timelineEndColor = status === 'completed'
+          ? '#2E7D32'
+          : (status === 'failed' || status === 'cancelled')
+            ? '#C62828'
+            : '#78909C';
         const favoriteChip = `<span title="${archive?.is_favorite ? 'Favorite archive' : 'Not marked as favorite'}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:${archive?.is_favorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.05)'};border:1px solid ${archive?.is_favorite ? 'rgba(245,194,66,0.35)' : 'rgba(255,255,255,0.08)'};flex:0 0 auto;"><ha-icon icon="${archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:18px;color:${archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)'};"></ha-icon></span>`;
         const summaryRowChips = [
           `<span style="background:${statusColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><span>${statusIcon}</span><span>${escapeHtml(statusLabel)}</span></span>`,
@@ -236,7 +242,7 @@ print_history_archive_popup_content:
         ].filter(Boolean).join('');
         const metricChips = [
           renderInfoChip('mdi:weight-gram', formatNumber(archive?.filament_used_grams, 1, 'g')),
-          Number(archive?.object_count || 0) > 1 ? renderInfoChip('mdi:shape-outline', String(archive.object_count)) : '',
+          Number(archive?.object_count || 0) > 1 ? renderInfoChip('mdi:shape-outline', `${archive.object_count} objects`) : '',
           renderInfoChip('mdi:currency-usd', formatCurrencyValue(archive?.cost)),
           renderInfoChip('mdi:flask-outline', archive?.filament_type)
         ].filter(Boolean).join('');
@@ -330,16 +336,16 @@ print_history_archive_popup_content:
         return `
           <div style="display:flex;flex-direction:column;gap:14px;">
             <div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);">
-              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,220px) minmax(0,1fr);gap:12px;align-items:center;min-width:0;">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px) minmax(0,1fr);gap:12px;align-items:center;min-width:0;">
                 <div style="min-width:0;display:flex;flex-direction:column;gap:4px;">
                   <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);">Start</div>
                   <div style="font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;">${escapeHtml(startedDisplay)}</div>
                 </div>
-                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;min-width:140px;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;min-width:220px;">
                   <div style="position:relative;width:100%;height:18px;">
-                    <span style="position:absolute;left:10px;right:10px;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
-                    <span style="position:absolute;left:8px;top:50%;width:10px;height:10px;border-radius:999px;background:${statusColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
-                    <span style="position:absolute;right:8px;top:50%;width:10px;height:10px;border-radius:999px;background:${statusColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
+                    <span style="position:absolute;left:4px;right:4px;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
+                    <span style="position:absolute;left:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(21,101,192,0.12);"></span>
+                    <span style="position:absolute;right:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
                   </div>
                   <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;">${escapeHtml(timelineDuration)}</span>
                 </div>
