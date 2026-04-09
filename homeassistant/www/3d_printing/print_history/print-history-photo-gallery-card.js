@@ -9,6 +9,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._images = [];
     this._archiveName = "Archive Photos";
     this._preloadedSources = {};
+    this._lastRenderSignature = "";
     this._boundKeydownHandler = this._handleKeydown.bind(this);
     this._boundClickHandler = this._handleHostClick.bind(this);
     this._boundShadowClickHandler = this._handleShadowClick.bind(this);
@@ -31,7 +32,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   }
 
   set hass(hass) {
+    var nextSignature = this._computeRenderSignature(hass);
     this._hass = hass;
+    if (nextSignature === this._lastRenderSignature) {
+      return;
+    }
+    this._lastRenderSignature = nextSignature;
     this._render();
   }
 
@@ -223,6 +229,39 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ? this._hass.states[entityId].state
       : "";
     return String(raw || "").replace(/\/$/, "");
+  }
+
+  _computeRenderSignature(hass) {
+    if (!this._config || !hass || !hass.states) {
+      return "";
+    }
+
+    var parts = [
+      typeof this._config.archive_json === "string"
+        ? this._config.archive_json
+        : JSON.stringify(this._config.archive_json || {}),
+    ];
+
+    var archiveEntityId = this._config.archive_entity || "sensor.print_history_archives";
+    var archiveState = hass.states[archiveEntityId];
+    parts.push(archiveState ? String(archiveState.last_updated || archiveState.last_changed || "") : "");
+
+    var detailEntityId = this._config.detail_entity || "";
+    var detailState = detailEntityId ? hass.states[detailEntityId] : null;
+    parts.push(detailState ? String(detailState.last_updated || detailState.last_changed || "") : "");
+    parts.push(detailState ? String(detailState.state || "") : "");
+
+    var baseEntityId = this._config.api_base_entity || "input_text.bambuddy_api_base_url";
+    var baseState = hass.states[baseEntityId];
+    parts.push(baseState ? String(baseState.state || "") : "");
+    parts.push(baseState ? String(baseState.last_updated || baseState.last_changed || "") : "");
+
+    var visibilityEntityId = this._config.visibility_entity || "";
+    var visibilityState = visibilityEntityId ? hass.states[visibilityEntityId] : null;
+    parts.push(visibilityState ? String(visibilityState.state || "") : "");
+    parts.push(visibilityState ? String(visibilityState.last_updated || visibilityState.last_changed || "") : "");
+
+    return parts.join("|");
   }
 
   _isVisible() {
