@@ -153,8 +153,8 @@ print_history_archive_popup_content:
           .split(',')
           .map((tag) => tag.trim())
           .filter(Boolean);
-        const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'];
-        const systemTagValues = [];
+        const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];
+        const systemTagValues = ['ha_enriched:true'];
         const isSystemTag = (tag) => {
           const normalized = String(tag || '').trim().toLowerCase();
           return systemTagValues.includes(normalized) || systemTagPrefixes.some((prefix) => normalized.startsWith(prefix));

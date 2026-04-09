@@ -51,7 +51,10 @@ save_print_history_archive_popup_edits:
               or lowered.startswith('vendor:')
               or lowered.startswith('material:')
               or lowered.startswith('cost:')
-              or lowered.startswith('status:') %}
+              or lowered.startswith('status:')
+              or lowered.startswith('ha enrichment:')
+              or lowered.startswith('ha_enrichment:')
+              or lowered == 'ha_enriched:true' %}
             {% if cleaned | length > 0 and not is_system and lowered not in ns.seen %}
               {% set ns.result = ns.result + [cleaned] %}
               {% set ns.seen = ns.seen + [lowered] %}
@@ -125,7 +128,10 @@ save_print_history_archive_popup_edits:
                   or lowered.startswith('vendor:')
                   or lowered.startswith('material:')
                   or lowered.startswith('cost:')
-                  or lowered.startswith('status:') %}
+                  or lowered.startswith('status:')
+                  or lowered.startswith('ha enrichment:')
+                  or lowered.startswith('ha_enrichment:')
+                  or lowered == 'ha_enriched:true' %}
                 {% if cleaned | length > 0 and is_system and lowered not in ns.seen %}
                   {% set ns.result = ns.result + [cleaned] %}
                   {% set ns.seen = ns.seen + [lowered] %}

@@ -1193,7 +1193,9 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("vendor:", content)
         self.assertIn("cost:", content)
         self.assertIn("status:", content)
-        self.assertIn("system_tag_values = []", content)
+        self.assertIn("ha enrichment:", content)
+        self.assertIn("ha_enrichment:", content)
+        self.assertIn("ha_enriched:true", content)
         self.assertIn("not system_tag.value", content)
         self.assertIn("['All', 'None'] + (ns.values | sort)", content)
 
@@ -1218,10 +1220,16 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
     def test_popup_wrapper_filters_lowercase_system_tags_for_editing(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup.yaml").read_text("utf-8")
-        self.assertIn("const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:'];", content)
-        self.assertIn("const systemTagValues = [];", content)
+        self.assertIn("const systemTagPrefixes = ['f:', 's:', 'spoolman:', 'vendor:', 'material:', 'cost:', 'status:', 'ha enrichment:', 'ha_enrichment:'];", content)
+        self.assertIn("const systemTagValues = ['ha_enriched:true'];", content)
         self.assertIn("systemTagPrefixes.some((prefix) => normalized.startsWith(prefix))", content)
         self.assertIn("const archiveUserTags = parseTags(archive?.tags).filter((tag) => !isSystemTag(tag));", content)
+
+    def test_popup_uses_custom_typeahead_tag_editor(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup.yaml").read_text("utf-8")
+        self.assertIn("type: 'custom:print-history-tag-editor-card'", content)
+        self.assertIn("suggestions_entity: 'input_select.print_history_filter_tag'", content)
+        self.assertIn("Press Enter or comma to add.", content)
 
     def test_popup_content_shows_only_user_notes_and_filtered_tags(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
@@ -1260,6 +1268,9 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("existing_tags_raw.split(',')", content)
         self.assertIn("lowered.startswith('s:')", content)
         self.assertIn("lowered.startswith('vendor:')", content)
+        self.assertIn("lowered.startswith('ha enrichment:')", content)
+        self.assertIn("lowered.startswith('ha_enrichment:')", content)
+        self.assertIn("lowered == 'ha_enriched:true'", content)
         self.assertIn("resolved_user_tags + preserved_system_tags", content)
         self.assertIn("existing_recovery_block | length > 0", content)
         self.assertIn("existing_payload is mapping and existing_payload.s is defined", content)
@@ -1323,6 +1334,26 @@ class TestPrintHistoryTagColors(unittest.TestCase):
                     self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
                 self.assertIn("tooltip: hex", content)
                 self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)
+
+
+class TestPrintHistoryTagEditorCard(unittest.TestCase):
+    """The popup tag editor should use the filter tag list as its suggestion source."""
+
+    def test_tag_editor_card_resource_is_registered(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=1", content)
+
+    def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('suggestions_entity: config.suggestions_entity || "input_select.print_history_filter_tag"', content)
+        self.assertIn('this._hass?.states?.[this._config?.suggestions_entity]?.attributes?.options', content)
+        self.assertIn('await this._hass.callService("input_text", "set_value", {', content)
+        self.assertIn('value: joinedValue,', content)
+        self.assertIn('split(",")', content)
+        self.assertIn('Press Enter or comma to add.', content)
 
     def test_color_filter_card_uses_precomputed_tooltip_metadata(self):
         content = (
