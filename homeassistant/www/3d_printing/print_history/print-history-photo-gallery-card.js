@@ -6,8 +6,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._config = null;
     this._activeIndex = 0;
     this._expanded = false;
+    this._images = [];
+    this._archiveName = "Archive Photos";
+    this._preloadedSources = {};
     this._boundKeydownHandler = this._handleKeydown.bind(this);
     this._boundClickHandler = this._handleHostClick.bind(this);
+    this._boundShadowClickHandler = this._handleShadowClick.bind(this);
   }
 
   setConfig(config) {
@@ -34,11 +38,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   connectedCallback() {
     window.addEventListener("keydown", this._boundKeydownHandler);
     this.addEventListener("click", this._boundClickHandler);
+    if (this.shadowRoot) {
+      this.shadowRoot.addEventListener("click", this._boundShadowClickHandler);
+    }
   }
 
   disconnectedCallback() {
     window.removeEventListener("keydown", this._boundKeydownHandler);
     this.removeEventListener("click", this._boundClickHandler);
+    if (this.shadowRoot) {
+      this.shadowRoot.removeEventListener("click", this._boundShadowClickHandler);
+    }
   }
 
   getCardSize() {
@@ -68,6 +78,50 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
   _handleHostClick(event) {
     event.stopPropagation();
+  }
+
+  _handleShadowClick(event) {
+    var target = event.target;
+    if (!target || !target.closest) {
+      return;
+    }
+
+    var indexButton = target.closest("[data-index]");
+    if (indexButton) {
+      event.stopPropagation();
+      var index = Number(indexButton.getAttribute("data-index"));
+      if (Number.isFinite(index)) {
+        this._setActiveIndex(index);
+      }
+      return;
+    }
+
+    var actionButton = target.closest("[data-action]");
+    if (!actionButton) {
+      return;
+    }
+
+    event.stopPropagation();
+    var action = actionButton.getAttribute("data-action");
+    if (action === "prev") {
+      this._moveActiveIndex(-1);
+      return;
+    }
+    if (action === "next") {
+      this._moveActiveIndex(1);
+      return;
+    }
+    if (action === "expand") {
+      if (!this._expanded) {
+        this._expanded = true;
+        this._render();
+      }
+      return;
+    }
+    if (action === "collapse" && this._expanded) {
+      this._expanded = false;
+      this._render();
+    }
   }
 
   _parseArchive() {
@@ -227,8 +281,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   }
 
   _moveActiveIndex(direction) {
-    var archive = this._resolveArchive();
-    var images = this._buildImages(archive);
+    var images = this._images;
     if (!images.length) {
       return;
     }
@@ -238,8 +291,82 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     } else if (nextIndex >= images.length) {
       nextIndex = 0;
     }
-    this._activeIndex = nextIndex;
-    this._render();
+    this._setActiveIndex(nextIndex);
+  }
+
+  _setActiveIndex(index) {
+    if (!this._images.length) {
+      return;
+    }
+    if (!Number.isFinite(index) || index < 0 || index >= this._images.length) {
+      return;
+    }
+    if (index === this._activeIndex) {
+      return;
+    }
+    this._activeIndex = index;
+    this._syncActiveImage();
+  }
+
+  _preloadImages(images) {
+    images.forEach(function (image) {
+      if (!image || !image.src || this._preloadedSources[image.src]) {
+        return;
+      }
+      this._preloadedSources[image.src] = true;
+      var preloadImage = new Image();
+      preloadImage.decoding = "async";
+      preloadImage.src = image.src;
+    }, this);
+  }
+
+  _syncActiveImage() {
+    if (!this.shadowRoot || !this._images.length) {
+      return;
+    }
+
+    if (this._activeIndex >= this._images.length) {
+      this._activeIndex = 0;
+    }
+
+    var active = this._images[this._activeIndex];
+    var photoCount = Math.max(0, this._images.length - (this._images[0] && this._images[0].kind === "thumbnail" ? 1 : 0));
+    var subtitle = photoCount > 0
+      ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
+      : "Thumbnail only";
+    var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
+
+    var stageImage = this.shadowRoot.querySelector(".stage-image");
+    if (stageImage) {
+      stageImage.src = active.src;
+      stageImage.alt = alt;
+      stageImage.loading = "eager";
+      stageImage.decoding = "async";
+    }
+
+    var overlayImage = this.shadowRoot.querySelector(".overlay-image");
+    if (overlayImage) {
+      overlayImage.src = active.src;
+      overlayImage.alt = alt;
+      overlayImage.loading = "eager";
+      overlayImage.decoding = "async";
+    }
+
+    Array.from(this.shadowRoot.querySelectorAll(".badge"))
+      .forEach(function (badge, index) {
+        badge.textContent = index === 0 ? active.label : subtitle;
+      });
+
+    var overlaySubtitle = this.shadowRoot.querySelector(".overlay-subtitle");
+    if (overlaySubtitle) {
+      overlaySubtitle.textContent = active.label + " \u00b7 " + subtitle;
+    }
+
+    Array.from(this.shadowRoot.querySelectorAll(".thumb, .overlay-thumb"))
+      .forEach(function (button) {
+        var buttonIndex = Number(button.getAttribute("data-index"));
+        button.classList.toggle("active", buttonIndex === this._activeIndex);
+      }, this);
   }
 
   _escapeHtml(value) {
@@ -279,6 +406,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
       : "Thumbnail only";
     var compact = !!this._config.compact;
+    this._images = images;
+    this._archiveName = archiveName;
+    this._preloadImages(images);
 
     this.shadowRoot.innerHTML =
       "<style>" +
@@ -328,7 +458,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="wrap">' +
       '<div class="stage">' +
       '<button class="stage-button" type="button" data-action="expand">' +
-      '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '">' +
+      '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
       "</button>" +
       '<div class="topbar">' +
       '<span class="badge">' + this._escapeHtml(active.label) + "</span>" +
@@ -354,7 +484,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="overlay-actions"><button class="overlay-button" type="button" data-action="collapse">Close</button></div>' +
       "</div>" +
       '<div class="overlay-stage">' +
-      '<img class="overlay-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '">' +
+      '<img class="overlay-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
       (images.length > 1 ? '<button class="overlay-nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="overlay-nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +
       '<div class="overlay-filmstrip">' + images.map(function (image, index) {
@@ -364,50 +494,13 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       }.bind(this)).join("") + "</div>" +
       "</div>";
 
-    var self = this;
-    Array.from(this.shadowRoot.querySelectorAll("[data-index]"))
-      .forEach(function (button) {
-        button.addEventListener("click", function (event) {
-          event.stopPropagation();
-          var index = Number(button.getAttribute("data-index"));
-          if (!Number.isFinite(index)) {
-            return;
-          }
-          self._activeIndex = index;
-          self._render();
-        });
-      });
-
-    Array.from(this.shadowRoot.querySelectorAll("[data-action]"))
-      .forEach(function (button) {
-        button.addEventListener("click", function (event) {
-          event.stopPropagation();
-          var action = button.getAttribute("data-action");
-          if (action === "prev") {
-            self._moveActiveIndex(-1);
-            return;
-          }
-          if (action === "next") {
-            self._moveActiveIndex(1);
-            return;
-          }
-          if (action === "expand") {
-            self._expanded = true;
-            self._render();
-            return;
-          }
-          if (action === "collapse") {
-            self._expanded = false;
-            self._render();
-          }
-        });
-      });
-
     if (compact) {
       this.setAttribute("compact", "");
     } else {
       this.removeAttribute("compact");
     }
+
+    this._syncActiveImage();
   }
 }
 
