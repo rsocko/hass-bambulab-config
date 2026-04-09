@@ -122,7 +122,9 @@ print_history_archive_popup_content:
           .replace(/'/g, '&#39;');
         const formatDate = (value) => {
           if (!value) return '-';
-          const parsed = new Date(value);
+          const raw = String(value);
+          const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}Z`;
+          const parsed = new Date(normalized);
           if (Number.isNaN(parsed.getTime())) return '-';
           return parsed.toLocaleDateString('en-US', {
             month: 'short',

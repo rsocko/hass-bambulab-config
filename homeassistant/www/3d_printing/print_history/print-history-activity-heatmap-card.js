@@ -1896,7 +1896,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _parseDate(value) {
-    var parsed = new Date(value);
+    var raw = String(value || "");
+    var normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : raw + "Z";
+    var parsed = new Date(normalized);
     return isNaN(parsed.getTime()) ? null : parsed;
   }
 

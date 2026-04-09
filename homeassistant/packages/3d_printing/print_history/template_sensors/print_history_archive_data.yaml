@@ -100,7 +100,8 @@
               {%- endif -%}
             {%- endfor -%}
             {%- set started_raw = (a.get('started_at') or a.get('created_at') or '') | string -%}
-            {%- set started_ts = as_timestamp(started_raw, 0) | float(0) if started_raw else 0 -%}
+            {%- set started_normalized = started_raw if started_raw.endswith('Z') or '+' in started_raw or (started_raw.count('-') > 2) else started_raw ~ 'Z' -%}
+            {%- set started_ts = as_timestamp(started_normalized, 0) | float(0) if started_raw else 0 -%}
             {%- set started_day = started_ts | timestamp_custom('%Y-%m-%d', true) if started_ts > 0 else '' -%}
             {%- set age_days = ((now_ts - started_ts) / 86400) | float(0) if started_ts > 0 else 99999 -%}
             {%- set matches_status = filter_status == 'All' or status == filter_status | lower -%}
