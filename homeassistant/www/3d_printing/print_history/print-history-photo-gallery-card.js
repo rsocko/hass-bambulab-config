@@ -61,8 +61,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     if (event.key === "Escape") {
       event.stopPropagation();
-      this._expanded = false;
-      this._render();
+      this._setExpanded(false);
       return;
     }
     if (event.key === "ArrowLeft") {
@@ -112,15 +111,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return;
     }
     if (action === "expand") {
-      if (!this._expanded) {
-        this._expanded = true;
-        this._render();
-      }
+      this._setExpanded(true);
       return;
     }
-    if (action === "collapse" && this._expanded) {
-      this._expanded = false;
-      this._render();
+    if (action === "collapse") {
+      this._setExpanded(false);
     }
   }
 
@@ -308,6 +303,15 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._syncActiveImage();
   }
 
+  _setExpanded(expanded) {
+    var nextExpanded = !!expanded;
+    if (nextExpanded === this._expanded) {
+      return;
+    }
+    this._expanded = nextExpanded;
+    this._syncExpandedState();
+  }
+
   _preloadImages(images) {
     images.forEach(function (image) {
       if (!image || !image.src || this._preloadedSources[image.src]) {
@@ -367,6 +371,23 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         var buttonIndex = Number(button.getAttribute("data-index"));
         button.classList.toggle("active", buttonIndex === this._activeIndex);
       }, this);
+  }
+
+  _syncExpandedState() {
+    if (!this.shadowRoot) {
+      return;
+    }
+
+    var overlay = this.shadowRoot.querySelector('.overlay');
+    if (!overlay) {
+      return;
+    }
+
+    if (this._expanded) {
+      overlay.removeAttribute('hidden');
+    } else {
+      overlay.setAttribute('hidden', '');
+    }
   }
 
   _escapeHtml(value) {
@@ -500,6 +521,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this.removeAttribute("compact");
     }
 
+    this._syncExpandedState();
     this._syncActiveImage();
   }
 }
