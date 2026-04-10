@@ -124,10 +124,9 @@
           {% endif %}
           {{ ns.payload | tojson }}
         activity_payload: >-
-          {% set filtered_count = page_result.get('query', {}).get('filtered_count', 0) | int(0) if page_result is defined and page_result is mapping else 0 %}
           {% set ns = namespace(payload={
             'page': 1,
-            'page_size': filtered_count if filtered_count > 0 else 1,
+            'page_size': states('sensor.bambuddy_print_history_browser_activity') | int(500),
             'favorites_only': is_state('input_boolean.print_history_filter_favorites_only', 'on')
           }) %}
           {% if status != '' %}
@@ -162,9 +161,6 @@
           {% endif %}
           {% if colors != '' %}
             {% set ns.payload = dict(ns.payload, colors=colors) %}
-          {% endif %}
-          {% if selected_day != '' %}
-            {% set ns.payload = dict(ns.payload, selected_day=selected_day) %}
           {% endif %}
           {% if sort != '' %}
             {% set ns.payload = dict(ns.payload, sort=sort) %}
