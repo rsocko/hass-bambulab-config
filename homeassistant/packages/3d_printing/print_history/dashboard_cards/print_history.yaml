@@ -22,7 +22,7 @@ cards:
       card_param: cards
       filter:
         template: >
-          {% set raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') | default('[]', true) %}
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
           {% if raw is string %}
             {% set archives = raw | from_json %}
           {% elif raw is iterable %}
@@ -59,7 +59,7 @@ cards:
       card_param: cards
       filter:
         template: >
-          {% set raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') | default('[]', true) %}
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
           {% if raw is string %}
             {% set archives = raw | from_json %}
           {% elif raw is iterable %}
@@ -91,7 +91,7 @@ cards:
       card_param: cards
       filter:
         template: >
-          {% set raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') | default('[]', true) %}
+          {% set raw = state_attr('sensor.print_history_page_archives', 'archives') | default('[]', true) %}
           {% if raw is string %}
             {% set archives = raw | from_json %}
           {% elif raw is iterable %}

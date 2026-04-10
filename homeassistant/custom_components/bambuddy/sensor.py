@@ -124,7 +124,7 @@ class BambuddyBrowserSensor(SensorEntity):
         if self.entity_description.key == ENTITY_PAGE_ARCHIVES:
             return {
                 "backend": backend,
-                "archives": self.manager.result.page_items,
+                "archive_ids": [archive.get("id") for archive in self.manager.result.page_items],
                 "page": self.manager.result.current_page,
                 "count": self.manager.result.filtered_count,
                 "has_more": self.manager.result.current_page < self.manager.result.total_pages,
@@ -138,8 +138,9 @@ class BambuddyBrowserSensor(SensorEntity):
             }
         return {
             "backend": backend,
-            "activity_rows": self.manager.activity_rows,
-            "archive_count": len(self.manager.archives),
+            "archive_count": self.manager.activity_summary.get("archive_count", len(self.manager.archives)),
+            "active_day_count": self.manager.activity_summary.get("active_day_count", 0),
+            "latest_archive_id": self.manager.activity_summary.get("latest_archive_id", 0),
             "activity_active_days_label": self.manager.result.activity_active_days_label,
             "activity_metric_total_label": self.manager.result.activity_metric_total_label,
             "last_refresh": self.manager.last_refresh,

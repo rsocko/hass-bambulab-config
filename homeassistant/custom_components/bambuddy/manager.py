@@ -26,7 +26,7 @@ from .const import (
     REFRESH_WEBHOOK_EVENTS,
     STORE_FILENAME,
 )
-from .print_history.query import QueryResult, archive_activity_rows, option_sets, project_archive, query_archives
+from .print_history.query import QueryResult, option_sets, project_archive, query_archives
 from .print_history.store import PrintHistoryStore
 
 
@@ -61,7 +61,7 @@ class PrintHistoryBrowserManager:
         self.store = PrintHistoryStore(Path(hass.config.path(".storage", STORE_FILENAME)))
         self.archives: list[dict[str, Any]] = []
         self.result = query_archives([], self._state_snapshot())
-        self.activity_rows: list[dict[str, Any]] = []
+        self.activity_summary: dict[str, Any] = {"archive_count": 0, "active_day_count": 0, "latest_archive_id": 0}
         self.status_state = "initializing"
         self.status_message = "Initializing Bambuddy print history browser"
         self.last_refresh: str | None = None
@@ -193,9 +193,11 @@ class PrintHistoryBrowserManager:
 
     def build_query_response(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
         states = self._merged_state_snapshot(overrides or {})
-        result = query_archives(self.archives, states)
+        result = self.store.load_query_result(states)
+        archive_ids = [int(archive.get("id")) for archive in result.page_items if int(archive.get("id") or 0) > 0]
+        annotations = self.store.load_query_annotations(archive_ids)
         return {
-            "archive_count": len(self.archives),
+            "archive_count": self.activity_summary.get("archive_count", len(self.archives)),
             "query": {
                 "filtered_count": result.filtered_count,
                 "total_pages": result.total_pages,
@@ -209,6 +211,7 @@ class PrintHistoryBrowserManager:
                 "activity_metric_total_label": result.activity_metric_total_label,
             },
             "archives": result.page_items,
+            **annotations,
             "store": self.store.load_store_stats(),
         }
 
@@ -219,6 +222,9 @@ class PrintHistoryBrowserManager:
         return {
             "archive": archive,
             "note_payload_rows": self.store.load_note_payload_rows(archive_id),
+            "review_state": self.store.load_review_state(archive_id),
+            "repair_lineage": self.store.load_repair_lineage(archive_id),
+            "sync": self.store.load_sync_metadata(archive_id),
             "store": self.store.load_store_stats(),
         }
 
@@ -246,8 +252,8 @@ class PrintHistoryBrowserManager:
         return snapshot
 
     def _recompute_query(self) -> None:
-        self.result = query_archives(self.archives, self._state_snapshot())
-        self.activity_rows = archive_activity_rows(self.archives)
+        self.result = self.store.load_query_result(self._state_snapshot())
+        self.activity_summary = self.store.load_activity_summary()
         self.loaded_at = dt_util.utcnow().isoformat()
 
     def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:

@@ -8,9 +8,9 @@ from typing import Any
 import logging
 
 try:
-    from .query import as_float, as_int, as_text, note_payload_rows, split_tags
+    from .query import QueryResult, archive_date_key, as_float, as_int, as_text, note_payload_rows, query_archives, split_tags
 except ImportError:  # pragma: no cover - direct-path test import fallback
-    from query import as_float, as_int, as_text, note_payload_rows, split_tags
+    from query import QueryResult, archive_date_key, as_float, as_int, as_text, note_payload_rows, query_archives, split_tags
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -352,6 +352,26 @@ class PrintHistoryStore:
                 archives.append(payload)
         return archives
 
+    def load_query_result(self, states: dict[str, str]) -> QueryResult:
+        return query_archives(self.load_archives(), states)
+
+    def load_activity_summary(self) -> dict[str, Any]:
+        archives = self.load_archives()
+        active_days = {
+            day_key
+            for day_key in (archive_date_key(archive) for archive in archives)
+            if day_key
+        }
+        latest_archive_id = next(
+            (as_int(archive.get("id")) for archive in archives if as_int(archive.get("id")) > 0),
+            0,
+        )
+        return {
+            "archive_count": len(archives),
+            "active_day_count": len(active_days),
+            "latest_archive_id": latest_archive_id,
+        }
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._db_path)
         connection.execute("PRAGMA foreign_keys=ON")
@@ -396,6 +416,141 @@ class PrintHistoryStore:
             }
             for row in rows
         ]
+
+    def load_review_state(self, archive_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT review_status, mismatch_flags, reviewed_at, review_note
+                FROM archive_review_state
+                WHERE archive_id = ?
+                """,
+                (archive_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "review_status": row[0],
+            "mismatch_flags": row[1],
+            "reviewed_at": row[2],
+            "review_note": row[3],
+        }
+
+    def load_sync_metadata(self, archive_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT last_synced_at, source_updated_at, payload_hash, updated_at
+                FROM archives
+                WHERE archive_id = ?
+                """,
+                (archive_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "last_synced_at": row[0],
+            "source_updated_at": row[1],
+            "payload_hash": row[2],
+            "store_updated_at": row[3],
+        }
+
+    def load_repair_lineage(self, archive_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT archive_id, related_archive_id, relation_type, created_at, note
+                FROM archive_repair_lineage
+                WHERE archive_id = ? OR related_archive_id = ?
+                ORDER BY created_at ASC, archive_id ASC, related_archive_id ASC
+                """,
+                (archive_id, archive_id),
+            ).fetchall()
+        return [
+            {
+                "archive_id": row[0],
+                "related_archive_id": row[1],
+                "relation_type": row[2],
+                "created_at": row[3],
+                "note": row[4],
+            }
+            for row in rows
+        ]
+
+    def load_query_annotations(self, archive_ids: list[int]) -> dict[str, Any]:
+        normalized_ids = [archive_id for archive_id in {as_int(value) for value in archive_ids} if archive_id > 0]
+        if not normalized_ids:
+            return {
+                "review_state_by_archive": {},
+                "repair_lineage_by_archive": {},
+                "sync_metadata_by_archive": {},
+            }
+
+        placeholders = ",".join("?" for _ in normalized_ids)
+        lineage_placeholders = ",".join("?" for _ in normalized_ids)
+        with self._connect() as connection:
+            review_rows = connection.execute(
+                f"""
+                SELECT archive_id, review_status, mismatch_flags, reviewed_at, review_note
+                FROM archive_review_state
+                WHERE archive_id IN ({placeholders})
+                """,
+                normalized_ids,
+            ).fetchall()
+            sync_rows = connection.execute(
+                f"""
+                SELECT archive_id, last_synced_at, source_updated_at, payload_hash, updated_at
+                FROM archives
+                WHERE archive_id IN ({placeholders})
+                """,
+                normalized_ids,
+            ).fetchall()
+            lineage_rows = connection.execute(
+                f"""
+                SELECT archive_id, related_archive_id, relation_type, created_at, note
+                FROM archive_repair_lineage
+                WHERE archive_id IN ({lineage_placeholders}) OR related_archive_id IN ({lineage_placeholders})
+                ORDER BY created_at ASC, archive_id ASC, related_archive_id ASC
+                """,
+                normalized_ids + normalized_ids,
+            ).fetchall()
+
+        review_state_by_archive = {
+            str(row[0]): {
+                "review_status": row[1],
+                "mismatch_flags": row[2],
+                "reviewed_at": row[3],
+                "review_note": row[4],
+            }
+            for row in review_rows
+        }
+        sync_metadata_by_archive = {
+            str(row[0]): {
+                "last_synced_at": row[1],
+                "source_updated_at": row[2],
+                "payload_hash": row[3],
+                "store_updated_at": row[4],
+            }
+            for row in sync_rows
+        }
+        repair_lineage_by_archive = {str(archive_id): [] for archive_id in normalized_ids}
+        for row in lineage_rows:
+            lineage = {
+                "archive_id": row[0],
+                "related_archive_id": row[1],
+                "relation_type": row[2],
+                "created_at": row[3],
+                "note": row[4],
+            }
+            for key in (str(row[0]), str(row[1])):
+                if key in repair_lineage_by_archive:
+                    repair_lineage_by_archive[key].append(lineage)
+
+        return {
+            "review_state_by_archive": review_state_by_archive,
+            "repair_lineage_by_archive": repair_lineage_by_archive,
+            "sync_metadata_by_archive": sync_metadata_by_archive,
+        }
 
     def load_store_stats(self) -> dict[str, Any]:
         with self._connect() as connection:

@@ -1,7 +1,7 @@
 print_history_archive_popup_favorite_button:
-  entity: sensor.bambuddy_print_history_browser_activity
+  entity: sensor.print_history_page_archives
   triggers_update:
-    - sensor.bambuddy_print_history_browser_activity
+    - sensor.print_history_page_archives
   show_name: true
   show_icon: true
   show_state: false
@@ -15,7 +15,16 @@ print_history_archive_popup_favorite_button:
         snapshotArchive = {};
       }
       const archiveId = variables?.archive_id || snapshotArchive?.id;
-      const archive = snapshotArchive;
+      let archive = snapshotArchive;
+      try {
+        const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+        const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+        if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
+          archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
+        }
+      } catch (_error) {
+        archive = snapshotArchive;
+      }
       return archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline';
     ]]]
   tap_action:
@@ -49,7 +58,16 @@ print_history_archive_popup_favorite_button:
               snapshotArchive = {};
             }
             const archiveId = variables?.archive_id || snapshotArchive?.id;
-            const archive = snapshotArchive;
+            let archive = snapshotArchive;
+            try {
+              const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+              const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+              if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
+                archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
+              }
+            } catch (_error) {
+              archive = snapshotArchive;
+            }
             return archive?.is_favorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.04)';
           ]]]
     grid:
@@ -72,7 +90,16 @@ print_history_archive_popup_favorite_button:
               snapshotArchive = {};
             }
             const archiveId = variables?.archive_id || snapshotArchive?.id;
-            const archive = snapshotArchive;
+            let archive = snapshotArchive;
+            try {
+              const pageArchivesRaw = states['sensor.print_history_page_archives']?.attributes?.archives || '[]';
+              const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
+              if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
+                archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
+              }
+            } catch (_error) {
+              archive = snapshotArchive;
+            }
             return archive?.is_favorite ? '#f5c242' : 'var(--primary-text-color)';
           ]]]
     name:

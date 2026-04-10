@@ -146,6 +146,12 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
     assert stats["archive_count"] == 2
     assert stats["note_payload_row_count"] == 1
 
+    sync = store.load_sync_metadata(101)
+
+    assert sync is not None
+    assert sync["source_updated_at"] == "2026-04-08T14:00:00Z"
+    assert sync["payload_hash"]
+
 
 def test_variant3_store_migrates_legacy_schema_before_refresh(tmp_path: Path) -> None:
     db_path = tmp_path / "print_history.db"
@@ -289,6 +295,92 @@ def test_variant3_activity_rows_expose_only_summary_fields() -> None:
     assert rows[0]["status"] == "completed"
     assert "notes" not in rows[0]
     assert "payload_hash" not in rows[0]
+
+
+def test_variant3_store_query_and_annotations_are_store_backed(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    with sqlite3.connect(tmp_path / "print_history.db") as connection:
+        connection.execute(
+            """
+            INSERT INTO archive_review_state (archive_id, review_status, mismatch_flags, reviewed_at, review_note)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (101, "needs_review", "color_mismatch", "2026-04-09T12:00:00Z", "Check source tray mapping"),
+        )
+        connection.execute(
+            """
+            INSERT INTO archive_repair_lineage (archive_id, related_archive_id, relation_type, created_at, note)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (101, 202, "reprint_of", "2026-04-09T12:05:00Z", "Retried after failure"),
+        )
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = store.load_query_result(states)
+    annotations = store.load_query_annotations([101, 202])
+    activity = store.load_activity_summary()
+
+    assert result.filtered_count == 2
+    assert result.page_items[0]["id"] == 101
+    assert annotations["review_state_by_archive"]["101"]["review_status"] == "needs_review"
+    assert annotations["repair_lineage_by_archive"]["101"][0]["relation_type"] == "reprint_of"
+    assert annotations["sync_metadata_by_archive"]["101"]["payload_hash"]
+    assert activity["archive_count"] == 2
+    assert activity["active_day_count"] == 2
+
+
+def test_variant3_store_detail_loads_review_and_lineage(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    with sqlite3.connect(tmp_path / "print_history.db") as connection:
+        connection.execute(
+            """
+            INSERT INTO archive_review_state (archive_id, review_status, mismatch_flags, reviewed_at, review_note)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (101, "reviewed", "", "2026-04-09T12:00:00Z", "Verified"),
+        )
+        connection.execute(
+            """
+            INSERT INTO archive_repair_lineage (archive_id, related_archive_id, relation_type, created_at, note)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (101, 202, "derived_from", "2026-04-09T12:05:00Z", "Original failure"),
+        )
+
+    review_state = store.load_review_state(101)
+    lineage = store.load_repair_lineage(101)
+    sync = store.load_sync_metadata(101)
+
+    assert review_state is not None
+    assert review_state["review_status"] == "reviewed"
+    assert lineage[0]["related_archive_id"] == 202
+    assert sync is not None
+    assert sync["last_synced_at"]
 
 
 def test_variant3_option_sets_keep_none_and_strip_system_tags() -> None:
