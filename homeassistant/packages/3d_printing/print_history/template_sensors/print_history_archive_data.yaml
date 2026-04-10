@@ -172,14 +172,9 @@
     - action: bambuddy.query_print_history_browser
       data: "{{ query_payload | from_json }}"
       response_variable: page_result
-    - if:
-        - condition: template
-          value_template: >-
-            {{ (page_result.get('query', {}).get('filtered_count', 0) | int(0)) > 0 }}
-      then:
-        - action: bambuddy.query_print_history_browser
-          data: "{{ activity_payload | from_json }}"
-          response_variable: activity_result
+    - action: bambuddy.query_print_history_browser
+      data: "{{ activity_payload | from_json }}"
+      response_variable: activity_result
   sensor:
     - name: "Print History Page Archives"
       unique_id: print_history_page_archives
