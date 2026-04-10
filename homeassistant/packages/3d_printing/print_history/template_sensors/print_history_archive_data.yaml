@@ -74,25 +74,107 @@
           {{ '' if value in ['', 'unknown', 'unavailable', 'none', 'None'] else value | lower }}
         current_page: "{{ states('input_number.history_current_page') | int(1) }}"
         page_size: "{{ states('input_number.print_history_page_size') | int(10) }}"
+        query_payload: >-
+          {% set ns = namespace(payload={
+            'page': states('input_number.history_current_page') | int(1),
+            'page_size': states('input_number.print_history_page_size') | int(10),
+            'favorites_only': is_state('input_boolean.print_history_filter_favorites_only', 'on')
+          }) %}
+          {% if status != '' %}
+            {% set ns.payload = dict(ns.payload, status=status) %}
+          {% endif %}
+          {% if enrichment_status != '' %}
+            {% set ns.payload = dict(ns.payload, enrichment_status=enrichment_status) %}
+          {% endif %}
+          {% if material != '' %}
+            {% set ns.payload = dict(ns.payload, material=material) %}
+          {% endif %}
+          {% if printer != '' %}
+            {% set ns.payload = dict(ns.payload, printer=printer) %}
+          {% endif %}
+          {% if date_range != '' %}
+            {% set ns.payload = dict(ns.payload, date_range=date_range) %}
+          {% endif %}
+          {% if designer != '' %}
+            {% set ns.payload = dict(ns.payload, designer=designer) %}
+          {% endif %}
+          {% if project != '' %}
+            {% set ns.payload = dict(ns.payload, project=project) %}
+          {% endif %}
+          {% if layer_height != '' %}
+            {% set ns.payload = dict(ns.payload, layer_height=layer_height) %}
+          {% endif %}
+          {% if tag != '' %}
+            {% set ns.payload = dict(ns.payload, tag=tag) %}
+          {% endif %}
+          {% if search != '' %}
+            {% set ns.payload = dict(ns.payload, search=search) %}
+          {% endif %}
+          {% if colors != '' %}
+            {% set ns.payload = dict(ns.payload, colors=colors) %}
+          {% endif %}
+          {% if selected_day != '' %}
+            {% set ns.payload = dict(ns.payload, selected_day=selected_day) %}
+          {% endif %}
+          {% if sort != '' %}
+            {% set ns.payload = dict(ns.payload, sort=sort) %}
+          {% endif %}
+          {% if activity_metric != '' %}
+            {% set ns.payload = dict(ns.payload, activity_metric=activity_metric) %}
+          {% endif %}
+          {{ ns.payload | tojson }}
+        activity_payload: >-
+          {% set filtered_count = page_result.get('query', {}).get('filtered_count', 0) | int(0) if page_result is defined and page_result is mapping else 0 %}
+          {% set ns = namespace(payload={
+            'page': 1,
+            'page_size': filtered_count if filtered_count > 0 else 1,
+            'favorites_only': is_state('input_boolean.print_history_filter_favorites_only', 'on')
+          }) %}
+          {% if status != '' %}
+            {% set ns.payload = dict(ns.payload, status=status) %}
+          {% endif %}
+          {% if enrichment_status != '' %}
+            {% set ns.payload = dict(ns.payload, enrichment_status=enrichment_status) %}
+          {% endif %}
+          {% if material != '' %}
+            {% set ns.payload = dict(ns.payload, material=material) %}
+          {% endif %}
+          {% if printer != '' %}
+            {% set ns.payload = dict(ns.payload, printer=printer) %}
+          {% endif %}
+          {% if date_range != '' %}
+            {% set ns.payload = dict(ns.payload, date_range=date_range) %}
+          {% endif %}
+          {% if designer != '' %}
+            {% set ns.payload = dict(ns.payload, designer=designer) %}
+          {% endif %}
+          {% if project != '' %}
+            {% set ns.payload = dict(ns.payload, project=project) %}
+          {% endif %}
+          {% if layer_height != '' %}
+            {% set ns.payload = dict(ns.payload, layer_height=layer_height) %}
+          {% endif %}
+          {% if tag != '' %}
+            {% set ns.payload = dict(ns.payload, tag=tag) %}
+          {% endif %}
+          {% if search != '' %}
+            {% set ns.payload = dict(ns.payload, search=search) %}
+          {% endif %}
+          {% if colors != '' %}
+            {% set ns.payload = dict(ns.payload, colors=colors) %}
+          {% endif %}
+          {% if selected_day != '' %}
+            {% set ns.payload = dict(ns.payload, selected_day=selected_day) %}
+          {% endif %}
+          {% if sort != '' %}
+            {% set ns.payload = dict(ns.payload, sort=sort) %}
+          {% endif %}
+          {% if activity_metric != '' %}
+            {% set ns.payload = dict(ns.payload, activity_metric=activity_metric) %}
+          {% endif %}
+          {{ ns.payload | tojson }}
     - action: bambuddy.query_print_history_browser
-      data:
-        status: "{{ status }}"
-        enrichment_status: "{{ enrichment_status }}"
-        material: "{{ material }}"
-        printer: "{{ printer }}"
-        date_range: "{{ date_range }}"
-        favorites_only: "{{ favorites_only }}"
-        designer: "{{ designer }}"
-        project: "{{ project }}"
-        layer_height: "{{ layer_height }}"
-        tag: "{{ tag }}"
-        search: "{{ search }}"
-        colors: "{{ colors }}"
-        selected_day: "{{ selected_day }}"
-        sort: "{{ sort }}"
-        activity_metric: "{{ activity_metric }}"
-        page: "{{ current_page }}"
-        page_size: "{{ page_size }}"
+      data: "{{ query_payload | from_json }}"
       response_variable: page_result
     - if:
         - condition: template
@@ -100,25 +182,7 @@
             {{ (page_result.get('query', {}).get('filtered_count', 0) | int(0)) > 0 }}
       then:
         - action: bambuddy.query_print_history_browser
-          data:
-            status: "{{ status }}"
-            enrichment_status: "{{ enrichment_status }}"
-            material: "{{ material }}"
-            printer: "{{ printer }}"
-            date_range: "{{ date_range }}"
-            favorites_only: "{{ favorites_only }}"
-            designer: "{{ designer }}"
-            project: "{{ project }}"
-            layer_height: "{{ layer_height }}"
-            tag: "{{ tag }}"
-            search: "{{ search }}"
-            colors: "{{ colors }}"
-            selected_day: "{{ selected_day }}"
-            sort: "{{ sort }}"
-            activity_metric: "{{ activity_metric }}"
-            page: 1
-            page_size: >-
-              {{ page_result.get('query', {}).get('filtered_count', 0) | int(1) }}
+          data: "{{ activity_payload | from_json }}"
           response_variable: activity_result
   sensor:
     - name: "Print History Page Archives"
