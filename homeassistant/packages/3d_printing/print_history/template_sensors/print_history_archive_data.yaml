@@ -201,7 +201,31 @@
           {% else %}
             {% set archives = [] %}
           {% endif %}
-          {{ archives | tojson }}
+          {% set ns = namespace(items=[]) %}
+          {% for archive in archives if archive is mapping %}
+            {% set ns.items = ns.items + [dict(
+              id=archive.get('id'),
+              print_name=archive.get('print_name', ''),
+              printer_id=archive.get('printer_id'),
+              filament_type=archive.get('filament_type', ''),
+              filament_color=archive.get('filament_color', ''),
+              filament_slots=archive.get('filament_slots', []),
+              status=archive.get('status', ''),
+              started_at=archive.get('started_at', ''),
+              completed_at=archive.get('completed_at', ''),
+              created_at=archive.get('created_at', ''),
+              actual_time_seconds=archive.get('actual_time_seconds', archive.get('print_time_seconds', 0)),
+              print_time_seconds=archive.get('print_time_seconds', 0),
+              filament_used_grams=archive.get('filament_used_grams', 0),
+              object_count=archive.get('object_count', 1),
+              cost=archive.get('cost', 0),
+              designer=archive.get('designer', ''),
+              layer_height=archive.get('layer_height', ''),
+              is_favorite=archive.get('is_favorite', false),
+              tags=archive.get('tags', '')
+            )] %}
+          {% endfor %}
+          {{ ns.items | tojson }}
         archive_ids: >-
           {% set raw = page_result.get('archives', []) if page_result is defined and page_result is mapping else [] %}
           {% if raw is string %}
