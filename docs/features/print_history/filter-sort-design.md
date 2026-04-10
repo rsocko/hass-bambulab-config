@@ -1,6 +1,6 @@
 # Print History — Filtering, Sorting & Pagination Design
 
-> **Status**: Implemented baseline (2026-03-29)
+> **Status**: Implemented baseline plus Variant 1 AppDaemon spike live; next target is Bambuddy custom integration with local-store path (2026-04-09)
 > **Created**: 2026-03-28
 > **Depends on**: [README.md](README.md), [bambuddy-archive-api-catalog.md](../../features/bambuddy_common/bambuddy-archive-api-catalog.md)
 > **Pattern reference**: [filament-catalog.md](../filament_catalog/filament-catalog.md) Phase 2 (Filter Architecture)
@@ -8,6 +8,23 @@
 ## Problem Statement
 
 This document captures the implemented baseline for the print history browser: a bulk archive cache in Layer 1, a server-side filter/sort/page layer in Layer 2, and an always-visible top control bar with card variants in Layer 3. It also remains the place to document follow-on refinements and scaling decisions.
+
+## Current Architecture Status
+
+As of 2026-04-09, the repository is no longer only at the original YAML baseline described later in this document.
+
+The implemented runtime state is:
+
+- Variant 1 is live as an AppDaemon sidecar query/cache layer for the browser.
+- The browser now prefers AppDaemon-managed entities instead of the YAML Layer 1/2/3 path.
+- The legacy YAML browser pipeline remains in the repository as fallback and compatibility scaffolding, not as the preferred long-term destination.
+
+Current architecture decision:
+
+- Do not jump from the AppDaemon spike directly to a dedicated browser service boundary only because a sidecar container already exists.
+- The next intended durable move is a `bambuddy` custom integration.
+- Treat Variant 2 as the integration landing zone and Variant 3 as the expected end state once archive-detail, provenance, and repair-review features keep expanding.
+- Keep Variant 4 deferred unless print history clearly becomes a broader archive service with multiple clients or admin-heavy service semantics.
 
 ## Goals
 
@@ -305,6 +322,83 @@ Use this if the intended destination is:
 
 **Goal:** Stay HA-native, but introduce a durable indexed store for print history so the browser, popup, search, and future provenance features are not forced through coordinator memory or giant attributes.
 
+### Materialized Store Scope
+
+Variant 3 should not be implemented as either of these extremes:
+
+- an `archive_id`-only local store that keeps almost all useful fields remote in Bambuddy
+- a blind full duplicate of the entire Bambuddy schema treated as a second system of record
+
+The intended shape is a **materialized read model** owned by the integration:
+
+- mirror the Bambuddy fields that the browser, popup, search, provenance, and repair-review flows actually need
+- store local-only fields that Bambuddy does not own, such as repair lineage, review state, mismatch classification, and local audit metadata
+- derive query-friendly rows and indexes locally from those mirrored and local-only fields
+- keep Bambuddy as the canonical source of truth for Bambuddy-owned fields
+
+That means Variant 3 is intentionally a **scoped mirrored subset plus local extensions**, not an ID-only pointer layer and not a second authoritative archive database.
+
+### Ownership Rules
+
+To prevent drift and role confusion, Variant 3 should follow explicit ownership boundaries:
+
+- **Bambuddy-owned fields** are mirrored locally and overwritten from Bambuddy on sync
+- **local-only fields** are owned only by the integration store
+- **derived/query fields** are recomputed locally from mirrored and local-only data
+- **mutations to Bambuddy-owned fields** should go through Bambuddy or a narrow repair-sidecar boundary first, then resync the affected archive locally
+
+The integration store should never become the authoring surface for mirrored Bambuddy fields such as runtime timestamps, status, favorite state, or other archive-core values that still belong to Bambuddy.
+
+### Minimal Safe Schema
+
+The minimum useful Variant 3 schema is more than `archive_id`, but still intentionally selective.
+
+Recommended minimum tables:
+
+- `archives`
+- `archive_filament_rows`
+- `archive_tags`
+- `archive_photos`
+
+Recommended minimum mirrored archive-core fields:
+
+- `archive_id`
+- `printer_id`
+- `print_name`
+- `status`
+- `started_at`
+- `completed_at`
+- `created_at`
+- `actual_time_seconds`
+- `print_time_seconds`
+- `filament_used_grams`
+- `cost`
+- `designer`
+- `project_id`
+- `project_name`
+- `thumbnail_path`
+- `is_favorite`
+
+That baseline is enough to support local filter/sort/page behavior, archive card rendering, popup entry hydration, and query-efficient joins to child rows.
+
+### Recommended Schema For Repair Review
+
+If repair-review and provenance work are part of the expected roadmap, the better Variant 3 schema should also include:
+
+- `archive_note_payload_rows`
+- `archive_repair_lineage`
+- optional review-oriented tables such as `archive_review_state` or `archive_mismatch_flags`
+
+Recommended local-only or extension concepts:
+
+- source-versus-target repair linkage
+- duplicate or reprint relationships
+- mismatch classification and review status
+- local audit metadata for review workflow state
+- provenance-oriented derived relationships that do not belong in Bambuddy's core archive schema
+
+This is the point where Variant 3 becomes materially stronger than Variant 2: review and provenance logic can query first-class indexed local rows instead of reconstructing everything from a transient in-memory object graph.
+
 **What changes beyond Variant 2:**
 
 - the custom integration owns a local persistent store (for example SQLite or a disciplined `.storage`-style schema)
@@ -325,6 +419,23 @@ Use this if the intended destination is:
 - small summary entities only
 - services for paged/filter queries
 - optional per-archive detail service for popup hydration
+
+### Sync And Anti-Drift Rules
+
+Storing mirrored Bambuddy fields locally does create duplication, but the duplication is acceptable if the sync rules are explicit.
+
+Recommended rules:
+
+- store source-sync metadata such as `last_synced_at`, optional source update timestamp, and optional payload fingerprint or hash
+- keep local-only review and lineage state in separate columns or separate tables rather than mixing it into mirrored archive-core ownership
+- do not let local review metadata overwrite mirrored Bambuddy fields
+- after any repair mutation, re-fetch and upsert the affected archive instead of trusting the pre-mutation local copy
+- make stale or reconciliation-needed state explicit so review screens can surface uncertainty when sync freshness matters
+
+Practical interpretation:
+
+- Variant 3 should store every Bambuddy field needed to answer browser and review queries locally
+- those mirrored fields should still behave like a read-through mirror, not locally authored truth
 
 **Why this matters for this repo specifically:**
 
@@ -445,6 +556,18 @@ Use this if print history is becoming:
 
 ## Recommendation Ladder For This Repository
 
+### 2026-04-09 Decision Update
+
+The original ladder below is still directionally correct, but the repo is now past the "should we prototype AppDaemon" stage.
+
+Current decision after implementing Variant 1:
+
+1. Variant 1 remains valid as the current spike and compatibility bridge.
+2. The next step should be a `bambuddy` custom integration rather than expanding the AppDaemon sidecar into Variant 4 immediately.
+3. Variant 2 is useful mainly as the first HA-native implementation boundary, not as the intended permanent stop.
+4. Variant 3 remains the preferred durable target because the roadmap already points toward popup hydration, provenance, duplicate/reprint relationships, and repair-review workflows.
+5. Variant 4 remains available, but deferred; having an existing sidecar container is not by itself a sufficient reason to promote print history into a standalone browser service.
+
 Based on the current implementation, the live payload measurements, and the existing phase roadmap in `advanced-features-design.md`, the practical sequence is:
 
 1. **Short term:** keep the YAML browser, trim obvious Layer 1 bloat where it is low-risk, and lower archive count when needed
@@ -523,17 +646,28 @@ Until then, the sidecar introduces more operational surface area than this brows
 
 Use this as the intended architecture path unless new constraints emerge:
 
-1. Keep the current YAML pipeline only as a stabilization baseline.
-2. If needed, prototype the non-Jinja contract in AppDaemon.
-3. Build the durable implementation as a custom integration.
-4. Prefer a local materialized store once the integration needs durable archive indexing.
+1. Keep the current AppDaemon path as the active spike and stabilization baseline.
+2. Build the durable implementation as a `bambuddy` custom integration.
+3. Use an in-memory cache only as the first integration landing zone if that keeps the migration smaller.
+4. Prefer a local materialized store once the integration needs durable archive indexing, popup hydration, provenance, or repair-review support.
 5. Re-evaluate a dedicated sidecar only if print history clearly grows into a broader archive service.
 
 #### Decision Statement
 
-If development started on the long-term architecture today, the recommended target for this repository would be:
+If development continued on the long-term architecture today, the recommended target for this repository would be:
 
 > **Custom integration with a local materialized store, with AppDaemon allowed only as a validation spike and the dedicated sidecar deferred until print history becomes a true service boundary.**
+
+#### What Variant 3 Can Still Cover
+
+Variant 3 does not remove repair or review capability. It can still support:
+
+- archive mismatch review backed by local indexed archive rows and lineage metadata
+- compare-on-failure and source-versus-recovered archive inspection
+- repair candidate lists, review queues, and audit-focused popup/detail views
+- integration services that call Bambuddy or a narrow repair sidecar for mutation actions while HA keeps the browser/search/review model local
+
+In other words, Variant 3 can own the archive browser, provenance model, and review workflow while still delegating exceptional write-heavy repair operations to a narrow sidecar when that remains the cleaner boundary.
 
 ### Decision Guidance
 

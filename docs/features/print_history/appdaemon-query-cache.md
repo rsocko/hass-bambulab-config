@@ -4,6 +4,18 @@
 
 This document captures the implemented Variant 1 spike: an AppDaemon-owned archive cache and query layer for the print-history browser.
 
+## Current Decision Status
+
+As of 2026-04-09, this AppDaemon sidecar should be treated as the active bridge architecture, not the intended final service boundary.
+
+Current decision:
+
+- keep Variant 1 in place as the working non-Jinja browser runtime
+- do not jump straight to Variant 4 only because a sidecar container already exists
+- prefer a `bambuddy` custom integration as the next durable implementation step
+- treat a local materialized store inside that integration as the expected medium-term destination once archive-detail, provenance, and repair-review behavior expands further
+- keep a dedicated sidecar-backed browser cache deferred unless print history clearly becomes a broader archive service with multiple clients or admin-heavy service semantics
+
 ## What Changed
 
 The browser now prefers AppDaemon-managed entities:
