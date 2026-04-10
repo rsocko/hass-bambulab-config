@@ -400,9 +400,7 @@ class PrintHistoryStore:
             has_active_filters=has_active_filters(states),
             active_filters=active_filters(states),
             available_colors=self._load_available_colors(),
-            available_color_tooltips=[
-                {"color": color, "tooltip": color.upper()} for color in self._load_available_colors()
-            ],
+            available_color_tooltips=self._load_available_color_tooltips(),
             activity_active_days_label=f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}",
             activity_metric_total_label=self._metric_total_label(metric_rows, filters["activity_mode"]),
         )
@@ -946,6 +944,50 @@ class PrintHistoryStore:
                 if normalized:
                     colors.add(normalized)
         return sorted(colors)
+
+    def _load_available_color_tooltips(self) -> list[dict[str, str]]:
+        colors = self._load_available_colors()
+        names_by_color: dict[str, list[str]] = {}
+
+        def add_name(color: Any, name: Any) -> None:
+            normalized_color = normalize_hex(color)
+            normalized_name = as_text(name).strip()
+            if not normalized_color or not normalized_name:
+                return
+            bucket = names_by_color.setdefault(normalized_color, [])
+            if normalized_name not in bucket:
+                bucket.append(normalized_name)
+
+        with self._connect() as connection:
+            note_rows = connection.execute(
+                """
+                SELECT color, name
+                FROM archive_note_payload_rows
+                WHERE TRIM(COALESCE(color, '')) != '' AND TRIM(COALESCE(name, '')) != ''
+                ORDER BY archive_id DESC, row_index ASC
+                """
+            ).fetchall()
+            filament_rows = connection.execute(
+                """
+                SELECT color, name
+                FROM archive_filament_rows
+                WHERE TRIM(COALESCE(color, '')) != '' AND TRIM(COALESCE(name, '')) != ''
+                ORDER BY archive_id DESC, row_index ASC
+                """
+            ).fetchall()
+
+        for color, name in note_rows:
+            add_name(color, name)
+        for color, name in filament_rows:
+            add_name(color, name)
+
+        return [
+            {
+                "color": color,
+                "tooltip": f"{' or '.join(names_by_color[color])} ({color.upper()})" if names_by_color.get(color) else color.upper(),
+            }
+            for color in colors
+        ]
 
     def _load_metric_rows(self, archive_ids: list[int]) -> list[dict[str, Any]]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]

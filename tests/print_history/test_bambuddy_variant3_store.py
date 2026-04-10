@@ -390,6 +390,7 @@ def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: P
     assert actual.activity_active_days_label == expected.activity_active_days_label
     assert actual.activity_metric_total_label == expected.activity_metric_total_label
     assert actual.available_colors == expected.available_colors
+    assert actual.available_color_tooltips == expected.available_color_tooltips
 
 
 def test_variant3_query_this_month_uses_calendar_month_boundary() -> None:
