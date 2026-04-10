@@ -3,11 +3,13 @@ from __future__ import annotations
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ENTRY_ID
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import DATA_MANAGER, DOMAIN, PLATFORMS, SERVICE_REFRESH_PRINT_HISTORY_BROWSER
 from .manager import PrintHistoryBrowserManager
+
+
+CONF_ENTRY_ID = "entry_id"
 
 
 SERVICE_REFRESH_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str})

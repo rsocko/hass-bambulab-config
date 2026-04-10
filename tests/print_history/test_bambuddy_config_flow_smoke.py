@@ -8,6 +8,7 @@ from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPONENT_ROOT = REPO_ROOT / "homeassistant" / "custom_components" / "bambuddy"
+INIT_PATH = COMPONENT_ROOT / "__init__.py"
 CONFIG_FLOW_PATH = COMPONENT_ROOT / "config_flow.py"
 
 
@@ -17,8 +18,12 @@ def _install_homeassistant_stubs() -> None:
     homeassistant_module = ModuleType("homeassistant")
     config_entries_module = ModuleType("homeassistant.config_entries")
     const_module = ModuleType("homeassistant.const")
+    core_module = ModuleType("homeassistant.core")
     helpers_module = ModuleType("homeassistant.helpers")
     aiohttp_client_module = ModuleType("homeassistant.helpers.aiohttp_client")
+    helpers_event_module = ModuleType("homeassistant.helpers.event")
+    util_module = ModuleType("homeassistant.util")
+    util_dt_module = ModuleType("homeassistant.util.dt")
 
     class ConfigFlow:
         def __init_subclass__(cls, *, domain=None, **kwargs):
@@ -34,6 +39,16 @@ def _install_homeassistant_stubs() -> None:
     class Platform:
         SENSOR = "sensor"
 
+    class HomeAssistant:
+        pass
+
+    class ServiceCall:
+        pass
+
+    class Event:
+        def __init__(self, data=None) -> None:
+            self.data = data or {}
+
     class ClientResponseError(Exception):
         def __init__(self, status: int = 0) -> None:
             self.status = status
@@ -48,6 +63,7 @@ def _install_homeassistant_stubs() -> None:
 
     voluptuous_module.Schema = lambda value: value
     voluptuous_module.Required = lambda key, default=None: key
+    voluptuous_module.Optional = lambda key, default=None: key
     voluptuous_module.All = lambda *validators: validators
     voluptuous_module.Range = lambda **kwargs: kwargs
 
@@ -59,20 +75,34 @@ def _install_homeassistant_stubs() -> None:
     config_entries_module.OptionsFlow = OptionsFlow
     config_entries_module.ConfigEntry = ConfigEntry
     const_module.Platform = Platform
+    core_module.HomeAssistant = HomeAssistant
+    core_module.ServiceCall = ServiceCall
+    core_module.Event = Event
+    core_module.callback = lambda func: func
     aiohttp_client_module.async_get_clientsession = lambda hass: object()
+    helpers_event_module.async_track_state_change_event = lambda *args, **kwargs: (lambda: None)
+    helpers_event_module.async_track_time_interval = lambda *args, **kwargs: (lambda: None)
+    util_dt_module.utcnow = lambda: None
     helpers_module.aiohttp_client = aiohttp_client_module
+    util_module.dt = util_dt_module
 
     homeassistant_module.config_entries = config_entries_module
     homeassistant_module.const = const_module
+    homeassistant_module.core = core_module
     homeassistant_module.helpers = helpers_module
+    homeassistant_module.util = util_module
 
     sys.modules["voluptuous"] = voluptuous_module
     sys.modules["aiohttp"] = aiohttp_module
     sys.modules["homeassistant"] = homeassistant_module
     sys.modules["homeassistant.config_entries"] = config_entries_module
     sys.modules["homeassistant.const"] = const_module
+    sys.modules["homeassistant.core"] = core_module
     sys.modules["homeassistant.helpers"] = helpers_module
     sys.modules["homeassistant.helpers.aiohttp_client"] = aiohttp_client_module
+    sys.modules["homeassistant.helpers.event"] = helpers_event_module
+    sys.modules["homeassistant.util"] = util_module
+    sys.modules["homeassistant.util.dt"] = util_dt_module
 
 
 def _install_component_package_stubs() -> None:
@@ -86,21 +116,24 @@ def _install_component_package_stubs() -> None:
     sys.modules["custom_components.bambuddy"] = bambuddy_package
 
 
-def test_bambuddy_config_flow_imports_without_home_assistant_runtime() -> None:
-    _install_homeassistant_stubs()
-    _install_component_package_stubs()
-
-    spec = importlib.util.spec_from_file_location(
-        "custom_components.bambuddy.config_flow",
-        CONFIG_FLOW_PATH,
-        submodule_search_locations=[str(COMPONENT_ROOT)],
-    )
+def _exec_module(module_name: str, file_path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
     assert spec is not None
     assert spec.loader is not None
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
+    return module
+
+
+def test_bambuddy_config_flow_imports_without_home_assistant_runtime() -> None:
+    _install_homeassistant_stubs()
+    _install_component_package_stubs()
+
+    package_module = _exec_module("custom_components.bambuddy", INIT_PATH)
+    package_module.__path__ = [str(COMPONENT_ROOT)]
+    module = _exec_module("custom_components.bambuddy.config_flow", CONFIG_FLOW_PATH)
 
     assert module.DOMAIN == "bambuddy"
     assert module.BambuddyConfigFlow._configured_domain == "bambuddy"
