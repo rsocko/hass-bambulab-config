@@ -1,7 +1,7 @@
 print_history_archive_popup_content:
-  entity: sensor.print_history_page_archives
+  entity: sensor.bambuddy_print_history_browser_page_archives
   triggers_update:
-    - sensor.print_history_page_archives
+    - sensor.bambuddy_print_history_browser_page_archives
   show_icon: false
   show_name: false
   show_state: false

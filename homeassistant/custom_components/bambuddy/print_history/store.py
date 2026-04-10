@@ -2,15 +2,41 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 import logging
 
 try:
-    from .query import QueryResult, archive_date_key, as_float, as_int, as_text, note_payload_rows, query_archives, split_tags
+    from .query import (
+        QueryResult,
+        active_filters,
+        archive_date_key,
+        as_float,
+        as_int,
+        as_text,
+        has_active_filters,
+        normalize_hex,
+        note_payload_rows,
+        query_archives,
+        selected_colors,
+        split_tags,
+    )
 except ImportError:  # pragma: no cover - direct-path test import fallback
-    from query import QueryResult, archive_date_key, as_float, as_int, as_text, note_payload_rows, query_archives, split_tags
+    from query import (
+        QueryResult,
+        active_filters,
+        archive_date_key,
+        as_float,
+        as_int,
+        as_text,
+        has_active_filters,
+        normalize_hex,
+        note_payload_rows,
+        query_archives,
+        selected_colors,
+        split_tags,
+    )
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -353,24 +379,97 @@ class PrintHistoryStore:
         return archives
 
     def load_query_result(self, states: dict[str, str]) -> QueryResult:
-        return query_archives(self.load_archives(), states)
+        filters = self._query_filters(states)
+        archive_ids = self._matching_archive_ids(filters)
+        filtered_count = len(archive_ids)
+        page_size = max(1, filters["page_size"])
+        total_pages = max(1, (filtered_count + page_size - 1) // page_size)
+        current_page = min(max(1, filters["requested_page"]), total_pages)
+        start_index = (current_page - 1) * page_size
+        page_ids = archive_ids[start_index : start_index + page_size]
+        page_items = self._load_archives_by_ids(page_ids)
+        metric_rows = self._load_metric_rows(archive_ids)
+        active_day_count = len({row["archive_day"] for row in metric_rows if row["archive_day"]})
+
+        return QueryResult(
+            filtered_count=filtered_count,
+            total_pages=total_pages,
+            current_page=current_page,
+            page_items=page_items,
+            page_info=f"{current_page} of {total_pages}",
+            has_active_filters=has_active_filters(states),
+            active_filters=active_filters(states),
+            available_colors=self._load_available_colors(),
+            available_color_tooltips=[
+                {"color": color, "tooltip": color.upper()} for color in self._load_available_colors()
+            ],
+            activity_active_days_label=f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}",
+            activity_metric_total_label=self._metric_total_label(metric_rows, filters["activity_mode"]),
+        )
 
     def load_activity_summary(self) -> dict[str, Any]:
-        archives = self.load_archives()
-        active_days = {
-            day_key
-            for day_key in (archive_date_key(archive) for archive in archives)
-            if day_key
-        }
-        latest_archive_id = next(
-            (as_int(archive.get("id")) for archive in archives if as_int(archive.get("id")) > 0),
-            0,
-        )
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS archive_count,
+                    COUNT(DISTINCT DATE(COALESCE(NULLIF(started_at, ''), NULLIF(created_at, ''), NULLIF(completed_at, '')))) AS active_day_count
+                FROM archives
+                """
+            ).fetchone()
+            latest = connection.execute(
+                """
+                SELECT archive_id
+                FROM archives
+                ORDER BY COALESCE(NULLIF(started_at, ''), NULLIF(created_at, ''), NULLIF(completed_at, '')) DESC, archive_id DESC
+                LIMIT 1
+                """
+            ).fetchone()
         return {
-            "archive_count": len(archives),
-            "active_day_count": len(active_days),
-            "latest_archive_id": latest_archive_id,
+            "archive_count": 0 if row is None else as_int(row[0]),
+            "active_day_count": 0 if row is None else as_int(row[1]),
+            "latest_archive_id": 0 if latest is None else as_int(latest[0]),
         }
+
+    def load_activity_rows(self, states: dict[str, str]) -> list[dict[str, Any]]:
+        activity_states = dict(states)
+        activity_states["input_text.print_history_activity_selected_date"] = ""
+        archive_ids = self._matching_archive_ids(self._query_filters(activity_states))
+        if not archive_ids:
+            return []
+
+        rows_by_id = self._load_activity_bases(archive_ids)
+        filament_rows_by_id = self._load_filament_rows_by_archive(archive_ids)
+        activity_rows: list[dict[str, Any]] = []
+        for archive_id in archive_ids:
+            base = rows_by_id.get(archive_id)
+            if base is None:
+                continue
+            activity_rows.append(
+                {
+                    "id": archive_id,
+                    "printer_id": base["printer_id"],
+                    "print_name": base["print_name"],
+                    "status": base["status"],
+                    "started_at": base["started_at"],
+                    "completed_at": base["completed_at"],
+                    "created_at": base["created_at"],
+                    "actual_time_seconds": base["actual_time_seconds"],
+                    "print_time_seconds": base["print_time_seconds"],
+                    "filament_used_grams": base["filament_used_grams"],
+                    "filament_type": base["filament_type"],
+                    "filament_color": base["filament_color"],
+                    "cost": base["cost"],
+                    "designer": base["designer"],
+                    "is_favorite": bool(base["is_favorite"]),
+                    "object_count": base["object_count"],
+                    "layer_height": base["layer_height"],
+                    "tags": base["tags"],
+                    "thumbnail_path": base["thumbnail_path"],
+                    "filament_slots": filament_rows_by_id.get(archive_id, []),
+                }
+            )
+        return activity_rows
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._db_path)
@@ -436,6 +535,37 @@ class PrintHistoryStore:
             "review_note": row[3],
         }
 
+    def upsert_review_state(
+        self,
+        archive_id: int,
+        *,
+        review_status: str,
+        mismatch_flags: str = "",
+        review_note: str = "",
+        reviewed_at: str | None = None,
+    ) -> None:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+        timestamp = as_text(reviewed_at).strip() or datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            if connection.execute("SELECT 1 FROM archives WHERE archive_id = ?", (normalized_archive_id,)).fetchone() is None:
+                raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO archive_review_state (
+                    archive_id, review_status, mismatch_flags, reviewed_at, review_note
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    normalized_archive_id,
+                    as_text(review_status).strip() or "unreviewed",
+                    as_text(mismatch_flags).strip(),
+                    timestamp,
+                    as_text(review_note),
+                ),
+            )
+
     def load_sync_metadata(self, archive_id: int) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -476,6 +606,66 @@ class PrintHistoryStore:
             }
             for row in rows
         ]
+
+    def upsert_repair_lineage(
+        self,
+        archive_id: int,
+        related_archive_id: int,
+        *,
+        relation_type: str,
+        note: str = "",
+        created_at: str | None = None,
+    ) -> None:
+        normalized_archive_id = as_int(archive_id)
+        normalized_related_archive_id = as_int(related_archive_id)
+        normalized_relation_type = as_text(relation_type).strip()
+        if normalized_archive_id <= 0 or normalized_related_archive_id <= 0:
+            raise ValueError("archive_id and related_archive_id must be positive integers")
+        if normalized_archive_id == normalized_related_archive_id:
+            raise ValueError("archive_id and related_archive_id must be different archives")
+        if not normalized_relation_type:
+            raise ValueError("relation_type is required")
+        timestamp = as_text(created_at).strip() or datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            existing_ids = {
+                as_int(row[0])
+                for row in connection.execute(
+                    "SELECT archive_id FROM archives WHERE archive_id IN (?, ?)",
+                    (normalized_archive_id, normalized_related_archive_id),
+                ).fetchall()
+            }
+            if normalized_archive_id not in existing_ids or normalized_related_archive_id not in existing_ids:
+                raise ValueError("Both archives must exist in the Bambuddy local store before writing repair lineage")
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO archive_repair_lineage (
+                    archive_id, related_archive_id, relation_type, created_at, note
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    normalized_archive_id,
+                    normalized_related_archive_id,
+                    normalized_relation_type,
+                    timestamp,
+                    as_text(note),
+                ),
+            )
+
+    def delete_repair_lineage(self, archive_id: int, related_archive_id: int, relation_type: str) -> int:
+        normalized_archive_id = as_int(archive_id)
+        normalized_related_archive_id = as_int(related_archive_id)
+        normalized_relation_type = as_text(relation_type).strip()
+        if normalized_archive_id <= 0 or normalized_related_archive_id <= 0 or not normalized_relation_type:
+            raise ValueError("archive_id, related_archive_id, and relation_type are required")
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM archive_repair_lineage
+                WHERE archive_id = ? AND related_archive_id = ? AND relation_type = ?
+                """,
+                (normalized_archive_id, normalized_related_archive_id, normalized_relation_type),
+            )
+        return cursor.rowcount
 
     def load_query_annotations(self, archive_ids: list[int]) -> dict[str, Any]:
         normalized_ids = [archive_id for archive_id in {as_int(value) for value in archive_ids} if archive_id > 0]
@@ -586,3 +776,325 @@ class PrintHistoryStore:
                 continue
             photos.append({"path": path, "role": as_text(item.get("role") or item.get("type")).strip()})
         return photos
+
+    def _query_filters(self, states: dict[str, str]) -> dict[str, Any]:
+        current_time = datetime.now(timezone.utc)
+        return {
+            "status": states.get("input_select.print_history_filter_status", "All").strip().lower(),
+            "enrichment_status": states.get("input_select.print_history_filter_enrichment_status", "All").strip().lower(),
+            "material": states.get("input_select.print_history_filter_material", "All").strip(),
+            "printer": states.get("input_select.print_history_filter_printer", "All").strip(),
+            "date_range": states.get("input_select.print_history_filter_date_range", "All Time").strip(),
+            "designer": states.get("input_select.print_history_filter_designer", "All").strip().lower(),
+            "project": states.get("input_select.print_history_filter_project", "All").strip(),
+            "layer_height": states.get("input_select.print_history_filter_layer_height", "All").strip(),
+            "tag": states.get("input_select.print_history_filter_tag", "All").strip().lower(),
+            "favorites_only": states.get("input_boolean.print_history_filter_favorites_only", "off") == "on",
+            "search": states.get("input_text.print_history_search", "").strip().lower(),
+            "selected_day": states.get("input_text.print_history_activity_selected_date", "").strip(),
+            "colors": selected_colors(states.get("input_text.print_history_filter_colors", "")),
+            "sort": states.get("input_select.print_history_sort", "Date (Newest)"),
+            "activity_mode": states.get("input_select.print_history_activity_metric", "Print Count"),
+            "page_size": max(1, as_int(states.get("input_number.print_history_page_size", 10), 10)),
+            "requested_page": max(1, as_int(states.get("input_number.history_current_page", 1), 1)),
+            "today": current_time.astimezone().date(),
+        }
+
+    def _matching_archive_ids(self, filters: dict[str, Any]) -> list[int]:
+        where_clauses = ["1 = 1"]
+        params: list[Any] = []
+        if filters["status"] not in {"", "all"}:
+            where_clauses.append("LOWER(a.status) = ?")
+            params.append(filters["status"])
+        if filters["enrichment_status"] not in {"", "all"}:
+            where_clauses.append("LOWER(a.enrichment_status) = ?")
+            params.append(filters["enrichment_status"])
+        if filters["material"] not in {"", "All"}:
+            where_clauses.append("LOWER(a.filament_type) = ?")
+            params.append(filters["material"].lower())
+        if filters["printer"] not in {"", "All"}:
+            where_clauses.append("TRIM(COALESCE(a.printer_id, '')) = ?")
+            params.append(filters["printer"])
+        if filters["designer"] not in {"", "all"}:
+            where_clauses.append("LOWER(a.designer) = ?")
+            params.append(filters["designer"])
+        if filters["project"] == "None":
+            where_clauses.append("TRIM(COALESCE(a.project_name, '')) = ''")
+        elif filters["project"] not in {"", "All"}:
+            where_clauses.append("LOWER(a.project_name) = ?")
+            params.append(filters["project"].lower())
+        if filters["layer_height"] not in {"", "All"}:
+            where_clauses.append("TRIM(COALESCE(a.layer_height, '')) = ?")
+            params.append(filters["layer_height"])
+        if filters["favorites_only"]:
+            where_clauses.append("a.is_favorite = 1")
+        if filters["search"]:
+            like = f"%{filters['search']}%"
+            where_clauses.append("(LOWER(a.print_name) LIKE ? OR LOWER(a.designer) LIKE ? OR LOWER(a.tags) LIKE ?)")
+            params.extend([like, like, like])
+        if filters["selected_day"]:
+            where_clauses.append("DATE(COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, ''))) = ?")
+            params.append(filters["selected_day"])
+        if filters["tag"] not in {"", "all"}:
+            if filters["tag"] == "none":
+                where_clauses.append(
+                    "NOT EXISTS (SELECT 1 FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0)"
+                )
+            else:
+                where_clauses.append(
+                    "EXISTS (SELECT 1 FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0 AND t.normalized_tag = ?)"
+                )
+                params.append(filters["tag"])
+        if filters["colors"]:
+            placeholders = ",".join("?" for _ in filters["colors"])
+            like_clauses = " OR ".join("LOWER(COALESCE(a.filament_color, '')) LIKE ?" for _ in filters["colors"])
+            where_clauses.append(
+                f"(" 
+                f"EXISTS (SELECT 1 FROM archive_filament_rows fr WHERE fr.archive_id = a.archive_id AND LOWER(fr.color) IN ({placeholders}))"
+                f" OR {like_clauses}"
+                f")"
+            )
+            params.extend(filters["colors"])
+            params.extend([f"%{color}%" for color in filters["colors"]])
+        date_threshold = self._date_range_threshold(filters["date_range"], filters["today"])
+        if date_threshold:
+            where_clauses.append(
+                "DATE(COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, ''))) >= ?"
+            )
+            params.append(date_threshold)
+
+        sort_sql = self._sort_sql(filters["sort"])
+        query = f"""
+            SELECT a.archive_id
+            FROM archives a
+            WHERE {' AND '.join(where_clauses)}
+            ORDER BY {sort_sql}
+        """
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [as_int(row[0]) for row in rows if as_int(row[0]) > 0]
+
+    def _sort_sql(self, sort_option: str) -> str:
+        mapping = {
+            "Date (Newest)": "COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, '')) DESC, a.archive_id DESC",
+            "Date (Oldest)": "COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, '')) ASC, a.archive_id ASC",
+            "Duration (Longest)": "COALESCE(NULLIF(a.actual_time_seconds, 0), a.print_time_seconds, 0) DESC, a.archive_id DESC",
+            "Duration (Shortest)": "COALESCE(NULLIF(a.actual_time_seconds, 0), a.print_time_seconds, 0) ASC, a.archive_id ASC",
+            "Cost (Highest)": "a.cost DESC, a.archive_id DESC",
+            "Cost (Lowest)": "a.cost ASC, a.archive_id ASC",
+            "Filament (Most)": "a.filament_used_grams DESC, a.archive_id DESC",
+            "Filament (Least)": "a.filament_used_grams ASC, a.archive_id ASC",
+            "Name (A-Z)": "LOWER(a.print_name) ASC, a.archive_id ASC",
+            "Name (Z-A)": "LOWER(a.print_name) DESC, a.archive_id DESC",
+        }
+        return mapping.get(sort_option, mapping["Date (Newest)"])
+
+    def _date_range_threshold(self, filter_value: str, today: Any) -> str:
+        if filter_value in {"", "All Time"}:
+            return ""
+        if filter_value == "Today":
+            return today.isoformat()
+        if filter_value == "This Week":
+            return (today - timedelta(days=6)).isoformat()
+        if filter_value in {"This Month", "Last 30 Days"}:
+            return (today - timedelta(days=29)).isoformat()
+        if filter_value == "Last 90 Days":
+            return (today - timedelta(days=89)).isoformat()
+        return ""
+
+    def _load_archives_by_ids(self, archive_ids: list[int]) -> list[dict[str, Any]]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            return []
+        placeholders = ",".join("?" for _ in normalized_ids)
+        order_clause = "CASE archive_id " + " ".join(
+            f"WHEN {archive_id} THEN {index}" for index, archive_id in enumerate(normalized_ids)
+        ) + " END"
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT archive_id, json_payload FROM archives WHERE archive_id IN ({placeholders}) ORDER BY {order_clause}",
+                normalized_ids,
+            ).fetchall()
+        archives: list[dict[str, Any]] = []
+        for _archive_id, payload_raw in rows:
+            try:
+                payload = json.loads(payload_raw)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                archives.append(payload)
+        return archives
+
+    def _load_available_colors(self) -> list[str]:
+        colors: set[str] = set()
+        with self._connect() as connection:
+            filament_rows = connection.execute(
+                "SELECT DISTINCT color FROM archive_filament_rows WHERE TRIM(COALESCE(color, '')) != ''"
+            ).fetchall()
+            archive_rows = connection.execute(
+                "SELECT filament_color FROM archives WHERE TRIM(COALESCE(filament_color, '')) != ''"
+            ).fetchall()
+        for row in filament_rows:
+            normalized = normalize_hex(row[0])
+            if normalized:
+                colors.add(normalized)
+        for row in archive_rows:
+            for raw_color in as_text(row[0]).split(","):
+                normalized = normalize_hex(raw_color)
+                if normalized:
+                    colors.add(normalized)
+        return sorted(colors)
+
+    def _load_metric_rows(self, archive_ids: list[int]) -> list[dict[str, Any]]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            return []
+        placeholders = ",".join("?" for _ in normalized_ids)
+        order_clause = "CASE a.archive_id " + " ".join(
+            f"WHEN {archive_id} THEN {index}" for index, archive_id in enumerate(normalized_ids)
+        ) + " END"
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    a.archive_id,
+                    a.status,
+                    a.filament_used_grams,
+                    a.object_count,
+                    a.cost,
+                    a.actual_time_seconds,
+                    a.print_time_seconds,
+                    DATE(COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, ''))) AS archive_day,
+                    COALESCE(slot_counts.slot_count, 0) AS slot_count
+                FROM archives a
+                LEFT JOIN (
+                    SELECT archive_id, COUNT(*) AS slot_count
+                    FROM archive_filament_rows
+                    WHERE TRIM(COALESCE(color, '')) != ''
+                    GROUP BY archive_id
+                ) AS slot_counts ON slot_counts.archive_id = a.archive_id
+                WHERE a.archive_id IN ({placeholders})
+                ORDER BY {order_clause}
+                """,
+                normalized_ids,
+            ).fetchall()
+        return [
+            {
+                "archive_id": as_int(row[0]),
+                "status": as_text(row[1]).strip().lower(),
+                "filament_used_grams": as_float(row[2]),
+                "object_count": max(1, as_int(row[3], 1)),
+                "cost": as_float(row[4]),
+                "actual_time_seconds": as_int(row[5]),
+                "print_time_seconds": as_int(row[6]),
+                "archive_day": as_text(row[7]).strip(),
+                "slot_count": as_int(row[8]),
+            }
+            for row in rows
+        ]
+
+    def _metric_total_label(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> str:
+        if activity_mode == "Filament Weight":
+            return f"{sum(row['filament_used_grams'] for row in metric_rows):,.1f} g"
+        if activity_mode == "Number of Printed Objects":
+            return f"{sum(row['object_count'] for row in metric_rows):,} objects"
+        if activity_mode == "Cost of Prints":
+            return f"${sum(row['cost'] for row in metric_rows):,.2f}"
+        if activity_mode == "Filaments Used":
+            return f"{sum(row['slot_count'] for row in metric_rows):,} slots"
+        if activity_mode == "Total Time Printing":
+            total_hours = sum(
+                row["actual_time_seconds"] or row["print_time_seconds"] for row in metric_rows
+            ) / 3600
+            return f"{total_hours:,.1f} h"
+        if activity_mode == "Dominant Color":
+            return f"{len(metric_rows):,} prints"
+        if activity_mode == "Outcome":
+            completed = sum(1 for row in metric_rows if row["status"] == "completed")
+            failed = sum(1 for row in metric_rows if row["status"] == "failed")
+            return f"{completed} ok / {failed} failed"
+        return f"{len(metric_rows):,} prints"
+
+    def _load_activity_bases(self, archive_ids: list[int]) -> dict[int, dict[str, Any]]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            return {}
+        placeholders = ",".join("?" for _ in normalized_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    archive_id,
+                    printer_id,
+                    print_name,
+                    status,
+                    started_at,
+                    completed_at,
+                    created_at,
+                    actual_time_seconds,
+                    print_time_seconds,
+                    filament_used_grams,
+                    filament_type,
+                    filament_color,
+                    cost,
+                    designer,
+                    is_favorite,
+                    object_count,
+                    layer_height,
+                    tags,
+                    thumbnail_path
+                FROM archives
+                WHERE archive_id IN ({placeholders})
+                """,
+                normalized_ids,
+            ).fetchall()
+        return {
+            as_int(row[0]): {
+                "printer_id": row[1],
+                "print_name": as_text(row[2]).strip(),
+                "status": as_text(row[3]).strip().lower(),
+                "started_at": as_text(row[4]).strip(),
+                "completed_at": as_text(row[5]).strip(),
+                "created_at": as_text(row[6]).strip(),
+                "actual_time_seconds": as_int(row[7]),
+                "print_time_seconds": as_int(row[8]),
+                "filament_used_grams": as_float(row[9]),
+                "filament_type": as_text(row[10]).strip(),
+                "filament_color": as_text(row[11]).strip(),
+                "cost": as_float(row[12]),
+                "designer": as_text(row[13]).strip(),
+                "is_favorite": as_int(row[14]),
+                "object_count": max(1, as_int(row[15], 1)),
+                "layer_height": as_text(row[16]).strip(),
+                "tags": as_text(row[17]).strip(),
+                "thumbnail_path": as_text(row[18]).strip(),
+            }
+            for row in rows
+        }
+
+    def _load_filament_rows_by_archive(self, archive_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            return {}
+        placeholders = ",".join("?" for _ in normalized_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT archive_id, row_index, color, used_grams, name
+                FROM archive_filament_rows
+                WHERE archive_id IN ({placeholders})
+                ORDER BY archive_id ASC, row_index ASC
+                """,
+                normalized_ids,
+            ).fetchall()
+        by_archive: dict[int, list[dict[str, Any]]] = {archive_id: [] for archive_id in normalized_ids}
+        for row in rows:
+            archive_id = as_int(row[0])
+            by_archive.setdefault(archive_id, []).append(
+                {
+                    "color": normalize_hex(row[2]),
+                    "used_grams": as_float(row[3]),
+                    "name": as_text(row[4]).strip(),
+                }
+            )
+        return by_archive

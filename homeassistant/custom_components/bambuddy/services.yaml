@@ -129,3 +129,122 @@ get_print_history_archive_detail:
         number:
           min: 1
           mode: box
+
+set_print_history_review_state:
+  name: Set Print History Review State
+  description: Create or update local review metadata for one archive in the Bambuddy store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    review_status:
+      name: Review Status
+      description: Local review state such as unreviewed, needs_review, or reviewed.
+      required: true
+      selector:
+        text:
+    mismatch_flags:
+      name: Mismatch Flags
+      description: Optional comma-separated mismatch flags or list of flags.
+      required: false
+      selector:
+        text:
+    review_note:
+      name: Review Note
+      required: false
+      selector:
+        text:
+    reviewed_at:
+      name: Reviewed At
+      description: Optional ISO timestamp override. Defaults to now.
+      required: false
+      selector:
+        text:
+
+set_print_history_repair_lineage:
+  name: Set Print History Repair Lineage
+  description: Create or update a local provenance relationship between two Bambuddy archives.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Source archive identifier in the local store.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    related_archive_id:
+      name: Related Archive ID
+      description: Related archive identifier in the local store.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    relation_type:
+      name: Relation Type
+      description: Relationship label such as derived_from or reprint_of.
+      required: true
+      selector:
+        text:
+    note:
+      name: Note
+      required: false
+      selector:
+        text:
+    created_at:
+      name: Created At
+      description: Optional ISO timestamp override. Defaults to now.
+      required: false
+      selector:
+        text:
+
+delete_print_history_repair_lineage:
+  name: Delete Print History Repair Lineage
+  description: Remove one local provenance relationship from the Bambuddy store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Source archive identifier in the local store.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    related_archive_id:
+      name: Related Archive ID
+      description: Related archive identifier in the local store.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    relation_type:
+      name: Relation Type
+      description: Relationship label to delete.
+      required: true
+      selector:
+        text:

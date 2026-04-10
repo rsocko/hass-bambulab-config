@@ -351,6 +351,107 @@ def test_variant3_store_query_and_annotations_are_store_backed(tmp_path: Path) -
     assert activity["active_day_count"] == 2
 
 
+def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = _projected_archives()
+    store.replace_archives(archives)
+
+    states = {
+        "input_select.print_history_filter_status": "Completed",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "PLA",
+        "input_select.print_history_filter_printer": "1",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "Jane",
+        "input_select.print_history_filter_project": "Wall Art",
+        "input_select.print_history_filter_layer_height": "0.16",
+        "input_select.print_history_filter_tag": "display",
+        "input_boolean.print_history_filter_favorites_only": "on",
+        "input_text.print_history_search": "batman",
+        "input_text.print_history_filter_colors": "#112233",
+        "input_text.print_history_activity_selected_date": "2026-04-08",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    expected = query_archives(archives, states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
+    actual = store.load_query_result(states)
+
+    assert actual.filtered_count == expected.filtered_count
+    assert actual.total_pages == expected.total_pages
+    assert actual.current_page == expected.current_page
+    assert [archive["id"] for archive in actual.page_items] == [archive["id"] for archive in expected.page_items]
+    assert actual.activity_active_days_label == expected.activity_active_days_label
+    assert actual.activity_metric_total_label == expected.activity_metric_total_label
+    assert actual.available_colors == expected.available_colors
+
+
+def test_variant3_store_activity_rows_ignore_selected_day(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "2026-04-08",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    rows = store.load_activity_rows(states)
+
+    assert [row["id"] for row in rows] == [101, 202]
+    assert rows[0]["filament_slots"][0]["color"] == "#112233"
+
+
+def test_variant3_store_mutation_helpers_update_review_and_lineage(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    store.upsert_review_state(
+        101,
+        review_status="needs_review",
+        mismatch_flags="color_mismatch,weight_delta",
+        review_note="Check tray attribution",
+        reviewed_at="2026-04-09T12:00:00Z",
+    )
+    store.upsert_repair_lineage(
+        101,
+        202,
+        relation_type="reprint_of",
+        note="Retried after failure",
+        created_at="2026-04-09T12:05:00Z",
+    )
+
+    review_state = store.load_review_state(101)
+    lineage = store.load_repair_lineage(101)
+    deleted = store.delete_repair_lineage(101, 202, "reprint_of")
+
+    assert review_state is not None
+    assert review_state["review_status"] == "needs_review"
+    assert review_state["mismatch_flags"] == "color_mismatch,weight_delta"
+    assert lineage[0]["relation_type"] == "reprint_of"
+    assert deleted == 1
+    assert store.load_repair_lineage(101) == []
+
+
 def test_variant3_store_detail_loads_review_and_lineage(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

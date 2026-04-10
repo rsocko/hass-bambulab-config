@@ -6,7 +6,7 @@
       entity_id:
         - sensor.bambuddy_print_history_browser_activity
         - sensor.bambuddy_print_history_browser_filtered
-        - sensor.print_history_page_archives
+        - sensor.bambuddy_print_history_browser_page_archives
         - input_number.print_history_max_archives
   sensor:
     - name: Print History Payload Diagnostics
@@ -14,8 +14,8 @@
       icon: mdi:database-alert-outline
       state: >-
         {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
-        {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
-        {% set layer3_raw = state_attr('sensor.print_history_page_archives', 'archives') %}
+        {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
+        {% set layer3_raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') %}
         {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
         {% set soft_budget = 160000 %}
         {% set hard_budget = 190000 %}
@@ -36,18 +36,18 @@
         archive_count: >-
           {{ states('sensor.bambuddy_print_history_browser_activity') | int(0) }}
         payload_chars: >-
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
           {{ (layer1_raw | tojson | length) if layer1_raw is not none else 0 }}
         page_payload_chars: >-
-          {% set layer3_raw = state_attr('sensor.print_history_page_archives', 'archives') %}
+          {% set layer3_raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') %}
           {{ (layer3_raw | tojson | length) if layer3_raw is not none else 0 }}
         average_chars_per_archive: >-
           {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
           {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
           {{ (payload_chars / archive_count) | round(1) if archive_count > 0 else 0 }}
         payload_utilization_percent: >-
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
           {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
           {% set soft_budget = 160000 %}
           {{ ((payload_chars / soft_budget) * 100) | round(1) if soft_budget > 0 else 0 }}
@@ -58,7 +58,7 @@
         estimated_comfortable_max_archives: >-
           {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
           {% set current_limit = states('input_number.print_history_max_archives') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
           {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
           {% set avg_chars = (payload_chars / archive_count) if archive_count > 0 else 0 %}
           {% set soft_budget = 160000 %}
@@ -66,24 +66,24 @@
         estimated_upper_bound_archives: >-
           {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
           {% set current_limit = states('input_number.print_history_max_archives') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
           {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
           {% set avg_chars = (payload_chars / archive_count) if archive_count > 0 else 0 %}
           {% set hard_budget = 190000 %}
           {{ ((hard_budget / avg_chars) | round(0, 'floor') | int(0)) if avg_chars > 0 else current_limit }}
         layer_1_status: >-
           {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
           {{ 'ok' if archive_count == 0 or layer1_raw is not none else 'fail' }}
         layer_3_status: >-
           {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
-          {% set layer3_raw = state_attr('sensor.print_history_page_archives', 'archives') %}
+          {% set layer3_raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') %}
           {{ 'ok' if archive_count == 0 or layer3_raw is not none else 'fail' }}
         status_message: >-
           {% set archive_count = states('sensor.bambuddy_print_history_browser_activity') | int(0) %}
           {% set current_limit = states('input_number.print_history_max_archives') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_page_archives', 'filtered_archives') %}
-          {% set layer3_raw = state_attr('sensor.print_history_page_archives', 'archives') %}
+          {% set layer1_raw = state_attr('sensor.bambuddy_print_history_browser_activity', 'filtered_archives') %}
+          {% set layer3_raw = state_attr('sensor.bambuddy_print_history_browser_page_archives', 'archives') %}
           {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
           {% set avg_chars = (payload_chars / archive_count) if archive_count > 0 else 0 %}
           {% set soft_budget = 160000 %}
@@ -93,15 +93,15 @@
           {% set layer1_ok = archive_count == 0 or layer1_raw is not none %}
           {% set layer3_ok = archive_count == 0 or layer3_raw is not none %}
           {% if archive_count > 0 and not layer1_ok %}
-            The Layer 2 activity cache is reporting {{ archive_count }} archives but filtered_archives is missing. The service-backed activity cache did not materialize.
+            The Bambuddy activity entity is reporting {{ archive_count }} archives but filtered_archives is missing. The integration-owned activity payload did not materialize.
           {% elif archive_count > 0 and not layer3_ok %}
-            The Layer 2 page cache did not materialize the archive slice. Refresh the print history browser query cache.
+            The Bambuddy page entity did not materialize the current archive slice. Refresh the print history browser query state.
           {% elif payload_chars >= hard_budget %}
-            The Layer 2 activity cache is above the hard budget at {{ payload_chars }} chars. Failure risk is high; treat {{ upper_bound }} archives as the practical ceiling for the current payload density.
+            The Bambuddy activity payload is above the hard budget at {{ payload_chars }} chars. Failure risk is high; treat {{ upper_bound }} archives as the practical ceiling for the current payload density.
           {% elif payload_chars >= soft_budget %}
-            The Layer 2 activity cache is above the conservative warning budget at {{ payload_chars }} chars. Current density suggests keeping this near {{ comfortable_max }} archives.
+            The Bambuddy activity payload is above the conservative warning budget at {{ payload_chars }} chars. Current density suggests keeping this near {{ comfortable_max }} archives.
           {% elif archive_count > 0 %}
-            The Layer 2 activity cache is within the conservative budget at {{ payload_chars }} chars for {{ archive_count }} archives. Current density suggests about {{ comfortable_max }} archives is comfortable and {{ upper_bound }} is the risk boundary.
+            The Bambuddy activity payload is within the conservative budget at {{ payload_chars }} chars for {{ archive_count }} archives. Current density suggests about {{ comfortable_max }} archives is comfortable and {{ upper_bound }} is the risk boundary.
           {% else %}
             No print history archives are currently cached, so payload sizing is not yet established.
           {% endif %}
