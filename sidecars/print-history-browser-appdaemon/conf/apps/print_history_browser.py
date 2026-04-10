@@ -40,6 +40,7 @@ class PrintHistoryBrowserApp(Hass):
         self._archives: list[dict[str, Any]] = []
         self._last_refresh: str | None = None
         self._last_error: str = ""
+        self._helper_retry_seconds = int(self.args.get("helper_retry_seconds", 5))
         self._fetch_timeout_seconds = int(self.args.get("fetch_timeout_seconds", 30))
         self._refresh_interval_seconds = int(self.args.get("refresh_interval_seconds", 300))
         self._browser_status_entity = self.args.get("browser_status_entity", "sensor.print_history_browser_status")
@@ -49,23 +50,22 @@ class PrintHistoryBrowserApp(Hass):
         self._activity_entity = self.args.get("activity_entity", "sensor.print_history_browser_activity")
         self._base_url_arg = str(self.args.get("bambuddy_api_base_url", "")).rstrip("/")
         self._api_key = str(self.args.get("bambuddy_api_key", "")).strip()
+        self._helpers_ready = False
 
         self.listen_event(self._handle_manual_refresh, "print_history_refresh_requested")
         self.listen_event(self._handle_webhook_refresh, "bambuddy_webhook_event")
 
-        for entity_id in HELPER_ENTITY_IDS:
-            self.listen_state(self._handle_state_change, entity_id)
-
-        if self._refresh_interval_seconds > 0:
-            self.run_every(self._scheduled_refresh, "now", self._refresh_interval_seconds)
-
-        self._publish_status("refreshing", message="Initial AppDaemon browser warmup")
+        self._publish_status("initializing", message="Waiting for print history helper entities")
         self.run_in(self._startup_refresh, 2)
 
     def _startup_refresh(self, kwargs: dict[str, Any]) -> None:
+        if not self._ensure_helpers_ready():
+            return
         self._refresh_cache(reason="startup")
 
     def _handle_manual_refresh(self, event_name: str, data: dict[str, Any], kwargs: dict[str, Any]) -> None:
+        if not self._ensure_helpers_ready():
+            return
         self._refresh_cache(reason="manual_event")
 
     def _handle_webhook_refresh(self, event_name: str, data: dict[str, Any], kwargs: dict[str, Any]) -> None:
@@ -75,12 +75,18 @@ class PrintHistoryBrowserApp(Hass):
         self.run_in(self._delayed_webhook_refresh, 5, reason=event_type)
 
     def _delayed_webhook_refresh(self, kwargs: dict[str, Any]) -> None:
+        if not self._ensure_helpers_ready():
+            return
         self._refresh_cache(reason=str(kwargs.get("reason", "webhook")))
 
     def _scheduled_refresh(self, kwargs: dict[str, Any]) -> None:
+        if not self._ensure_helpers_ready():
+            return
         self._refresh_cache(reason="interval")
 
     def _handle_state_change(self, entity: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]) -> None:
+        if not self._helpers_ready:
+            return
         if entity in {
             "input_number.print_history_max_archives",
             "input_boolean.bambuddy_integration_enabled",
@@ -114,7 +120,39 @@ class PrintHistoryBrowserApp(Hass):
             snapshot[entity_id] = str(self.get_state(entity_id) or "")
         return snapshot
 
-    def _publish_status(self, state: str, *, message: str = "") -> None:
+    def _missing_helper_entities(self) -> list[str]:
+        missing: list[str] = []
+        for entity_id in HELPER_ENTITY_IDS:
+            if self.get_state(entity_id, attribute="all") is None:
+                missing.append(entity_id)
+        return missing
+
+    def _ensure_helpers_ready(self) -> bool:
+        if self._helpers_ready:
+            return True
+
+        missing = self._missing_helper_entities()
+        if missing:
+            self._publish_status(
+                "waiting_for_helpers",
+                message=f"Waiting for {len(missing)} helper entities",
+                missing_helpers=missing,
+            )
+            self.run_in(self._startup_refresh, self._helper_retry_seconds)
+            return False
+
+        for entity_id in HELPER_ENTITY_IDS:
+            self.listen_state(self._handle_state_change, entity_id)
+
+        if self._refresh_interval_seconds > 0:
+            self.run_every(self._scheduled_refresh, "now", self._refresh_interval_seconds)
+
+        self._helpers_ready = True
+        self.log("Print history helper entities are available; enabling listeners")
+        self._publish_status("refreshing", message="Initial AppDaemon browser warmup")
+        return True
+
+    def _publish_status(self, state: str, *, message: str = "", missing_helpers: list[str] | None = None) -> None:
         snapshot = self._state_snapshot()
         self.set_state(
             self._browser_status_entity,
@@ -127,6 +165,8 @@ class PrintHistoryBrowserApp(Hass):
                 "last_refresh": self._last_refresh,
                 "last_error": self._last_error,
                 "enabled": self._is_enabled(),
+                "helpers_ready": self._helpers_ready,
+                "missing_helpers": missing_helpers or [],
                 "bambuddy_api_base_url": self._current_base_url(),
                 "page_size": snapshot.get("input_number.print_history_page_size", "10"),
                 "current_page": snapshot.get("input_number.history_current_page", "1"),

@@ -67,6 +67,8 @@ Recommended:
 
 The bundled AppDaemon config also raises the Home Assistant websocket limit to `16777216` bytes (`16 MB`). This is intentional. The default AppDaemon limit is `4 MB`, and a larger Home Assistant state snapshot will cause the HASS plugin to disconnect before the app can initialize.
 
+On startup the app now waits until the print-history helper entities are visible in AppDaemon's Home Assistant state cache before it registers helper listeners or runs the initial Bambuddy refresh. If `sensor.print_history_browser_status` shows `waiting_for_helpers`, the sidecar is up but AppDaemon still has not seen the expected HA helpers yet.
+
 ## Compose
 
 Use [compose.example.yaml](compose.example.yaml) as the starting point for the Dockhand stack or another same-host compose deployment.
