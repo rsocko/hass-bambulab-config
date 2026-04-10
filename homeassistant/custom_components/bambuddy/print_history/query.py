@@ -244,6 +244,29 @@ def note_payload_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def color_tooltip_names(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
+    names_by_color: dict[str, list[str]] = {}
+
+    def add_name(color: Any, name: Any) -> None:
+        normalized_color = normalize_hex(color)
+        normalized_name = as_text(name).strip()
+        if not normalized_color or not normalized_name:
+            return
+        bucket = names_by_color.setdefault(normalized_color, [])
+        if normalized_name not in bucket:
+            bucket.append(normalized_name)
+
+    for archive in archives:
+        for row in note_payload_rows(archive):
+            add_name(row.get("color"), row.get("name"))
+        for slot in archive.get("filament_slots", []):
+            if not isinstance(slot, dict):
+                continue
+            add_name(slot.get("color"), slot.get("name"))
+
+    return names_by_color
+
+
 def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": archive.get("id"),
@@ -426,7 +449,14 @@ def query_archives(
 
     matches: list[dict[str, Any]] = []
     available_colors = sorted({color for archive in archives for color in archive_colors(archive)})
-    available_color_tooltips = [{"color": color, "tooltip": color.upper()} for color in available_colors]
+    tooltip_names = color_tooltip_names(archives)
+    available_color_tooltips = [
+        {
+            "color": color,
+            "tooltip": f"{' or '.join(tooltip_names[color])} ({color.upper()})" if tooltip_names.get(color) else color.upper(),
+        }
+        for color in available_colors
+    ]
 
     for archive in archives:
         archive_status = normalize_status(archive.get("status"))

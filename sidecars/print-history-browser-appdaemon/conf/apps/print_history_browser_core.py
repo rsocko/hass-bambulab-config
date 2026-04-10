@@ -206,6 +206,55 @@ def _archive_colors(archive: dict[str, Any]) -> list[str]:
     return [color for color in normalized if color]
 
 
+def _note_payload_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
+    payload = _extract_enrichment_payload(_as_text(archive.get("notes")))
+    raw_rows = payload.get("F") if isinstance(payload, dict) else None
+    if not isinstance(raw_rows, list):
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(raw_rows):
+        if not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                "row_index": index,
+                "tray": _as_text(row.get("t")).strip(),
+                "name": _as_text(row.get("n")).strip(),
+                "type": _as_text(row.get("type")).strip(),
+                "color": _normalize_hex(row.get("h") or row.get("color")),
+                "used_grams": _as_float(row.get("w")),
+                "filament_id": row.get("f"),
+                "spool_id": row.get("s"),
+                "ambiguity_code": _as_text(row.get("a")).strip(),
+            }
+        )
+    return rows
+
+
+def _color_tooltip_names(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
+    names_by_color: dict[str, list[str]] = {}
+
+    def add_name(color: Any, name: Any) -> None:
+        normalized_color = _normalize_hex(color)
+        normalized_name = _as_text(name).strip()
+        if not normalized_color or not normalized_name:
+            return
+        bucket = names_by_color.setdefault(normalized_color, [])
+        if normalized_name not in bucket:
+            bucket.append(normalized_name)
+
+    for archive in archives:
+        for row in _note_payload_rows(archive):
+            add_name(row.get("color"), row.get("name"))
+        for slot in archive.get("filament_slots", []):
+            if not isinstance(slot, dict):
+                continue
+            add_name(slot.get("color"), slot.get("name"))
+
+    return names_by_color
+
+
 def _user_tags(raw_tags: str) -> list[str]:
     values: list[str] = []
     seen: set[str] = set()
@@ -346,7 +395,14 @@ def query_archives(
 
     matches: list[dict[str, Any]] = []
     available_colors = sorted({color for archive in archives for color in _archive_colors(archive)})
-    available_color_tooltips = [{"color": color, "tooltip": color.upper()} for color in available_colors]
+    tooltip_names = _color_tooltip_names(archives)
+    available_color_tooltips = [
+        {
+            "color": color,
+            "tooltip": f"{' or '.join(tooltip_names[color])} ({color.upper()})" if tooltip_names.get(color) else color.upper(),
+        }
+        for color in available_colors
+    ]
 
     for archive in archives:
         archive_status = _normalize_status(archive.get("status"))

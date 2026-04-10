@@ -108,6 +108,9 @@ def test_query_archives_filters_sorts_and_pages() -> None:
     assert result.page_items[0]["id"] == 101
     assert result.has_active_filters is True
     assert "#112233" in result.available_colors
+    tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
+    assert tooltip_by_color["#112233"] == "Blue PLA (#112233)"
+    assert tooltip_by_color["#ffffff"] == "White PLA (#FFFFFF)"
 
 
 def test_query_archives_this_month_uses_calendar_month_boundary() -> None:
