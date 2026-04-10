@@ -164,7 +164,7 @@ sections:
             # Place your image at /config/www/bambu-printer.jpg in HA.
             #mode: url
             #url: /local/bambu-printer.jpg
-        - camera_entity: camera.3dprintertopcamera_hd_stream
+        - camera_entity: camera.3dprinter_front_camera_hd_stream
           #image:
             # mode: url with a custom image replaces the default "flowers"
             # screensaver shown while the live stream is loading.

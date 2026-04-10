@@ -3,5 +3,5 @@ secondary_camera_entity:
   icon: mdi:camera-plus
   options:
     - None
-    - camera.3dprintertopcamera_hd_stream
+    - camera.3dprinter_front_camera_hd_stream
     - camera.3d_printer_top_tapo_c110_hd_stream
