@@ -1261,6 +1261,13 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("Archive-level fallback", content)
         self.assertIn("${escapeHtml(enrichmentReason)}", content)
 
+    def test_popup_timeline_uses_mobile_responsive_layout(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px) minmax(0,1fr);", content)
+        self.assertIn("@media (max-width: 640px)", content)
+        self.assertIn(".print-history-popup-timeline{grid-template-columns:minmax(0,1fr);gap:10px;}", content)
+        self.assertIn(".print-history-popup-timeline-side--end{order:3;}", content)
+
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
         self.assertIn("existing_tags_raw", content)
