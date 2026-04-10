@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -144,6 +145,141 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
     ]
     assert stats["archive_count"] == 2
     assert stats["note_payload_row_count"] == 1
+
+
+def test_variant3_store_migrates_legacy_schema_before_refresh(tmp_path: Path) -> None:
+    db_path = tmp_path / "print_history.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE archives (
+                archive_id INTEGER PRIMARY KEY,
+                printer_id TEXT,
+                print_name TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT '',
+                started_at TEXT,
+                completed_at TEXT,
+                created_at TEXT,
+                actual_time_seconds INTEGER NOT NULL DEFAULT 0,
+                print_time_seconds INTEGER NOT NULL DEFAULT 0,
+                filament_used_grams REAL NOT NULL DEFAULT 0,
+                filament_type TEXT NOT NULL DEFAULT '',
+                filament_color TEXT NOT NULL DEFAULT '',
+                cost REAL NOT NULL DEFAULT 0,
+                quantity INTEGER NOT NULL DEFAULT 0,
+                object_count INTEGER NOT NULL DEFAULT 1,
+                layer_height TEXT NOT NULL DEFAULT '',
+                nozzle_diameter TEXT NOT NULL DEFAULT '',
+                nozzle_temperature INTEGER NOT NULL DEFAULT 0,
+                total_layers INTEGER NOT NULL DEFAULT 0,
+                sliced_for_model TEXT NOT NULL DEFAULT '',
+                designer TEXT NOT NULL DEFAULT '',
+                makerworld_url TEXT NOT NULL DEFAULT '',
+                is_favorite INTEGER NOT NULL DEFAULT 0,
+                tags TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                failure_reason TEXT NOT NULL DEFAULT '',
+                thumbnail_path TEXT NOT NULL DEFAULT '',
+                project_id TEXT,
+                project_name TEXT NOT NULL DEFAULT '',
+                enrichment_status TEXT NOT NULL DEFAULT '',
+                json_payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE archive_filament_rows (
+                archive_id INTEGER NOT NULL,
+                row_index INTEGER NOT NULL,
+                tray TEXT NOT NULL DEFAULT '',
+                name TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '',
+                used_grams REAL NOT NULL DEFAULT 0,
+                filament_id TEXT,
+                spool_id TEXT,
+                PRIMARY KEY (archive_id, row_index)
+            );
+            CREATE TABLE archive_tags (
+                archive_id INTEGER NOT NULL,
+                normalized_tag TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                is_system INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (archive_id, normalized_tag)
+            );
+            CREATE TABLE archive_photos (
+                archive_id INTEGER NOT NULL,
+                photo_index INTEGER NOT NULL,
+                photo_path TEXT NOT NULL,
+                photo_role TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (archive_id, photo_index)
+            );
+            """
+        )
+
+    store = PrintHistoryStore(db_path)
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    stats = store.load_store_stats()
+    detail = store.load_archive(101)
+
+    assert stats["archive_count"] == 2
+    assert stats["note_payload_row_count"] == 1
+    assert detail is not None
+    assert detail["payload_hash"]
+    assert detail["source_updated_at"] == "2026-04-08T14:00:00Z"
+
+
+def test_variant3_store_replace_archives_self_heals_partial_schema(tmp_path: Path) -> None:
+    db_path = tmp_path / "print_history.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE archives (
+                archive_id INTEGER PRIMARY KEY,
+                printer_id TEXT,
+                print_name TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT '',
+                started_at TEXT,
+                completed_at TEXT,
+                created_at TEXT,
+                actual_time_seconds INTEGER NOT NULL DEFAULT 0,
+                print_time_seconds INTEGER NOT NULL DEFAULT 0,
+                filament_used_grams REAL NOT NULL DEFAULT 0,
+                filament_type TEXT NOT NULL DEFAULT '',
+                filament_color TEXT NOT NULL DEFAULT '',
+                cost REAL NOT NULL DEFAULT 0,
+                quantity INTEGER NOT NULL DEFAULT 0,
+                object_count INTEGER NOT NULL DEFAULT 1,
+                layer_height TEXT NOT NULL DEFAULT '',
+                nozzle_diameter TEXT NOT NULL DEFAULT '',
+                nozzle_temperature INTEGER NOT NULL DEFAULT 0,
+                total_layers INTEGER NOT NULL DEFAULT 0,
+                sliced_for_model TEXT NOT NULL DEFAULT '',
+                designer TEXT NOT NULL DEFAULT '',
+                makerworld_url TEXT NOT NULL DEFAULT '',
+                is_favorite INTEGER NOT NULL DEFAULT 0,
+                tags TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                failure_reason TEXT NOT NULL DEFAULT '',
+                thumbnail_path TEXT NOT NULL DEFAULT '',
+                project_id TEXT,
+                project_name TEXT NOT NULL DEFAULT '',
+                enrichment_status TEXT NOT NULL DEFAULT '',
+                json_payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            """
+        )
+
+    store = PrintHistoryStore(db_path)
+    store.replace_archives(_projected_archives())
+
+    stats = store.load_store_stats()
+    payload_rows = store.load_note_payload_rows(101)
+
+    assert stats["archive_count"] == 2
+    assert stats["note_payload_row_count"] == 1
+    assert payload_rows[0]["name"] == "Blue PLA"
 
 
 def test_variant3_activity_rows_expose_only_summary_fields() -> None:

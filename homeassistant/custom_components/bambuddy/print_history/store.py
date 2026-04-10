@@ -23,120 +23,123 @@ class PrintHistoryStore:
     def initialize(self) -> None:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
-            connection.executescript(
-                """
-                PRAGMA journal_mode=WAL;
-                CREATE TABLE IF NOT EXISTS archives (
-                    archive_id INTEGER PRIMARY KEY,
-                    printer_id TEXT,
-                    print_name TEXT NOT NULL DEFAULT '',
-                    status TEXT NOT NULL DEFAULT '',
-                    started_at TEXT,
-                    completed_at TEXT,
-                    created_at TEXT,
-                    actual_time_seconds INTEGER NOT NULL DEFAULT 0,
-                    print_time_seconds INTEGER NOT NULL DEFAULT 0,
-                    filament_used_grams REAL NOT NULL DEFAULT 0,
-                    filament_type TEXT NOT NULL DEFAULT '',
-                    filament_color TEXT NOT NULL DEFAULT '',
-                    cost REAL NOT NULL DEFAULT 0,
-                    quantity INTEGER NOT NULL DEFAULT 0,
-                    object_count INTEGER NOT NULL DEFAULT 1,
-                    layer_height TEXT NOT NULL DEFAULT '',
-                    nozzle_diameter TEXT NOT NULL DEFAULT '',
-                    nozzle_temperature INTEGER NOT NULL DEFAULT 0,
-                    total_layers INTEGER NOT NULL DEFAULT 0,
-                    sliced_for_model TEXT NOT NULL DEFAULT '',
-                    designer TEXT NOT NULL DEFAULT '',
-                    makerworld_url TEXT NOT NULL DEFAULT '',
-                    is_favorite INTEGER NOT NULL DEFAULT 0,
-                    tags TEXT NOT NULL DEFAULT '',
-                    notes TEXT NOT NULL DEFAULT '',
-                    failure_reason TEXT NOT NULL DEFAULT '',
-                    thumbnail_path TEXT NOT NULL DEFAULT '',
-                    project_id TEXT,
-                    project_name TEXT NOT NULL DEFAULT '',
-                    enrichment_status TEXT NOT NULL DEFAULT '',
-                    last_synced_at TEXT NOT NULL DEFAULT '',
-                    source_updated_at TEXT NOT NULL DEFAULT '',
-                    payload_hash TEXT NOT NULL DEFAULT '',
-                    json_payload TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_archives_started_at ON archives(started_at);
-                CREATE INDEX IF NOT EXISTS idx_archives_status ON archives(status);
-                CREATE INDEX IF NOT EXISTS idx_archives_printer_id ON archives(printer_id);
-                CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at);
+            self._ensure_schema(connection)
 
-                CREATE TABLE IF NOT EXISTS archive_filament_rows (
-                    archive_id INTEGER NOT NULL,
-                    row_index INTEGER NOT NULL,
-                    tray TEXT NOT NULL DEFAULT '',
-                    name TEXT NOT NULL DEFAULT '',
-                    type TEXT NOT NULL DEFAULT '',
-                    color TEXT NOT NULL DEFAULT '',
-                    used_grams REAL NOT NULL DEFAULT 0,
-                    filament_id TEXT,
-                    spool_id TEXT,
-                    PRIMARY KEY (archive_id, row_index),
-                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
-                );
-                CREATE INDEX IF NOT EXISTS idx_archive_filament_rows_color ON archive_filament_rows(color);
+    def _ensure_schema(self, connection: sqlite3.Connection) -> None:
+        connection.executescript(
+            """
+            PRAGMA journal_mode=WAL;
+            CREATE TABLE IF NOT EXISTS archives (
+                archive_id INTEGER PRIMARY KEY,
+                printer_id TEXT,
+                print_name TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT '',
+                started_at TEXT,
+                completed_at TEXT,
+                created_at TEXT,
+                actual_time_seconds INTEGER NOT NULL DEFAULT 0,
+                print_time_seconds INTEGER NOT NULL DEFAULT 0,
+                filament_used_grams REAL NOT NULL DEFAULT 0,
+                filament_type TEXT NOT NULL DEFAULT '',
+                filament_color TEXT NOT NULL DEFAULT '',
+                cost REAL NOT NULL DEFAULT 0,
+                quantity INTEGER NOT NULL DEFAULT 0,
+                object_count INTEGER NOT NULL DEFAULT 1,
+                layer_height TEXT NOT NULL DEFAULT '',
+                nozzle_diameter TEXT NOT NULL DEFAULT '',
+                nozzle_temperature INTEGER NOT NULL DEFAULT 0,
+                total_layers INTEGER NOT NULL DEFAULT 0,
+                sliced_for_model TEXT NOT NULL DEFAULT '',
+                designer TEXT NOT NULL DEFAULT '',
+                makerworld_url TEXT NOT NULL DEFAULT '',
+                is_favorite INTEGER NOT NULL DEFAULT 0,
+                tags TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                failure_reason TEXT NOT NULL DEFAULT '',
+                thumbnail_path TEXT NOT NULL DEFAULT '',
+                project_id TEXT,
+                project_name TEXT NOT NULL DEFAULT '',
+                enrichment_status TEXT NOT NULL DEFAULT '',
+                last_synced_at TEXT NOT NULL DEFAULT '',
+                source_updated_at TEXT NOT NULL DEFAULT '',
+                payload_hash TEXT NOT NULL DEFAULT '',
+                json_payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_archives_started_at ON archives(started_at);
+            CREATE INDEX IF NOT EXISTS idx_archives_status ON archives(status);
+            CREATE INDEX IF NOT EXISTS idx_archives_printer_id ON archives(printer_id);
 
-                CREATE TABLE IF NOT EXISTS archive_tags (
-                    archive_id INTEGER NOT NULL,
-                    normalized_tag TEXT NOT NULL,
-                    tag TEXT NOT NULL,
-                    is_system INTEGER NOT NULL DEFAULT 0,
-                    PRIMARY KEY (archive_id, normalized_tag),
-                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
-                );
-                CREATE INDEX IF NOT EXISTS idx_archive_tags_tag ON archive_tags(normalized_tag);
+            CREATE TABLE IF NOT EXISTS archive_filament_rows (
+                archive_id INTEGER NOT NULL,
+                row_index INTEGER NOT NULL,
+                tray TEXT NOT NULL DEFAULT '',
+                name TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '',
+                used_grams REAL NOT NULL DEFAULT 0,
+                filament_id TEXT,
+                spool_id TEXT,
+                PRIMARY KEY (archive_id, row_index),
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_filament_rows_color ON archive_filament_rows(color);
 
-                CREATE TABLE IF NOT EXISTS archive_photos (
-                    archive_id INTEGER NOT NULL,
-                    photo_index INTEGER NOT NULL,
-                    photo_path TEXT NOT NULL,
-                    photo_role TEXT NOT NULL DEFAULT '',
-                    PRIMARY KEY (archive_id, photo_index),
-                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
-                );
+            CREATE TABLE IF NOT EXISTS archive_tags (
+                archive_id INTEGER NOT NULL,
+                normalized_tag TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                is_system INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (archive_id, normalized_tag),
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_tags_tag ON archive_tags(normalized_tag);
 
-                CREATE TABLE IF NOT EXISTS archive_note_payload_rows (
-                    archive_id INTEGER NOT NULL,
-                    row_index INTEGER NOT NULL,
-                    tray TEXT NOT NULL DEFAULT '',
-                    name TEXT NOT NULL DEFAULT '',
-                    type TEXT NOT NULL DEFAULT '',
-                    color TEXT NOT NULL DEFAULT '',
-                    used_grams REAL NOT NULL DEFAULT 0,
-                    filament_id TEXT,
-                    spool_id TEXT,
-                    ambiguity_code TEXT NOT NULL DEFAULT '',
-                    PRIMARY KEY (archive_id, row_index),
-                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
-                );
+            CREATE TABLE IF NOT EXISTS archive_photos (
+                archive_id INTEGER NOT NULL,
+                photo_index INTEGER NOT NULL,
+                photo_path TEXT NOT NULL,
+                photo_role TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (archive_id, photo_index),
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
 
-                CREATE TABLE IF NOT EXISTS archive_repair_lineage (
-                    archive_id INTEGER NOT NULL,
-                    related_archive_id INTEGER NOT NULL,
-                    relation_type TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    note TEXT NOT NULL DEFAULT '',
-                    PRIMARY KEY (archive_id, related_archive_id, relation_type)
-                );
+            CREATE TABLE IF NOT EXISTS archive_note_payload_rows (
+                archive_id INTEGER NOT NULL,
+                row_index INTEGER NOT NULL,
+                tray TEXT NOT NULL DEFAULT '',
+                name TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '',
+                used_grams REAL NOT NULL DEFAULT 0,
+                filament_id TEXT,
+                spool_id TEXT,
+                ambiguity_code TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (archive_id, row_index),
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
 
-                CREATE TABLE IF NOT EXISTS archive_review_state (
-                    archive_id INTEGER PRIMARY KEY,
-                    review_status TEXT NOT NULL DEFAULT 'unreviewed',
-                    mismatch_flags TEXT NOT NULL DEFAULT '',
-                    reviewed_at TEXT NOT NULL DEFAULT '',
-                    review_note TEXT NOT NULL DEFAULT '',
-                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
-                );
-                """
-            )
-            self._ensure_archive_columns(connection)
+            CREATE TABLE IF NOT EXISTS archive_repair_lineage (
+                archive_id INTEGER NOT NULL,
+                related_archive_id INTEGER NOT NULL,
+                relation_type TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (archive_id, related_archive_id, relation_type)
+            );
+
+            CREATE TABLE IF NOT EXISTS archive_review_state (
+                archive_id INTEGER PRIMARY KEY,
+                review_status TEXT NOT NULL DEFAULT 'unreviewed',
+                mismatch_flags TEXT NOT NULL DEFAULT '',
+                reviewed_at TEXT NOT NULL DEFAULT '',
+                review_note TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+            """
+        )
+        self._ensure_archive_columns(connection)
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at)")
 
     def _ensure_archive_columns(self, connection: sqlite3.Connection) -> None:
         columns = {
@@ -158,6 +161,7 @@ class PrintHistoryStore:
     def replace_archives(self, archives: list[dict[str, Any]]) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
+            self._ensure_schema(connection)
             review_rows = connection.execute(
                 "SELECT archive_id, review_status, mismatch_flags, reviewed_at, review_note FROM archive_review_state"
             ).fetchall()

@@ -77,11 +77,11 @@ class BambuddyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class BambuddyOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
-        defaults = {**self.config_entry.data, **self.config_entry.options}
+        defaults = {**self._config_entry.data, **self._config_entry.options}
         if user_input is not None:
             normalized_url = str(user_input[CONF_BASE_URL]).strip().rstrip("/")
             user_input[CONF_BASE_URL] = normalized_url

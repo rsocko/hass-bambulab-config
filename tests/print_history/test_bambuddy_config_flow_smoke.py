@@ -38,7 +38,9 @@ def _install_homeassistant_stubs() -> None:
         pass
 
     class ConfigEntry:
-        pass
+        def __init__(self) -> None:
+            self.data = {}
+            self.options = {}
 
     class Platform:
         SENSOR = "sensor"
@@ -160,4 +162,6 @@ def test_bambuddy_config_flow_imports_without_home_assistant_runtime() -> None:
     assert module.DOMAIN == "bambuddy"
     assert module.BambuddyConfigFlow._configured_domain == "bambuddy"
     assert issubclass(module.BambuddyOptionsFlow, sys.modules["homeassistant.config_entries"].OptionsFlow)
+    options_flow = module.BambuddyOptionsFlow(sys.modules["homeassistant.config_entries"].ConfigEntry())
+    assert options_flow._config_entry is not None
     assert hasattr(diagnostics_module, "async_get_config_entry_diagnostics")
