@@ -52,6 +52,7 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
         vol.Optional("activity_metric"): str,
         vol.Optional("page"): vol.Coerce(int),
         vol.Optional("page_size"): vol.Coerce(int),
+        vol.Optional("include_activity_rows"): bool,
     }
 )
 SERVICE_DETAIL_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})

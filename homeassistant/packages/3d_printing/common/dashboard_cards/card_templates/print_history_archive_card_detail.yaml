@@ -3,7 +3,7 @@ print_history_archive_card_detail:
     - print_history_archive_popup
   type: custom:button-card
   triggers_update:
-    - sensor.bambuddy_print_history_browser_page_archives
+    - sensor.print_history_browser_page_archives
   show_icon: true
   show_name: false
   show_state: false
@@ -19,7 +19,7 @@ print_history_archive_card_detail:
       const archiveId = snapshotArchive?.id;
       let archive = snapshotArchive;
       try {
-        const pageArchivesRaw = states['sensor.bambuddy_print_history_browser_page_archives']?.attributes?.archives || '[]';
+        const pageArchivesRaw = states['sensor.print_history_browser_page_archives']?.attributes?.archives || '[]';
         const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
         if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
           archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
@@ -55,7 +55,7 @@ print_history_archive_card_detail:
         const snapshotArchiveId = snapshotArchive?.id;
         let archive = snapshotArchive;
         try {
-          const pageArchivesRaw = states['sensor.bambuddy_print_history_browser_page_archives']?.attributes?.archives || '[]';
+          const pageArchivesRaw = states['sensor.print_history_browser_page_archives']?.attributes?.archives || '[]';
           const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
           if (Array.isArray(pageArchives) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
             archive = pageArchives.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
@@ -235,7 +235,7 @@ print_history_archive_card_detail:
             const archiveId = snapshotArchive?.id;
             let archive = snapshotArchive;
             try {
-              const pageArchivesRaw = states['sensor.bambuddy_print_history_browser_page_archives']?.attributes?.archives || '[]';
+              const pageArchivesRaw = states['sensor.print_history_browser_page_archives']?.attributes?.archives || '[]';
               const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
               if (Array.isArray(pageArchives) && archiveId !== undefined && archiveId !== null) {
                 archive = pageArchives.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;

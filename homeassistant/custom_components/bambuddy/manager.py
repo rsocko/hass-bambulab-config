@@ -193,11 +193,13 @@ class PrintHistoryBrowserManager:
         self._notify_listeners()
 
     def build_query_response(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
-        states = self._merged_state_snapshot(overrides or {})
+        merged_overrides = dict(overrides or {})
+        include_activity_rows = bool(merged_overrides.pop("include_activity_rows", False))
+        states = self._merged_state_snapshot(merged_overrides)
         result = self.store.load_query_result(states)
         archive_ids = [int(archive.get("id")) for archive in result.page_items if int(archive.get("id") or 0) > 0]
         annotations = self.store.load_query_annotations(archive_ids)
-        return {
+        response = {
             "archive_count": self.activity_summary.get("archive_count", len(self.archives)),
             "query": {
                 "filtered_count": result.filtered_count,
@@ -215,6 +217,11 @@ class PrintHistoryBrowserManager:
             **annotations,
             "store": self.store.load_store_stats(),
         }
+        if include_activity_rows:
+            activity_states = dict(states)
+            activity_states["input_text.print_history_activity_selected_date"] = ""
+            response["activity_rows"] = self.store.load_activity_rows(activity_states)
+        return response
 
     def build_archive_detail_response(self, archive_id: int) -> dict[str, Any] | None:
         archive = self.store.load_archive(archive_id)

@@ -354,6 +354,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
             SimpleNamespace(data={"page": 1, "page_size": 10})
         )
     )
+    activity_query_response = asyncio.run(
+        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER)(
+            SimpleNamespace(data={"include_activity_rows": True, "selected_day": ""})
+        )
+    )
     detail_response = asyncio.run(
         hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
             SimpleNamespace(data={"archive_id": 101})
@@ -399,6 +404,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
 
     assert query_response["entry_id"] == "entry-1"
     assert query_response["archives"][0]["id"] == 101
+    assert len(activity_query_response["activity_rows"]) == 2
     assert detail_response["archive_id"] == 101
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert review_response["review_state"]["review_status"] == "reviewed"

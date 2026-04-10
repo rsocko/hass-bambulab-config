@@ -10,7 +10,7 @@ print_history_archive_popup:
       const snapshotArchiveId = snapshotArchive?.id;
       let archive = snapshotArchive;
       try {
-        const pageArchivesRaw = states['sensor.bambuddy_print_history_browser_page_archives']?.attributes?.archives || '[]';
+        const pageArchivesRaw = states['sensor.print_history_browser_page_archives']?.attributes?.archives || '[]';
         const pageArchives = typeof pageArchivesRaw === 'string' ? JSON.parse(pageArchivesRaw || '[]') : pageArchivesRaw;
         if (Array.isArray(pageArchives) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
           archive = pageArchives.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
@@ -192,7 +192,7 @@ print_history_archive_popup:
         {
           type: 'custom:print-history-photo-gallery-card',
           archive_json: variables?.archive_json || '{}',
-          archive_entity: 'sensor.bambuddy_print_history_browser_page_archives',
+          archive_entity: 'sensor.print_history_browser_page_archives',
           detail_entity: 'sensor.print_history_popup_archive_detail',
           api_base_entity: 'input_text.bambuddy_api_base_url',
           visibility_entity: 'input_boolean.print_history_show_images',
@@ -201,8 +201,8 @@ print_history_archive_popup:
         {
           type: 'custom:button-card',
           template: 'print_history_archive_popup_content',
-          entity: 'sensor.bambuddy_print_history_browser_page_archives',
-          triggers_update: ['sensor.bambuddy_print_history_browser_page_archives'],
+          entity: 'sensor.print_history_browser_page_archives',
+          triggers_update: ['sensor.print_history_browser_page_archives'],
           variables: {
             archive_json: variables?.archive_json || '{}'
           },

@@ -1,0 +1,105 @@
+# Service-backed payload sensors for Variant 3.
+# The Bambuddy integration now keeps only summary entities; these sensors
+# materialize the current page slice and full activity scope from services.
+- trigger:
+    - trigger: state
+      entity_id:
+        - input_select.print_history_filter_status
+        - input_select.print_history_filter_enrichment_status
+        - input_select.print_history_filter_material
+        - input_select.print_history_filter_printer
+        - input_select.print_history_filter_date_range
+        - input_select.print_history_filter_designer
+        - input_select.print_history_filter_project
+        - input_select.print_history_filter_layer_height
+        - input_select.print_history_filter_tag
+        - input_boolean.print_history_filter_favorites_only
+        - input_text.print_history_search
+        - input_text.print_history_filter_colors
+        - input_text.print_history_activity_selected_date
+        - input_select.print_history_activity_metric
+        - input_select.print_history_sort
+        - input_number.print_history_page_size
+        - input_number.history_current_page
+        - input_number.print_history_max_archives
+        - input_boolean.bambuddy_integration_enabled
+        - input_boolean.bambuddy_history_sync_enabled
+        - sensor.bambuddy_print_history_browser_status
+        - sensor.bambuddy_print_history_browser_filtered
+        - sensor.bambuddy_print_history_browser_page_info
+    - trigger: homeassistant
+      event: start
+  action:
+    - action: bambuddy.query_print_history_browser
+      response_variable: page_result
+    - action: bambuddy.query_print_history_browser
+      data:
+        selected_day: ''
+        include_activity_rows: true
+      response_variable: activity_result
+  sensor:
+    - name: Print History Browser Page Archives
+      unique_id: print_history_browser_page_archives
+      icon: mdi:book-open-page-variant-outline
+      state: >-
+        {% set query = page_result.get('query', {}) if page_result is defined and page_result is mapping else {} %}
+        {{ query.get('current_page', states('input_number.history_current_page') | int(1)) }}
+      attributes:
+        archives: >-
+          {% set items = page_result.get('archives', []) if page_result is defined and page_result is mapping else [] %}
+          {% if items is string %}
+            {{ items }}
+          {% elif items is iterable %}
+            {{ items | list | tojson }}
+          {% else %}
+            []
+          {% endif %}
+        archive_ids: >-
+          {% set items = page_result.get('archives', []) if page_result is defined and page_result is mapping and page_result.get('archives') is iterable and page_result.get('archives') is not string else [] %}
+          {% set ns = namespace(values=[]) %}
+          {% for archive in items %}
+            {% set archive_id = archive.get('id') if archive is mapping else none %}
+            {% if archive_id is not none %}
+              {% set ns.values = ns.values + [archive_id] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | tojson }}
+        page: >-
+          {% set query = page_result.get('query', {}) if page_result is defined and page_result is mapping else {} %}
+          {{ query.get('current_page', states('input_number.history_current_page') | int(1)) }}
+        count: >-
+          {% set query = page_result.get('query', {}) if page_result is defined and page_result is mapping else {} %}
+          {{ query.get('filtered_count', 0) }}
+        total_pages: >-
+          {% set query = page_result.get('query', {}) if page_result is defined and page_result is mapping else {} %}
+          {{ query.get('total_pages', 1) }}
+        has_more: >-
+          {% set query = page_result.get('query', {}) if page_result is defined and page_result is mapping else {} %}
+          {{ query.get('current_page', 1) < query.get('total_pages', 1) }}
+        last_fetch: "{{ now().isoformat() }}"
+    - name: Print History Browser Activity
+      unique_id: print_history_browser_activity
+      icon: mdi:chart-box-outline
+      state: >-
+        {% set query = activity_result.get('query', {}) if activity_result is defined and activity_result is mapping else {} %}
+        {{ query.get('filtered_count', 0) }}
+      attributes:
+        filtered_archives: >-
+          {% set items = activity_result.get('activity_rows', []) if activity_result is defined and activity_result is mapping else [] %}
+          {% if items is string %}
+            {{ items }}
+          {% elif items is iterable %}
+            {{ items | list | tojson }}
+          {% else %}
+            []
+          {% endif %}
+        archive_count: >-
+          {% set query = activity_result.get('query', {}) if activity_result is defined and activity_result is mapping else {} %}
+          {{ query.get('filtered_count', 0) }}
+        activity_active_days_label: >-
+          {% set query = activity_result.get('query', {}) if activity_result is defined and activity_result is mapping else {} %}
+          {{ query.get('activity_active_days_label', '0 active days') }}
+        activity_metric_total_label: >-
+          {% set query = activity_result.get('query', {}) if activity_result is defined and activity_result is mapping else {} %}
+          {{ query.get('activity_metric_total_label', '0 prints') }}
+        last_fetch: "{{ now().isoformat() }}"

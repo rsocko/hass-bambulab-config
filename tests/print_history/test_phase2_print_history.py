@@ -207,7 +207,7 @@ class TestFileInventory(unittest.TestCase):
         "print_history_archives.yaml",
         "print_history_filtered.yaml",
         "print_history_page_info.yaml",
-        "print_history_archive_data.yaml",
+        "print_history_browser_service_payloads.yaml",
         "print_history_payload_diagnostics.yaml",
     ]
 
@@ -489,9 +489,9 @@ class TestPayloadDiagnostics(unittest.TestCase):
     def test_payload_diagnostics_sensor_tracks_template_layers(self):
         path = HISTORY / "template_sensors" / "print_history_payload_diagnostics.yaml"
         content = path.read_text(encoding="utf-8")
-        self.assertIn("sensor.bambuddy_print_history_browser_activity", content)
+        self.assertIn("sensor.print_history_browser_activity", content)
         self.assertIn("sensor.bambuddy_print_history_browser_filtered", content)
-        self.assertIn("sensor.bambuddy_print_history_browser_page_archives", content)
+        self.assertIn("sensor.print_history_browser_page_archives", content)
         self.assertIn("input_number.print_history_max_archives", content)
         self.assertIn("160000", content)
         self.assertIn("190000", content)
@@ -751,7 +751,7 @@ class TestTemplateSensors(unittest.TestCase):
 
     def test_status_filters_split_archive_and_enrichment_status(self):
         filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
-        page_content = (HISTORY / "template_sensors" / "print_history_archive_data.yaml").read_text("utf-8")
+        service_payload_content = (HISTORY / "template_sensors" / "print_history_browser_service_payloads.yaml").read_text("utf-8")
         browser_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
 
         self.assertIn("{%- set raw_status = a.get('status', '') | string | lower -%}", filtered_content)
@@ -761,7 +761,8 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{%- set enrichment_status_code = enrichment_payload.get('s', '') | string | lower if enrichment_payload is mapping else '' -%}", filtered_content)
         self.assertIn("{%- set enrichment_status = 'complete' if enrichment_status_code == 'c' else 'partial' if enrichment_status_code == 'p' else 'unavailable' if enrichment_status_code == 'u' else 'not defined' -%}", filtered_content)
         self.assertIn("{%- set matches_enrichment_status = filter_enrichment_status == 'All' or enrichment_status == filter_enrichment_status | lower -%}", filtered_content)
-        self.assertIn("{%- set enrichment_status = 'complete' if enrichment_status_code == 'c' else 'partial' if enrichment_status_code == 'p' else 'unavailable' if enrichment_status_code == 'u' else 'not defined' -%}", page_content)
+        self.assertIn("bambuddy.query_print_history_browser", service_payload_content)
+        self.assertIn("include_activity_rows: true", service_payload_content)
         self.assertIn("input_select.print_history_filter_enrichment_status", browser_content)
         self.assertIn("name: Enrichment", browser_content)
         self.assertIn("name: Clear Enrichment Filter", browser_content)
@@ -775,7 +776,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=31", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -868,7 +869,7 @@ class TestScripts(unittest.TestCase):
     def test_load_history_page_uses_page_param(self):
         content = (HISTORY / "scripts" / "load_history_page.yaml").read_text("utf-8")
         self.assertIn("page", content)
-        self.assertIn("print_history_filtered", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_filtered", content)
 
     def test_navigate_history_supports_all_directions(self):
         content = (HISTORY / "scripts" / "navigate_history.yaml").read_text("utf-8")
@@ -1014,10 +1015,10 @@ class TestCrossReferences(unittest.TestCase):
         # REST sensor
         "sensor.bambuddy_print_history",
         # Active integration-backed browser sensors
-        "sensor.bambuddy_print_history_browser_activity",
+        "sensor.print_history_browser_activity",
         "sensor.bambuddy_print_history_browser_filtered",
         "sensor.bambuddy_print_history_browser_page_info",
-        "sensor.bambuddy_print_history_browser_page_archives",
+        "sensor.print_history_browser_page_archives",
         "sensor.bambuddy_last_print_name",
         "sensor.bambuddy_last_print_status",
         "sensor.bambuddy_last_print_duration",
@@ -1201,13 +1202,13 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
 
     def test_tag_filter_none_uses_only_user_tags(self):
         filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
-        page_content = (HISTORY / "template_sensors" / "print_history_archive_data.yaml").read_text("utf-8")
+        service_payload_content = (HISTORY / "template_sensors" / "print_history_browser_service_payloads.yaml").read_text("utf-8")
         helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tag.yaml").read_text("utf-8")
 
         self.assertIn("user_tag_values = namespace(values=[])", filtered_content)
         self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", filtered_content)
         self.assertIn("filter_tag in user_tag_values.values", filtered_content)
-        self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", page_content)
+        self.assertIn("bambuddy.query_print_history_browser", service_payload_content)
         self.assertIn("- None", helper_content)
 
 

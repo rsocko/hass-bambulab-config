@@ -110,6 +110,12 @@ query_print_history_browser:
         number:
           min: 1
           mode: box
+    include_activity_rows:
+      name: Include Activity Rows
+      description: Return the full activity-scope archive rows that ignore selected-day narrowing.
+      required: false
+      selector:
+        boolean:
 
 get_print_history_archive_detail:
   name: Get Print History Archive Detail

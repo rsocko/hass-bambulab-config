@@ -18,7 +18,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   setConfig(config) {
     this._config = {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
-      archive_entity: config && config.archive_entity ? config.archive_entity : "sensor.bambuddy_print_history_browser_page_archives",
+      archive_entity: config && config.archive_entity ? config.archive_entity : "sensor.print_history_browser_page_archives",
       detail_entity: config && config.detail_entity ? config.detail_entity : "",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
       visibility_entity: config && config.visibility_entity ? config.visibility_entity : "",
@@ -145,7 +145,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   _resolveArchive() {
     var snapshotArchive = this._parseArchive();
     var archiveId = snapshotArchive && snapshotArchive.id != null ? snapshotArchive.id : null;
-    var entityId = this._config ? this._config.archive_entity : "sensor.bambuddy_print_history_browser_page_archives";
+    var entityId = this._config ? this._config.archive_entity : "sensor.print_history_browser_page_archives";
     var attributes = this._hass && this._hass.states && this._hass.states[entityId] && this._hass.states[entityId].attributes
       ? this._hass.states[entityId].attributes
       : null;
@@ -245,7 +245,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         : JSON.stringify(this._config.archive_json || {}),
     ];
 
-    var archiveEntityId = this._config.archive_entity || "sensor.bambuddy_print_history_browser_page_archives";
+    var archiveEntityId = this._config.archive_entity || "sensor.print_history_browser_page_archives";
     var archiveState = hass.states[archiveEntityId];
     parts.push(archiveState ? String(archiveState.last_updated || archiveState.last_changed || "") : "");
 
