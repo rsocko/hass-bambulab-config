@@ -13,7 +13,7 @@
         - condition: template
           value_template: "{{ archive_id != '' }}"
       then:
-        - action: rest_command.bambuddy_get_archive_detail
+        - action: bambuddy.get_print_history_archive_detail
           data:
             archive_id: "{{ archive_id }}"
           response_variable: result
@@ -29,7 +29,7 @@
           {% if archive_id == '' %}
             {}
           {% else %}
-            {% set content = result.get('content', {}) if result is defined and result is mapping else {} %}
+            {% set content = result.get('archive', {}) if result is defined and result is mapping else {} %}
             {% if content is string %}
               {% set detail = content | from_json({}) %}
             {% elif content is mapping %}
@@ -44,7 +44,7 @@
           {% if archive_id == '' %}
             []
           {% else %}
-            {% set content = result.get('content', {}) if result is defined and result is mapping else {} %}
+            {% set content = result.get('archive', {}) if result is defined and result is mapping else {} %}
             {% if content is string %}
               {% set detail = content | from_json({}) %}
             {% elif content is mapping %}

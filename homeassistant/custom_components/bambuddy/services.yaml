@@ -8,3 +8,124 @@ refresh_print_history_browser:
       required: false
       selector:
         text:
+
+query_print_history_browser:
+  name: Query Print History Browser
+  description: Return a paged query response from the Bambuddy local materialized store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    status:
+      name: Status
+      required: false
+      selector:
+        text:
+    enrichment_status:
+      name: Enrichment Status
+      required: false
+      selector:
+        text:
+    material:
+      name: Material
+      required: false
+      selector:
+        text:
+    printer:
+      name: Printer
+      required: false
+      selector:
+        text:
+    date_range:
+      name: Date Range
+      required: false
+      selector:
+        text:
+    designer:
+      name: Designer
+      required: false
+      selector:
+        text:
+    project:
+      name: Project
+      required: false
+      selector:
+        text:
+    layer_height:
+      name: Layer Height
+      required: false
+      selector:
+        text:
+    tag:
+      name: Tag
+      required: false
+      selector:
+        text:
+    favorites_only:
+      name: Favorites Only
+      required: false
+      selector:
+        boolean:
+    search:
+      name: Search
+      required: false
+      selector:
+        text:
+    colors:
+      name: Colors
+      description: Comma-separated hex colors or a list of colors.
+      required: false
+      selector:
+        text:
+    selected_day:
+      name: Selected Day
+      description: ISO date such as 2026-04-09.
+      required: false
+      selector:
+        text:
+    sort:
+      name: Sort
+      required: false
+      selector:
+        text:
+    activity_metric:
+      name: Activity Metric
+      required: false
+      selector:
+        text:
+    page:
+      name: Page
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+    page_size:
+      name: Page Size
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+
+get_print_history_archive_detail:
+  name: Get Print History Archive Detail
+  description: Return one archive plus local sync and provenance metadata from the Bambuddy store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to load from the local store.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box

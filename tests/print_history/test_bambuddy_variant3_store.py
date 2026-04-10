@@ -11,7 +11,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 
-from query import option_sets, project_archive, query_archives  # noqa: E402
+from query import archive_activity_rows, option_sets, project_archive, query_archives  # noqa: E402
 from store import PrintHistoryStore  # noqa: E402
 
 
@@ -113,6 +113,46 @@ def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> Non
 
     assert [archive["id"] for archive in loaded] == [101, 202]
     assert loaded[0]["filament_slots"][0]["color"] == "#112233"
+
+
+def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+
+    archives = _projected_archives()
+    store.replace_archives(archives)
+
+    detail = store.load_archive(101)
+    payload_rows = store.load_note_payload_rows(101)
+    stats = store.load_store_stats()
+
+    assert detail is not None
+    assert detail["source_updated_at"] == "2026-04-08T14:00:00Z"
+    assert detail["payload_hash"]
+    assert payload_rows == [
+        {
+            "row_index": 0,
+            "tray": "",
+            "name": "Blue PLA",
+            "type": "",
+            "color": "#112233",
+            "used_grams": 0.0,
+            "filament_id": "",
+            "spool_id": "",
+            "ambiguity_code": "",
+        }
+    ]
+    assert stats["archive_count"] == 2
+    assert stats["note_payload_row_count"] == 1
+
+
+def test_variant3_activity_rows_expose_only_summary_fields() -> None:
+    rows = archive_activity_rows(_projected_archives())
+
+    assert rows[0]["print_name"] == "Hueforge Batman"
+    assert rows[0]["status"] == "completed"
+    assert "notes" not in rows[0]
+    assert "payload_hash" not in rows[0]
 
 
 def test_variant3_option_sets_keep_none_and_strip_system_tags() -> None:

@@ -15,16 +15,7 @@ print_history_archive_popup_favorite_button:
         snapshotArchive = {};
       }
       const archiveId = variables?.archive_id || snapshotArchive?.id;
-      let archive = snapshotArchive;
-      try {
-        const archiveCacheRaw = states['sensor.bambuddy_print_history_browser_activity']?.attributes?.archives_json || '[]';
-        const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
-        if (Array.isArray(archiveCache) && archiveId !== undefined && archiveId !== null) {
-          archive = archiveCache.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
-        }
-      } catch (_error) {
-        archive = snapshotArchive;
-      }
+      const archive = snapshotArchive;
       return archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline';
     ]]]
   tap_action:
@@ -58,16 +49,7 @@ print_history_archive_popup_favorite_button:
               snapshotArchive = {};
             }
             const archiveId = variables?.archive_id || snapshotArchive?.id;
-            let archive = snapshotArchive;
-            try {
-              const archiveCacheRaw = states['sensor.bambuddy_print_history_browser_activity']?.attributes?.archives_json || '[]';
-              const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
-              if (Array.isArray(archiveCache) && archiveId !== undefined && archiveId !== null) {
-                archive = archiveCache.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
-              }
-            } catch (_error) {
-              archive = snapshotArchive;
-            }
+            const archive = snapshotArchive;
             return archive?.is_favorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.04)';
           ]]]
     grid:
@@ -90,16 +72,7 @@ print_history_archive_popup_favorite_button:
               snapshotArchive = {};
             }
             const archiveId = variables?.archive_id || snapshotArchive?.id;
-            let archive = snapshotArchive;
-            try {
-              const archiveCacheRaw = states['sensor.bambuddy_print_history_browser_activity']?.attributes?.archives_json || '[]';
-              const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
-              if (Array.isArray(archiveCache) && archiveId !== undefined && archiveId !== null) {
-                archive = archiveCache.find((item) => String(item?.id) === String(archiveId)) || snapshotArchive;
-              }
-            } catch (_error) {
-              archive = snapshotArchive;
-            }
+            const archive = snapshotArchive;
             return archive?.is_favorite ? '#f5c242' : 'var(--primary-text-color)';
           ]]]
     name:

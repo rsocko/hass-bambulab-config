@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class BambuddyApiClient:
@@ -31,4 +35,5 @@ class BambuddyApiClient:
             payload = await response.json()
             if not isinstance(payload, list):
                 raise RuntimeError("Bambuddy archive response was not a JSON array")
+            _LOGGER.debug("Fetched %s archives from Bambuddy", len(payload))
             return [item for item in payload if isinstance(item, dict)]

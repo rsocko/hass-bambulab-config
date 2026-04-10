@@ -112,7 +112,6 @@ class BambuddyBrowserSensor(SensorEntity):
                 "total_pages": self.manager.result.total_pages,
                 "current_page": self.manager.result.current_page,
                 "page_info": self.manager.result.page_info,
-                "page_json": self.manager.result.page_items,
                 "has_active_filters": self.manager.result.has_active_filters,
                 "active_filters": self.manager.result.active_filters,
                 "available_colors_json": self.manager.result.available_colors,
@@ -139,8 +138,10 @@ class BambuddyBrowserSensor(SensorEntity):
             }
         return {
             "backend": backend,
-            "archives_json": self.manager.archives,
+            "activity_rows": self.manager.activity_rows,
             "archive_count": len(self.manager.archives),
+            "activity_active_days_label": self.manager.result.activity_active_days_label,
+            "activity_metric_total_label": self.manager.result.activity_metric_total_label,
             "last_refresh": self.manager.last_refresh,
             "last_error": self.manager.last_error,
         }

@@ -19,6 +19,8 @@ DEFAULT_SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
 
 DATA_MANAGER = "manager"
 SERVICE_REFRESH_PRINT_HISTORY_BROWSER = "refresh_print_history_browser"
+SERVICE_QUERY_PRINT_HISTORY_BROWSER = "query_print_history_browser"
+SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL = "get_print_history_archive_detail"
 STORE_FILENAME = "bambuddy_print_history_browser.db"
 
 EVENT_BAMBUDDY_WEBHOOK = "bambuddy_webhook_event"

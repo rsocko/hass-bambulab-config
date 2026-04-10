@@ -30,15 +30,6 @@ print_history_archive_popup_content:
         }
         const snapshotArchiveId = snapshotArchive?.id;
         let archive = snapshotArchive;
-        try {
-          const archiveCacheRaw = states['sensor.bambuddy_print_history_browser_activity']?.attributes?.archives_json || '[]';
-          const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
-          if (Array.isArray(archiveCache) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
-            archive = archiveCache.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
-          }
-        } catch (_error) {
-          archive = snapshotArchive;
-        }
 
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = String(baseUrlRaw).replace(/\/$/, '');

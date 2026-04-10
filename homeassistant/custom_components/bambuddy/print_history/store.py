@@ -5,11 +5,15 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import logging
 
 try:
-    from .query import as_float, as_int, as_text, split_tags
+    from .query import as_float, as_int, as_text, note_payload_rows, split_tags
 except ImportError:  # pragma: no cover - direct-path test import fallback
-    from query import as_float, as_int, as_text, split_tags
+    from query import as_float, as_int, as_text, note_payload_rows, split_tags
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class PrintHistoryStore:
@@ -53,12 +57,16 @@ class PrintHistoryStore:
                     project_id TEXT,
                     project_name TEXT NOT NULL DEFAULT '',
                     enrichment_status TEXT NOT NULL DEFAULT '',
+                    last_synced_at TEXT NOT NULL DEFAULT '',
+                    source_updated_at TEXT NOT NULL DEFAULT '',
+                    payload_hash TEXT NOT NULL DEFAULT '',
                     json_payload TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_archives_started_at ON archives(started_at);
                 CREATE INDEX IF NOT EXISTS idx_archives_status ON archives(status);
                 CREATE INDEX IF NOT EXISTS idx_archives_printer_id ON archives(printer_id);
+                CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at);
 
                 CREATE TABLE IF NOT EXISTS archive_filament_rows (
                     archive_id INTEGER NOT NULL,
@@ -93,21 +101,82 @@ class PrintHistoryStore:
                     PRIMARY KEY (archive_id, photo_index),
                     FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
                 );
+
+                CREATE TABLE IF NOT EXISTS archive_note_payload_rows (
+                    archive_id INTEGER NOT NULL,
+                    row_index INTEGER NOT NULL,
+                    tray TEXT NOT NULL DEFAULT '',
+                    name TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL DEFAULT '',
+                    color TEXT NOT NULL DEFAULT '',
+                    used_grams REAL NOT NULL DEFAULT 0,
+                    filament_id TEXT,
+                    spool_id TEXT,
+                    ambiguity_code TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY (archive_id, row_index),
+                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS archive_repair_lineage (
+                    archive_id INTEGER NOT NULL,
+                    related_archive_id INTEGER NOT NULL,
+                    relation_type TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    note TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY (archive_id, related_archive_id, relation_type)
+                );
+
+                CREATE TABLE IF NOT EXISTS archive_review_state (
+                    archive_id INTEGER PRIMARY KEY,
+                    review_status TEXT NOT NULL DEFAULT 'unreviewed',
+                    mismatch_flags TEXT NOT NULL DEFAULT '',
+                    reviewed_at TEXT NOT NULL DEFAULT '',
+                    review_note TEXT NOT NULL DEFAULT '',
+                    FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+                );
                 """
             )
+            self._ensure_archive_columns(connection)
+
+    def _ensure_archive_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(archives)").fetchall()
+            if len(row) > 1
+        }
+        required_columns = {
+            "last_synced_at": "TEXT NOT NULL DEFAULT ''",
+            "source_updated_at": "TEXT NOT NULL DEFAULT ''",
+            "payload_hash": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column_name, definition in required_columns.items():
+            if column_name in columns:
+                continue
+            _LOGGER.info("Adding missing archives.%s column to Bambuddy local store", column_name)
+            connection.execute(f"ALTER TABLE archives ADD COLUMN {column_name} {definition}")
 
     def replace_archives(self, archives: list[dict[str, Any]]) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
+            review_rows = connection.execute(
+                "SELECT archive_id, review_status, mismatch_flags, reviewed_at, review_note FROM archive_review_state"
+            ).fetchall()
+            lineage_rows = connection.execute(
+                "SELECT archive_id, related_archive_id, relation_type, created_at, note FROM archive_repair_lineage"
+            ).fetchall()
             connection.execute("DELETE FROM archive_photos")
+            connection.execute("DELETE FROM archive_note_payload_rows")
             connection.execute("DELETE FROM archive_tags")
             connection.execute("DELETE FROM archive_filament_rows")
             connection.execute("DELETE FROM archives")
+
+            active_archive_ids: set[int] = set()
 
             for archive in archives:
                 archive_id = as_int(archive.get("id"))
                 if archive_id <= 0:
                     continue
+                active_archive_ids.add(archive_id)
                 connection.execute(
                     """
                     INSERT INTO archives (
@@ -117,8 +186,9 @@ class PrintHistoryStore:
                         object_count, layer_height, nozzle_diameter, nozzle_temperature,
                         total_layers, sliced_for_model, designer, makerworld_url,
                         is_favorite, tags, notes, failure_reason, thumbnail_path,
-                        project_id, project_name, enrichment_status, json_payload, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        project_id, project_name, enrichment_status, last_synced_at,
+                        source_updated_at, payload_hash, json_payload, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         archive_id,
@@ -151,6 +221,9 @@ class PrintHistoryStore:
                         as_text(archive.get("project_id")).strip(),
                         as_text(archive.get("project_name")).strip(),
                         as_text(archive.get("enrichment_status")).strip(),
+                        timestamp,
+                        as_text(archive.get("source_updated_at")).strip(),
+                        as_text(archive.get("payload_hash")).strip(),
                         json.dumps(archive, separators=(",", ":"), sort_keys=True),
                         timestamp,
                     ),
@@ -207,6 +280,55 @@ class PrintHistoryStore:
                         ),
                     )
 
+                for payload_row in note_payload_rows(archive):
+                    connection.execute(
+                        """
+                        INSERT INTO archive_note_payload_rows (
+                            archive_id, row_index, tray, name, type, color, used_grams,
+                            filament_id, spool_id, ambiguity_code
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            archive_id,
+                            as_int(payload_row.get("row_index")),
+                            as_text(payload_row.get("tray")).strip(),
+                            as_text(payload_row.get("name")).strip(),
+                            as_text(payload_row.get("type")).strip(),
+                            as_text(payload_row.get("color")).strip(),
+                            as_float(payload_row.get("used_grams")),
+                            as_text(payload_row.get("filament_id")).strip(),
+                            as_text(payload_row.get("spool_id")).strip(),
+                            as_text(payload_row.get("ambiguity_code")).strip(),
+                        ),
+                    )
+
+            for review_row in review_rows:
+                archive_id = as_int(review_row[0])
+                if archive_id not in active_archive_ids:
+                    continue
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO archive_review_state (
+                        archive_id, review_status, mismatch_flags, reviewed_at, review_note
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    review_row,
+                )
+
+            for lineage_row in lineage_rows:
+                archive_id = as_int(lineage_row[0])
+                related_archive_id = as_int(lineage_row[1])
+                if archive_id not in active_archive_ids or related_archive_id not in active_archive_ids:
+                    continue
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO archive_repair_lineage (
+                        archive_id, related_archive_id, relation_type, created_at, note
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    lineage_row,
+                )
+
     def load_archives(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
@@ -230,6 +352,62 @@ class PrintHistoryStore:
         connection = sqlite3.connect(self._db_path)
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
+
+    def load_archive(self, archive_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT json_payload FROM archives WHERE archive_id = ?",
+                (archive_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            payload = json.loads(row[0])
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def load_note_payload_rows(self, archive_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT row_index, tray, name, type, color, used_grams, filament_id, spool_id, ambiguity_code
+                FROM archive_note_payload_rows
+                WHERE archive_id = ?
+                ORDER BY row_index ASC
+                """,
+                (archive_id,),
+            ).fetchall()
+        return [
+            {
+                "row_index": row[0],
+                "tray": row[1],
+                "name": row[2],
+                "type": row[3],
+                "color": row[4],
+                "used_grams": row[5],
+                "filament_id": row[6],
+                "spool_id": row[7],
+                "ambiguity_code": row[8],
+            }
+            for row in rows
+        ]
+
+    def load_store_stats(self) -> dict[str, Any]:
+        with self._connect() as connection:
+            archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+            note_payload_count = connection.execute("SELECT COUNT(*) FROM archive_note_payload_rows").fetchone()[0]
+            lineage_count = connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
+            review_count = connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
+            last_synced_at = connection.execute("SELECT MAX(last_synced_at) FROM archives").fetchone()[0]
+        return {
+            "db_path": str(self._db_path),
+            "archive_count": archive_count,
+            "note_payload_row_count": note_payload_count,
+            "repair_lineage_count": lineage_count,
+            "review_state_count": review_count,
+            "last_synced_at": last_synced_at or "",
+        }
 
     def _extract_photos(self, archive: dict[str, Any]) -> list[dict[str, str]]:
         raw_photos = archive.get("photos")

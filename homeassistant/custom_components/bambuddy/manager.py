@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import logging
 from pathlib import Path
 from typing import Any, Callable
 
@@ -25,8 +26,32 @@ from .const import (
     REFRESH_WEBHOOK_EVENTS,
     STORE_FILENAME,
 )
-from .print_history.query import QueryResult, option_sets, project_archive, query_archives
+from .print_history.query import QueryResult, archive_activity_rows, option_sets, project_archive, query_archives
 from .print_history.store import PrintHistoryStore
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+QUERY_OVERRIDE_ENTITY_MAP = {
+    "status": "input_select.print_history_filter_status",
+    "enrichment_status": "input_select.print_history_filter_enrichment_status",
+    "material": "input_select.print_history_filter_material",
+    "printer": "input_select.print_history_filter_printer",
+    "date_range": "input_select.print_history_filter_date_range",
+    "designer": "input_select.print_history_filter_designer",
+    "project": "input_select.print_history_filter_project",
+    "layer_height": "input_select.print_history_filter_layer_height",
+    "tag": "input_select.print_history_filter_tag",
+    "favorites_only": "input_boolean.print_history_filter_favorites_only",
+    "search": "input_text.print_history_search",
+    "colors": "input_text.print_history_filter_colors",
+    "selected_day": "input_text.print_history_activity_selected_date",
+    "activity_metric": "input_select.print_history_activity_metric",
+    "sort": "input_select.print_history_sort",
+    "page": "input_number.history_current_page",
+    "page_size": "input_number.print_history_page_size",
+}
 
 
 class PrintHistoryBrowserManager:
@@ -36,6 +61,7 @@ class PrintHistoryBrowserManager:
         self.store = PrintHistoryStore(Path(hass.config.path(".storage", STORE_FILENAME)))
         self.archives: list[dict[str, Any]] = []
         self.result = query_archives([], self._state_snapshot())
+        self.activity_rows: list[dict[str, Any]] = []
         self.status_state = "initializing"
         self.status_message = "Initializing Bambuddy print history browser"
         self.last_refresh: str | None = None
@@ -46,6 +72,7 @@ class PrintHistoryBrowserManager:
 
     async def async_initialize(self) -> None:
         await self.hass.async_add_executor_job(self.store.initialize)
+        _LOGGER.info("Initialized Bambuddy local store at %s", self.store._db_path)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
         self._recompute_query()
 
@@ -67,6 +94,7 @@ class PrintHistoryBrowserManager:
         self.hass.async_create_task(self.async_refresh("startup"))
 
     async def async_shutdown(self) -> None:
+        _LOGGER.debug("Shutting down Bambuddy print history browser manager")
         while self._unsubscribers:
             self._unsubscribers.pop()()
         self._listeners.clear()
@@ -134,6 +162,7 @@ class PrintHistoryBrowserManager:
             self._notify_listeners()
             return
 
+        _LOGGER.info("Refreshing Bambuddy print history browser (%s)", reason)
         self._set_status("refreshing", f"Refreshing Bambuddy print history browser ({reason})")
         self._notify_listeners()
 
@@ -154,11 +183,60 @@ class PrintHistoryBrowserManager:
             self._recompute_query()
             await self._async_sync_options()
             self._set_status("ready", f"Refreshed Bambuddy print history browser ({reason})")
+            _LOGGER.info("Refreshed Bambuddy print history browser (%s) with %s archives", reason, len(self.archives))
         except Exception as error:  # noqa: BLE001
             self.last_error = str(error)
             self._set_status("error", str(error))
+            _LOGGER.exception("Failed to refresh Bambuddy print history browser (%s)", reason)
 
         self._notify_listeners()
+
+    def build_query_response(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+        states = self._merged_state_snapshot(overrides or {})
+        result = query_archives(self.archives, states)
+        return {
+            "archive_count": len(self.archives),
+            "query": {
+                "filtered_count": result.filtered_count,
+                "total_pages": result.total_pages,
+                "current_page": result.current_page,
+                "page_info": result.page_info,
+                "has_active_filters": result.has_active_filters,
+                "active_filters": result.active_filters,
+                "available_colors": result.available_colors,
+                "available_color_tooltips": result.available_color_tooltips,
+                "activity_active_days_label": result.activity_active_days_label,
+                "activity_metric_total_label": result.activity_metric_total_label,
+            },
+            "archives": result.page_items,
+            "store": self.store.load_store_stats(),
+        }
+
+    def build_archive_detail_response(self, archive_id: int) -> dict[str, Any] | None:
+        archive = self.store.load_archive(archive_id)
+        if archive is None:
+            return None
+        return {
+            "archive": archive,
+            "note_payload_rows": self.store.load_note_payload_rows(archive_id),
+            "store": self.store.load_store_stats(),
+        }
+
+    def diagnostics(self) -> dict[str, Any]:
+        return {
+            "status_state": self.status_state,
+            "status_message": self.status_message,
+            "last_refresh": self.last_refresh,
+            "last_error": self.last_error,
+            "enabled": self.enabled,
+            "archive_count": len(self.archives),
+            "query": {
+                "filtered_count": self.result.filtered_count,
+                "total_pages": self.result.total_pages,
+                "current_page": self.result.current_page,
+            },
+            "store": self.store.load_store_stats(),
+        }
 
     def _state_snapshot(self) -> dict[str, str]:
         snapshot: dict[str, str] = {}
@@ -169,7 +247,26 @@ class PrintHistoryBrowserManager:
 
     def _recompute_query(self) -> None:
         self.result = query_archives(self.archives, self._state_snapshot())
+        self.activity_rows = archive_activity_rows(self.archives)
         self.loaded_at = dt_util.utcnow().isoformat()
+
+    def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:
+        snapshot = self._state_snapshot()
+        for field_name, entity_id in QUERY_OVERRIDE_ENTITY_MAP.items():
+            if field_name not in overrides or overrides[field_name] is None:
+                continue
+            value = overrides[field_name]
+            if field_name == "favorites_only":
+                snapshot[entity_id] = "on" if bool(value) else "off"
+                continue
+            if field_name in {"page", "page_size"}:
+                snapshot[entity_id] = str(int(value))
+                continue
+            if field_name == "colors" and isinstance(value, list):
+                snapshot[entity_id] = ",".join(str(item).strip() for item in value if str(item).strip())
+                continue
+            snapshot[entity_id] = str(value)
+        return snapshot
 
     async def _async_sync_options(self) -> None:
         for entity_id, options in option_sets(self.archives).items():

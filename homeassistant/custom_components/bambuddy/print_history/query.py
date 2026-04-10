@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
 from typing import Any
 
 
@@ -128,6 +129,19 @@ def extract_enrichment_payload(notes: str) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def source_updated_at(raw_archive: dict[str, Any]) -> str:
+    for key in ("updated_at", "completed_at", "started_at", "created_at"):
+        value = as_text(raw_archive.get(key)).strip()
+        if value:
+            return value
+    return ""
+
+
+def payload_hash(archive: dict[str, Any]) -> str:
+    encoded = json.dumps(archive, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return sha256(encoded).hexdigest()
+
+
 def enrichment_status(payload: dict[str, Any]) -> str:
     status_code = as_text(payload.get("s")).strip().lower()
     return {
@@ -166,7 +180,7 @@ def project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
 def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
     notes = as_text(raw_archive.get("notes"))
     payload = extract_enrichment_payload(notes)
-    return {
+    projected = {
         "id": raw_archive.get("id"),
         "printer_id": raw_archive.get("printer_id"),
         "print_name": as_text(raw_archive.get("print_name")).strip(),
@@ -198,7 +212,72 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         "project_name": as_text(raw_archive.get("project_name")).strip(),
         "filament_slots": project_filament_slots(raw_archive.get("extra_data")),
         "enrichment_status": enrichment_status(payload),
+        "source_updated_at": source_updated_at(raw_archive),
     }
+    projected["payload_hash"] = payload_hash(projected)
+    return projected
+
+
+def note_payload_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
+    payload = extract_enrichment_payload(as_text(archive.get("notes")))
+    raw_rows = payload.get("F") if isinstance(payload, dict) else None
+    if not isinstance(raw_rows, list):
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(raw_rows):
+        if not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                "row_index": index,
+                "tray": as_text(row.get("t")).strip(),
+                "name": as_text(row.get("n")).strip(),
+                "type": as_text(row.get("type")).strip(),
+                "color": normalize_hex(row.get("h") or row.get("color")),
+                "used_grams": as_float(row.get("w")),
+                "filament_id": row.get("f"),
+                "spool_id": row.get("s"),
+                "ambiguity_code": as_text(row.get("a")).strip(),
+            }
+        )
+    return rows
+
+
+def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": archive.get("id"),
+        "printer_id": archive.get("printer_id"),
+        "print_name": as_text(archive.get("print_name")).strip(),
+        "status": normalize_status(archive.get("status")),
+        "started_at": as_text(archive.get("started_at")).strip(),
+        "completed_at": as_text(archive.get("completed_at")).strip(),
+        "created_at": as_text(archive.get("created_at")).strip(),
+        "actual_time_seconds": as_int(archive.get("actual_time_seconds")),
+        "print_time_seconds": as_int(archive.get("print_time_seconds")),
+        "filament_used_grams": as_float(archive.get("filament_used_grams")),
+        "filament_type": as_text(archive.get("filament_type")).strip(),
+        "cost": as_float(archive.get("cost")),
+        "designer": as_text(archive.get("designer")).strip(),
+        "is_favorite": bool(archive.get("is_favorite", False)),
+        "object_count": max(1, as_int(archive.get("object_count"), 1)),
+        "layer_height": as_text(archive.get("layer_height")).strip(),
+        "tags": as_text(archive.get("tags")).strip(),
+        "thumbnail_path": as_text(archive.get("thumbnail_path")).strip(),
+        "filament_slots": [
+            {
+                "color": normalize_hex(slot.get("color")),
+                "used_grams": as_float(slot.get("used_grams")),
+                "name": as_text(slot.get("name")).strip(),
+            }
+            for slot in archive.get("filament_slots", [])
+            if isinstance(slot, dict)
+        ],
+    }
+
+
+def archive_activity_rows(archives: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [archive_activity_row(archive) for archive in archives]
 
 
 def archive_colors(archive: dict[str, Any]) -> list[str]:
