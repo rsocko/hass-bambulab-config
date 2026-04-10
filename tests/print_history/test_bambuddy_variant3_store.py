@@ -38,6 +38,11 @@ def _projected_archives() -> list[dict]:
             "is_favorite": True,
             "tags": "display,hueforge,s:123",
             "notes": "User note\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
+            "photos": [
+                "finish-overview.webp",
+                {"path": "topdown-closeup.jpg", "role": "finish"},
+                {"url": "detail-angle.png"},
+            ],
             "thumbnail_path": "/api/v1/archives/101/thumbnail",
             "project_name": "Wall Art",
             "extra_data": {
@@ -117,6 +122,7 @@ def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> Non
 
     assert [archive["id"] for archive in loaded] == [101, 202]
     assert loaded[0]["filament_slots"][0]["color"] == "#112233"
+    assert loaded[0]["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "detail-angle.png"]
 
 
 def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: Path) -> None:
@@ -133,6 +139,7 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
     assert detail is not None
     assert detail["source_updated_at"] == "2026-04-08T14:00:00Z"
     assert detail["payload_hash"]
+    assert detail["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "detail-angle.png"]
     assert payload_rows == [
         {
             "row_index": 0,

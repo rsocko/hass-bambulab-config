@@ -162,6 +162,25 @@ def _project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
     return slots
 
 
+def _project_photos(raw_photos: Any) -> list[str]:
+    if not isinstance(raw_photos, list):
+        return []
+
+    photos: list[str] = []
+    for item in raw_photos:
+        if isinstance(item, str):
+            path = item.strip()
+        elif isinstance(item, dict):
+            path = _as_text(item.get("path") or item.get("url") or item.get("photo_path")).strip()
+        else:
+            path = ""
+
+        if path:
+            photos.append(path)
+
+    return photos
+
+
 def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
     notes = _as_text(raw_archive.get("notes"))
     enrichment_payload = _extract_enrichment_payload(notes)
@@ -192,6 +211,7 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         "tags": _as_text(raw_archive.get("tags")).strip(),
         "notes": notes,
         "failure_reason": _as_text(raw_archive.get("failure_reason")).strip(),
+        "photos": _project_photos(raw_archive.get("photos")),
         "thumbnail_path": _as_text(raw_archive.get("thumbnail_path")).strip(),
         "project_id": raw_archive.get("project_id"),
         "project_name": _as_text(raw_archive.get("project_name")).strip(),
