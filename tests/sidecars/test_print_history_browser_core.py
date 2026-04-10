@@ -73,6 +73,42 @@ def _projected_archives() -> list[dict]:
     return [project_archive(item) for item in raw]
 
 
+def _live_style_projected_archive() -> dict:
+    return project_archive(
+        {
+            "id": 218,
+            "printer_id": 1,
+            "print_name": "EPIC Giant Moon - Plate 7",
+            "actual_time_seconds": 13430,
+            "print_time_seconds": 13285,
+            "filament_used_grams": 58.42,
+            "filament_type": "PLA",
+            "filament_color": "#000000,#482960,#E8E6D0,#F7D959,#FFFFFF",
+            "status": "completed",
+            "started_at": "2026-04-10T13:56:31.547927",
+            "completed_at": "2026-04-10T17:40:21.988315",
+            "created_at": "2026-04-10T13:56:31",
+            "cost": 0.99,
+            "object_count": 1,
+            "layer_height": "0.08",
+            "designer": "doomtools",
+            "is_favorite": False,
+            "tags": "Hueforge,Space,f:6,s:225,f:5,s:260,f:135,s:259,f:44,s:58,f:86,s:119",
+            "notes": "+>{\"F\":[{\"f\":6,\"h\":\"#FFFFFF\",\"n\":\"Bambu Lab Jade White PLA\",\"s\":225,\"t\":\"A1\",\"w\":1.7},{\"f\":5,\"h\":\"#000000\",\"n\":\"Bambu Lab Black PLA\",\"s\":260,\"t\":\"A3\",\"w\":26.4},{\"f\":135,\"h\":\"#E8E6D0\",\"n\":\"Polymaker PolyLite PLA Natural PLA\",\"s\":259,\"t\":\"A4\",\"w\":20.9},{\"f\":44,\"h\":\"#482960\",\"n\":\"Bambu Lab Indigo Purple PLA\",\"s\":58,\"t\":\"B1\",\"w\":8.3},{\"f\":86,\"h\":\"#F7D959\",\"n\":\"Bambu Lab Matte Lemon Yellow PLA\",\"s\":119,\"t\":\"B4\",\"w\":1.1}],\"s\":\"c\"}",
+            "project_name": "",
+            "extra_data": {
+                "filament_slots": [
+                    {"color": "#000000", "type": "PLA", "used_grams": 0},
+                    {"color": "#482960", "type": "PLA", "used_grams": 0},
+                    {"color": "#E8E6D0", "type": "PLA", "used_grams": 0},
+                    {"color": "#F7D959", "type": "PLA", "used_grams": 0},
+                    {"color": "#FFFFFF", "type": "PLA", "used_grams": 0},
+                ]
+            },
+        }
+    )
+
+
 def test_project_archive_extracts_compact_fields() -> None:
     archive = _projected_archives()[0]
     assert archive["id"] == 101
@@ -111,6 +147,37 @@ def test_query_archives_filters_sorts_and_pages() -> None:
     tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
     assert tooltip_by_color["#112233"] == "Blue PLA (#112233)"
     assert tooltip_by_color["#ffffff"] == "White PLA (#FFFFFF)"
+
+
+def test_query_archives_uses_note_payload_names_when_slot_names_blank() -> None:
+    archives = [_live_style_projected_archive()]
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+    tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
+
+    assert tooltip_by_color["#000000"] == "Bambu Lab Black PLA (#000000)"
+    assert tooltip_by_color["#482960"] == "Bambu Lab Indigo Purple PLA (#482960)"
+    assert tooltip_by_color["#e8e6d0"] == "Polymaker PolyLite PLA Natural PLA (#E8E6D0)"
+    assert tooltip_by_color["#f7d959"] == "Bambu Lab Matte Lemon Yellow PLA (#F7D959)"
+    assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
 
 
 def test_query_archives_this_month_uses_calendar_month_boundary() -> None:
