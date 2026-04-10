@@ -278,8 +278,7 @@ jobs:
               exit 1
             fi
 
-            IFS=',' read -r -a sorted_selected <<< "$(printf '%s\n' "${selected_list[@]}" | sort | paste -sd ',' -)"
-            SELECTED_PACKAGES_CSV="${sorted_selected[*]}"
+            SELECTED_PACKAGES_CSV="$(printf '%s\n' "${selected_list[@]}" | sort | paste -sd ',' -)"
 
             EFFECTIVE_ALLOWLIST="$RUNNER_TEMP/rsync-allowlist-selected.txt"
             {
@@ -352,9 +351,13 @@ jobs:
 
           package_is_selected() {
             local pkg="$1"
+            local normalized_selected
+
             [ "$PACKAGE_SCOPE" = "all" ] && return 0
-            [ "$SELECTED_PACKAGES" = "all" ] && return 0
-            echo ",$SELECTED_PACKAGES," | grep -q ",$pkg,"
+
+            normalized_selected="$(echo "$SELECTED_PACKAGES" | tr ',[:space:]' '\n' | sed '/^$/d' | paste -sd ',' -)"
+            [ "$normalized_selected" = "all" ] && return 0
+            echo ",$normalized_selected," | grep -q ",$pkg,"
           }
 
           while IFS= read -r f; do
@@ -629,9 +632,13 @@ jobs:
           }
 
           should_sync_bambuddy_component() {
+            local normalized_selected
+
             [ -d "$BAMBUDDY_COMPONENT_SRC" ] || return 1
             [ "$PACKAGE_SCOPE" = "all" ] && return 0
-            echo ",$SELECTED_PACKAGES," | grep -q ",print_history,"
+
+            normalized_selected="$(echo "$SELECTED_PACKAGES" | tr ',[:space:]' '\n' | sed '/^$/d' | paste -sd ',' -)"
+            echo ",$normalized_selected," | grep -q ",print_history,"
           }
 
           sync_yaml_only() {
@@ -824,7 +831,7 @@ jobs:
 
             if [ "$PACKAGE_SCOPE" = "selected" ]; then
               echo "  selected_packages: $SELECTED_PACKAGES"
-              for package_name in $(echo "$SELECTED_PACKAGES" | tr ',' ' '); do
+              for package_name in $(echo "$SELECTED_PACKAGES" | tr ',[:space:]' '  '); do
                 package_name="$(echo "$package_name" | xargs)"
                 [ -z "$package_name" ] && continue
                 echo "  - package dir: $PACKAGES_ROOT_REMOTE/$package_name"
@@ -856,7 +863,7 @@ jobs:
               exit 1
             fi
 
-            for package_name in $(echo "$SELECTED_PACKAGES" | tr ',' ' '); do
+            for package_name in $(echo "$SELECTED_PACKAGES" | tr ',[:space:]' '  '); do
               package_name="$(echo "$package_name" | xargs)"
               [ -z "$package_name" ] && continue
 
@@ -937,9 +944,13 @@ jobs:
             else
               package_is_selected() {
                 local pkg="$1"
+                local normalized_selected
+
                 [ "$PACKAGE_SCOPE" = "all" ] && return 0
-                [ "$SELECTED_PACKAGES" = "all" ] && return 0
-                echo ",$SELECTED_PACKAGES," | grep -q ",$pkg,"
+
+                normalized_selected="$(echo "$SELECTED_PACKAGES" | tr ',[:space:]' '\n' | sed '/^$/d' | paste -sd ',' -)"
+                [ "$normalized_selected" = "all" ] && return 0
+                echo ",$normalized_selected," | grep -q ",$pkg,"
               }
 
               relevant_changed_count=0
