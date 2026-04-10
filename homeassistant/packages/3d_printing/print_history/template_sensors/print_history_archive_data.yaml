@@ -127,7 +127,8 @@
           {% set ns = namespace(payload={
             'page': 1,
             'page_size': states('sensor.bambuddy_print_history_browser_activity') | int(500),
-            'favorites_only': is_state('input_boolean.print_history_filter_favorites_only', 'on')
+            'favorites_only': is_state('input_boolean.print_history_filter_favorites_only', 'on'),
+            'selected_day': ''
           }) %}
           {% if status != '' %}
             {% set ns.payload = dict(ns.payload, status=status) %}
