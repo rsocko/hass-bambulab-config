@@ -16,7 +16,7 @@ load_history_page:
           max: 100
   sequence:
     - variables:
-        total_pages: "{{ state_attr('sensor.print_history_browser_filtered', 'total_pages') | int(1) }}"
+        total_pages: "{{ state_attr('sensor.bambuddy_print_history_browser_filtered', 'total_pages') | int(1) }}"
         target_page: >-
           {% set requested = page | int(1) %}
           {% if requested < 1 %}

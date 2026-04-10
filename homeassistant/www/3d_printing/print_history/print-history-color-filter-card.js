@@ -10,7 +10,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
 
   setConfig(config) {
     this._config = {
-      colors_entity: "sensor.print_history_filtered",
+      colors_entity: "sensor.bambuddy_print_history_browser_filtered",
       colors_attribute: "available_colors_json",
       tooltips_attribute: "available_color_tooltips_json",
       selected_entity: "input_text.print_history_filter_colors",

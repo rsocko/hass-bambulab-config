@@ -314,6 +314,10 @@ jobs:
           set -euo pipefail
           echo "Using allowlist: ${{ steps.selection.outputs.effective_allowlist }}"
           cat "${{ steps.selection.outputs.effective_allowlist }}"
+          if [ -d "./homeassistant/custom_components/bambuddy" ]; then
+            echo
+            echo "Note: homeassistant/custom_components/bambuddy is synced separately when in deploy scope."
+          fi
 
       - name: Lovelace resource deploy safety check
         shell: bash
@@ -554,14 +558,19 @@ jobs:
 
           PACKAGES_ROOT_SRC="$SOURCE_ROOT/packages/3d_printing"
           WWW_ROOT_SRC="$SOURCE_ROOT/www/3d_printing"
+          CUSTOM_COMPONENTS_ROOT_SRC="$SOURCE_ROOT/custom_components"
+          BAMBUDDY_COMPONENT_SRC="$CUSTOM_COMPONENTS_ROOT_SRC/bambuddy"
           FEATURE_INCLUDE_FILE_SRC="$PACKAGES_ROOT_SRC/_feature_loaders.yaml"
 
           PACKAGES_ROOT_REMOTE="$HA_CONFIG_PATH/packages/3d_printing"
           WWW_ROOT_REMOTE="$HA_CONFIG_PATH/www/3d_printing"
+          CUSTOM_COMPONENTS_ROOT_REMOTE="$HA_CONFIG_PATH/custom_components"
+          BAMBUDDY_COMPONENT_REMOTE="$CUSTOM_COMPONENTS_ROOT_REMOTE/bambuddy"
           FEATURE_INCLUDE_FILE_REMOTE="$PACKAGES_ROOT_REMOTE/_feature_loaders.yaml"
 
           PACKAGES_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/packages/3d_printing/"
           WWW_ROOT_DST="$HA_SSH_USER@$HA_HOST:$HA_CONFIG_PATH/www/3d_printing/"
+          BAMBUDDY_COMPONENT_DST="$HA_SSH_USER@$HA_HOST:$BAMBUDDY_COMPONENT_REMOTE/"
           FEATURE_INCLUDE_FILE_DST="$HA_SSH_USER@$HA_HOST:$FEATURE_INCLUDE_FILE_REMOTE"
 
           RSYNC_FLAGS="-rvh --itemize-changes"
@@ -617,6 +626,12 @@ jobs:
             grep -E '^[<>ch\.][fdLDS][+]{9} ' "$rsync_log" | sed -E 's/^[^ ]+ +(.*)$/ADD    \1/' || true
             grep -E '^[<>ch\.][fdLDS][^+*]' "$rsync_log" | sed -E 's/^[^ ]+ +(.*)$/UPDATE \1/' || true
             echo "Rsync summary: add=${add_count:-0}, update=${update_count:-0}, delete=${delete_count:-0}"
+          }
+
+          should_sync_bambuddy_component() {
+            [ -d "$BAMBUDDY_COMPONENT_SRC" ] || return 1
+            [ "$PACKAGE_SCOPE" = "all" ] && return 0
+            echo ",$SELECTED_PACKAGES," | grep -q ",print_history,"
           }
 
           sync_yaml_only() {
@@ -824,6 +839,10 @@ jobs:
                 echo "  - www dir: $WWW_ROOT_REMOTE"
               fi
             fi
+
+            if should_sync_bambuddy_component; then
+              echo "  - custom component dir: $BAMBUDDY_COMPONENT_REMOTE"
+            fi
           }
 
           log_remote_targets
@@ -857,6 +876,12 @@ jobs:
               ensure_remote_dir "$WWW_ROOT_REMOTE"
               sync_all_files "$WWW_ROOT_SRC" "$WWW_ROOT_DST"
             fi
+          fi
+
+          if should_sync_bambuddy_component; then
+            ensure_remote_dir "$CUSTOM_COMPONENTS_ROOT_REMOTE"
+            ensure_remote_dir "$BAMBUDDY_COMPONENT_REMOTE"
+            sync_all_files "$BAMBUDDY_COMPONENT_SRC" "$BAMBUDDY_COMPONENT_DST"
           fi
 
       - name: Check/update feature includes (post-sync)
@@ -936,6 +961,11 @@ jobs:
                     path_tail="${f#homeassistant/packages/3d_printing/}"
                     pkg="${path_tail%%/*}"
                     if [ -n "$pkg" ] && package_is_selected "$pkg"; then
+                      in_scope=true
+                    fi
+                    ;;
+                  homeassistant/custom_components/bambuddy/*)
+                    if [ "$PACKAGE_SCOPE" = "all" ] || package_is_selected "print_history"; then
                       in_scope=true
                     fi
                     ;;

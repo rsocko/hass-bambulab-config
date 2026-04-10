@@ -3,12 +3,12 @@ entities:
   - input_number.print_history_page_size
   - input_select.print_history_card_variant
   - input_boolean.print_history_show_images
-  - sensor.print_history_browser_page_info
-  - sensor.print_history_browser_filtered
+  - sensor.bambuddy_print_history_browser_page_info
+  - sensor.bambuddy_print_history_browser_filtered
 card:
   type: custom:bubble-card
   card_type: sub-buttons
-  entity: sensor.print_history_browser_page_info
+  entity: sensor.bambuddy_print_history_browser_page_info
   hide_main_background: false
   rows: 1.06
   styles: >-
@@ -75,9 +75,9 @@ card:
               perform_action: script.navigate_history
               data:
                 direction: prev
-          - entity: sensor.print_history_browser_page_info
+          - entity: sensor.bambuddy_print_history_browser_page_info
             sub_button_type: default
-            name: ${`Page · ${(states['sensor.print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '')}`}
+            name: ${`Page · ${(states['sensor.bambuddy_print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '')}`}
             icon: mdi:book-open-page-variant-outline
             show_icon: true
             show_name: true
@@ -86,9 +86,9 @@ card:
             fill_width: false
             tap_action:
               action: none
-          - entity: sensor.print_history_browser_filtered
+          - entity: sensor.bambuddy_print_history_browser_filtered
             sub_button_type: default
-            name: ${`Prints · ${states['sensor.print_history_browser_filtered']?.state || '0'}`}
+            name: ${`Prints · ${states['sensor.bambuddy_print_history_browser_filtered']?.state || '0'}`}
             icon: mdi:counter
             show_icon: true
             show_name: true

@@ -29,7 +29,7 @@ cards:
       name:
         - font-size: 18px
   - type: custom:button-card
-    entity: sensor.print_history_browser_page_info
+    entity: sensor.bambuddy_print_history_browser_page_info
     name: Page
     show_icon: true
     show_state: true

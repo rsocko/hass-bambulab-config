@@ -17,6 +17,7 @@ With this repository workflow:
 
 - YAML under `homeassistant/packages/3d_printing/**` is synced to `/config/packages/3d_printing/**`.
 - `homeassistant/www/**` assets are synced only when using a `www`-enabled profile.
+- `homeassistant/custom_components/bambuddy/**` is synced to `/config/custom_components/bambuddy/**` for all-scope deploys, and also for selected-scope deploys when `print_history` is selected.
 
 ## 3) What is loaded at startup
 
@@ -111,6 +112,7 @@ Typical action: refresh browser or reopen dashboard.
   - changing sidebar/title/icon metadata
 - Changing package loader/include wiring (`_feature_loaders.yaml`, `*_loader.yaml`)
 - Adding new custom JS card resources (registered automatically by the workflow's resource sync step; may still need a browser hard refresh)
+- Changing `homeassistant/custom_components/bambuddy/**` integration code
 
 Typical action: restart Home Assistant after config check.
 
@@ -143,6 +145,7 @@ consumed via Lovelace includes rather than package-domain loader wiring.
 - Workflow checkout now uses full history (`fetch-depth: 0`) to support diff-based safety checks.
 - This does not change what gets deployed.
 - Selected-scope deploy still syncs only selected package folders (plus optional matching `www` assets) and still syncs the top-level `packages/3d_printing/_feature_loaders.yaml` meta include file.
+- Selected-scope deploy also syncs `custom_components/bambuddy` when `print_history` is in the selected package set.
 
 ## 8) Resource safety guard behavior
 

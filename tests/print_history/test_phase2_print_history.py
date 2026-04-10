@@ -489,9 +489,9 @@ class TestPayloadDiagnostics(unittest.TestCase):
     def test_payload_diagnostics_sensor_tracks_template_layers(self):
         path = HISTORY / "template_sensors" / "print_history_payload_diagnostics.yaml"
         content = path.read_text(encoding="utf-8")
-        self.assertIn("sensor.print_history_archives", content)
-        self.assertIn("sensor.print_history_filtered", content)
-        self.assertIn("sensor.print_history_page_archives", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_activity", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_filtered", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_page_archives", content)
         self.assertIn("input_number.print_history_max_archives", content)
         self.assertIn("160000", content)
         self.assertIn("190000", content)
@@ -1013,15 +1013,15 @@ class TestCrossReferences(unittest.TestCase):
         "input_select.print_history_card_variant",
         # REST sensor
         "sensor.bambuddy_print_history",
-        # Template sensors
-        "sensor.print_history_archives",
-        "sensor.print_history_filtered",
+        # Active integration-backed browser sensors
+        "sensor.bambuddy_print_history_browser_activity",
+        "sensor.bambuddy_print_history_browser_filtered",
+        "sensor.bambuddy_print_history_browser_page_info",
+        "sensor.bambuddy_print_history_browser_page_archives",
         "sensor.bambuddy_last_print_name",
         "sensor.bambuddy_last_print_status",
         "sensor.bambuddy_last_print_duration",
         "sensor.bambuddy_last_print_image_url",
-        "sensor.print_history_page_info",
-        "sensor.print_history_page_archives",
     }
 
     KNOWN_COMMON_ENTITIES = {

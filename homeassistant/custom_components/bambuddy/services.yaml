@@ -1,0 +1,10 @@
+refresh_print_history_browser:
+  name: Refresh Print History Browser
+  description: Refresh the Bambuddy print history browser cache from the API and local store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID to refresh. Leave blank to refresh all Bambuddy entries.
+      required: false
+      selector:
+        text:

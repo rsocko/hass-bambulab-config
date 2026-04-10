@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Bambuddy",
+        "description": "Set up the Bambuddy integration for print history browsing.",
+        "data": {
+          "base_url": "Base URL",
+          "api_key": "API key",
+          "fetch_timeout_seconds": "Fetch timeout (seconds)",
+          "scan_interval_seconds": "Refresh interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Bambuddy. Check the URL and API key."
+    },
+    "abort": {
+      "already_configured": "This Bambuddy server is already configured.",
+      "single_instance_allowed": "Only one Bambuddy integration instance is supported. Update the existing entry instead."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update Bambuddy settings",
+        "data": {
+          "base_url": "Base URL",
+          "api_key": "API key",
+          "fetch_timeout_seconds": "Fetch timeout (seconds)",
+          "scan_interval_seconds": "Refresh interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Bambuddy. Check the URL and API key."
+    }
+  }
+}

@@ -1,7 +1,7 @@
-# Fire the custom refresh event consumed by sensor.print_history_archives.
+# Refresh the active Bambuddy Variant 3 print-history browser cache.
 # Docs: docs/features/print_history/filter-sort-design.md
 refresh_print_history_archives:
   alias: Refresh Print History Archives
   sequence:
-    - event: print_history_refresh_requested
+    - action: bambuddy.refresh_print_history_browser
   mode: single

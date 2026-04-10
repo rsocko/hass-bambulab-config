@@ -21,7 +21,7 @@ navigate_history:
   sequence:
     - variables:
         current_page: "{{ states('input_number.history_current_page') | int(1) }}"
-        total_pages: "{{ state_attr('sensor.print_history_browser_filtered', 'total_pages') | int(1) }}"
+        total_pages: "{{ state_attr('sensor.bambuddy_print_history_browser_filtered', 'total_pages') | int(1) }}"
         target_page: >-
           {% if direction == 'first' %}
             1

@@ -1,7 +1,7 @@
 print_history_archive_popup_content:
-  entity: sensor.print_history_browser_activity
+  entity: sensor.bambuddy_print_history_browser_activity
   triggers_update:
-    - sensor.print_history_browser_activity
+    - sensor.bambuddy_print_history_browser_activity
   show_icon: false
   show_name: false
   show_state: false
@@ -31,7 +31,7 @@ print_history_archive_popup_content:
         const snapshotArchiveId = snapshotArchive?.id;
         let archive = snapshotArchive;
         try {
-          const archiveCacheRaw = states['sensor.print_history_browser_activity']?.attributes?.archives_json || '[]';
+          const archiveCacheRaw = states['sensor.bambuddy_print_history_browser_activity']?.attributes?.archives_json || '[]';
           const archiveCache = typeof archiveCacheRaw === 'string' ? JSON.parse(archiveCacheRaw || '[]') : archiveCacheRaw;
           if (Array.isArray(archiveCache) && snapshotArchiveId !== undefined && snapshotArchiveId !== null) {
             archive = archiveCache.find((item) => String(item?.id) === String(snapshotArchiveId)) || snapshotArchive;
