@@ -1383,7 +1383,7 @@ Archive cards are now structured so a future tap action can open an archive-deta
 
 ### History Table Card
 
-The live `print_history.yaml` renderer reads from `sensor.print_history_page_archives` and renders responsive archive cards rather than a single-column table. The page sensor still provides the already-filtered, already-sorted current slice, so the frontend only handles layout.
+The live `print_history.yaml` renderer reads from `sensor.bambuddy_print_history_browser_page_archives` and renders responsive archive cards rather than a single-column table. The integration page entity provides the already-filtered, already-sorted current slice, so the frontend only handles layout.
 
 ### Pagination Controls
 
@@ -1619,7 +1619,7 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | Entity | Current Purpose | Replaced By |
 |--------|----------------|-------------|
 | `input_number.bambuddy_history_limit` | REST sensor `?limit=` param | `input_number.print_history_max_archives` |
-| `sensor.print_history_page_archives` | Current visible page slice | Dashboard card entity |
+| `sensor.bambuddy_print_history_browser_page_archives` | Current visible page slice | Dashboard card entity |
 | `script.load_history_page` | REST command pagination | Template sensor paging (no script needed) |
 | `script.navigate_history` | Prev/next REST calls | Direct `input_number.set_value` on page helper |
 | `sensor.print_history_page_info` | Page display string | `sensor.print_history_filtered` attr `page_info` |
@@ -1865,7 +1865,7 @@ This feature can be added incrementally within the existing print_history packag
 - Create `print_history_browser.yaml` as the always-visible header surface
 - Create `print_history_top_controls.yaml` as the reusable top/bottom control strip
 - Update `view_print_history.yaml` to use a full-width panel layout with the header, control strip, archive grid, and repeated bottom controls
-- Update history record rendering to read from `sensor.print_history_page_archives` and branch by card variant
+- Update history record rendering to read from `sensor.bambuddy_print_history_browser_page_archives` and branch by card variant
 - Add the multi-select color-chip row and layout toggle controls
 
 Status: implemented baseline. Remaining dashboard work is mostly archive-detail drilldown and visual refinements rather than core browser plumbing.

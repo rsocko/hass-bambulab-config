@@ -160,7 +160,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_enrich_archive_on_complete.yaml   # during-print + terminal enrichment → PATCH managed tags/notes/cost
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped + native cancel + print_error/HMS sensors → immediate capture + upload
-│   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + archive cache
+│   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + reset browser page; integration refresh is internal
 │   ├── print_history_sync_filter_options.yaml     # populate dynamic filter options from archive cache
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
@@ -275,18 +275,19 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
 | `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
-### Template Sensors
+### Template Sensors / Integration Entities
 
 | Entity | Source | Purpose |
 |---|---|---|
-| `sensor.print_history_archives` | Trigger-based template sensor + `rest_command.bambuddy_fetch_archives` | Layer 1 projected archive cache |
-| `sensor.print_history_filtered` | `sensor.print_history_archives` + browser helpers | Layer 2 filtered/sorted/paged browser output |
+| `sensor.bambuddy_print_history_browser_status` | Bambuddy custom integration | Browser backend health, sync state, and store path |
+| `sensor.bambuddy_print_history_browser_filtered` | Bambuddy custom integration | Filtered-count summary, page info, active filters, and color options |
+| `sensor.bambuddy_print_history_browser_page_archives` | Bambuddy custom integration | Current visible archive slice for dashboard rendering |
+| `sensor.bambuddy_print_history_browser_activity` | Bambuddy custom integration | Full filtered activity payload for heatmap rendering |
 | `sensor.bambuddy_last_print_name` | `archives[0].print_name` | Most recent print name |
 | `sensor.bambuddy_last_print_status` | `archives[0].status` | Most recent print result |
 | `sensor.bambuddy_last_print_duration` | `archives[0].actual_time_seconds` | Most recent print time (hours) |
 | `sensor.bambuddy_last_print_image_url` | `{base_url}/api/v1/archives/{id}/thumbnail` | Most recent print thumbnail (constructed URL) |
 | `sensor.print_history_page_info` | `history_current_page + filtered total_pages` | Display string for pagination UI |
-| `sensor.print_history_page_archives` | `sensor.print_history_archives` + helpers | Current visible archive slice for dashboard rendering |
 
 > **OpenAPI note**: The field is `print_name` (not `name`), `actual_time_seconds` (not `duration_seconds`), and thumbnail is accessed via `GET /api/v1/archives/{id}/thumbnail` (unauthenticated). There is no `photo_url` field.
 
@@ -334,7 +335,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags |
 | `script.save_print_history_archive_popup_edits` | Save popup edits while preserving hidden enrichment metadata |
 | `script.toggle_print_history_archive_favorite` | Toggle an archive's favorite state from the card or popup |
-| `script.refresh_print_history_archives` | Fire a manual Layer 1 refresh event |
+| `script.refresh_print_history_archives` | Fire a manual Bambuddy browser refresh through the custom integration |
 | `script.clear_print_history_filters` | Reset browser controls back to defaults |
 | `script.toggle_print_history_color_filter` | Add/remove a color from the active color-chip filter |
 
@@ -353,8 +354,8 @@ Deferred advanced scripts:
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
-| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Refresh REST sensor + Layer 1 archive cache |
-| `print_history_sync_filter_options` | `sensor.print_history_archives` changes, HA startup | Update dynamic filter dropdown options |
+| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Refresh the legacy recent-print REST sensor and reset paging; the Bambuddy integration refreshes its own store-backed browser state directly |
+| `print_history_sync_filter_options` | `sensor.bambuddy_print_history_browser_filtered` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ### Operating Without Webhook
@@ -371,7 +372,7 @@ But these shipped behaviors are currently webhook-dependent and will not fire re
 - `finish` capture in `bambuddy_capture_print_photos`
 - `print_failed` error captures unless the HMS or print-error sensors happen to catch the case
 - `bambuddy_enrich_archive_on_complete`
-- `bambuddy_event_history_refresh` immediate post-print refresh
+- `bambuddy_event_history_refresh` immediate recent-print sensor refresh and page reset; the Bambuddy integration handles its own post-print store refresh internally
 
 If both Bambuddy webhook reception and the native `bambu_lab` cancel trigger are enabled, a single user stop/cancel can reach HA twice. Any automation listening to both sources can therefore run twice unless it has explicit deduplication.
 
@@ -383,9 +384,9 @@ The current archive fallback is intentionally minimal and should be treated as a
 
 Implemented now:
 
-- Layer 1 archive fetch + projection via `sensor.print_history_archives`
-- Layer 2 filtering, sorting, page metadata, and page slice sensors
-- Layer 1 remains intentionally lean; display-oriented labels and tooltip text belong in Layer 2/Layer 3 rather than the archive projection cache
+- Bambuddy custom integration with local materialized store as the browser cache boundary
+- Integration-owned filtering, sorting, page metadata, current-page payload, and activity payload
+- Summary entities plus query/detail services for the active browser path
 - Browser header with search, matches, filter pills, settings popup, clear actions, and color chips
 - GitHub-style activity heatmap with count, weight, dominant-color, and outcome-mix modes, plus a separator chevron to collapse or expand the heatmap body
 - Day drill-in cards that can follow the active browser filters or ignore them
@@ -401,7 +402,7 @@ Still deferred:
 Popup implementation notes for the current shipped path:
 
 - The archive renderer is now YAML-only; the removed custom Lovelace JS card path is no longer part of the active implementation.
-- `sensor.print_history_page_archives` remains the only archive-grid data source; popup content is rendered from that projected page payload rather than a live detail fetch.
+- `sensor.bambuddy_print_history_browser_page_archives` is now the archive-grid data source; popup content is rendered from that integration-owned page payload, while detail helpers call `bambuddy.get_print_history_archive_detail` when needed.
 - The show/hide image toggle is consumed directly inside the archive card templates, so thumbnail display stays controlled by `input_boolean.print_history_show_images` across all three variants.
 
 For detailed design of the two major subsystems, see:

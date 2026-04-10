@@ -12,7 +12,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 - each visible archive is now its own Lovelace card and opens an archive-specific `browser_mod.popup`
 - the active implementation is YAML-only and follows the same pattern used by the filament catalog:
-	1. `custom:auto-entities` reads `sensor.print_history_page_archives.attributes.archives`
+	1. `custom:auto-entities` reads `sensor.bambuddy_print_history_browser_page_archives.attributes.archives`
 	2. one `custom:button-card` is generated per archive
 	3. shared button-card templates render the `Compact`, `Media`, and `Detail` card bodies
 	4. a shared popup template opens a detail popup using the projected archive payload already present on the page, and the shipped action area now drives helper-backed edits plus manual re-enrich
@@ -62,13 +62,13 @@ That architecture is acceptable for presentation-only browsing, but it is the wr
 
 ### Historical renderer that motivated this issue
 
-- source: `sensor.print_history_page_archives`
+- source: legacy `sensor.print_history_page_archives`
 - original implementation: one `custom:button-card` with `custom_fields.history_grid`
 - result: one Lovelace card surface, one default tap target
 
 ### Current renderer
 
-- source: `sensor.print_history_page_archives`
+- source: `sensor.bambuddy_print_history_browser_page_archives`
 - current implementation: `custom:auto-entities` generates one `custom:button-card` per archive and applies shared templates for `Compact`, `Media`, and `Detail`
 - result: each visible archive is its own tap target and opens its own popup
 
@@ -99,7 +99,7 @@ The existing page sensor already projects enough fields for a useful read-only p
 - `failure_reason`
 - `thumbnail_path`
 
-That means Phase 1 can stay entirely within the existing dashboard payload contract.
+That means Phase 1 can stay entirely within the current integration-owned dashboard payload contract.
 
 ## Recommended Architecture
 
@@ -126,7 +126,7 @@ Replace the single HTML-blob renderer with generated per-archive cards.
 
 Recommended structure:
 
-1. `custom:auto-entities` generates one `custom:button-card` per archive from `sensor.print_history_page_archives.attributes.archives`
+1. `custom:auto-entities` generates one `custom:button-card` per archive from `sensor.bambuddy_print_history_browser_page_archives.attributes.archives`
 2. a shared button-card template renders the archive card body
 3. that same template provides the per-card `tap_action` that opens a popup for the selected archive
 4. popup content is computed on demand from the projected archive payload
@@ -334,7 +334,7 @@ Do not add future issue actions directly to the archive card face unless the act
 
 ### Rendering approach
 
-- per-archive cards should remain driven by `sensor.print_history_page_archives`
+- per-archive cards should remain driven by `sensor.bambuddy_print_history_browser_page_archives`
 - card visuals can continue using button-card HTML/CSS for layout richness
 - the archive grid wrapper should remain responsive across `Compact`, `Media`, and `Detail`
 - the active implementation should prefer the existing `auto-entities` + button-card template pattern over introducing a new custom frontend resource unless a later requirement clearly justifies it

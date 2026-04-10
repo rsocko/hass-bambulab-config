@@ -1,4 +1,4 @@
-# Refresh the recent-print REST sensor and the Layer 1 browser archive cache
+# Refresh the recent-print REST sensor and the Bambuddy Variant 3 browser state
 # when relevant events occur.
 # Triggers on print_complete, print_failed, print_stopped webhooks,
 # native print-canceled, and on HA startup.
@@ -6,8 +6,9 @@
 - alias: "Print History - Refresh on Event"
   id: bambuddy_event_history_refresh
   description: >
-    Refreshes the recent print sensor and archive cache when a print
-    completes, fails, stops, or on HA startup.
+    Refreshes the recent print sensor and resets the browser page when a print
+    completes, fails, stops, or on HA startup. The Bambuddy integration refreshes
+    its own local browser store directly from startup and webhook listeners.
 
   triggers:
     - trigger: event
@@ -49,8 +50,6 @@
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.bambuddy_print_history
-
-    - action: script.refresh_print_history_archives
 
     - action: input_number.set_value
       data:
