@@ -5,7 +5,6 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import aiohttp_client
 
 from .api import BambuddyApiClient
@@ -52,7 +51,7 @@ async def _validate_input(hass, data: dict[str, Any]) -> None:
 class BambuddyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
         if user_input is not None:
             if self._async_current_entries():
@@ -80,7 +79,7 @@ class BambuddyOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
         defaults = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
