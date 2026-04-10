@@ -242,7 +242,9 @@ def _matches_date_range(archive: dict[str, Any], filter_value: str, now: datetim
         return age_days < 1
     if filter_value == "This Week":
         return age_days < 7
-    if filter_value in {"This Month", "Last 30 Days"}:
+    if filter_value == "This Month":
+        return archive_local.year == now_local.year and archive_local.month == now_local.month
+    if filter_value == "Last 30 Days":
         return age_days < 30
     if filter_value == "Last 90 Days":
         return age_days < 90

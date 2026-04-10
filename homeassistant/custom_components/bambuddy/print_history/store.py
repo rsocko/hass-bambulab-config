@@ -896,7 +896,9 @@ class PrintHistoryStore:
             return today.isoformat()
         if filter_value == "This Week":
             return (today - timedelta(days=6)).isoformat()
-        if filter_value in {"This Month", "Last 30 Days"}:
+        if filter_value == "This Month":
+            return today.replace(day=1).isoformat()
+        if filter_value == "Last 30 Days":
             return (today - timedelta(days=29)).isoformat()
         if filter_value == "Last 90 Days":
             return (today - timedelta(days=89)).isoformat()

@@ -389,6 +389,46 @@ def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: P
     assert actual.available_colors == expected.available_colors
 
 
+def test_variant3_query_this_month_uses_calendar_month_boundary() -> None:
+    archives = _projected_archives()
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "This Month",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    this_month = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+    last_30_days = query_archives(
+        archives,
+        {**states, "input_select.print_history_filter_date_range": "Last 30 Days"},
+        now=datetime(2026, 4, 10, tzinfo=timezone.utc),
+    )
+
+    assert [archive["id"] for archive in this_month.page_items] == [101]
+    assert [archive["id"] for archive in last_30_days.page_items] == [101, 202]
+
+
+def test_variant3_store_this_month_threshold_uses_first_day_of_month(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+
+    assert store._date_range_threshold("This Month", datetime(2026, 4, 10, tzinfo=timezone.utc).date()) == "2026-04-01"
+    assert store._date_range_threshold("Last 30 Days", datetime(2026, 4, 10, tzinfo=timezone.utc).date()) == "2026-03-12"
+
+
 def test_variant3_store_activity_rows_ignore_selected_day(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()
