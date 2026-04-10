@@ -6,6 +6,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
 from .api import BambuddyApiClient
 from .const import (
@@ -24,7 +25,9 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_BASE_URL, default=values.get(CONF_BASE_URL, "")): str,
-            vol.Required(CONF_API_KEY, default=values.get(CONF_API_KEY, "")): str,
+            vol.Required(CONF_API_KEY, default=values.get(CONF_API_KEY, "")): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
             vol.Required(
                 CONF_FETCH_TIMEOUT_SECONDS,
                 default=values.get(CONF_FETCH_TIMEOUT_SECONDS, DEFAULT_FETCH_TIMEOUT_SECONDS),

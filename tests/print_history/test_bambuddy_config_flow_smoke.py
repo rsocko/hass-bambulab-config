@@ -26,6 +26,7 @@ def _install_homeassistant_stubs() -> None:
     helpers_module = ModuleType("homeassistant.helpers")
     aiohttp_client_module = ModuleType("homeassistant.helpers.aiohttp_client")
     helpers_event_module = ModuleType("homeassistant.helpers.event")
+    selector_module = ModuleType("homeassistant.helpers.selector")
     util_module = ModuleType("homeassistant.util")
     util_dt_module = ModuleType("homeassistant.util.dt")
 
@@ -41,6 +42,17 @@ def _install_homeassistant_stubs() -> None:
         def __init__(self) -> None:
             self.data = {}
             self.options = {}
+
+    class TextSelectorType:
+        PASSWORD = "password"
+
+    class TextSelectorConfig(dict):
+        def __init__(self, **kwargs) -> None:
+            super().__init__(**kwargs)
+
+    class TextSelector:
+        def __init__(self, config=None) -> None:
+            self.config = config or TextSelectorConfig()
 
     class Platform:
         SENSOR = "sensor"
@@ -101,8 +113,12 @@ def _install_homeassistant_stubs() -> None:
     aiohttp_client_module.async_get_clientsession = lambda hass: object()
     helpers_event_module.async_track_state_change_event = lambda *args, **kwargs: (lambda: None)
     helpers_event_module.async_track_time_interval = lambda *args, **kwargs: (lambda: None)
+    selector_module.TextSelector = TextSelector
+    selector_module.TextSelectorConfig = TextSelectorConfig
+    selector_module.TextSelectorType = TextSelectorType
     util_dt_module.utcnow = lambda: None
     helpers_module.aiohttp_client = aiohttp_client_module
+    helpers_module.selector = selector_module
     util_module.dt = util_dt_module
 
     homeassistant_module.config_entries = config_entries_module
@@ -124,6 +140,7 @@ def _install_homeassistant_stubs() -> None:
     sys.modules["homeassistant.helpers"] = helpers_module
     sys.modules["homeassistant.helpers.aiohttp_client"] = aiohttp_client_module
     sys.modules["homeassistant.helpers.event"] = helpers_event_module
+    sys.modules["homeassistant.helpers.selector"] = selector_module
     sys.modules["homeassistant.util"] = util_module
     sys.modules["homeassistant.util.dt"] = util_dt_module
 
@@ -163,5 +180,9 @@ def test_bambuddy_config_flow_imports_without_home_assistant_runtime() -> None:
     assert module.BambuddyConfigFlow._configured_domain == "bambuddy"
     assert issubclass(module.BambuddyOptionsFlow, sys.modules["homeassistant.config_entries"].OptionsFlow)
     options_flow = module.BambuddyOptionsFlow(sys.modules["homeassistant.config_entries"].ConfigEntry())
+    schema = module._schema()
+    api_key_selector = schema[module.CONF_API_KEY]
+    selector_type = sys.modules["homeassistant.helpers.selector"].TextSelectorType
+    assert api_key_selector.config["type"] == selector_type.PASSWORD
     assert options_flow._config_entry is not None
     assert hasattr(diagnostics_module, "async_get_config_entry_diagnostics")
