@@ -182,6 +182,9 @@ card:
                   Detail: 'mdi:format-list-bulleted',
                 })[variant] || 'mdi:view-dashboard-outline';
               })()}
+            show_icon: true
+            # Bubble Card needs name/state rendered for the select control to remain visible.
+            # CSS above hides them so the control stays icon-only on both desktop and mobile.
             show_name: true
             show_state: true
             show_background: true
