@@ -4,6 +4,8 @@
 - trigger:
     - trigger: state
       entity_id: input_text.print_history_popup_archive_id
+    - trigger: state
+      entity_id: input_boolean.print_history_popup_is_favorite
     - trigger: homeassistant
       event: start
   action:

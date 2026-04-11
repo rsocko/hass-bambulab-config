@@ -1261,6 +1261,13 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("service: archive.is_favorite ? 'input_boolean.turn_on' : 'input_boolean.turn_off'", content)
         self.assertIn("entity_id: 'input_boolean.print_history_popup_is_favorite'", content)
 
+    def test_popup_detail_sensor_refetches_when_popup_favorite_helper_changes(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "template_sensors" / "print_history_popup_archive_detail.yaml"
+        ).read_text("utf-8")
+        self.assertIn("entity_id: input_boolean.print_history_popup_is_favorite", content)
+        self.assertIn("action: bambuddy.get_print_history_archive_detail", content)
+
     def test_popup_content_shows_only_user_notes(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const notesInfo = splitArchiveNotes(archive?.notes);", content)
