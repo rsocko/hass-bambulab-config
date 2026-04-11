@@ -22,7 +22,7 @@ Historical design notes:
 
 - `appdaemon-query-cache.md`
 - `filter-sort-design.md`
-- `external-services-design-review-2026-04.md`
+- `external-services-design-review-2026-04.md` - now includes a direct O.D.I.N. vs Bambuddy comparison covering archive schema depth, API shape, Vigil AI/local inference, licensing gates, and transition recommendation
 - `variant3-metadata-schema-and-variant4-carry-forward.md`
 - `metadata-implementation-roadmap.md`
 - `issue-update-drafts-2026-04.md`
@@ -182,6 +182,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── load_history_page.yaml                     # set current browser page
 │   ├── navigate_history.yaml                      # prev/next/first/last within Layer 2 totals
 │   ├── capture_and_upload_snapshot.yaml            # multi-camera snapshot → save + upload
+│   ├── set_print_history_capture_cameras.yaml      # persist chosen camera.* entities via multi-select selector
 │   ├── resolve_current_archive_id.yaml            # fallback: query API → match filename
 │   ├── refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
 │   ├── reenrich_print_history_archive.yaml        # rebuild managed enrichment for older archives
@@ -197,6 +198,7 @@ homeassistant/packages/3d_printing/print_history/
 ├── helpers/
 │   ├── input_text/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
+│   │   ├── input_text_bambuddy_capture_camera_entities.yaml
 │   │   ├── input_text_bambuddy_last_photo_upload_result.yaml
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
 │   │   ├── input_text_print_history_activity_selected_date.yaml
@@ -225,7 +227,6 @@ homeassistant/packages/3d_printing/print_history/
 │   │   └── input_number_photo_review_timeout_hours.yaml
 │   └── input_select/
 │       ├── input_select_bambuddy_photo_review_state.yaml
-│       ├── input_select_secondary_camera_entity.yaml
 │       ├── input_select_print_history_activity_metric.yaml
 │       ├── input_select_print_history_filter_*.yaml
 │       ├── input_select_print_history_popup_failure_reason.yaml
@@ -306,11 +307,11 @@ input_select: !include_dir_merge_named helpers/input_select
 | Entity | Type | Purpose | Persists? |
 |---|---|---|---|
 | `input_text.bambuddy_current_archive_id` | input_text | Current print's archive_id (set by webhook, cleared on complete) | No `initial:` — survives restart |
+| `input_text.bambuddy_capture_camera_entities` | input_text | Persisted comma-separated `camera.*` entity list for photo capture; blank falls back to the built-in Bambu camera | No `initial:` — survives restart |
 | `input_text.bambuddy_last_photo_upload_result` | input_text | Last capture/upload verification summary for operator debugging | No `initial:` |
 | `input_text.print_history_activity_selected_date` | input_text | Selected day for the activity heatmap drill-in (`YYYY-MM-DD`) | - |
 | `input_text.print_history_search` | input_text | Browser search text | — |
 | `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | — |
-| `input_select.secondary_camera_entity` | input_select | Configurable secondary camera choice from the known auxiliary cameras, or `None` | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
 | `input_boolean.bambuddy_history_sync_enabled` | input_boolean | Enable/disable history sync features (refresh, cache sync, capture sync) | — |
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
@@ -342,6 +343,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.load_history_page` | Set a specific browser page |
 | `script.navigate_history` | Prev/next/first/last navigation, calls `load_history_page` |
 | `script.capture_and_upload_snapshot` | Multi-camera capture + local save + count tracking + upload verification via archive detail |
+| `script.set_print_history_capture_cameras` | Persist the photo-capture camera list using a multi-select camera entity picker |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
 | `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags |
 | `script.save_print_history_archive_popup_edits` | Save popup edits while preserving hidden enrichment metadata |
@@ -452,10 +454,11 @@ For detailed design of the two major subsystems, see:
 - Archive ID capture from webhook events
 - Multi-stage photo capture automations (start, mid, near-complete, error)
 - `capture_and_upload_snapshot` script with multi-camera + light control + verified upload bridge
+- `set_print_history_capture_cameras` script backed by a camera-domain multi-select selector
 - `resolve_current_archive_id` fallback script
 - Enrichment automation (managed `f:` / `s:` tags + hidden `+>` note payload + native cost)
 - Pagination scripts and template sensors
-- Configurable capture stage toggles and secondary camera helper
+- Configurable capture stage toggles plus persisted multi-camera selection
 - Dedicated history view (`view_print_history.yaml`)
 - Dashboard cards: `print_history_browser.yaml` (browser header), `print_history_top_controls.yaml` (control strip), `print_history.yaml` (archive grid), `photo_review_chip.yaml` (conditional review chip)
 - Wired into main dashboard via `common/dashboards/3d_printing.yaml` views list
@@ -571,7 +574,8 @@ Popup launched from `Settings` button:
 │  Print History Settings                     │
 │  At Start [✓]  Mid-Print [✓]  Near End [✓] │
 │  On Error [✓]  Mid-Print Threshold   50%   │
-│  Secondary Camera               [dropdown] │
+│  Capture Cameras      [stored list helper] │
+│  Configure Capture Cameras      [selector] │
 │  History Sync                        [✓]   │
 │  Max Cached Archives                175    │
 │  Review Timeout (hrs)                24    │

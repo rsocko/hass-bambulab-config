@@ -274,21 +274,165 @@ What it does well:
 - probably the most complete integrated competitor reviewed
 - archive compare, reprint, project grouping, timelapses, analytics, inventory, cost/margin views, AMS preview, and broader ops workflows
 - closer to a full print-operations platform than a point tool
+- materially broader than Bambuddy at the platform level because it spans mixed-fleet operations, local AI failure detection, order-to-ship workflow, and multi-user business controls
 
 Why it matters:
 
 - it validates that the repo's roadmap areas are legitimate product directions, especially compare, reprint, diagnostics, project grouping, and cost analytics
+- it is the clearest example of a system that treats print history as one part of a larger operations stack rather than as the whole product
+
+#### O.D.I.N. vs Bambuddy: What Is Essentially the Same
+
+At a high level, both systems already cover the same core archive loop:
+
+- automatic print-history capture
+- searchable archive browser
+- reprint from history
+- archive comparison
+- tags/notes editing
+- timelapse support
+- self-hosted Docker deployment
+- no cloud requirement for the base local-control model
+
+That is why O.D.I.N. should be treated as a competitor or replacement-scale platform, not as a small additive companion. The overlap is real.
+
+#### O.D.I.N. vs Bambuddy: Where O.D.I.N. Is Stronger or Materially Different
+
+O.D.I.N. is stronger when the problem is broader print-farm operations rather than archive stewardship alone.
+
+- **Mixed-fleet scope**: O.D.I.N. natively targets Bambu, Klipper, PrusaLink, and Elegoo in one product. Bambuddy is intentionally Bambu-first.
+- **Operations breadth**: O.D.I.N. includes queueing, order management, BOM/product workflow, per-order profitability, user roles, OIDC/SSO, audit-style controls, and organization scoping. Bambuddy has queue and maintenance, but it is not trying to be a full manufacturing-ops suite.
+- **Model-library split**: O.D.I.N. separates archives from `print_files`, models, and jobs. That creates a cleaner upstream place for pricing, scheduling, printer compatibility, and source-file metadata. Bambuddy keeps more of the intelligence archive-centric.
+- **Vision / failure detection**: O.D.I.N. ships a real local vision subsystem with ONNX inference, per-printer thresholds, detection review, frame retention, stats, and training-data export. Bambuddy does not currently have an equivalent local AI vision stack.
+- **API philosophy**: O.D.I.N. exposes a whole-platform API, session-cookie auth for UI, bearer tokens for automation, websocket updates, and no built-in rate limiting. Bambuddy has a strong API too, but it is more product-domain specific and more explicitly segmented by feature groups and rate limits.
+
+#### O.D.I.N. vs Bambuddy: Where Bambuddy Is Stronger or Materially Different
+
+Bambuddy is stronger when the problem is specifically Bambu-native archive fidelity and archive-side media/file workflows.
+
+- **Archive richness at the archive object itself**: Bambuddy's archive record exposes more directly on the archive row and archive response: `content_hash`, duplicate lineage, estimated and actual duration, time-accuracy, full `extra_data`, MakerWorld/designer fields, favorite flag, quantity, failure reason, photos, energy, source 3MF, and Fusion 360 `f3d` attachments.
+- **Archive-domain API depth**: Bambuddy's archive API is much deeper than O.D.I.N.'s archive API specifically. It includes failure-analysis endpoints, similar-archive search, global tag rename/delete, richer timelapse manipulation, project-page extraction/editing, source-file attachment flows, gcode extraction, archive capabilities, per-plate metadata, filament requirements, photo upload/delete, and Bambu-oriented file/media handling.
+- **Bambu-specific 3MF introspection**: Bambuddy goes further into Bambu-flavored `.3mf` structure and exposes that directly on archive endpoints. That matters for this repo because the print-history feature is already designed around Bambu-specific archive enrichment and media review.
+- **Media-first archive workflows**: Bambuddy is better aligned with this repo's current photo-enrichment, popup editing, archive browser, and historical repair flows. O.D.I.N. can support history, but its print archive is only one subsystem among many.
+- **Current repo fit**: this repo already has a Bambuddy-backed sidecar, Layer 1/2/3 contracts, enrichment payloads, repair tooling, and Home Assistant browser assumptions built around Bambuddy semantics. That is a substantial switching cost, even before evaluating product quality.
+
+#### Archive Storage and Schema Findings
+
+This was the main question behind the direct comparison: does O.D.I.N. have a materially richer archive schema than Bambuddy?
+
+Short answer: **not in the archive record itself**.
+
+More precise answer:
+
+- **Bambuddy archive rows are richer and more self-contained**. The archive model and response carry a broad set of Bambu-specific metadata and file/media relationships directly on the archive resource.
+- **O.D.I.N. splits richness across adjacent domains**. The archive row is lighter, while the surrounding `print_files`, models, jobs, spools, and orders domains carry the rest of the operational context.
+
+That means O.D.I.N. is not obviously better if the main requirement is: "make the archive object itself the authoritative, deeply explorable print-history artifact." Bambuddy is better at that today.
+
+O.D.I.N. does still add some useful archive-adjacent fields and concepts:
+
+- archive capture includes user attribution, `print_file_id`, `plate_count`, cost estimate, duration, and spool-deduction linkage
+- archive compare uses actual-duration and cost-estimate fields directly
+- archive reprint is tied to job creation and printer scheduling rather than just file replay
+- archive/project linkage fits a broader manufacturing workflow
+
+But the tradeoff is clear: O.D.I.N. distributes history semantics across more tables and modules, while Bambuddy concentrates them in the archive domain.
+
+#### API Surface Findings
+
+At the API level, the comparison is mixed.
+
+Where O.D.I.N. is better:
+
+- broader whole-platform API, not just printer/archive endpoints
+- native support for automation tokens plus browser session auth
+- websocket event model for live UI updates
+- direct routes for organizations, orders, products, BOMs, reporting, and vision
+- archive APIs connect naturally into jobs, models, and scheduling
+
+Where Bambuddy is better:
+
+- deeper archive-specific endpoint catalog
+- better archive/media mutation surface
+- better Bambu-specific 3MF extraction endpoints
+- richer archive comparison and failure-analysis behavior within the archive domain itself
+- more direct support for archive-source attachments and per-archive media workflows
+
+So the answer is not "O.D.I.N. has a better archive API". The more accurate statement is:
+
+- **O.D.I.N. has a broader platform API**
+- **Bambuddy has a deeper archive API**
+
+For this repo's active print-history work, the second point matters more than the first.
+
+#### Vigil AI / Vision: How It Works and How It Is Gated
+
+The vision feature in O.D.I.N. is real local functionality, not a cloud black box.
+
+What the source and docs show:
+
+- O.D.I.N. runs **ONNX inference locally** on camera frames
+- frames are stored locally under `/data/vision_frames/...`
+- ONNX model files are stored locally under `/data/vision_models/`
+- the backend includes routes for detections, per-printer settings, global settings, stats, and training-data labeling/export
+- the docs and marketing explicitly state that camera frames do not leave the network
+
+So the important answer is:
+
+- **yes, it is usable in self-host mode**
+- **no, it does not appear to require a cloud AI service**
+
+The gating is instead a combination of **license tier** and **license terms**, not a cloud dependency.
+
+- public pricing pages describe Community, Pro, Education, and Enterprise tiers
+- the codebase contains a local license/tier system and frontend feature gating
+- the project is **source-available under BSL 1.1**, not permissive open source in the conventional sense
+- the license page states that non-commercial and personal use are allowed, while commercial use requires a paid license
+
+One nuance worth documenting: the public pricing/marketing copy is not perfectly consistent about which tier lists Vigil AI, but the architecture is consistent. The vision subsystem itself is local and self-hostable. The constraint is commercial/tier licensing, not technical cloud lock-in.
+
+#### Is O.D.I.N. Superior Enough to Justify a Transition?
+
+Only if the problem statement changes.
+
+O.D.I.N. is superior if the actual goal is:
+
+- mixed-fleet management
+- local AI monitoring
+- business workflow around orders, BOMs, margin, and operators
+- multi-user print-farm software with organizations and permissions
+
+It is **not** clearly superior for this repo's current goal, which is more specific:
+
+- keep Bambuddy as archive-of-record for Bambu-native history
+- use Home Assistant as orchestration and UI
+- enrich and query archive history locally with repo-owned logic
+- preserve Bambu-specific archive/media semantics without replatforming the whole stack
+
+For that goal, moving to O.D.I.N. would trade one set of strengths for another and would force a replacement-scale migration across:
+
+- archive authority
+- API contracts
+- browser semantics
+- enrichment assumptions
+- photo/media flows
+- existing local repair/provenance work
+
+That churn is hard to justify unless the repo wants to become a farm-operations layer rather than a Bambuddy-backed HA history layer.
 
 Why it is not the immediate answer:
 
 - adopting it would mean choosing a new platform, not just borrowing a feature
 - it overlaps heavily with work already underway in this repo and with Bambuddy's archive model
 - it is too broad to add incrementally as a low-risk dependency
+- it is source-available BSL software with tiered/commercial licensing, so depending on it is not the same category of decision as depending on a normal permissive OSS library
 
 Recommendation:
 
 - use O.D.I.N. as the clearest roadmap benchmark
-- borrow feature framing, not the platform itself
+- borrow platform ideas selectively: local AI detection posture, archive-to-job linkage, model-library separation, and project/order framing
+- do not treat O.D.I.N. as an additive dependency next to Bambuddy
+- do not transition from Bambuddy to O.D.I.N. unless the project intentionally pivots from "Bambu archive + HA sidecar" to "general print-farm operating system"
 
 ## Equivalent Features: Current State vs Gaps
 
