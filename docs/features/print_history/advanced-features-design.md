@@ -10,47 +10,26 @@
 
 This document is intentionally ordered by implementation phase. Every candidate change is assigned to a specific phase, even if the implementation remains deferred.
 
-| Phase | Feature                                                             | Effort | Value                                           |
-| ----- | ------------------------------------------------------------------- | ------ | ----------------------------------------------- |
-| 2.0   | Core enrichment extensions: timelapse auto-attach, tag audit sensor | Low    | High for timelapse attach, Medium for tag audit |
-| 2.05  | Archive detection and recovery workflow                             | Medium | Very High                                       |
-| 2.1   | Favorites toggle                                                    | Low    | Medium                                          |
-| 2.2   | Compare on failure                                                  | Medium | Medium                                          |
-| 2.3   | Duplicate and reprint intelligence                                  | Medium | High                                            |
-| 2.4   | MakerWorld attribution and designer tracking                        | Low    | Medium                                          |
-| 2.5   | Spool remaining pre-print warning                                   | Medium | Very High                                       |
-| 2.6   | Energy cost enrichment                                              | Medium | High                                            |
-| 2.7   | Rich print notifications                                            | Low    | Medium                                          |
-| 2.8   | Spool usage provenance                                              | Medium | Medium                                          |
-| 2.9   | Timelapse lifecycle management                                      | Medium | High                                            |
-| 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            |
-| 2.11  | Archive detail popup and editing                                    | Medium | Medium                                          |
-| 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            |
-| 2.13  | Reprint from HA                                                     | High   | Medium                                          |
-| 2.14  | Search from HA                                                      | Medium | Low                                             |
-
-## Implementation Status
-
 Status below reflects the current state of this repository as of 2026-04-04. `Partial` means some meaningful implementation or prerequisite UX/data plumbing exists, but the phase scope described below is not fully delivered yet.
 
-| Phase | Status | Current repo state |
-| ----- | ------ | ------------------ |
-| 2.0 | Not started | Core archive enrichment exists, but neither timelapse auto-attach nor the tag audit sensor is implemented. |
-| 2.05 | Partial | Recovery design docs and sidecar planning/work have started, but the HA-side detection and exception UX described here are not fully shipped. |
-| 2.1 | Complete | Favorites toggle is implemented with REST command, script, and dashboard actions. |
-| 2.2 | Not started | No compare-on-failure automation, similar-archive lookup, or compare-link notification flow is wired yet. |
-| 2.3 | Not started | No duplicate lookup, reprint intelligence, or duplicate-based tagging/notifications are implemented yet. |
-| 2.4 | Partial | Designer data already flows into print-history browsing and filtering, but attribution tags, notes enrichment, and notification updates are still missing. |
-| 2.5 | Not started | Spoolman/tray-map prerequisites exist, but there is no pre-print remaining-weight warning workflow yet. |
-| 2.6 | Partial | Archive enrichment already writes overall print cost, but measured energy delta capture and dedicated energy enrichment are not implemented. |
-| 2.7 | Partial | Print started/completed notifications already exist, but they are still basic and do not use the richer Bambuddy archive data described here. |
-| 2.8 | Partial | Hidden enrichment payload already preserves per-archive spool/filament provenance, but there is no searchable provenance feature or dashboard surfacing yet. |
-| 2.9 | Not started | Photo capture/review exists separately, but no timelapse lifecycle commands, sensors, or review UI are implemented yet. |
-| 2.10 | Not started | No archive rescan, capability diagnostics, or repair/admin tooling is implemented in HA yet. |
-| 2.11 | Complete | Archive detail popup and edit/save flows for the initial field set are implemented. |
-| 2.12 | Not started | Archive mismatch detection and operator-approved replacement remain design-only. |
-| 2.13 | Not started | No reprint action, AMS mapping UX, or safety confirmation flow is implemented yet. |
-| 2.14 | Partial | HA-side local search/filtering exists in print history, but Bambuddy `/archives/search` integration is not wired yet. |
+| Phase | Feature                                                             | Effort | Value                                           | Status      | Current repo state |
+| ----- | ------------------------------------------------------------------- | ------ | ----------------------------------------------- | ----------- | ------------------ |
+| 2.0   | Core enrichment extensions: timelapse auto-attach, tag audit sensor | Low    | High for timelapse attach, Medium for tag audit | Not started | Core archive enrichment exists, but neither timelapse auto-attach nor the tag audit sensor is implemented. |
+| 2.05  | Archive detection and recovery workflow                             | Medium | Very High                                       | Partial     | Recovery design docs and sidecar planning/work have started, but the HA-side detection and exception UX described here are not fully shipped. |
+| 2.1   | Favorites toggle                                                    | Low    | Medium                                          | Complete    | Favorites toggle is implemented with REST command, script, and dashboard actions. |
+| 2.2   | Compare on failure                                                  | Medium | Medium                                          | Not started | No compare-on-failure automation, similar-archive lookup, or compare-link notification flow is wired yet. |
+| 2.3   | Duplicate and reprint intelligence                                  | Medium | High                                            | Not started | No duplicate lookup, reprint intelligence, or duplicate-based tagging/notifications are implemented yet. |
+| 2.4   | MakerWorld attribution and designer tracking                        | Low    | Medium                                          | Partial     | Designer data already flows into print-history browsing and filtering, but attribution tags, notes enrichment, and notification updates are still missing. |
+| 2.5   | Spool remaining pre-print warning                                   | Medium | Very High                                       | Not started | Spoolman/tray-map prerequisites exist, but there is no pre-print remaining-weight warning workflow yet. |
+| 2.6   | Energy cost enrichment                                              | Medium | High                                            | Partial     | Archive enrichment already writes overall print cost, but measured energy delta capture and dedicated energy enrichment are not implemented. |
+| 2.7   | Rich print notifications                                            | Low    | Medium                                          | Partial     | Print started/completed notifications already exist, but they are still basic and do not use the richer Bambuddy archive data described here. |
+| 2.8   | Spool usage provenance                                              | Medium | Medium                                          | Partial     | Hidden enrichment payload already preserves per-archive spool/filament provenance, but there is no searchable provenance feature or dashboard surfacing yet. |
+| 2.9   | Timelapse lifecycle management                                      | Medium | High                                            | Not started | Photo capture/review exists separately, but no timelapse lifecycle commands, sensors, or review UI are implemented yet. |
+| 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            | Not started | No archive rescan, capability diagnostics, or repair/admin tooling is implemented in HA yet. |
+| 2.11  | Archive detail popup and editing                                    | Medium | Medium                                          | Complete    | Archive detail popup and edit/save flows for the initial field set are implemented. |
+| 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            | Not started | Archive mismatch detection and operator-approved replacement remain design-only. |
+| 2.13  | Reprint from HA                                                     | High   | Medium                                          | Not started | No reprint action, AMS mapping UX, or safety confirmation flow is implemented yet. |
+| 2.14  | Search from HA                                                      | Medium | Low                                             | Partial     | HA-side local search/filtering exists in print history, but Bambuddy `/archives/search` integration is not wired yet. |
 
 ---
 
