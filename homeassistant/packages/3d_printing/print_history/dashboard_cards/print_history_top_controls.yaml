@@ -48,19 +48,6 @@ card:
         ${layoutSelector} .bubble-sub-button-state {
           display: none !important;
         }
-        ${nextSelector} {
-          margin-left: 10px !important;
-          position: relative;
-        }
-        ${nextSelector}::before {
-          content: '';
-          position: absolute;
-          left: -9px;
-          top: 8px;
-          bottom: 8px;
-          width: 1px;
-          background: color-mix(in srgb, var(--divider-color) 72%, transparent) !important;
-        }
         @media (max-width: 900px) {
           .bubble-sub-button-container,
           .bubble-sub-buttons-container {
@@ -108,12 +95,6 @@ card:
             display: none !important;
           }
           ${pageSizeSelector} ha-icon {
-            display: none !important;
-          }
-          ${nextSelector} {
-            margin-left: 0 !important;
-          }
-          ${nextSelector}::before {
             display: none !important;
           }
         }
