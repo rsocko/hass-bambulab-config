@@ -703,16 +703,24 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _fireBrowserModEvent(service, data) {
-    this.dispatchEvent(new CustomEvent("ll-custom", {
+    var event = new CustomEvent("ll-custom", {
       bubbles: true,
       composed: true,
       detail: {
         browser_mod: {
           service: service,
           data: data,
+          target: {},
         },
       },
-    }));
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
+    }
+
+    this.dispatchEvent(event);
   }
 
   _parseJson(value, fallback) {
