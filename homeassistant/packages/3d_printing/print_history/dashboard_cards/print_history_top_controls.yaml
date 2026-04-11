@@ -27,11 +27,14 @@ card:
         .bubble-sub-button {
           min-width: 0 !important;
         }
-        .bubble-sub-button:nth-child(10) {
+        .bubble-sub-button:nth-child(6) {
+          display: none !important;
+        }
+        .bubble-sub-button:nth-child(11) {
           margin-left: 10px !important;
           position: relative;
         }
-        .bubble-sub-button:nth-child(10)::before {
+        .bubble-sub-button:nth-child(11)::before {
           content: '';
           position: absolute;
           left: -9px;
@@ -80,21 +83,39 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
+          .bubble-sub-button:nth-child(4),
+          .bubble-sub-button:nth-child(7),
+          .bubble-sub-button:nth-child(8),
+          .bubble-sub-button:nth-child(9) {
+            display: none !important;
+          }
+          .bubble-sub-button:nth-child(6) {
+            display: flex !important;
+            min-width: 42px !important;
+            justify-content: center !important;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+          }
           .bubble-sub-button:nth-child(3) ha-icon,
           .bubble-sub-button:nth-child(4) ha-icon,
           .bubble-sub-button:nth-child(5) ha-icon {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(10) {
+          .bubble-sub-button:nth-child(5) .bubble-sub-button-name,
+          .bubble-sub-button:nth-child(6) .bubble-sub-button-name,
+          .bubble-sub-button:nth-child(6) .bubble-sub-button-state {
+            display: none !important;
+          }
+          .bubble-sub-button:nth-child(11) {
             margin-left: 0 !important;
           }
-          .bubble-sub-button:nth-child(10)::before {
+          .bubble-sub-button:nth-child(11)::before {
             display: none !important;
           }
         }
         @media (max-width: 560px) {
           .bubble-sub-button:nth-child(1),
-          .bubble-sub-button:nth-child(11) {
+          .bubble-sub-button:nth-child(13) {
             display: none !important;
           }
         }
@@ -162,6 +183,22 @@ card:
             show_background: true
             state_background: false
             tap_to_slide: true
+            fill_width: false
+          - entity: input_select.print_history_card_variant
+            sub_button_type: select
+            name: Layout
+            icon: >-
+              ${(() => {
+                const variant = states['input_select.print_history_card_variant']?.state || '';
+                return ({
+                  Compact: 'mdi:view-grid-outline',
+                  Media: 'mdi:image-multiple-outline',
+                  Detail: 'mdi:format-list-bulleted',
+                })[variant] || 'mdi:view-dashboard-outline';
+              })()}
+            show_name: false
+            show_state: false
+            show_background: true
             fill_width: false
           - name: Compact
             icon: mdi:view-grid-outline
