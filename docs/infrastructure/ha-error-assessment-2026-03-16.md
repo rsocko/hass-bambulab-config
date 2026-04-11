@@ -222,14 +222,14 @@ The "3DPrinterFrontCamera" (TP-Link C111, firmware 1.5.1, IP 192.168.50.189) has
 
 | Working | Broken |
 |---------|--------|
-| `camera.3dprintertopcamera_hd_stream` (idle, streaming) | ~40 control entities (buttons, selects, switches, sensors) all `unavailable` |
-| `camera.3dprintertopcamera_sd_stream` (idle, streaming) | Includes: reboot, alarm, motion detection, privacy, night vision, indicators, etc. |
+| `camera.3dprinter_front_camera_hd_stream` (idle, streaming) | ~40 control entities (buttons, selects, switches, sensors) all `unavailable` |
+| `camera.3dprinter_front_camera_sd_stream` (idle, streaming) | Includes: reboot, alarm, motion detection, privacy, night vision, indicators, etc. |
 
 The camera's RTSP stream works, but the HTTP control API appears to be unreachable.
 
 ### Impact on 3D Printing
 
-The HD stream IS used in the main dashboard view (`common/dashboard_views/view_main.yaml`, line 138) and **that still works**. However, there is no ability to manage camera settings (motion detection, privacy mode, alarm, firmware updates) from HA.
+The HD stream IS used in the main dashboard view (`common/dashboard_views/view_main.yaml`) and **that still works**. However, there is no ability to manage camera settings (motion detection, privacy mode, alarm, firmware updates) from HA.
 
 ### Recommended Investigation
 

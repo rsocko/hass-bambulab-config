@@ -170,7 +170,9 @@ See the `button_card_templates:` section in [homeassistant/packages/3d_printing/
 ### Entity Naming
 The dashboard expects entities with the following naming pattern:
 - `sensor.ntk_ryansoffice_3dprinter_*` - Various printer sensors
-- `camera.ntk_ryansoffice_3dprinter_camera` - Printer camera
+- `camera.ntk_ryansoffice_3dprinter_camera` - Built-in printer camera
+- `camera.3dprinter_front_camera_hd_stream` - Front camera view used by the advanced camera card
+- `camera.3d_printer_top_tapo_c110_hd_stream` - Top camera view used by the advanced camera card
 - `binary_sensor.ntk_ryansoffice_3dprinter_hms_errors` - HMS errors
 
 Update these to match your actual entity names.

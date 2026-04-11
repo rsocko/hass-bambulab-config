@@ -328,18 +328,17 @@ print_history_archive_popup_content:
           <style>
             .print-history-popup-content{display:flex;flex-direction:column;gap:14px;}
             .print-history-popup-hero{display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);}
-            .print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px) minmax(0,1fr);gap:12px;align-items:center;min-width:0;}
-            .print-history-popup-timeline-side{min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
+            .print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"start end" "track track" "duration duration";column-gap:16px;row-gap:10px;align-items:start;min-width:0;}
+            .print-history-popup-timeline-side{min-width:0;display:flex;flex-direction:column;gap:4px;}
+            .print-history-popup-timeline-side--start{grid-area:start;align-items:flex-start;text-align:left;}
+            .print-history-popup-timeline-side--end{grid-area:end;align-items:flex-end;text-align:right;}
             .print-history-popup-timeline-label{font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);}
             .print-history-popup-timeline-value{font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;word-break:break-word;}
-            .print-history-popup-timeline-main{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:220px;}
+            .print-history-popup-timeline-main{grid-area:track;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;width:100%;}
             .print-history-popup-timeline-track{position:relative;width:100%;height:18px;}
-            .print-history-popup-timeline-duration{display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;}
+            .print-history-popup-timeline-duration{grid-area:duration;justify-self:center;display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;}
             @media (max-width: 640px) {
-              .print-history-popup-timeline{grid-template-columns:minmax(0,1fr);gap:10px;}
-              .print-history-popup-timeline-side{align-items:flex-start;text-align:left;}
-              .print-history-popup-timeline-main{min-width:0;width:100%;}
-              .print-history-popup-timeline-side--end{order:3;}
+              .print-history-popup-timeline{column-gap:10px;row-gap:8px;}
             }
           </style>
           <div class="print-history-popup-content">
@@ -355,12 +354,12 @@ print_history_archive_popup_content:
                     <span style="position:absolute;left:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(21,101,192,0.12);"></span>
                     <span style="position:absolute;right:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
                   </div>
-                  <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
                 </div>
                 <div class="print-history-popup-timeline-side print-history-popup-timeline-side--end">
                   <div class="print-history-popup-timeline-label">End</div>
                   <div class="print-history-popup-timeline-value">${escapeHtml(completedDisplay)}</div>
                 </div>
+                <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
               </div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${summaryRowChips}</div>
               ${metricChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${metricChips}</div>` : ''}

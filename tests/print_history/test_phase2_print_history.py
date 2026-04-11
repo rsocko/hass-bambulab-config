@@ -1263,10 +1263,12 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
     def test_popup_timeline_uses_mobile_responsive_layout(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
-        self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px) minmax(0,1fr);", content)
+        self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:\"start end\" \"track track\" \"duration duration\";", content)
+        self.assertIn(".print-history-popup-timeline-side--start{grid-area:start;align-items:flex-start;text-align:left;}", content)
+        self.assertIn(".print-history-popup-timeline-side--end{grid-area:end;align-items:flex-end;text-align:right;}", content)
+        self.assertIn(".print-history-popup-timeline-duration{grid-area:duration;justify-self:center;", content)
         self.assertIn("@media (max-width: 640px)", content)
-        self.assertIn(".print-history-popup-timeline{grid-template-columns:minmax(0,1fr);gap:10px;}", content)
-        self.assertIn(".print-history-popup-timeline-side--end{order:3;}", content)
+        self.assertIn(".print-history-popup-timeline{column-gap:10px;row-gap:8px;}", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
