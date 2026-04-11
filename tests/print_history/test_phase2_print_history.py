@@ -211,8 +211,8 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
-        "print_history_browser_service_payloads.yaml",
         "print_history_payload_diagnostics.yaml",
+        "print_history_popup_archive_detail.yaml",
     ]
 
     EXPECTED_LEGACY_TEMPLATE_SENSORS = [
@@ -505,12 +505,13 @@ class TestAutomationStructure(unittest.TestCase):
 class TestPayloadDiagnostics(unittest.TestCase):
     """Payload guard files should stay wired to the print history chain."""
 
-    def test_payload_diagnostics_sensor_tracks_template_layers(self):
+    def test_payload_diagnostics_sensor_tracks_frontend_only_browser_contract(self):
         path = HISTORY / "template_sensors" / "print_history_payload_diagnostics.yaml"
         content = path.read_text(encoding="utf-8")
-        self.assertIn("sensor.print_history_browser_activity", content)
         self.assertIn("sensor.bambuddy_print_history_browser_filtered", content)
-        self.assertIn("sensor.print_history_browser_page_archives", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_page_info", content)
+        self.assertIn("frontend_query_transport: websocket", content)
+        self.assertIn("payload_chars: >-\n          0", content)
         self.assertIn("input_number.print_history_max_archives", content)
         self.assertIn("160000", content)
         self.assertIn("190000", content)
@@ -770,7 +771,7 @@ class TestTemplateSensors(unittest.TestCase):
 
     def test_status_filters_split_archive_and_enrichment_status(self):
         filtered_content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
-        service_payload_content = (HISTORY / "template_sensors" / "print_history_browser_service_payloads.yaml").read_text("utf-8")
+        browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
         browser_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
 
         self.assertIn("{%- set raw_status = a.get('status', '') | string | lower -%}", filtered_content)
@@ -780,8 +781,8 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{%- set enrichment_status_code = enrichment_payload.get('s', '') | string | lower if enrichment_payload is mapping else '' -%}", filtered_content)
         self.assertIn("{%- set enrichment_status = 'complete' if enrichment_status_code == 'c' else 'partial' if enrichment_status_code == 'p' else 'unavailable' if enrichment_status_code == 'u' else 'not defined' -%}", filtered_content)
         self.assertIn("{%- set matches_enrichment_status = filter_enrichment_status == 'All' or enrichment_status == filter_enrichment_status | lower -%}", filtered_content)
-        self.assertIn("bambuddy.query_print_history_browser", service_payload_content)
-        self.assertIn("include_activity_rows: true", service_payload_content)
+        self.assertIn('type: "bambuddy/print_history_query"', browser_card_content)
+        self.assertIn('enrichment_status: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_enrichment_status"))', browser_card_content)
         self.assertIn("input_select.print_history_filter_enrichment_status", browser_content)
         self.assertIn("name: Enrichment", browser_content)
         self.assertIn("name: Clear Enrichment Filter", browser_content)
@@ -795,7 +796,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=31", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=32", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -822,6 +824,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_supports_filaments_used_label(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('type: "bambuddy/print_history_query"', content)
+        self.assertIn('include_activity_rows: true', content)
         self.assertIn('input.mode === "Filaments Used"', content)
         self.assertIn('"filaments used": "Filaments Used"', content)
         self.assertNotIn('"filament uses": "Filaments Used"', content)
@@ -1034,10 +1038,10 @@ class TestCrossReferences(unittest.TestCase):
         # REST sensor
         "sensor.bambuddy_print_history",
         # Active integration-backed browser sensors
-        "sensor.print_history_browser_activity",
         "sensor.bambuddy_print_history_browser_filtered",
         "sensor.bambuddy_print_history_browser_page_info",
-        "sensor.print_history_browser_page_archives",
+        "sensor.print_history_payload_diagnostics",
+        "sensor.print_history_popup_archive_detail",
         "sensor.bambuddy_last_print_name",
         "sensor.bambuddy_last_print_status",
         "sensor.bambuddy_last_print_duration",
@@ -1221,13 +1225,13 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
 
     def test_tag_filter_none_uses_only_user_tags(self):
         filtered_content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
-        service_payload_content = (HISTORY / "template_sensors" / "print_history_browser_service_payloads.yaml").read_text("utf-8")
+        browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
         helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tag.yaml").read_text("utf-8")
 
         self.assertIn("user_tag_values = namespace(values=[])", filtered_content)
         self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", filtered_content)
         self.assertIn("filter_tag in user_tag_values.values", filtered_content)
-        self.assertIn("bambuddy.query_print_history_browser", service_payload_content)
+        self.assertIn('tag: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tag"))', browser_card_content)
         self.assertIn("- None", helper_content)
 
 
@@ -1282,12 +1286,19 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
     def test_popup_timeline_uses_mobile_responsive_layout(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
-        self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:\"start end\" \"track track\" \"duration duration\";", content)
+        self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:\"start duration end\" \"track track track\";", content)
         self.assertIn(".print-history-popup-timeline-side--start{grid-area:start;align-items:flex-start;text-align:left;}", content)
         self.assertIn(".print-history-popup-timeline-side--end{grid-area:end;align-items:flex-end;text-align:right;}", content)
-        self.assertIn(".print-history-popup-timeline-duration{grid-area:duration;justify-self:center;", content)
+        self.assertIn(".print-history-popup-timeline-duration{grid-area:duration;align-self:center;justify-self:center;", content)
         self.assertIn("@media (max-width: 640px)", content)
         self.assertIn(".print-history-popup-timeline{column-gap:10px;row-gap:8px;}", content)
+
+    def test_popup_timeline_duration_chip_uses_lowercase_units_above_track(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("if (days) parts.push(`${days}d`);", content)
+        self.assertIn("if (hours || days) parts.push(`${hours}h`);", content)
+        self.assertIn("if (minutes || (!days && !hours)) parts.push(`${minutes}m`);", content)
+        self.assertIn('<span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>\n                <div class="print-history-popup-timeline-main">', content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
@@ -1435,12 +1446,13 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("- min-height: 320px", content)
         self.assertIn("- height: 100%", content)
 
-    def test_compact_grid_uses_uniform_auto_rows(self):
+    def test_print_history_dashboard_uses_direct_browser_card(self):
         content = (
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "dashboard_cards" / "print_history.yaml"
         ).read_text("utf-8")
 
-        self.assertIn("grid-auto-rows: 1fr", content)
+        self.assertIn("type: custom:print-history-browser-card", content)
+        self.assertIn("show_empty_state: true", content)
 
 
 # =============================================================================

@@ -21,19 +21,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._isHidden = false;
     this._suppressPointSelection = false;
     this._selectedOverlay = null;
+    this._queryResponse = { activity_rows: [] };
+    this._queryToken = 0;
   }
 
   setConfig(config) {
-    if (!config || !config.source_entity || !config.source_attribute) {
-      throw new Error("print-history-activity-heatmap-card requires source_entity and source_attribute");
+    if (!config) {
+      throw new Error("print-history-activity-heatmap-card requires a config object");
     }
 
     this._config = {
       title: config.title || "Print History Activity",
       hide_title: config.hide_title === true,
       hide_summary: config.hide_summary === true,
-      source_entity: config.source_entity,
-      source_attribute: config.source_attribute,
+      source_entity: config.source_entity || "",
+      source_attribute: config.source_attribute || "",
+      direct_query: config.direct_query !== false,
       mode_entity: config.mode_entity || "input_select.print_history_activity_metric",
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
       show_details: config.show_details === true,
@@ -105,14 +108,18 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _buildSignature(hass) {
-    var sourceState = hass.states[this._config.source_entity];
+    var sourceState = this._config.source_entity ? hass.states[this._config.source_entity] : null;
     var metricState = hass.states[this._config.mode_entity];
     var selectedDateState = hass.states[this._config.selected_date_entity];
     var apiBaseState = hass.states[this._config.api_base_entity];
+    var filteredState = hass.states["sensor.bambuddy_print_history_browser_filtered"];
+    var pageInfoState = hass.states["sensor.bambuddy_print_history_browser_page_info"];
 
     return {
       sourceState: sourceState ? sourceState.state : "",
       sourceFetch: sourceState && sourceState.attributes ? sourceState.attributes.last_fetch || "" : "",
+      filteredUpdated: filteredState ? String(filteredState.last_updated || filteredState.last_changed || "") : "",
+      pageInfoUpdated: pageInfoState ? String(pageInfoState.last_updated || pageInfoState.last_changed || "") : "",
       metric: metricState ? metricState.state : "",
       selectedDate: selectedDateState ? selectedDateState.state : "",
       apiBase: apiBaseState ? apiBaseState.state : "",
@@ -311,6 +318,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    await this._ensureDirectQueryData();
+
     var archives = this._getScopedArchives();
     var grouped = this._groupArchivesByDate(archives);
     var dataset = this._buildHeatmapDataset(grouped, this._resolveVisibleWeeks());
@@ -416,8 +425,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _getScopedArchives() {
-    var sourceState = this._hass.states[this._config.source_entity];
-    var raw = sourceState && sourceState.attributes ? sourceState.attributes[this._config.source_attribute] : [];
+    var raw = [];
+    if (this._config.direct_query) {
+      raw = this._queryResponse && Array.isArray(this._queryResponse.activity_rows) ? this._queryResponse.activity_rows : [];
+    } else {
+      var sourceState = this._hass.states[this._config.source_entity];
+      raw = sourceState && sourceState.attributes ? sourceState.attributes[this._config.source_attribute] : [];
+    }
     var archives = this._parseArchiveArray(raw)
       .map(this._normalizeArchive.bind(this))
       .filter(function (archive) {
@@ -427,7 +441,48 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         return right.timestamp - left.timestamp;
       });
 
-    return archives.filter(this._matchesFilters.bind(this));
+    return this._config.direct_query ? archives : archives.filter(this._matchesFilters.bind(this));
+  }
+
+  async _ensureDirectQueryData() {
+    if (!this._config.direct_query || !this._hass || typeof this._hass.callWS !== "function") {
+      return;
+    }
+
+    var token = ++this._queryToken;
+    this._queryResponse = await this._hass.callWS({
+      type: "bambuddy/print_history_query",
+      status: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_status")),
+      enrichment_status: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_enrichment_status")),
+      material: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_material")),
+      printer: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_printer")),
+      date_range: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_date_range")),
+      designer: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_designer")),
+      project: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_project")),
+      layer_height: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_layer_height")),
+      tag: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tag")),
+      favorites_only: this._isOn("input_boolean.print_history_filter_favorites_only"),
+      search: String(this._stateValue("input_text.print_history_search") || "").trim(),
+      colors: String(this._stateValue("input_text.print_history_filter_colors") || "").trim(),
+      selected_day: String(this._stateValue(this._config.selected_date_entity) || "").trim(),
+      sort: this._normalizeFilterValue(this._stateValue("input_select.print_history_sort")),
+      activity_metric: this._normalizeFilterValue(this._stateValue(this._config.mode_entity)),
+      include_activity_rows: true,
+    });
+    if (token !== this._queryToken) {
+      return;
+    }
+    if (!this._queryResponse || typeof this._queryResponse !== "object") {
+      this._queryResponse = { activity_rows: [] };
+    }
+  }
+
+  _normalizeFilterValue(value) {
+    var normalized = String(value || "").trim();
+    if (!normalized || normalized === "All") {
+      return "";
+    }
+    return normalized;
   }
 
   _parseArchiveArray(raw) {

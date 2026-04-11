@@ -1,6 +1,6 @@
 # Print History — Filtering, Sorting & Pagination Design
 
-> **Status**: Variant 3 custom integration with local-store path is the only active browser backend; the legacy YAML browser and Variant 1 AppDaemon sidecar were archived out of deploy scope on 2026-04-10
+> **Status**: Variant 3 custom integration with local-store path is the only active browser backend; the legacy YAML browser and Variant 1 AppDaemon sidecar were archived out of deploy scope on 2026-04-10, and the active dashboard moved to frontend websocket queries on 2026-04-11 so large page/activity payloads are no longer stored in HA entity state
 > **Created**: 2026-03-28
 > **Depends on**: [README.md](README.md), [bambuddy-archive-api-catalog.md](../../features/bambuddy_common/bambuddy-archive-api-catalog.md)
 > **Pattern reference**: [filament-catalog.md](../filament_catalog/filament-catalog.md) Phase 2 (Filter Architecture)
@@ -15,7 +15,7 @@ As of 2026-04-10, the repository is no longer only at the original YAML baseline
 
 The implemented runtime state is:
 
-- Variant 3 is live as the `bambuddy` custom integration plus service-backed compatibility sensors.
+- Variant 3 is live as the `bambuddy` custom integration plus frontend websocket queries from the active dashboard cards.
 - The legacy YAML browser backend now lives under `archive/print_history/legacy-yaml-browser/` for reference only.
 - The former Variant 1 AppDaemon sidecar now lives under `archive/print_history/appdaemon-browser/` for reference only.
 

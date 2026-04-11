@@ -1,116 +1,76 @@
-# Payload guard for the active print history browser chain.
-# Tracks the Variant 3 service-backed activity/page payload sensors and detects
-# when they stop materializing.
+# Diagnostics for the active print history browser chain.
+# Variant 3 now keeps the large page/activity payloads in frontend websocket
+# responses instead of Home Assistant state. This sensor confirms the light
+# summary contract is still healthy and documents that the heavy payload path
+# is intentionally retired.
 - trigger:
     - trigger: state
       entity_id:
-        - sensor.print_history_browser_activity
         - sensor.bambuddy_print_history_browser_filtered
-        - sensor.print_history_browser_page_archives
+        - sensor.bambuddy_print_history_browser_page_info
+        - sensor.bambuddy_print_history_browser_status
         - input_number.print_history_max_archives
   sensor:
     - name: Print History Payload Diagnostics
       unique_id: print_history_payload_diagnostics
       icon: mdi:database-alert-outline
       state: >-
-        {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-        {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-        {% set layer3_raw = state_attr('sensor.print_history_browser_page_archives', 'archives') %}
-        {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
-        {% set soft_budget = 160000 %}
-        {% set hard_budget = 190000 %}
-        {% set layer1_ok = archive_count == 0 or layer1_raw is not none %}
-        {% set layer3_ok = archive_count == 0 or layer3_raw is not none %}
-        {% if archive_count > 0 and not layer1_ok %}
+        {% set filtered = states('sensor.bambuddy_print_history_browser_filtered') | int(0) %}
+        {% set page_state = states('sensor.bambuddy_print_history_browser_page_info') | string | trim %}
+        {% set status = states('sensor.bambuddy_print_history_browser_status') | string | lower %}
+        {% set frontend_only = true %}
+        {% if not frontend_only %}
           fail
-        {% elif archive_count > 0 and not layer3_ok %}
+        {% elif status in ['error', 'failed', 'unavailable', 'unknown'] %}
           fail
-        {% elif payload_chars >= hard_budget %}
-          fail
-        {% elif payload_chars >= soft_budget %}
+        {% elif filtered > 0 and page_state in ['', 'unknown', 'unavailable'] %}
           warn
         {% else %}
           ok
         {% endif %}
       attributes:
         archive_count: >-
-          {{ states('sensor.print_history_browser_activity') | int(0) }}
+          {{ states('sensor.bambuddy_print_history_browser_filtered') | int(0) }}
         payload_chars: >-
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {{ (layer1_raw | tojson | length) if layer1_raw is not none else 0 }}
+          0
         page_payload_chars: >-
-          {% set layer3_raw = state_attr('sensor.print_history_browser_page_archives', 'archives') %}
-          {{ (layer3_raw | tojson | length) if layer3_raw is not none else 0 }}
+          0
         average_chars_per_archive: >-
-          {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
-          {{ (payload_chars / archive_count) | round(1) if archive_count > 0 else 0 }}
+          0
         payload_utilization_percent: >-
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
-          {% set soft_budget = 160000 %}
-          {{ ((payload_chars / soft_budget) * 100) | round(1) if soft_budget > 0 else 0 }}
+          0
         current_max_archives_setting: >-
           {{ states('input_number.print_history_max_archives') | int(0) }}
         soft_payload_budget_chars: 160000
         hard_payload_budget_chars: 190000
         estimated_comfortable_max_archives: >-
-          {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-          {% set current_limit = states('input_number.print_history_max_archives') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
-          {% set avg_chars = (payload_chars / archive_count) if archive_count > 0 else 0 %}
-          {% set soft_budget = 160000 %}
-          {{ ((soft_budget / avg_chars) | round(0, 'floor') | int(0)) if avg_chars > 0 else current_limit }}
+          {{ states('input_number.print_history_max_archives') | int(0) }}
         estimated_upper_bound_archives: >-
-          {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-          {% set current_limit = states('input_number.print_history_max_archives') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
-          {% set avg_chars = (payload_chars / archive_count) if archive_count > 0 else 0 %}
-          {% set hard_budget = 190000 %}
-          {{ ((hard_budget / avg_chars) | round(0, 'floor') | int(0)) if avg_chars > 0 else current_limit }}
+          {{ states('input_number.print_history_max_archives') | int(0) }}
         layer_1_status: >-
-          {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {{ 'ok' if archive_count == 0 or layer1_raw is not none else 'fail' }}
+          frontend_only
+        layer_2_status: >-
+          {{ 'ok' if states('sensor.bambuddy_print_history_browser_filtered') not in ['unknown', 'unavailable'] else 'warn' }}
         layer_3_status: >-
-          {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-          {% set layer3_raw = state_attr('sensor.print_history_browser_page_archives', 'archives') %}
-          {{ 'ok' if archive_count == 0 or layer3_raw is not none else 'fail' }}
+          frontend_only
+        frontend_query_transport: websocket
         status_message: >-
-          {% set archive_count = states('sensor.print_history_browser_activity') | int(0) %}
-          {% set current_limit = states('input_number.print_history_max_archives') | int(0) %}
-          {% set layer1_raw = state_attr('sensor.print_history_browser_activity', 'filtered_archives') %}
-          {% set layer3_raw = state_attr('sensor.print_history_browser_page_archives', 'archives') %}
-          {% set payload_chars = (layer1_raw | tojson | length) if layer1_raw is not none else 0 %}
-          {% set avg_chars = (payload_chars / archive_count) if archive_count > 0 else 0 %}
-          {% set soft_budget = 160000 %}
-          {% set hard_budget = 190000 %}
-          {% set comfortable_max = ((soft_budget / avg_chars) | round(0, 'floor') | int(0)) if avg_chars > 0 else current_limit %}
-          {% set upper_bound = ((hard_budget / avg_chars) | round(0, 'floor') | int(0)) if avg_chars > 0 else current_limit %}
-          {% set layer1_ok = archive_count == 0 or layer1_raw is not none %}
-          {% set layer3_ok = archive_count == 0 or layer3_raw is not none %}
-          {% if archive_count > 0 and not layer1_ok %}
-            The service-backed activity payload is reporting {{ archive_count }} archives but filtered_archives is missing. The activity query result did not materialize.
-          {% elif archive_count > 0 and not layer3_ok %}
-            The service-backed page payload did not materialize the current archive slice. Refresh the print history browser query state.
-          {% elif payload_chars >= hard_budget %}
-            The service-backed activity payload is above the hard budget at {{ payload_chars }} chars. Failure risk is high; treat {{ upper_bound }} archives as the practical ceiling for the current payload density.
-          {% elif payload_chars >= soft_budget %}
-            The service-backed activity payload is above the conservative warning budget at {{ payload_chars }} chars. Current density suggests keeping this near {{ comfortable_max }} archives.
-          {% elif archive_count > 0 %}
-            The service-backed activity payload is within the conservative budget at {{ payload_chars }} chars for {{ archive_count }} archives. Current density suggests about {{ comfortable_max }} archives is comfortable and {{ upper_bound }} is the risk boundary.
+          {% set filtered = states('sensor.bambuddy_print_history_browser_filtered') | int(0) %}
+          {% set page_state = states('sensor.bambuddy_print_history_browser_page_info') | string | trim %}
+          {% set status = states('sensor.bambuddy_print_history_browser_status') | string | lower %}
+          {% if status in ['error', 'failed', 'unavailable', 'unknown'] %}
+            The lightweight Bambuddy browser summary sensors are unhealthy. Check the integration status before testing the frontend browser card.
+          {% elif filtered > 0 and page_state in ['', 'unknown', 'unavailable'] %}
+            The frontend-only browser path is active, but the page summary helper is unavailable. Refresh the Bambuddy browser manager and retry the dashboard.
           {% else %}
-            No print history archives are currently cached, so payload sizing is not yet established.
+            Large print-history page and activity payloads are no longer materialized into Home Assistant state. The dashboard now queries Bambuddy directly over websocket and only keeps lightweight summary entities in HA state.
           {% endif %}
         recommended_action: >-
-          {% set status = states('sensor.print_history_payload_diagnostics') %}
+          {% set status = states('sensor.print_history_payload_diagnostics') | lower %}
           {% if status == 'fail' %}
-            Lower input_number.print_history_max_archives, refresh the archive cache, then re-run script.print_history_payload_self_test.
+            Resolve the Bambuddy browser status error, then refresh the archive cache and reload the dashboard.
           {% elif status == 'warn' %}
-            Keep archive growth in check and consider stepping the helper down before the next full refresh.
+            Refresh the Bambuddy browser manager so the lightweight page summary entities recover before testing frontend queries again.
           {% else %}
-            Current payload size is healthy. Re-run the self-test after changing the archive limit or after large archive growth.
+            Re-run this self-test after dashboard changes to confirm the browser still avoids Home Assistant state materialization.
           {% endif %}

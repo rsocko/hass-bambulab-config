@@ -1,8 +1,9 @@
 print_history_payload_self_test:
   alias: Print History Payload Self-Test
   description: >-
-    Summarize Layer 1 payload size and warn when the print history template
-    chain is approaching or exceeding a safe budget.
+    Confirm that the print history browser keeps large page and activity
+    payloads out of Home Assistant state and that the lightweight summary
+    sensors remain healthy.
   icon: mdi:test-tube
   mode: single
   sequence:
@@ -10,6 +11,7 @@ print_history_payload_self_test:
         status: "{{ states('sensor.print_history_payload_diagnostics') | upper }}"
         archive_count: "{{ state_attr('sensor.print_history_payload_diagnostics', 'archive_count') | int(0) }}"
         payload_chars: "{{ state_attr('sensor.print_history_payload_diagnostics', 'payload_chars') | int(0) }}"
+        page_payload_chars: "{{ state_attr('sensor.print_history_payload_diagnostics', 'page_payload_chars') | int(0) }}"
         avg_chars: "{{ state_attr('sensor.print_history_payload_diagnostics', 'average_chars_per_archive') | float(0) }}"
         utilization: "{{ state_attr('sensor.print_history_payload_diagnostics', 'payload_utilization_percent') | float(0) }}"
         current_max_archives: "{{ state_attr('sensor.print_history_payload_diagnostics', 'current_max_archives_setting') | int(0) }}"
@@ -30,11 +32,8 @@ print_history_payload_self_test:
 
           Current max archives helper: {{ current_max_archives }}
           Cached archives: {{ archive_count }}
-          Layer 1 payload size: {{ payload_chars }} chars
-          Average chars per archive: {{ avg_chars }}
-          Payload utilization: {{ utilization }}% of the conservative budget
-          Conservative comfortable max: {{ comfortable_max }} archives
-          Risk boundary: {{ upper_bound }} archives
+          Materialized payload chars in HA state: {{ payload_chars }}
+          Page payload chars in HA state: {{ page_payload_chars | default(0) }}
           Layer health: L1={{ layer_1_status }}, L2={{ layer_2_status }}, L3={{ layer_3_status }}
 
           {{ message }}

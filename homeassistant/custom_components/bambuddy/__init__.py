@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
@@ -29,6 +31,12 @@ CONF_RELATION_TYPE = "relation_type"
 
 
 _LOGGER = logging.getLogger(__name__)
+
+WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
+
+
+def _strip_entry_id(payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in payload.items() if key not in {CONF_ENTRY_ID, "id", "type"}}
 
 
 SERVICE_REFRESH_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str})
@@ -98,6 +106,48 @@ def _resolve_manager(hass: HomeAssistant, entry_id: str | None = None) -> tuple[
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_QUERY,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Optional("status"): str,
+            vol.Optional("enrichment_status"): str,
+            vol.Optional("material"): str,
+            vol.Optional("printer"): str,
+            vol.Optional("date_range"): str,
+            vol.Optional("designer"): str,
+            vol.Optional("project"): str,
+            vol.Optional("layer_height"): str,
+            vol.Optional("tag"): str,
+            vol.Optional("favorites_only"): bool,
+            vol.Optional("search"): str,
+            vol.Optional("colors"): vol.Any(str, [str]),
+            vol.Optional("selected_day"): str,
+            vol.Optional("sort"): str,
+            vol.Optional("activity_metric"): str,
+            vol.Optional("page"): vol.Coerce(int),
+            vol.Optional("page_size"): vol.Coerce(int),
+            vol.Optional("include_activity_rows"): bool,
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_query(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            response = manager.build_query_response(_strip_entry_id(msg))
+            response[CONF_ENTRY_ID] = entry_id
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "query_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_query)
 
     async def async_handle_refresh(call: ServiceCall) -> None:
         entry_id = call.data.get(CONF_ENTRY_ID)

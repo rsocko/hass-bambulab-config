@@ -18,7 +18,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   setConfig(config) {
     this._config = {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
-      archive_entity: config && config.archive_entity ? config.archive_entity : "sensor.print_history_browser_page_archives",
+      archive_entity: config && config.archive_entity ? config.archive_entity : "",
       detail_entity: config && config.detail_entity ? config.detail_entity : "",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
       visibility_entity: config && config.visibility_entity ? config.visibility_entity : "",
@@ -145,32 +145,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   _resolveArchive() {
     var snapshotArchive = this._parseArchive();
     var archiveId = snapshotArchive && snapshotArchive.id != null ? snapshotArchive.id : null;
-    var entityId = this._config ? this._config.archive_entity : "sensor.print_history_browser_page_archives";
-    var attributes = this._hass && this._hass.states && this._hass.states[entityId] && this._hass.states[entityId].attributes
-      ? this._hass.states[entityId].attributes
-      : null;
-    var raw = attributes
-      ? (attributes.archives || attributes.filtered_archives || attributes.archives_json)
-      : [];
 
     if (archiveId == null) {
       return snapshotArchive;
     }
 
-    var archive = snapshotArchive;
-
-    try {
-      var archiveCache = Array.isArray(raw) ? raw : JSON.parse(raw || "[]");
-      if (Array.isArray(archiveCache)) {
-        archive = archiveCache.find(function (item) {
-          return String(item && item.id) === String(archiveId);
-        }) || snapshotArchive;
-      }
-    } catch (_error) {
-      archive = snapshotArchive;
-    }
-
-    return this._mergeDetailArchive(archive, archiveId);
+    return this._mergeDetailArchive(snapshotArchive, archiveId);
   }
 
   _mergeDetailArchive(archive, archiveId) {
@@ -244,10 +224,6 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         ? this._config.archive_json
         : JSON.stringify(this._config.archive_json || {}),
     ];
-
-    var archiveEntityId = this._config.archive_entity || "sensor.print_history_browser_page_archives";
-    var archiveState = hass.states[archiveEntityId];
-    parts.push(archiveState ? String(archiveState.last_updated || archiveState.last_changed || "") : "");
 
     var detailEntityId = this._config.detail_entity || "";
     var detailState = detailEntityId ? hass.states[detailEntityId] : null;
