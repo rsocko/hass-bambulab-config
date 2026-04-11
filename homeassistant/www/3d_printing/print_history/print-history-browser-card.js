@@ -660,45 +660,76 @@ class PrintHistoryBrowserCard extends HTMLElement {
       },
     ];
 
-    await this._hass.callService("input_text", "set_value", {
-      entity_id: "input_text.print_history_popup_archive_id",
-      value: String(archiveId),
-    });
-    await this._hass.callService("input_text", "set_value", {
-      entity_id: "input_text.print_history_popup_print_name",
-      value: editablePrintName,
-    });
-    await this._hass.callService("input_text", "set_value", {
-      entity_id: "input_text.print_history_popup_tags",
-      value: editableTags,
-    });
-    await this._hass.callService("input_text", "set_value", {
-      entity_id: "input_text.print_history_popup_notes",
-      value: editableNotes,
-    });
-    await this._hass.callService("input_select", "set_options", {
-      entity_id: "input_select.print_history_popup_status",
-      options: statusOptions,
-    });
-    await this._hass.callService("input_select", "select_option", {
-      entity_id: "input_select.print_history_popup_status",
-      option: archiveStatusOption,
-    });
-    await this._hass.callService("input_select", "set_options", {
-      entity_id: "input_select.print_history_popup_failure_reason",
-      options: failureReasonOptions,
-    });
-    await this._hass.callService("input_select", "select_option", {
-      entity_id: "input_select.print_history_popup_failure_reason",
-      option: archiveFailureReason || "Unspecified",
-    });
-    this._fireBrowserModEvent("browser_mod.popup", {
-      title: archiveName,
-      size: "normal",
-      content: {
-        type: "vertical-stack",
-        cards: cards,
-      },
+    this._fireBrowserModEvent("browser_mod.sequence", {
+      sequence: [
+        {
+          service: "input_text.set_value",
+          data: {
+            entity_id: "input_text.print_history_popup_archive_id",
+            value: String(archiveId),
+          },
+        },
+        {
+          service: "input_text.set_value",
+          data: {
+            entity_id: "input_text.print_history_popup_print_name",
+            value: editablePrintName,
+          },
+        },
+        {
+          service: "input_text.set_value",
+          data: {
+            entity_id: "input_text.print_history_popup_tags",
+            value: editableTags,
+          },
+        },
+        {
+          service: "input_text.set_value",
+          data: {
+            entity_id: "input_text.print_history_popup_notes",
+            value: editableNotes,
+          },
+        },
+        {
+          service: "input_select.set_options",
+          data: {
+            entity_id: "input_select.print_history_popup_status",
+            options: statusOptions,
+          },
+        },
+        {
+          service: "input_select.select_option",
+          data: {
+            entity_id: "input_select.print_history_popup_status",
+            option: archiveStatusOption,
+          },
+        },
+        {
+          service: "input_select.set_options",
+          data: {
+            entity_id: "input_select.print_history_popup_failure_reason",
+            options: failureReasonOptions,
+          },
+        },
+        {
+          service: "input_select.select_option",
+          data: {
+            entity_id: "input_select.print_history_popup_failure_reason",
+            option: archiveFailureReason || "Unspecified",
+          },
+        },
+        {
+          service: "browser_mod.popup",
+          data: {
+            title: archiveName,
+            size: "normal",
+            content: {
+              type: "vertical-stack",
+              cards: cards,
+            },
+          },
+        },
+      ],
     });
   }
 
