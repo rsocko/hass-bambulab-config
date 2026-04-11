@@ -13,20 +13,23 @@ card:
   rows: 1.06
   styles: >-
     ${(() => {
-      // Child-order contract for the generated `.bubble-sub-button:nth-child(...)` nodes.
-      // Keep the YAML group order below aligned with this table.
-      const buttonIndex = {
-        first: 1,
-        prev: 2,
-        pageInfo: 3,
-        matches: 4,
-        pageSize: 5,
-        layout: 6,
-        images: 7,
-        refresh: 8,
-        next: 9,
-        last: 10,
-      };
+      // Use icon-based selectors instead of nth-child so mobile visibility does not
+      // depend on generated sub-button DOM positions inside bubble-card.
+      const byIcon = (icon) => `.bubble-sub-button:has(ha-icon[icon="${icon}"])`;
+      const layoutSelector = [
+        'mdi:view-grid-outline',
+        'mdi:image-multiple-outline',
+        'mdi:format-list-bulleted',
+        'mdi:view-dashboard-outline',
+      ].map(byIcon).join(',\n        ');
+      const firstSelector = byIcon('mdi:page-first');
+      const lastSelector = byIcon('mdi:page-last');
+      const matchesSelector = byIcon('mdi:counter');
+      const pageInfoSelector = byIcon('mdi:book-open-page-variant-outline');
+      const pageSizeSelector = byIcon('mdi:format-list-numbered');
+      const imagesSelector = byIcon('mdi:image-outline');
+      const refreshSelector = byIcon('mdi:refresh');
+      const nextSelector = byIcon('mdi:chevron-right');
       return `
         ha-card {
           overflow: hidden !important;
@@ -39,15 +42,15 @@ card:
         .bubble-sub-button {
           min-width: 0 !important;
         }
-        .bubble-sub-button:nth-child(${buttonIndex.images}) .bubble-sub-button-name,
-        .bubble-sub-button:nth-child(${buttonIndex.refresh}) .bubble-sub-button-name {
+        ${imagesSelector} .bubble-sub-button-name,
+        ${refreshSelector} .bubble-sub-button-name {
           display: none !important;
         }
-        .bubble-sub-button:nth-child(${buttonIndex.next}) {
+        ${nextSelector} {
           margin-left: 10px !important;
           position: relative;
         }
-        .bubble-sub-button:nth-child(${buttonIndex.next})::before {
+        ${nextSelector}::before {
           content: '';
           position: absolute;
           left: -9px;
@@ -86,31 +89,31 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.first}),
-          .bubble-sub-button:nth-child(${buttonIndex.last}),
-          .bubble-sub-button:nth-child(${buttonIndex.matches}) {
+          ${firstSelector},
+          ${lastSelector},
+          ${matchesSelector} {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.pageInfo}) .bubble-sub-button-name {
+          ${pageInfoSelector} .bubble-sub-button-name {
             max-width: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.pageInfo}) .bubble-sub-button-state {
+          ${pageInfoSelector} .bubble-sub-button-state {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(${buttonIndex.layout}) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(${buttonIndex.layout}) .bubble-sub-button-state,
-          .bubble-sub-button:nth-child(${buttonIndex.images}) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(${buttonIndex.refresh}) .bubble-sub-button-name {
+          ${pageSizeSelector} .bubble-sub-button-name,
+          ${layoutSelector} .bubble-sub-button-name,
+          ${layoutSelector} .bubble-sub-button-state,
+          ${imagesSelector} .bubble-sub-button-name,
+          ${refreshSelector} .bubble-sub-button-name {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) ha-icon {
+          ${pageSizeSelector} ha-icon {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.next}) {
+          ${nextSelector} {
             margin-left: 0 !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.next})::before {
+          ${nextSelector}::before {
             display: none !important;
           }
         }
@@ -121,7 +124,8 @@ card:
     bottom_layout: rows
     bottom:
       - group:
-          # Order matters. Keep aligned with buttonIndex above.
+          # Controls are identified for CSS by unique icons. Do not reuse these
+          # icons for a different semantic action inside this row.
           - name: First Page
             icon: mdi:page-first
             show_icon: true

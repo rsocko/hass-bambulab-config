@@ -12,9 +12,9 @@ That approach is fragile. Small card-structure changes can silently swap button 
 
 `print_history_top_controls.yaml` is a single-row `custom:bubble-card` with one fixed sub-button group.
 
-The implementation still uses `nth-child(...)` selectors, but only against a documented, repo-owned order contract. The point is not to avoid `nth-child` entirely; the point is to make it deterministic and reviewable.
+The active implementation now hardens visibility rules with icon-based selectors first, and treats YAML order as a secondary readability contract rather than the main mechanism.
 
-### Fixed Child Order Contract
+### Semantic Control Contract
 
 The sub-buttons must remain in this exact order:
 
@@ -29,7 +29,20 @@ The sub-buttons must remain in this exact order:
 9. `Next`
 10. `Last`
 
-The YAML file duplicates this mapping in an inline `buttonIndex` object. If the YAML order changes, that mapping and the mobile CSS rules must be updated in the same edit.
+Each control in this row is also identified by a unique semantic icon, and the mobile CSS targets those icons directly:
+
+- `mdi:page-first` → `First`
+- `mdi:chevron-left` → `Previous`
+- `mdi:book-open-page-variant-outline` → `Page Info`
+- `mdi:counter` → `Matches`
+- `mdi:format-list-numbered` → `Prints / Page`
+- `mdi:view-grid-outline` / `mdi:image-multiple-outline` / `mdi:format-list-bulleted` / `mdi:view-dashboard-outline` → `Layout`
+- `mdi:image-outline` → `Images`
+- `mdi:refresh` → `Refresh`
+- `mdi:chevron-right` → `Next`
+- `mdi:page-last` → `Last`
+
+If a control icon changes, the selector contract in `print_history_top_controls.yaml` must be updated in the same edit.
 
 ## Mobile Contract
 
@@ -60,12 +73,13 @@ Do not reintroduce these patterns into `print_history_top_controls.yaml`:
 - Hidden duplicate controls whose visibility depends on generated child order.
 - Extra temporary buttons that shift the fixed child order without updating the contract.
 - Layout-mode quick buttons that replace the canonical `Layout` select on some breakpoints.
-- Refactors that remove the inline `buttonIndex` mapping or make it diverge from YAML order.
+- Refactors that make mobile visibility depend primarily on raw child indices when unique icon selectors can be used.
+- Reusing one of the semantic icons above for a different action inside this same row.
 
 Preferred change patterns:
 
-- If a control is added or removed, update the YAML order, the inline `buttonIndex` map, and this document together.
-- If mobile behavior changes, update the documented `nth-child` targets by semantic name, not by guessing raw numbers in CSS.
+- If a control is added or removed, update the YAML order, the icon-selector mapping, and this document together.
+- If mobile behavior changes, target controls by semantic icon selector first rather than by guessed raw child indices.
 - Keep `Layout` as the canonical layout control across all breakpoints.
 
 ## Validation Checklist
@@ -77,7 +91,7 @@ When modifying the top controls, verify all of the following:
 3. Mobile still shows the `Layout` dropdown.
 4. Page info reads `Page X of Y` on desktop and `X/Y` on mobile.
 5. The same control strip works in both the top and bottom placements in `view_print_history.yaml`.
-6. The inline `buttonIndex` map still matches the YAML group order exactly.
+6. The icon selector contract still matches the icons used in the YAML group.
 7. `Prints / Page` collapses to `PpP` on mobile.
 8. `Images` and `Refresh` stay icon-only on both desktop and mobile.
 9. `Layout` uses a variant-specific icon on both desktop and mobile.
