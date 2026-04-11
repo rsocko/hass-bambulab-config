@@ -182,8 +182,8 @@ card:
                   Detail: 'mdi:format-list-bulleted',
                 })[variant] || 'mdi:view-dashboard-outline';
               })()}
-            show_name: false
-            show_state: false
+            show_name: true
+            show_state: true
             show_background: true
             fill_width: false
           - entity: input_boolean.print_history_show_images
