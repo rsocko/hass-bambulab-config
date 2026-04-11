@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -202,6 +203,7 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
     projected = {
         "id": raw_archive.get("id"),
         "printer_id": raw_archive.get("printer_id"),
+        "printer_name": as_text(raw_archive.get("printer_name")).strip(),
         "print_name": as_text(raw_archive.get("print_name")).strip(),
         "print_time_seconds": as_int(raw_archive.get("print_time_seconds")),
         "actual_time_seconds": as_int(raw_archive.get("actual_time_seconds")),
@@ -291,6 +293,7 @@ def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": archive.get("id"),
         "printer_id": archive.get("printer_id"),
+        "printer_name": as_text(archive.get("printer_name")).strip(),
         "print_name": as_text(archive.get("print_name")).strip(),
         "status": normalize_status(archive.get("status")),
         "started_at": as_text(archive.get("started_at")).strip(),
@@ -321,6 +324,64 @@ def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
 
 def archive_activity_rows(archives: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [archive_activity_row(archive) for archive in archives]
+
+
+def printer_entries(archives: list[dict[str, Any]]) -> list[dict[str, str]]:
+    by_id: dict[str, dict[str, str]] = {}
+    for archive in archives:
+        printer_id = as_text(archive.get("printer_id")).strip()
+        if not printer_id:
+            continue
+        printer_name = as_text(archive.get("printer_name")).strip()
+        entry = by_id.get(printer_id)
+        if entry is None:
+            by_id[printer_id] = {"printer_id": printer_id, "printer_name": printer_name}
+            continue
+        if printer_name and not entry["printer_name"]:
+            entry["printer_name"] = printer_name
+    return list(by_id.values())
+
+
+def printer_display_label(entry: dict[str, Any]) -> str:
+    printer_name = as_text(entry.get("printer_name")).strip()
+    if printer_name:
+        return printer_name
+    return as_text(entry.get("printer_id")).strip()
+
+
+def printer_option_labels(archives: list[dict[str, Any]]) -> dict[str, str]:
+    entries = printer_entries(archives)
+    base_labels = {entry["printer_id"]: printer_display_label(entry) for entry in entries}
+    label_counts = Counter(base_labels.values())
+    labels: dict[str, str] = {}
+    for entry in sorted(entries, key=lambda item: (printer_display_label(item).lower(), item["printer_id"])):
+        printer_id = entry["printer_id"]
+        label = base_labels[printer_id]
+        if label_counts[label] > 1 and label != printer_id:
+            label = f"{label} ({printer_id})"
+        labels[printer_id] = label
+    return labels
+
+
+def resolve_printer_filter_ids(archives: list[dict[str, Any]], selected_value: Any) -> set[str]:
+    selected = as_text(selected_value).strip()
+    if not selected or selected == "All":
+        return set()
+
+    labels = printer_option_labels(archives)
+    matching_ids = {
+        printer_id
+        for printer_id, label in labels.items()
+        if selected in {printer_id, label}
+    }
+    if matching_ids:
+        return matching_ids
+
+    for entry in printer_entries(archives):
+        printer_name = as_text(entry.get("printer_name")).strip()
+        if printer_name and selected.lower() == printer_name.lower():
+            matching_ids.add(entry["printer_id"])
+    return matching_ids
 
 
 def archive_colors(archive: dict[str, Any]) -> list[str]:
@@ -466,6 +527,7 @@ def query_archives(
     activity_mode = states.get("input_select.print_history_activity_metric", "Print Count")
     page_size = max(1, as_int(states.get("input_number.print_history_page_size", 10), 10))
     requested_page = max(1, as_int(states.get("input_number.history_current_page", 1), 1))
+    selected_printer_ids = resolve_printer_filter_ids(archives, printer_filter)
 
     matches: list[dict[str, Any]] = []
     available_colors = sorted({color for archive in archives for color in archive_colors(archive)})
@@ -503,7 +565,7 @@ def query_archives(
             continue
         if material_filter != "All" and archive_material != material_filter.lower():
             continue
-        if printer_filter != "All" and archive_printer != as_text(printer_filter).strip():
+        if printer_filter != "All" and archive_printer not in selected_printer_ids:
             continue
         if designer_filter != "All" and archive_designer != designer_filter.lower():
             continue
@@ -574,7 +636,7 @@ def query_archives(
 
 def option_sets(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
     material_values = sorted({as_text(archive.get("filament_type")).strip() for archive in archives if as_text(archive.get("filament_type")).strip()})
-    printer_values = sorted({as_text(archive.get("printer_id")).strip() for archive in archives if as_text(archive.get("printer_id")).strip()})
+    printer_values = list(printer_option_labels(archives).values())
     designer_values = sorted({as_text(archive.get("designer")).strip() for archive in archives if as_text(archive.get("designer")).strip()})
     project_values = sorted({as_text(archive.get("project_name")).strip() for archive in archives if as_text(archive.get("project_name")).strip()})
     layer_height_values = sorted({as_text(archive.get("layer_height")).strip() for archive in archives if as_text(archive.get("layer_height")).strip()})

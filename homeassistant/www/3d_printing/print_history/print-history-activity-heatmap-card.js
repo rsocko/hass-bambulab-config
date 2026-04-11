@@ -23,6 +23,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._selectedOverlay = null;
     this._queryResponse = { activity_rows: [] };
     this._queryToken = 0;
+    this._renderTimer = null;
   }
 
   setConfig(config) {
@@ -96,6 +97,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       window.removeEventListener("location-changed", this._visibilityHandler);
       document.removeEventListener("visibilitychange", this._visibilityHandler);
       this._visibilityHandler = null;
+    }
+    if (this._renderTimer) {
+      clearTimeout(this._renderTimer);
+      this._renderTimer = null;
     }
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
@@ -273,21 +278,27 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
   _queueRender() {
     var self = this;
-    if (self._renderQueued) {
-      return;
+    if (self._renderTimer) {
+      clearTimeout(self._renderTimer);
     }
-    self._renderQueued = true;
+    self._renderTimer = setTimeout(function () {
+      self._renderTimer = null;
+      if (self._renderQueued) {
+        return;
+      }
+      self._renderQueued = true;
 
-    Promise.resolve()
-      .then(function () {
-        return self._renderCard();
-      })
-      .catch(function (err) {
-        self._showError(err && err.message ? err.message : String(err));
-      })
-      .then(function () {
-        self._renderQueued = false;
-      });
+      Promise.resolve()
+        .then(function () {
+          return self._renderCard();
+        })
+        .catch(function (err) {
+          self._showError(err && err.message ? err.message : String(err));
+        })
+        .then(function () {
+          self._renderQueued = false;
+        });
+    }, 180);
   }
 
   async _renderCard() {
@@ -510,9 +521,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       id: archive && archive.id != null ? archive.id : null,
       printName: archive && archive.print_name ? String(archive.print_name) : "Unnamed",
       printerId: archive && archive.printer_id != null ? String(archive.printer_id) : "Unknown printer",
-        filamentType: archive && archive.filament_type ? String(archive.filament_type) : "",
+      printerName: archive && archive.printer_name ? String(archive.printer_name) : "",
+      printerLabel: archive && archive.printer_name ? String(archive.printer_name) : (archive && archive.printer_id != null ? String(archive.printer_id) : "Unknown printer"),
+      filamentType: archive && archive.filament_type ? String(archive.filament_type) : "",
       designer: archive && archive.designer ? String(archive.designer) : "",
-        isFavorite: !!(archive && archive.is_favorite),
+      isFavorite: !!(archive && archive.is_favorite),
       status: this._normalizeStatus(archive && archive.status),
       rawStatus: archive && archive.status ? String(archive.status) : "",
       timestamp: date,
@@ -558,7 +571,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     var matchesStatus = statusValue === "All" || this._matchesStatusFilter(statusValue, archiveStatus);
     var matchesMaterial = materialValue === "All" || String(archive.filamentType || "").toLowerCase() === String(materialValue).toLowerCase();
-    var matchesPrinter = printerValue === "All" || String(archive.printerId) === String(printerValue);
+    var matchesPrinter = printerValue === "All"
+      || String(archive.printerId) === String(printerValue)
+      || String(archive.printerLabel) === String(printerValue)
+      || (archive.printerName && String(archive.printerName).toLowerCase() === String(printerValue).toLowerCase());
     var matchesDesigner = designerValue === "All" || String(archive.designer).toLowerCase() === String(designerValue).toLowerCase();
     var matchesLayerHeight = layerHeightValue === "All" || String(archive.layerHeight) === String(layerHeightValue);
     var matchesTag = !tagValue || String(tagValue).toLowerCase() === "all" || tagValues.indexOf(String(tagValue).toLowerCase()) !== -1;
@@ -1595,7 +1611,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var thumbHtml = archive.id && baseUrl
       ? '<img class="thumb" loading="lazy" src="' + this._escapeHtml(baseUrl + "/api/v1/archives/" + archive.id + "/thumbnail") + '" alt="">'
       : '<div class="thumb-fallback">3D</div>';
-    var metaParts = [this._escapeHtml(archive.formattedDate), this._escapeHtml("Printer " + archive.printerId)];
+    var metaParts = [this._escapeHtml(archive.formattedDate), this._escapeHtml(archive.printerLabel || ("Printer " + archive.printerId))];
     if (archive.designer) {
       metaParts.push(this._escapeHtml(archive.designer));
     }

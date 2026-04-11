@@ -21,6 +21,7 @@ def _projected_archives() -> list[dict]:
         {
             "id": 101,
             "printer_id": 1,
+            "printer_name": "Workshop P1S",
             "print_name": "Hueforge Batman",
             "actual_time_seconds": 14400,
             "print_time_seconds": 15000,
@@ -55,6 +56,7 @@ def _projected_archives() -> list[dict]:
         {
             "id": 202,
             "printer_id": 2,
+            "printer_name": "Garage A1",
             "print_name": "Fixture Test",
             "actual_time_seconds": 3600,
             "print_time_seconds": 3700,
@@ -85,6 +87,7 @@ def _live_style_projected_archive() -> dict:
         {
             "id": 218,
             "printer_id": 1,
+            "printer_name": "Workshop P1S",
             "print_name": "EPIC Giant Moon - Plate 7",
             "actual_time_seconds": 13430,
             "print_time_seconds": 13285,
@@ -124,7 +127,7 @@ def test_variant3_query_contract_matches_browser_filters() -> None:
         "input_select.print_history_filter_status": "Completed",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "PLA",
-        "input_select.print_history_filter_printer": "1",
+        "input_select.print_history_filter_printer": "Workshop P1S",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "Jane",
         "input_select.print_history_filter_project": "Wall Art",
@@ -372,6 +375,7 @@ def test_variant3_activity_rows_expose_only_summary_fields() -> None:
     rows = archive_activity_rows(_projected_archives())
 
     assert rows[0]["print_name"] == "Hueforge Batman"
+    assert rows[0]["printer_name"] == "Workshop P1S"
     assert rows[0]["status"] == "completed"
     assert "notes" not in rows[0]
     assert "payload_hash" not in rows[0]
@@ -441,7 +445,7 @@ def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: P
         "input_select.print_history_filter_status": "Completed",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "PLA",
-        "input_select.print_history_filter_printer": "1",
+        "input_select.print_history_filter_printer": "Workshop P1S",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "Jane",
         "input_select.print_history_filter_project": "Wall Art",
@@ -573,6 +577,7 @@ def test_variant3_store_activity_rows_ignore_selected_day(tmp_path: Path) -> Non
     rows = store.load_activity_rows(states)
 
     assert [row["id"] for row in rows] == [101, 202]
+    assert rows[0]["printer_name"] == "Workshop P1S"
     assert rows[0]["filament_slots"][0]["color"] == "#112233"
 
 
@@ -643,5 +648,6 @@ def test_variant3_store_detail_loads_review_and_lineage(tmp_path: Path) -> None:
 def test_variant3_option_sets_keep_none_and_strip_system_tags() -> None:
     options = option_sets(_projected_archives())
 
+    assert options["input_select.print_history_filter_printer"] == ["All", "Garage A1", "Workshop P1S"]
     assert options["input_select.print_history_filter_project"] == ["All", "None", "Wall Art"]
     assert options["input_select.print_history_filter_tag"] == ["All", "None", "display", "hueforge", "qa"]

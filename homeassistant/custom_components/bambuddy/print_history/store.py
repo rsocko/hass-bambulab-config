@@ -19,6 +19,7 @@ try:
         normalize_hex,
         note_payload_rows,
         query_archives,
+        resolve_printer_filter_ids,
         selected_colors,
         split_tags,
     )
@@ -34,6 +35,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         normalize_hex,
         note_payload_rows,
         query_archives,
+        resolve_printer_filter_ids,
         selected_colors,
         split_tags,
     )
@@ -58,6 +60,7 @@ class PrintHistoryStore:
             CREATE TABLE IF NOT EXISTS archives (
                 archive_id INTEGER PRIMARY KEY,
                 printer_id TEXT,
+                printer_name TEXT NOT NULL DEFAULT '',
                 print_name TEXT NOT NULL DEFAULT '',
                 status TEXT NOT NULL DEFAULT '',
                 started_at TEXT,
@@ -174,6 +177,7 @@ class PrintHistoryStore:
             if len(row) > 1
         }
         required_columns = {
+            "printer_name": "TEXT NOT NULL DEFAULT ''",
             "last_synced_at": "TEXT NOT NULL DEFAULT ''",
             "source_updated_at": "TEXT NOT NULL DEFAULT ''",
             "payload_hash": "TEXT NOT NULL DEFAULT ''",
@@ -210,7 +214,7 @@ class PrintHistoryStore:
                 connection.execute(
                     """
                     INSERT INTO archives (
-                        archive_id, printer_id, print_name, status, started_at, completed_at,
+                        archive_id, printer_id, printer_name, print_name, status, started_at, completed_at,
                         created_at, actual_time_seconds, print_time_seconds,
                         filament_used_grams, filament_type, filament_color, cost, quantity,
                         object_count, layer_height, nozzle_diameter, nozzle_temperature,
@@ -218,11 +222,12 @@ class PrintHistoryStore:
                         is_favorite, tags, notes, failure_reason, thumbnail_path,
                         project_id, project_name, enrichment_status, last_synced_at,
                         source_updated_at, payload_hash, json_payload, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         archive_id,
                         as_text(archive.get("printer_id")).strip(),
+                        as_text(archive.get("printer_name")).strip(),
                         as_text(archive.get("print_name")).strip(),
                         as_text(archive.get("status")).strip(),
                         as_text(archive.get("started_at")).strip(),
@@ -447,6 +452,7 @@ class PrintHistoryStore:
                 {
                     "id": archive_id,
                     "printer_id": base["printer_id"],
+                    "printer_name": base["printer_name"],
                     "print_name": base["print_name"],
                     "status": base["status"],
                     "started_at": base["started_at"],
@@ -473,6 +479,25 @@ class PrintHistoryStore:
         connection = sqlite3.connect(self._db_path)
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
+
+    def _resolve_selected_printer_ids(self, selected_printer: str) -> set[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT DISTINCT printer_id, printer_name
+                FROM archives
+                WHERE TRIM(COALESCE(printer_id, '')) != ''
+                """
+            ).fetchall()
+        printers = [
+            {
+                "printer_id": as_text(row[0]).strip(),
+                "printer_name": as_text(row[1]).strip(),
+            }
+            for row in rows
+            if as_text(row[0]).strip()
+        ]
+        return resolve_printer_filter_ids(printers, selected_printer)
 
     def load_archive(self, archive_id: int) -> dict[str, Any] | None:
         with self._connect() as connection:
@@ -811,8 +836,12 @@ class PrintHistoryStore:
             where_clauses.append("LOWER(a.filament_type) = ?")
             params.append(filters["material"].lower())
         if filters["printer"] not in {"", "All"}:
-            where_clauses.append("TRIM(COALESCE(a.printer_id, '')) = ?")
-            params.append(filters["printer"])
+            selected_printer_ids = self._resolve_selected_printer_ids(filters["printer"])
+            if not selected_printer_ids:
+                return []
+            placeholders = ",".join("?" for _ in selected_printer_ids)
+            where_clauses.append(f"TRIM(COALESCE(a.printer_id, '')) IN ({placeholders})")
+            params.extend(sorted(selected_printer_ids))
         if filters["designer"] not in {"", "all"}:
             where_clauses.append("LOWER(a.designer) = ?")
             params.append(filters["designer"])
@@ -1070,6 +1099,7 @@ class PrintHistoryStore:
                 SELECT
                     archive_id,
                     printer_id,
+                    printer_name,
                     print_name,
                     status,
                     started_at,
@@ -1095,23 +1125,24 @@ class PrintHistoryStore:
         return {
             as_int(row[0]): {
                 "printer_id": row[1],
-                "print_name": as_text(row[2]).strip(),
-                "status": as_text(row[3]).strip().lower(),
-                "started_at": as_text(row[4]).strip(),
-                "completed_at": as_text(row[5]).strip(),
-                "created_at": as_text(row[6]).strip(),
-                "actual_time_seconds": as_int(row[7]),
-                "print_time_seconds": as_int(row[8]),
-                "filament_used_grams": as_float(row[9]),
-                "filament_type": as_text(row[10]).strip(),
-                "filament_color": as_text(row[11]).strip(),
-                "cost": as_float(row[12]),
-                "designer": as_text(row[13]).strip(),
-                "is_favorite": as_int(row[14]),
-                "object_count": max(1, as_int(row[15], 1)),
-                "layer_height": as_text(row[16]).strip(),
-                "tags": as_text(row[17]).strip(),
-                "thumbnail_path": as_text(row[18]).strip(),
+                "printer_name": as_text(row[2]).strip(),
+                "print_name": as_text(row[3]).strip(),
+                "status": as_text(row[4]).strip().lower(),
+                "started_at": as_text(row[5]).strip(),
+                "completed_at": as_text(row[6]).strip(),
+                "created_at": as_text(row[7]).strip(),
+                "actual_time_seconds": as_int(row[8]),
+                "print_time_seconds": as_int(row[9]),
+                "filament_used_grams": as_float(row[10]),
+                "filament_type": as_text(row[11]).strip(),
+                "filament_color": as_text(row[12]).strip(),
+                "cost": as_float(row[13]),
+                "designer": as_text(row[14]).strip(),
+                "is_favorite": as_int(row[15]),
+                "object_count": max(1, as_int(row[16], 1)),
+                "layer_height": as_text(row[17]).strip(),
+                "tags": as_text(row[18]).strip(),
+                "thumbnail_path": as_text(row[19]).strip(),
             }
             for row in rows
         }
