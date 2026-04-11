@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from hashlib import sha256
 from typing import Any
 
@@ -109,11 +109,22 @@ def archive_datetime(archive: dict[str, Any]) -> datetime | None:
     return None
 
 
-def archive_date_key(archive: dict[str, Any]) -> str:
+def local_timezone() -> tzinfo:
+    return datetime.now().astimezone().tzinfo or timezone.utc
+
+
+def local_date_key(value: Any, *, local_tz: tzinfo | None = None) -> str:
+    parsed = parse_iso_datetime(value)
+    if parsed is None:
+        return ""
+    return parsed.astimezone(local_tz or local_timezone()).strftime("%Y-%m-%d")
+
+
+def archive_date_key(archive: dict[str, Any], *, local_tz: tzinfo | None = None) -> str:
     parsed = archive_datetime(archive)
     if parsed is None:
         return ""
-    return parsed.astimezone().strftime("%Y-%m-%d")
+    return parsed.astimezone(local_tz or local_timezone()).strftime("%Y-%m-%d")
 
 
 def extract_enrichment_payload(notes: str) -> dict[str, Any]:

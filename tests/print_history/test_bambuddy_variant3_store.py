@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -12,6 +12,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 
+import query as query_module  # noqa: E402
 from query import archive_activity_rows, option_sets, project_archive, query_archives  # noqa: E402
 from store import PrintHistoryStore  # noqa: E402
 
@@ -579,6 +580,69 @@ def test_variant3_store_activity_rows_ignore_selected_day(tmp_path: Path) -> Non
     assert [row["id"] for row in rows] == [101, 202]
     assert rows[0]["printer_name"] == "Workshop P1S"
     assert rows[0]["filament_slots"][0]["color"] == "#112233"
+
+
+def test_variant3_store_selected_day_uses_shared_local_day_projection(tmp_path: Path, monkeypatch) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    monkeypatch.setattr(query_module, "local_timezone", lambda: timezone(timedelta(hours=-7)))
+
+    archives = [
+        project_archive(
+            {
+                "id": 303,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Overnight Plate",
+                "actual_time_seconds": 1800,
+                "print_time_seconds": 1800,
+                "filament_used_grams": 9.5,
+                "filament_type": "PLA",
+                "filament_color": "#123456",
+                "status": "completed",
+                "started_at": "2026-04-09T01:30:00Z",
+                "completed_at": "2026-04-09T02:00:00Z",
+                "created_at": "2026-04-09T01:25:00Z",
+                "cost": 0.31,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "NightShift",
+                "is_favorite": False,
+                "tags": "overnight",
+                "notes": "",
+                "project_name": "Ops",
+                "extra_data": {},
+            }
+        )
+    ]
+    store.replace_archives(archives)
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "2026-04-08",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    expected = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+    actual = store.load_query_result(states)
+
+    assert expected.filtered_count == 1
+    assert [archive["id"] for archive in expected.page_items] == [303]
+    assert [archive["id"] for archive in actual.page_items] == [303]
 
 
 def test_variant3_store_mutation_helpers_update_review_and_lineage(tmp_path: Path) -> None:

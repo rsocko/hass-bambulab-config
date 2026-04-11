@@ -88,6 +88,7 @@ class PrintHistoryStore:
                 thumbnail_path TEXT NOT NULL DEFAULT '',
                 project_id TEXT,
                 project_name TEXT NOT NULL DEFAULT '',
+                archive_day_local TEXT NOT NULL DEFAULT '',
                 enrichment_status TEXT NOT NULL DEFAULT '',
                 last_synced_at TEXT NOT NULL DEFAULT '',
                 source_updated_at TEXT NOT NULL DEFAULT '',
@@ -178,6 +179,7 @@ class PrintHistoryStore:
         }
         required_columns = {
             "printer_name": "TEXT NOT NULL DEFAULT ''",
+            "archive_day_local": "TEXT NOT NULL DEFAULT ''",
             "last_synced_at": "TEXT NOT NULL DEFAULT ''",
             "source_updated_at": "TEXT NOT NULL DEFAULT ''",
             "payload_hash": "TEXT NOT NULL DEFAULT ''",
@@ -187,6 +189,29 @@ class PrintHistoryStore:
                 continue
             _LOGGER.info("Adding missing archives.%s column to Bambuddy local store", column_name)
             connection.execute(f"ALTER TABLE archives ADD COLUMN {column_name} {definition}")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_archives_archive_day_local ON archives(archive_day_local)")
+        self._backfill_archive_day_local(connection)
+
+    def _backfill_archive_day_local(self, connection: sqlite3.Connection) -> None:
+        rows = connection.execute(
+            """
+            SELECT archive_id, started_at, created_at, completed_at
+            FROM archives
+            WHERE TRIM(COALESCE(archive_day_local, '')) = ''
+            """
+        ).fetchall()
+        for archive_id, started_at, created_at, completed_at in rows:
+            archive_day_local = archive_date_key(
+                {
+                    "started_at": started_at,
+                    "created_at": created_at,
+                    "completed_at": completed_at,
+                }
+            )
+            connection.execute(
+                "UPDATE archives SET archive_day_local = ? WHERE archive_id = ?",
+                (archive_day_local, archive_id),
+            )
 
     def replace_archives(self, archives: list[dict[str, Any]]) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -220,9 +245,9 @@ class PrintHistoryStore:
                         object_count, layer_height, nozzle_diameter, nozzle_temperature,
                         total_layers, sliced_for_model, designer, makerworld_url,
                         is_favorite, tags, notes, failure_reason, thumbnail_path,
-                        project_id, project_name, enrichment_status, last_synced_at,
+                        project_id, project_name, archive_day_local, enrichment_status, last_synced_at,
                         source_updated_at, payload_hash, json_payload, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         archive_id,
@@ -255,6 +280,7 @@ class PrintHistoryStore:
                         as_text(archive.get("thumbnail_path")).strip(),
                         as_text(archive.get("project_id")).strip(),
                         as_text(archive.get("project_name")).strip(),
+                        archive_date_key(archive),
                         as_text(archive.get("enrichment_status")).strip(),
                         timestamp,
                         as_text(archive.get("source_updated_at")).strip(),
@@ -416,8 +442,9 @@ class PrintHistoryStore:
                 """
                 SELECT
                     COUNT(*) AS archive_count,
-                    COUNT(DISTINCT DATE(COALESCE(NULLIF(started_at, ''), NULLIF(created_at, ''), NULLIF(completed_at, '')))) AS active_day_count
+                    COUNT(DISTINCT archive_day_local) AS active_day_count
                 FROM archives
+                WHERE TRIM(COALESCE(archive_day_local, '')) != ''
                 """
             ).fetchone()
             latest = connection.execute(
@@ -860,7 +887,7 @@ class PrintHistoryStore:
             where_clauses.append("(LOWER(a.print_name) LIKE ? OR LOWER(a.designer) LIKE ? OR LOWER(a.tags) LIKE ?)")
             params.extend([like, like, like])
         if filters["selected_day"]:
-            where_clauses.append("DATE(COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, ''))) = ?")
+            where_clauses.append("a.archive_day_local = ?")
             params.append(filters["selected_day"])
         if filters["tag"] not in {"", "all"}:
             if filters["tag"] == "none":
@@ -885,9 +912,7 @@ class PrintHistoryStore:
             params.extend([f"%{color}%" for color in filters["colors"]])
         date_threshold = self._date_range_threshold(filters["date_range"], filters["today"])
         if date_threshold:
-            where_clauses.append(
-                "DATE(COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, ''))) >= ?"
-            )
+            where_clauses.append("a.archive_day_local >= ?")
             params.append(date_threshold)
 
         sort_sql = self._sort_sql(filters["sort"])
@@ -1037,7 +1062,7 @@ class PrintHistoryStore:
                     a.cost,
                     a.actual_time_seconds,
                     a.print_time_seconds,
-                    DATE(COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, ''))) AS archive_day,
+                    a.archive_day_local AS archive_day,
                     COALESCE(slot_counts.slot_count, 0) AS slot_count
                 FROM archives a
                 LEFT JOIN (
