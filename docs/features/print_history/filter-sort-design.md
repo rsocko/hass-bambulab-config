@@ -1798,7 +1798,9 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 
 ### Implementation Details
 
-The browser entry surface now uses a permanently visible browser header plus a separate reusable control strip. Search, matches, settings, filter pills, clear actions, and the multi-select color chips live in the header; page navigation, page-size, layout toggles, and refresh live in `print_history_top_controls.yaml` and are rendered above and below the archive grid.
+The browser entry surface now uses a permanently visible browser header plus a separate reusable control strip. Search, matches, settings, filter pills, clear actions, and the multi-select color chips live in the header; page navigation, page-size, layout selection, and refresh live in `print_history_top_controls.yaml` and are rendered above and below the archive grid.
+
+The active top-controls contract intentionally splits pagination from utility controls so mobile behavior does not depend on `bubble-card` child indices. See `top-controls-contract.md`.
 
 ```yaml
 # dashboard_cards/print_history_browser.yaml

@@ -10,6 +10,8 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
 
+For the active print-history control-strip structure and mobile pagination guardrails, see `top-controls-contract.md`.
+
 ## Archived Browser Variants
 
 The retired browser backends remain in-repo for reference only and are no longer part of the Home Assistant deploy path or active GitHub workflows.

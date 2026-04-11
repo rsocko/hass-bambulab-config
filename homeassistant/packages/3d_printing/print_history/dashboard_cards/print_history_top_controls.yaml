@@ -1,21 +1,127 @@
-type: custom:config-template-card
-entities:
-  - input_number.print_history_page_size
-  - input_select.print_history_card_variant
-  - input_boolean.print_history_show_images
-  - sensor.bambuddy_print_history_browser_page_info
-  - sensor.bambuddy_print_history_browser_filtered
-card:
-  type: custom:bubble-card
-  card_type: sub-buttons
-  entity: sensor.bambuddy_print_history_browser_page_info
-  hide_main_background: false
-  rows: 1.06
-  styles: >-
-    ${(() => {
-      const variant = states['input_select.print_history_card_variant']?.state || '';
-      const selectedIndex = ({ Compact: 7, Media: 8, Detail: 9 })[variant];
-      return `
+type: vertical-stack
+cards:
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        icon: mdi:page-first
+        show_icon: true
+        show_name: false
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: first
+        styles:
+          card:
+            - height: 46px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - box-shadow: none
+            - display: >-
+                [[[ return window.innerWidth <= 720 ? 'none' : 'block'; ]]]
+          icon:
+            - color: var(--primary-text-color)
+      - type: custom:button-card
+        icon: mdi:chevron-left
+        show_icon: true
+        show_name: false
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: prev
+        styles:
+          card:
+            - height: 46px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - box-shadow: none
+          icon:
+            - color: var(--primary-text-color)
+      - type: custom:button-card
+        entity: sensor.bambuddy_print_history_browser_page_info
+        icon: mdi:book-open-page-variant-outline
+        show_icon: true
+        show_name: true
+        show_state: false
+        name: >-
+          [[[ const raw = String((entity && entity.state) || '1 of 1').replace(/^Page\s+/, '').trim() || '1 of 1'; return window.innerWidth <= 720 ? raw.replace(/\s+of\s+/i, '/') : `Page ${raw}`; ]]]
+        tap_action:
+          action: none
+        styles:
+          card:
+            - height: 46px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - box-shadow: none
+            - padding-left: 12px
+            - padding-right: 12px
+          grid:
+            - grid-template-areas: 'i n'
+            - grid-template-columns: min-content 1fr
+            - align-items: center
+            - column-gap: 8px
+          name:
+            - justify-self: start
+            - font-size: 14px
+            - font-weight: 600
+          icon:
+            - width: 18px
+            - color: var(--accent-color)
+      - type: custom:button-card
+        icon: mdi:chevron-right
+        show_icon: true
+        show_name: false
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: next
+        styles:
+          card:
+            - height: 46px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - box-shadow: none
+          icon:
+            - color: var(--primary-text-color)
+      - type: custom:button-card
+        icon: mdi:page-last
+        show_icon: true
+        show_name: false
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: script.navigate_history
+          data:
+            direction: last
+        styles:
+          card:
+            - height: 46px
+            - border-radius: 999px
+            - background: var(--ha-card-background)
+            - box-shadow: none
+            - display: >-
+                [[[ return window.innerWidth <= 720 ? 'none' : 'block'; ]]]
+          icon:
+            - color: var(--primary-text-color)
+
+  - type: custom:config-template-card
+    entities:
+      - input_select.print_history_card_variant
+      - input_number.print_history_page_size
+      - input_boolean.print_history_show_images
+      - sensor.bambuddy_print_history_browser_filtered
+    card:
+      type: custom:bubble-card
+      card_type: sub-buttons
+      entity: sensor.bambuddy_print_history_browser_filtered
+      hide_main_background: false
+      rows: 1.06
+      styles: |
         ha-card {
           overflow: hidden !important;
         }
@@ -26,39 +132,6 @@ card:
         }
         .bubble-sub-button {
           min-width: 0 !important;
-        }
-        .bubble-sub-button:nth-child(10) {
-          margin-left: 10px !important;
-          position: relative;
-        }
-        .bubble-sub-button:nth-child(10)::before {
-          content: '';
-          position: absolute;
-          left: -9px;
-          top: 8px;
-          bottom: 8px;
-          width: 1px;
-          background: color-mix(in srgb, var(--divider-color) 72%, transparent) !important;
-        }
-        ${selectedIndex ? `
-        .bubble-sub-button:nth-child(${selectedIndex}) {
-          background-color: var(--primary-color) !important;
-          color: white !important;
-          box-shadow: none !important;
-        }
-        .bubble-sub-button:nth-child(${selectedIndex}) ha-icon {
-          color: white !important;
-        }
-        ` : ''}
-        @media (max-width: 900px) {
-          .bubble-sub-button-container,
-          .bubble-sub-buttons-container {
-            gap: 6px !important;
-          }
-          .bubble-sub-button {
-            padding-left: 10px !important;
-            padding-right: 10px !important;
-          }
         }
         @media (max-width: 720px) {
           .bubble-sub-button-container,
@@ -80,187 +153,65 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(1),
-          .bubble-sub-button:nth-child(4),
-          .bubble-sub-button:nth-child(7),
-          .bubble-sub-button:nth-child(8),
-          .bubble-sub-button:nth-child(9),
-          .bubble-sub-button:nth-child(12) {
-            display: none !important;
-          }
-          .bubble-sub-button:nth-child(5) .bubble-sub-button-name {
-            display: none !important;
-          }
-          .bubble-sub-button:nth-child(10) {
-            margin-left: 0 !important;
-          }
-          .bubble-sub-button:nth-child(10)::before {
-            display: none !important;
-          }
         }
-      `;
-    })()}
-  sub_button:
-    main: []
-    bottom_layout: rows
-    bottom:
-      - group:
-          - name: First Page
-            icon: mdi:page-first
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            fill_width: false
-            tap_action:
-              action: perform-action
-              perform_action: script.navigate_history
-              data:
-                direction: first
-          - name: Previous Page
-            icon: mdi:chevron-left
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            fill_width: false
-            tap_action:
-              action: perform-action
-              perform_action: script.navigate_history
-              data:
-                direction: prev
-          - entity: sensor.bambuddy_print_history_browser_page_info
-            sub_button_type: default
-            name: >-
-              ${(() => {
-                const raw = ((states['sensor.bambuddy_print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '').trim()) || '1 of 1';
-                return window.innerWidth <= 720 ? raw.replace(/\s+of\s+/i, '/') : raw;
-              })()}
-            icon: mdi:book-open-page-variant-outline
-            show_icon: true
-            show_name: true
-            show_state: false
-            show_background: true
-            fill_width: false
-            tap_action:
-              action: none
-          - entity: sensor.bambuddy_print_history_browser_filtered
-            sub_button_type: default
-            name: ${states['sensor.bambuddy_print_history_browser_filtered']?.state || '0'}
-            icon: mdi:counter
-            show_icon: true
-            show_name: true
-            show_state: false
-            show_background: true
-            state_background: false
-            state_color: false
-            fill_width: false
-            tap_action:
-              action: none
-          - entity: input_number.print_history_page_size
-            sub_button_type: slider
-            name: PpP
-            icon: mdi:format-list-numbered
-            show_name: true
-            show_state: true
-            show_background: true
-            state_background: false
-            tap_to_slide: true
-            fill_width: false
-          - name: Compact
-            icon: mdi:view-grid-outline
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            state_background: false
-            state_color: false
-            fill_width: false
-            tap_action:
-              action: call-service
-              service: input_select.select_option
-              target:
-                entity_id: input_select.print_history_card_variant
-              data:
-                option: Compact
-          - name: Media
-            icon: mdi:image-multiple-outline
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            state_background: false
-            state_color: false
-            fill_width: false
-            tap_action:
-              action: call-service
-              service: input_select.select_option
-              target:
-                entity_id: input_select.print_history_card_variant
-              data:
-                option: Media
-          - name: Detail
-            icon: mdi:format-list-bulleted
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            state_background: false
-            state_color: false
-            fill_width: false
-            tap_action:
-              action: call-service
-              service: input_select.select_option
-              target:
-                entity_id: input_select.print_history_card_variant
-              data:
-                option: Detail
-          - entity: input_boolean.print_history_show_images
-            sub_button_type: default
-            name: Images
-            icon: mdi:image-outline
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            state_background: ${states['input_boolean.print_history_show_images']?.state === 'on'}
-            state_color: ${states['input_boolean.print_history_show_images']?.state === 'on'}
-            fill_width: false
-            tap_action:
-              action: toggle
-          - name: Refresh
-            icon: mdi:refresh
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            fill_width: false
-            tap_action:
-              action: perform-action
-              perform_action: script.refresh_print_history_archives
-          - name: Next Page
-            icon: mdi:chevron-right
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            fill_width: false
-            tap_action:
-              action: perform-action
-              perform_action: script.navigate_history
-              data:
-                direction: next
-          - name: Last Page
-            icon: mdi:page-last
-            show_icon: true
-            show_name: false
-            show_state: false
-            show_background: true
-            fill_width: false
-            tap_action:
-              action: perform-action
-              perform_action: script.navigate_history
-              data:
-                direction: last
-        buttons_layout: inline
-        justify_content: center
+      sub_button:
+        main: []
+        bottom_layout: rows
+        bottom:
+          - group:
+              - entity: input_select.print_history_card_variant
+                sub_button_type: select
+                name: Layout
+                icon: mdi:view-dashboard-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                fill_width: false
+              - entity: sensor.bambuddy_print_history_browser_filtered
+                sub_button_type: default
+                name: Matches
+                icon: mdi:counter
+                show_icon: true
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: false
+                state_color: false
+                fill_width: false
+                tap_action:
+                  action: none
+              - entity: input_number.print_history_page_size
+                sub_button_type: slider
+                name: PpP
+                icon: mdi:format-list-numbered
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: false
+                tap_to_slide: true
+                fill_width: false
+              - entity: input_boolean.print_history_show_images
+                sub_button_type: default
+                name: Images
+                icon: mdi:image-outline
+                show_icon: true
+                show_name: true
+                show_state: false
+                show_background: true
+                state_background: ${states['input_boolean.print_history_show_images']?.state === 'on'}
+                state_color: ${states['input_boolean.print_history_show_images']?.state === 'on'}
+                fill_width: false
+                tap_action:
+                  action: toggle
+              - name: Refresh
+                icon: mdi:refresh
+                show_icon: true
+                show_name: true
+                show_state: false
+                show_background: true
+                fill_width: false
+                tap_action:
+                  action: perform-action
+                  perform_action: script.refresh_print_history_archives
+            buttons_layout: inline
+            justify_content: center
