@@ -85,9 +85,9 @@ Implemented now:
 
 - `print_history` is loaded by default via [homeassistant/packages/3d_printing/_feature_loaders.yaml](../../homeassistant/packages/3d_printing/_feature_loaders.yaml).
 - The dashboard is a browser-first `panel: true` view with this flow: review chip, browser header, top control strip, archive grid, repeated bottom control strip.
-- Filter/sort/page state is handled server-side by `sensor.print_history_archives`, `sensor.print_history_filtered`, `sensor.print_history_page_info`, and `sensor.print_history_page_archives`.
+- Filter/sort/page state is now owned by the `bambuddy` custom integration summary entities plus frontend websocket queries, rather than the older `sensor.print_history_*` template-sensor pipeline.
 - The renderer supports `Compact`, `Media`, and `Detail` card variants plus live multi-select color chips.
-- A read-only per-archive detail popup is shipped. The live implementation uses the filament-catalog-style Lovelace pattern: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the card variants, and a shared popup template opens `browser_mod.popup` for the selected archive.
+- A per-archive detail popup is shipped. The live implementation uses `custom:print-history-browser-card` for archive rendering and popup launch, with helper-backed popup edit state and direct websocket queries for the visible browser rows.
 
 Still to do:
 

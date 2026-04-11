@@ -10,13 +10,13 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 ### Shipped now
 
-- each visible archive is now its own Lovelace card and opens an archive-specific `browser_mod.popup`
-- the active implementation is YAML-only and follows the same pattern used by the filament catalog:
-	1. `custom:auto-entities` reads `sensor.bambuddy_print_history_browser_page_archives.attributes.archives`
-	2. one `custom:button-card` is generated per archive
-	3. shared button-card templates render the `Compact`, `Media`, and `Detail` card bodies
-	4. a shared popup template opens a detail popup using the projected archive payload already present on the page, and the shipped action area now drives helper-backed edits plus manual re-enrich
-- the active popup is reusable and defined once through shared button-card templates rather than duplicated in each layout variant
+- each visible archive is now its own interactive card inside `custom:print-history-browser-card` and opens an archive-specific `browser_mod.popup`
+- the active implementation is the custom browser card resource plus helper-backed popup content:
+	1. `custom:print-history-browser-card` queries Bambuddy directly over websocket with `bambuddy/print_history_query`
+	2. the card renders the `Compact`, `Media`, and `Detail` variants directly in JavaScript
+	3. card clicks run a `browser_mod.sequence` flow that populates popup helpers and opens the popup
+	4. popup content is composed from the photo gallery card, popup content button-card template, tag editor card, and helper-backed edit rows
+- the active popup is reusable and driven from the browser card rather than duplicated in each layout variant
 
 ### Phase tracking as of the live implementation
 
@@ -31,7 +31,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 ### Design adjustment from the earlier draft
 
-An intermediate custom Lovelace JavaScript card was attempted and then removed. The current implementation intentionally avoids a new frontend resource dependency and instead uses the existing repository pattern that already works in the filament catalog.
+The final shipped path does use a custom Lovelace JavaScript card. The browser card now owns row rendering and popup launch behavior because that proved more reliable than keeping the archive-grid interaction in shared YAML templates.
 
 ## Problem Statement
 
@@ -69,7 +69,7 @@ That architecture is acceptable for presentation-only browsing, but it is the wr
 ### Current renderer
 
 - source: `sensor.bambuddy_print_history_browser_page_archives`
-- current implementation: `custom:auto-entities` generates one `custom:button-card` per archive and applies shared templates for `Compact`, `Media`, and `Detail`
+- current implementation: `custom:print-history-browser-card` renders one interactive archive surface per result and opens the popup directly
 - result: each visible archive is its own tap target and opens its own popup
 
 ### Current projected archive shape

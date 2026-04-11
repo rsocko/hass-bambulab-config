@@ -18,15 +18,17 @@ Current decision:
 
 ## What Changed
 
-The browser now prefers AppDaemon-managed entities:
+The browser no longer uses the AppDaemon-managed runtime described in this file.
 
-- `sensor.print_history_browser_status`
-- `sensor.print_history_browser_filtered`
-- `sensor.print_history_browser_page_archives`
-- `sensor.print_history_browser_page_info`
-- `sensor.print_history_browser_activity`
+Current active entities are provided by the `bambuddy` custom integration instead:
 
-The legacy YAML Layer 1/2/3 entities remain in the repository unchanged as a fallback path, but the active browser UI should no longer read from them after this cutover.
+- `sensor.bambuddy_print_history_browser_status`
+- `sensor.bambuddy_print_history_browser_filtered`
+- `sensor.bambuddy_print_history_browser_page_archives`
+- `sensor.bambuddy_print_history_browser_page_info`
+- `sensor.bambuddy_print_history_browser_activity`
+
+The legacy YAML Layer 1/2/3 entities remain under `archive/print_history/legacy-yaml-browser/` for reference only, and the active browser UI should no longer read from them.
 
 ## Deployment Model Impact
 
@@ -68,10 +70,10 @@ That means Variant 1 is a valid spike, not wasted work. The query core and contr
 
 ## Operational Notes
 
-- The heatmap and popup flows now read from `sensor.print_history_browser_activity`, which is an AppDaemon-owned compatibility cache.
-- This is intentionally a compatibility bridge so the browser can move off the Jinja pipeline without forcing a custom-card rewrite in the same step.
-- If the repo later moves to Variant 2 or 3, that compatibility sensor should likely become a dedicated activity payload or per-archive detail API rather than a long-lived broad archive attribute.
-- The compatibility activity sensor is still payload-heavy by design because the current heatmap and popup cards read `archives_json` from it. That increases Home Assistant state size, but the live `5.3-5.5 MB` AppDaemon startup failure was not explained by the current `50`-archive legacy Layer 1 payload alone.
+- The heatmap and browser popup no longer depend on an AppDaemon compatibility payload.
+- The active heatmap and browser cards query Bambuddy directly over websocket, while popup detail helpers call `bambuddy.get_print_history_archive_detail`.
+- `sensor.bambuddy_print_history_browser_activity` is now a lightweight summary entity rather than a payload-heavy compatibility cache.
+- The memory-pressure problem that motivated this spike is mitigated in the current design because large page and activity payloads are no longer written into Home Assistant state.
 
 ## Legacy Runtime Hooks Kept For Fallback
 
@@ -99,24 +101,15 @@ Not automatically removable just because the browser switched:
 - `homeassistant/packages/3d_printing/print_history/scripts/load_history_page.yaml`
 - `homeassistant/packages/3d_printing/print_history/scripts/navigate_history.yaml`
 
-Those scripts are still part of the active browser flow; they now read the AppDaemon-backed filtered/page entities.
+Those scripts are still part of the active browser flow; they now read the Bambuddy custom-integration summary entities and browser helpers.
 
 Potential follow-up cleanup before final legacy removal:
 
-- migrate `homeassistant/packages/3d_printing/print_history/template_sensors/active_print_display_name.yaml`, which is still a real non-browser consumer of `sensor.print_history_archives`
-- remove compatibility defaults in custom cards that still mention legacy entity IDs even though the dashboard now overrides them
+- remove stale Home Assistant registry entries that still reference the retired YAML/AppDaemon browser entities
+- keep custom-card defaults aligned with the current Bambuddy entity contract
 
 ## Remaining Non-Browser Dependency
 
-After disabling the legacy option-sync automation, the main remaining non-browser dependency on the Layer 1 archive cache is:
+This document previously tracked `active_print_display_name.yaml` as a blocker because it used the old Layer 1 archive cache.
 
-- `homeassistant/packages/3d_printing/print_history/template_sensors/active_print_display_name.yaml`
-
-That sensor still reads `sensor.print_history_archives` to resolve the current archive-backed print name for the main dashboard.
-
-The other prominent legacy references are either:
-
-- legacy browser pipeline files that are intentionally being kept for fallback
-- compatibility defaults inside frontend custom cards that the active dashboard configuration now overrides
-
-So full removal of Layer 1 is still blocked by at least this non-browser consumer unless it is migrated to an AppDaemon-backed contract or another dedicated archive-detail source.
+That is no longer true in the current runtime: `active_print_display_name.yaml` now uses `bambuddy.get_print_history_archive_detail`, so the historical Layer 1 sensor is no longer required by that non-browser surface.

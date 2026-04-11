@@ -186,8 +186,7 @@ homeassistant/packages/3d_printing/print_history/
 ├── template_sensors/
 │   ├── active_print_display_name.yaml             # current print display name from archive detail + printer fallback
 │   ├── bambuddy_archive_binding_health.yaml       # runtime archive-binding guardrail
-│   ├── print_history_browser_service_payloads.yaml # service-backed page/activity payload compatibility sensors
-│   ├── print_history_payload_diagnostics.yaml     # active payload-budget guard for page/activity compatibility sensors
+│   ├── print_history_payload_diagnostics.yaml     # confirms large page/activity payloads stay out of HA state
 │   └── print_history_popup_archive_detail.yaml    # popup detail materialization for the selected archive
 ├── helpers/
 │   ├── input_text/
@@ -389,8 +388,8 @@ The current archive fallback is intentionally minimal and should be treated as a
 Implemented now:
 
 - Bambuddy custom integration with local materialized store as the browser cache boundary
-- Integration-owned filtering, sorting, page metadata, current-page payload, and activity payload
-- Summary entities plus query/detail services for the active browser path
+- Integration-owned filtering, sorting, page metadata, current-page summary, and activity summary entities
+- Frontend websocket queries for archive rows and heatmap activity, plus integration-backed archive-detail lookups for popup flows
 - Browser header with search, matches, filter pills, settings popup, clear actions, and color chips
 - GitHub-style activity heatmap with count, weight, dominant-color, and outcome-mix modes, plus a separator chevron to collapse or expand the heatmap body
 - Day drill-in cards that can follow the active browser filters or ignore them
@@ -405,9 +404,11 @@ Still deferred:
 
 Popup implementation notes for the current shipped path:
 
-- The archive renderer is now YAML-only; the removed custom Lovelace JS card path is no longer part of the active implementation.
-- `sensor.bambuddy_print_history_browser_page_archives` is now the archive-grid data source; popup content is rendered from that integration-owned page payload, while detail helpers call `bambuddy.get_print_history_archive_detail` when needed.
-- The show/hide image toggle is consumed directly inside the archive card templates, so thumbnail display stays controlled by `input_boolean.print_history_show_images` across all three variants.
+- The archive renderer is the active `custom:print-history-browser-card` resource under `homeassistant/www/3d_printing/print_history/print-history-browser-card.js`.
+- The browser card queries Bambuddy directly over websocket with `bambuddy/print_history_query`, so the visible archive rows are not materialized into Home Assistant entity state.
+- Popup open now follows a `browser_mod.sequence` flow from the browser card itself: helper state is set first, then the popup renders the photo gallery, popup content card, tag editor, and edit controls.
+- `sensor.bambuddy_print_history_browser_page_archives` and `sensor.bambuddy_print_history_browser_activity` remain lightweight summary entities for status and counts; detailed page/activity payloads stay frontend-only.
+- The show/hide image toggle is still controlled by `input_boolean.print_history_show_images`, but the rendering logic now lives in the custom browser and gallery cards rather than shared archive card templates.
 
 For detailed design of the two major subsystems, see:
 

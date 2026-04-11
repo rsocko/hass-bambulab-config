@@ -24,6 +24,18 @@ Current architecture decision:
 - The `bambuddy` custom integration is now the durable implementation path.
 - Treat the archived YAML and AppDaemon variants as historical design references rather than fallback deploy targets.
 - Keep Variant 4 deferred unless print history clearly becomes a broader archive service with multiple clients or admin-heavy service semantics.
+- The active dashboard path is `custom:print-history-browser-card` plus direct websocket queries; the older Layer 1/Layer 2 page and activity payload sensors are retired and should be treated as historical content below.
+
+## Reading This Document Today
+
+Use this file as a historical design record for the earlier YAML, AppDaemon, and custom-integration option analysis.
+
+For the current shipped runtime contract, prefer `README.md` in this folder and the live package/custom-component code. In particular:
+
+- large page and activity payloads are no longer stored in Home Assistant entity state
+- the active browser queries Bambuddy directly over websocket
+- lightweight summary entities such as `sensor.bambuddy_print_history_browser_status`, `sensor.bambuddy_print_history_browser_filtered`, `sensor.bambuddy_print_history_browser_page_info`, and `sensor.bambuddy_print_history_browser_activity` remain part of the active contract
+- references below to `sensor.print_history_archives`, `sensor.print_history_filtered`, `sensor.print_history_page_info`, and `sensor.print_history_page_archives` describe superseded designs unless explicitly marked otherwise
 
 ## Goals
 
