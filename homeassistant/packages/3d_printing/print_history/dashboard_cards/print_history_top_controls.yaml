@@ -39,6 +39,10 @@ card:
         .bubble-sub-button {
           min-width: 0 !important;
         }
+        .bubble-sub-button:nth-child(${buttonIndex.images}) .bubble-sub-button-name,
+        .bubble-sub-button:nth-child(${buttonIndex.refresh}) .bubble-sub-button-name {
+          display: none !important;
+        }
         .bubble-sub-button:nth-child(${buttonIndex.next}) {
           margin-left: 10px !important;
           position: relative;
@@ -87,9 +91,20 @@ card:
           .bubble-sub-button:nth-child(${buttonIndex.matches}) {
             display: none !important;
           }
+          .bubble-sub-button:nth-child(${buttonIndex.pageInfo}) .bubble-sub-button-name {
+            max-width: none !important;
+          }
+          .bubble-sub-button:nth-child(${buttonIndex.pageInfo}) .bubble-sub-button-state {
+            display: none !important;
+          }
           .bubble-sub-button:nth-child(${buttonIndex.pageSize}) .bubble-sub-button-name,
+          .bubble-sub-button:nth-child(${buttonIndex.layout}) .bubble-sub-button-name,
+          .bubble-sub-button:nth-child(${buttonIndex.layout}) .bubble-sub-button-state,
           .bubble-sub-button:nth-child(${buttonIndex.images}) .bubble-sub-button-name,
           .bubble-sub-button:nth-child(${buttonIndex.refresh}) .bubble-sub-button-name {
+            display: none !important;
+          }
+          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) ha-icon {
             display: none !important;
           }
           .bubble-sub-button:nth-child(${buttonIndex.next}) {
@@ -161,7 +176,8 @@ card:
               action: none
           - entity: input_number.print_history_page_size
             sub_button_type: slider
-            name: PpP
+            name: >-
+              ${window.innerWidth <= 720 ? 'PpP' : 'Prints / Page'}
             icon: mdi:format-list-numbered
             show_name: true
             show_state: true
@@ -172,7 +188,15 @@ card:
           - entity: input_select.print_history_card_variant
             sub_button_type: select
             name: Layout
-            icon: mdi:view-dashboard-outline
+            icon: >-
+              ${(() => {
+                const variant = states['input_select.print_history_card_variant']?.state || '';
+                return ({
+                  Compact: 'mdi:view-grid-outline',
+                  Media: 'mdi:image-multiple-outline',
+                  Detail: 'mdi:format-list-bulleted',
+                })[variant] || 'mdi:view-dashboard-outline';
+              })()}
             show_name: true
             show_state: true
             show_background: true
@@ -182,7 +206,7 @@ card:
             name: Images
             icon: mdi:image-outline
             show_icon: true
-            show_name: true
+            show_name: false
             show_state: false
             show_background: true
             state_background: ${states['input_boolean.print_history_show_images']?.state === 'on'}
@@ -193,7 +217,7 @@ card:
           - name: Refresh
             icon: mdi:refresh
             show_icon: true
-            show_name: true
+            show_name: false
             show_state: false
             show_background: true
             fill_width: false

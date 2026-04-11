@@ -38,6 +38,9 @@ At mobile widths (`<= 720px`):
 - Show `Previous`, `Page Info`, and `Next` in the pagination bar.
 - Hide `First`, `Last`, and `Matches`.
 - Show page info as icon + `X/Y`.
+- Show `PpP` as the page-size label.
+- Show `Layout` as an icon-only dropdown, while keeping the dropdown behavior active.
+- Show `Images` and `Refresh` as icon-only controls.
 - Keep the `Layout` select visible on mobile.
 - Keep the whole strip as one horizontally scrollable row if needed.
 - Allow `PpP`, `Images`, and `Refresh` to compress by hiding their labels before hiding the controls themselves.
@@ -46,6 +49,9 @@ At desktop/tablet widths (`> 720px`):
 
 - Show all controls in the fixed order above.
 - Show page info as `Page X of Y`.
+- Show page size as `Prints / Page`.
+- Keep `Images` and `Refresh` icon-only.
+- Keep `Layout` as a dropdown with a dynamic icon that reflects the active variant.
 
 ## Hardening Rules
 
@@ -72,3 +78,6 @@ When modifying the top controls, verify all of the following:
 4. Page info reads `Page X of Y` on desktop and `X/Y` on mobile.
 5. The same control strip works in both the top and bottom placements in `view_print_history.yaml`.
 6. The inline `buttonIndex` map still matches the YAML group order exactly.
+7. `Prints / Page` collapses to `PpP` on mobile.
+8. `Images` and `Refresh` stay icon-only on both desktop and mobile.
+9. `Layout` uses a variant-specific icon on both desktop and mobile.
