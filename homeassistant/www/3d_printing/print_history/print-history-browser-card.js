@@ -686,6 +686,42 @@ class PrintHistoryBrowserCard extends HTMLElement {
         hold_action: { action: "none" },
       },
       {
+        type: "custom:tabbed-card",
+        options: {},
+        tabs: [
+          {
+            card: {
+              type: "custom:print-filament-breakdown-card",
+              source: "archive",
+              mode: "weight",
+              archive_entity: "sensor.print_history_popup_archive_detail",
+              archive_json: archiveJson,
+              show_title: false,
+              show_issues: true,
+            },
+            attributes: {
+              label: "Print Weight",
+              icon: "mdi:weight-gram",
+            },
+          },
+          {
+            card: {
+              type: "custom:print-filament-breakdown-card",
+              source: "archive",
+              mode: "cost",
+              archive_entity: "sensor.print_history_popup_archive_detail",
+              archive_json: archiveJson,
+              show_title: false,
+              show_issues: false,
+            },
+            attributes: {
+              label: "Print Cost",
+              icon: "mdi:currency-usd",
+            },
+          },
+        ],
+      },
+      {
         type: "custom:print-history-tag-editor-card",
         entity: "input_text.print_history_popup_tags",
         suggestions_entity: "input_select.print_history_filter_tag",
