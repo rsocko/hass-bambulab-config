@@ -30,6 +30,7 @@ The first enrichment write can happen during the print as soon as both `archive_
 - `homeassistant/packages/3d_printing/core/template_sensors/print_cost.yaml`
 - `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/print_history_archive_popup.yaml`
 - `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/print_history_archive_popup_content.yaml`
+- `homeassistant/www/3d_printing/common/print-filament-breakdown-card.js`
 
 ## Triggering
 
@@ -208,7 +209,10 @@ Current behavior:
 - popup cards and the popup detail view hide system tags from the user-facing tag display
 - popup notes editing hides the `+>` payload from the user-facing notes field
 - popup detail derives `Partial` enrichment when the hidden payload contains filament rows or ambiguity data that still need review; `Unavailable` is reserved for archives with no preserved enrichment data
-- popup enrichment cards now show explicit colored `Needs Review`, `Spool unresolved`, and `Filament unresolved` badges so incomplete matches stand out during archive triage
+- popup filament enrichment is now rendered through the same shared stacked-bar card used by the live Print Weight and Print Cost tabs
+- the archive weight tab still renders when enrichment is partial by combining preserved filament rows with an `Unattributed usage` gap segment when the rows do not cover the archive total
+- popup legend rows still surface unresolved tray, spool, filament, or ambiguity state, and the archive weight tab adds explicit issue cards below the chart for the remaining gaps
+- the archive cost tab derives per-filament cost proportionally from the archive's total `cost`, because the shipped enrichment payload only stores per-row weight and provenance metadata
 - `save_print_history_archive_popup_edits.yaml` fetches archive detail before saving so it can preserve hidden enrichment content and system tags
 - the save flow PATCHes `print_name`, `tags`, `notes`, `status`, and `failure_reason`
 - current popup saves preserve the managed `f:` / `s:` tags and the hidden payload when present

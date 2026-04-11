@@ -15,7 +15,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 	1. `custom:print-history-browser-card` queries Bambuddy directly over websocket with `bambuddy/print_history_query`
 	2. the card renders the `Compact`, `Media`, and `Detail` variants directly in JavaScript
 	3. card clicks run a `browser_mod.sequence` flow that populates popup helpers and opens the popup
-	4. popup content is composed from the photo gallery card, popup content button-card template, tag editor card, and helper-backed edit rows
+	4. popup content is composed from the photo gallery card, a popup-summary button-card template, a shared tabbed filament-breakdown card, the tag editor card, and helper-backed edit rows
 - the active popup is reusable and driven from the browser card rather than duplicated in each layout variant
 
 ### Phase tracking as of the live implementation
@@ -337,13 +337,15 @@ Do not add future issue actions directly to the archive card face unless the act
 - per-archive cards should remain driven by `sensor.bambuddy_print_history_browser_page_archives`
 - card visuals can continue using button-card HTML/CSS for layout richness
 - the archive grid wrapper should remain responsive across `Compact`, `Media`, and `Detail`
-- the active implementation should prefer the existing `auto-entities` + button-card template pattern over introducing a new custom frontend resource unless a later requirement clearly justifies it
+- the archive list interaction still belongs in the browser card, but shared visualizations can justify their own frontend resource when that removes duplicated rendering logic across popup and dashboard surfaces
+- the current justified exception is `custom:print-filament-breakdown-card`, which is shared by the live print-weight/cost tabs and the archive popup
 
 ### Popup content strategy
 
 - Phase 1 popup content can be snapshot-rendered from the archive payload
 - later edit controls should prefer server-side scripts or REST commands for mutations
 - if a later phase needs fresher live data, add that reactivity in the popup content, not on the main archive grid
+- the current popup keeps its status/metadata summary in the button-card template, but the heavier filament visualization now lives in the shared breakdown custom card and reads the popup archive detail entity directly
 
 ## Recommended Delivery Sequence
 

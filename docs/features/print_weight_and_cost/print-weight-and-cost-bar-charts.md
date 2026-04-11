@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Print Weight and Print Cost displays live in the Print Details section as a tabbed card with two tabs: **Print Weight** and **Print Cost**. Both tabs use the same visual pattern — a horizontal stacked bar chart where each segment represents a different filament spool, colored with the actual filament color. The Weight tab shows grams consumed per tray; the Cost tab shows dollar cost per tray.
+The Print Weight and Print Cost displays live in the Print Details section as a tabbed card with two tabs: **Print Weight** and **Print Cost**. Both tabs are now rendered by one shared Lovelace custom card, `custom:print-filament-breakdown-card`, which keeps the live dashboard and the print-history popup on the same visual and data-handling path.
+
+The shared renderer uses the same horizontal stacked-bar pattern in both places. Each segment represents a filament source, colored with the actual filament color when known. The Weight tab shows grams consumed per tray; the Cost tab shows dollar cost per tray.
 
 ## Tabbed Layout
 
@@ -10,10 +12,12 @@ The two charts are wrapped in a `custom:tabbed-card`:
 
 | Tab | Entity | Segments Proportional To |
 |-----|--------|--------------------------|
-| Print Weight | `sensor.ntk_ryansoffice_3dprinter_print_weight` | Weight (grams) |
+| Print Weight | `sensor.print_weight_effective` | Weight (grams) |
 | Print Cost | `sensor.print_cost` | Cost (dollars) |
 
 **Card file:** `print_weight_and_cost/dashboard_cards/print-weight-and-cost-tabs.yaml`
+
+**Shared renderer:** `homeassistant/www/3d_printing/common/print-filament-breakdown-card.js`
 
 ---
 
@@ -77,7 +81,8 @@ Filament usage details not available for this print
 
 ### Card File
 
-`print_weight_and_cost/dashboard_cards/print-weight.yaml`
+- `print_weight_and_cost/dashboard_cards/print-weight.yaml`
+- `homeassistant/www/3d_printing/common/print-filament-breakdown-card.js`
 
 ---
 
@@ -142,7 +147,8 @@ Total: $1.87
 
 ### Card File
 
-`print_weight_and_cost/dashboard_cards/print-cost.yaml`
+- `print_weight_and_cost/dashboard_cards/print-cost.yaml`
+- `homeassistant/www/3d_printing/common/print-filament-breakdown-card.js`
 
 ---
 
@@ -161,7 +167,7 @@ Both charts use identical styling conventions:
 | Text color | Auto black/white based on background brightness (threshold 128) |
 | Text shadow | `0 0 2px rgba(0,0,0,0.3)` for readability |
 | Legend font | 11–12px with color swatches |
-| Implementation | `custom:button-card` with JavaScript templating |
+| Implementation | `custom:print-filament-breakdown-card` custom resource |
 
 ## Edge Cases (Both Charts)
 
@@ -176,7 +182,8 @@ Both charts use identical styling conventions:
 
 | Dependency | Required | Purpose |
 |---|---|---|
-| `custom:button-card` | **Yes** | Advanced templating and custom fields |
+| `custom:tabbed-card` | **Yes** | Wraps the two breakdown modes into one compact UI |
+| `/local/3d_printing/common/print-filament-breakdown-card.js` | **Yes** | Shared stacked-bar renderer used by both tabs |
 | [Spoolman Sync](../spoolman_sync/README.md) | **Yes** | Spool weight data, AMS tray mapping, price data |
 | [Core](../core/README.md) | **Yes** | `sensor.print_cost` template sensor |
 | `input_number.print_cost_default_per_kg` | Optional | User-configurable fallback price (defaults to $20/kg) |
@@ -221,10 +228,19 @@ Both cards are included via `!include` in `view_main.yaml` through the tabbed wr
 
 | Option | Location | Default |
 |--------|----------|---------|
-| Bar height | `barHeight` variable in JS | 30px |
-| Border radius | `borderRadius` variable in JS | 6px |
-| Label threshold | `if (percent > 10)` in JS | 10% |
-| Total font size | `cost_label` / `weight_label` style | 14px |
-| Label font size | Inline span in JS | 11px |
-| Legend font size | Legend div in JS | 12px (weight) / 12px (cost) |
+| Label threshold | `label_threshold` on `custom:print-filament-breakdown-card` | 10% |
+| Card title | `title` on `custom:print-filament-breakdown-card` | Mode-specific default |
+| Show title | `show_title` on `custom:print-filament-breakdown-card` | `true` |
+| Archive issue cards | `show_issues` on `custom:print-filament-breakdown-card` | `false` for live cards |
 | Default price | `input_number.print_cost_default_per_kg` | $20/kg |
+
+## Popup Reuse
+
+The print-history archive popup now reuses the same shared renderer in `source: archive` mode. The archive-weight tab reads the compact hidden enrichment payload and keeps rendering even when enrichment is partial by:
+
+- showing all resolved filament rows as normal stacked segments
+- adding an `Unattributed usage` segment when the preserved rows do not cover the archive total
+- keeping the legend visible with unresolved spool or filament state reflected in warning text
+- surfacing review gap cards below the chart on the archive weight tab
+
+The archive-cost tab derives per-filament cost proportionally from the archive's total `cost`, because Bambuddy currently stores archive cost only as a total rather than as per-row cost entries.
