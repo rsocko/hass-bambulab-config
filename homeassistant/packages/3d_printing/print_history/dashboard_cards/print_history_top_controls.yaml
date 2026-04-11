@@ -14,19 +14,19 @@ card:
   styles: >-
     ${(() => {
       const buttonIndex = {
-        first: 3,
+        first: 1,
         prev: 2,
-        pageInfo: 6,
+        pageInfo: 3,
         total: 4,
         pageSize: 5,
-        mobileLayout: 7,
-        compact: 8,
-        media: 9,
-        detail: 10,
-        images: 11,
-        refresh: 12,
-        next: 13,
-        last: 14,
+        mobileLayout: 6,
+        compact: 7,
+        media: 8,
+        detail: 9,
+        images: 10,
+        refresh: 11,
+        next: 12,
+        last: 13,
       };
       const variant = states['input_select.print_history_card_variant']?.state || '';
       const selectedIndex = ({
@@ -107,12 +107,12 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.first}),
           .bubble-sub-button:nth-child(${buttonIndex.prev}),
-          .bubble-sub-button:nth-child(${buttonIndex.next}),
-          .bubble-sub-button:nth-child(${buttonIndex.last}) {
+          .bubble-sub-button:nth-child(${buttonIndex.next}) {
             display: flex !important;
           }
+          .bubble-sub-button:nth-child(${buttonIndex.first}),
+          .bubble-sub-button:nth-child(${buttonIndex.last}),
           .bubble-sub-button:nth-child(${buttonIndex.total}),
           .bubble-sub-button:nth-child(${buttonIndex.compact}),
           .bubble-sub-button:nth-child(${buttonIndex.media}),
@@ -126,7 +126,6 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.pageInfo}) ha-icon,
           .bubble-sub-button:nth-child(${buttonIndex.pageSize}) ha-icon {
             display: none !important;
           }
@@ -185,7 +184,13 @@ card:
                 direction: prev
           - entity: sensor.bambuddy_print_history_browser_page_info
             sub_button_type: default
-            name: ${((states['sensor.bambuddy_print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '').trim()) || '1 of 1'}
+            name: >-
+              ${(() => {
+                const raw = ((states['sensor.bambuddy_print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '').trim()) || '1 of 1';
+                return window.innerWidth <= 720
+                  ? raw.replace(/\s+of\s+/i, '/')
+                  : `Page ${raw}`;
+              })()}
             icon: mdi:book-open-page-variant-outline
             show_icon: true
             show_name: true
