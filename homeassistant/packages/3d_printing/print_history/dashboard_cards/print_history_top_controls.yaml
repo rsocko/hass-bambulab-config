@@ -13,27 +13,8 @@ card:
   rows: 1.06
   styles: >-
     ${(() => {
-      const buttonIndex = {
-        first: 1,
-        prev: 2,
-        pageInfo: 3,
-        total: 4,
-        pageSize: 5,
-        mobileLayout: 6,
-        compact: 7,
-        media: 8,
-        detail: 9,
-        images: 10,
-        refresh: 11,
-        next: 12,
-        last: 13,
-      };
       const variant = states['input_select.print_history_card_variant']?.state || '';
-      const selectedIndex = ({
-        Compact: buttonIndex.compact,
-        Media: buttonIndex.media,
-        Detail: buttonIndex.detail,
-      })[variant];
+      const selectedIndex = ({ Compact: 7, Media: 8, Detail: 9 })[variant];
       return `
         ha-card {
           overflow: hidden !important;
@@ -46,19 +27,11 @@ card:
         .bubble-sub-button {
           min-width: 0 !important;
         }
-        .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) {
-          display: none !important;
-        }
-        .bubble-sub-button:nth-child(${buttonIndex.compact}),
-        .bubble-sub-button:nth-child(${buttonIndex.media}),
-        .bubble-sub-button:nth-child(${buttonIndex.detail}) {
-          display: flex !important;
-        }
-        .bubble-sub-button:nth-child(${buttonIndex.refresh}) {
+        .bubble-sub-button:nth-child(10) {
           margin-left: 10px !important;
           position: relative;
         }
-        .bubble-sub-button:nth-child(${buttonIndex.refresh})::before {
+        .bubble-sub-button:nth-child(10)::before {
           content: '';
           position: absolute;
           left: -9px;
@@ -107,47 +80,21 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.prev}),
-          .bubble-sub-button:nth-child(${buttonIndex.next}) {
-            display: flex !important;
-          }
-          .bubble-sub-button:nth-child(${buttonIndex.first}),
-          .bubble-sub-button:nth-child(${buttonIndex.last}),
-          .bubble-sub-button:nth-child(${buttonIndex.total}),
-          .bubble-sub-button:nth-child(${buttonIndex.compact}),
-          .bubble-sub-button:nth-child(${buttonIndex.media}),
-          .bubble-sub-button:nth-child(${buttonIndex.detail}) {
+          .bubble-sub-button:nth-child(1),
+          .bubble-sub-button:nth-child(4),
+          .bubble-sub-button:nth-child(7),
+          .bubble-sub-button:nth-child(8),
+          .bubble-sub-button:nth-child(9),
+          .bubble-sub-button:nth-child(12) {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) {
-            display: flex !important;
-            min-width: 42px !important;
-            justify-content: center !important;
-            padding-left: 8px !important;
-            padding-right: 8px !important;
-          }
-          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) ha-icon {
+          .bubble-sub-button:nth-child(5) .bubble-sub-button-name {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) .bubble-sub-button-state {
-            display: none !important;
-          }
-          .bubble-sub-button:nth-child(${buttonIndex.refresh}) {
+          .bubble-sub-button:nth-child(10) {
             margin-left: 0 !important;
           }
-          .bubble-sub-button:nth-child(${buttonIndex.refresh})::before {
-            display: none !important;
-          }
-        }
-        @media (max-width: 560px) {
-          .bubble-sub-button:nth-child(${buttonIndex.prev}),
-          .bubble-sub-button:nth-child(${buttonIndex.next}) {
-            display: flex !important;
-          }
-          .bubble-sub-button:nth-child(${buttonIndex.first}),
-          .bubble-sub-button:nth-child(${buttonIndex.last}) {
+          .bubble-sub-button:nth-child(10)::before {
             display: none !important;
           }
         }
@@ -187,9 +134,7 @@ card:
             name: >-
               ${(() => {
                 const raw = ((states['sensor.bambuddy_print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '').trim()) || '1 of 1';
-                return window.innerWidth <= 720
-                  ? raw.replace(/\s+of\s+/i, '/')
-                  : `Page ${raw}`;
+                return window.innerWidth <= 720 ? raw.replace(/\s+of\s+/i, '/') : raw;
               })()}
             icon: mdi:book-open-page-variant-outline
             show_icon: true
@@ -214,30 +159,13 @@ card:
               action: none
           - entity: input_number.print_history_page_size
             sub_button_type: slider
-            name: >-
-              ${window.innerWidth <= 720 ? 'PpP' : 'Prints per Page'}
+            name: PpP
             icon: mdi:format-list-numbered
             show_name: true
             show_state: true
             show_background: true
             state_background: false
             tap_to_slide: true
-            fill_width: false
-          - entity: input_select.print_history_card_variant
-            sub_button_type: select
-            name: Layout
-            icon: >-
-              ${(() => {
-                const variant = states['input_select.print_history_card_variant']?.state || '';
-                return ({
-                  Compact: 'mdi:view-grid-outline',
-                  Media: 'mdi:image-multiple-outline',
-                  Detail: 'mdi:format-list-bulleted',
-                })[variant] || 'mdi:view-dashboard-outline';
-              })()}
-            show_name: false
-            show_state: false
-            show_background: true
             fill_width: false
           - name: Compact
             icon: mdi:view-grid-outline
