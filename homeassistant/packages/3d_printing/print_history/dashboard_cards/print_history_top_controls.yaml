@@ -15,16 +15,18 @@ card:
     ${(() => {
       // Use icon-based selectors instead of nth-child so mobile visibility does not
       // depend on generated sub-button DOM positions inside bubble-card.
-      // The only positional selectors retained are for the paired desktop/mobile
-      // layout dropdowns, which intentionally share the same semantic purpose.
-      const layoutDesktopIndex = 6;
-      const layoutMobileIndex = 7;
       const byIcon = (icon) => `.bubble-sub-button:has(ha-icon[icon="${icon}"])`;
       const firstSelector = byIcon('mdi:page-first');
       const lastSelector = byIcon('mdi:page-last');
       const matchesSelector = byIcon('mdi:counter');
       const pageInfoSelector = byIcon('mdi:book-open-page-variant-outline');
       const pageSizeSelector = byIcon('mdi:format-list-numbered');
+      const layoutSelector = [
+        'mdi:view-grid-outline',
+        'mdi:image-multiple-outline',
+        'mdi:format-list-bulleted',
+        'mdi:view-dashboard-outline',
+      ].map(byIcon).join(',\n        ');
       const imagesSelector = byIcon('mdi:image-outline');
       const refreshSelector = byIcon('mdi:refresh');
       const nextSelector = byIcon('mdi:chevron-right');
@@ -40,11 +42,10 @@ card:
         .bubble-sub-button {
           min-width: 0 !important;
         }
-        .bubble-sub-button:nth-child(${layoutMobileIndex}) {
-          display: none !important;
-        }
         ${imagesSelector} .bubble-sub-button-name,
-        ${refreshSelector} .bubble-sub-button-name {
+        ${refreshSelector} .bubble-sub-button-name,
+        ${layoutSelector} .bubble-sub-button-name,
+        ${layoutSelector} .bubble-sub-button-state {
           display: none !important;
         }
         ${nextSelector} {
@@ -106,16 +107,6 @@ card:
           ${refreshSelector} .bubble-sub-button-name {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(${layoutDesktopIndex}) {
-            display: none !important;
-          }
-          .bubble-sub-button:nth-child(${layoutMobileIndex}) {
-            display: flex !important;
-          }
-          .bubble-sub-button:nth-child(${layoutMobileIndex}) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(${layoutMobileIndex}) .bubble-sub-button-state {
-            display: none !important;
-          }
           ${pageSizeSelector} ha-icon {
             display: none !important;
           }
@@ -135,7 +126,6 @@ card:
       - group:
           # Controls are identified for CSS by unique icons. Do not reuse these
           # icons for a different semantic action inside this row.
-          # The desktop/mobile layout controls are the only intentional duplicate.
           - name: First Page
             icon: mdi:page-first
             show_icon: true
@@ -198,22 +188,6 @@ card:
             show_background: true
             state_background: false
             tap_to_slide: true
-            fill_width: false
-          - entity: input_select.print_history_card_variant
-            sub_button_type: select
-            name: Layout
-            icon: >-
-              ${(() => {
-                const variant = states['input_select.print_history_card_variant']?.state || '';
-                return ({
-                  Compact: 'mdi:view-grid-outline',
-                  Media: 'mdi:image-multiple-outline',
-                  Detail: 'mdi:format-list-bulleted',
-                })[variant] || 'mdi:view-dashboard-outline';
-              })()}
-            show_name: true
-            show_state: true
-            show_background: true
             fill_width: false
           - entity: input_select.print_history_card_variant
             sub_button_type: select
