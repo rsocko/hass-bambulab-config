@@ -387,8 +387,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var notesInfo = this._splitArchiveNotes(archive.notes);
     var enrichmentPayload = notesInfo.payload;
     var enrichmentRows = Array.isArray(enrichmentPayload && enrichmentPayload.F) ? enrichmentPayload.F : [];
-    var enrichmentCode = String(archive.enrichment_status || (enrichmentPayload && enrichmentPayload.s) || "").toLowerCase();
-    var enrichmentStatus = ({ c: "complete", p: "partial", u: "unavailable" })[enrichmentCode] || (enrichmentRows.length ? "partial" : "unavailable");
+    var enrichmentStatus = this._normalizeEnrichmentStatus(archive.enrichment_status || (enrichmentPayload && enrichmentPayload.s), enrichmentRows);
     var colors = String(archive.filament_color || "").split(",").map(this._normalizeHex).filter(Boolean);
     var filamentChips = enrichmentRows.length ? enrichmentRows.map(function (item, index) {
       var name = String(item && item.n || "").trim() || ("Filament " + (index + 1));
@@ -485,6 +484,41 @@ class PrintHistoryBrowserCard extends HTMLElement {
       s_uuid: "Multiple Spoolman spools matched archived tray UUID",
       s_tc: "Multiple Spoolman spools matched type+color",
     })[normalized] || normalized;
+  }
+
+  _normalizeEnrichmentStatus(statusValue, enrichmentRows) {
+    var normalized = String(statusValue || "").trim().toLowerCase();
+    var mapped = ({
+      c: "complete",
+      complete: "complete",
+      p: "partial",
+      partial: "partial",
+      u: "unavailable",
+      unavailable: "unavailable",
+    })[normalized] || "";
+    if (mapped === "complete" || mapped === "partial") {
+      return mapped;
+    }
+    if (mapped === "unavailable") {
+      return Array.isArray(enrichmentRows) && enrichmentRows.length ? "partial" : "unavailable";
+    }
+    if (!Array.isArray(enrichmentRows) || !enrichmentRows.length) {
+      return "unavailable";
+    }
+    return enrichmentRows.some(function (item) {
+      return !String(item && item.t || "").trim()
+        || !this._hasResolvedEntityId(item && item.s)
+        || !this._hasResolvedEntityId(item && item.f)
+        || String(item && (item.am || item.a) || "").trim();
+    }.bind(this)) ? "partial" : "complete";
+  }
+
+  _hasResolvedEntityId(value) {
+    if (value === null || value === undefined) {
+      return false;
+    }
+    var normalized = String(value).trim().toLowerCase();
+    return normalized !== "" && normalized !== "null" && normalized !== "none";
   }
 
   _splitArchiveNotes(value) {
