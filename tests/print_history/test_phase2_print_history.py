@@ -796,7 +796,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=6", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=32", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
