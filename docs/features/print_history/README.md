@@ -27,6 +27,7 @@ Historical design notes:
 - `metadata-implementation-roadmap.md`
 - `issue-update-drafts-2026-04.md`
 - `issue-posting-plan-2026-04.md`
+- `github-posting-batch-1-2026-04.md`
 
 ## Related Runtime Repair Docs
 
