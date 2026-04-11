@@ -23,11 +23,12 @@ The sub-buttons must remain in this exact order:
 3. `Page Info`
 4. `Matches`
 5. `PpP`
-6. `Layout`
-7. `Images`
-8. `Refresh`
-9. `Next`
-10. `Last`
+6. `Layout (desktop)`
+7. `Layout (mobile)`
+8. `Images`
+9. `Refresh`
+10. `Next`
+11. `Last`
 
 Each control in this row is also identified by a unique semantic icon, and the mobile CSS targets those icons directly:
 
@@ -36,13 +37,20 @@ Each control in this row is also identified by a unique semantic icon, and the m
 - `mdi:book-open-page-variant-outline` → `Page Info`
 - `mdi:counter` → `Matches`
 - `mdi:format-list-numbered` → `Prints / Page`
-- `mdi:view-grid-outline` / `mdi:image-multiple-outline` / `mdi:format-list-bulleted` / `mdi:view-dashboard-outline` → `Layout`
+- `mdi:view-grid-outline` / `mdi:image-multiple-outline` / `mdi:format-list-bulleted` / `mdi:view-dashboard-outline` → `Layout` desktop/mobile pair
 - `mdi:image-outline` → `Images`
 - `mdi:refresh` → `Refresh`
 - `mdi:chevron-right` → `Next`
 - `mdi:page-last` → `Last`
 
 If a control icon changes, the selector contract in `print_history_top_controls.yaml` must be updated in the same edit.
+
+The `Layout` control is the one intentional duplicate in the row:
+
+- desktop keeps the full dropdown with text/state
+- mobile uses a second icon-only dropdown for the same helper entity
+
+Those two controls are switched by fixed position, not by icon selector, because they intentionally share the same semantic icon set.
 
 ## Mobile Contract
 
@@ -76,6 +84,10 @@ Do not reintroduce these patterns into `print_history_top_controls.yaml`:
 - Refactors that make mobile visibility depend primarily on raw child indices when unique icon selectors can be used.
 - Reusing one of the semantic icons above for a different action inside this same row.
 
+Exception:
+
+- The paired desktop/mobile `Layout` dropdowns are allowed and are part of the contract.
+
 Preferred change patterns:
 
 - If a control is added or removed, update the YAML order, the icon-selector mapping, and this document together.
@@ -95,3 +107,4 @@ When modifying the top controls, verify all of the following:
 7. `Prints / Page` collapses to `PpP` on mobile.
 8. `Images` and `Refresh` stay icon-only on both desktop and mobile.
 9. `Layout` uses a variant-specific icon on both desktop and mobile.
+10. Desktop shows only the desktop `Layout` dropdown, and mobile shows only the mobile icon-only `Layout` dropdown.
