@@ -84,18 +84,18 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".status{padding:18px;border-radius:18px;background:rgba(148,163,184,0.12);color:var(--secondary-text-color);line-height:1.5;}" +
       ".status.error{color:var(--error-color);}" +
       ".grid{display:grid;gap:16px;}" +
-      ".grid.compact{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
-      ".grid.media{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}" +
+      ".grid.compact{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}" +
+      ".grid.media{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
       ".grid.detail{grid-template-columns:1fr;}" +
       ".card{position:relative;border:1px solid var(--divider-color);border-radius:22px;background:var(--ha-card-background,var(--card-background-color));overflow:hidden;cursor:pointer;transition:transform .14s ease, box-shadow .14s ease;}" +
       ".card:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(15,23,42,0.12);}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
-      ".card-shell.compact{grid-template-columns:minmax(0,1fr);min-height:260px;}" +
-      ".card-shell.media,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
-      ".card-shell.media.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
+      ".card-shell.compact,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
+      ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
+      ".card-shell.media{grid-template-columns:minmax(0,1fr);min-height:260px;}" +
       ".thumb-wrap{width:100%;min-width:0;}" +
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
-      ".thumb.compact{height:180px;object-fit:contain;padding:6px;background:rgba(255,255,255,0.04);}" +
+      ".thumb.media{height:180px;object-fit:contain;padding:6px;background:rgba(255,255,255,0.04);}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
       ".header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;min-width:0;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
@@ -104,8 +104,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
       ".status-chip{color:#fff;font-weight:700;}" +
       ".metrics{display:grid;gap:10px;}" +
-      ".metrics.compact{grid-template-columns:repeat(3,minmax(0,1fr));}" +
-      ".metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
+      ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
+      ".metrics.compact,.metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
       ".metric{padding:10px 12px;border-radius:16px;background:rgba(255,255,255,0.04);min-width:0;}" +
       ".metric-label{font-size:11px;color:var(--secondary-text-color);line-height:1.2;margin-bottom:4px;}" +
       ".metric-value{font-size:15px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;}" +
@@ -342,7 +342,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
       '</button>' +
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
-      (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Compact" ? 'compact' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
+      (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
       '<div class="content">' +
       '<div class="header">' +
       '<div style="min-width:0;flex:1 1 220px;max-width:100%;">' +
@@ -357,7 +357,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>' +
       '</div>' +
       (chips.length ? '<div class="chip-row">' + chips.join("") + '</div>' : '') +
-      '<div class="metrics ' + (variant === "Compact" ? 'compact' : 'detail') + '">' +
+      '<div class="metrics ' + (variant === "Media" ? 'media' : 'detail') + '">' +
       this._renderMetric('Duration', normalized.durationLabel) +
       this._renderMetric('Filament', normalized.filamentLabel) +
       this._renderMetric('Cost', normalized.costLabel) +

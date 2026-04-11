@@ -14,14 +14,14 @@ card:
   styles: >-
     ${(() => {
       const buttonIndex = {
-        first: 2,
-        prev: 3,
+        first: 3,
+        prev: 2,
         pageInfo: 4,
-        total: 5,
-        pageSize: 6,
+        total: 6,
+        pageSize: 5,
         mobileLayout: 7,
-        compact: 8,
-        media: 9,
+        compact: 9,
+        media: 8,
         detail: 10,
         images: 11,
         refresh: 12,
@@ -209,7 +209,8 @@ card:
               action: none
           - entity: input_number.print_history_page_size
             sub_button_type: slider
-            name: PpP
+            name: >-
+              ${window.innerWidth <= 720 ? 'PpP' : 'Prints per Page'}
             icon: mdi:format-list-numbered
             show_name: true
             show_state: true
