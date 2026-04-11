@@ -1,7 +1,7 @@
 print_history_archive_popup_content:
-  entity: sensor.print_history_browser_page_archives
+  entity: sensor.print_history_popup_archive_detail
   triggers_update:
-    - sensor.print_history_browser_page_archives
+    - sensor.print_history_popup_archive_detail
   show_icon: false
   show_name: false
   show_state: false
@@ -30,6 +30,18 @@ print_history_archive_popup_content:
         }
         const snapshotArchiveId = snapshotArchive?.id;
         let archive = snapshotArchive;
+        const detailState = states['sensor.print_history_popup_archive_detail'];
+        if (detailState && String(detailState.state || '') === String(snapshotArchiveId || '')) {
+          try {
+            const detailRaw = detailState.attributes?.archive_json || '{}';
+            const detailArchive = typeof detailRaw === 'string' ? JSON.parse(detailRaw || '{}') : detailRaw;
+            if (detailArchive && typeof detailArchive === 'object') {
+              archive = { ...archive, ...detailArchive };
+            }
+          } catch (_error) {
+            archive = snapshotArchive;
+          }
+        }
 
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
@@ -166,9 +178,9 @@ print_history_archive_popup_content:
             const hours = Math.floor((totalMinutes % 1440) / 60);
             const minutes = totalMinutes % 60;
             const parts = [];
-            if (days) parts.push(`${days}D`);
-            if (hours || days) parts.push(`${hours}H`);
-            if (minutes || (!days && !hours)) parts.push(`${minutes}M`);
+            if (days) parts.push(`${days}d`);
+            if (hours || days) parts.push(`${hours}h`);
+            if (minutes || (!days && !hours)) parts.push(`${minutes}m`);
             return parts.join(' ');
           };
         const formatNumber = (value, digits = 1, suffix = '') => {
@@ -328,15 +340,15 @@ print_history_archive_popup_content:
           <style>
             .print-history-popup-content{display:flex;flex-direction:column;gap:14px;}
             .print-history-popup-hero{display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);}
-            .print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"start end" "track track" "duration duration";column-gap:16px;row-gap:10px;align-items:start;min-width:0;}
+            .print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:"start duration end" "track track track";column-gap:16px;row-gap:10px;align-items:start;min-width:0;}
             .print-history-popup-timeline-side{min-width:0;display:flex;flex-direction:column;gap:4px;}
             .print-history-popup-timeline-side--start{grid-area:start;align-items:flex-start;text-align:left;}
             .print-history-popup-timeline-side--end{grid-area:end;align-items:flex-end;text-align:right;}
             .print-history-popup-timeline-label{font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);}
             .print-history-popup-timeline-value{font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;word-break:break-word;}
-            .print-history-popup-timeline-main{grid-area:track;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;width:100%;}
+            .print-history-popup-timeline-main{grid-area:track;display:flex;align-items:center;min-width:0;width:100%;}
             .print-history-popup-timeline-track{position:relative;width:100%;height:18px;}
-            .print-history-popup-timeline-duration{grid-area:duration;justify-self:center;display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;}
+            .print-history-popup-timeline-duration{grid-area:duration;align-self:center;justify-self:center;display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;white-space:nowrap;}
             @media (max-width: 640px) {
               .print-history-popup-timeline{column-gap:10px;row-gap:8px;}
             }
@@ -348,6 +360,7 @@ print_history_archive_popup_content:
                   <div class="print-history-popup-timeline-label">Start</div>
                   <div class="print-history-popup-timeline-value">${escapeHtml(startedDisplay)}</div>
                 </div>
+                <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
                 <div class="print-history-popup-timeline-main">
                   <div class="print-history-popup-timeline-track">
                     <span style="position:absolute;left:4px;right:4px;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
@@ -359,7 +372,6 @@ print_history_archive_popup_content:
                   <div class="print-history-popup-timeline-label">End</div>
                   <div class="print-history-popup-timeline-value">${escapeHtml(completedDisplay)}</div>
                 </div>
-                <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
               </div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${summaryRowChips}</div>
               ${metricChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${metricChips}</div>` : ''}
