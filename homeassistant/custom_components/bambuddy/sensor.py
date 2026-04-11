@@ -94,6 +94,7 @@ class BambuddyBrowserSensor(SensorEntity):
         if self.entity_description.key == ENTITY_STATUS:
             return {
                 "backend": backend,
+                "browser_revision": self.manager.browser_revision,
                 "message": self.manager.status_message,
                 "archive_count": len(self.manager.archives),
                 "current_limit": self.manager.max_archives,
@@ -107,6 +108,7 @@ class BambuddyBrowserSensor(SensorEntity):
         if self.entity_description.key == ENTITY_FILTERED:
             return {
                 "backend": backend,
+                "browser_revision": self.manager.browser_revision,
                 "archive_count": len(self.manager.archives),
                 "filtered_count": self.manager.result.filtered_count,
                 "total_pages": self.manager.result.total_pages,
@@ -118,12 +120,11 @@ class BambuddyBrowserSensor(SensorEntity):
                 "available_color_tooltips_json": self.manager.result.available_color_tooltips,
                 "activity_active_days_label": self.manager.result.activity_active_days_label,
                 "activity_metric_total_label": self.manager.result.activity_metric_total_label,
-                "last_refresh": self.manager.last_refresh,
-                "last_error": self.manager.last_error,
             }
         if self.entity_description.key == ENTITY_PAGE_ARCHIVES:
             return {
                 "backend": backend,
+                "browser_revision": self.manager.browser_revision,
                 "page": self.manager.result.current_page,
                 "count": self.manager.result.filtered_count,
                 "total_pages": self.manager.result.total_pages,
@@ -133,16 +134,16 @@ class BambuddyBrowserSensor(SensorEntity):
         if self.entity_description.key == ENTITY_PAGE_INFO:
             return {
                 "backend": backend,
+                "browser_revision": self.manager.browser_revision,
                 "current_page": self.manager.result.current_page,
                 "total_pages": self.manager.result.total_pages,
             }
         return {
             "backend": backend,
+            "browser_revision": self.manager.browser_revision,
             "archive_count": self.manager.activity_summary.get("archive_count", len(self.manager.archives)),
             "active_day_count": self.manager.activity_summary.get("active_day_count", 0),
             "latest_archive_id": self.manager.activity_summary.get("latest_archive_id", 0),
             "activity_active_days_label": self.manager.result.activity_active_days_label,
             "activity_metric_total_label": self.manager.result.activity_metric_total_label,
-            "last_refresh": self.manager.last_refresh,
-            "last_error": self.manager.last_error,
         }

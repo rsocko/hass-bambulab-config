@@ -144,9 +144,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       sort: this._stateValue("input_select.print_history_sort"),
       page: this._stateValue(this._config.page_entity),
       pageSize: this._stateValue(this._config.page_size_entity),
-      filteredUpdated: this._entityUpdated(this._config.filtered_entity),
-      pageInfoUpdated: this._entityUpdated(this._config.page_info_entity),
-      browserStatusUpdated: this._entityUpdated(this._config.browser_status_entity),
+      filteredRevision: this._entityAttribute(this._config.filtered_entity, "browser_revision"),
+      pageInfoRevision: this._entityAttribute(this._config.page_info_entity, "browser_revision"),
     });
   }
 
@@ -161,9 +160,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
     });
   }
 
-  _entityUpdated(entityId) {
+  _entityAttribute(entityId, attribute) {
     var entity = this._hass && this._hass.states ? this._hass.states[entityId] : null;
-    return entity ? String(entity.last_updated || entity.last_changed || "") : "";
+    return entity && entity.attributes ? String(entity.attributes[attribute] || "") : "";
   }
 
   _stateValue(entityId) {

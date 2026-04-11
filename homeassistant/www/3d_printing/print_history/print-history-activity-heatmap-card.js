@@ -128,8 +128,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return {
       sourceState: sourceState ? sourceState.state : "",
       sourceFetch: sourceState && sourceState.attributes ? sourceState.attributes.last_fetch || "" : "",
-      filteredUpdated: filteredState ? String(filteredState.last_updated || filteredState.last_changed || "") : "",
-      pageInfoUpdated: pageInfoState ? String(pageInfoState.last_updated || pageInfoState.last_changed || "") : "",
+      filteredRevision: filteredState && filteredState.attributes ? String(filteredState.attributes.browser_revision || "") : "",
+      pageInfoRevision: pageInfoState && pageInfoState.attributes ? String(pageInfoState.attributes.browser_revision || "") : "",
       metric: metricState ? metricState.state : "",
       selectedDate: selectedDateState ? selectedDateState.state : "",
       apiBase: apiBaseState ? apiBaseState.state : "",

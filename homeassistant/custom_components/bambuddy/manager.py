@@ -63,6 +63,7 @@ class PrintHistoryBrowserManager:
         self.archives: list[dict[str, Any]] = []
         self.result = query_archives([], self._state_snapshot())
         self.activity_summary: dict[str, Any] = {"archive_count": 0, "active_day_count": 0, "latest_archive_id": 0}
+        self.browser_revision = 0
         self.status_state = "initializing"
         self.status_message = "Initializing Bambuddy print history browser"
         self.last_refresh: str | None = None
@@ -75,7 +76,8 @@ class PrintHistoryBrowserManager:
         await self.hass.async_add_executor_job(self.store.initialize)
         _LOGGER.info("Initialized Bambuddy local store at %s", self.store._db_path)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-        self._recompute_query()
+        if self._recompute_query():
+            self.browser_revision += 1
 
         self._unsubscribers.append(
             async_track_state_change_event(self.hass, BROWSER_HELPER_ENTITY_IDS, self._async_handle_helper_state_change)
@@ -186,11 +188,14 @@ class PrintHistoryBrowserManager:
                 )
             enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
             projected = [project_archive(item) for item in enriched_archives]
+            archives_changed = projected != self.archives
             await self.hass.async_add_executor_job(self.store.replace_archives, projected)
             self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
             self.last_refresh = dt_util.utcnow().isoformat()
             self.last_error = ""
-            self._recompute_query()
+            query_changed = self._recompute_query()
+            if archives_changed or query_changed:
+                self.browser_revision += 1
             await self._async_sync_options()
             self._set_status("ready", f"Refreshed Bambuddy print history browser ({reason})")
             _LOGGER.info("Refreshed Bambuddy print history browser (%s) with %s archives", reason, len(self.archives))
@@ -331,10 +336,15 @@ class PrintHistoryBrowserManager:
             printer_names[printer_id] = printer_name
         return printer_names
 
-    def _recompute_query(self) -> None:
-        self.result = self.store.load_query_result(self._state_snapshot())
-        self.activity_summary = self.store.load_activity_summary()
-        self.loaded_at = dt_util.utcnow().isoformat()
+    def _recompute_query(self) -> bool:
+        next_result = self.store.load_query_result(self._state_snapshot())
+        next_activity_summary = self.store.load_activity_summary()
+        changed = next_result != self.result or next_activity_summary != self.activity_summary
+        self.result = next_result
+        self.activity_summary = next_activity_summary
+        if changed:
+            self.loaded_at = dt_util.utcnow().isoformat()
+        return changed
 
     def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:
         snapshot = self._state_snapshot()
@@ -377,7 +387,8 @@ class PrintHistoryBrowserManager:
         if entity_id in OPTION_SET_HELPERS and self.archives:
             self.hass.async_create_task(self._async_sync_options())
 
-        self._recompute_query()
+        if self._recompute_query():
+            self.browser_revision += 1
         self._notify_listeners()
 
     @callback
