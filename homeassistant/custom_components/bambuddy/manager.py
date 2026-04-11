@@ -176,7 +176,16 @@ class PrintHistoryBrowserManager:
                 self.fetch_timeout_seconds,
             )
             raw_archives = await client.async_fetch_archives(limit=self.max_archives)
-            projected = [project_archive(item) for item in raw_archives]
+            raw_printers: list[dict[str, Any]] = []
+            try:
+                raw_printers = await client.async_fetch_printers()
+            except Exception as error:  # noqa: BLE001
+                _LOGGER.warning(
+                    "Unable to fetch Bambuddy printers while refreshing print history; falling back to archive payload names: %s",
+                    error,
+                )
+            enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
+            projected = [project_archive(item) for item in enriched_archives]
             await self.hass.async_add_executor_job(self.store.replace_archives, projected)
             self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
             self.last_refresh = dt_util.utcnow().isoformat()
@@ -287,6 +296,40 @@ class PrintHistoryBrowserManager:
             state = self.hass.states.get(entity_id)
             snapshot[entity_id] = "" if state is None else state.state
         return snapshot
+
+    def _enrich_archives_with_printer_names(
+        self,
+        raw_archives: list[dict[str, Any]],
+        raw_printers: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        printer_names = self._printer_name_by_id(raw_printers)
+        if not printer_names:
+            return list(raw_archives)
+
+        enriched_archives: list[dict[str, Any]] = []
+        for archive in raw_archives:
+            printer_name = str(archive.get("printer_name") or "").strip()
+            printer_id = str(archive.get("printer_id") or "").strip()
+            resolved_printer_name = printer_names.get(printer_id, "")
+            if printer_name or not resolved_printer_name:
+                enriched_archives.append(archive)
+                continue
+
+            enriched_archive = dict(archive)
+            enriched_archive["printer_name"] = resolved_printer_name
+            enriched_archives.append(enriched_archive)
+
+        return enriched_archives
+
+    def _printer_name_by_id(self, raw_printers: list[dict[str, Any]]) -> dict[str, str]:
+        printer_names: dict[str, str] = {}
+        for printer in raw_printers:
+            printer_id = str(printer.get("id") or printer.get("printer_id") or "").strip()
+            printer_name = str(printer.get("name") or printer.get("printer_name") or "").strip()
+            if not printer_id or not printer_name or printer_id in printer_names:
+                continue
+            printer_names[printer_id] = printer_name
+        return printer_names
 
     def _recompute_query(self) -> None:
         self.result = self.store.load_query_result(self._state_snapshot())

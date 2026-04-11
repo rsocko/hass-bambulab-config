@@ -353,6 +353,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '</div>' +
       '<div class="chip-row">' +
       '<span class="chip">' + this._escapeHtml(normalized.archiveIdLabel) + '</span>' +
+      (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
       '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>' +
       '</div>' +
       (chips.length ? '<div class="chip-row">' + chips.join("") + '</div>' : '') +
@@ -402,7 +403,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return { dotColor: hex, tooltip: hex };
     });
     var metadata = [archive.filament_type || "Unknown material", archive.layer_height ? String(archive.layer_height) + "mm" : "", archive.designer || ""].filter(Boolean).join(" · ");
+    var printerLabel = archive.printer_name ? String(archive.printer_name) : (archive.printer_id != null && archive.printer_id !== "" ? ("Printer " + String(archive.printer_id)) : "");
     var facts = [
+      printerLabel ? "Printer: " + printerLabel : "",
       archive.filament_type ? String(archive.filament_type) : "",
       archive.layer_height ? String(archive.layer_height) + "mm layer" : "",
       archive.nozzle_diameter ? String(archive.nozzle_diameter) + "mm nozzle" : "",
@@ -427,6 +430,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       costLabel: this._formatCurrency(archive.cost),
       objectLabel: String(archive.object_count || 1),
       archiveIdLabel: archive.id != null && archive.id !== "" ? ("Archive #" + archive.id) : "Archive unavailable",
+      printerLabel: printerLabel,
       metadata: metadata,
       facts: facts,
       filamentChips: filamentChips,

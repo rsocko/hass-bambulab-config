@@ -16,6 +16,8 @@ def _install_homeassistant_stubs() -> None:
     voluptuous_module = ModuleType("voluptuous")
     aiohttp_module = ModuleType("aiohttp")
     homeassistant_module = ModuleType("homeassistant")
+    components_module = ModuleType("homeassistant.components")
+    websocket_api_module = ModuleType("homeassistant.components.websocket_api")
     config_entries_module = ModuleType("homeassistant.config_entries")
     const_module = ModuleType("homeassistant.const")
     core_module = ModuleType("homeassistant.core")
@@ -70,6 +72,17 @@ def _install_homeassistant_stubs() -> None:
         def __init__(self, total=None) -> None:
             self.total = total
 
+    class ActiveConnection:
+        def __init__(self) -> None:
+            self.errors: list[tuple[int, str, str]] = []
+            self.results: list[tuple[int, dict]] = []
+
+        def send_error(self, message_id: int, code: str, message: str) -> None:
+            self.errors.append((message_id, code, message))
+
+        def send_result(self, message_id: int, result: dict) -> None:
+            self.results.append((message_id, result))
+
     voluptuous_module.Schema = lambda value: value
     voluptuous_module.Required = lambda key, default=None: key
     voluptuous_module.Optional = lambda key, default=None: key
@@ -93,18 +106,26 @@ def _install_homeassistant_stubs() -> None:
     helpers_event_module.async_track_state_change_event = lambda *args, **kwargs: (lambda: None)
     helpers_event_module.async_track_time_interval = lambda *args, **kwargs: (lambda: None)
     util_dt_module.utcnow = lambda: datetime(2026, 4, 10, tzinfo=timezone.utc)
+    websocket_api_module.ActiveConnection = ActiveConnection
+    websocket_api_module.websocket_command = lambda _schema: (lambda func: func)
+    websocket_api_module.async_response = lambda func: func
+    websocket_api_module.async_register_command = lambda hass, handler: None
     helpers_module.aiohttp_client = aiohttp_client_module
     util_module.dt = util_dt_module
 
+    homeassistant_module.components = components_module
     homeassistant_module.config_entries = config_entries_module
     homeassistant_module.const = const_module
     homeassistant_module.core = core_module
     homeassistant_module.helpers = helpers_module
     homeassistant_module.util = util_module
+    components_module.websocket_api = websocket_api_module
 
     sys.modules["voluptuous"] = voluptuous_module
     sys.modules["aiohttp"] = aiohttp_module
     sys.modules["homeassistant"] = homeassistant_module
+    sys.modules["homeassistant.components"] = components_module
+    sys.modules["homeassistant.components.websocket_api"] = websocket_api_module
     sys.modules["homeassistant.config_entries"] = config_entries_module
     sys.modules["homeassistant.const"] = const_module
     sys.modules["homeassistant.core"] = core_module
@@ -174,6 +195,20 @@ class FakeServices:
 class FakeBus:
     def async_listen(self, *_args, **_kwargs):
         return lambda: None
+
+
+class FakeApiClient:
+    archives: list[dict] = []
+    printers: list[dict] = []
+
+    def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
+        pass
+
+    async def async_fetch_archives(self, *, limit: int) -> list[dict[str, object]]:
+        return [dict(item) for item in self.archives[:limit]]
+
+    async def async_fetch_printers(self) -> list[dict[str, object]]:
+        return [dict(item) for item in self.printers]
 
 
 class FakeConfig:
@@ -411,3 +446,60 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert review_response["review_state"]["mismatch_flags"] == "color_mismatch"
     assert lineage_response["repair_lineage"][0]["relation_type"] == "derived_from"
     assert delete_response["deleted"] == 1
+
+
+def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+
+    FakeApiClient.archives = [
+        {
+            "id": 101,
+            "printer_id": 1,
+            "print_name": "Hueforge Batman",
+            "actual_time_seconds": 14400,
+            "print_time_seconds": 15000,
+            "filament_used_grams": 42.5,
+            "filament_type": "PLA",
+            "filament_color": "#112233,#ffffff",
+            "status": "completed",
+            "started_at": "2026-04-08T10:00:00Z",
+            "completed_at": "2026-04-08T14:00:00Z",
+            "created_at": "2026-04-08T09:58:00Z",
+            "cost": 2.35,
+            "object_count": 2,
+            "layer_height": 0.16,
+            "designer": "Jane",
+            "is_favorite": True,
+            "tags": "display,hueforge,s:123",
+            "notes": "User note",
+            "project_name": "Wall Art",
+        }
+    ]
+    FakeApiClient.printers = [{"id": 1, "name": "Workshop P1S"}]
+
+    original_client = manager_module.BambuddyApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    try:
+        asyncio.run(manager.async_refresh("test"))
+    finally:
+        manager_module.BambuddyApiClient = original_client
+
+    assert manager.archives[0]["printer_name"] == "Workshop P1S"
+    printer_option_calls = [
+        call for call in hass.services.calls if call[0] == "input_select" and call[1] == "set_options"
+    ]
+    printer_options = next(
+        call[2]["options"]
+        for call in printer_option_calls
+        if call[2]["entity_id"] == "input_select.print_history_filter_printer"
+    )
+    assert printer_options == ["All", "Workshop P1S"]
