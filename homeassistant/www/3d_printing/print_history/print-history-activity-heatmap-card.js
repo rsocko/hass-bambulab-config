@@ -24,6 +24,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._queryResponse = { activity_rows: [] };
     this._queryToken = 0;
     this._renderTimer = null;
+    this._debugStats = {
+      scheduledRenders: 0,
+      executedRenders: 0,
+      coalescedRenders: 0,
+    };
   }
 
   setConfig(config) {
@@ -278,7 +283,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
   _queueRender() {
     var self = this;
+    self._debugStats.scheduledRenders += 1;
     if (self._renderTimer) {
+      self._debugStats.coalescedRenders += 1;
       clearTimeout(self._renderTimer);
     }
     self._renderTimer = setTimeout(function () {
@@ -286,6 +293,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (self._renderQueued) {
         return;
       }
+      self._debugStats.executedRenders += 1;
       self._renderQueued = true;
 
       Promise.resolve()
@@ -305,6 +313,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (!this._hass || !this._config || !this._chartContainer) {
       return;
     }
+    var renderStarted = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
 
     if (!this._isVisible()) {
       this._setHiddenState(true);
@@ -367,6 +376,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     await this._chart.render();
     await this._ensureChartVisible(dataset);
     await this._applySelectedVisualState(dataset);
+    this._recordDebug(renderStarted, dataset);
   }
 
   _destroyChart() {
@@ -461,6 +471,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     var token = ++this._queryToken;
+    var started = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
     this._queryResponse = await this._hass.callWS({
       type: "bambuddy/print_history_query",
       status: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_status")),
@@ -485,6 +496,42 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
     if (!this._queryResponse || typeof this._queryResponse !== "object") {
       this._queryResponse = { activity_rows: [] };
+    }
+    this._recordDebug(started, null, true);
+  }
+
+  _debugEnabled() {
+    return this._stateValue("input_boolean.print_history_debug_instrumentation") === "on";
+  }
+
+  _recordDebug(started, dataset, queryOnly) {
+    if (!this._debugEnabled()) {
+      return;
+    }
+    var ended = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+    var activityRows = this._queryResponse && Array.isArray(this._queryResponse.activity_rows)
+      ? this._queryResponse.activity_rows.length
+      : 0;
+    var payload = {
+      at: new Date().toISOString(),
+      channel: queryOnly ? "heatmap_query" : "heatmap_render",
+      durationMs: Math.round((ended - started) * 10) / 10,
+      activityRowCount: activityRows,
+      scheduledRenders: this._debugStats.scheduledRenders,
+      executedRenders: this._debugStats.executedRenders,
+      coalescedRenders: this._debugStats.coalescedRenders,
+      weekCount: dataset && dataset.weekKeys ? dataset.weekKeys.length : null,
+      backend: this._queryResponse && this._queryResponse.debug ? this._queryResponse.debug : null,
+      store: this._queryResponse && this._queryResponse.store ? this._queryResponse.store : null,
+    };
+    window.__printHistoryDebug = window.__printHistoryDebug || { events: [], latest: {} };
+    window.__printHistoryDebug.events.push(payload);
+    if (window.__printHistoryDebug.events.length > 100) {
+      window.__printHistoryDebug.events.shift();
+    }
+    window.__printHistoryDebug.latest[payload.channel] = payload;
+    if (typeof console !== "undefined" && typeof console.debug === "function") {
+      console.debug("[print-history-debug]", payload);
     }
   }
 

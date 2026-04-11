@@ -7,9 +7,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._querySignature = "";
     this._viewSignature = "";
     this._queryToken = 0;
+    this._refreshTimer = null;
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
+    this._debugStats = {
+      scheduledRefreshes: 0,
+      executedRefreshes: 0,
+      coalescedRefreshes: 0,
+    };
     this._boundClickHandler = this._handleClick.bind(this);
   }
 
@@ -60,6 +66,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
+    if (this._refreshTimer) {
+      clearTimeout(this._refreshTimer);
+      this._refreshTimer = null;
+    }
   }
 
   getCardSize() {
@@ -165,14 +175,24 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!this._hass || !this._config) {
       return;
     }
+    this._debugStats.scheduledRefreshes += 1;
+    if (this._refreshTimer) {
+      this._debugStats.coalescedRefreshes += 1;
+      clearTimeout(this._refreshTimer);
+    }
     this._loading = true;
     this._error = "";
     this._renderBody();
-    this._refreshData();
+    this._refreshTimer = setTimeout(function () {
+      this._refreshTimer = null;
+      this._debugStats.executedRefreshes += 1;
+      this._refreshData();
+    }.bind(this), 180);
   }
 
   async _refreshData() {
     var token = ++this._queryToken;
+    var started = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
     try {
       var response = await this._hass.callWS(this._buildQueryPayload());
       if (token !== this._queryToken) {
@@ -180,16 +200,51 @@ class PrintHistoryBrowserCard extends HTMLElement {
       }
       this._response = response && typeof response === "object" ? response : { archives: [], query: {} };
       this._error = "";
+      this._recordDebug("browser", response, started);
     } catch (error) {
       if (token !== this._queryToken) {
         return;
       }
       this._response = { archives: [], query: {} };
       this._error = error && error.message ? error.message : String(error);
+      this._recordDebug("browser_error", { error: this._error }, started);
     }
     this._loading = false;
     this._viewSignature = this._buildViewSignature(this._hass);
     this._renderBody();
+  }
+
+  _debugEnabled() {
+    return this._stateValue("input_boolean.print_history_debug_instrumentation") === "on";
+  }
+
+  _recordDebug(channel, response, started) {
+    if (!this._debugEnabled()) {
+      return;
+    }
+    var ended = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+    var payload = {
+      at: new Date().toISOString(),
+      channel: channel,
+      roundTripMs: Math.round((ended - started) * 10) / 10,
+      pageItemCount: Array.isArray(this._response.archives) ? this._response.archives.length : 0,
+      filteredCount: this._response && this._response.query ? this._response.query.filtered_count : null,
+      scheduledRefreshes: this._debugStats.scheduledRefreshes,
+      executedRefreshes: this._debugStats.executedRefreshes,
+      coalescedRefreshes: this._debugStats.coalescedRefreshes,
+      backend: response && response.debug ? response.debug : null,
+      store: response && response.store ? response.store : null,
+      error: response && response.error ? response.error : null,
+    };
+    window.__printHistoryDebug = window.__printHistoryDebug || { events: [], latest: {} };
+    window.__printHistoryDebug.events.push(payload);
+    if (window.__printHistoryDebug.events.length > 100) {
+      window.__printHistoryDebug.events.shift();
+    }
+    window.__printHistoryDebug.latest[channel] = payload;
+    if (typeof console !== "undefined" && typeof console.debug === "function") {
+      console.debug("[print-history-debug]", payload);
+    }
   }
 
   _buildQueryPayload() {

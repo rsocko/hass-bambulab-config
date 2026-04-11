@@ -79,6 +79,9 @@ cards:
                     name: Max Cached
                   - entity: input_number.photo_review_timeout_hours
                     name: Review Timeout (hrs)
+                  - type: divider
+                  - entity: input_boolean.print_history_debug_instrumentation
+                    name: Debug Instrumentation
     styles: |
       ha-card {
         margin-top: 8px !important;

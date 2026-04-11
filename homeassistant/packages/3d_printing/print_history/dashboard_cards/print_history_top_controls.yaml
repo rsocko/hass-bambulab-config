@@ -94,7 +94,7 @@ card:
         }
         @media (max-width: 560px) {
           .bubble-sub-button:nth-child(1),
-          .bubble-sub-button:nth-child(12) {
+          .bubble-sub-button:nth-child(11) {
             display: none !important;
           }
         }

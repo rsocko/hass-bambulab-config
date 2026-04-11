@@ -22,6 +22,11 @@ Historical design notes:
 
 - `appdaemon-query-cache.md`
 - `filter-sort-design.md`
+- `external-services-design-review-2026-04.md`
+- `variant3-metadata-schema-and-variant4-carry-forward.md`
+- `metadata-implementation-roadmap.md`
+- `issue-update-drafts-2026-04.md`
+- `issue-posting-plan-2026-04.md`
 
 ## Related Runtime Repair Docs
 
@@ -312,6 +317,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
 | `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
+| `input_boolean.print_history_debug_instrumentation` | input_boolean | Enable browser and heatmap performance instrumentation for future debugging sessions | Off by default |
 | `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
 | `input_number.history_current_page` | input_number | Current pagination page | — |
 | `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
@@ -460,6 +466,7 @@ For detailed design of the two major subsystems, see:
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
 - **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/detail card layouts.
+- **Configurable browser instrumentation** — See [browser-instrumentation.md](browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
 - **Heatmap backend unification** — See [filter-sort-design.md](filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
 - **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable, but depends on multipart upload and more media-state handling.
 - **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
@@ -474,6 +481,16 @@ The Print History view now includes the configurable browser described in the fi
 3. **Repeated control strip** — page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
 4. **Archive card variants** — the history renderer switches between compact, media, and detail cards while keeping a two-column desktop layout and a single-column mobile fallback.
 5. **Archive detail popup is live and now actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
+
+### Debug Instrumentation
+
+The print history browser now includes optional, helper-controlled instrumentation for future debugging and analysis.
+
+- Helper: `input_boolean.print_history_debug_instrumentation`
+- UI toggle: debug row in the Print History settings popup opened from the browser header cog button
+- Output: browser console plus `window.__printHistoryDebug`
+
+See [browser-instrumentation.md](browser-instrumentation.md) for the full workflow and payload description.
 
 ### Thumbnail Images Require Local Network Access
 

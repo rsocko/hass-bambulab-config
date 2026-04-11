@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
@@ -195,9 +196,19 @@ class PrintHistoryBrowserManager:
         merged_overrides = dict(overrides or {})
         include_activity_rows = bool(merged_overrides.pop("include_activity_rows", False))
         states = self._merged_state_snapshot(merged_overrides)
+        debug_enabled = states.get("input_boolean.print_history_debug_instrumentation", "off") == "on"
+
+        total_started = perf_counter()
+        query_started = perf_counter()
         result = self.store.load_query_result(states)
+        query_ms = round((perf_counter() - query_started) * 1000, 1)
+
         archive_ids = [int(archive.get("id")) for archive in result.page_items if int(archive.get("id") or 0) > 0]
+
+        annotations_started = perf_counter()
         annotations = self.store.load_query_annotations(archive_ids)
+        annotations_ms = round((perf_counter() - annotations_started) * 1000, 1)
+
         response = {
             "archive_count": self.activity_summary.get("archive_count", len(self.archives)),
             "query": {
@@ -216,10 +227,29 @@ class PrintHistoryBrowserManager:
             **annotations,
             "store": self.store.load_store_stats(),
         }
+        activity_rows_ms = 0.0
+        activity_row_count = 0
         if include_activity_rows:
             activity_states = dict(states)
             activity_states["input_text.print_history_activity_selected_date"] = ""
+            activity_started = perf_counter()
             response["activity_rows"] = self.store.load_activity_rows(activity_states)
+            activity_rows_ms = round((perf_counter() - activity_started) * 1000, 1)
+            activity_row_count = len(response["activity_rows"])
+
+        if debug_enabled:
+            response["debug"] = {
+                "enabled": True,
+                "query_ms": query_ms,
+                "annotations_ms": annotations_ms,
+                "activity_rows_ms": activity_rows_ms,
+                "total_ms": round((perf_counter() - total_started) * 1000, 1),
+                "include_activity_rows": include_activity_rows,
+                "page_item_count": len(result.page_items),
+                "filtered_count": result.filtered_count,
+                "activity_row_count": activity_row_count,
+                "timestamp": dt_util.utcnow().isoformat(),
+            }
         return response
 
     def build_archive_detail_response(self, archive_id: int) -> dict[str, Any] | None:

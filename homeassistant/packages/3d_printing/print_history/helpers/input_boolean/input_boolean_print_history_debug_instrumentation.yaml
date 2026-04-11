@@ -1,0 +1,4 @@
+print_history_debug_instrumentation:
+  name: Print History Debug Instrumentation
+  icon: mdi:bug-outline
+  initial: false

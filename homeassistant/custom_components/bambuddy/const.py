@@ -50,6 +50,7 @@ BROWSER_HELPER_ENTITY_IDS = [
     "input_number.print_history_max_archives",
     "input_boolean.bambuddy_integration_enabled",
     "input_boolean.bambuddy_history_sync_enabled",
+    "input_boolean.print_history_debug_instrumentation",
 ]
 
 OPTION_SET_HELPERS = {
