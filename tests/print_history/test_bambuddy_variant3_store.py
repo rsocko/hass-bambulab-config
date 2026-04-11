@@ -186,6 +186,17 @@ def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blan
     assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
 
 
+def test_variant3_query_local_date_key_uses_home_assistant_timezone() -> None:
+    original_timezone = query_module.dt_util.DEFAULT_TIME_ZONE
+    try:
+        query_module.dt_util.DEFAULT_TIME_ZONE = timezone(timedelta(hours=-7))
+
+        assert query_module.local_date_key("2026-04-09T05:30:00Z") == "2026-04-08"
+        assert query_module.archive_date_key({"started_at": "2026-04-09T05:30:00Z"}) == "2026-04-08"
+    finally:
+        query_module.dt_util.DEFAULT_TIME_ZONE = original_timezone
+
+
 def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

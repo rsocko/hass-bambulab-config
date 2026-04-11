@@ -548,7 +548,19 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (Number.isNaN(parsed.getTime())) {
       return "Unknown";
     }
-    return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: this._haTimeZone(),
+    }).format(parsed);
+  }
+
+  _haTimeZone() {
+    return this._hass && this._hass.config && this._hass.config.time_zone
+      ? String(this._hass.config.time_zone)
+      : undefined;
   }
 
   _formatDuration(secondsValue) {

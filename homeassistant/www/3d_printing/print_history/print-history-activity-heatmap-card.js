@@ -563,6 +563,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var date = this._parseDate(startedAt);
     var colorWeights = this._collectColorWeights(archive || {});
     var colors = Object.keys(colorWeights);
+    var dateKey = archive && (archive.archive_day || archive.archive_day_local || "");
+
+    if (!dateKey && date) {
+      dateKey = this._formatLocalDate(date);
+    }
 
     return {
       id: archive && archive.id != null ? archive.id : null,
@@ -576,7 +581,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       status: this._normalizeStatus(archive && archive.status),
       rawStatus: archive && archive.status ? String(archive.status) : "",
       timestamp: date,
-      dateKey: date ? this._formatLocalDate(date) : "",
+      dateKey: dateKey,
       formattedDate: date ? this._formatDateTime(date) : "Unknown date",
       objectCount: Math.max(1, this._toNumber(archive && archive.object_count)),
       filamentWeight: this._toNumber(archive && archive.filament_used_grams),
@@ -608,8 +613,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       })
       .filter(Boolean);
       var isFavorite = !!archive.isFavorite;
-    var now = new Date();
-    var archiveAgeDays = archive.timestamp ? (this._startOfDay(now) - this._startOfDay(archive.timestamp)) / 86400000 : Number.POSITIVE_INFINITY;
+    var todayKey = this._formatLocalDate(new Date());
+    var archiveDate = archive.dateKey ? this._dateFromDateKey(archive.dateKey) : null;
+    var todayDate = this._dateFromDateKey(todayKey);
+    var archiveAgeDays = archiveDate && todayDate
+      ? (todayDate.getTime() - archiveDate.getTime()) / 86400000
+      : Number.POSITIVE_INFINITY;
     var archiveStatus = archive.status;
     var tagValues = this._parseTagList(archive.tags);
     var searchBlob = [archive.printName, archive.designer, archive.tags]
@@ -633,11 +642,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var matchesDate = true;
 
     if (dateRangeValue === "Today") {
-      matchesDate = archiveAgeDays < 1;
+      matchesDate = archive.dateKey === todayKey;
     } else if (dateRangeValue === "This Week") {
       matchesDate = archiveAgeDays < 7;
     } else if (dateRangeValue === "This Month") {
-      matchesDate = archiveAgeDays < 30;
+      matchesDate = !!archive.dateKey && archive.dateKey.slice(0, 7) === todayKey.slice(0, 7);
     } else if (dateRangeValue === "Last 30 Days") {
       matchesDate = archiveAgeDays < 30;
     } else if (dateRangeValue === "Last 90 Days") {
@@ -732,10 +741,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var mode = this._normalizeMode(this._stateValue(this._config.mode_entity) || "Print Count");
     var weeks = Math.max(12, Number(visibleWeeks || this._config.weeks || 52));
     var startDay = ((this._config.start_day % 7) + 7) % 7;
-    var today = this._startOfDay(new Date());
-    var rangeEnd = today;
-    var rangeStart = this._startOfWeek(rangeEnd, startDay);
-    rangeStart = this._addDays(rangeStart, -((weeks - 1) * 7));
+    var todayKey = this._formatLocalDate(new Date());
+    var rangeEnd = todayKey;
+    var rangeStart = this._startOfWeekKey(rangeEnd, startDay);
+    rangeStart = this._shiftDateKey(rangeStart, -((weeks - 1) * 7));
 
     var keys = Object.keys(grouped);
     var maxCount = 0;
@@ -769,18 +778,15 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var hasAnyPastCells = false;
 
     for (var weekIndex = 0; weekIndex < weeks; weekIndex += 1) {
-      var weekStart = this._addDays(rangeStart, weekIndex * 7);
-      var weekKey = this._formatLocalDate(weekStart);
+      var weekKey = this._shiftDateKey(rangeStart, weekIndex * 7);
       weekKeys.push(weekKey);
 
       for (var dayIndex = 0; dayIndex < 7; dayIndex += 1) {
-        var currentDate = this._addDays(weekStart, dayIndex);
-        var currentKey = this._formatLocalDate(currentDate);
-        var isFuture = currentDate.getTime() > today.getTime();
+        var currentKey = this._shiftDateKey(weekKey, dayIndex);
+        var isFuture = currentKey > todayKey;
         var stats = grouped[currentKey] || null;
         var point = this._buildPoint({
           weekKey: weekKey,
-          date: currentDate,
           dateKey: currentKey,
           stats: stats,
           mode: mode,
@@ -1978,11 +1984,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
+      timeZone: this._haTimeZone(),
     }).format(date);
   }
 
   _formatDateLabel(dateKey) {
-    var date = this._parseDate(dateKey + "T12:00:00");
+    var date = this._dateFromDateKey(dateKey);
     if (!date) {
       return dateKey;
     }
@@ -1991,6 +1998,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "UTC",
     }).format(date);
   }
 
@@ -1998,17 +2006,17 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (index < 0) {
       return "";
     }
-    var currentDate = this._parseDate(weekKey + "T12:00:00");
+    var currentDate = this._dateFromDateKey(weekKey);
     if (!currentDate) {
       return "";
     }
     if (index === 0) {
-      return new Intl.DateTimeFormat(undefined, { month: "short" }).format(currentDate);
+      return new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" }).format(currentDate);
     }
     var previousKey = weekKeys[index - 1];
-    var previousDate = previousKey ? this._parseDate(previousKey + "T12:00:00") : null;
-    if (!previousDate || previousDate.getMonth() !== currentDate.getMonth()) {
-      return new Intl.DateTimeFormat(undefined, { month: "short" }).format(currentDate);
+    var previousDate = previousKey ? this._dateFromDateKey(previousKey) : null;
+    if (!previousDate || previousDate.getUTCMonth() !== currentDate.getUTCMonth()) {
+      return new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" }).format(currentDate);
     }
     return "";
   }
@@ -2021,10 +2029,66 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _formatLocalDate(date) {
-    var year = date.getFullYear();
-    var month = String(date.getMonth() + 1).padStart(2, "0");
-    var day = String(date.getDate()).padStart(2, "0");
+    var parts = new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: this._haTimeZone(),
+    }).formatToParts(date);
+    var year = "";
+    var month = "";
+    var day = "";
+    parts.forEach(function (part) {
+      if (part.type === "year") {
+        year = part.value;
+      } else if (part.type === "month") {
+        month = part.value;
+      } else if (part.type === "day") {
+        day = part.value;
+      }
+    });
+    if (!year || !month || !day) {
+      year = String(date.getUTCFullYear());
+      month = String(date.getUTCMonth() + 1).padStart(2, "0");
+      day = String(date.getUTCDate()).padStart(2, "0");
+    }
     return year + "-" + month + "-" + day;
+  }
+
+  _dateFromDateKey(dateKey) {
+    var match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0));
+  }
+
+  _shiftDateKey(dateKey, amount) {
+    var date = this._dateFromDateKey(dateKey);
+    if (!date) {
+      return "";
+    }
+    date.setUTCDate(date.getUTCDate() + amount);
+    return [
+      String(date.getUTCFullYear()),
+      String(date.getUTCMonth() + 1).padStart(2, "0"),
+      String(date.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+  }
+
+  _startOfWeekKey(dateKey, startDay) {
+    var date = this._dateFromDateKey(dateKey);
+    if (!date) {
+      return "";
+    }
+    var diff = (date.getUTCDay() - startDay + 7) % 7;
+    return this._shiftDateKey(dateKey, -diff);
+  }
+
+  _haTimeZone() {
+    return this._hass && this._hass.config && this._hass.config.time_zone
+      ? String(this._hass.config.time_zone)
+      : undefined;
   }
 
   _startOfDay(date) {

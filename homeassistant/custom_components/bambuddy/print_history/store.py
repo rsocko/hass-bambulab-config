@@ -16,6 +16,7 @@ try:
         as_int,
         as_text,
         has_active_filters,
+        local_timezone,
         normalize_hex,
         note_payload_rows,
         query_archives,
@@ -32,6 +33,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         as_int,
         as_text,
         has_active_filters,
+        local_timezone,
         normalize_hex,
         note_payload_rows,
         query_archives,
@@ -847,7 +849,7 @@ class PrintHistoryStore:
             "activity_mode": states.get("input_select.print_history_activity_metric", "Print Count"),
             "page_size": max(1, as_int(states.get("input_number.print_history_page_size", 10), 10)),
             "requested_page": max(1, as_int(states.get("input_number.history_current_page", 1), 1)),
-            "today": current_time.astimezone().date(),
+            "today": current_time.astimezone(local_timezone()).date(),
         }
 
     def _matching_archive_ids(self, filters: dict[str, Any]) -> list[int]:

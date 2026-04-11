@@ -7,6 +7,14 @@ from datetime import datetime, timezone, tzinfo
 from hashlib import sha256
 from typing import Any
 
+try:
+    from homeassistant.util import dt as dt_util
+except ImportError:  # pragma: no cover - standalone test import fallback
+    class _DtUtilFallback:
+        DEFAULT_TIME_ZONE = timezone.utc
+
+    dt_util = _DtUtilFallback()
+
 
 ENRICHMENT_MARKER = "+>"
 SYSTEM_TAG_PREFIXES = (
@@ -110,7 +118,7 @@ def archive_datetime(archive: dict[str, Any]) -> datetime | None:
 
 
 def local_timezone() -> tzinfo:
-    return datetime.now().astimezone().tzinfo or timezone.utc
+    return dt_util.DEFAULT_TIME_ZONE or timezone.utc
 
 
 def local_date_key(value: Any, *, local_tz: tzinfo | None = None) -> str:
@@ -430,8 +438,9 @@ def matches_date_range(archive: dict[str, Any], filter_value: str, now: datetime
     archive_dt = archive_datetime(archive)
     if archive_dt is None:
         return False
-    archive_local = archive_dt.astimezone()
-    now_local = now.astimezone()
+    local_tz = local_timezone()
+    archive_local = archive_dt.astimezone(local_tz)
+    now_local = now.astimezone(local_tz)
     age_days = (now_local.date() - archive_local.date()).days
     if filter_value == "Today":
         return age_days < 1
