@@ -20,6 +20,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGES    = ROOT / "homeassistant" / "packages" / "3d_printing"
 HISTORY     = PACKAGES / "print_history"
+LEGACY_BROWSER = ROOT / "archive" / "print_history" / "legacy-yaml-browser"
 COMMON      = PACKAGES / "bambuddy_common"
 LOADERS     = PACKAGES / "_feature_loaders.yaml"
 DOCS_HIST   = ROOT / "docs" / "features" / "print_history"
@@ -180,8 +181,11 @@ class TestFileInventory(unittest.TestCase):
         "bambuddy_enrich_archive_on_complete.yaml",
         "bambuddy_capture_error_photos.yaml",
         "bambuddy_event_history_refresh.yaml",
-        "print_history_sync_filter_options.yaml",
         "print_history_reset_page_on_filter_change.yaml",
+    ]
+
+    EXPECTED_LEGACY_AUTOMATIONS = [
+        "print_history_sync_filter_options.yaml",
     ]
 
     EXPECTED_SCRIPTS = [
@@ -199,16 +203,22 @@ class TestFileInventory(unittest.TestCase):
         "bambuddy_set_archive_cover.yaml",
         "bambuddy_update_archive.yaml",
         "bambuddy_query_recent_archive.yaml",
-        "bambuddy_fetch_archives.yaml",
         "bambuddy_get_archive_detail.yaml",
     ]
 
+    EXPECTED_LEGACY_REST_COMMANDS = [
+        "bambuddy_fetch_archives.yaml",
+    ]
+
     EXPECTED_TEMPLATE_SENSORS = [
+        "print_history_browser_service_payloads.yaml",
+        "print_history_payload_diagnostics.yaml",
+    ]
+
+    EXPECTED_LEGACY_TEMPLATE_SENSORS = [
         "print_history_archives.yaml",
         "print_history_filtered.yaml",
         "print_history_page_info.yaml",
-        "print_history_browser_service_payloads.yaml",
-        "print_history_payload_diagnostics.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_TEXT = [
@@ -273,8 +283,8 @@ class TestFileInventory(unittest.TestCase):
         "view_print_history.yaml",
     ]
 
-    def _check_files(self, subdir: str, expected: list[str]):
-        directory = HISTORY / subdir
+    def _check_files(self, base_dir: Path, subdir: str, expected: list[str]):
+        directory = base_dir / subdir
         for fname in expected:
             with self.subTest(file=f"{subdir}/{fname}"):
                 self.assertTrue(
@@ -283,40 +293,49 @@ class TestFileInventory(unittest.TestCase):
                 )
 
     def test_automations_exist(self):
-        self._check_files("automations", self.EXPECTED_AUTOMATIONS)
+        self._check_files(HISTORY, "automations", self.EXPECTED_AUTOMATIONS)
+
+    def test_legacy_browser_automations_exist(self):
+        self._check_files(LEGACY_BROWSER, "automations", self.EXPECTED_LEGACY_AUTOMATIONS)
 
     def test_scripts_exist(self):
-        self._check_files("scripts", self.EXPECTED_SCRIPTS)
+        self._check_files(HISTORY, "scripts", self.EXPECTED_SCRIPTS)
 
     def test_rest_commands_exist(self):
-        self._check_files("rest_commands", self.EXPECTED_REST_COMMANDS)
+        self._check_files(HISTORY, "rest_commands", self.EXPECTED_REST_COMMANDS)
+
+    def test_legacy_browser_rest_commands_exist(self):
+        self._check_files(LEGACY_BROWSER, "rest_commands", self.EXPECTED_LEGACY_REST_COMMANDS)
 
     def test_template_sensors_exist(self):
-        self._check_files("template_sensors", self.EXPECTED_TEMPLATE_SENSORS)
+        self._check_files(HISTORY, "template_sensors", self.EXPECTED_TEMPLATE_SENSORS)
+
+    def test_legacy_browser_template_sensors_exist(self):
+        self._check_files(LEGACY_BROWSER, "template_sensors", self.EXPECTED_LEGACY_TEMPLATE_SENSORS)
 
     def test_rest_sensors_exist(self):
-        self._check_files("rest_sensors", self.EXPECTED_REST_SENSORS)
+        self._check_files(HISTORY, "rest_sensors", self.EXPECTED_REST_SENSORS)
 
     def test_helpers_input_text_exist(self):
-        self._check_files("helpers/input_text", self.EXPECTED_HELPERS_INPUT_TEXT)
+        self._check_files(HISTORY, "helpers/input_text", self.EXPECTED_HELPERS_INPUT_TEXT)
 
     def test_helpers_input_boolean_exist(self):
-        self._check_files("helpers/input_boolean", self.EXPECTED_HELPERS_INPUT_BOOLEAN)
+        self._check_files(HISTORY, "helpers/input_boolean", self.EXPECTED_HELPERS_INPUT_BOOLEAN)
 
     def test_helpers_counter_exist(self):
-        self._check_files("helpers/counter", self.EXPECTED_HELPERS_COUNTER)
+        self._check_files(HISTORY, "helpers/counter", self.EXPECTED_HELPERS_COUNTER)
 
     def test_helpers_input_number_exist(self):
-        self._check_files("helpers/input_number", self.EXPECTED_HELPERS_INPUT_NUMBER)
+        self._check_files(HISTORY, "helpers/input_number", self.EXPECTED_HELPERS_INPUT_NUMBER)
 
     def test_helpers_input_select_exist(self):
-        self._check_files("helpers/input_select", self.EXPECTED_HELPERS_INPUT_SELECT)
+        self._check_files(HISTORY, "helpers/input_select", self.EXPECTED_HELPERS_INPUT_SELECT)
 
     def test_dashboard_cards_exist(self):
-        self._check_files("dashboard_cards", self.EXPECTED_DASHBOARD_CARDS)
+        self._check_files(HISTORY, "dashboard_cards", self.EXPECTED_DASHBOARD_CARDS)
 
     def test_dashboard_views_exist(self):
-        self._check_files("dashboard_views", self.EXPECTED_DASHBOARD_VIEWS)
+        self._check_files(HISTORY, "dashboard_views", self.EXPECTED_DASHBOARD_VIEWS)
 
     def test_bambuddy_common_webhook_receiver_exists(self):
         self.assertTrue(
@@ -682,7 +701,7 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertNotIn(".photo_url", content, "Wrong field: use thumbnail_path")
 
     def test_page_info_references_page_helpers(self):
-        content = (HISTORY / "template_sensors" / "print_history_page_info.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_page_info.yaml").read_text("utf-8")
         self.assertIn("history_current_page", content)
         self.assertIn("print_history_filtered", content)
 
@@ -698,17 +717,17 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("3600", content, "Duration conversion must divide by 3600")
 
     def test_archive_projection_includes_object_count_and_omits_quantity(self):
-        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
         self.assertIn("object_count=a.get('object_count', 1) | int(1)", content)
         self.assertNotIn("quantity=a.get('quantity', 1) | int(1)", content)
 
     def test_archive_projection_includes_project_fields(self):
-        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
         self.assertIn("project_id=a.get('project_id')", content)
         self.assertIn("project_name=(a.get('project_name') if a.get('project_name') is not none else '')", content)
 
     def test_archive_projection_drops_slot_id_from_filament_slots(self):
-        content = (HISTORY / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
         self.assertIn("{% set slot_ns = namespace(values=[]) %}", content)
         self.assertIn("color=slot.get('color')", content)
         self.assertIn("type=slot.get('type')", content)
@@ -717,7 +736,7 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertNotIn("filament_slots=slots", content)
 
     def test_filtered_sensor_uses_object_count_and_separate_print_count(self):
-        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("ns.total_prints = ns.total_prints + 1", content)
         self.assertIn("ns.total_objects = ns.total_objects + (a.get('object_count', 1) | int(1))", content)
         self.assertIn("{% elif mode == 'filaments used' %}", content)
@@ -725,15 +744,15 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertNotIn("number of different filaments", content)
 
     def test_filtered_sensor_formats_activity_totals_with_grouping(self):
-        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("{{ '{:,}'.format(count) }} active", content)
         self.assertIn("{{ '{:,.1f}g'.format(ns.total_weight) }}", content)
         self.assertIn("{{ '{:,.2f}'.format(ns.total_cost) }}", content)
         self.assertIn("{{ '{:,.1f}h'.format(ns.total_duration_seconds / 3600) }}", content)
 
     def test_project_filter_supports_unassigned_none_option(self):
-        filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
-        sync_content = (HISTORY / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
+        filtered_content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        sync_content = (LEGACY_BROWSER / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
         helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_project.yaml").read_text("utf-8")
 
         self.assertIn("input_select.print_history_filter_project", filtered_content)
@@ -742,7 +761,7 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("- None", helper_content)
 
     def test_filtered_sensor_builds_color_tooltips_from_enrichment_notes(self):
-        content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         self.assertIn("available_color_tooltips_json", content)
         self.assertIn("{% set enrichment_marker = '+>' %}", content)
         self.assertIn("{% set rows = payload.get('F', []) if payload is mapping else [] %}", content)
@@ -750,7 +769,7 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("{% set tooltip = (entry.names | join(' or ')) ~ ' (' ~ (entry.color | upper) ~ ')' %}", content)
 
     def test_status_filters_split_archive_and_enrichment_status(self):
-        filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        filtered_content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         service_payload_content = (HISTORY / "template_sensors" / "print_history_browser_service_payloads.yaml").read_text("utf-8")
         browser_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
 
@@ -1184,7 +1203,7 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
     """Dropdown tag options should exclude system-managed archive tags."""
 
     def test_sync_filter_options_excludes_system_tag_prefixes(self):
-        content = (HISTORY / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
+        content = (LEGACY_BROWSER / "automations" / "print_history_sync_filter_options.yaml").read_text("utf-8")
         self.assertIn("system_tag_prefixes", content)
         self.assertIn("system_tag_values", content)
         self.assertIn("s:", content)
@@ -1201,7 +1220,7 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("['All', 'None'] + (ns.values | sort)", content)
 
     def test_tag_filter_none_uses_only_user_tags(self):
-        filtered_content = (HISTORY / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
+        filtered_content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         service_payload_content = (HISTORY / "template_sensors" / "print_history_browser_service_payloads.yaml").read_text("utf-8")
         helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tag.yaml").read_text("utf-8")
 

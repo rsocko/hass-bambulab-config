@@ -61,7 +61,6 @@ class PrintHistoryBrowserManager:
         self.store = PrintHistoryStore(Path(hass.config.path(".storage", STORE_FILENAME)))
         self.archives: list[dict[str, Any]] = []
         self.result = query_archives([], self._state_snapshot())
-        self.activity_rows: list[dict[str, Any]] = []
         self.activity_summary: dict[str, Any] = {"archive_count": 0, "active_day_count": 0, "latest_archive_id": 0}
         self.status_state = "initializing"
         self.status_message = "Initializing Bambuddy print history browser"
@@ -261,14 +260,8 @@ class PrintHistoryBrowserManager:
 
     def _recompute_query(self) -> None:
         self.result = self.store.load_query_result(self._state_snapshot())
-        self.activity_rows = self.store.load_activity_rows(self._activity_state_snapshot())
         self.activity_summary = self.store.load_activity_summary()
         self.loaded_at = dt_util.utcnow().isoformat()
-
-    def _activity_state_snapshot(self) -> dict[str, str]:
-        snapshot = self._state_snapshot()
-        snapshot["input_text.print_history_activity_selected_date"] = ""
-        return snapshot
 
     def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:
         snapshot = self._state_snapshot()

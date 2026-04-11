@@ -1,5 +1,7 @@
 # Print History Browser AppDaemon Sidecar
 
+> Archived on 2026-04-10. This sidecar is retained only for historical reference and is no longer part of the active deploy path or active GitHub workflows.
+
 ## Purpose
 
 AppDaemon-backed query/cache runtime for the print-history browser.
@@ -31,7 +33,7 @@ Build from the repository root.
 
 ```bash
 docker build \
-  -f sidecars/print-history-browser-appdaemon/Dockerfile \
+  -f archive/print_history/appdaemon-browser/Dockerfile \
   -t registry.socko.us/print-history-browser-appdaemon:0.1.0 \
   .
 ```
@@ -42,7 +44,7 @@ docker build \
 docker push registry.socko.us/print-history-browser-appdaemon:0.1.0
 ```
 
-The repository workflow `.github/workflows/build-print-history-browser-appdaemon.yml` is manual (`workflow_dispatch`) and runs on a matching self-hosted runner. It only builds the image and optionally pushes it to the registry value supplied at dispatch time.
+The retired repository workflow now lives at `archive/print_history/workflows/build-print-history-browser-appdaemon.yml`. It is kept for reference only.
 
 Default workflow registry:
 

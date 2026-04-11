@@ -8,15 +8,17 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are toggleable from both the card views and the popup, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/` plus the service-backed compatibility sensors in `homeassistant/packages/3d_printing/print_history/template_sensors/print_history_browser_service_payloads.yaml`. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser now opens a per-print detail popup from each card using the same Lovelace pattern as the filament catalog: `custom:auto-entities` generates one `custom:button-card` per archive, shared button-card templates render the cards, and a shared popup template provides the `browser_mod.popup` action. Archive favorites are toggleable from both the card views and the popup, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
 
-## AppDaemon Browser Variant
+## Archived Browser Variants
 
-Variant 1 now has an implemented spike under `sidecars/print-history-browser-appdaemon/`.
+The retired browser backends remain in-repo for reference only and are no longer part of the Home Assistant deploy path or active GitHub workflows.
 
-Use it when you want the print-history browser to stop depending on the Jinja Layer 1/2/3 pipeline for fetch, filter, sort, and page behavior while keeping the existing YAML path in the repo as a fallback.
+- Legacy YAML browser backend: `archive/print_history/legacy-yaml-browser/`
+- Variant 1 AppDaemon sidecar: `archive/print_history/appdaemon-browser/`
+- Retired AppDaemon image workflow: `archive/print_history/workflows/build-print-history-browser-appdaemon.yml`
 
-Design and deployment notes:
+Historical design notes:
 
 - `appdaemon-query-cache.md`
 - `filter-sort-design.md`
@@ -161,10 +163,8 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_capture_print_photos.yaml         # multi-camera, multi-stage photo capture + upload
 │   ├── bambuddy_capture_error_photos.yaml         # print_failed/stopped + native cancel + print_error/HMS sensors → immediate capture + upload
 │   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + reset browser page; integration refresh is internal
-│   ├── print_history_sync_filter_options.yaml     # populate dynamic filter options from archive cache
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
-│   ├── bambuddy_fetch_archives.yaml               # GET /archives — bulk fetch for browser cache
 │   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (advanced review flow)
 │   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
@@ -184,10 +184,11 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── clear_print_history_filters.yaml           # reset browser controls to defaults
 │   └── toggle_print_history_color_filter.yaml     # toggle a color in the multi-select chip row
 ├── template_sensors/
-│   ├── print_history_archives.yaml                # Layer 1 bulk archive cache + field projection
-│   ├── print_history_filtered.yaml                # Layer 2 filter/sort/page metadata
-│   ├── print_history_page_info.yaml               # human-readable page label
-│   └── print_history_archive_data.yaml            # current page slice for dashboard rendering
+│   ├── active_print_display_name.yaml             # current print display name from archive detail + printer fallback
+│   ├── bambuddy_archive_binding_health.yaml       # runtime archive-binding guardrail
+│   ├── print_history_browser_service_payloads.yaml # service-backed page/activity payload compatibility sensors
+│   ├── print_history_payload_diagnostics.yaml     # active payload-budget guard for page/activity compatibility sensors
+│   └── print_history_popup_archive_detail.yaml    # popup detail materialization for the selected archive
 ├── helpers/
 │   ├── input_text/
 │   │   ├── input_text_bambuddy_current_archive_id.yaml
@@ -235,6 +236,11 @@ homeassistant/packages/3d_printing/print_history/
 │   └── photo_review_chip.yaml                     # conditional review-status chip; full popup flow still deferred
 └── dashboard_views/
     └── view_print_history.yaml
+
+archive/print_history/
+├── legacy-yaml-browser/                          # retired Layer 1/2/3 browser backend, not deployed
+├── appdaemon-browser/                            # retired Variant 1 sidecar, not deployed
+└── workflows/                                    # retired AppDaemon image-build workflow, not active
 ```
 
 ## Loader Domains
@@ -273,7 +279,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, cost, status, and failure reason |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
-| `rest_command.bambuddy_fetch_archives` | GET | `/api/v1/archives/?limit=N` | Bulk archive fetch for Layer 1 browser cache |
 
 ### Template Sensors / Integration Entities
 
@@ -281,13 +286,13 @@ input_select: !include_dir_merge_named helpers/input_select
 |---|---|---|
 | `sensor.bambuddy_print_history_browser_status` | Bambuddy custom integration | Browser backend health, sync state, and store path |
 | `sensor.bambuddy_print_history_browser_filtered` | Bambuddy custom integration | Filtered-count summary, page info, active filters, and color options |
-| `sensor.bambuddy_print_history_browser_page_archives` | Bambuddy custom integration | Current visible archive slice for dashboard rendering |
-| `sensor.bambuddy_print_history_browser_activity` | Bambuddy custom integration | Full filtered activity payload for heatmap rendering |
+| `sensor.bambuddy_print_history_browser_page_info` | Bambuddy custom integration | Current page label and total page count |
+| `sensor.print_history_browser_page_archives` | Service-backed template sensor | Current visible archive slice for dashboard rendering |
+| `sensor.print_history_browser_activity` | Service-backed template sensor | Full filtered activity payload for heatmap rendering |
 | `sensor.bambuddy_last_print_name` | `archives[0].print_name` | Most recent print name |
 | `sensor.bambuddy_last_print_status` | `archives[0].status` | Most recent print result |
 | `sensor.bambuddy_last_print_duration` | `archives[0].actual_time_seconds` | Most recent print time (hours) |
 | `sensor.bambuddy_last_print_image_url` | `{base_url}/api/v1/archives/{id}/thumbnail` | Most recent print thumbnail (constructed URL) |
-| `sensor.print_history_page_info` | `history_current_page + filtered total_pages` | Display string for pagination UI |
 
 > **OpenAPI note**: The field is `print_name` (not `name`), `actual_time_seconds` (not `duration_seconds`), and thumbnail is accessed via `GET /api/v1/archives/{id}/thumbnail` (unauthenticated). There is no `photo_url` field.
 
@@ -355,7 +360,6 @@ Deferred advanced scripts:
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
 | `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Refresh the legacy recent-print REST sensor and reset paging; the Bambuddy integration refreshes its own store-backed browser state directly |
-| `print_history_sync_filter_options` | `sensor.bambuddy_print_history_browser_filtered` changes, HA startup | Update dynamic filter dropdown options |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ### Operating Without Webhook

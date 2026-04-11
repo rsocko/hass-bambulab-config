@@ -1,6 +1,6 @@
 # Print History — Filtering, Sorting & Pagination Design
 
-> **Status**: Implemented baseline plus Variant 1 AppDaemon spike live; next target is Bambuddy custom integration with local-store path (2026-04-09)
+> **Status**: Variant 3 custom integration with local-store path is the only active browser backend; the legacy YAML browser and Variant 1 AppDaemon sidecar were archived out of deploy scope on 2026-04-10
 > **Created**: 2026-03-28
 > **Depends on**: [README.md](README.md), [bambuddy-archive-api-catalog.md](../../features/bambuddy_common/bambuddy-archive-api-catalog.md)
 > **Pattern reference**: [filament-catalog.md](../filament_catalog/filament-catalog.md) Phase 2 (Filter Architecture)
@@ -11,19 +11,18 @@ This document captures the implemented baseline for the print history browser: a
 
 ## Current Architecture Status
 
-As of 2026-04-09, the repository is no longer only at the original YAML baseline described later in this document.
+As of 2026-04-10, the repository is no longer only at the original YAML baseline described later in this document.
 
 The implemented runtime state is:
 
-- Variant 1 is live as an AppDaemon sidecar query/cache layer for the browser.
-- The browser now prefers AppDaemon-managed entities instead of the YAML Layer 1/2/3 path.
-- The legacy YAML browser pipeline remains in the repository as fallback and compatibility scaffolding, not as the preferred long-term destination.
+- Variant 3 is live as the `bambuddy` custom integration plus service-backed compatibility sensors.
+- The legacy YAML browser backend now lives under `archive/print_history/legacy-yaml-browser/` for reference only.
+- The former Variant 1 AppDaemon sidecar now lives under `archive/print_history/appdaemon-browser/` for reference only.
 
 Current architecture decision:
 
-- Do not jump from the AppDaemon spike directly to a dedicated browser service boundary only because a sidecar container already exists.
-- The next intended durable move is a `bambuddy` custom integration.
-- Treat Variant 2 as the integration landing zone and Variant 3 as the expected end state once archive-detail, provenance, and repair-review features keep expanding.
+- The `bambuddy` custom integration is now the durable implementation path.
+- Treat the archived YAML and AppDaemon variants as historical design references rather than fallback deploy targets.
 - Keep Variant 4 deferred unless print history clearly becomes a broader archive service with multiple clients or admin-heavy service semantics.
 
 ## Goals

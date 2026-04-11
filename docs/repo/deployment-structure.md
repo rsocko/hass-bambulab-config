@@ -78,7 +78,11 @@ Runtime sidecars under `sidecars/` are not deployed by the Home Assistant config
 That matters for:
 
 - `sidecars/bambuddy-runtime-repair/`
-- `sidecars/print-history-browser-appdaemon/`
+
+The retired print-history AppDaemon browser variant was moved completely out of both the deploy and workflow paths on 2026-04-10:
+
+- `archive/print_history/appdaemon-browser/`
+- `archive/print_history/workflows/build-print-history-browser-appdaemon.yml`
 
 For those runtimes:
 

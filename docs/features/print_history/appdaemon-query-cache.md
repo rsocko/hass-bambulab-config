@@ -1,20 +1,20 @@
 # Print History AppDaemon Query/Cache
 
+> Archived on 2026-04-10. The AppDaemon browser variant is kept only as historical reference under `archive/print_history/appdaemon-browser/` and is no longer part of the active deploy path or active GitHub workflows.
+
 ## Scope
 
-This document captures the implemented Variant 1 spike: an AppDaemon-owned archive cache and query layer for the print-history browser.
+This document captures the former Variant 1 spike: an AppDaemon-owned archive cache and query layer for the print-history browser.
 
 ## Current Decision Status
 
-As of 2026-04-09, this AppDaemon sidecar should be treated as the active bridge architecture, not the intended final service boundary.
+As of 2026-04-10, this AppDaemon sidecar is no longer the active bridge architecture.
 
 Current decision:
 
-- keep Variant 1 in place as the working non-Jinja browser runtime
-- do not jump straight to Variant 4 only because a sidecar container already exists
-- prefer a `bambuddy` custom integration as the next durable implementation step
-- treat a local materialized store inside that integration as the expected medium-term destination once archive-detail, provenance, and repair-review behavior expands further
-- keep a dedicated sidecar-backed browser cache deferred unless print history clearly becomes a broader archive service with multiple clients or admin-heavy service semantics
+- keep this document as reference for the retired sidecar contract and query-core shape
+- treat the `bambuddy` custom integration with the local SQLite store as the active browser backend
+- keep the sidecar runtime out of deployment and workflow paths unless it is intentionally revived
 
 ## What Changed
 
@@ -37,8 +37,8 @@ The existing Home Assistant deploy workflow only syncs `homeassistant/` into HA 
 Variant 1 therefore adds a second deployment track:
 
 1. Keep using `.github/workflows/deploy-homeassistant-template.yml` for HA YAML and `www/` assets.
-2. Build and push the AppDaemon image separately with `.github/workflows/build-print-history-browser-appdaemon.yml`.
-3. Run the sidecar from a compose or Dockhand-style stack using `sidecars/print-history-browser-appdaemon/compose.example.yaml`.
+2. Historical build and compose artifacts now live under `archive/print_history/`.
+3. Do not treat the archived sidecar files as part of the current deployment path.
 
 The image build workflow is `workflow_dispatch` only. It does not run automatically.
 
@@ -79,21 +79,19 @@ The active browser no longer needs the legacy Layer 1/2/3 path for filter, sort,
 
 Disabled at runtime after the AppDaemon cutover:
 
-- `homeassistant/packages/3d_printing/print_history/automations/print_history_sync_filter_options.yaml`
+- `archive/print_history/legacy-yaml-browser/automations/print_history_sync_filter_options.yaml`
 
 Still present as legacy Jinja/browser pipeline artifacts:
 
-- `homeassistant/packages/3d_printing/print_history/template_sensors/print_history_archives.yaml`
-- `homeassistant/packages/3d_printing/print_history/template_sensors/print_history_filtered.yaml`
-- `homeassistant/packages/3d_printing/print_history/template_sensors/print_history_archive_data.yaml`
-- `homeassistant/packages/3d_printing/print_history/template_sensors/print_history_page_info.yaml`
-- `homeassistant/packages/3d_printing/print_history/template_sensors/print_history_payload_diagnostics.yaml`
-- `homeassistant/packages/3d_printing/print_history/rest_commands/bambuddy_fetch_archives.yaml`
+- `archive/print_history/legacy-yaml-browser/template_sensors/print_history_archives.yaml`
+- `archive/print_history/legacy-yaml-browser/template_sensors/print_history_filtered.yaml`
+- `archive/print_history/legacy-yaml-browser/template_sensors/print_history_page_info.yaml`
+- `archive/print_history/legacy-yaml-browser/rest_commands/bambuddy_fetch_archives.yaml`
 - `homeassistant/packages/3d_printing/print_history/scripts/refresh_print_history_archives.yaml`
 
 Likely removable once the repository fully retires the Jinja-style browser path and no remaining consumers depend on it:
 
-- all of the files listed above
+- the archived files listed above
 - `homeassistant/packages/3d_printing/print_history/helpers/input_select/input_select_print_history_filter_color.yaml` if the color filter remains permanently helper-text plus custom-card based
 
 Not automatically removable just because the browser switched:
