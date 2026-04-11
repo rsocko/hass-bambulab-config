@@ -23,9 +23,32 @@ toggle_print_history_archive_favorite:
               value_template: >-
                 {{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim == resolved_archive_id }}
           then:
-            - action: input_boolean.toggle
-              target:
-                entity_id: input_boolean.print_history_popup_is_favorite
+            - action: bambuddy.get_print_history_archive_detail
+              data:
+                archive_id: "{{ resolved_archive_id }}"
+              response_variable: popup_detail_result
+            - variables:
+                popup_is_favorite: >-
+                  {% set content = popup_detail_result.get('archive', {}) if popup_detail_result is defined and popup_detail_result is mapping else {} %}
+                  {% if content is string %}
+                    {% set detail = content | from_json({}) %}
+                  {% elif content is mapping %}
+                    {% set detail = content %}
+                  {% else %}
+                    {% set detail = {} %}
+                  {% endif %}
+                  {{ detail.get('is_favorite', false) }}
+            - if:
+                - condition: template
+                  value_template: "{{ popup_is_favorite | bool }}"
+              then:
+                - action: input_boolean.turn_on
+                  target:
+                    entity_id: input_boolean.print_history_popup_is_favorite
+              else:
+                - action: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.print_history_popup_is_favorite
         - action: logbook.log
           data:
             name: Print History

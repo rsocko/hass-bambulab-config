@@ -1409,6 +1409,16 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         ).read_text("utf-8")
         self.assertIn('triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"]', content)
 
+    def test_toggle_favorite_script_sets_popup_helper_from_archive_detail(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "toggle_print_history_archive_favorite.yaml"
+        ).read_text("utf-8")
+        self.assertIn("action: bambuddy.get_print_history_archive_detail", content)
+        self.assertIn("response_variable: popup_detail_result", content)
+        self.assertIn("{{ detail.get('is_favorite', false) }}", content)
+        self.assertIn("action: input_boolean.turn_on", content)
+        self.assertIn("action: input_boolean.turn_off", content)
+
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
