@@ -531,6 +531,44 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._renderBody();
   }
 
+  _buildPopupActionButton(name, icon, background, tapAction) {
+    return {
+      type: "custom:button-card",
+      name: name,
+      icon: icon,
+      show_name: true,
+      show_icon: true,
+      show_state: false,
+      tap_action: tapAction,
+      hold_action: { action: "none" },
+      styles: {
+        card: [
+          { padding: "12px 10px" },
+          { "border-radius": "16px" },
+          { "box-shadow": "none" },
+          { border: "1px solid rgba(255,255,255,0.08)" },
+          { background: background },
+        ],
+        grid: [
+          { "grid-template-areas": '"i" "n"' },
+          { "grid-template-columns": "1fr" },
+          { "justify-items": "center" },
+          { gap: "6px" },
+        ],
+        icon: [
+          { width: "22px" },
+          { height: "22px" },
+          { color: "var(--primary-text-color)" },
+        ],
+        name: [
+          { "font-size": "12px" },
+          { "font-weight": "600" },
+          { color: "var(--primary-text-color)" },
+        ],
+      },
+    };
+  }
+
   async _openArchivePopup(archive) {
     if (!archive || archive.id == null || !this._hass) {
       return;
@@ -621,41 +659,29 @@ class PrintHistoryBrowserCard extends HTMLElement {
         columns: archiveStatus === "printing" ? 3 : 4,
         square: false,
         cards: [
-          ...(archiveStatus === "printing" ? [] : [{
-            type: "custom:button-card",
-            name: "Re-Enrich",
-            icon: "mdi:refresh-circle",
-            show_name: true,
-            show_icon: true,
-            show_state: false,
-            tap_action: { action: "call-service", service: "script.reenrich_print_history_archive", data: { archive_id: String(archiveId) } },
-            hold_action: { action: "none" },
-          }]),
+          ...(archiveStatus === "printing" ? [] : [this._buildPopupActionButton(
+            "Re-Enrich",
+            "mdi:refresh-circle",
+            "rgba(46,125,50,0.18)",
+            { action: "call-service", service: "script.reenrich_print_history_archive", data: { archive_id: String(archiveId) } }
+          )]),
           {
             type: "custom:button-card",
             template: "print_history_archive_popup_favorite_button",
             variables: { archive_json: archiveJson, archive_id: String(archiveId) },
           },
-          {
-            type: "custom:button-card",
-            name: "Save",
-            icon: "mdi:content-save-outline",
-            show_name: true,
-            show_icon: true,
-            show_state: false,
-            tap_action: { action: "call-service", service: "script.save_print_history_archive_popup_edits" },
-            hold_action: { action: "none" },
-          },
-          {
-            type: "custom:button-card",
-            name: "Close",
-            icon: "mdi:close",
-            show_name: true,
-            show_icon: true,
-            show_state: false,
-            tap_action: { action: "fire-dom-event", browser_mod: { service: "browser_mod.close_popup" } },
-            hold_action: { action: "none" },
-          },
+          this._buildPopupActionButton(
+            "Save",
+            "mdi:content-save-outline",
+            "rgba(21,101,192,0.18)",
+            { action: "call-service", service: "script.save_print_history_archive_popup_edits" }
+          ),
+          this._buildPopupActionButton(
+            "Close",
+            "mdi:close",
+            "rgba(255,255,255,0.04)",
+            { action: "fire-dom-event", browser_mod: { service: "browser_mod.close_popup" } }
+          ),
         ],
       },
     ];
@@ -667,6 +693,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
           data: {
             entity_id: "input_text.print_history_popup_archive_id",
             value: String(archiveId),
+          },
+        },
+        {
+          service: archive.is_favorite ? "input_boolean.turn_on" : "input_boolean.turn_off",
+          data: {
+            entity_id: "input_boolean.print_history_popup_is_favorite",
           },
         },
         {

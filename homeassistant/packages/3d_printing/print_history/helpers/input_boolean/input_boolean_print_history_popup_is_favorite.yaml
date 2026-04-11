@@ -1,0 +1,4 @@
+print_history_popup_is_favorite:
+  name: Print History Popup Is Favorite
+  icon: mdi:star
+  initial: false

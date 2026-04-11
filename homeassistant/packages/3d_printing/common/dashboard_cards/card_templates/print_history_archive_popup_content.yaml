@@ -2,6 +2,7 @@ print_history_archive_popup_content:
   entity: sensor.print_history_popup_archive_detail
   triggers_update:
     - sensor.print_history_popup_archive_detail
+    - input_boolean.print_history_popup_is_favorite
   show_icon: false
   show_name: false
   show_state: false
@@ -29,6 +30,8 @@ print_history_archive_popup_content:
           snapshotArchive = {};
         }
         const snapshotArchiveId = snapshotArchive?.id;
+        const popupArchiveId = states['input_text.print_history_popup_archive_id']?.state || '';
+        const popupFavoriteState = states['input_boolean.print_history_popup_is_favorite']?.state || 'off';
         let archive = snapshotArchive;
         const detailState = states['sensor.print_history_popup_archive_detail'];
         if (detailState && String(detailState.state || '') === String(snapshotArchiveId || '')) {
@@ -46,6 +49,8 @@ print_history_archive_popup_content:
         const baseUrlRaw = states['input_text.bambuddy_api_base_url']?.state || '';
         const baseUrl = String(baseUrlRaw).replace(/\/$/, '');
         const archiveId = archive?.id;
+          const isPopupArchive = String(popupArchiveId || '') === String(archiveId || snapshotArchiveId || '');
+          const isFavorite = isPopupArchive ? popupFavoriteState === 'on' : !!archive?.is_favorite;
         const ENRICHMENT_MARKER = '+>';
         const RECOVERY_MARKER = '[RECOVERY_AUDIT_V1]';
         const describeEnrichmentAmbiguity = (value) => {
@@ -237,7 +242,7 @@ print_history_archive_popup_content:
           : (status === 'failed' || status === 'cancelled')
             ? '#C62828'
             : '#78909C';
-        const favoriteChip = `<span title="${archive?.is_favorite ? 'Favorite archive' : 'Not marked as favorite'}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:${archive?.is_favorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.05)'};border:1px solid ${archive?.is_favorite ? 'rgba(245,194,66,0.35)' : 'rgba(255,255,255,0.08)'};flex:0 0 auto;"><ha-icon icon="${archive?.is_favorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:18px;color:${archive?.is_favorite ? '#f5c242' : 'var(--secondary-text-color)'};"></ha-icon></span>`;
+        const favoriteChip = `<span title="${isFavorite ? 'Favorite archive' : 'Not marked as favorite'}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:${isFavorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.05)'};border:1px solid ${isFavorite ? 'rgba(245,194,66,0.35)' : 'rgba(255,255,255,0.08)'};flex:0 0 auto;"><ha-icon icon="${isFavorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:18px;color:${isFavorite ? '#f5c242' : 'var(--secondary-text-color)'};"></ha-icon></span>`;
         const summaryRowChips = [
           `<span style="background:${statusColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><span>${statusIcon}</span><span>${escapeHtml(statusLabel)}</span></span>`,
           renderInfoChip('mdi:palette-swatch-outline', archive?.designer, { fontWeight: 500 }),

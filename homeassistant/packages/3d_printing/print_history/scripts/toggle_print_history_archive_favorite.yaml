@@ -18,6 +18,14 @@ toggle_print_history_archive_favorite:
           data:
             archive_id: "{{ resolved_archive_id }}"
         - action: script.refresh_print_history_archives
+        - if:
+            - condition: template
+              value_template: >-
+                {{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim == resolved_archive_id }}
+          then:
+            - action: input_boolean.toggle
+              target:
+                entity_id: input_boolean.print_history_popup_is_favorite
         - action: logbook.log
           data:
             name: Print History
