@@ -33,15 +33,12 @@ For this design, that means the long-term recommendation is:
 
 ## Camera Configuration
 
-### Primary Camera
-- Entity: `camera.ntk_ryansoffice_3dprinter_camera` (printer built-in P1S camera)
-- Always used for all capture stages
-
-### Secondary Camera (Optional)
-- Entity stored in `input_select.secondary_camera_entity`
-- Single optional camera selection from the known secondary camera list
-- `None` disables the secondary capture path
-- Shipped YAML only uses the secondary camera when the helper resolves to a valid `camera.*` entity with a usable state
+### Capture Camera List
+- Persisted in `input_text.bambuddy_capture_camera_entities`
+- Managed via `script.set_print_history_capture_cameras`, which uses a camera-domain entity selector with `multiple: true`
+- Leave the helper blank to fall back to the built-in printer camera (`camera.ntk_ryansoffice_3dprinter_camera`)
+- When one or more cameras are selected, the shipped YAML captures each valid `camera.*` entity in the stored list in order
+- Invalid, duplicate, or unavailable camera entities are ignored for the current capture run
 
 ## Capture Stages
 
@@ -121,8 +118,8 @@ triggers:
 1. Check if stage is gated → skip if boolean is off
 2. Turn on snapshot light (if configured via input_text.3dprinter_snapshot_light)
 3. Wait 1 second for light to reach brightness
-4. Capture primary camera → save to /config/www/printer_snapshots/{task}_{stage}_{timestamp}.jpg
-5. Capture secondary camera (if configured) → save similarly with "_cam2" suffix
+4. Resolve the configured capture camera list (or built-in default)
+5. Capture each valid camera sequentially → save to /config/www/printer_snapshots/{task}_{stage}_{timestamp}[ _camN ].jpg
 6. Turn off snapshot light
 7. If input_text.bambuddy_current_archive_id is set:
   → Hand off the saved file to the shipped multipart uploader (`shell_command` using Python stdlib)
@@ -142,13 +139,14 @@ Reuses the existing pattern from `notifications/automations/print_complete_notif
 
 ```
 /config/www/printer_snapshots/{task_name}_{stage}_{YYYYMMDD_HHMMSS}.jpg
-/config/www/printer_snapshots/{task_name}_{stage}_{YYYYMMDD_HHMMSS}_cam2.jpg  (secondary)
+/config/www/printer_snapshots/{task_name}_{stage}_{YYYYMMDD_HHMMSS}_cam2.jpg
+/config/www/printer_snapshots/{task_name}_{stage}_{YYYYMMDD_HHMMSS}_cam3.jpg
 ```
 
 Examples:
 - `Benchy_start_20260328_143000.jpg`
-- `Benchy_midprint_20260328_150000.jpg`
-- `Benchy_error_20260328_151500.jpg`
+- `Benchy_midprint_20260328_150000_cam2.jpg`
+- `Benchy_error_20260328_151500_cam3.jpg`
 
 ## Archive ID Resolution
 

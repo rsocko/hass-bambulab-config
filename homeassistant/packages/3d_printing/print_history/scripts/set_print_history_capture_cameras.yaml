@@ -1,0 +1,44 @@
+# Persist the camera entities used for print-history photo capture.
+# Leave blank to fall back to the built-in Bambu camera only.
+set_print_history_capture_cameras:
+  alias: Set Print History Capture Cameras
+  description: >-
+    Stores the camera entity IDs used for print-history snapshot capture.
+    Use the entity selector to pick one or more camera entities.
+  fields:
+    camera_entities:
+      description: >-
+        Camera entities to use for snapshot capture. Leave empty to use only
+        the built-in printer camera.
+      required: false
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: camera
+  sequence:
+    - variables:
+        selected_cameras: >-
+          {% if camera_entities is string %}
+            {% set value = camera_entities | string | trim %}
+            {{ [] if value in ['', 'none', 'None'] else [value] }}
+          {% elif camera_entities is iterable %}
+            {{ camera_entities | list }}
+          {% else %}
+            []
+          {% endif %}
+        cleaned_cameras: >-
+          {% set ns = namespace(items=[]) %}
+          {% for entity_id in selected_cameras %}
+            {% set camera = entity_id | string | trim %}
+            {% if camera.startswith('camera.') and camera not in ns.items %}
+              {% set ns.items = ns.items + [camera] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.items }}
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_capture_camera_entities
+      data:
+        value: "{{ cleaned_cameras | join(',') }}"
+  mode: single

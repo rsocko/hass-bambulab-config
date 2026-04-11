@@ -1356,7 +1356,7 @@ Only the capture/history settings remain in a popup:
 
 1. Capture-stage toggles
 2. Mid-print capture percentage
-3. Secondary camera selection
+3. Capture camera list plus camera-selector action
 4. History fetch enablement / cache size
 5. Photo review timeout
 

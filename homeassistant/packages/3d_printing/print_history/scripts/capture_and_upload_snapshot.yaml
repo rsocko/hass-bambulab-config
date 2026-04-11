@@ -27,26 +27,47 @@ capture_and_upload_snapshot:
            | default('unknown', true) | string | trim
              | replace(' ', '_') | replace('/', '_') }}
         timestamp: "{{ now().strftime('%Y%m%d_%H%M%S') }}"
-        primary_camera: "camera.ntk_ryansoffice_3dprinter_camera"
-        secondary_camera: >-
-          {% set selected_camera = states('input_select.secondary_camera_entity') | default('', true) | string | trim %}
-          {{ '' if selected_camera | lower == 'none' else selected_camera }}
-        primary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
-        secondary_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
-        primary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}.jpg"
-        secondary_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}_cam2.jpg"
+        default_camera: "camera.ntk_ryansoffice_3dprinter_camera"
+        configured_cameras_raw: >-
+          {{ states('input_text.bambuddy_capture_camera_entities')
+             | default('', true) | string | trim }}
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
 
     - variables:
-        secondary_camera_configured: >-
-          {{ secondary_camera not in ['', 'unknown', 'unavailable', 'none'] }}
-        secondary_camera_state: >-
-          {{ states(secondary_camera) if secondary_camera not in ['', 'unknown', 'unavailable', 'none'] else 'none' }}
-        has_secondary: >-
-          {{ secondary_camera.startswith('camera.')
-             and secondary_camera != primary_camera
-             and secondary_camera_state not in ['', 'unknown', 'unavailable', 'none'] }}
+        configured_cameras_json: >-
+          {% set raw = configured_cameras_raw | trim %}
+          {% set ns = namespace(items=[]) %}
+          {% if raw in ['', 'unknown', 'unavailable', 'None', 'none'] %}
+            {{ [default_camera] | to_json }}
+          {% else %}
+            {% for token in raw.split(',') %}
+              {% set camera = token | string | trim %}
+              {% if camera.startswith('camera.') and camera not in ns.items %}
+                {% set ns.items = ns.items + [camera] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items | to_json }}
+          {% endif %}
+        camera_selection_mode: >-
+          {% if configured_cameras_raw in ['', 'unknown', 'unavailable', 'None', 'none'] %}default_bambu
+          {% else %}custom
+          {% endif %}
+        active_cameras_json: >-
+          {% set configured = configured_cameras_json | from_json %}
+          {% set ns = namespace(items=[]) %}
+          {% for camera in configured %}
+            {% set camera_state = states(camera) %}
+            {% if camera.startswith('camera.')
+                  and camera_state not in ['', 'unknown', 'unavailable', 'none']
+                  and camera not in ns.items %}
+              {% set ns.items = ns.items + [camera] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.items | to_json }}
+        configured_camera_count: "{{ configured_cameras_json | from_json | count }}"
+        active_camera_count: "{{ active_cameras_json | from_json | count }}"
+        has_capture_cameras: "{{ active_camera_count | int(0) > 0 }}"
         has_light: >-
           {{ snapshot_light not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
         printer_is_active: >-
@@ -67,30 +88,38 @@ capture_and_upload_snapshot:
         - delay:
             seconds: 1
 
-    # --- Capture primary camera ---
-    - action: camera.snapshot
-      target:
-        entity_id: "{{ primary_camera }}"
-      data:
-        filename: "{{ primary_file_path }}"
+    - variables:
+        camera_results_json: "[]"
 
-    - action: counter.increment
-      target:
-        entity_id: counter.bambuddy_captured_photo_count
-
-    # --- Capture secondary camera (if configured) ---
+    # --- Capture configured cameras ---
     - if:
         - condition: template
-          value_template: "{{ has_secondary }}"
+          value_template: "{{ has_capture_cameras }}"
       then:
-        - action: camera.snapshot
-          target:
-            entity_id: "{{ secondary_camera }}"
-          data:
-            filename: "{{ secondary_file_path }}"
-        - action: counter.increment
-          target:
-            entity_id: counter.bambuddy_captured_photo_count
+        - repeat:
+            for_each: "{{ active_cameras_json | from_json }}"
+            sequence:
+              - variables:
+                  camera_entity: "{{ repeat.item }}"
+                  camera_suffix: "{{ '' if repeat.index == 1 else '_cam' ~ repeat.index }}"
+                  camera_filename: "{{ task_name }}_{{ stage }}_{{ timestamp }}{{ camera_suffix }}.jpg"
+                  camera_file_path: "/config/www/printer_snapshots/{{ task_name }}_{{ stage }}_{{ timestamp }}{{ camera_suffix }}.jpg"
+              - action: camera.snapshot
+                target:
+                  entity_id: "{{ camera_entity }}"
+                data:
+                  filename: "{{ camera_file_path }}"
+              - action: counter.increment
+                target:
+                  entity_id: counter.bambuddy_captured_photo_count
+              - variables:
+                  camera_results_json: >-
+                    {% set captures = camera_results_json | default('[]') | from_json %}
+                    {{ (captures + [{
+                      'camera': camera_entity,
+                      'filename': camera_filename,
+                      'file_path': camera_file_path
+                    }]) | to_json }}
 
     # --- Turn off snapshot light ---
     - if:
@@ -210,101 +239,98 @@ capture_and_upload_snapshot:
           {{ archive_id if resolved_archive_present else 'missing' }}
 
     - variables:
-        primary_upload_status: >-
-          {% if has_archive_id %}pending
-          {% else %}{{ archive_lookup_status }}
-          {% endif %}
-        secondary_upload_status: >-
-          {% if not secondary_camera_configured %}not_requested
-          {% elif not has_secondary %}invalid_secondary
-          {% elif not has_archive_id %}{{ archive_lookup_status }}
-          {% else %}pending
+        captured_camera_count: "{{ camera_results_json | from_json | count }}"
+        has_captured_photos: "{{ captured_camera_count | int(0) > 0 }}"
+        camera_upload_results_json: >-
+          {% set captures = camera_results_json | from_json %}
+          {% if has_archive_id %}
+            []
+          {% else %}
+            {% set ns = namespace(items=[]) %}
+            {% for capture in captures %}
+              {% set ns.items = ns.items + [{
+                'camera': capture.camera,
+                'filename': capture.filename,
+                'file_path': capture.file_path,
+                'upload_status': archive_lookup_status
+              }] %}
+            {% endfor %}
+            {{ ns.items | to_json }}
           {% endif %}
 
-    # --- Upload primary snapshot and verify via archive detail ---
+    # --- Upload each captured snapshot and verify via archive detail ---
     - if:
         - condition: template
-          value_template: "{{ has_archive_id }}"
+          value_template: "{{ has_archive_id and has_captured_photos }}"
       then:
-        - action: rest_command.bambuddy_get_archive_detail
-          data:
-            archive_id: "{{ archive_id }}"
-          response_variable: primary_before_response
-        - variables:
-            primary_before_count: >-
-              {% if primary_before_response is defined and primary_before_response.status == 200 %}
-                {{ primary_before_response.content.photos | default([], true) | count }}
-              {% else %}
-                0
-              {% endif %}
-        - action: shell_command.bambuddy_upload_archive_photo
-          data:
-            archive_id: "{{ archive_id }}"
-            file_path: "{{ primary_file_path }}"
-          continue_on_error: true
-        - delay:
-            seconds: 2
-        - action: rest_command.bambuddy_get_archive_detail
-          data:
-            archive_id: "{{ archive_id }}"
-          response_variable: primary_after_response
-        - variables:
-            primary_after_count: >-
-              {% if primary_after_response is defined and primary_after_response.status == 200 %}
-                {{ primary_after_response.content.photos | default([], true) | count }}
-              {% else %}
-                0
-              {% endif %}
-            primary_upload_status: >-
-              {% if primary_after_count | int(0) > primary_before_count | int(0) %}verified
-              {% else %}unverified
-              {% endif %}
-
-    # --- Upload secondary snapshot and verify via archive detail ---
-    - if:
-        - condition: template
-          value_template: "{{ has_archive_id and has_secondary }}"
-      then:
-        - action: rest_command.bambuddy_get_archive_detail
-          data:
-            archive_id: "{{ archive_id }}"
-          response_variable: secondary_before_response
-        - variables:
-            secondary_before_count: >-
-              {% if secondary_before_response is defined and secondary_before_response.status == 200 %}
-                {{ secondary_before_response.content.photos | default([], true) | count }}
-              {% else %}
-                0
-              {% endif %}
-        - action: shell_command.bambuddy_upload_archive_photo
-          data:
-            archive_id: "{{ archive_id }}"
-            file_path: "{{ secondary_file_path }}"
-          continue_on_error: true
-        - delay:
-            seconds: 2
-        - action: rest_command.bambuddy_get_archive_detail
-          data:
-            archive_id: "{{ archive_id }}"
-          response_variable: secondary_after_response
-        - variables:
-            secondary_after_count: >-
-              {% if secondary_after_response is defined and secondary_after_response.status == 200 %}
-                {{ secondary_after_response.content.photos | default([], true) | count }}
-              {% else %}
-                0
-              {% endif %}
-            secondary_upload_status: >-
-              {% if secondary_after_count | int(0) > secondary_before_count | int(0) %}verified
-              {% else %}unverified
-              {% endif %}
+        - repeat:
+            for_each: "{{ camera_results_json | from_json }}"
+            sequence:
+              - variables:
+                  camera_entity: "{{ repeat.item.camera }}"
+                  camera_filename: "{{ repeat.item.filename }}"
+                  camera_file_path: "{{ repeat.item.file_path }}"
+              - action: rest_command.bambuddy_get_archive_detail
+                data:
+                  archive_id: "{{ archive_id }}"
+                response_variable: upload_before_response
+              - variables:
+                  upload_before_count: >-
+                    {% if upload_before_response is defined and upload_before_response.status == 200 %}
+                      {{ upload_before_response.content.photos | default([], true) | count }}
+                    {% else %}
+                      0
+                    {% endif %}
+              - action: shell_command.bambuddy_upload_archive_photo
+                data:
+                  archive_id: "{{ archive_id }}"
+                  file_path: "{{ camera_file_path }}"
+                continue_on_error: true
+              - delay:
+                  seconds: 2
+              - action: rest_command.bambuddy_get_archive_detail
+                data:
+                  archive_id: "{{ archive_id }}"
+                response_variable: upload_after_response
+              - variables:
+                  upload_after_count: >-
+                    {% if upload_after_response is defined and upload_after_response.status == 200 %}
+                      {{ upload_after_response.content.photos | default([], true) | count }}
+                    {% else %}
+                      0
+                    {% endif %}
+                  upload_status: >-
+                    {% if upload_after_count | int(0) > upload_before_count | int(0) %}verified
+                    {% else %}unverified
+                    {% endif %}
+                  camera_upload_results_json: >-
+                    {% set uploads = camera_upload_results_json | default('[]') | from_json %}
+                    {{ (uploads + [{
+                      'camera': camera_entity,
+                      'filename': camera_filename,
+                      'file_path': camera_file_path,
+                      'upload_status': upload_status
+                    }]) | to_json }}
 
     - variables:
+        verified_upload_count: >-
+          {{ camera_upload_results_json | from_json
+             | selectattr('upload_status', 'eq', 'verified') | list | count }}
+        upload_status_summary: >-
+          {% if not has_captured_photos %}no_photos_captured
+          {% elif not has_archive_id %}{{ archive_lookup_status }}
+          {% elif verified_upload_count | int(0) == captured_camera_count | int(0) %}verified
+          {% elif verified_upload_count | int(0) > 0 %}partial
+          {% else %}unverified
+          {% endif %}
+        captured_filenames: >-
+          {% set captures = camera_results_json | from_json %}
+          {{ captures | map(attribute='filename') | list | join(', ') }}
         upload_result_summary: >-
           stage={{ stage }} archive={{ archive_display_id }} archive_status={{ archive_lookup_status }}
-          primary={{ primary_upload_status }}
-          secondary={{ secondary_upload_status }}
-          captured={{ states('counter.bambuddy_captured_photo_count') | int(0) }}
+          cameras={{ captured_camera_count }}/{{ active_camera_count }}/{{ configured_camera_count }}
+          uploads={{ verified_upload_count }}/{{ captured_camera_count }}
+          mode={{ camera_selection_mode }} status={{ upload_status_summary }}
 
     - action: input_text.set_value
       target:
@@ -316,6 +342,6 @@ capture_and_upload_snapshot:
       data:
         name: Print History
         message: >-
-          Captured {{ stage }} photo: {{ primary_filename }}
-          {% if has_secondary %} + {{ secondary_filename }}{% endif %}
-          (archive_id={{ archive_display_id }}, archive_status={{ archive_lookup_status }}, primary={{ primary_upload_status }}, secondary={{ secondary_upload_status }})
+          Captured {{ stage }} photo{% if captured_camera_count | int(0) != 1 %}s{% endif %}:
+          {% if captured_filenames not in ['', none] %}{{ captured_filenames }}{% else %}none{% endif %}
+          (archive_id={{ archive_display_id }}, archive_status={{ archive_lookup_status }}, configured={{ configured_camera_count }}, active={{ active_camera_count }}, uploaded={{ verified_upload_count }}/{{ captured_camera_count }}, mode={{ camera_selection_mode }}, status={{ upload_status_summary }})

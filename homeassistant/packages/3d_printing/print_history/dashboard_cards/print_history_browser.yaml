@@ -70,8 +70,10 @@ cards:
                   - type: divider
                   - entity: input_number.midprint_capture_percent
                     name: Mid-Print %
-                  - entity: input_select.secondary_camera_entity
-                    name: Secondary Camera
+                  - entity: input_text.bambuddy_capture_camera_entities
+                    name: Capture Cameras
+                  - entity: script.set_print_history_capture_cameras
+                    name: Configure Capture Cameras
                   - type: divider
                   - entity: input_boolean.bambuddy_history_sync_enabled
                     name: History Sync

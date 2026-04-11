@@ -5,8 +5,8 @@
 - alias: "Print History - Capture Print Photos"
   id: bambuddy_capture_print_photos
   description: >
-    Captures photos at multiple print stages using the primary camera
-    (and optional secondary camera). Start, mid-print, and near-complete
+    Captures photos at multiple print stages using the configured capture
+    camera list. Start, mid-print, and near-complete
     remain optional; finish capture always runs.
 
   triggers:

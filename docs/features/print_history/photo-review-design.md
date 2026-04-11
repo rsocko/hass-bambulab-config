@@ -6,7 +6,7 @@
 
 ## Overview
 
-After a print completes, HA may have captured 3–6+ photos across multiple stages and cameras. Not all photos are keepers — a first-layer capture might be blurry, an error photo might be redundant, or the secondary camera angle might be uninteresting. The post-print review feature gives the user a quick way to curate the photos attached to a Bambuddy archive directly from the HA dashboard.
+After a print completes, HA may have captured 3–6+ photos across multiple stages and cameras. Not all photos are keepers — a first-layer capture might be blurry, an error photo might be redundant, or one of the extra camera angles might be uninteresting. The post-print review feature gives the user a quick way to curate the photos attached to a Bambuddy archive directly from the HA dashboard.
 
 **Actions available in review**:
 - **Remove** — delete a photo from both Bambuddy and local storage

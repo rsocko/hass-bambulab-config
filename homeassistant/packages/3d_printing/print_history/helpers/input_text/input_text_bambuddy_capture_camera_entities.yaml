@@ -1,0 +1,4 @@
+bambuddy_capture_camera_entities:
+  name: Capture Cameras
+  max: 255
+  icon: mdi:camera-burst
