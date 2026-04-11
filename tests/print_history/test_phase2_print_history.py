@@ -1416,6 +1416,15 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         ).read_text("utf-8")
         self.assertIn('triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"]', content)
 
+    def test_popup_favorite_button_updates_helper_before_backend_toggle(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_favorite_button.yaml"
+        ).read_text("utf-8")
+        self.assertIn("service: browser_mod.sequence", content)
+        self.assertIn("return isFavorite ? 'input_boolean.turn_off' : 'input_boolean.turn_on';", content)
+        self.assertIn("entity_id: input_boolean.print_history_popup_is_favorite", content)
+        self.assertIn("service: script.toggle_print_history_archive_favorite", content)
+
     def test_toggle_favorite_script_sets_popup_helper_from_archive_detail(self):
         content = (
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "toggle_print_history_archive_favorite.yaml"
