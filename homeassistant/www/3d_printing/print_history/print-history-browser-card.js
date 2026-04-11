@@ -692,7 +692,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       entity_id: "input_select.print_history_popup_failure_reason",
       option: archiveFailureReason || "Unspecified",
     });
-    await this._hass.callService("browser_mod", "popup", {
+    this._fireBrowserModEvent("browser_mod.popup", {
       title: archiveName,
       size: "normal",
       content: {
@@ -700,6 +700,19 @@ class PrintHistoryBrowserCard extends HTMLElement {
         cards: cards,
       },
     });
+  }
+
+  _fireBrowserModEvent(service, data) {
+    this.dispatchEvent(new CustomEvent("ll-custom", {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+        },
+      },
+    }));
   }
 
   _parseJson(value, fallback) {
