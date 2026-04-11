@@ -1255,6 +1255,12 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("suggestions_entity: 'input_select.print_history_filter_tag'", content)
         self.assertIn("Press Enter or comma to add.", content)
 
+    def test_popup_seeds_favorite_helper_and_subscribes_content_card_to_it(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup.yaml").read_text("utf-8")
+        self.assertIn("triggers_update: ['sensor.print_history_popup_archive_detail', 'input_boolean.print_history_popup_is_favorite']", content)
+        self.assertIn("service: archive.is_favorite ? 'input_boolean.turn_on' : 'input_boolean.turn_off'", content)
+        self.assertIn("entity_id: 'input_boolean.print_history_popup_is_favorite'", content)
+
     def test_popup_content_shows_only_user_notes(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const notesInfo = splitArchiveNotes(archive?.notes);", content)
@@ -1392,6 +1398,16 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
+
+
+class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
+    """Browser card popup should re-render favorite UI from the popup helper."""
+
+    def test_browser_card_popup_content_subscribes_to_popup_favorite_helper(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        self.assertIn('triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"]', content)
 
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (

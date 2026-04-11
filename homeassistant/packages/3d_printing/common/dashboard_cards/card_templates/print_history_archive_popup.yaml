@@ -191,7 +191,7 @@ print_history_archive_popup:
           type: 'custom:button-card',
           template: 'print_history_archive_popup_content',
           entity: 'sensor.print_history_popup_archive_detail',
-          triggers_update: ['sensor.print_history_popup_archive_detail'],
+          triggers_update: ['sensor.print_history_popup_archive_detail', 'input_boolean.print_history_popup_is_favorite'],
           variables: {
             archive_json: variables?.archive_json || '{}'
           },
@@ -275,6 +275,12 @@ print_history_archive_popup:
                 data: {
                   entity_id: 'input_text.print_history_popup_archive_id',
                   value: String(archiveId)
+                }
+              },
+              {
+                service: archive.is_favorite ? 'input_boolean.turn_on' : 'input_boolean.turn_off',
+                data: {
+                  entity_id: 'input_boolean.print_history_popup_is_favorite'
                 }
               },
               {

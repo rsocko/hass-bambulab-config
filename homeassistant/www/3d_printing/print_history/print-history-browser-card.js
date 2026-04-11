@@ -678,7 +678,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         type: "custom:button-card",
         template: "print_history_archive_popup_content",
         entity: "sensor.print_history_popup_archive_detail",
-        triggers_update: ["sensor.print_history_popup_archive_detail"],
+        triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"],
         variables: {
           archive_json: archiveJson,
         },
