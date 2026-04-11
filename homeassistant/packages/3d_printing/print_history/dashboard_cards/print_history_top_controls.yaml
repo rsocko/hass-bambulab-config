@@ -13,8 +13,27 @@ card:
   rows: 1.06
   styles: >-
     ${(() => {
+      const buttonIndex = {
+        first: 2,
+        prev: 3,
+        pageInfo: 4,
+        total: 5,
+        pageSize: 6,
+        mobileLayout: 7,
+        compact: 8,
+        media: 9,
+        detail: 10,
+        images: 11,
+        refresh: 12,
+        next: 13,
+        last: 14,
+      };
       const variant = states['input_select.print_history_card_variant']?.state || '';
-      const selectedIndex = ({ Compact: 7, Media: 8, Detail: 9 })[variant];
+      const selectedIndex = ({
+        Compact: buttonIndex.compact,
+        Media: buttonIndex.media,
+        Detail: buttonIndex.detail,
+      })[variant];
       return `
         ha-card {
           overflow: hidden !important;
@@ -27,14 +46,19 @@ card:
         .bubble-sub-button {
           min-width: 0 !important;
         }
-        .bubble-sub-button:nth-child(6) {
+        .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) {
           display: none !important;
         }
-        .bubble-sub-button:nth-child(11) {
+        .bubble-sub-button:nth-child(${buttonIndex.compact}),
+        .bubble-sub-button:nth-child(${buttonIndex.media}),
+        .bubble-sub-button:nth-child(${buttonIndex.detail}) {
+          display: flex !important;
+        }
+        .bubble-sub-button:nth-child(${buttonIndex.refresh}) {
           margin-left: 10px !important;
           position: relative;
         }
-        .bubble-sub-button:nth-child(11)::before {
+        .bubble-sub-button:nth-child(${buttonIndex.refresh})::before {
           content: '';
           position: absolute;
           left: -9px;
@@ -83,39 +107,48 @@ card:
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(4),
-          .bubble-sub-button:nth-child(7),
-          .bubble-sub-button:nth-child(8),
-          .bubble-sub-button:nth-child(9) {
+          .bubble-sub-button:nth-child(${buttonIndex.first}),
+          .bubble-sub-button:nth-child(${buttonIndex.prev}),
+          .bubble-sub-button:nth-child(${buttonIndex.next}),
+          .bubble-sub-button:nth-child(${buttonIndex.last}) {
+            display: flex !important;
+          }
+          .bubble-sub-button:nth-child(${buttonIndex.total}),
+          .bubble-sub-button:nth-child(${buttonIndex.compact}),
+          .bubble-sub-button:nth-child(${buttonIndex.media}),
+          .bubble-sub-button:nth-child(${buttonIndex.detail}) {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(6) {
+          .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) {
             display: flex !important;
             min-width: 42px !important;
             justify-content: center !important;
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
-          .bubble-sub-button:nth-child(3) ha-icon,
-          .bubble-sub-button:nth-child(4) ha-icon,
-          .bubble-sub-button:nth-child(5) ha-icon {
+          .bubble-sub-button:nth-child(${buttonIndex.pageInfo}) ha-icon,
+          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) ha-icon {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(5) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(6) .bubble-sub-button-name,
-          .bubble-sub-button:nth-child(6) .bubble-sub-button-state {
+          .bubble-sub-button:nth-child(${buttonIndex.pageSize}) .bubble-sub-button-name,
+          .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) .bubble-sub-button-name,
+          .bubble-sub-button:nth-child(${buttonIndex.mobileLayout}) .bubble-sub-button-state {
             display: none !important;
           }
-          .bubble-sub-button:nth-child(11) {
+          .bubble-sub-button:nth-child(${buttonIndex.refresh}) {
             margin-left: 0 !important;
           }
-          .bubble-sub-button:nth-child(11)::before {
+          .bubble-sub-button:nth-child(${buttonIndex.refresh})::before {
             display: none !important;
           }
         }
         @media (max-width: 560px) {
-          .bubble-sub-button:nth-child(1),
-          .bubble-sub-button:nth-child(13) {
+          .bubble-sub-button:nth-child(${buttonIndex.prev}),
+          .bubble-sub-button:nth-child(${buttonIndex.next}) {
+            display: flex !important;
+          }
+          .bubble-sub-button:nth-child(${buttonIndex.first}),
+          .bubble-sub-button:nth-child(${buttonIndex.last}) {
             display: none !important;
           }
         }
