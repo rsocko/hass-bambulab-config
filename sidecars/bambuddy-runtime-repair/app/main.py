@@ -7,9 +7,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
 
+from app.inspection import inspect_archive_spool_linkage
 from app.repair import restore_archive_from_source, restore_verify_after_merge
 from tools.bambuddy.runtime_repair_core import RepairValues, repair_archive_runtime
 from app.models import (
+    ArchiveSpoolInspectionResponse,
     HealthResponse,
     RestoreFromRequest,
     RestoreFromResponse,
@@ -56,6 +58,21 @@ def _require_token(authorization: str | None) -> None:
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", db_path=str(_db_path()))
+
+
+@app.get("/admin/archive-spool-linkage/{archive_id}", response_model=ArchiveSpoolInspectionResponse)
+def archive_spool_linkage(
+    archive_id: int,
+    authorization: str | None = Header(default=None),
+) -> ArchiveSpoolInspectionResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info("Archive spool linkage inspection request archive_id=%s", archive_id)
+        return inspect_archive_spool_linkage(db_path=_db_path(), archive_id=archive_id)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Archive spool linkage inspection rejected archive_id=%s error=%s", archive_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/admin/archive-runtime-repair", response_model=RuntimeRepairResponse)

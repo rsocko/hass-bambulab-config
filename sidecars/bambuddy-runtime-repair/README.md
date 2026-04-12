@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Small FastAPI sidecar that exposes an authenticated admin endpoint for canonical Bambuddy archive runtime repair.
+Small FastAPI sidecar that exposes authenticated admin endpoints for canonical Bambuddy archive runtime repair, archive restore workflows, and read-only inspection of native spool linkage.
 
 This is intended for environments where Home Assistant, `n8n`, or another tool should call a stable HTTP API instead of writing to the Bambuddy SQLite database directly.
 
@@ -134,6 +134,38 @@ PowerShell smoke-test helper:
 pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://127.0.0.1:8818
 ```
 
+## Archive Spool Linkage Inspection
+
+Use this endpoint to inspect whether Bambuddy itself is storing archive-to-spool linkage in native DB tables beyond the archive's current notes and tags.
+
+Current inspection payload includes:
+
+- archive summary fields relevant to print history
+- current system tags and hidden `+>` note payload rows
+- `extra_data` filament slot snapshot summary when present
+- native `spool_usage_history` rows for the archive when the table exists
+- native `active_print_spoolman` rows when present
+- current `spool_assignment` rows for any spools referenced by native usage history
+- a comparison summary between notes or tags and native usage rows
+
+Example:
+
+```bash
+curl http://127.0.0.1:8818/admin/archive-spool-linkage/200 \
+  -H "Authorization: Bearer replace-me"
+```
+
+PowerShell helper:
+
+```powershell
+pwsh -File tools/bambuddy/Test-InspectArchiveSpoolLinkage.ps1 \
+  -BaseUrl http://127.0.0.1:8818 \
+  -Token replace-me \
+  -ArchiveId 200
+```
+
+This is intended as a read-only diagnostic surface before deciding whether to extend the sidecar into any DB-backed reconciliation or backfill work.
+
 ## Repair Request Example
 
 ```bash
@@ -231,6 +263,7 @@ PowerShell helpers:
 
 - `tools/bambuddy/Test-RuntimeRepairSidecar.ps1`
 - `tools/bambuddy/Test-RestoreFromSidecar.ps1`
+- `tools/bambuddy/Test-InspectArchiveSpoolLinkage.ps1`
 
 ## Verify Request Example
 

@@ -73,6 +73,17 @@ class HealthResponse(BaseModel):
     db_path: str
 
 
+class ArchiveSpoolInspectionResponse(BaseModel):
+    archive_id: int
+    archive: dict[str, Any]
+    table_presence: dict[str, bool] = Field(default_factory=dict)
+    enrichment: dict[str, Any] = Field(default_factory=dict)
+    archive_snapshot: dict[str, Any] = Field(default_factory=dict)
+    native_linkage: dict[str, Any] = Field(default_factory=dict)
+    comparison: dict[str, Any] = Field(default_factory=dict)
+    advisories: list[str] = Field(default_factory=list)
+
+
 class RuntimeRepairResponse(BaseModel):
     archive_id: int
     applied: bool

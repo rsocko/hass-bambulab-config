@@ -57,6 +57,60 @@ CREATE TABLE archive_photos (
 )
 """
 
+CREATE_SPOOL_SQL = """
+CREATE TABLE spool (
+    id INTEGER PRIMARY KEY,
+    material TEXT,
+    subtype TEXT,
+    color_name TEXT,
+    tag_uid TEXT,
+    tray_uuid TEXT,
+    data_origin TEXT,
+    archived_at TEXT,
+    remaining_weight REAL,
+    weight_used REAL,
+    filament_id INTEGER
+)
+"""
+
+CREATE_SPOOL_USAGE_HISTORY_SQL = """
+CREATE TABLE spool_usage_history (
+    id INTEGER PRIMARY KEY,
+    spool_id INTEGER,
+    printer_id INTEGER,
+    print_name TEXT,
+    archive_id INTEGER,
+    weight_used REAL,
+    percent_used INTEGER,
+    status TEXT,
+    cost REAL
+)
+"""
+
+CREATE_ACTIVE_PRINT_SPOOLMAN_SQL = """
+CREATE TABLE active_print_spoolman (
+    id INTEGER PRIMARY KEY,
+    printer_id INTEGER,
+    archive_id INTEGER,
+    filament_usage TEXT,
+    ams_trays TEXT,
+    slot_to_tray TEXT,
+    layer_usage TEXT,
+    filament_properties TEXT
+)
+"""
+
+CREATE_SPOOL_ASSIGNMENT_SQL = """
+CREATE TABLE spool_assignment (
+    spool_id INTEGER,
+    printer_id INTEGER,
+    ams_id INTEGER,
+    tray_id INTEGER,
+    fingerprint_color TEXT,
+    fingerprint_type TEXT
+)
+"""
+
 
 def _create_test_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "bambuddy.db"
@@ -169,6 +223,60 @@ def _create_test_db(tmp_path: Path) -> Path:
     finally:
         connection.close()
     return db_path
+
+
+def _add_native_spool_state(db_path: Path) -> None:
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(CREATE_SPOOL_SQL)
+        connection.execute(CREATE_SPOOL_USAGE_HISTORY_SQL)
+        connection.execute(CREATE_ACTIVE_PRINT_SPOOLMAN_SQL)
+        connection.execute(CREATE_SPOOL_ASSIGNMENT_SQL)
+        connection.execute(
+            """
+            INSERT INTO spool (
+                id, material, subtype, color_name, tag_uid, tray_uuid, data_origin,
+                archived_at, remaining_weight, weight_used, filament_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (10, "PLA", "Basic", "Black", "AABBCCDD", "TRAY-UUID-10", "spoolman", None, 512.4, 88.1, 14),
+        )
+        connection.execute(
+            """
+            INSERT INTO spool_usage_history (
+                id, spool_id, printer_id, print_name, archive_id, weight_used, percent_used, status, cost
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (1, 10, 1, "Captain America - Stained Glass Style", 200, 58.98, 9, "completed", 1.47),
+        )
+        connection.execute(
+            """
+            INSERT INTO active_print_spoolman (
+                id, printer_id, archive_id, filament_usage, ams_trays, slot_to_tray, layer_usage, filament_properties
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                1,
+                191,
+                '[{"slot_id": 0, "used_g": 41.2, "type": "PLA"}]',
+                '{"0": {"tray_uuid": "TRAY-UUID-10", "tag_uid": "AABBCCDD"}}',
+                '[0]',
+                '{"4": {"0": 120.5}}',
+                '{"0": {"density": 1.24, "diameter": 1.75, "type": "PLA"}}',
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO spool_assignment (
+                spool_id, printer_id, ams_id, tray_id, fingerprint_color, fingerprint_type
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (10, 1, 0, 0, "#000000", "PLA"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def test_merge_tags_excludes_fallback_markers_and_preserves_target() -> None:
@@ -720,3 +828,46 @@ def test_restore_from_endpoint_can_request_reenrich(tmp_path: Path, monkeypatch)
     assert body["reenrich_requested"] is True
     assert body["reenrich_triggered"] is True
     assert len(uploaded) == 2
+
+
+def test_archive_spool_linkage_endpoint_reports_native_usage_and_comparison(tmp_path: Path, monkeypatch) -> None:
+    db_path = _create_test_db(tmp_path)
+    _add_native_spool_state(db_path)
+    monkeypatch.setenv("REPAIR_API_TOKEN", "test-token")
+    monkeypatch.setenv("BAMBUDDY_DB_PATH", str(db_path))
+
+    client = TestClient(sidecar_main.app)
+    response = client.get(
+        "/admin/archive-spool-linkage/200",
+        headers={"Authorization": "Bearer test-token"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["archive_id"] == 200
+    assert body["table_presence"]["spool_usage_history"] is True
+    assert body["native_linkage"]["usage_spool_ids"] == [10]
+    assert body["native_linkage"]["usage_history_rows"][0]["spool_id"] == 10
+    assert body["native_linkage"]["usage_history_rows"][0]["spool"]["tray_uuid"] == "TRAY-UUID-10"
+    assert body["comparison"]["matching_spool_ids"] == [10]
+    assert body["comparison"]["portable_linkage_source"] == "native_usage_history_and_notes"
+    assert any("built-in completed-print spool linkage" in message for message in body["advisories"])
+
+
+def test_archive_spool_linkage_endpoint_handles_missing_native_tables(tmp_path: Path, monkeypatch) -> None:
+    db_path = _create_test_db(tmp_path)
+    monkeypatch.setenv("REPAIR_API_TOKEN", "test-token")
+    monkeypatch.setenv("BAMBUDDY_DB_PATH", str(db_path))
+
+    client = TestClient(sidecar_main.app)
+    response = client.get(
+        "/admin/archive-spool-linkage/191",
+        headers={"Authorization": "Bearer test-token"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["table_presence"]["spool_usage_history"] is False
+    assert body["native_linkage"]["usage_history_rows"] == []
+    assert body["comparison"]["portable_linkage_source"] == "notes_tags_only"
+    assert any("only archive-embedded linkage" in message for message in body["advisories"])
