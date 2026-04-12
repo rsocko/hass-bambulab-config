@@ -27,6 +27,9 @@ This document covers the Home Assistant interaction model and rollout sequence f
 ### Not shipped yet
 
 - compare/deep-link actions and future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
+- origin/provenance badges that distinguish native Bambuddy archives from recovered replacements or historical imports
+- duplicate-review and suspicious-same-hash context in the popup action area
+- inferred-timing review and `update to inferred times` actions for imports or recovered records
 - feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
 
 ### Design adjustment from the earlier draft
@@ -100,6 +103,11 @@ The existing page sensor already projects enough fields for a useful read-only p
 - `thumbnail_path`
 
 That means Phase 1 can stay entirely within the current integration-owned dashboard payload contract.
+
+Important current gap:
+
+- the active page payload does **not** yet carry a compact origin/provenance summary, duplicate metadata, or inferred-timing review fields
+- those should be added as a compact summary or fetched through popup detail flows, not by dumping full provenance blobs into the main page payload
 
 ## Recommended Architecture
 
@@ -243,8 +251,9 @@ Why:
 Recommended sequencing:
 
 1. refine the current helper-backed edit UX and verify it remains reliable for longer user notes/tags
-2. add compare/deep-link actions and any higher-value archive follow-on workflows
-3. return to Phase 0 only if the dashboard template-loading model is being changed anyway, or if feature-local template ownership becomes operationally important enough to justify the refactor on its own
+2. add compact provenance and duplicate-review context so recovered/imported records are visibly distinct from native captures
+3. add compare/deep-link actions and any higher-value archive follow-on workflows after that provenance contract is stable
+4. return to Phase 0 only if the dashboard template-loading model is being changed anyway, or if feature-local template ownership becomes operationally important enough to justify the refactor on its own
 
 That keeps the next work aligned with the shipped UX while preserving the ownership refactor as a cleanup/architecture follow-on rather than a blocker.
 
@@ -326,6 +335,60 @@ Future issue-specific actions should attach to the archive popup through one of 
 2. secondary metadata section for archive relationships and provenance
 3. optional follow-on popup flows when an action needs more than one step
 
+## Provenance And Duplicate Context Extension
+
+This is the next popup/card addition that most directly supports restore and historical-import workflows.
+
+### Card-level behavior for `Compact`, `Media`, and `Detail`
+
+Each archive card variant should keep the current layout, but add a small secondary origin badge only when the archive is not a plain native Bambuddy capture.
+
+Recommended badge states:
+
+- `Recovered` — archive was created or finalized through replacement/restore workflow
+- `Imported` — archive came from historical SD-card or file import with no original Bambuddy row
+- `Timing Inferred` — canonical timestamps were updated from approved inferred evidence
+- `Potential Duplicate` — same archived file exists elsewhere and the case still needs operator review
+
+Guardrail:
+
+- keep this as a compact badge, not a large card banner
+- do not show both a duplicate badge and a provenance badge if they communicate the same underlying state; prefer the more actionable one
+
+### Popup provenance block
+
+The popup should gain a dedicated metadata section for:
+
+- `origin_kind`
+- original archive link or replacement link when one exists
+- whether the record was captured natively, restored, or historically imported
+- whether canonical timing came from native Bambuddy capture, copied source runtime, or inferred evidence
+- duplicate-review state and related archive IDs when relevant
+
+### Timeline presentation rule
+
+When provenance exists, the popup should present timeline fields in two tiers:
+
+1. canonical archive timestamps
+2. preserved original or inferred timing context
+
+Examples:
+
+- `Archive created in Bambuddy: Apr 5, 2026 9:17 PM`
+- `Original print completed: Mar 31, 2026 9:47 PM`
+- `Start time inferred from recorder + sliced estimate (medium confidence)`
+
+The UI should not imply that a recovery-time `created_at` is the actual print date when provenance says otherwise.
+
+### Data-loading rule
+
+Do not bloat the main browser page payload with the full provenance record.
+
+Preferred shape:
+
+- main page payload gets a compact summary such as `origin_kind`, `timing_confidence`, and `duplicate_review_state`
+- popup detail entity or on-demand detail service provides the heavier lineage, duplicate-chain, and timing-source explanation
+
 ### Guardrail
 
 Do not add future issue actions directly to the archive card face unless the action is both high-frequency and low-risk. The card tap should remain the stable detail entry point.
@@ -351,5 +414,6 @@ Do not add future issue actions directly to the archive card face unless the act
 
 1. stabilize the shipped Phase 1 renderer and popup behavior across desktop and mobile
 2. decide whether template ownership should move from `common` into `print_history` as a cleanup refactor or remain deferred
-3. add key-field editing in a second pass using the same popup entry point
-4. attach future issue-specific actions only after their own design docs define payloads and workflows
+3. add origin/provenance badges plus popup provenance detail using compact summary fields first
+4. add duplicate-review and inferred-timing actions using the same popup entry point
+5. attach future issue-specific actions only after their own design docs define payloads and workflows

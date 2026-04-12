@@ -33,13 +33,14 @@ Those remain with HA and optionally `n8n`.
 
 ## API Surface
 
-## Supported Input Mode Today
+## Supported Input Modes Today
 
-Today the sidecar supports one repair mode only:
+Today the sidecar supports two repair modes:
 
 - target archive ID plus explicit runtime metadata fields
+- source archive ID plus target archive ID restore/verify flows for already-existing archive pairs
 
-That means the caller provides the destination archive and whichever runtime fields should be corrected.
+That means the caller can either provide explicit canonical runtime fields for one archive, or ask the sidecar to compare two existing Bambuddy archive rows and apply the current merge policy.
 
 Current request model:
 
@@ -90,27 +91,81 @@ Yes.
 
 Set `dry_run: true` and the sidecar returns before and after values without applying the DB update.
 
+### 4. Source archive ID plus target archive ID restore mode
+
+Yes.
+
+`POST /admin/archive-restore-from` is implemented today for an existing source/target pair.
+
+Current behavior:
+
+- loads both archive rows from the Bambuddy SQLite database
+- applies the field-policy contract documented in [archive-runtime-restore-from-field-matrix.md](archive-runtime-restore-from-field-matrix.md)
+- preserves parser-derived target fields such as `content_hash`, `thumbnail_path`, and `print_time_seconds`
+- copies or merges selected runtime, user metadata, notes, tags, photos, and `extra_data`
+- supports dry-run planning, apply mode, and optional post-merge re-enrich
+
+Important limit:
+
+- this mode only works when both records already exist in Bambuddy
+- it does **not** inspect SD-card files, backfill manifests, `.bbl` sidecars, or other external evidence directly
+
+### 5. Post-merge verification and optional original removal
+
+Yes.
+
+`POST /admin/archive-restore-verify` is implemented today.
+
+Current behavior:
+
+- re-runs the restore policy as a verification plan
+- reports remaining actionable differences
+- blocks source removal when actionable differences remain
+- blocks source removal by default when enrichment is still incomplete
+- can remove the original source row only after verification is clean
+
 ## Variations Not Implemented Yet
 
-### 1. Source archive ID plus target archive ID copy mode
+### 1. Duplicate preflight against external recovery/import evidence
 
 Not implemented today.
 
-This would look something like:
+Current restore behavior assumes the operator has already selected the correct source/target pair.
 
-- `source_archive_id`
-- `target_archive_id`
-- optional `copy_fields`
+It does **not**:
 
-and would mean:
+- compare an SD-card candidate against existing Bambuddy archives before upload
+- distinguish `already represented` from `same hash but suspiciously different archive metadata`
+- maintain a sidecar-native duplicate review state for operator decisions
 
-- load source archive row
-- copy selected runtime metadata from source to target
-- optionally override some copied fields with explicit values
+That logic belongs ahead of upload/restore and is currently only partially covered by the historical backfill tooling and docs.
 
-This is a reasonable future extension, especially for the repaired-entry case you described, but the current sidecar does not support it.
+### 2. Timing inference from SD-card or backup artifacts
 
-## Proposed Future Extension: `restore_from` Copy Mode
+Not implemented today.
+
+Current restore behavior can:
+
+- copy `started_at`, `completed_at`, and `created_at` from an existing source archive
+- accept explicit operator-provided canonical runtime fields through runtime-repair mode
+
+Current restore behavior cannot:
+
+- derive print timing from `.3mf`, `.bbl`, filesystem, or backup evidence on its own
+- score timing confidence
+- apply `started_at` or `completed_at` from inferred evidence automatically
+
+### 3. Provenance-aware canonical update from inferred timing
+
+Not implemented today.
+
+There is currently no first-class request model for:
+
+- carrying a timing-evidence bundle into the sidecar
+- recording the inference confidence that justified a canonical timestamp write
+- distinguishing `recovered replacement`, `historical import`, and `manual inferred-timing correction` in one stable provenance contract
+
+## Proposed Future Extension: Provenance-Aware Timing Mode
 
 The live `191` to `200` comparison is a useful reference case for what this mode should and should not do.
 
@@ -123,6 +178,27 @@ Observed pattern:
 That means `restore_from` should not behave like a blind row copy.
 
 It should behave like a field-aware merge with explicit precedence rules.
+
+That merge mode now exists in a first usable form.
+
+The next extension should **not** be another blind copy option. It should be a provenance-aware timing and duplicate workflow layered on top of the existing merge path.
+
+## Important Current-State Boundary
+
+Today the sidecar covers this boundary well:
+
+- repair canonical runtime fields on an existing archive
+- merge a fallback/source archive into an existing recovered target archive
+- verify the merge result and optionally remove the original source row
+
+Today the sidecar does **not** cover this boundary:
+
+- discover external SD-card candidates
+- infer original print dates from file evidence
+- decide whether a source file is already represented by a real-time archive or a previous restore/import
+- persist rich provenance or timing-evidence history outside Bambuddy notes
+
+That means duplicate prevention and timing inference must be designed as an intake/review layer ahead of sidecar apply, not bolted into the current merge call implicitly.
 
 ## Goal Of `restore_from`
 
@@ -291,6 +367,42 @@ Allowed keys should stay narrow:
 - `external_url`
 
 Unknown override keys should be rejected.
+
+## Proposed Next Extension: Timing-Inference Payload
+
+If the sidecar is extended for inferred-timing workflows, the next contract should stay explicit and operator-auditable.
+
+Recommended additions:
+
+```json
+{
+  "source_archive_id": 191,
+  "target_archive_id": 200,
+  "timing_inference": {
+    "origin_kind": "historical_import",
+    "timing_confidence": "medium",
+    "started_at": "2026-03-31T18:04:12+00:00",
+    "completed_at": "2026-03-31T21:47:05+00:00",
+    "created_at": "2026-03-31T21:47:05+00:00",
+    "actual_time_seconds": 13373,
+    "sources": [
+      "ha_recorder_transition",
+      "sd_cache_3mf.print_time_seconds",
+      "filesystem_last_modified"
+    ],
+    "operator_approved": false
+  },
+  "apply_inferred_runtime": false,
+  "dry_run": true
+}
+```
+
+Recommended semantics:
+
+- `timing_inference` is evidence, not an automatic write instruction by itself
+- `apply_inferred_runtime = true` should only be accepted when confidence is high or the operator explicitly approves medium-confidence evidence
+- low-confidence evidence should remain provenance-only and should not update canonical Bambuddy timestamps
+- the apply response should record whether canonical runtime fields came from an existing source archive, explicit override values, or inferred timing evidence
 
 ## Response Contract
 

@@ -53,6 +53,30 @@ Important nuance:
 - the replacement archive may have correct file metadata but recovery-time top-level timestamps
 - original runtime timestamps should be shown from preserved recovery audit notes when available, not inferred from the replacement archive's own `completed_at`
 
+### Type 4: Historical import or manual file import
+
+Signals:
+
+- archive carries historical-import provenance
+- the record was not created by native Bambuddy real-time archiving for that print event
+
+Important nuance:
+
+- this is not inherently an error state
+- it still merits a visible origin marker so the operator understands why top-level timing or lineage may differ from native captures
+
+### Type 5: Potential duplicate or suspicious same-hash mismatch
+
+Signals:
+
+- same archived file is represented elsewhere, and
+- the duplicate chain or name divergence still needs review
+
+Important nuance:
+
+- this is more actionable than a plain duplicate badge
+- the operator should be able to inspect lineage and remove or keep records intentionally after review
+
 ## Main History Table Behavior
 
 ## Row indicator model
@@ -65,6 +89,8 @@ Each archive row may render a compact status marker near the print name or row e
 - warning: missing thumbnail only
 - error: missing core 3MF
 - recovered: replacement archive exists
+- imported: historical import or manual file import provenance exists
+- duplicate_review: potential duplicate or suspicious same-hash case needs review
 
 ### Visual recommendations
 
@@ -77,6 +103,8 @@ Suggested labels:
 - `Thumb Missing`
 - `Archive Incomplete`
 - `Recovered`
+- `Imported`
+- `Potential Duplicate`
 
 ## Exception Card
 
@@ -137,6 +165,7 @@ Add:
 - `repair_state`
 - `last recovery result`
 - original print timing from preserved recovery audit metadata when available
+- historical-import origin and duplicate-review state when applicable
 
 ### After automatic recovery exists
 
@@ -199,6 +228,22 @@ Use reassuring but precise language:
 - `Original print timing preserved in recovery notes` when that audit block exists
 - avoid wording that implies the replacement archive's top-level timestamps are the original print timestamps
 
+### For imported records
+
+Use clear provenance language:
+
+- `Imported from SD-card backup`
+- `Imported from sliced file`
+- `Timing inferred from backup evidence` when canonical times were updated from approved inference
+
+### For potential duplicates
+
+Use review-oriented language:
+
+- `Potential duplicate needs review`
+- `Same archived file, different print context`
+- avoid auto-destructive wording in the primary badge or chip text
+
 ## Avoid
 
 - generic `error` labels with no explanation
@@ -229,6 +274,12 @@ Recommended recovered item fields:
 ### Optional detail popup later
 
 - per-archive explanation and future recovery action area
+
+Recommended popup additions for this phase:
+
+- origin/provenance block
+- duplicate-review state and related archive links
+- separate display of Bambuddy archive timestamps versus preserved original or inferred print timing
 
 ## Accessibility And Clarity
 

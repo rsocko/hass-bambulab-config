@@ -21,6 +21,7 @@ What does **not** carry over by itself:
 
 - discovering which SD-card files represent real historical prints
 - preventing duplicate imports when an equivalent archive already exists
+- distinguishing `already represented` from `same archived file but suspiciously different archive metadata`
 - reconstructing original runtime timestamps from file upload alone
 - restoring photos, timelapses, favorites, or print-log rows automatically
 
@@ -210,11 +211,27 @@ Result:
 - do not upload a new archive
 - optionally annotate the existing archive with provenance notes if that adds value
 
+Important nuance:
+
+- an exact hash match proves the archived file is already represented
+- it does **not** prove the existing archive metadata is semantically correct for the intended print record
+- if the matched archive has materially different `print_name`, suspicious duplicate-chain behavior, or prior repair flags, route the candidate to manual review instead of silently treating it as a clean skip
+
 ### Duplicate rule 2: existing import manifest match
 
 If a local import manifest already maps the source hash or source path to an archive ID, skip it.
 
 This is the main guard against rerunning the batch and creating duplicates later.
+
+### Duplicate rule 2b: existing provenance-store match
+
+If the Home Assistant print-history SQLite store already records the same `source_sha256`, `source_md5`, or normalized `source_path` as previously handled, skip or reopen the prior review record instead of creating a new archive.
+
+This is how we avoid duplicate imports when the same print was:
+
+- captured in real time by Bambuddy
+- restored later from a fallback/replacement workflow
+- imported separately from an SD-card backup or workstation export
 
 ### Duplicate rule 3: strong filename plus date-window match
 
@@ -226,6 +243,18 @@ If content hash is unavailable on the existing side, use a secondary heuristic o
 - matching or very similar `print_name`
 
 Do not auto-skip on this rule alone unless confidence is very high.
+
+### Duplicate rule 4: suspicious same-hash, different-name chain
+
+If a candidate or target archive would land in a duplicate chain where:
+
+- `duplicate_sequence > 0`, or
+- `original_archive_id` points to a different-looking print history entry, or
+- same-hash archives have materially different normalized names,
+
+do not auto-delete or auto-skip blindly.
+
+Mark the case as `suspicious_duplicate` and route it through the mismatch-review workflow documented in [archive-mismatch-repair-design.md](archive-mismatch-repair-design.md).
 
 ## Phase 3: Upload only high-confidence canonical candidates
 
@@ -302,6 +331,18 @@ Current limitation:
 
 So treat `.bbl` dates as a thing to inspect, not as a proven canonical source yet.
 
+### 3b. Filename and directory naming conventions
+
+Possible value:
+
+- filename stems may contain exported model names, plate labels, or workflow-specific timestamps
+- cache or backup directory structure may imply whether the file came from printer cache versus workstation export
+
+Limits:
+
+- naming conventions are weak evidence for actual runtime
+- they are useful for clustering, matching, and manual review, not for direct canonical timestamp writes by themselves
+
 ### 4. Home Assistant recorder history
 
 Potentially strong if recorder retention covers the historical period.
@@ -349,6 +390,22 @@ Weak for:
 
 - actual print runtime
 
+### 8. 3MF internal timestamps and slicer config members
+
+The manifest tooling already extracts:
+
+- ZIP member min/max timestamps
+- timestamp-like fields from selected config members
+
+Use for:
+
+- supporting evidence when corroborated by stronger sources
+- choosing between multiple candidate completion windows
+
+Weak for:
+
+- treating the timestamp as direct proof of printer start or finish without corroboration
+
 ## Recommended Date Policy
 
 Use three confidence tiers.
@@ -380,6 +437,82 @@ Examples:
 
 - raw source-project timestamps
 - copied-file modification times with no corroboration
+
+## Recommended Timing Inference Pipeline
+
+When no existing Bambuddy source archive exists, infer timing in this order.
+
+### Step 1: infer `completed_at`
+
+Preferred ranking:
+
+1. HA recorder end-of-print transition for the matching print
+2. validated `.bbl` completion-like field for the matching sliced artifact
+3. filesystem last-write time for the cached/exported sliced file
+4. latest corroborated ZIP/config timestamp inside the `.3mf`
+
+### Step 2: infer `started_at`
+
+Preferred ranking:
+
+1. HA recorder start-of-print transition
+2. validated `.bbl` start-like field
+3. `completed_at - print_time_seconds` when the artifact is a sliced `.3mf` and `print_time_seconds` is parser-backed
+
+Important rule:
+
+- if `started_at` is derived from `completed_at - print_time_seconds`, mark it as estimated even when the overall timing confidence is medium or high
+
+### Step 3: infer `created_at`
+
+Use the best available archival milestone:
+
+- original completion time when the archive logically represents a completed print record
+- otherwise the strongest evidence timestamp that most closely reflects when the artifact was created on the printer/export path
+
+### Step 4: assign confidence
+
+Suggested rubric:
+
+- `high`: recorder or validated sidecar evidence directly supports start and end
+- `medium`: at least two independent sources agree, with one of them being file-backed or `.bbl` evidence
+- `low`: only one weak source exists, or multiple weak sources conflict
+
+### Step 5: choose canonical write versus provenance only
+
+- `high`: allow automatic canonical repair after upload
+- `medium`: require explicit operator approval or a follow-up `update to inferred times` action
+- `low`: do not change canonical Bambuddy times; store inference only as provenance
+
+## Where This Metadata Should Live
+
+Your assumption is directionally correct: the natural place for metadata that Bambuddy does not model well is the existing Home Assistant print-history SQLite store, not a large expansion of Bambuddy notes or Layer 1 browser payloads.
+
+Recommended storage split:
+
+- **Bambuddy archive row**: keep canonical fields plus compact provenance markers such as `[HISTORICAL_IMPORT_V1]` or `[RECOVERY_AUDIT_V1]`
+- **HA print-history SQLite store**: keep rich provenance, timing evidence, duplicate-review state, and operator decisions
+- **Layer 1 page payload**: keep only compact summary fields needed broadly for browser/popup presentation
+
+Recommended HA-side fields to maintain per archive or candidate:
+
+- `origin_kind`
+- `source_sha256`
+- `source_md5`
+- `source_path`
+- `restored_from_archive_id`
+- `replaced_archive_id`
+- `duplicate_review_state`
+- `inferred_started_at`
+- `inferred_completed_at`
+- `inferred_created_at`
+- `timing_confidence`
+- `timing_sources`
+- `timing_applied_to_canonical`
+
+Implementation note:
+
+- the current integration store already maintains review and lineage tables, so extending that store is lower risk than overloading Bambuddy notes with full evidence blobs
 
 ## Recommended Import Manifest
 
@@ -426,6 +559,7 @@ What it records per candidate:
 Important limit:
 
 - these timestamp candidates are evidence only until validated against known-good historical prints
+- the current sidecar does not yet consume this manifest or these timing candidates directly
 
 ### Backfill helper mode
 
@@ -467,6 +601,7 @@ Recommended operator policy:
 - treat `skipped_existing_content_hash` as a final skip unless you have a reason to annotate the already-existing archive
 - treat `inspect_ready` plus `source_type=sd_cache_3mf` as the main auto-import path
 - treat `manual_review_source_only` as a hold state, not a failure
+- treat suspicious same-hash, different-name matches as review cases, not automatic clean skips
 - prefer manual review whenever the source is not sliced, the filename is ambiguous, or you plan to repair canonical runtime fields afterward
 
 ## What Makes A Candidate Strong Enough To Import
@@ -535,10 +670,12 @@ Historical backfill is feasible and should reuse the current upload-plus-runtime
 
 Recommended implementation order:
 
-1. build a workstation-side or sidecar-assisted manifest generator for SD-card artifacts
-2. add exact-hash dedupe against existing Bambuddy `content_hash`
-3. auto-upload only high-confidence sliced candidates
-4. call the existing runtime-repair core only when timing evidence is strong enough
-5. keep weaker timing evidence in versioned notes instead of forcing it into canonical fields
+1. keep using the existing manifest generator as the intake/evidence stage
+2. add a persistent HA-side provenance store keyed by source hashes and archive lineage
+3. expand dedupe to distinguish `already represented` from `suspicious duplicate/mismatch`
+4. auto-upload only high-confidence sliced candidates that clear duplicate review
+5. add a timing-inference scorer that ranks filesystem, `.bbl`, recorder, filename, and internal `.3mf` evidence
+6. extend the sidecar with an explicit `apply inferred runtime` path or request flag for approved medium/high-confidence timing
+7. keep low-confidence timing evidence in provenance metadata instead of forcing it into canonical fields
 
 This keeps the current runtime-repair design narrow and defensible while making historical import possible without pretending the source files carry more truth than they actually do.
