@@ -83,6 +83,16 @@ Unless a field explicitly says otherwise:
 | `created_by_id` | audit_identity | `keep_target` | target | keep target | Preserve actual creator of recovered record unless explicit override is ever required |
 | `created_by_username` | audit_identity | `keep_target` | target | keep target | Preserve actual creator of recovered record unless explicit override is ever required |
 
+## Current Duplicate And Provenance Limits
+
+The current `restore_from` implementation merges two existing archive rows. It does not perform duplicate discovery against external SD-card/import evidence.
+
+Important implications:
+
+- `duplicate_count`, `duplicate_sequence`, and `original_archive_id` remain computed Bambuddy outputs, not manually copied fields
+- a same-hash relationship can mean either `already represented` or `suspicious duplicate/mismatch`; `restore_from` does not decide that today
+- source-file fingerprints, timing-evidence confidence, and operator duplicate-review decisions need a separate provenance store rather than being inferred from archive-row fields alone
+
 ## `extra_data` Matrix
 
 | Field Path | Group | Default Policy | Source Of Truth | Missing Source Behavior | Notes |
@@ -101,6 +111,36 @@ Unless a field explicitly says otherwise:
 | `extra_data.makerworld_model_id` | parser_target | `keep_target` | target | keep target | Prefer parsed target metadata |
 | `extra_data.makerworld_url` | parser_target | `keep_target` | target | keep target | Prefer parsed target metadata |
 | curated snapshot payload in notes | snapshot_subset | optional copy | source | skip if missing | Only for selected small provenance fields such as tray UUIDs |
+
+## Proposed HA-Side Provenance Store Matrix
+
+These fields are not natural top-level Bambuddy archive columns. Store them in the Home Assistant print-history SQLite store, then surface a compact summary in Bambuddy notes and popup detail.
+
+| Field Path | Group | Default Policy | Source Of Truth | Missing Source Behavior | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `provenance.origin_kind` | provenance | `copy_or_override` | workflow | keep existing | Example values: `native`, `recovered_replacement`, `historical_import`, `manual_file_import` |
+| `provenance.source_sha256` | provenance | `copy_or_override` | intake runner | keep existing | Primary idempotency key for SD/import evidence |
+| `provenance.source_path` | provenance | `copy_or_override` | intake runner | keep existing | Store normalized backup-relative path when available |
+| `provenance.restored_from_archive_id` | lineage | `copy_or_override` | restore workflow | keep existing | Links replacement/import record back to the prior archive when one existed |
+| `provenance.replaced_archive_id` | lineage | `copy_or_override` | restore workflow | keep existing | Reverse link for the replaced archive when retained |
+| `provenance.duplicate_review_state` | provenance | `copy_or_override` | operator | keep existing | Example values: `unreviewed`, `already_represented`, `suspicious_duplicate`, `approved_distinct_history` |
+| `provenance.inferred_started_at` | timing_evidence | `copy_or_override` | timing engine | keep existing | Evidence value only unless elevated into canonical `started_at` |
+| `provenance.inferred_completed_at` | timing_evidence | `copy_or_override` | timing engine | keep existing | Evidence value only unless elevated into canonical `completed_at` |
+| `provenance.inferred_created_at` | timing_evidence | `copy_or_override` | timing engine | keep existing | Evidence value only unless elevated into canonical `created_at` |
+| `provenance.inferred_actual_time_seconds` | timing_evidence | `copy_or_override` | timing engine | keep existing | Useful for review when start/end are estimated |
+| `provenance.timing_confidence` | timing_evidence | `copy_or_override` | timing engine | keep existing | `high`, `medium`, or `low` |
+| `provenance.timing_sources[]` | timing_evidence | `merge_list` | timing engine | keep existing | Example values: `ha_recorder_transition`, `filesystem_last_modified`, `bbl_timestamp`, `zip_member_timestamp` |
+| `provenance.timing_applied_to_canonical` | timing_evidence | `override` | sidecar apply | keep existing | Records whether inferred values were actually written into canonical archive columns |
+
+## Canonical Runtime Write Rule For Inferred Timing
+
+Use these rules when the source of truth is inferred timing rather than an already-existing Bambuddy source archive:
+
+- `high` confidence: sidecar may update `started_at`, `completed_at`, and `created_at` automatically in apply mode
+- `medium` confidence: require explicit operator approval or an explicit request flag before canonical writes
+- `low` confidence: do not update canonical runtime fields; keep the evidence only in the HA-side provenance store and compact notes metadata
+
+If only `completed_at` is strong and the start is estimated from `print_time_seconds`, mark that derivation explicitly in provenance and do not present it as a directly observed timestamp.
 
 ## Tag Policy Details
 
@@ -135,6 +175,7 @@ Unless a field explicitly says otherwise:
 
 - one structured recovery audit block containing original runtime truth from source
 - optional structured source-snapshot provenance block if snapshot subset copying is enabled later
+- compact provenance summary for import/restore origin and inferred timing confidence when that summary is not already present elsewhere
 
 ### Do Not Copy Blindly
 

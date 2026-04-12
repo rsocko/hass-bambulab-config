@@ -1,18 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-import sys
 from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
-
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-if str(REPO_ROOT / "sidecars" / "bambuddy-runtime-repair") not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT / "sidecars" / "bambuddy-runtime-repair"))
 
 
 from app import main as sidecar_main  # noqa: E402
@@ -245,7 +237,10 @@ def test_restore_archive_from_source_builds_db_backed_dry_run_plan(tmp_path: Pat
     assert len(actions["photos"].target_after) == 3
     assert any(photo["photo_path"].endswith("photo-error.jpg") for photo in actions["photos"].target_after)
 
-    assert actions["extra_data.no_3mf_available"].action == "skip_disallowed"
+    assert actions["extra_data"].action == "merge"
+    assert actions["extra_data"].target_after["no_3mf_available"] is True
+    assert actions["extra_data"].target_after["print_time_seconds"] == 22671
+    assert actions["extra_data"].target_after["_print_data"]["subtask_name"] == "200x200 - AMS Ready - Slice & Print"
 
 
 def test_restore_archive_from_source_apply_updates_target_fields(tmp_path: Path) -> None:
@@ -282,7 +277,7 @@ def test_restore_archive_from_source_apply_updates_target_fields(tmp_path: Path)
     connection = sqlite3.connect(db_path)
     try:
         row = connection.execute(
-            "SELECT started_at, completed_at, created_at, status, is_favorite, tags, notes FROM print_archives WHERE id = 200"
+            "SELECT started_at, completed_at, created_at, status, is_favorite, tags, notes, extra_data FROM print_archives WHERE id = 200"
         ).fetchone()
         assert row is not None
         assert row[0] == "2026-04-02T16:37:22.828591"
@@ -291,6 +286,10 @@ def test_restore_archive_from_source_apply_updates_target_fields(tmp_path: Path)
         assert row[3] == "completed"
         assert row[4] == 1
         assert "Hueforge" in row[5]
+        extra_data = repair_module.json.loads(row[7])
+        assert extra_data["no_3mf_available"] is True
+        assert extra_data["print_time_seconds"] == 22671
+        assert extra_data["_print_data"]["subtask_name"] == "200x200 - AMS Ready - Slice & Print"
 
         photo_rows = connection.execute(
             "SELECT photo_index, photo_path, photo_role FROM archive_photos WHERE archive_id = 200 ORDER BY photo_index"
@@ -373,6 +372,37 @@ def test_restore_archive_from_source_uses_archive_detail_photos_when_db_rows_are
     assert actions["photos"].source_value[0]["file_hash"]
 
 
+def test_restore_archive_from_source_run_reenrich_is_optional_when_ha_not_configured(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+
+    uploaded: list[tuple[int, str]] = []
+    original_upload = repair_module._upload_archive_photo
+
+    def fake_upload(target_archive_id: int, source_photo: dict[str, Any]) -> None:
+        uploaded.append((target_archive_id, str(source_photo["photo_path"])))
+
+    repair_module._upload_archive_photo = fake_upload
+
+    try:
+        response = restore_archive_from_source(
+            db_path,
+            RestoreFromRequest(
+                source_archive_id=191,
+                target_archive_id=200,
+                run_reenrich=True,
+                dry_run=False,
+            ),
+        )
+    finally:
+        repair_module._upload_archive_photo = original_upload
+
+    assert response.applied is True
+    assert response.reenrich_requested is True
+    assert response.reenrich_triggered is False
+    assert any("HOME_ASSISTANT_BASE_URL/HOME_ASSISTANT_TOKEN" in warning for warning in response.warnings)
+    assert len(uploaded) == 2
+
+
 def test_restore_verify_after_merge_reports_remaining_differences_and_blocks_delete(tmp_path: Path) -> None:
     db_path = _create_test_db(tmp_path)
 
@@ -395,7 +425,7 @@ def test_restore_verify_after_merge_reports_remaining_differences_and_blocks_del
     assert any(diff.field == "started_at" for diff in response.remaining_differences)
 
 
-def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differences(tmp_path: Path) -> None:
+def test_restore_verify_after_merge_blocks_remove_when_enrichment_incomplete(tmp_path: Path) -> None:
     db_path = _create_test_db(tmp_path)
 
     connection = sqlite3.connect(db_path)
@@ -404,7 +434,7 @@ def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differe
             """
             UPDATE print_archives
             SET started_at = ?, completed_at = ?, created_at = ?, status = ?, is_favorite = ?,
-                tags = ?, notes = ?
+                tags = ?, notes = ?, extra_data = ?
             WHERE id = ?
             """,
             (
@@ -415,6 +445,7 @@ def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differe
                 1,
                 "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
                 "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"src\":\"afs\"}",
+                '{"print_time_seconds":22671,"designer":"Canadian Gamer","no_3mf_available":true,"_print_data":{"subtask_name":"200x200 - AMS Ready - Slice & Print"}}',
                 200,
             ),
         )
@@ -445,6 +476,132 @@ def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differe
     assert verify_response.verified is True
     assert verify_response.remaining_difference_count == 0
     assert verify_response.blocking_difference_count == 0
+    assert verify_response.enrichment_ready is False
+    assert verify_response.enrichment_status == "missing"
+    assert verify_response.removable is False
+
+    delete_response = restore_verify_after_merge(
+        db_path,
+        RestoreVerifyRequest(
+            source_archive_id=191,
+            target_archive_id=200,
+            remove_original=True,
+            dry_run=False,
+        ),
+    )
+    assert delete_response.verified is True
+    assert delete_response.source_removed is False
+
+
+def test_restore_verify_after_merge_can_force_remove_when_enrichment_incomplete(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            UPDATE print_archives
+            SET started_at = ?, completed_at = ?, created_at = ?, status = ?, is_favorite = ?,
+                tags = ?, notes = ?, extra_data = ?
+            WHERE id = ?
+            """,
+            (
+                "2026-04-02T16:37:22.828591",
+                "2026-04-02T23:58:56.496148",
+                "2026-04-02T16:37:22",
+                "completed",
+                1,
+                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
+                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"src\":\"afs\"}",
+                '{"print_time_seconds":22671,"designer":"Canadian Gamer","no_3mf_available":true,"_print_data":{"subtask_name":"200x200 - AMS Ready - Slice & Print"}}',
+                200,
+            ),
+        )
+        connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (200,))
+        connection.executemany(
+            "INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role) VALUES (?, ?, ?, ?)",
+            [
+                (200, 0, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-finish.jpg", "finish"),
+                (200, 1, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-source-finish-copy.jpg", "finish"),
+                (200, 2, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-error-copy.jpg", "error"),
+            ],
+        )
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-source-finish-copy.jpg").write_bytes(b"source-finish")
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-error-copy.jpg").write_bytes(b"source-error")
+        connection.commit()
+    finally:
+        connection.close()
+
+    delete_response = restore_verify_after_merge(
+        db_path,
+        RestoreVerifyRequest(
+            source_archive_id=191,
+            target_archive_id=200,
+            remove_original=True,
+            force_remove_without_reenrich=True,
+            dry_run=False,
+        ),
+    )
+    assert delete_response.verified is True
+    assert delete_response.enrichment_ready is False
+    assert delete_response.removable is True
+    assert delete_response.source_removed is True
+
+
+def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            UPDATE print_archives
+            SET started_at = ?, completed_at = ?, created_at = ?, status = ?, is_favorite = ?,
+                tags = ?, notes = ?, extra_data = ?
+            WHERE id = ?
+            """,
+            (
+                "2026-04-02T16:37:22.828591",
+                "2026-04-02T23:58:56.496148",
+                "2026-04-02T16:37:22",
+                "completed",
+                1,
+                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
+                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"s\":\"c\",\"src\":\"afs\",\"F\":[{\"n\":\"Black\",\"w\":33.3,\"t\":\"A1\",\"s\":10,\"f\":14,\"h\":\"#000000\"}]}",
+                '{"print_time_seconds":22671,"designer":"Canadian Gamer","no_3mf_available":true,"_print_data":{"subtask_name":"200x200 - AMS Ready - Slice & Print"}}',
+                200,
+            ),
+        )
+        connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (200,))
+        connection.executemany(
+            "INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role) VALUES (?, ?, ?, ?)",
+            [
+                (200, 0, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-finish.jpg", "finish"),
+                (200, 1, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-source-finish-copy.jpg", "finish"),
+                (200, 2, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-error-copy.jpg", "error"),
+            ],
+        )
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-source-finish-copy.jpg").write_bytes(b"source-finish")
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-error-copy.jpg").write_bytes(b"source-error")
+        connection.commit()
+    finally:
+        connection.close()
+
+    verify_response = restore_verify_after_merge(
+        db_path,
+        RestoreVerifyRequest(
+            source_archive_id=191,
+            target_archive_id=200,
+            remove_original=False,
+            dry_run=True,
+        ),
+    )
+    assert verify_response.verified is True
+    assert verify_response.remaining_difference_count == 0
+    assert verify_response.blocking_difference_count == 0
+    assert verify_response.enrichment_ready is True
+    assert verify_response.enrichment_status == "complete"
+    assert verify_response.removable is True
 
     delete_response = restore_verify_after_merge(
         db_path,
@@ -489,6 +646,7 @@ def test_restore_verify_endpoint_returns_structured_response(tmp_path: Path, mon
     assert body["target_archive_id"] == 200
     assert body["remaining_difference_count"] >= 1
     assert body["blocking_difference_count"] >= 1
+    assert body["enrichment_ready"] is False
     assert isinstance(body["remaining_differences"], list)
 
 
@@ -523,4 +681,42 @@ def test_restore_from_endpoint_applies_and_returns_updated_fields(tmp_path: Path
     assert body["updated"] is True
     assert "started_at" in body["updated_fields"]
     assert "photos" in body["updated_fields"]
+    assert "extra_data" in body["updated_fields"]
+    assert len(uploaded) == 2
+
+
+def test_restore_from_endpoint_can_request_reenrich(tmp_path: Path, monkeypatch) -> None:
+    db_path = _create_test_db(tmp_path)
+    monkeypatch.setenv("REPAIR_API_TOKEN", "test-token")
+    monkeypatch.setenv("BAMBUDDY_DB_PATH", str(db_path))
+    monkeypatch.setenv("BAMBUDDY_API_BASE_URL", "http://example.invalid")
+    monkeypatch.setenv("BAMBUDDY_API_KEY", "api-key")
+
+    uploaded: list[tuple[int, str]] = []
+
+    def fake_upload(target_archive_id: int, source_photo: dict[str, Any]) -> None:
+        uploaded.append((target_archive_id, str(source_photo["photo_path"])))
+
+    def fake_reenrich(archive_id: int) -> tuple[bool, str | None]:
+        return True, None
+
+    monkeypatch.setattr(repair_module, "_upload_archive_photo", fake_upload)
+    monkeypatch.setattr(repair_module, "_invoke_home_assistant_reenrich", fake_reenrich)
+
+    client = TestClient(sidecar_main.app)
+    response = client.post(
+        "/admin/archive-restore-from",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "source_archive_id": 191,
+            "target_archive_id": 200,
+            "run_reenrich": True,
+            "dry_run": False,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reenrich_requested"] is True
+    assert body["reenrich_triggered"] is True
     assert len(uploaded) == 2

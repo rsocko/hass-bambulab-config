@@ -47,6 +47,7 @@ FIELD_RULES: tuple[FieldRule, ...] = (
     FieldRule("tags", FieldGroup.USER_METADATA, "merge_tags"),
     FieldRule("photos", FieldGroup.ASSET_STATE, "merge_photos"),
     FieldRule("notes", FieldGroup.LINEAGE, "merge_notes"),
+    FieldRule("extra_data", FieldGroup.SNAPSHOT_SUBSET, "merge_extra_data"),
     FieldRule("file_path", "parser_target", "keep_target"),
     FieldRule("file_size", "parser_target", "keep_target"),
     FieldRule("content_hash", "parser_target", "keep_target"),
@@ -63,8 +64,6 @@ FIELD_RULES: tuple[FieldRule, ...] = (
     FieldRule("sliced_for_model", "parser_target", "keep_target"),
     FieldRule("designer", "parser_target", "keep_target"),
     FieldRule("makerworld_url", "parser_target", "keep_target"),
-    FieldRule("extra_data.no_3mf_available", FieldGroup.SNAPSHOT_SUBSET, "disallowed"),
-    FieldRule("extra_data._print_data", FieldGroup.SNAPSHOT_SUBSET, "disallowed"),
 )
 
 
@@ -116,6 +115,16 @@ def _optional_bambuddy_api_base_url() -> str | None:
 
 def _optional_bambuddy_api_key() -> str | None:
     value = os.environ.get("BAMBUDDY_API_KEY", "").strip()
+    return value or None
+
+
+def _optional_home_assistant_base_url() -> str | None:
+    value = os.environ.get("HOME_ASSISTANT_BASE_URL", "").strip().rstrip("/")
+    return value or None
+
+
+def _optional_home_assistant_token() -> str | None:
+    value = os.environ.get("HOME_ASSISTANT_TOKEN", "").strip()
     return value or None
 
 
@@ -384,6 +393,29 @@ def merge_notes(source_value: Any, target_value: Any) -> str | None:
     return "\n\n".join(merged_segments) if merged_segments else None
 
 
+def _deep_fill_missing(target_value: Any, source_value: Any) -> Any:
+    if isinstance(target_value, Mapping) and isinstance(source_value, Mapping):
+        result = {key: value for key, value in target_value.items()}
+        for key, source_item in source_value.items():
+            if key in result:
+                result[key] = _deep_fill_missing(result[key], source_item)
+            else:
+                result[key] = source_item
+        return result
+
+    if _is_missing(target_value):
+        return source_value
+
+    return target_value
+
+
+def merge_extra_data(source_value: Any, target_value: Any) -> dict[str, Any]:
+    source_mapping = source_value if isinstance(source_value, Mapping) else {}
+    target_mapping = target_value if isinstance(target_value, Mapping) else {}
+    merged = _deep_fill_missing(target_mapping, source_mapping)
+    return dict(merged) if isinstance(merged, Mapping) else {}
+
+
 def merge_photos(source_value: Any, target_value: Any) -> list[dict[str, Any]]:
     source_photos = _normalize_value("photos", source_value)
     target_photos = _normalize_value("photos", target_value)
@@ -412,6 +444,67 @@ def _photos_to_upload(source_value: Any, target_value: Any) -> list[dict[str, An
     target_photos = _normalize_value("photos", target_value)
     target_signatures = {_photo_signature(photo) for photo in target_photos}
     return [photo for photo in source_photos if _photo_signature(photo) not in target_signatures]
+
+
+def _extract_enrichment_payload(notes_value: Any) -> dict[str, Any] | None:
+    notes = str(notes_value or "")
+    marker_index = notes.find("+>")
+    if marker_index < 0:
+        return None
+
+    payload_raw = notes[marker_index + 2 :].strip()
+    if not payload_raw:
+        return None
+
+    try:
+        payload = json.loads(payload_raw)
+    except json.JSONDecodeError:
+        return None
+
+    return payload if isinstance(payload, dict) else None
+
+
+def _enrichment_status_label(notes_value: Any) -> str:
+    payload = _extract_enrichment_payload(notes_value)
+    if not payload:
+        return "missing"
+
+    code = str(payload.get("s") or "").strip().lower()
+    return {
+        "c": "complete",
+        "p": "partial",
+        "u": "unavailable",
+    }.get(code, "missing")
+
+
+def _enrichment_ready(notes_value: Any) -> bool:
+    return _enrichment_status_label(notes_value) == "complete"
+
+
+def _invoke_home_assistant_reenrich(archive_id: int) -> tuple[bool, str | None]:
+    base_url = _optional_home_assistant_base_url()
+    token = _optional_home_assistant_token()
+    if not base_url or not token:
+        return False, "run_reenrich requested but HOME_ASSISTANT_BASE_URL/HOME_ASSISTANT_TOKEN are not configured"
+
+    request = urllib.request.Request(
+        url=f"{base_url}/api/services/script/reenrich_print_history_archive",
+        data=json.dumps({"archive_id": str(archive_id)}).encode("utf-8"),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            status = getattr(response, "status", 200)
+            if not (200 <= status < 300):
+                return False, f"run_reenrich requested but Home Assistant returned HTTP {status}"
+    except Exception as exc:
+        return False, f"run_reenrich requested but Home Assistant call failed: {exc}"
+
+    return True, None
 
 
 def _bambuddy_api_base_url() -> str:
@@ -554,7 +647,11 @@ def _apply_restore_actions(
             continue
         if "." in action.field:
             continue
-        scalar_updates[action.field] = action.target_after
+        scalar_updates[action.field] = (
+            json.dumps(action.target_after, separators=(",", ":"))
+            if action.field == "extra_data"
+            else action.target_after
+        )
 
     for photo in photo_uploads:
         _upload_archive_photo(archive_id, photo)
@@ -721,6 +818,21 @@ def build_restore_field_actions(
             )
             continue
 
+        if rule.policy == "merge_extra_data":
+            merged_extra_data = merge_extra_data(source_value, target_value)
+            actions.append(
+                RestoreFieldAction(
+                    field=rule.path,
+                    group=str(rule.group),
+                    action=RestoreAction.MERGE,
+                    source_value=source_value,
+                    target_before=target_value,
+                    target_after=merged_extra_data,
+                    reason=RestoreReason.MERGED_EXTRA_DATA_POLICY,
+                )
+            )
+            continue
+
         if rule.policy == "merge_photos":
             merged_photo_list = merge_photos(source_value, target_value)
             actions.append(
@@ -759,6 +871,8 @@ def build_restore_response(
     *,
     applied: bool,
     updated: bool,
+    reenrich_requested: bool = False,
+    reenrich_triggered: bool = False,
     updated_fields: list[str] | None = None,
 ) -> RestoreFromResponse:
     return RestoreFromResponse(
@@ -766,6 +880,8 @@ def build_restore_response(
         target_archive_id=target_archive_id,
         updated=updated,
         applied=applied,
+        reenrich_requested=reenrich_requested,
+        reenrich_triggered=reenrich_triggered,
         field_action_summary=_summarize(actions),
         field_actions=actions,
         warnings=warnings or [],
@@ -799,11 +915,18 @@ def restore_archive_from_source(db_path: Path, request: RestoreFromRequest) -> R
                 warnings=warnings,
                 applied=False,
                 updated=False,
+                reenrich_requested=request.run_reenrich,
+                reenrich_triggered=False,
                 updated_fields=[],
             )
 
         updated_fields = _apply_restore_actions(connection, request.target_archive_id, actions)
         connection.commit()
+        reenrich_triggered = False
+        if request.run_reenrich:
+            reenrich_triggered, reenrich_warning = _invoke_home_assistant_reenrich(request.target_archive_id)
+            if reenrich_warning:
+                warnings.append(reenrich_warning)
         return build_restore_response(
             source_archive_id=request.source_archive_id,
             target_archive_id=request.target_archive_id,
@@ -811,6 +934,8 @@ def restore_archive_from_source(db_path: Path, request: RestoreFromRequest) -> R
             warnings=warnings,
             applied=True,
             updated=bool(updated_fields),
+            reenrich_requested=request.run_reenrich,
+            reenrich_triggered=reenrich_triggered,
             updated_fields=updated_fields,
         )
     finally:
@@ -844,13 +969,25 @@ def restore_verify_after_merge(db_path: Path, request: RestoreVerifyRequest) -> 
         remaining_differences = [action for action in actions if _is_actionable_remaining_difference(action)]
         non_blocking_differences = [action for action in actions if _is_non_blocking_difference(action)]
         verified = not remaining_differences
-        removable = verified
+        enrichment_status = _enrichment_status_label(target_archive.get("notes"))
+        enrichment_ready = _enrichment_ready(target_archive.get("notes"))
+        if not enrichment_ready:
+            warnings.append(
+                "target archive enrichment is not complete; run re-enrich before removing the original archive or use force_remove_without_reenrich=true"
+            )
+        removable = verified and (enrichment_ready or request.force_remove_without_reenrich)
         source_removed = False
 
         if request.remove_original and not verified:
             warnings.append("original archive cannot be removed while actionable differences remain")
 
-        if request.remove_original and verified and not request.dry_run:
+        if request.remove_original and verified and not enrichment_ready and not request.force_remove_without_reenrich:
+            warnings.append("original archive cannot be removed until enrichment is complete")
+
+        if request.remove_original and verified and not enrichment_ready and request.force_remove_without_reenrich:
+            warnings.append("original archive removal forced even though enrichment is not complete")
+
+        if request.remove_original and verified and (enrichment_ready or request.force_remove_without_reenrich) and not request.dry_run:
             _delete_archive_row(connection, request.source_archive_id)
             connection.commit()
             source_removed = True
@@ -862,6 +999,8 @@ def restore_verify_after_merge(db_path: Path, request: RestoreVerifyRequest) -> 
             applied=bool(request.remove_original and not request.dry_run and source_removed),
             removable=removable,
             source_removed=source_removed,
+            enrichment_status=enrichment_status,
+            enrichment_ready=enrichment_ready,
             blocking_difference_count=len(remaining_differences),
             non_blocking_difference_count=len(non_blocking_differences),
             remaining_difference_count=len(remaining_differences),

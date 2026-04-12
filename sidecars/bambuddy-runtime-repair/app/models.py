@@ -52,6 +52,7 @@ class RestoreReason(StrEnum):
     MERGED_TAG_POLICY = "merged_tag_policy"
     MERGED_NOTES_POLICY = "merged_notes_policy"
     MERGED_PHOTOS_POLICY = "merged_photos_policy"
+    MERGED_EXTRA_DATA_POLICY = "merged_extra_data_policy"
     EXPLICIT_OVERRIDE = "explicit_override"
     POLICY_NOT_YET_IMPLEMENTED = "policy_not_yet_implemented"
 
@@ -102,6 +103,7 @@ class RestoreFromRequest(BaseModel):
             FieldGroup.USER_METADATA,
             FieldGroup.LINEAGE,
             FieldGroup.ASSET_STATE,
+            FieldGroup.SNAPSHOT_SUBSET,
         ]
     )
     tag_merge_mode: TagMergeMode = TagMergeMode.MERGE_PRESERVE_TARGET
@@ -113,6 +115,7 @@ class RestoreFromRequest(BaseModel):
     )
     include_tags: list[str] = Field(default_factory=list)
     overrides: RestoreFromOverrides = Field(default_factory=RestoreFromOverrides)
+    run_reenrich: bool = False
     dry_run: bool = False
 
     @model_validator(mode="after")
@@ -157,6 +160,8 @@ class RestoreFromResponse(BaseModel):
     target_archive_id: int
     updated: bool
     applied: bool
+    reenrich_requested: bool = False
+    reenrich_triggered: bool = False
     field_action_summary: RestoreFieldActionSummary
     field_actions: list[RestoreFieldAction] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -172,6 +177,7 @@ class RestoreVerifyRequest(BaseModel):
             FieldGroup.USER_METADATA,
             FieldGroup.LINEAGE,
             FieldGroup.ASSET_STATE,
+            FieldGroup.SNAPSHOT_SUBSET,
         ]
     )
     tag_merge_mode: TagMergeMode = TagMergeMode.MERGE_PRESERVE_TARGET
@@ -183,6 +189,7 @@ class RestoreVerifyRequest(BaseModel):
     )
     include_tags: list[str] = Field(default_factory=list)
     remove_original: bool = False
+    force_remove_without_reenrich: bool = False
     dry_run: bool = True
 
     @model_validator(mode="after")
@@ -199,6 +206,8 @@ class RestoreVerifyResponse(BaseModel):
     applied: bool
     removable: bool
     source_removed: bool
+    enrichment_status: str = "missing"
+    enrichment_ready: bool = False
     blocking_difference_count: int
     non_blocking_difference_count: int
     remaining_difference_count: int

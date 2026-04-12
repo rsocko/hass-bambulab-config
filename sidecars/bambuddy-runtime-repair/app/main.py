@@ -106,10 +106,11 @@ def archive_restore_from(
 
     try:
         logger.info(
-            "Restore-from request source_archive_id=%s target_archive_id=%s dry_run=%s",
+            "Restore-from request source_archive_id=%s target_archive_id=%s dry_run=%s run_reenrich=%s",
             request.source_archive_id,
             request.target_archive_id,
             request.dry_run,
+            request.run_reenrich,
         )
         return restore_archive_from_source(db_path=_db_path(), request=request)
     except NotImplementedError as exc:
@@ -138,10 +139,11 @@ def archive_restore_verify(
 
     try:
         logger.info(
-            "Restore-verify request source_archive_id=%s target_archive_id=%s remove_original=%s dry_run=%s",
+            "Restore-verify request source_archive_id=%s target_archive_id=%s remove_original=%s force_remove_without_reenrich=%s dry_run=%s",
             request.source_archive_id,
             request.target_archive_id,
             request.remove_original,
+            request.force_remove_without_reenrich,
             request.dry_run,
         )
         return restore_verify_after_merge(db_path=_db_path(), request=request)

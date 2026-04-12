@@ -53,6 +53,8 @@ Default workflow registry:
 - `REPAIR_API_TOKEN`
 - `BAMBUDDY_API_BASE_URL` when using restore photo migration
 - `BAMBUDDY_API_KEY` when using restore photo migration
+- `HOME_ASSISTANT_BASE_URL` when using optional post-restore re-enrich
+- `HOME_ASSISTANT_TOKEN` when using optional post-restore re-enrich
 - optional `LOG_LEVEL`
 
 Typical values:
@@ -62,6 +64,8 @@ BAMBUDDY_DB_PATH=/data/bambuddy.db
 REPAIR_API_TOKEN=<long-random-token>
 BAMBUDDY_API_BASE_URL=http://bambuddy:8902
 BAMBUDDY_API_KEY=<bambuddy-api-key>
+HOME_ASSISTANT_BASE_URL=http://homeassistant:8123
+HOME_ASSISTANT_TOKEN=<home-assistant-long-lived-token>
 LOG_LEVEL=INFO
 ```
 
@@ -80,6 +84,8 @@ REPAIR_API_TOKEN=replace-with-a-long-random-secret
 BAMBUDDY_DB_PATH=/data/bambuddy.db
 BAMBUDDY_API_BASE_URL=http://bambuddy:8902
 BAMBUDDY_API_KEY=replace-with-a-bambuddy-api-key
+HOME_ASSISTANT_BASE_URL=http://homeassistant:8123
+HOME_ASSISTANT_TOKEN=replace-with-a-home-assistant-long-lived-token
 LOG_LEVEL=INFO
 ```
 
@@ -93,6 +99,8 @@ docker run -d \
   -e REPAIR_API_TOKEN=replace-me \
   -e BAMBUDDY_API_BASE_URL=http://bambuddy:8902 \
   -e BAMBUDDY_API_KEY=replace-me \
+  -e HOME_ASSISTANT_BASE_URL=http://homeassistant:8123 \
+  -e HOME_ASSISTANT_TOKEN=replace-me \
   -v bambuddy_data:/data \
   -p 127.0.0.1:8818:8080 \
   registry.socko.us/bambuddy-runtime-repair:0.1.0
@@ -200,7 +208,7 @@ Current status:
 - merge-planning logic lives in `app/repair.py`
 - DB-backed `dry_run` planning is implemented
 - non-dry-run apply mode is implemented for actionable top-level restore fields and Bambuddy photo API uploads for source archive photos
-- post-merge verification is implemented and can optionally remove the original archive when no actionable differences remain
+- post-merge verification is implemented and can optionally remove the original archive when restore differences are clear and enrichment is complete, or when an explicit force flag is supplied
 
 Current restore behavior for photo attachments:
 
@@ -209,6 +217,15 @@ Current restore behavior for photo attachments:
 - existing target photo attachments are preserved; only source-only photos are uploaded
 - photo equivalence prefers content hash from local files or Bambuddy photo downloads, then falls back to path and role
 - photo migration requires a reachable Bambuddy API base URL and API key in the sidecar environment
+
+Current restore behavior for archive `extra_data` and re-enrich:
+
+- source `extra_data` is deep-merged into target `extra_data` with target values taking priority on conflicts
+- this preserves the original archived `_print_data.raw_data.ams` and related source metadata when the recovered target does not already have it
+- optional post-restore re-enrich can call Home Assistant `script.reenrich_print_history_archive` when `run_reenrich` is requested and HA connection settings are configured
+- if re-enrich is requested but HA connection settings are absent or the service call fails, restore still succeeds and returns a warning
+- restore-verify now reports enrichment readiness and blocks source removal by default when the target archive is not yet enrichment-complete
+- source removal can still be forced with `force_remove_without_reenrich=true`
 
 PowerShell helpers:
 
@@ -240,9 +257,14 @@ curl -X POST http://127.0.0.1:8818/admin/archive-restore-from \
   -d '{
     "source_archive_id": 191,
     "target_archive_id": 200,
+    "run_reenrich": true,
     "dry_run": false
   }'
 ```
+
+If you prefer the PowerShell helper, add `-RunReenrich` to request the optional HA callback after apply.
+
+For forced removal when enrichment is still incomplete, use `force_remove_without_reenrich: true` on `POST /admin/archive-restore-verify`, or `-ForceRemoveWithoutReenrich` with `tools/bambuddy/Test-RestoreFromSidecar.ps1 -Verify`.
 
 Reference design documents:
 

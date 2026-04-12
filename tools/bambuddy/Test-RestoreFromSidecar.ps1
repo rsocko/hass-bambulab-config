@@ -5,7 +5,9 @@ param(
     [int]$TargetArchiveId = 0,
     [switch]$Apply,
     [switch]$Verify,
-    [switch]$RemoveOriginal
+    [switch]$RemoveOriginal,
+    [switch]$RunReenrich,
+    [switch]$ForceRemoveWithoutReenrich
 )
 
 Set-StrictMode -Version Latest
@@ -47,6 +49,7 @@ if ($SourceArchiveId -gt 0 -and $TargetArchiveId -gt 0) {
             source_archive_id = $SourceArchiveId
             target_archive_id = $TargetArchiveId
             remove_original = $RemoveOriginal.IsPresent
+            force_remove_without_reenrich = $ForceRemoveWithoutReenrich.IsPresent
             dry_run = (-not $Apply.IsPresent)
         }
         Invoke-SidecarPost -Url $BaseUrl -Path "/admin/archive-restore-verify" -BearerToken $Token -Payload $payload
@@ -55,6 +58,7 @@ if ($SourceArchiveId -gt 0 -and $TargetArchiveId -gt 0) {
         $payload = @{
             source_archive_id = $SourceArchiveId
             target_archive_id = $TargetArchiveId
+            run_reenrich = $RunReenrich.IsPresent
             dry_run = (-not $Apply.IsPresent)
         }
         Invoke-SidecarPost -Url $BaseUrl -Path "/admin/archive-restore-from" -BearerToken $Token -Payload $payload
