@@ -122,12 +122,24 @@ For each approved fallback archive:
 5. If photo migration fails because the old archive has stale photo references, retry apply and verify with `-SkipPhotos`.
 6. After successful verify, decide whether to remove the original fallback archive.
 
+If you remove the original, treat that step as workflow finalization: the surviving replacement archive should keep its recovery audit note but no longer keep transient recovery tags such as `repair:recovered`, `recovered_from:*`, or `recovery_source:*`.
+
 ### Phase 3: Cleanup And Documentation
 
 1. Record the replacement archive ID.
 2. Record whether photos were preserved, skipped, or missing at source.
 3. Record whether the historical source archive was removed.
 4. Update this queue document or a follow-up runbook with the final result.
+
+## Live Execution Status
+
+Current operator run status on 2026-04-12:
+
+| Archive ID | Current state | Replacement archive | Current result | Remaining action |
+| --- | --- | --- | --- | --- |
+| `19` | restore applied and verified | `225` | pairwise recovery succeeded; verify reports `verified = true` and `remaining_difference_count = 0` | original archive `19` not removed because target enrichment is still missing and normal removal is therefore blocked |
+| `106` | restore applied and verified with photo-skip scope | `226` | upload and restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0` | original archive `106` not removed because target enrichment is still missing and normal removal is therefore blocked |
+| `108` | restore applied and verified with photo-skip scope | `227` | upload and restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0` | original archive `108` not removed because target enrichment is still missing and normal removal is therefore blocked |
 
 ## One-At-A-Time Command Flow
 
@@ -156,26 +168,32 @@ Example for archive `19`:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl 'http://bambuddy.socko.us' \
-  -PrinterId 1 \
-  -FallbackArchiveId 19 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf' \
-  -RecoverySource 'sd_cache_3mf'
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = 'http://bambuddy.socko.us'
+  PrinterId = 1
+  FallbackArchiveId = 19
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf'
+  RecoverySource = 'sd_cache_3mf'
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 If the inspect result looks correct, create the replacement archive:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Upload \
-  -BaseUrl 'http://bambuddy.socko.us' \
-  -PrinterId 1 \
-  -FallbackArchiveId 19 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf' \
-  -RecoverySource 'sd_cache_3mf'
+$recoveryArgs = @{
+  Mode = 'Upload'
+  BaseUrl = 'http://bambuddy.socko.us'
+  PrinterId = 1
+  FallbackArchiveId = 19
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf'
+  RecoverySource = 'sd_cache_3mf'
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ### C. Merge Runtime And User Metadata Into The Replacement Archive
@@ -185,37 +203,46 @@ Once you know the replacement archive ID, run the sidecar restore helper.
 Dry run:
 
 ```powershell
-& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 \
-  -BaseUrl $sidecarBaseUrl \
-  -Token $env:REPAIR_API_TOKEN \
-  -SourceArchiveId 19 \
-  -TargetArchiveId <new_archive_id> \
-  -CompactOutput
+$restoreArgs = @{
+  BaseUrl = $sidecarBaseUrl
+  Token = $env:REPAIR_API_TOKEN
+  SourceArchiveId = 19
+  TargetArchiveId = <new_archive_id>
+  CompactOutput = $true
+}
+
+& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 Apply:
 
 ```powershell
-& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 \
-  -BaseUrl $sidecarBaseUrl \
-  -Token $env:REPAIR_API_TOKEN \
-  -SourceArchiveId 19 \
-  -TargetArchiveId <new_archive_id> \
-  -Apply \
-  -CompactOutput
+$restoreArgs = @{
+  BaseUrl = $sidecarBaseUrl
+  Token = $env:REPAIR_API_TOKEN
+  SourceArchiveId = 19
+  TargetArchiveId = <new_archive_id>
+  Apply = $true
+  CompactOutput = $true
+}
+
+& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 If the apply fails only because source photos are broken or missing, retry with:
 
 ```powershell
-& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 \
-  -BaseUrl $sidecarBaseUrl \
-  -Token $env:REPAIR_API_TOKEN \
-  -SourceArchiveId 19 \
-  -TargetArchiveId <new_archive_id> \
-  -Apply \
-  -SkipPhotos \
-  -CompactOutput
+$restoreArgs = @{
+  BaseUrl = $sidecarBaseUrl
+  Token = $env:REPAIR_API_TOKEN
+  SourceArchiveId = 19
+  TargetArchiveId = <new_archive_id>
+  Apply = $true
+  SkipPhotos = $true
+  CompactOutput = $true
+}
+
+& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 ### D. Verify The Merge
@@ -223,40 +250,49 @@ If the apply fails only because source photos are broken or missing, retry with:
 Normal verify:
 
 ```powershell
-& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 \
-  -BaseUrl $sidecarBaseUrl \
-  -Token $env:REPAIR_API_TOKEN \
-  -SourceArchiveId 19 \
-  -TargetArchiveId <new_archive_id> \
-  -Verify \
-  -CompactOutput
+$restoreArgs = @{
+  BaseUrl = $sidecarBaseUrl
+  Token = $env:REPAIR_API_TOKEN
+  SourceArchiveId = 19
+  TargetArchiveId = <new_archive_id>
+  Verify = $true
+  CompactOutput = $true
+}
+
+& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 If the applied recovery intentionally excluded photos, verify with the same scope:
 
 ```powershell
-& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 \
-  -BaseUrl $sidecarBaseUrl \
-  -Token $env:REPAIR_API_TOKEN \
-  -SourceArchiveId 19 \
-  -TargetArchiveId <new_archive_id> \
-  -Verify \
-  -SkipPhotos \
-  -CompactOutput
+$restoreArgs = @{
+  BaseUrl = $sidecarBaseUrl
+  Token = $env:REPAIR_API_TOKEN
+  SourceArchiveId = 19
+  TargetArchiveId = <new_archive_id>
+  Verify = $true
+  SkipPhotos = $true
+  CompactOutput = $true
+}
+
+& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 ### E. Remove The Old Fallback Archive After Successful Verify
 
 ```powershell
-& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 \
-  -BaseUrl $sidecarBaseUrl \
-  -Token $env:REPAIR_API_TOKEN \
-  -SourceArchiveId 19 \
-  -TargetArchiveId <new_archive_id> \
-  -Verify \
-  -RemoveOriginal \
-  -Apply \
-  -CompactOutput
+$restoreArgs = @{
+  BaseUrl = $sidecarBaseUrl
+  Token = $env:REPAIR_API_TOKEN
+  SourceArchiveId = 19
+  TargetArchiveId = <new_archive_id>
+  Verify = $true
+  RemoveOriginal = $true
+  Apply = $true
+  CompactOutput = $true
+}
+
+& .\tools\bambuddy\Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 If the approved verification scope excluded photos, include `-SkipPhotos` here too.
@@ -344,9 +380,9 @@ Use a hybrid model:
 
 Recommended next queue:
 
-1. recover archive `19`
-2. recover archive `108`
-3. recover archive `106`
+1. decide whether to run re-enrich and later remove original archive `19` now that replacement archive `225` is verified
+2. decide whether to run re-enrich and later remove original archive `106` now that replacement archive `226` is verified with `-SkipPhotos`
+3. decide whether to run re-enrich and later remove original archive `108` now that replacement archive `227` is verified with `-SkipPhotos`
 4. review archive `174`
 5. review archive `34`
 6. leave `66`, `105`, `206`, `207`, and `208` in manual-review status
@@ -357,82 +393,102 @@ Do not treat `199` and `200` as unresolved just because `extra_data.no_3mf_avail
 
 These are the copy/paste inspect commands for the current queue.
 
+Use PowerShell splatting for multiline commands. Do not use `\` as a line continuation character in PowerShell.
+
 ### Queue item 1: archive `19`
 
 ```powershell
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl $baseUrl \
-  -PrinterId $printerId \
-  -FallbackArchiveId 19 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf' \
-  -RecoverySource 'sd_cache_3mf' \
-  -ApiKey $env:BAMBUDDY_API_KEY
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = $baseUrl
+  PrinterId = $printerId
+  FallbackArchiveId = 19
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf'
+  RecoverySource = 'sd_cache_3mf'
+  ApiKey = $env:BAMBUDDY_API_KEY
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ### Queue item 2: archive `108`
 
 ```powershell
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl $baseUrl \
-  -PrinterId $printerId \
-  -FallbackArchiveId 108 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Laney Rivers 2026_Front_133x200.3mf' \
-  -RecoverySource 'sd_cache_3mf' \
-  -ApiKey $env:BAMBUDDY_API_KEY
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = $baseUrl
+  PrinterId = $printerId
+  FallbackArchiveId = 108
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\Laney Rivers 2026_Front_133x200.3mf'
+  RecoverySource = 'sd_cache_3mf'
+  ApiKey = $env:BAMBUDDY_API_KEY
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ### Queue item 3: archive `106`
 
 ```powershell
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl $baseUrl \
-  -PrinterId $printerId \
-  -FallbackArchiveId 106 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf' \
-  -RecoverySource 'sd_cache_3mf' \
-  -ApiKey $env:BAMBUDDY_API_KEY
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = $baseUrl
+  PrinterId = $printerId
+  FallbackArchiveId = 106
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf'
+  RecoverySource = 'sd_cache_3mf'
+  ApiKey = $env:BAMBUDDY_API_KEY
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ### Queue item 4: archive `174`
 
 ```powershell
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl $baseUrl \
-  -PrinterId $printerId \
-  -FallbackArchiveId 174 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\200mm x 200mm Deadpool & Wolverine Hueforge.3mf' \
-  -RecoverySource 'sd_cache_3mf' \
-  -ApiKey $env:BAMBUDDY_API_KEY
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = $baseUrl
+  PrinterId = $printerId
+  FallbackArchiveId = 174
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\200mm x 200mm Deadpool & Wolverine Hueforge.3mf'
+  RecoverySource = 'sd_cache_3mf'
+  ApiKey = $env:BAMBUDDY_API_KEY
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ### Queue item 5: archive `34`
 
 ```powershell
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl $baseUrl \
-  -PrinterId $printerId \
-  -FallbackArchiveId 34 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Adaptive Layers .  100% Infill.3mf' \
-  -RecoverySource 'sd_cache_3mf' \
-  -ApiKey $env:BAMBUDDY_API_KEY
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = $baseUrl
+  PrinterId = $printerId
+  FallbackArchiveId = 34
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\Adaptive Layers .  100% Infill.3mf'
+  RecoverySource = 'sd_cache_3mf'
+  ApiKey = $env:BAMBUDDY_API_KEY
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ### Queue item 6: archive `105`
 
 ```powershell
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
-  -Mode Inspect \
-  -BaseUrl $baseUrl \
-  -PrinterId $printerId \
-  -FallbackArchiveId 105 \
-  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf' \
-  -RecoverySource 'sd_cache_3mf' \
-  -ApiKey $env:BAMBUDDY_API_KEY
+$recoveryArgs = @{
+  Mode = 'Inspect'
+  BaseUrl = $baseUrl
+  PrinterId = $printerId
+  FallbackArchiveId = 105
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf'
+  RecoverySource = 'sd_cache_3mf'
+  ApiKey = $env:BAMBUDDY_API_KEY
+}
+
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' @recoveryArgs
 ```
 
 ## Recommended Next Actions

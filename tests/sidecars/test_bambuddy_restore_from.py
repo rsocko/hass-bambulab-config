@@ -9,7 +9,13 @@ from fastapi.testclient import TestClient
 
 from app import main as sidecar_main  # noqa: E402
 from app import repair as repair_module  # noqa: E402
-from app.models import RestoreFromRequest, RestoreVerifyRequest  # noqa: E402
+from app.models import (  # noqa: E402
+    ArchivePartialUsageConsumeRequest,
+    ArchivePartialUsageEstimateRequest,
+    RestoreFromRequest,
+    RestoreVerifyRequest,
+)
+from app.partial_usage import consume_archive_partial_usage, estimate_archive_partial_usage  # noqa: E402
 from app.repair import finalize_recovered_target, merge_notes, merge_tags, restore_archive_from_source, restore_verify_after_merge  # noqa: E402
 
 
@@ -907,3 +913,161 @@ def test_archive_spool_linkage_endpoint_handles_missing_native_tables(tmp_path: 
     assert body["native_linkage"]["usage_history_rows"] == []
     assert body["comparison"]["portable_linkage_source"] == "notes_tags_only"
     assert any("only archive-embedded linkage" in message for message in body["advisories"])
+
+
+def test_estimate_archive_partial_usage_uses_layer_usage_and_matches_spool(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+    _add_native_spool_state(db_path)
+
+    response = estimate_archive_partial_usage(
+        db_path,
+        ArchivePartialUsageEstimateRequest(
+            archive_id=191,
+            printer_id=1,
+            print_status="failed",
+            last_layer_num=4,
+            last_progress=42.5,
+        ),
+    )
+
+    assert response.archive_id == 191
+    assert response.source_state["active_tracking_found"] is True
+    assert response.calculation["method"] == "gcode_layer"
+    assert response.calculation["used_last_layer_num"] == 4
+    assert response.totals["estimated_used_g_total"] == 120.5
+    assert response.totals["matched_slots"] == 1
+    assert response.per_slot[0].spoolman_spool_id == 10
+    assert response.per_slot[0].resolution_method == "tag_uid"
+    assert response.dedupe["already_consumed"] is False
+
+
+def test_estimate_archive_partial_usage_reports_missing_tracking_row(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+
+    response = estimate_archive_partial_usage(
+        db_path,
+        ArchivePartialUsageEstimateRequest(
+            archive_id=200,
+            printer_id=1,
+            print_status="failed",
+            last_progress=15,
+        ),
+    )
+
+    assert response.source_state["active_tracking_found"] is False
+    assert response.calculation["method"] == "unavailable"
+    assert response.per_slot == []
+    assert response.totals["estimated_used_g_total"] == 0
+
+
+def test_consume_archive_partial_usage_is_idempotent(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+    _add_native_spool_state(db_path)
+
+    estimate_response = estimate_archive_partial_usage(
+        db_path,
+        ArchivePartialUsageEstimateRequest(
+            archive_id=191,
+            printer_id=1,
+            print_status="failed",
+            last_layer_num=4,
+            last_progress=42.5,
+        ),
+    )
+
+    first = consume_archive_partial_usage(
+        db_path,
+        ArchivePartialUsageConsumeRequest(
+            archive_id=191,
+            dedupe_key=estimate_response.dedupe["dedupe_key"],
+            consumed_by="ha_spoolman_sync_review",
+            applied_spool_ids=[10],
+            applied_total_g=120.5,
+            print_status="failed",
+        ),
+    )
+    second = consume_archive_partial_usage(
+        db_path,
+        ArchivePartialUsageConsumeRequest(
+            archive_id=191,
+            dedupe_key=estimate_response.dedupe["dedupe_key"],
+            consumed_by="ha_spoolman_sync_review",
+            applied_spool_ids=[10],
+            applied_total_g=120.5,
+            print_status="failed",
+        ),
+    )
+
+    assert first.consumed is True
+    assert first.already_consumed is False
+    assert second.consumed is False
+    assert second.already_consumed is True
+    assert second.prior_consumer == "ha_spoolman_sync_review"
+
+
+def test_archive_partial_usage_estimate_endpoint_returns_structured_response(tmp_path: Path, monkeypatch) -> None:
+    db_path = _create_test_db(tmp_path)
+    _add_native_spool_state(db_path)
+    monkeypatch.setenv("REPAIR_API_TOKEN", "test-token")
+    monkeypatch.setenv("BAMBUDDY_DB_PATH", str(db_path))
+
+    client = TestClient(sidecar_main.app)
+    response = client.post(
+        "/admin/archive-partial-usage/estimate",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "archive_id": 191,
+            "printer_id": 1,
+            "print_status": "failed",
+            "last_layer_num": 4,
+            "last_progress": 42.5,
+            "resolve_spoolman_matches": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["archive_id"] == 191
+    assert body["calculation"]["method"] == "gcode_layer"
+    assert body["per_slot"][0]["spoolman_spool_id"] == 10
+    assert body["dedupe"]["already_consumed"] is False
+
+
+def test_archive_partial_usage_consume_endpoint_reports_prior_consumer(tmp_path: Path, monkeypatch) -> None:
+    db_path = _create_test_db(tmp_path)
+    monkeypatch.setenv("REPAIR_API_TOKEN", "test-token")
+    monkeypatch.setenv("BAMBUDDY_DB_PATH", str(db_path))
+
+    client = TestClient(sidecar_main.app)
+
+    first = client.post(
+        "/admin/archive-partial-usage/consume",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "archive_id": 191,
+            "dedupe_key": "191:failed:unknown",
+            "consumed_by": "ha_spoolman_sync_review",
+            "applied_spool_ids": [],
+            "applied_total_g": None,
+            "print_status": "failed",
+        },
+    )
+    second = client.post(
+        "/admin/archive-partial-usage/consume",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "archive_id": 191,
+            "dedupe_key": "191:failed:unknown",
+            "consumed_by": "ha_spoolman_sync_review",
+            "applied_spool_ids": [],
+            "applied_total_g": None,
+            "print_status": "failed",
+        },
+    )
+
+    assert first.status_code == 200
+    assert first.json()["consumed"] is True
+    assert second.status_code == 200
+    assert second.json()["consumed"] is False
+    assert second.json()["already_consumed"] is True
+    assert second.json()["prior_consumer"] == "ha_spoolman_sync_review"

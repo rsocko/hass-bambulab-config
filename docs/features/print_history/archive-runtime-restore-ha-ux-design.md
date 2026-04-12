@@ -303,6 +303,7 @@ Required behavior:
   - `remaining_difference_count = 0`
   - `removable = true`
 - refresh print-history browser state after success
+- finalize the surviving target archive by removing transient recovery tags and updating the structured recovery audit note
 - clear or archive the transient workflow state for the pair after completion
 
 ### 5. `bambuddy.clear_archive_restore_workflow`

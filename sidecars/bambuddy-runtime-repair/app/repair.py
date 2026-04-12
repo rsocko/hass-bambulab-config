@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -64,6 +65,17 @@ FIELD_RULES: tuple[FieldRule, ...] = (
     FieldRule("sliced_for_model", "parser_target", "keep_target"),
     FieldRule("designer", "parser_target", "keep_target"),
     FieldRule("makerworld_url", "parser_target", "keep_target"),
+)
+
+RECOVERY_AUDIT_MARKER = "[RECOVERY_AUDIT_V1]"
+RESTORE_COMPLETION_REMOVE_TAG_PATTERNS: tuple[str, ...] = (
+    "exception:missing_3mf",
+    "replaced_by:*",
+    "repair:pending",
+    "repair:failed",
+    "repair:recovered",
+    "recovered_from:*",
+    "recovery_source:*",
 )
 
 
@@ -350,6 +362,87 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
     return result
 
 
+def _filter_tag_list(tags: list[str], exclude_patterns: list[str]) -> tuple[list[str], list[str]]:
+    kept: list[str] = []
+    removed: list[str] = []
+    normalized_patterns = [pattern.strip().lower() for pattern in exclude_patterns if pattern.strip()]
+    for tag in tags:
+        lowered = tag.strip().lower()
+        if any(fnmatch.fnmatch(lowered, pattern) for pattern in normalized_patterns):
+            removed.append(tag.strip())
+        else:
+            kept.append(tag.strip())
+    return _dedupe_preserve_order(kept), _dedupe_preserve_order(removed)
+
+
+def _recovery_source_from_tags(value: Any) -> str | None:
+    for tag in _split_tags(value):
+        lowered = tag.lower()
+        if lowered.startswith("recovery_source:"):
+            return tag.split(":", 1)[1].strip() or None
+    return None
+
+
+def _serialize_structured_note(marker: str, payload: Mapping[str, Any]) -> str:
+    return f"{marker}\n{json.dumps(payload, separators=(',', ':'))}"
+
+
+def _parse_recovery_audit_payload(segment: str) -> dict[str, Any] | None:
+    if not segment.startswith(RECOVERY_AUDIT_MARKER):
+        return None
+
+    payload_raw = segment[len(RECOVERY_AUDIT_MARKER) :].strip()
+    if not payload_raw:
+        return {}
+
+    try:
+        payload = json.loads(payload_raw)
+    except json.JSONDecodeError:
+        return None
+
+    return payload if isinstance(payload, dict) else None
+
+
+def finalize_recovered_target(
+    notes_value: Any,
+    tags_value: Any,
+    source_archive_id: int,
+    target_archive_id: int,
+) -> tuple[str | None, str | None, list[str]]:
+    target_tags = _split_tags(tags_value)
+    kept_tags, removed_tags = _filter_tag_list(target_tags, list(RESTORE_COMPLETION_REMOVE_TAG_PATTERNS))
+
+    plain_segments, structured_segments = _split_note_segments(str(notes_value) if notes_value is not None else None)
+    updated_structured_segments: list[str] = []
+    recovery_payload: dict[str, Any] | None = None
+    recovery_source = _recovery_source_from_tags(tags_value)
+
+    for segment in structured_segments:
+        payload = _parse_recovery_audit_payload(segment)
+        if recovery_payload is None and payload is not None:
+            recovery_payload = dict(payload)
+            continue
+        updated_structured_segments.append(segment)
+
+    if recovery_payload is None:
+        recovery_payload = {}
+
+    recovery_payload.setdefault("recovered_from_archive_id", source_archive_id)
+    if recovery_source:
+        recovery_payload.setdefault("recovery_source", recovery_source)
+    recovery_payload["restored_target_archive_id"] = target_archive_id
+    recovery_payload["restore_completed_at"] = datetime.now(timezone.utc).isoformat()
+    recovery_payload["restore_original_removed"] = True
+    if removed_tags:
+        recovery_payload["restore_cleanup_removed_tags"] = removed_tags
+
+    updated_structured_segments.insert(0, _serialize_structured_note(RECOVERY_AUDIT_MARKER, recovery_payload))
+    merged_segments = plain_segments + updated_structured_segments
+    finalized_notes = "\n\n".join(merged_segments) if merged_segments else None
+    finalized_tags = ",".join(kept_tags) if kept_tags else None
+    return finalized_tags, finalized_notes, removed_tags
+
+
 def merge_tags(source_value: Any, target_value: Any, exclude_patterns: list[str], include_tags: list[str]) -> str | None:
     source_tags = _split_tags(source_value)
     target_tags = _split_tags(target_value)
@@ -626,6 +719,26 @@ def _delete_archive_row(connection: sqlite3.Connection, archive_id: int) -> None
     deleted = connection.execute("DELETE FROM print_archives WHERE id = ?", (archive_id,))
     if deleted.rowcount == 0:
         raise ValueError(f"Archive ID {archive_id} not found for deletion")
+
+
+def _finalize_restored_target_archive(
+    connection: sqlite3.Connection,
+    target_archive: Mapping[str, Any],
+    source_archive_id: int,
+    target_archive_id: int,
+) -> list[str]:
+    finalized_tags, finalized_notes, removed_tags = finalize_recovered_target(
+        target_archive.get("notes"),
+        target_archive.get("tags"),
+        source_archive_id=source_archive_id,
+        target_archive_id=target_archive_id,
+    )
+
+    connection.execute(
+        "UPDATE print_archives SET tags = ?, notes = ? WHERE id = ?",
+        (finalized_tags, finalized_notes, target_archive_id),
+    )
+    return removed_tags
 
 
 def _apply_restore_actions(
@@ -996,6 +1109,16 @@ def restore_verify_after_merge(db_path: Path, request: RestoreVerifyRequest) -> 
             warnings.append("original archive removal forced even though enrichment is not complete")
 
         if request.remove_original and verified and (enrichment_ready or request.force_remove_without_reenrich) and not request.dry_run:
+            removed_tags = _finalize_restored_target_archive(
+                connection,
+                target_archive,
+                source_archive_id=request.source_archive_id,
+                target_archive_id=request.target_archive_id,
+            )
+            if removed_tags:
+                warnings.append(
+                    "removed transient recovery tags from target archive during completion: " + ", ".join(removed_tags)
+                )
             _delete_archive_row(connection, request.source_archive_id)
             connection.commit()
             source_removed = True

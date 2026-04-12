@@ -148,7 +148,7 @@ If only `completed_at` is strong and the start is estimated from `print_time_sec
 
 - freeform user tags such as `Hueforge`
 - enrichment tags already present on target should remain
-- recovery lineage tags already present on target should remain
+- recovery lineage tags may exist on the target while a restore workflow is in flight, but they are not permanent after completion
 
 ### Exclude By Default
 
@@ -157,11 +157,20 @@ If only `completed_at` is strong and the start is estimated from `print_time_sec
 
 ### Keep On Target
 
+- `f:<id>`
+- `s:<id>`
+
+### Remove On Completion
+
+When `verify + remove_original` succeeds, collapse recovery state into notes-only provenance on the surviving target.
+
+- `repair:pending`
+- `repair:failed`
 - `repair:recovered`
 - `recovered_from:<id>`
 - `recovery_source:<value>`
-- `f:<id>`
-- `s:<id>`
+- `exception:missing_3mf`
+- `replaced_by:*`
 
 ## Notes Policy Details
 
@@ -174,6 +183,7 @@ If only `completed_at` is strong and the start is estimated from `print_time_sec
 ### Append Or Update
 
 - one structured recovery audit block containing original runtime truth from source
+- update that recovery audit block at completion with finalization metadata such as target archive id, completion timestamp, original removal flag, and removed transient tags
 - optional structured source-snapshot provenance block if snapshot subset copying is enabled later
 - compact provenance summary for import/restore origin and inferred timing confidence when that summary is not already present elsewhere
 

@@ -84,6 +84,7 @@ $verification = [ordered]@{
     historical_has_replaced_by_tag = $historicalTags -contains ('replaced_by:{0}' -f $ReplacementArchiveId)
     replacement_has_recovered_from_tag = $replacementTags -contains ('recovered_from:{0}' -f $HistoricalArchiveId)
     replacement_has_recovery_source_tag = ($replacementTags | Where-Object { $_ -like 'recovery_source:*' }).Count -gt 0
+    replacement_has_repair_recovered_tag = $replacementTags -contains 'repair:recovered'
     historical_has_recovery_audit = Test-RecoveryAuditBlock -Notes $historical.notes
     replacement_has_recovery_audit = Test-RecoveryAuditBlock -Notes $replacement.notes
     replacement_status = $replacement.status
@@ -107,6 +108,18 @@ if (-not $verification.replacement_has_recovered_from_tag) {
 
 if (-not $verification.replacement_has_recovery_audit) {
     throw 'Replacement archive is missing the recovery audit note block.'
+}
+
+if ($verification.replacement_has_repair_recovered_tag) {
+    throw 'Replacement archive still has repair:recovered after completion cleanup.'
+}
+
+if ($verification.replacement_has_recovered_from_tag) {
+    throw 'Replacement archive still has recovered_from:* after completion cleanup.'
+}
+
+if ($verification.replacement_has_recovery_source_tag) {
+    throw 'Replacement archive still has recovery_source:* after completion cleanup.'
 }
 
 $deleteResult = Remove-Archive -Url $BaseUrl -ArchiveId $HistoricalArchiveId -Headers $headers

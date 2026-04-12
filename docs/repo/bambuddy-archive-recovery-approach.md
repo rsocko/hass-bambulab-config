@@ -160,6 +160,8 @@ The old fallback archive should remain as an audit record, but it should be clea
 - `repair:recovered`
 - `recovered_from:{archive_id}`
 
+These replacement tags are workflow markers, not permanent steady-state metadata. Once the runtime restore has verified cleanly and the original fallback archive is removed, collapse the surviving target back to notes-only provenance by removing `repair:recovered`, `recovered_from:{archive_id}`, and `recovery_source:*` from the target archive while retaining the structured recovery audit note.
+
 ### Optional notes linkage
 
 Fallback archive note:
