@@ -5,12 +5,32 @@ entities:
   - input_boolean.print_history_show_images
   - sensor.bambuddy_print_history_browser_page_info
   - sensor.bambuddy_print_history_browser_filtered
+card_mod:
+  style: |
+    :host {
+      transition: none !important;
+      transform: none !important;
+    }
+    ha-card {
+      transition: none !important;
+      transform: none !important;
+    }
 card:
   type: custom:bubble-card
   card_type: sub-buttons
   entity: sensor.bambuddy_print_history_browser_page_info
   hide_main_background: false
   rows: 1.06
+  card_mod:
+    style: |
+      :host {
+        transition: none !important;
+        transform: none !important;
+      }
+      ha-card {
+        transition: none !important;
+        transform: none !important;
+      }
   styles: >-
     ${(() => {
       // Use icon-based selectors instead of nth-child so mobile visibility does not
