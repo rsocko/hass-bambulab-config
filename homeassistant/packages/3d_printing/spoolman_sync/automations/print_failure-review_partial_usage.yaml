@@ -1,0 +1,184 @@
+# Docs: docs/features/spoolman_sync/bambuddy-partial-usage-sidecar-design.md
+- alias: Print Failure - Review Partial Usage Estimate
+  id: print_failure_review_partial_usage_estimate
+  description: >-
+    Calls the Bambuddy runtime-repair sidecar for a review-only partial filament
+    usage estimate on failed or stopped print outcomes. This does not write to
+    Spoolman yet; it only surfaces a candidate for operator review.
+  triggers:
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: failed
+    for:
+      seconds: 45
+    id: status_failed
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: idle
+    for:
+      seconds: 45
+    id: status_idle
+  - trigger: state
+    entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+    to: offline
+    for:
+      seconds: 45
+    id: status_offline
+  conditions:
+  - condition: state
+    entity_id: input_boolean.spoolman_partial_usage_review_enabled
+    state: "on"
+  actions:
+  - variables:
+      trigger_id: "{{ trigger.id | default('unknown', true) }}"
+      from_status: "{{ trigger.from_state.state | string | lower if trigger.from_state is not none else '' }}"
+      archive_id_raw: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+      archive_id_valid: "{{ archive_id_raw | regex_match('^-?\\d+$') }}"
+      printer_id_raw: "{{ states('input_text.bambuddy_printer_id') | string | trim }}"
+      print_status: >-
+        {% if trigger_id == 'status_failed' %}
+          failed
+        {% else %}
+          stopped
+        {% endif %}
+      last_layer_num_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_current_layer') | string | trim }}"
+      last_progress_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_progress') | string | trim }}"
+      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim }}"
+      review_notification_id: >-
+        spoolman_partial_usage_review_{{ archive_id_raw if archive_id_raw != '' else 'unknown' }}_{{ print_status }}
+
+  - if:
+      - condition: template
+        value_template: "{{ not archive_id_valid }}"
+        alias: Skip when archive binding is unavailable
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Partial Usage Review: Skipping review-only estimate because archive_id_valid={{ archive_id_valid }}.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - stop: Partial usage review skipped because archive binding is incomplete.
+
+  - if:
+      - condition: template
+        value_template: >-
+          {{ from_status in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
+        alias: Only evaluate terminal outcomes that follow an active print state
+    then: []
+    else:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Partial Usage Review: Ignoring trigger {{ trigger_id }} because from_state={{ from_status }} is not an active print state.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - stop: Partial usage review ignored for non-active prior state.
+
+  - action: bambuddy.estimate_partial_usage
+    data:
+      archive_id: "{{ archive_id_raw | int }}"
+      printer_id: "{{ printer_id_raw }}"
+      print_status: "{{ print_status }}"
+      last_layer_num: "{{ last_layer_num_raw }}"
+      last_progress: "{{ last_progress_raw }}"
+    response_variable: partial_usage_estimate_response
+
+  - variables:
+      response_ok: >-
+        {{ partial_usage_estimate_response is defined and partial_usage_estimate_response.success | default(false) }}
+      estimate_payload_raw: >-
+        {% if response_ok %}
+          {{ partial_usage_estimate_response.estimate | default({}) }}
+        {% else %}
+          {}
+        {% endif %}
+      estimate_payload: >-
+        {% if estimate_payload_raw is mapping %}
+          {{ estimate_payload_raw }}
+        {% elif estimate_payload_raw is string and estimate_payload_raw | trim not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+          {{ estimate_payload_raw | from_json({}) }}
+        {% else %}
+          {}
+        {% endif %}
+      estimate_slots: "{{ estimate_payload.get('per_slot', []) if estimate_payload is mapping else [] }}"
+      estimate_totals: "{{ estimate_payload.get('totals', {}) if estimate_payload is mapping else {} }}"
+      estimate_calc: "{{ estimate_payload.get('calculation', {}) if estimate_payload is mapping else {} }}"
+      estimate_dedupe: "{{ estimate_payload.get('dedupe', {}) if estimate_payload is mapping else {} }}"
+      slot_lines: >-
+        {% set rows = [] %}
+        {% for slot in estimate_slots if slot is mapping %}
+          {% set spool_label = ('Spool #' ~ slot.spoolman_spool_id) if slot.spoolman_spool_id is not none else 'unmatched spool' %}
+          {% set tray_label = ('tray ' ~ slot.global_tray_id) if slot.global_tray_id is not none else 'tray unknown' %}
+          {% set rows = rows + ['- Slot ' ~ slot.slot_id ~ ': ' ~ slot.estimated_used_g ~ 'g, ' ~ tray_label ~ ', ' ~ spool_label] %}
+        {% endfor %}
+        {{ rows | join('\n') }}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ response_ok and estimate_payload is mapping }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              notification_id: "{{ review_notification_id }}"
+              title: "Spoolman Partial Usage Review: {{ task_name if task_name != '' else ('Archive ' ~ archive_id_raw) }}"
+              message: >-
+                Review-only partial usage candidate captured for archive **{{ archive_id_raw }}**.
+
+                - Outcome: {{ print_status }}
+                - Method: {{ estimate_calc.get('method', 'unknown') }}
+                - Confidence: {{ estimate_calc.get('confidence', 'unknown') }}
+                - Estimated total: {{ estimate_totals.get('estimated_used_g_total', 0) }}g
+                - Matched slots: {{ estimate_totals.get('matched_slots', 0) }}
+                - Unmatched slots: {{ estimate_totals.get('unmatched_slots', 0) }}
+                - Dedupe key: {{ estimate_dedupe.get('dedupe_key', 'unknown') }}
+
+                {% if slot_lines | trim != '' %}
+                {{ slot_lines }}
+                {% else %}
+                No slot-level estimate rows were returned.
+                {% endif %}
+
+                This flow is review-only. No Spoolman decrement was applied.
+          - action: system_log.write
+            metadata: {}
+            data:
+              message: >-
+                Partial Usage Review: archive_id={{ archive_id_raw }}, status={{ print_status }},
+                method={{ estimate_calc.get('method', 'unknown') }},
+                confidence={{ estimate_calc.get('confidence', 'unknown') }},
+                estimated_total_g={{ estimate_totals.get('estimated_used_g_total', 0) }},
+                matched_slots={{ estimate_totals.get('matched_slots', 0) }},
+                unmatched_slots={{ estimate_totals.get('unmatched_slots', 0) }}.
+              level: info
+              logger: homeassistant.components.bambulab.spoolman_sync
+          - action: logbook.log
+            data:
+              name: Spoolman Partial Usage Review
+              message: >-
+                Review-only estimate captured for archive {{ archive_id_raw }} ({{ print_status }}).
+                Method={{ estimate_calc.get('method', 'unknown') }}, total={{ estimate_totals.get('estimated_used_g_total', 0) }}g.
+    default:
+      - action: persistent_notification.create
+        data:
+          notification_id: "{{ review_notification_id }}"
+          title: "Spoolman Partial Usage Review Failed"
+          message: >-
+            Failed to fetch a review-only partial usage estimate for archive **{{ archive_id_raw }}**.
+
+            - Outcome: {{ print_status }}
+            - Error: {{ partial_usage_estimate_response.message if partial_usage_estimate_response is defined else 'unknown' }}
+
+            No Spoolman decrement was applied.
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Partial Usage Review ERROR: Failed to call runtime-repair sidecar for archive_id={{ archive_id_raw }}.
+            error={{ partial_usage_estimate_response.error if partial_usage_estimate_response is defined else 'unknown' }}.
+          level: warning
+          logger: homeassistant.components.bambulab.spoolman_sync
+  mode: single

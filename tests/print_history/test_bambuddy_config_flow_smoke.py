@@ -182,7 +182,9 @@ def test_bambuddy_config_flow_imports_without_home_assistant_runtime() -> None:
     options_flow = module.BambuddyOptionsFlow(sys.modules["homeassistant.config_entries"].ConfigEntry())
     schema = module._schema()
     api_key_selector = schema[module.CONF_API_KEY]
+    runtime_repair_token_selector = schema[module.CONF_RUNTIME_REPAIR_TOKEN]
     selector_type = sys.modules["homeassistant.helpers.selector"].TextSelectorType
     assert api_key_selector.config["type"] == selector_type.PASSWORD
+    assert runtime_repair_token_selector.config["type"] == selector_type.PASSWORD
     assert options_flow._config_entry is not None
     assert hasattr(diagnostics_module, "async_get_config_entry_diagnostics")

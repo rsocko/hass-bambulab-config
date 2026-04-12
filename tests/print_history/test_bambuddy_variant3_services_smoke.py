@@ -209,6 +209,21 @@ class FakeApiClient:
         return [dict(item) for item in self.printers]
 
 
+class FakeRuntimeRepairClient:
+    def __init__(self, _session, _base_url: str, _token: str, _timeout_seconds: int) -> None:
+        pass
+
+    async def async_estimate_partial_usage(self, **kwargs) -> dict[str, object]:
+        return {
+            "archive_id": kwargs["archive_id"],
+            "print_status": kwargs["print_status"],
+            "calculation": {"method": "gcode_layer", "confidence": "high"},
+            "totals": {"estimated_used_g_total": 12.5, "matched_slots": 1, "unmatched_slots": 0},
+            "per_slot": [{"slot_id": 0, "estimated_used_g": 12.5, "spoolman_spool_id": 123}],
+            "dedupe": {"dedupe_key": "101:failed:4:42.5", "already_consumed": False, "consumed_by": None},
+        }
+
+
 class FakeConfig:
     def __init__(self, root: Path) -> None:
         self._root = root
@@ -322,7 +337,12 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
     hass = FakeHass(tmp_path, _default_state_map())
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
         entry_id="entry-1",
-        data={"base_url": "http://example.local", "api_key": "token"},
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
         options={},
     )
     manager = manager_module.PrintHistoryBrowserManager(hass, entry)
@@ -381,59 +401,79 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE) in registered
 
-    query_response = asyncio.run(
-        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER)(
-            SimpleNamespace(data={"page": 1, "page_size": 10})
-        )
-    )
-    activity_query_response = asyncio.run(
-        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER)(
-            SimpleNamespace(data={"include_activity_rows": True, "selected_day": ""})
-        )
-    )
-    detail_response = asyncio.run(
-        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
-            SimpleNamespace(data={"archive_id": 101})
-        )
-    )
-    review_response = asyncio.run(
-        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE)(
-            SimpleNamespace(
-                data={
-                    "archive_id": 101,
-                    "review_status": "reviewed",
-                    "mismatch_flags": ["color_mismatch"],
-                    "review_note": "Verified",
-                    "reviewed_at": "2026-04-10T00:00:00Z",
-                }
+    original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
+    init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
+
+    try:
+        query_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER)(
+                SimpleNamespace(data={"page": 1, "page_size": 10})
             )
         )
-    )
-    lineage_response = asyncio.run(
-        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE)(
-            SimpleNamespace(
-                data={
-                    "archive_id": 101,
-                    "related_archive_id": 202,
-                    "relation_type": "derived_from",
-                    "note": "Source failure",
-                    "created_at": "2026-04-10T00:05:00Z",
-                }
+        activity_query_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER)(
+                SimpleNamespace(data={"include_activity_rows": True, "selected_day": ""})
             )
         )
-    )
-    delete_response = asyncio.run(
-        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE)(
-            SimpleNamespace(
-                data={
-                    "archive_id": 101,
-                    "related_archive_id": 202,
-                    "relation_type": "derived_from",
-                }
+        detail_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
+                SimpleNamespace(data={"archive_id": 101})
             )
         )
-    )
+        review_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "review_status": "reviewed",
+                        "mismatch_flags": ["color_mismatch"],
+                        "review_note": "Verified",
+                        "reviewed_at": "2026-04-10T00:00:00Z",
+                    }
+                )
+            )
+        )
+        lineage_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "related_archive_id": 202,
+                        "relation_type": "derived_from",
+                        "note": "Source failure",
+                        "created_at": "2026-04-10T00:05:00Z",
+                    }
+                )
+            )
+        )
+        delete_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "related_archive_id": 202,
+                        "relation_type": "derived_from",
+                    }
+                )
+            )
+        )
+        estimate_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "print_status": "failed",
+                        "printer_id": 1,
+                        "last_layer_num": 4,
+                        "last_progress": 42.5,
+                    }
+                )
+            )
+        )
+    finally:
+        init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
 
     assert query_response["entry_id"] == "entry-1"
     assert query_response["archives"][0]["id"] == 101
@@ -444,6 +484,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert review_response["review_state"]["mismatch_flags"] == "color_mismatch"
     assert lineage_response["repair_lineage"][0]["relation_type"] == "derived_from"
     assert delete_response["deleted"] == 1
+    assert estimate_response["success"] is True
+    assert estimate_response["estimate"]["totals"]["estimated_used_g_total"] == 12.5
+    assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
 
 
 def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_path: Path) -> None:

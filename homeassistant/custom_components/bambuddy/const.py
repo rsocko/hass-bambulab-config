@@ -10,6 +10,8 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 CONF_API_KEY = "api_key"
 CONF_BASE_URL = "base_url"
+CONF_RUNTIME_REPAIR_BASE_URL = "runtime_repair_base_url"
+CONF_RUNTIME_REPAIR_TOKEN = "runtime_repair_token"
 CONF_FETCH_TIMEOUT_SECONDS = "fetch_timeout_seconds"
 CONF_SCAN_INTERVAL_SECONDS = "scan_interval_seconds"
 
@@ -24,6 +26,7 @@ SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL = "get_print_history_archive_detail"
 SERVICE_SET_PRINT_HISTORY_REVIEW_STATE = "set_print_history_review_state"
 SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE = "set_print_history_repair_lineage"
 SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE = "delete_print_history_repair_lineage"
+SERVICE_ESTIMATE_PARTIAL_USAGE = "estimate_partial_usage"
 STORE_FILENAME = "bambuddy_print_history_browser.db"
 
 EVENT_BAMBUDDY_WEBHOOK = "bambuddy_webhook_event"

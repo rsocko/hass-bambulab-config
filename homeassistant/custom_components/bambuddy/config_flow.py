@@ -13,6 +13,8 @@ from .const import (
     CONF_API_KEY,
     CONF_BASE_URL,
     CONF_FETCH_TIMEOUT_SECONDS,
+    CONF_RUNTIME_REPAIR_BASE_URL,
+    CONF_RUNTIME_REPAIR_TOKEN,
     CONF_SCAN_INTERVAL_SECONDS,
     DEFAULT_FETCH_TIMEOUT_SECONDS,
     DEFAULT_SCAN_INTERVAL_SECONDS,
@@ -28,6 +30,14 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             vol.Required(CONF_API_KEY, default=values.get(CONF_API_KEY, "")): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
+            vol.Optional(
+                CONF_RUNTIME_REPAIR_BASE_URL,
+                default=values.get(CONF_RUNTIME_REPAIR_BASE_URL, ""),
+            ): str,
+            vol.Optional(
+                CONF_RUNTIME_REPAIR_TOKEN,
+                default=values.get(CONF_RUNTIME_REPAIR_TOKEN, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Required(
                 CONF_FETCH_TIMEOUT_SECONDS,
                 default=values.get(CONF_FETCH_TIMEOUT_SECONDS, DEFAULT_FETCH_TIMEOUT_SECONDS),
@@ -62,6 +72,10 @@ class BambuddyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             normalized_url = str(user_input[CONF_BASE_URL]).strip().rstrip("/")
             user_input[CONF_BASE_URL] = normalized_url
+            user_input[CONF_RUNTIME_REPAIR_BASE_URL] = str(
+                user_input.get(CONF_RUNTIME_REPAIR_BASE_URL, "")
+            ).strip().rstrip("/")
+            user_input[CONF_RUNTIME_REPAIR_TOKEN] = str(user_input.get(CONF_RUNTIME_REPAIR_TOKEN, "")).strip()
             await self.async_set_unique_id(DOMAIN)
 
             try:
@@ -88,6 +102,10 @@ class BambuddyOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             normalized_url = str(user_input[CONF_BASE_URL]).strip().rstrip("/")
             user_input[CONF_BASE_URL] = normalized_url
+            user_input[CONF_RUNTIME_REPAIR_BASE_URL] = str(
+                user_input.get(CONF_RUNTIME_REPAIR_BASE_URL, "")
+            ).strip().rstrip("/")
+            user_input[CONF_RUNTIME_REPAIR_TOKEN] = str(user_input.get(CONF_RUNTIME_REPAIR_TOKEN, "")).strip()
             try:
                 await _validate_input(self.hass, user_input)
             except Exception:  # noqa: BLE001

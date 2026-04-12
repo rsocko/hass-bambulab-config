@@ -9,12 +9,18 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import aiohttp_client
 
+from .api import BambuddyRuntimeRepairClient
 from .const import (
     DATA_MANAGER,
     DOMAIN,
     PLATFORMS,
+    CONF_RUNTIME_REPAIR_BASE_URL,
+    CONF_RUNTIME_REPAIR_TOKEN,
+    CONF_FETCH_TIMEOUT_SECONDS,
     SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
+    SERVICE_ESTIMATE_PARTIAL_USAGE,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
@@ -82,6 +88,18 @@ SERVICE_REPAIR_LINEAGE_SCHEMA = vol.Schema(
         vol.Required(CONF_RELATION_TYPE): str,
         vol.Optional("note", default=""): str,
         vol.Optional("created_at"): str,
+    }
+)
+SERVICE_ESTIMATE_PARTIAL_USAGE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required("print_status"): str,
+        vol.Optional("printer_id"): vol.Coerce(int),
+        vol.Optional("last_layer_num"): vol.Coerce(int),
+        vol.Optional("last_progress"): vol.Coerce(float),
+        vol.Optional("resolve_spoolman_matches", default=True): bool,
+        vol.Optional("keep_tracking_row", default=True): bool,
     }
 )
 
@@ -250,6 +268,78 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             "deleted": deleted,
         }
 
+    async def async_handle_estimate_partial_usage(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        runtime_repair_base_url = str(
+            manager.entry.options.get(
+                CONF_RUNTIME_REPAIR_BASE_URL,
+                manager.entry.data.get(CONF_RUNTIME_REPAIR_BASE_URL, ""),
+            )
+        ).strip().rstrip("/")
+        runtime_repair_token = str(
+            manager.entry.options.get(
+                CONF_RUNTIME_REPAIR_TOKEN,
+                manager.entry.data.get(CONF_RUNTIME_REPAIR_TOKEN, ""),
+            )
+        ).strip()
+        timeout_seconds = int(
+            manager.entry.options.get(
+                CONF_FETCH_TIMEOUT_SECONDS,
+                manager.entry.data.get(CONF_FETCH_TIMEOUT_SECONDS, 30),
+            )
+        )
+
+        if not runtime_repair_base_url:
+            return {
+                "success": False,
+                "entry_id": entry_id,
+                "archive_id": int(call.data[CONF_ARCHIVE_ID]),
+                "error": "runtime_repair_base_url_not_configured",
+                "message": "Bambuddy runtime repair base URL is not configured on the integration entry.",
+            }
+        if not runtime_repair_token:
+            return {
+                "success": False,
+                "entry_id": entry_id,
+                "archive_id": int(call.data[CONF_ARCHIVE_ID]),
+                "error": "runtime_repair_token_not_configured",
+                "message": "Bambuddy runtime repair token is not configured on the integration entry.",
+            }
+
+        session = aiohttp_client.async_get_clientsession(hass)
+        client = BambuddyRuntimeRepairClient(
+            session,
+            runtime_repair_base_url,
+            runtime_repair_token,
+            timeout_seconds,
+        )
+
+        try:
+            estimate = await client.async_estimate_partial_usage(
+                archive_id=int(call.data[CONF_ARCHIVE_ID]),
+                print_status=str(call.data["print_status"]),
+                printer_id=call.data.get("printer_id"),
+                last_layer_num=call.data.get("last_layer_num"),
+                last_progress=call.data.get("last_progress"),
+                resolve_spoolman_matches=bool(call.data.get("resolve_spoolman_matches", True)),
+                keep_tracking_row=bool(call.data.get("keep_tracking_row", True)),
+            )
+        except RuntimeError as error:
+            return {
+                "success": False,
+                "entry_id": entry_id,
+                "archive_id": int(call.data[CONF_ARCHIVE_ID]),
+                "error": "runtime_repair_request_failed",
+                "message": str(error),
+            }
+
+        return {
+            "success": True,
+            "entry_id": entry_id,
+            "archive_id": int(call.data[CONF_ARCHIVE_ID]),
+            "estimate": estimate,
+        }
+
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_BROWSER):
         hass.services.async_register(
             DOMAIN,
@@ -295,6 +385,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
             async_handle_delete_repair_lineage,
             schema=SERVICE_REPAIR_LINEAGE_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_ESTIMATE_PARTIAL_USAGE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_ESTIMATE_PARTIAL_USAGE,
+            async_handle_estimate_partial_usage,
+            schema=SERVICE_ESTIMATE_PARTIAL_USAGE_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     return True

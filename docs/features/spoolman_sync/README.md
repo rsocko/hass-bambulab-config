@@ -162,6 +162,27 @@ transient tracking is not expected to be populated in production today.
 
 - [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md)
 
+Current repository implementation status:
+
+- sidecar endpoints now exist for `POST /admin/archive-partial-usage/estimate`
+  and `POST /admin/archive-partial-usage/consume`
+- the Bambuddy custom integration now owns the runtime-repair base URL and
+  bearer token in its config entry / options flow
+- Home Assistant reaches the sidecar through `bambuddy.estimate_partial_usage`
+  instead of a raw YAML `rest_command`
+- Home Assistant now includes a review-only automation for failed or stopped
+  print outcomes:
+  - [print_failure-review_partial_usage.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_failure-review_partial_usage.yaml)
+- review policy still uses one helper toggle:
+  - [input_boolean_spoolman_partial_usage_review_enabled.yaml](../../../homeassistant/packages/3d_printing/spoolman_sync/helpers/input_boolean/input_boolean_spoolman_partial_usage_review_enabled.yaml)
+
+Current rollout state remains intentionally conservative:
+
+- Home Assistant requests an estimate and raises a review notification
+- no Spoolman decrement is performed by this new path yet
+- the consume endpoint is implemented for a later apply phase, not yet used by
+  the HA automation
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 

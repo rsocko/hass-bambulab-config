@@ -8,9 +8,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException
 
 from app.inspection import inspect_archive_spool_linkage
+from app.partial_usage import consume_archive_partial_usage, estimate_archive_partial_usage
 from app.repair import restore_archive_from_source, restore_verify_after_merge
 from tools.bambuddy.runtime_repair_core import RepairValues, repair_archive_runtime
 from app.models import (
+    ArchivePartialUsageConsumeRequest,
+    ArchivePartialUsageConsumeResponse,
+    ArchivePartialUsageEstimateRequest,
+    ArchivePartialUsageEstimateResponse,
     ArchiveSpoolInspectionResponse,
     HealthResponse,
     RestoreFromRequest,
@@ -72,6 +77,57 @@ def archive_spool_linkage(
         return inspect_archive_spool_linkage(db_path=_db_path(), archive_id=archive_id)
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Archive spool linkage inspection rejected archive_id=%s error=%s", archive_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-partial-usage/estimate", response_model=ArchivePartialUsageEstimateResponse)
+def archive_partial_usage_estimate(
+    request: ArchivePartialUsageEstimateRequest,
+    authorization: str | None = Header(default=None),
+) -> ArchivePartialUsageEstimateResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Partial usage estimate request archive_id=%s printer_id=%s status=%s layer=%s progress=%s",
+            request.archive_id,
+            request.printer_id,
+            request.print_status,
+            request.last_layer_num,
+            request.last_progress,
+        )
+        return estimate_archive_partial_usage(db_path=_db_path(), request=request)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning(
+            "Partial usage estimate rejected archive_id=%s error=%s",
+            request.archive_id,
+            exc,
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-partial-usage/consume", response_model=ArchivePartialUsageConsumeResponse)
+def archive_partial_usage_consume(
+    request: ArchivePartialUsageConsumeRequest,
+    authorization: str | None = Header(default=None),
+) -> ArchivePartialUsageConsumeResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Partial usage consume request archive_id=%s dedupe_key=%s consumer=%s",
+            request.archive_id,
+            request.dedupe_key,
+            request.consumed_by,
+        )
+        return consume_archive_partial_usage(db_path=_db_path(), request=request)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning(
+            "Partial usage consume rejected archive_id=%s dedupe_key=%s error=%s",
+            request.archive_id,
+            request.dedupe_key,
+            exc,
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

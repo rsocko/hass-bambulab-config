@@ -6,10 +6,10 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_API_KEY, DATA_MANAGER, DOMAIN
+from .const import CONF_API_KEY, CONF_RUNTIME_REPAIR_TOKEN, DATA_MANAGER, DOMAIN
 
 
-TO_REDACT = {CONF_API_KEY}
+TO_REDACT = {CONF_API_KEY, CONF_RUNTIME_REPAIR_TOKEN}
 
 
 async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:

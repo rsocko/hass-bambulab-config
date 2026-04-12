@@ -73,6 +73,57 @@ class HealthResponse(BaseModel):
     db_path: str
 
 
+class ArchivePartialUsageEstimateRequest(BaseModel):
+    archive_id: int
+    printer_id: int | None = None
+    print_status: str
+    last_layer_num: int | None = None
+    last_progress: float | None = None
+    resolve_spoolman_matches: bool = True
+    keep_tracking_row: bool = True
+
+
+class ArchivePartialUsageSlotEstimate(BaseModel):
+    slot_id: int
+    estimated_used_g: float
+    total_job_used_g: float | None = None
+    global_tray_id: int | None = None
+    tray_uuid: str | None = None
+    tag_uid: str | None = None
+    spoolman_spool_id: int | None = None
+    resolution_method: str | None = None
+    confidence: str
+
+
+class ArchivePartialUsageEstimateResponse(BaseModel):
+    archive_id: int
+    printer_id: int | None = None
+    print_status: str
+    source_state: dict[str, Any] = Field(default_factory=dict)
+    calculation: dict[str, Any] = Field(default_factory=dict)
+    per_slot: list[ArchivePartialUsageSlotEstimate] = Field(default_factory=list)
+    totals: dict[str, Any] = Field(default_factory=dict)
+    dedupe: dict[str, Any] = Field(default_factory=dict)
+
+
+class ArchivePartialUsageConsumeRequest(BaseModel):
+    archive_id: int
+    dedupe_key: str
+    consumed_by: str
+    applied_spool_ids: list[int] = Field(default_factory=list)
+    applied_total_g: float | None = None
+    print_status: str
+
+
+class ArchivePartialUsageConsumeResponse(BaseModel):
+    archive_id: int
+    dedupe_key: str
+    consumed: bool
+    already_consumed: bool
+    prior_consumer: str | None = None
+    recorded_at: str
+
+
 class ArchiveSpoolInspectionResponse(BaseModel):
     archive_id: int
     archive: dict[str, Any]

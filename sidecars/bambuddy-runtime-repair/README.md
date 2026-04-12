@@ -166,6 +166,57 @@ pwsh -File tools/bambuddy/Test-InspectArchiveSpoolLinkage.ps1 \
 
 This is intended as a read-only diagnostic surface before deciding whether to extend the sidecar into any DB-backed reconciliation or backfill work.
 
+## Partial Usage Estimate Example
+
+The sidecar now includes a review-oriented estimate endpoint for failed or
+stopped prints:
+
+```bash
+curl -X POST http://127.0.0.1:8818/admin/archive-partial-usage/estimate \
+  -H "Authorization: Bearer replace-me" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "archive_id": 191,
+    "printer_id": 1,
+    "print_status": "failed",
+    "last_layer_num": 87,
+    "last_progress": 42.5,
+    "resolve_spoolman_matches": true
+  }'
+```
+
+The estimate response includes:
+
+- source-state diagnostics for archive and transient tracking lookup
+- calculation method and confidence
+- per-slot estimated grams
+- optional spool resolution via Bambuddy `tag_uid` or `tray_uuid`
+- a dedupe key suitable for later consume/apply flows
+
+When Home Assistant uses the repository's hybrid path, this endpoint is now
+called through the Bambuddy custom integration service
+`bambuddy.estimate_partial_usage`. The runtime-repair base URL and bearer token
+are expected to live on the Bambuddy config entry, not in `input_text` helpers.
+
+## Partial Usage Consume Example
+
+The consume endpoint marks one estimate as handled so retries do not decrement
+twice once an apply path exists:
+
+```bash
+curl -X POST http://127.0.0.1:8818/admin/archive-partial-usage/consume \
+  -H "Authorization: Bearer replace-me" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "archive_id": 191,
+    "dedupe_key": "191:failed:87:42.5",
+    "consumed_by": "ha_spoolman_sync_review",
+    "applied_spool_ids": [10],
+    "applied_total_g": 34.21,
+    "print_status": "failed"
+  }'
+```
+
 ## Repair Request Example
 
 ```bash
