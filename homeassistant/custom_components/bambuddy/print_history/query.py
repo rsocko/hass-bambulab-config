@@ -520,7 +520,47 @@ class QueryResult:
     available_colors: list[str]
     available_color_tooltips: list[dict[str, str]]
     activity_active_days_label: str
+    activity_active_days_compact_label: str
     activity_metric_total_label: str
+    activity_metric_total_compact_label: str
+
+
+def activity_day_labels(active_day_count: int) -> tuple[str, str]:
+    return (
+        f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}",
+        f"{active_day_count:,}",
+    )
+
+
+def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
+    if activity_mode == "Filament Weight":
+        total = f"{sum(as_float(archive.get('filament_used_grams')) for archive in sorted_matches):,.1f} g"
+        return total, total
+    if activity_mode == "Number of Printed Objects":
+        total_objects = sum(as_int(archive.get("object_count"), 1) for archive in sorted_matches)
+        return f"{total_objects:,} objects", f"{total_objects:,}"
+    if activity_mode == "Cost of Prints":
+        total = f"${sum(as_float(archive.get('cost')) for archive in sorted_matches):,.2f}"
+        return total, total
+    if activity_mode == "Filaments Used":
+        total_slots = sum(
+            len([slot for slot in archive.get("filament_slots", []) if isinstance(slot, dict) and slot.get("color")])
+            for archive in sorted_matches
+        )
+        return f"{total_slots:,} slots", f"{total_slots:,}"
+    if activity_mode == "Total Time Printing":
+        total_hours = sum(as_int(archive.get("actual_time_seconds") or archive.get("print_time_seconds")) for archive in sorted_matches) / 3600
+        total = f"{total_hours:,.1f} h"
+        return total, total
+    if activity_mode == "Dominant Color":
+        total = f"{len(sorted_matches):,} prints"
+        return total, f"{len(sorted_matches):,}"
+    if activity_mode == "Outcome":
+        completed = sum(1 for archive in sorted_matches if normalize_status(archive.get("status")) == "completed")
+        failed = sum(1 for archive in sorted_matches if normalize_status(archive.get("status")) == "failed")
+        return f"{completed} ok / {failed} failed", f"{completed}/{failed}"
+    total = f"{len(sorted_matches):,} prints"
+    return total, f"{len(sorted_matches):,}"
 
 
 def query_archives(
@@ -615,25 +655,8 @@ def query_archives(
 
     sorted_matches = sorted(matches, key=lambda archive: sort_key(archive, sort_option), reverse=sort_reverse(sort_option))
     active_day_count = len({key for key in (archive_date_key(archive) for archive in sorted_matches) if key})
-    if activity_mode == "Filament Weight":
-        metric_total_label = f"{sum(as_float(archive.get('filament_used_grams')) for archive in sorted_matches):,.1f} g"
-    elif activity_mode == "Number of Printed Objects":
-        metric_total_label = f"{sum(as_int(archive.get('object_count'), 1) for archive in sorted_matches):,} objects"
-    elif activity_mode == "Cost of Prints":
-        metric_total_label = f"${sum(as_float(archive.get('cost')) for archive in sorted_matches):,.2f}"
-    elif activity_mode == "Filaments Used":
-        metric_total_label = f"{sum(len([slot for slot in archive.get('filament_slots', []) if isinstance(slot, dict) and slot.get('color')]) for archive in sorted_matches):,} slots"
-    elif activity_mode == "Total Time Printing":
-        total_hours = sum(as_int(archive.get('actual_time_seconds') or archive.get('print_time_seconds')) for archive in sorted_matches) / 3600
-        metric_total_label = f"{total_hours:,.1f} h"
-    elif activity_mode == "Dominant Color":
-        metric_total_label = f"{len(sorted_matches):,} prints"
-    elif activity_mode == "Outcome":
-        completed = sum(1 for archive in sorted_matches if normalize_status(archive.get('status')) == 'completed')
-        failed = sum(1 for archive in sorted_matches if normalize_status(archive.get('status')) == 'failed')
-        metric_total_label = f"{completed} ok / {failed} failed"
-    else:
-        metric_total_label = f"{len(sorted_matches):,} prints"
+    activity_active_days_label, activity_active_days_compact_label = activity_day_labels(active_day_count)
+    activity_metric_total_label, activity_metric_total_compact_label = activity_metric_total_labels(sorted_matches, activity_mode)
 
     total_pages = max(1, (len(sorted_matches) + page_size - 1) // page_size)
     current_page = min(requested_page, total_pages)
@@ -649,8 +672,10 @@ def query_archives(
         active_filters=active_filters(states),
         available_colors=available_colors,
         available_color_tooltips=available_color_tooltips,
-        activity_active_days_label=f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}",
-        activity_metric_total_label=metric_total_label,
+        activity_active_days_label=activity_active_days_label,
+        activity_active_days_compact_label=activity_active_days_compact_label,
+        activity_metric_total_label=activity_metric_total_label,
+        activity_metric_total_compact_label=activity_metric_total_compact_label,
     )
 
 

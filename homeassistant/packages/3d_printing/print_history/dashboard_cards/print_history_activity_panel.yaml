@@ -1,123 +1,130 @@
 type: vertical-stack
 cards:
-  - type: custom:config-template-card
-    entities:
-      - input_select.print_history_activity_metric
-      - input_text.print_history_activity_selected_date
-      - input_boolean.print_history_show_activity_heatmap
-      - sensor.bambuddy_print_history_browser_filtered
-    card:
-      type: custom:bubble-card
-      card_type: separator
-      name: >-
-        ${`Print Activity Heatmap: ${states['input_select.print_history_activity_metric']?.state || 'Print Count'}`}
-      icon: mdi:chart-box-outline
-      sub_button:
-        - entity: input_select.print_history_activity_metric
-          sub_button_type: select
-          name: Metric
-          icon: mdi:tune-variant
-          show_name: true
-          show_state: true
-          show_background: true
-          fill_width: false
-        - entity: sensor.bambuddy_print_history_browser_filtered
-          sub_button_type: default
-          name: Active Days
-          icon: mdi:calendar-range
-          show_icon: true
-          show_name: false
-          show_attribute: true
-          attribute: activity_active_days_label
-          show_background: true
-          state_background: false
-          fill_width: false
-          tap_action:
-            action: none
-        - entity: sensor.bambuddy_print_history_browser_filtered
-          sub_button_type: default
-          name: Metric Total
-          icon: >-
-            ${(() => {
-              const mode = states['input_select.print_history_activity_metric']?.state || 'Print Count';
-              const icons = {
-                'Print Count': 'mdi:counter',
-                'Filament Weight': 'mdi:weight-gram',
-                'Dominant Color': 'mdi:palette-outline',
-                'Outcome': 'mdi:list-status',
-                'Number of Printed Objects': 'mdi:cube-outline',
-                'Cost of Prints': 'mdi:currency-usd',
-                'Filaments Used': 'mdi:palette-swatch-outline',
-                'Total Time Printing': 'mdi:timer-outline',
-              };
-              return icons[mode] || 'mdi:counter';
-            })()}
-          show_icon: true
-          show_name: false
-          show_attribute: true
-          attribute: activity_metric_total_label
-          show_background: true
-          state_background: false
-          fill_width: false
-          tap_action:
-            action: none
-        - entity: input_text.print_history_activity_selected_date
-          sub_button_type: default
-          name: Selected Day
-          icon: mdi:calendar-check-outline
-          show_icon: true
-          show_name: false
-          show_state: true
-          show_background: true
-          fill_width: false
-          tap_action:
-            action: none
-          visibility:
-            - condition: state
-              entity: input_text.print_history_activity_selected_date
-              state_not: ""
-        - entity: input_text.print_history_activity_selected_date
-          sub_button_type: default
-          name: Clear Selected Day
-          icon: mdi:calendar-remove-outline
-          show_icon: true
-          show_name: false
-          show_state: false
-          show_background: true
-          fill_width: false
-          visibility:
-            - condition: state
-              entity: input_text.print_history_activity_selected_date
-              state_not: ""
-          tap_action:
-            action: call-service
-            service: input_text.set_value
-            target:
-              entity_id: input_text.print_history_activity_selected_date
-            data:
-              value: ""
-        - entity: input_boolean.print_history_show_activity_heatmap
-          sub_button_type: default
-          name: Toggle Heatmap
-          icon: >-
-            ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'
-              ? 'mdi:chevron-up'
-              : 'mdi:chevron-down'}
-          show_icon: true
-          show_name: false
-          show_state: false
-          show_background: true
-          state_background: ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'}
-          state_color: ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'}
-          fill_width: false
-          tap_action:
-            action: toggle
-      styles: |
-        ha-card {
-          margin-top: 8px !important;
+  - type: custom:bubble-card
+    card_type: separator
+    name: >-
+      ${window.innerWidth <= 720
+        ? ''
+        : `Print Activity Heatmap: ${states['input_select.print_history_activity_metric']?.state || 'Print Count'}`}
+    icon: mdi:chart-box-outline
+    sub_button:
+      - entity: input_select.print_history_activity_metric
+        sub_button_type: select
+        name: >-
+          ${window.innerWidth <= 720 ? '' : 'Metric'}
+        icon: mdi:tune-variant
+        show_name: true
+        show_state: true
+        show_background: true
+        fill_width: false
+      - entity: sensor.bambuddy_print_history_browser_filtered
+        sub_button_type: default
+        name: Active Days
+        icon: mdi:calendar-range
+        show_icon: true
+        show_name: false
+        show_attribute: true
+        attribute: >-
+          ${window.innerWidth <= 720
+            ? 'activity_active_days_compact_label'
+            : 'activity_active_days_label'}
+        show_background: true
+        state_background: false
+        fill_width: false
+        tap_action:
+          action: none
+      - entity: sensor.bambuddy_print_history_browser_filtered
+        sub_button_type: default
+        name: Metric Total
+        icon: >-
+          ${(() => {
+            const mode = states['input_select.print_history_activity_metric']?.state || 'Print Count';
+            const icons = {
+              'Print Count': 'mdi:counter',
+              'Filament Weight': 'mdi:weight-gram',
+              'Dominant Color': 'mdi:palette-outline',
+              'Outcome': 'mdi:list-status',
+              'Number of Printed Objects': 'mdi:cube-outline',
+              'Cost of Prints': 'mdi:currency-usd',
+              'Filaments Used': 'mdi:palette-swatch-outline',
+              'Total Time Printing': 'mdi:timer-outline',
+            };
+            return icons[mode] || 'mdi:counter';
+          })()}
+        show_icon: true
+        show_name: false
+        show_attribute: true
+        attribute: >-
+          ${window.innerWidth <= 720
+            ? 'activity_metric_total_compact_label'
+            : 'activity_metric_total_label'}
+        show_background: true
+        state_background: false
+        fill_width: false
+        tap_action:
+          action: none
+      - entity: input_text.print_history_activity_selected_date
+        sub_button_type: default
+        name: Selected Day
+        icon: mdi:calendar-check-outline
+        show_icon: true
+        show_name: false
+        show_state: true
+        show_background: true
+        fill_width: false
+        tap_action:
+          action: none
+        visibility:
+          - condition: state
+            entity: input_text.print_history_activity_selected_date
+            state_not: ""
+      - entity: input_text.print_history_activity_selected_date
+        sub_button_type: default
+        name: Clear Selected Day
+        icon: mdi:calendar-remove-outline
+        show_icon: true
+        show_name: false
+        show_state: false
+        show_background: true
+        fill_width: false
+        visibility:
+          - condition: state
+            entity: input_text.print_history_activity_selected_date
+            state_not: ""
+        tap_action:
+          action: call-service
+          service: input_text.set_value
+          target:
+            entity_id: input_text.print_history_activity_selected_date
+          data:
+            value: ""
+      - entity: input_boolean.print_history_show_activity_heatmap
+        sub_button_type: default
+        name: Toggle Heatmap
+        icon: >-
+          ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'
+            ? 'mdi:chevron-up'
+            : 'mdi:chevron-down'}
+        show_icon: true
+        show_name: false
+        show_state: false
+        show_background: true
+        state_background: ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'}
+        state_color: ${states['input_boolean.print_history_show_activity_heatmap']?.state === 'on'}
+        fill_width: false
+        tap_action:
+          action: toggle
+    styles: |
+      ha-card {
+        margin-top: 8px !important;
+      }
+      .bubble-sub-button-container,
+      .bubble-sub-buttons-container {
+        gap: 6px !important;
+      }
+      @media (max-width: 720px) {
+        .bubble-name {
+          display: none !important;
         }
-        .bubble-sub-button-container,
-        .bubble-sub-buttons-container {
-          gap: 6px !important;
-        }
+      }
   - !include ../dashboard_cards/print_history_activity_heatmap.yaml

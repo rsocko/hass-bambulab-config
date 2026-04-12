@@ -119,7 +119,9 @@ class BambuddyBrowserSensor(SensorEntity):
                 "available_colors_json": self.manager.result.available_colors,
                 "available_color_tooltips_json": self.manager.result.available_color_tooltips,
                 "activity_active_days_label": self.manager.result.activity_active_days_label,
+                "activity_active_days_compact_label": self.manager.result.activity_active_days_compact_label,
                 "activity_metric_total_label": self.manager.result.activity_metric_total_label,
+                "activity_metric_total_compact_label": self.manager.result.activity_metric_total_compact_label,
             }
         if self.entity_description.key == ENTITY_PAGE_ARCHIVES:
             return {
@@ -145,5 +147,7 @@ class BambuddyBrowserSensor(SensorEntity):
             "active_day_count": self.manager.activity_summary.get("active_day_count", 0),
             "latest_archive_id": self.manager.activity_summary.get("latest_archive_id", 0),
             "activity_active_days_label": self.manager.result.activity_active_days_label,
+            "activity_active_days_compact_label": self.manager.result.activity_active_days_compact_label,
             "activity_metric_total_label": self.manager.result.activity_metric_total_label,
+            "activity_metric_total_compact_label": self.manager.result.activity_metric_total_compact_label,
         }

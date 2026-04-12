@@ -423,6 +423,8 @@ class PrintHistoryStore:
         page_items = self._load_archives_by_ids(page_ids)
         metric_rows = self._load_metric_rows(archive_ids)
         active_day_count = len({row["archive_day"] for row in metric_rows if row["archive_day"]})
+        activity_active_days_label = f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}"
+        activity_metric_total_label, activity_metric_total_compact_label = self._metric_total_labels(metric_rows, filters["activity_mode"])
 
         return QueryResult(
             filtered_count=filtered_count,
@@ -434,8 +436,10 @@ class PrintHistoryStore:
             active_filters=active_filters(states),
             available_colors=self._load_available_colors(),
             available_color_tooltips=self._load_available_color_tooltips(),
-            activity_active_days_label=f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}",
-            activity_metric_total_label=self._metric_total_label(metric_rows, filters["activity_mode"]),
+            activity_active_days_label=activity_active_days_label,
+            activity_active_days_compact_label=f"{active_day_count:,}",
+            activity_metric_total_label=activity_metric_total_label,
+            activity_metric_total_compact_label=activity_metric_total_compact_label,
         )
 
     def load_activity_summary(self) -> dict[str, Any]:
@@ -1093,27 +1097,34 @@ class PrintHistoryStore:
             for row in rows
         ]
 
-    def _metric_total_label(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> str:
+    def _metric_total_labels(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
         if activity_mode == "Filament Weight":
-            return f"{sum(row['filament_used_grams'] for row in metric_rows):,.1f} g"
+            total = f"{sum(row['filament_used_grams'] for row in metric_rows):,.1f} g"
+            return total, total
         if activity_mode == "Number of Printed Objects":
-            return f"{sum(row['object_count'] for row in metric_rows):,} objects"
+            total_objects = sum(row["object_count"] for row in metric_rows)
+            return f"{total_objects:,} objects", f"{total_objects:,}"
         if activity_mode == "Cost of Prints":
-            return f"${sum(row['cost'] for row in metric_rows):,.2f}"
+            total = f"${sum(row['cost'] for row in metric_rows):,.2f}"
+            return total, total
         if activity_mode == "Filaments Used":
-            return f"{sum(row['slot_count'] for row in metric_rows):,} slots"
+            total_slots = sum(row["slot_count"] for row in metric_rows)
+            return f"{total_slots:,} slots", f"{total_slots:,}"
         if activity_mode == "Total Time Printing":
             total_hours = sum(
                 row["actual_time_seconds"] or row["print_time_seconds"] for row in metric_rows
             ) / 3600
-            return f"{total_hours:,.1f} h"
+            total = f"{total_hours:,.1f} h"
+            return total, total
         if activity_mode == "Dominant Color":
-            return f"{len(metric_rows):,} prints"
+            total = f"{len(metric_rows):,} prints"
+            return total, f"{len(metric_rows):,}"
         if activity_mode == "Outcome":
             completed = sum(1 for row in metric_rows if row["status"] == "completed")
             failed = sum(1 for row in metric_rows if row["status"] == "failed")
-            return f"{completed} ok / {failed} failed"
-        return f"{len(metric_rows):,} prints"
+            return f"{completed} ok / {failed} failed", f"{completed}/{failed}"
+        total = f"{len(metric_rows):,} prints"
+        return total, f"{len(metric_rows):,}"
 
     def _load_activity_bases(self, archive_ids: list[int]) -> dict[int, dict[str, Any]]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]

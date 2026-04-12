@@ -481,7 +481,9 @@ def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: P
     assert actual.current_page == expected.current_page
     assert [archive["id"] for archive in actual.page_items] == [archive["id"] for archive in expected.page_items]
     assert actual.activity_active_days_label == expected.activity_active_days_label
+    assert actual.activity_active_days_compact_label == expected.activity_active_days_compact_label
     assert actual.activity_metric_total_label == expected.activity_metric_total_label
+    assert actual.activity_metric_total_compact_label == expected.activity_metric_total_compact_label
     assert actual.available_colors == expected.available_colors
     assert actual.available_color_tooltips == expected.available_color_tooltips
 

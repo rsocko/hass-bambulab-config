@@ -91,10 +91,21 @@ cards:
       .bubble-sub-button-container,
       .bubble-sub-buttons-container {
         gap: 8px !important;
-        - input_select.print_history_filter_enrichment_status
       }
       .bubble-sub-button-icon {
         --mdc-icon-size: 18px !important;
+      }
+      @media (max-width: 720px) {
+        .bubble-name {
+          display: none !important;
+        }
+        .bubble-sub-button:has(ha-icon[icon="mdi:sort"]) .bubble-sub-button-name {
+          display: none !important;
+        }
+        .bubble-sub-button-container,
+        .bubble-sub-buttons-container {
+          gap: 6px !important;
+        }
       }
 
   - type: custom:config-template-card
