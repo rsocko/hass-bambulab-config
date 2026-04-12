@@ -105,6 +105,7 @@ def _install_homeassistant_stubs() -> None:
     aiohttp_client_module.async_get_clientsession = lambda hass: object()
     helpers_event_module.async_track_state_change_event = lambda *args, **kwargs: (lambda: None)
     helpers_event_module.async_track_time_interval = lambda *args, **kwargs: (lambda: None)
+    util_dt_module.DEFAULT_TIME_ZONE = timezone.utc
     util_dt_module.utcnow = lambda: datetime(2026, 4, 10, tzinfo=timezone.utc)
     websocket_api_module.ActiveConnection = ActiveConnection
     websocket_api_module.websocket_command = lambda _schema: (lambda func: func)
@@ -144,9 +145,6 @@ def _purge_component_modules() -> None:
 
 
 def _import_component_modules():
-    if str(HOMEASSISTANT_ROOT) not in sys.path:
-        sys.path.insert(0, str(HOMEASSISTANT_ROOT))
-
     _install_homeassistant_stubs()
     _purge_component_modules()
 

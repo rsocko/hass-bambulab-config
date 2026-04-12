@@ -95,6 +95,36 @@ For package safety, keep `homeassistant/packages/` YAML-only; place frontend run
 
 WLED controller/device artifacts stay in the root `wled/` folder, while future HA-deployed WLED config belongs under `homeassistant/packages/3d_printing/wled/` and `homeassistant/www/3d_printing/wled/`.
 
+## Development / Testing
+
+The repo now exposes a root pytest layout so local runs, CI, and agent sessions can use the same entrypoint.
+
+Create and activate a virtual environment from the repo root, then install the shared dev dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+```
+
+Canonical test commands:
+
+```powershell
+python -m pytest
+python -m pytest tests/sidecars/test_bambuddy_restore_from.py
+python -m pytest tests/print_history/test_bambuddy_variant3_store.py -k tooltip
+```
+
+PR validation uses the same repo-owned commands through `.github/workflows/python-pytest.yml`, split into separate `sidecars` and `print_history` jobs for clearer failures.
+
+What this gives you:
+
+- Root-level pytest discovery via `pytest.ini`
+- Shared import bootstrapping for repo-side Python modules via `tests/conftest.py`
+- One dev dependency file for repo tests and sidecar test support
+- A stable default command for local runs, CI jobs, and Copilot agent sessions
+
 The actual config objects that are used to achieve the above scenarios include:
 
 - **Automations**:

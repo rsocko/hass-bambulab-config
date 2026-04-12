@@ -1,15 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-MODULE_ROOT = REPO_ROOT / "homeassistant" / "custom_components" / "bambuddy" / "print_history"
-if str(MODULE_ROOT) not in sys.path:
-    sys.path.insert(0, str(MODULE_ROOT))
 
 
 import query as query_module  # noqa: E402

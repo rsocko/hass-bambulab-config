@@ -1,14 +1,6 @@
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
-
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-CORE_ROOT = REPO_ROOT / "sidecars" / "print-history-browser-appdaemon" / "conf" / "apps"
-if str(CORE_ROOT) not in sys.path:
-    sys.path.insert(0, str(CORE_ROOT))
 
 
 from print_history_browser_core import option_sets, project_archive, query_archives  # noqa: E402
