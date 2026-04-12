@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -51,7 +52,7 @@ class PrintHistoryStore:
         self._db_path = db_path
 
     def initialize(self) -> None:
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_parent_directory()
         with self._connect() as connection:
             self._ensure_schema(connection)
 
@@ -509,9 +510,35 @@ class PrintHistoryStore:
         return activity_rows
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._db_path)
+        self._ensure_parent_directory()
+
+        try:
+            connection = sqlite3.connect(self._db_path)
+        except sqlite3.OperationalError as exc:
+            raise sqlite3.OperationalError(self._format_connection_error(str(exc))) from exc
+
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
+
+    def _ensure_parent_directory(self) -> None:
+        try:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise sqlite3.OperationalError(
+                self._format_connection_error(f"failed to ensure parent directory: {exc}")
+            ) from exc
+
+    def _format_connection_error(self, message: str) -> str:
+        parent = self._db_path.parent
+        parent_exists = parent.exists()
+        parent_is_dir = parent.is_dir()
+        db_exists = self._db_path.exists()
+        writable = parent_exists and parent_is_dir and os.access(parent, os.W_OK | os.X_OK)
+        return (
+            f"{message} "
+            f"(db_path={self._db_path}, parent_exists={parent_exists}, "
+            f"parent_is_dir={parent_is_dir}, parent_writable={writable}, db_exists={db_exists})"
+        )
 
     def _resolve_selected_printer_ids(self, selected_printer: str) -> set[str]:
         with self._connect() as connection:

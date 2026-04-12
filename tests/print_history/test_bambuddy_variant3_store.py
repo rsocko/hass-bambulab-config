@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -373,6 +374,22 @@ def test_variant3_store_replace_archives_self_heals_partial_schema(tmp_path: Pat
     assert stats["archive_count"] == 2
     assert stats["note_payload_row_count"] == 1
     assert payload_rows[0]["name"] == "Blue PLA"
+
+
+def test_variant3_store_connection_errors_include_db_path_diagnostics(tmp_path: Path) -> None:
+    conflict_path = tmp_path / "storage-conflict"
+    conflict_path.write_text("not a directory", encoding="utf-8")
+
+    store = PrintHistoryStore(conflict_path / "print_history.db")
+
+    with pytest.raises(sqlite3.OperationalError) as exc_info:
+        store.initialize()
+
+    message = str(exc_info.value)
+    assert "failed to ensure parent directory" in message
+    assert "db_path=" in message
+    assert "parent_exists=True" in message
+    assert "parent_is_dir=False" in message
 
 
 def test_variant3_activity_rows_expose_only_summary_fields() -> None:

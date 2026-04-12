@@ -197,6 +197,14 @@ Invoke-HealthCheck -Url $BaseUrl -Compact:$CompactOutput
 if ($SourceArchiveId -gt 0 -and $TargetArchiveId -gt 0) {
     $fieldGroups = Get-RequestedFieldGroups -SkipPhotos:$SkipPhotos
 
+    if ($RunReenrich.IsPresent -and -not $Verify.IsPresent -and $Apply.IsPresent) {
+        Write-Warning "Inline re-enrich couples restore apply to Home Assistant browser refresh. Prefer running restore/apply + verify first, then run re-enrich as a separate step once HA is stable."
+    }
+
+    if ($RemoveOriginal.IsPresent -and $ForceRemoveWithoutReenrich.IsPresent) {
+        Write-Warning "Force-removing the original archive without completed enrichment bypasses the normal safety gate. Use only after verifying the replacement archive is otherwise complete."
+    }
+
     if ($Verify.IsPresent) {
         $payload = @{
             source_archive_id = $SourceArchiveId

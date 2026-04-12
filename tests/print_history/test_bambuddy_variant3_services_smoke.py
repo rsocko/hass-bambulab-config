@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -382,7 +383,12 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     hass = FakeHass(tmp_path, _default_state_map())
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
         entry_id="entry-1",
-        data={"base_url": "http://example.local", "api_key": "token"},
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
         options={},
     )
     manager = manager_module.PrintHistoryBrowserManager(hass, entry)
@@ -544,3 +550,40 @@ def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_
         if call[2]["entity_id"] == "input_select.print_history_filter_printer"
     )
     assert printer_options == ["All", "Workshop P1S"]
+
+
+def test_variant3_manager_refresh_cools_down_after_store_open_failure(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+
+    FakeApiClient.archives = _projected_archives(manager_module.project_archive)
+    FakeApiClient.printers = []
+
+    original_client = manager_module.BambuddyApiClient
+    original_replace_archives = manager.store.replace_archives
+    calls = {"count": 0}
+
+    def failing_replace_archives(_archives: list[dict]) -> None:
+        calls["count"] += 1
+        raise sqlite3.OperationalError("unable to open database file (db_path=/config/.storage/bambuddy_print_history_browser.db)")
+
+    manager_module.BambuddyApiClient = FakeApiClient
+    manager.store.replace_archives = failing_replace_archives
+    try:
+        asyncio.run(manager.async_refresh("test"))
+        asyncio.run(manager.async_refresh("retry"))
+    finally:
+        manager_module.BambuddyApiClient = original_client
+        manager.store.replace_archives = original_replace_archives
+
+    assert calls["count"] == 1
+    assert manager.status_state == "error"
+    assert "cooldown remaining" in manager.status_message

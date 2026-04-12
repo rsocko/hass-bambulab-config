@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 import logging
 from pathlib import Path
+import sqlite3
 from time import perf_counter
 from typing import Any, Callable
 
@@ -71,6 +73,8 @@ class PrintHistoryBrowserManager:
         self.loaded_at: str | None = None
         self._listeners: list[Callable[[], None]] = []
         self._unsubscribers: list[Callable[[], None]] = []
+        self._refresh_lock = asyncio.Lock()
+        self._store_unavailable_until = None
 
     async def async_initialize(self) -> None:
         await self.hass.async_add_executor_job(self.store.initialize)
@@ -165,46 +169,76 @@ class PrintHistoryBrowserManager:
             self._notify_listeners()
             return
 
-        _LOGGER.info("Refreshing Bambuddy print history browser (%s)", reason)
-        self._set_status("refreshing", f"Refreshing Bambuddy print history browser ({reason})")
-        self._notify_listeners()
-
-        try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            client = BambuddyApiClient(
-                session,
-                self.base_url,
-                self.api_key,
-                self.fetch_timeout_seconds,
+        now = dt_util.utcnow()
+        if self._store_unavailable_until is not None and now < self._store_unavailable_until:
+            remaining_seconds = max(
+                1,
+                int((self._store_unavailable_until - now).total_seconds()),
             )
-            raw_archives = await client.async_fetch_archives(limit=self.max_archives)
-            raw_printers: list[dict[str, Any]] = []
-            try:
-                raw_printers = await client.async_fetch_printers()
-            except Exception as error:  # noqa: BLE001
-                _LOGGER.warning(
-                    "Unable to fetch Bambuddy printers while refreshing print history; falling back to archive payload names: %s",
-                    error,
-                )
-            enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
-            projected = [project_archive(item) for item in enriched_archives]
-            archives_changed = projected != self.archives
-            await self.hass.async_add_executor_job(self.store.replace_archives, projected)
-            self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-            self.last_refresh = dt_util.utcnow().isoformat()
-            self.last_error = ""
-            query_changed = self._recompute_query()
-            if archives_changed or query_changed:
-                self.browser_revision += 1
-            await self._async_sync_options()
-            self._set_status("ready", f"Refreshed Bambuddy print history browser ({reason})")
-            _LOGGER.info("Refreshed Bambuddy print history browser (%s) with %s archives", reason, len(self.archives))
-        except Exception as error:  # noqa: BLE001
-            self.last_error = str(error)
-            self._set_status("error", str(error))
-            _LOGGER.exception("Failed to refresh Bambuddy print history browser (%s)", reason)
+            message = (
+                "Skipping Bambuddy print history browser refresh while the local store is unavailable "
+                f"({remaining_seconds}s cooldown remaining)"
+            )
+            self.last_error = message
+            self._set_status("error", message)
+            _LOGGER.warning("%s; reason=%s", message, reason)
+            self._notify_listeners()
+            return
 
-        self._notify_listeners()
+        if self._refresh_lock.locked():
+            _LOGGER.info("Skipping Bambuddy print history browser refresh (%s) because another refresh is already running", reason)
+            return
+
+        async with self._refresh_lock:
+            _LOGGER.info("Refreshing Bambuddy print history browser (%s)", reason)
+            self._set_status("refreshing", f"Refreshing Bambuddy print history browser ({reason})")
+            self._notify_listeners()
+
+            try:
+                session = aiohttp_client.async_get_clientsession(self.hass)
+                client = BambuddyApiClient(
+                    session,
+                    self.base_url,
+                    self.api_key,
+                    self.fetch_timeout_seconds,
+                )
+                raw_archives = await client.async_fetch_archives(limit=self.max_archives)
+                raw_printers: list[dict[str, Any]] = []
+                try:
+                    raw_printers = await client.async_fetch_printers()
+                except Exception as error:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "Unable to fetch Bambuddy printers while refreshing print history; falling back to archive payload names: %s",
+                        error,
+                    )
+                enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
+                projected = [project_archive(item) for item in enriched_archives]
+                archives_changed = projected != self.archives
+                await self.hass.async_add_executor_job(self.store.replace_archives, projected)
+                self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
+                self.last_refresh = dt_util.utcnow().isoformat()
+                self.last_error = ""
+                self._store_unavailable_until = None
+                query_changed = self._recompute_query()
+                if archives_changed or query_changed:
+                    self.browser_revision += 1
+                await self._async_sync_options()
+                self._set_status("ready", f"Refreshed Bambuddy print history browser ({reason})")
+                _LOGGER.info("Refreshed Bambuddy print history browser (%s) with %s archives", reason, len(self.archives))
+            except Exception as error:  # noqa: BLE001
+                self.last_error = str(error)
+                if isinstance(error, sqlite3.OperationalError) and "unable to open database file" in str(error).lower():
+                    self._store_unavailable_until = dt_util.utcnow() + timedelta(seconds=30)
+                    cooldown_message = (
+                        f"{error} (refresh paused for 30s to avoid repeated local-store failures)"
+                    )
+                    self.last_error = cooldown_message
+                    self._set_status("error", cooldown_message)
+                else:
+                    self._set_status("error", str(error))
+                _LOGGER.exception("Failed to refresh Bambuddy print history browser (%s)", reason)
+
+            self._notify_listeners()
 
     def build_query_response(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
         merged_overrides = dict(overrides or {})
