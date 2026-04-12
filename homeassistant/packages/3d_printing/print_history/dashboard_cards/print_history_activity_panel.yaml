@@ -13,6 +13,14 @@ cards:
         show_state: true
         show_background: true
         fill_width: false
+      - entity: input_select.print_history_activity_metric
+        sub_button_type: select
+        name: ""
+        icon: mdi:tune
+        show_name: false
+        show_state: true
+        show_background: true
+        fill_width: false
       - entity: sensor.bambuddy_print_history_browser_filtered
         sub_button_type: default
         name: Active Days
@@ -141,14 +149,15 @@ cards:
         gap: 6px !important;
       }
       .bubble-sub-button:has(ha-icon[icon="mdi:calendar-range-outline"]),
-      .bubble-sub-button:has(ha-icon[icon="mdi:chart-box-outline"]) {
+      .bubble-sub-button:has(ha-icon[icon="mdi:chart-box-outline"]),
+      .bubble-sub-button:has(ha-icon[icon="mdi:tune"]) {
         display: none !important;
       }
       @media (max-width: 720px) {
         .bubble-name {
           display: none !important;
         }
-        .bubble-sub-button:has(ha-icon[icon="mdi:tune-variant"]) .bubble-sub-button-name {
+        .bubble-sub-button:has(ha-icon[icon="mdi:tune-variant"]) {
           display: none !important;
         }
         .bubble-sub-button:has(ha-icon[icon="mdi:calendar-range"]),
@@ -156,7 +165,8 @@ cards:
           display: none !important;
         }
         .bubble-sub-button:has(ha-icon[icon="mdi:calendar-range-outline"]),
-        .bubble-sub-button:has(ha-icon[icon="mdi:chart-box-outline"]) {
+        .bubble-sub-button:has(ha-icon[icon="mdi:chart-box-outline"]),
+        .bubble-sub-button:has(ha-icon[icon="mdi:tune"]) {
           display: flex !important;
         }
       }
