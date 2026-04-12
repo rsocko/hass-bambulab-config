@@ -34,6 +34,9 @@ This Home Assistant automation triggers upon a successful completion of a print 
 - The automation now parses the AMS index from tray labels (for example `AMS 1 Tray 2`, `AMS 2 Tray 2`) instead of hardcoding AMS 1 tray entities.
 - Matching now uses `sensor.spoolman_tray_map` as the shared source of truth.
 - Sealed spools are intentionally excluded from template matching (same behavior used by this automation through tray_map).
+- This automation remains the recommended authority for successful-print
+	decrements even if a future Bambuddy hybrid partial-usage fallback is added.
+	See [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md).
 - **External Spool behavior**: Based on analysis of the ha-bambulab integration source code, when printing from the External Spool on a printer with an AMS, the `print_weight` sensor's per-tray attributes (`External Spool: <weight>`) may be cleared when the print finishes (because the external spool becomes "inactive" as `tray_now` resets to 255). The backup mechanism in [Print Started - Backup Print Weight](../../../homeassistant/packages/3d_printing/spoolman_sync/automations/print_started-backup_print_weight.yaml) captures these attributes once printing is active and is used as a fallback in this scenario.
 - **Future extension**: If your environment later exposes a second external spool entity, add `external_spool_2` mapping in the same five files documented in the [README](README.md#external-spool-assumption).
 

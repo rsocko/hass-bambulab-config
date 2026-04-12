@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app import main as sidecar_main  # noqa: E402
 from app import repair as repair_module  # noqa: E402
 from app.models import RestoreFromRequest, RestoreVerifyRequest  # noqa: E402
-from app.repair import merge_notes, merge_tags, restore_archive_from_source, restore_verify_after_merge  # noqa: E402
+from app.repair import finalize_recovered_target, merge_notes, merge_tags, restore_archive_from_source, restore_verify_after_merge  # noqa: E402
 
 
 CREATE_PRINT_ARCHIVES_SQL = """
@@ -304,6 +304,25 @@ def test_merge_notes_preserves_target_structured_blocks() -> None:
     assert "recovered_from_archive_id" in merged
     assert "+>" in merged
     assert "replaced_by_archive_id" not in merged
+
+
+def test_finalize_recovered_target_removes_transient_tags_and_updates_audit() -> None:
+    tags, notes, removed_tags = finalize_recovered_target(
+        "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"s\":\"c\",\"src\":\"afs\"}",
+        "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
+        source_archive_id=191,
+        target_archive_id=200,
+    )
+
+    assert tags == "f:14,s:10,Hueforge"
+    assert notes is not None
+    assert '"recovered_from_archive_id":191' in notes
+    assert '"recovery_source":"sd_cache_3mf"' in notes
+    assert '"restored_target_archive_id":200' in notes
+    assert '"restore_original_removed":true' in notes
+    assert '"restore_cleanup_removed_tags":["repair:recovered","recovered_from:191","recovery_source:sd_cache_3mf"]' in notes
+    assert "+>{\"s\":\"c\",\"src\":\"afs\"}" in notes
+    assert removed_tags == ["repair:recovered", "recovered_from:191", "recovery_source:sd_cache_3mf"]
 
 
 def test_restore_archive_from_source_builds_db_backed_dry_run_plan(tmp_path: Path) -> None:
@@ -655,6 +674,16 @@ def test_restore_verify_after_merge_can_force_remove_when_enrichment_incomplete(
     assert delete_response.removable is True
     assert delete_response.source_removed is True
 
+    connection = sqlite3.connect(db_path)
+    try:
+        target = connection.execute("SELECT tags, notes FROM print_archives WHERE id = 200").fetchone()
+        assert target is not None
+        assert target[0] == "f:14,s:10,Hueforge"
+        assert '"restore_original_removed":true' in target[1]
+        assert '"restore_cleanup_removed_tags"' in target[1]
+    finally:
+        connection.close()
+
 
 def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(tmp_path: Path) -> None:
     db_path = _create_test_db(tmp_path)
@@ -727,6 +756,13 @@ def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(t
     try:
         row = connection.execute("SELECT id FROM print_archives WHERE id = 191").fetchone()
         assert row is None
+        target = connection.execute("SELECT tags, notes FROM print_archives WHERE id = 200").fetchone()
+        assert target is not None
+        assert target[0] == "f:14,s:10,Hueforge"
+        assert '"restore_original_removed":true' in target[1]
+        assert '"restored_target_archive_id":200' in target[1]
+        assert '"recovery_source":"sd_cache_3mf"' in target[1]
+        assert '+>{"s":"c","src":"afs","F":[{"n":"Black","w":33.3,"t":"A1","s":10,"f":14,"h":"#000000"}]}' in target[1]
     finally:
         connection.close()
 

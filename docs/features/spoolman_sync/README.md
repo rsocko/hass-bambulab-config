@@ -143,6 +143,25 @@ legacy/reactive rollout:
 
 - [Popup Reactivity Refactor Design](popup-reactivity-refactor-design.md)
 
+### 11. Bambuddy partial-usage hybrid design
+
+Design note for a sidecar-assisted hybrid that keeps Home Assistant as the
+authoritative Spoolman writer while selectively using Bambuddy's failed-print
+partial-usage estimation logic.
+
+Current recommendation:
+
+- keep the existing HA success-path decrement logic
+- preserve Spoolman as the authoritative metadata store
+- add a read-first sidecar estimate path only for failed/cancelled/aborted/
+  stopped outcomes
+
+The design note also records live-production findings from 2026-04-12,
+including the currently observed Bambuddy Spoolman settings and why native
+transient tracking is not expected to be populated in production today.
+
+- [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md)
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 
