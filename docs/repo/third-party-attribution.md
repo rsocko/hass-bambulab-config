@@ -8,6 +8,7 @@ Upstream references pinned at review time (main branch heads):
 
 - `greghesp/ha-bambulab`: `53a56f57d8e45e835b3b8962a33d2db636ed07fe`
 - `greghesp/ha-bambulab-cards`: `e04f6e78dd61ec534e6d42f33e35e3c5365066cf`
+- `maziggy/bambuddy`: local source snapshot under `.tmp/bambuddy-source/` (reviewed 2026-04-12)
 
 ## Upstream Projects Referenced
 
@@ -22,6 +23,22 @@ Upstream references pinned at review time (main branch heads):
 
 - `homeassistant/www/3d_printing/printer_controls/skip-objects-card.js`
 
+## Branded Assets
+
+- `homeassistant/custom_components/bambuddy/icon.png`
+- `homeassistant/custom_components/bambuddy/logo.png`
+
+These integration assets are copied from the upstream Bambuddy project snapshot in `.tmp/bambuddy-source/static/img/`:
+
+- `android-chrome-192x192.png` -> `homeassistant/custom_components/bambuddy/icon.png`
+- `android-chrome-512x512.png` -> `homeassistant/custom_components/bambuddy/logo.png`
+
+Attribution and usage note:
+
+- The Bambuddy name and logo remain upstream Bambuddy branding by `maziggy`.
+- Keep attribution alongside the copied asset in this repository and in user-facing configuration text.
+- Reach out to the upstream author before reusing this branding outside this repository or redistributing it in a different package/context.
+
 ## Attribution Scope
 
 - The local files above are standalone implementations for this repository.
@@ -29,10 +46,11 @@ Upstream references pinned at review time (main branch heads):
   - decoding printable object IDs from pick-image pixel values
   - selection and recolor rendering on a visible canvas
   - submitting selected object IDs to `bambu_lab.skip_objects`
+- The branded asset files above are direct upstream-derived copies retained only to brand the local custom integration.
 - The local structure, styling, and deployment wiring are repository-specific.
 
 ## License Notes
 
 - Local repository license: MIT (`LICENSE`).
 - Upstream license terms should be verified in each upstream repository before redistributing derivative or copied code.
-- No third-party source file has been copied verbatim into this repository as part of this attribution update.
+- Upstream Bambuddy logo/icon assets are copied with attribution for local integration branding; verify ongoing branding permission requirements with the upstream author.

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Bambuddy",
-        "description": "Set up the Bambuddy integration for print history browsing.",
+        "description": "Set up the Bambuddy integration for print history browsing.\n\n{logo_attribution}",
         "data": {
           "base_url": "Base URL",
           "api_key": "API key",
@@ -24,6 +24,7 @@
     "step": {
       "init": {
         "title": "Update Bambuddy settings",
+        "description": "{logo_attribution}",
         "data": {
           "base_url": "Base URL",
           "api_key": "API key",

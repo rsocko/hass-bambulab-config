@@ -22,6 +22,12 @@ from .const import (
 )
 
 
+LOGO_ATTRIBUTION_NOTICE = (
+    "Bambuddy name and icon are sourced from the upstream Bambuddy project by @maziggy. "
+    "Keep attribution with the asset and contact the author before reusing the branding outside this integration."
+)
+
+
 def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     values = defaults or {}
     return vol.Schema(
@@ -85,7 +91,12 @@ class BambuddyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(title="Bambuddy", data=user_input)
 
-        return self.async_show_form(step_id="user", data_schema=_schema(user_input), errors=errors)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_schema(user_input),
+            errors=errors,
+            description_placeholders={"logo_attribution": LOGO_ATTRIBUTION_NOTICE},
+        )
 
     @staticmethod
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
@@ -113,4 +124,9 @@ class BambuddyOptionsFlow(config_entries.OptionsFlow):
             else:
                 return self.async_create_entry(title="", data=user_input)
 
-        return self.async_show_form(step_id="init", data_schema=_schema(defaults), errors=errors)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_schema(defaults),
+            errors=errors,
+            description_placeholders={"logo_attribution": LOGO_ATTRIBUTION_NOTICE},
+        )
