@@ -57,9 +57,13 @@ card:
       return `
         ha-card {
           overflow: hidden !important;
+          min-height: 60px !important;
         }
+        .card-content.large,
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
+          min-height: 60px !important;
+          height: 60px !important;
           gap: 8px !important;
           justify-content: center !important;
           transition: none !important;
@@ -74,7 +78,7 @@ card:
           transform: none !important;
         }
         .bubble-sub-button-bottom-container {
-          top: calc((100% - 36px) / 2) !important;
+          top: 12px !important;
           bottom: auto !important;
           margin-bottom: 0 !important;
         }

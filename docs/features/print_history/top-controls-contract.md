@@ -46,7 +46,7 @@ If a control icon changes, the selector contract in `print_history_top_controls.
 
 The `Layout` control is a single icon-only dropdown bound to `input_select.print_history_card_variant` on both desktop and mobile.
 
-The Bubble Card bottom row must stay vertically centered within its host. Keep `.bubble-sub-button-bottom-container` centered with a fixed `top: calc((100% - 36px) / 2)` contract rather than relying on Bubble Card's default bottom-anchored positioning, otherwise layout selection can temporarily shift the visible row up and down.
+The Bubble Card control strip must use a stable 60px host height with the 36px button row pinned at `top: 12px`. Do not rely on Bubble Card's default bottom-anchored positioning or percentage-based centering here, otherwise layout selection can temporarily shrink the visible top padding during open/close.
 
 ## Mobile Contract
 
