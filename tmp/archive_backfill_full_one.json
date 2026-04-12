@@ -1,0 +1,19 @@
+{
+    "mode":  "Backfill",
+    "action":  "Full",
+    "manifest_path":  "C:\\dev\\hass-bambulab-config\\tmp\\archive_backfill_manifest.json",
+    "candidate_count":  1,
+    "existing_archive_count":  220,
+    "results":  [
+                    {
+                        "entry_id":  "B1FC0E50AF6F1F0B6C908341C071A7E081CB13AB4EAA7B72EF67882013CDEB91",
+                        "source_path":  "C:\\dev\\hass-bambulab-config\\bambuddy\\Backup SD Card - 2026-04-03\\cache\\0.08mm layer, 1 walls, 100% infill.3mf",
+                        "source_type":  "bambu_studio_exported_sliced_3mf",
+                        "confidence":  "medium",
+                        "status":  "uploaded_and_annotated",
+                        "reason":  "Archive created and annotated with historical import provenance.",
+                        "matched_archive_id":  null,
+                        "created_archive_id":  222
+                    }
+                ]
+}

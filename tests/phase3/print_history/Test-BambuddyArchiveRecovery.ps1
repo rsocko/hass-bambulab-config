@@ -60,7 +60,7 @@ function Get-ArchivePage {
         [hashtable]$Headers
     )
 
-    $uri = ('{0}/api/v1/archives?limit={1}&offset={2}' -f $Url.TrimEnd('/'), $Limit, $Offset)
+    $uri = ('{0}/api/v1/archives/?limit={1}&offset={2}' -f $Url.TrimEnd('/'), $Limit, $Offset)
     return Invoke-RestMethod -Method Get -Uri $uri -Headers $Headers
 }
 
@@ -75,7 +75,14 @@ function Get-AllArchives {
     $items = @()
 
     while ($true) {
-        $page = @(Get-ArchivePage -Url $Url -Limit $PageSize -Offset $offset -Headers $Headers)
+        $page = Get-ArchivePage -Url $Url -Limit $PageSize -Offset $offset -Headers $Headers
+        if ($null -eq $page) {
+            $page = @()
+        }
+        elseif ($page -isnot [System.Array]) {
+            $page = @($page)
+        }
+
         if ($page.Count -eq 0) {
             break
         }
@@ -221,7 +228,7 @@ function Assert-Required {
 function Get-ManifestCandidates {
     param([string]$Path)
 
-    $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 32
+    $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     if ($manifest -is [System.Collections.IEnumerable] -and -not ($manifest.PSObject.Properties.Name -contains 'candidates')) {
         return @($manifest)
     }
@@ -293,7 +300,13 @@ function Invoke-BackfillMode {
         $candidates = @($candidates | Where-Object { $_.entry_id -eq $EntryId -or $_.source_sha256 -eq $EntryId -or $_.source_path -eq $EntryId })
     }
 
-    $existingArchives = @(Get-AllArchives -Url $Url -Headers $Headers)
+    $existingArchives = Get-AllArchives -Url $Url -Headers $Headers
+    if ($null -eq $existingArchives) {
+        $existingArchives = @()
+    }
+    elseif ($existingArchives -isnot [System.Array]) {
+        $existingArchives = @($existingArchives)
+    }
     $results = @()
 
     foreach ($candidate in $candidates) {
