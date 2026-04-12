@@ -73,6 +73,11 @@ card:
           animation: none !important;
           transform: none !important;
         }
+        .bubble-sub-button-bottom-container {
+          top: calc((100% - 36px) / 2) !important;
+          bottom: auto !important;
+          margin-bottom: 0 !important;
+        }
         .bubble-sub-button {
           min-width: 0 !important;
         }
