@@ -632,10 +632,12 @@ def _apply_restore_actions(
     connection: sqlite3.Connection,
     archive_id: int,
     actions: list[RestoreFieldAction],
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     scalar_updates: dict[str, Any] = {}
     updated_fields: list[str] = []
     photo_uploads: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    uploaded_photo_count = 0
 
     for action in actions:
         if action.action not in {RestoreAction.COPY, RestoreAction.MERGE, RestoreAction.OVERRIDE}:
@@ -654,7 +656,12 @@ def _apply_restore_actions(
         )
 
     for photo in photo_uploads:
-        _upload_archive_photo(archive_id, photo)
+        try:
+            _upload_archive_photo(archive_id, photo)
+            uploaded_photo_count += 1
+        except Exception as exc:
+            photo_name = str(photo.get("photo_path") or "<unknown>").strip() or "<unknown>"
+            warnings.append(f"skipped source photo '{photo_name}' during restore: {exc}")
 
     if scalar_updates:
         assignments = ", ".join(f"{field} = ?" for field in scalar_updates)
@@ -663,10 +670,10 @@ def _apply_restore_actions(
         connection.execute(f"UPDATE print_archives SET {assignments} WHERE id = ?", values)
         updated_fields.extend(sorted(scalar_updates.keys()))
 
-    if photo_uploads:
+    if uploaded_photo_count:
         updated_fields.append("photos")
 
-    return updated_fields
+    return updated_fields, warnings
 
 
 def build_restore_field_actions(
@@ -920,8 +927,9 @@ def restore_archive_from_source(db_path: Path, request: RestoreFromRequest) -> R
                 updated_fields=[],
             )
 
-        updated_fields = _apply_restore_actions(connection, request.target_archive_id, actions)
+        updated_fields, apply_warnings = _apply_restore_actions(connection, request.target_archive_id, actions)
         connection.commit()
+        warnings.extend(apply_warnings)
         reenrich_triggered = False
         if request.run_reenrich:
             reenrich_triggered, reenrich_warning = _invoke_home_assistant_reenrich(request.target_archive_id)
