@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import sqlite3
+import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
@@ -102,6 +103,121 @@ def _hash_file(file_path: Path) -> str | None:
     return digest.hexdigest()
 
 
+def _hash_bytes(payload: bytes) -> str:
+    digest = hashlib.sha256()
+    digest.update(payload)
+    return digest.hexdigest()
+
+
+def _optional_bambuddy_api_base_url() -> str | None:
+    value = os.environ.get("BAMBUDDY_API_BASE_URL", "").strip().rstrip("/")
+    return value or None
+
+
+def _optional_bambuddy_api_key() -> str | None:
+    value = os.environ.get("BAMBUDDY_API_KEY", "").strip()
+    return value or None
+
+
+def _read_url_bytes(url: str, headers: Mapping[str, str] | None = None) -> bytes:
+    request = urllib.request.Request(
+        url=url,
+        method="GET",
+        headers=dict(headers or {}),
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return response.read()
+
+
+def _archive_photo_download_url(archive_id: int, photo_path: str) -> str | None:
+    base_url = _optional_bambuddy_api_base_url()
+    if not base_url:
+        return None
+    file_name = Path(photo_path).name.strip()
+    if not file_name:
+        return None
+    return f"{base_url}/api/v1/archives/{archive_id}/photos/{urllib.parse.quote(file_name)}"
+
+
+def _extract_archive_detail_photos(archive: Mapping[str, Any]) -> list[dict[str, str]]:
+    raw_photos = archive.get("photos")
+    if not isinstance(raw_photos, list):
+        return []
+
+    photos: list[dict[str, str]] = []
+    for item in raw_photos:
+        if isinstance(item, str):
+            path = item.strip()
+            role = ""
+        elif isinstance(item, Mapping):
+            path = str(item.get("path") or item.get("url") or item.get("photo_path") or "").strip()
+            role = str(item.get("role") or item.get("type") or "").strip()
+        else:
+            path = ""
+            role = ""
+
+        if path:
+            photos.append({"path": path, "role": role})
+
+    return photos
+
+
+def _fetch_archive_detail(archive_id: int) -> dict[str, Any] | None:
+    base_url = _optional_bambuddy_api_base_url()
+    api_key = _optional_bambuddy_api_key()
+    if not base_url or not api_key:
+        return None
+
+    payload = json.loads(
+        _read_url_bytes(
+            f"{base_url}/api/v1/archives/{archive_id}",
+            headers={"X-API-Key": api_key},
+        ).decode("utf-8")
+    )
+    if not isinstance(payload, dict):
+        raise ValueError(f"Archive detail response for {archive_id} was not a JSON object")
+    return payload
+
+
+def _load_api_archive_photos(
+    archive_id: int,
+    media_root: Path | None = None,
+) -> list[dict[str, Any]]:
+    archive_detail = _fetch_archive_detail(archive_id)
+    if archive_detail is None:
+        return []
+
+    photos: list[dict[str, Any]] = []
+    for photo_index, photo in enumerate(_extract_archive_detail_photos(archive_detail)):
+        photo_path = photo["path"]
+        photo_role = photo["role"]
+        entry: dict[str, Any] = {
+            "photo_index": photo_index,
+            "photo_path": photo_path,
+            "photo_role": photo_role,
+        }
+
+        if media_root is not None and ("/" in photo_path or "\\" in photo_path):
+            resolved_path = _resolve_media_path(media_root, photo_path)
+            entry["resolved_path"] = str(resolved_path)
+            entry["file_exists"] = resolved_path.is_file()
+            entry["file_hash"] = _hash_file(resolved_path)
+
+        download_url = _archive_photo_download_url(archive_id, photo_path)
+        if download_url:
+            entry["download_url"] = download_url
+            if not entry.get("file_hash"):
+                try:
+                    entry["file_hash"] = _hash_bytes(_read_url_bytes(download_url))
+                    entry["file_exists"] = True
+                except Exception:
+                    entry.setdefault("file_exists", False)
+
+        photos.append(entry)
+
+    return photos
+
+
 def _build_photo_entry(
     media_root: Path | None,
     photo_index: int,
@@ -163,7 +279,9 @@ def load_archive_snapshot(
 
     snapshot = {key: row[key] for key in row.keys()}
     snapshot["extra_data"] = _parse_extra_data(snapshot.get("extra_data"))
-    snapshot["photos"] = _load_archive_photos(connection, archive_id, media_root)
+    db_photos = _load_archive_photos(connection, archive_id, media_root)
+    api_photos = _load_api_archive_photos(archive_id, media_root) if not db_photos else []
+    snapshot["photos"] = merge_photos(db_photos, api_photos)
     if "is_favorite" in snapshot and snapshot["is_favorite"] is not None:
         snapshot["is_favorite"] = bool(snapshot["is_favorite"])
     return snapshot
@@ -195,6 +313,7 @@ def _normalize_value(path: str, value: Any) -> Any:
                 "file_hash": item.get("file_hash"),
                 "file_exists": bool(item.get("file_exists")),
                 "resolved_path": item.get("resolved_path"),
+                "download_url": item.get("download_url"),
             }
             for item in (value or [])
             if isinstance(item, Mapping) and str(item.get("photo_path") or "").strip()
@@ -296,32 +415,46 @@ def _photos_to_upload(source_value: Any, target_value: Any) -> list[dict[str, An
 
 
 def _bambuddy_api_base_url() -> str:
-    value = os.environ.get("BAMBUDDY_API_BASE_URL", "").strip().rstrip("/")
+    value = _optional_bambuddy_api_base_url()
     if not value:
         raise ValueError("BAMBUDDY_API_BASE_URL is required for photo migration")
     return value
 
 
 def _bambuddy_api_key() -> str:
-    value = os.environ.get("BAMBUDDY_API_KEY", "").strip()
+    value = _optional_bambuddy_api_key()
     if not value:
         raise ValueError("BAMBUDDY_API_KEY is required for photo migration")
     return value
 
 
-def _upload_archive_photo(target_archive_id: int, source_photo: Mapping[str, Any]) -> None:
+def _photo_file_name(source_photo: Mapping[str, Any]) -> str:
+    file_name = Path(str(source_photo.get("photo_path") or "").strip()).name
+    if file_name:
+        return file_name
+    raise ValueError("Photo file name could not be determined for upload")
+
+
+def _read_source_photo_bytes(source_photo: Mapping[str, Any]) -> bytes:
     resolved_path_value = str(source_photo.get("resolved_path") or "").strip()
-    if not resolved_path_value:
-        raise ValueError(f"Photo missing resolved_path for upload: {source_photo.get('photo_path')}")
+    if resolved_path_value:
+        source_path = Path(resolved_path_value)
+        if not source_path.is_file():
+            raise ValueError(f"Photo file not found for upload: {source_path}")
+        return source_path.read_bytes()
 
-    source_path = Path(resolved_path_value)
-    if not source_path.is_file():
-        raise ValueError(f"Photo file not found for upload: {source_path}")
+    download_url = str(source_photo.get("download_url") or "").strip()
+    if download_url:
+        return _read_url_bytes(download_url)
 
-    file_name = source_path.name
+    raise ValueError(f"Photo missing resolved_path/download_url for upload: {source_photo.get('photo_path')}")
+
+
+def _upload_archive_photo(target_archive_id: int, source_photo: Mapping[str, Any]) -> None:
+    file_name = _photo_file_name(source_photo)
     content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
     boundary = "----bambuddy-restore-" + uuid.uuid4().hex
-    file_bytes = source_path.read_bytes()
+    file_bytes = _read_source_photo_bytes(source_photo)
     body = (
         f"--{boundary}\r\n".encode()
         + f"Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n".encode()
@@ -342,7 +475,7 @@ def _upload_archive_photo(target_archive_id: int, source_photo: Mapping[str, Any
     with urllib.request.urlopen(request, timeout=60) as response:
         status = getattr(response, "status", 200)
         if not (200 <= status < 300):
-            raise ValueError(f"Photo upload failed with HTTP {status} for {source_path}")
+            raise ValueError(f"Photo upload failed with HTTP {status} for {file_name}")
 
 
 def _normalized_action_value(field: str, value: Any) -> Any:

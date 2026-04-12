@@ -205,9 +205,9 @@ Current status:
 Current restore behavior for photo attachments:
 
 - target parser-backed assets such as `file_path` and `thumbnail_path` stay on the recovered target archive
-- source archive photo attachments are discovered from `archive_photos` and uploaded to the target archive through Bambuddy's multipart photo API
+- source archive photo attachments are discovered from `archive_photos`, with Bambuddy `GET /archives/{id}` detail as the fallback when the DB photo table is empty or stale
 - existing target photo attachments are preserved; only source-only photos are uploaded
-- photo equivalence prefers on-disk content hash when files are present, then falls back to path and role
+- photo equivalence prefers content hash from local files or Bambuddy photo downloads, then falls back to path and role
 - photo migration requires a reachable Bambuddy API base URL and API key in the sidecar environment
 
 PowerShell helpers:

@@ -320,6 +320,59 @@ def test_restore_archive_from_source_reports_skip_equal_for_already_matched_fiel
     assert actions["is_favorite"].action == "skip_equal"
 
 
+def test_restore_archive_from_source_uses_archive_detail_photos_when_db_rows_are_missing(tmp_path: Path) -> None:
+    db_path = _create_test_db(tmp_path)
+
+    original_base_url = repair_module.os.environ.get("BAMBUDDY_API_BASE_URL")
+    repair_module.os.environ["BAMBUDDY_API_BASE_URL"] = "http://bambuddy.socko.us"
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (191,))
+        connection.commit()
+    finally:
+        connection.close()
+
+    original_fetch_archive_detail = repair_module._fetch_archive_detail
+    original_read_url_bytes = repair_module._read_url_bytes
+
+    def fake_fetch_archive_detail(archive_id: int) -> dict[str, Any] | None:
+        if archive_id == 191:
+            return {"photos": ["d5f892ff.jpg"]}
+        if archive_id == 200:
+            return {"photos": []}
+        return None
+
+    def fake_read_url_bytes(url: str, headers: dict[str, str] | None = None) -> bytes:
+        if url.endswith("/api/v1/archives/191/photos/d5f892ff.jpg"):
+            return b"source-fallback-photo"
+        raise AssertionError(f"Unexpected URL fetch in test: {url}")
+
+    repair_module._fetch_archive_detail = fake_fetch_archive_detail
+    repair_module._read_url_bytes = fake_read_url_bytes
+
+    try:
+        response = restore_archive_from_source(
+            db_path,
+            RestoreFromRequest(source_archive_id=191, target_archive_id=200, dry_run=True),
+        )
+    finally:
+        if original_base_url is None:
+            repair_module.os.environ.pop("BAMBUDDY_API_BASE_URL", None)
+        else:
+            repair_module.os.environ["BAMBUDDY_API_BASE_URL"] = original_base_url
+        repair_module._fetch_archive_detail = original_fetch_archive_detail
+        repair_module._read_url_bytes = original_read_url_bytes
+
+    actions = {action.field: action for action in response.field_actions}
+
+    assert actions["photos"].action == "merge"
+    assert len(actions["photos"].source_value) == 1
+    assert actions["photos"].source_value[0]["photo_path"] == "d5f892ff.jpg"
+    assert actions["photos"].source_value[0]["download_url"].endswith("/api/v1/archives/191/photos/d5f892ff.jpg")
+    assert actions["photos"].source_value[0]["file_hash"]
+
+
 def test_restore_verify_after_merge_reports_remaining_differences_and_blocks_delete(tmp_path: Path) -> None:
     db_path = _create_test_db(tmp_path)
 
