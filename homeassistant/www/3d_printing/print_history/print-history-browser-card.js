@@ -447,7 +447,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       userTags: this._userTags(archive.tags),
       failureReason: archive.failure_reason ? String(archive.failure_reason) : "",
       thumbnailUrl: function (baseUrl) {
-        return baseUrl && archive.id != null ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail" : "";
+        return baseUrl && archive.id != null && String(archive.thumbnail_path || "").trim()
+          ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
+          : "";
       },
     };
   }

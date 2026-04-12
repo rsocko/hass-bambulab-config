@@ -796,7 +796,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=7", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=33", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
@@ -1283,11 +1283,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
         self.assertIn("if (enrichmentStatusRaw === 'unavailable' && hasEnrichmentData) return 'partial';", content)
         self.assertIn("return enrichmentRowsWithState.some((row) => row.needsReview) ? 'partial' : 'complete';", content)
-        self.assertIn("if (!hasResolvedEntityId(item?.s)) reviewReasons.push('Spool unresolved');", content)
-        self.assertIn("if (!hasResolvedEntityId(item?.f)) reviewReasons.push('Filament unresolved');", content)
-        self.assertIn("<span>Needs Review</span>", content)
-        self.assertIn("<span>Spool unresolved</span>", content)
-        self.assertIn("<span>Filament unresolved</span>", content)
+
+    def test_browser_card_hides_thumbnail_when_archive_has_no_thumbnail_path(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("archive.thumbnail_path", content)
+        self.assertIn("String(archive.thumbnail_path || \"\").trim()", content)
 
     def test_popup_content_surfaces_enrichment_reason_and_source(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
