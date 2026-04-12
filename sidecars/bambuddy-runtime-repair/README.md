@@ -51,6 +51,8 @@ Default workflow registry:
 
 - `BAMBUDDY_DB_PATH`
 - `REPAIR_API_TOKEN`
+- `BAMBUDDY_API_BASE_URL` when using restore photo migration
+- `BAMBUDDY_API_KEY` when using restore photo migration
 - optional `LOG_LEVEL`
 
 Typical values:
@@ -58,6 +60,8 @@ Typical values:
 ```text
 BAMBUDDY_DB_PATH=/data/bambuddy.db
 REPAIR_API_TOKEN=<long-random-token>
+BAMBUDDY_API_BASE_URL=http://bambuddy:8902
+BAMBUDDY_API_KEY=<bambuddy-api-key>
 LOG_LEVEL=INFO
 ```
 
@@ -74,6 +78,8 @@ Example with the other sidecar settings if you also externalize them:
 ```text
 REPAIR_API_TOKEN=replace-with-a-long-random-secret
 BAMBUDDY_DB_PATH=/data/bambuddy.db
+BAMBUDDY_API_BASE_URL=http://bambuddy:8902
+BAMBUDDY_API_KEY=replace-with-a-bambuddy-api-key
 LOG_LEVEL=INFO
 ```
 
@@ -85,6 +91,8 @@ docker run -d \
   --network bambuddy_net \
   -e BAMBUDDY_DB_PATH=/data/bambuddy.db \
   -e REPAIR_API_TOKEN=replace-me \
+  -e BAMBUDDY_API_BASE_URL=http://bambuddy:8902 \
+  -e BAMBUDDY_API_KEY=replace-me \
   -v bambuddy_data:/data \
   -p 127.0.0.1:8818:8080 \
   registry.socko.us/bambuddy-runtime-repair:0.1.0
@@ -191,8 +199,16 @@ Current status:
 - response models are defined
 - merge-planning logic lives in `app/repair.py`
 - DB-backed `dry_run` planning is implemented
-- non-dry-run apply mode is implemented for actionable top-level restore fields
+- non-dry-run apply mode is implemented for actionable top-level restore fields and Bambuddy photo API uploads for source archive photos
 - post-merge verification is implemented and can optionally remove the original archive when no actionable differences remain
+
+Current restore behavior for photo attachments:
+
+- target parser-backed assets such as `file_path` and `thumbnail_path` stay on the recovered target archive
+- source archive photo attachments are discovered from `archive_photos` and uploaded to the target archive through Bambuddy's multipart photo API
+- existing target photo attachments are preserved; only source-only photos are uploaded
+- photo equivalence prefers on-disk content hash when files are present, then falls back to path and role
+- photo migration requires a reachable Bambuddy API base URL and API key in the sidecar environment
 
 PowerShell helpers:
 

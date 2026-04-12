@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import json
+import mimetypes
+import os
 import sqlite3
+import urllib.request
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -39,6 +44,7 @@ FIELD_RULES: tuple[FieldRule, ...] = (
     FieldRule("quantity", FieldGroup.USER_METADATA, "copy_source"),
     FieldRule("external_url", FieldGroup.USER_METADATA, "copy_source"),
     FieldRule("tags", FieldGroup.USER_METADATA, "merge_tags"),
+    FieldRule("photos", FieldGroup.ASSET_STATE, "merge_photos"),
     FieldRule("notes", FieldGroup.LINEAGE, "merge_notes"),
     FieldRule("file_path", "parser_target", "keep_target"),
     FieldRule("file_size", "parser_target", "keep_target"),
@@ -72,13 +78,92 @@ def _parse_extra_data(value: Any) -> Any:
     return value
 
 
-def load_archive_snapshot(connection: sqlite3.Connection, archive_id: int) -> dict[str, Any]:
+def _media_root_from_db_path(db_path: Path) -> Path:
+    return db_path.parent
+
+
+def _resolve_media_path(media_root: Path, stored_path: str) -> Path:
+    candidate = (media_root / stored_path).resolve()
+    try:
+        candidate.relative_to(media_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"Media path escapes configured media root: {stored_path}") from exc
+    return candidate
+
+
+def _hash_file(file_path: Path) -> str | None:
+    if not file_path.is_file():
+        return None
+
+    digest = hashlib.sha256()
+    with file_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _build_photo_entry(
+    media_root: Path | None,
+    photo_index: int,
+    photo_path: str,
+    photo_role: str,
+) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "photo_index": photo_index,
+        "photo_path": photo_path,
+        "photo_role": photo_role,
+    }
+
+    if media_root is None:
+        return entry
+
+    resolved_path = _resolve_media_path(media_root, photo_path)
+    entry["resolved_path"] = str(resolved_path)
+    entry["file_exists"] = resolved_path.is_file()
+    entry["file_hash"] = _hash_file(resolved_path)
+    return entry
+
+
+def _load_archive_photos(
+    connection: sqlite3.Connection,
+    archive_id: int,
+    media_root: Path | None = None,
+) -> list[dict[str, Any]]:
+    table_exists = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'archive_photos'"
+    ).fetchone()
+    if table_exists is None:
+        return []
+
+    rows = connection.execute(
+        """
+        SELECT photo_index, photo_path, photo_role
+        FROM archive_photos
+        WHERE archive_id = ?
+        ORDER BY photo_index ASC
+        """,
+        (archive_id,),
+    ).fetchall()
+
+    return [
+        _build_photo_entry(media_root, row["photo_index"], row["photo_path"], row["photo_role"] or "")
+        for row in rows
+        if row["photo_path"]
+    ]
+
+
+def load_archive_snapshot(
+    connection: sqlite3.Connection,
+    archive_id: int,
+    media_root: Path | None = None,
+) -> dict[str, Any]:
     row = connection.execute("SELECT * FROM print_archives WHERE id = ?", (archive_id,)).fetchone()
     if row is None:
         raise ValueError(f"Archive ID {archive_id} not found")
 
     snapshot = {key: row[key] for key in row.keys()}
     snapshot["extra_data"] = _parse_extra_data(snapshot.get("extra_data"))
+    snapshot["photos"] = _load_archive_photos(connection, archive_id, media_root)
     if "is_favorite" in snapshot and snapshot["is_favorite"] is not None:
         snapshot["is_favorite"] = bool(snapshot["is_favorite"])
     return snapshot
@@ -102,6 +187,18 @@ def _normalize_value(path: str, value: Any) -> Any:
         if value is None:
             return []
         return sorted({token.strip().lower() for token in str(value).split(",") if token.strip()})
+    if path == "photos":
+        return [
+            {
+                "photo_path": str(item.get("photo_path") or "").strip(),
+                "photo_role": str(item.get("photo_role") or "").strip(),
+                "file_hash": item.get("file_hash"),
+                "file_exists": bool(item.get("file_exists")),
+                "resolved_path": item.get("resolved_path"),
+            }
+            for item in (value or [])
+            if isinstance(item, Mapping) and str(item.get("photo_path") or "").strip()
+        ]
     if isinstance(value, str):
         return value.strip()
     return value
@@ -168,6 +265,86 @@ def merge_notes(source_value: Any, target_value: Any) -> str | None:
     return "\n\n".join(merged_segments) if merged_segments else None
 
 
+def merge_photos(source_value: Any, target_value: Any) -> list[dict[str, Any]]:
+    source_photos = _normalize_value("photos", source_value)
+    target_photos = _normalize_value("photos", target_value)
+
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in target_photos + source_photos:
+        key = _photo_signature(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged
+
+
+def _photo_signature(photo: Mapping[str, Any]) -> tuple[str, str]:
+    file_hash = str(photo.get("file_hash") or "").strip().lower()
+    role = str(photo.get("photo_role") or "").strip().lower()
+    if file_hash:
+        return (f"hash:{file_hash}", role)
+    return (f"path:{str(photo.get('photo_path') or '').strip().lower()}", role)
+
+
+def _photos_to_upload(source_value: Any, target_value: Any) -> list[dict[str, Any]]:
+    source_photos = _normalize_value("photos", source_value)
+    target_photos = _normalize_value("photos", target_value)
+    target_signatures = {_photo_signature(photo) for photo in target_photos}
+    return [photo for photo in source_photos if _photo_signature(photo) not in target_signatures]
+
+
+def _bambuddy_api_base_url() -> str:
+    value = os.environ.get("BAMBUDDY_API_BASE_URL", "").strip().rstrip("/")
+    if not value:
+        raise ValueError("BAMBUDDY_API_BASE_URL is required for photo migration")
+    return value
+
+
+def _bambuddy_api_key() -> str:
+    value = os.environ.get("BAMBUDDY_API_KEY", "").strip()
+    if not value:
+        raise ValueError("BAMBUDDY_API_KEY is required for photo migration")
+    return value
+
+
+def _upload_archive_photo(target_archive_id: int, source_photo: Mapping[str, Any]) -> None:
+    resolved_path_value = str(source_photo.get("resolved_path") or "").strip()
+    if not resolved_path_value:
+        raise ValueError(f"Photo missing resolved_path for upload: {source_photo.get('photo_path')}")
+
+    source_path = Path(resolved_path_value)
+    if not source_path.is_file():
+        raise ValueError(f"Photo file not found for upload: {source_path}")
+
+    file_name = source_path.name
+    content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+    boundary = "----bambuddy-restore-" + uuid.uuid4().hex
+    file_bytes = source_path.read_bytes()
+    body = (
+        f"--{boundary}\r\n".encode()
+        + f"Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n".encode()
+        + f"Content-Type: {content_type}\r\n\r\n".encode()
+        + file_bytes
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+    request = urllib.request.Request(
+        url=f"{_bambuddy_api_base_url()}/api/v1/archives/{target_archive_id}/photos",
+        data=body,
+        method="POST",
+        headers={
+            "X-API-Key": _bambuddy_api_key(),
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Content-Length": str(len(body)),
+        },
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        status = getattr(response, "status", 200)
+        if not (200 <= status < 300):
+            raise ValueError(f"Photo upload failed with HTTP {status} for {source_path}")
+
+
 def _normalized_action_value(field: str, value: Any) -> Any:
     return _normalize_value(field, value)
 
@@ -232,15 +409,22 @@ def _apply_restore_actions(
 ) -> list[str]:
     scalar_updates: dict[str, Any] = {}
     updated_fields: list[str] = []
+    photo_uploads: list[dict[str, Any]] = []
 
     for action in actions:
         if action.action not in {RestoreAction.COPY, RestoreAction.MERGE, RestoreAction.OVERRIDE}:
             continue
         if action.target_before == action.target_after:
             continue
+        if action.field == "photos":
+            photo_uploads = _photos_to_upload(action.source_value, action.target_before)
+            continue
         if "." in action.field:
             continue
         scalar_updates[action.field] = action.target_after
+
+    for photo in photo_uploads:
+        _upload_archive_photo(archive_id, photo)
 
     if scalar_updates:
         assignments = ", ".join(f"{field} = ?" for field in scalar_updates)
@@ -248,6 +432,9 @@ def _apply_restore_actions(
         values.append(archive_id)
         connection.execute(f"UPDATE print_archives SET {assignments} WHERE id = ?", values)
         updated_fields.extend(sorted(scalar_updates.keys()))
+
+    if photo_uploads:
+        updated_fields.append("photos")
 
     return updated_fields
 
@@ -401,6 +588,21 @@ def build_restore_field_actions(
             )
             continue
 
+        if rule.policy == "merge_photos":
+            merged_photo_list = merge_photos(source_value, target_value)
+            actions.append(
+                RestoreFieldAction(
+                    field=rule.path,
+                    group=str(rule.group),
+                    action=RestoreAction.MERGE,
+                    source_value=source_value,
+                    target_before=target_value,
+                    target_after=merged_photo_list,
+                    reason=RestoreReason.MERGED_PHOTOS_POLICY,
+                )
+            )
+            continue
+
         actions.append(
             RestoreFieldAction(
                 field=rule.path,
@@ -450,8 +652,9 @@ def restore_archive_from_source(db_path: Path, request: RestoreFromRequest) -> R
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
     try:
-        source_archive = load_archive_snapshot(connection, request.source_archive_id)
-        target_archive = load_archive_snapshot(connection, request.target_archive_id)
+        media_root = _media_root_from_db_path(db_path)
+        source_archive = load_archive_snapshot(connection, request.source_archive_id, media_root)
+        target_archive = load_archive_snapshot(connection, request.target_archive_id, media_root)
         actions = build_restore_field_actions(source_archive, target_archive, request)
         warnings = _warnings_for_restore(source_archive, target_archive, request)
 
@@ -500,8 +703,9 @@ def restore_verify_after_merge(db_path: Path, request: RestoreVerifyRequest) -> 
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
     try:
-        source_archive = load_archive_snapshot(connection, request.source_archive_id)
-        target_archive = load_archive_snapshot(connection, request.target_archive_id)
+        media_root = _media_root_from_db_path(db_path)
+        source_archive = load_archive_snapshot(connection, request.source_archive_id, media_root)
+        target_archive = load_archive_snapshot(connection, request.target_archive_id, media_root)
         warnings = _warnings_for_restore(source_archive, target_archive, verification_request)
         actions = build_restore_field_actions(source_archive, target_archive, verification_request)
         remaining_differences = [action for action in actions if _is_actionable_remaining_difference(action)]

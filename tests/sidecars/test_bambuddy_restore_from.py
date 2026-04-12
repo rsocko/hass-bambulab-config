@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 
@@ -15,6 +16,7 @@ if str(REPO_ROOT / "sidecars" / "bambuddy-runtime-repair") not in sys.path:
 
 
 from app import main as sidecar_main  # noqa: E402
+from app import repair as repair_module  # noqa: E402
 from app.models import RestoreFromRequest, RestoreVerifyRequest  # noqa: E402
 from app.repair import merge_notes, merge_tags, restore_archive_from_source, restore_verify_after_merge  # noqa: E402
 
@@ -53,12 +55,28 @@ CREATE TABLE print_archives (
 )
 """
 
+CREATE_ARCHIVE_PHOTOS_SQL = """
+CREATE TABLE archive_photos (
+    archive_id INTEGER NOT NULL,
+    photo_index INTEGER NOT NULL,
+    photo_path TEXT NOT NULL,
+    photo_role TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (archive_id, photo_index)
+)
+"""
+
 
 def _create_test_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "bambuddy.db"
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(CREATE_PRINT_ARCHIVES_SQL)
+        connection.execute(CREATE_ARCHIVE_PHOTOS_SQL)
+        (tmp_path / "archive" / "1" / "20260402_163722_fallback").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "archive" / "1" / "20260402_163722_fallback" / "photo-finish.jpg").write_bytes(b"source-finish")
+        (tmp_path / "archive" / "1" / "20260402_163722_fallback" / "photo-error.jpg").write_bytes(b"source-error")
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-finish.jpg").write_bytes(b"target-finish")
         connection.execute(
             """
             INSERT INTO print_archives (
@@ -147,6 +165,14 @@ def _create_test_db(tmp_path: Path) -> Path:
                 '{"print_time_seconds": 22671, "designer": "Canadian Gamer"}',
             ),
         )
+        connection.executemany(
+            "INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role) VALUES (?, ?, ?, ?)",
+            [
+                (191, 0, "archive/1/20260402_163722_fallback/photo-finish.jpg", "finish"),
+                (191, 1, "archive/1/20260402_163722_fallback/photo-error.jpg", "error"),
+                (200, 0, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-finish.jpg", "finish"),
+            ],
+        )
         connection.commit()
     finally:
         connection.close()
@@ -215,22 +241,43 @@ def test_restore_archive_from_source_builds_db_backed_dry_run_plan(tmp_path: Pat
     assert "Hueforge" in (actions["tags"].target_after or "")
     assert "exception:missing_3mf" not in (actions["tags"].target_after or "")
 
+    assert actions["photos"].action == "merge"
+    assert len(actions["photos"].target_after) == 3
+    assert any(photo["photo_path"].endswith("photo-error.jpg") for photo in actions["photos"].target_after)
+
     assert actions["extra_data.no_3mf_available"].action == "skip_disallowed"
 
 
 def test_restore_archive_from_source_apply_updates_target_fields(tmp_path: Path) -> None:
     db_path = _create_test_db(tmp_path)
 
-    response = restore_archive_from_source(
-        db_path,
-        RestoreFromRequest(source_archive_id=191, target_archive_id=200, dry_run=False),
-    )
+    uploaded: list[tuple[int, str]] = []
+
+    original_upload = repair_module._upload_archive_photo
+
+    def fake_upload(target_archive_id: int, source_photo: dict[str, Any]) -> None:
+        uploaded.append((target_archive_id, str(source_photo["photo_path"])))
+
+    repair_module._upload_archive_photo = fake_upload
+
+    try:
+        response = restore_archive_from_source(
+            db_path,
+            RestoreFromRequest(source_archive_id=191, target_archive_id=200, dry_run=False),
+        )
+    finally:
+        repair_module._upload_archive_photo = original_upload
 
     assert response.applied is True
     assert response.updated is True
     assert "started_at" in response.updated_fields
+    assert "photos" in response.updated_fields
     assert "status" in response.updated_fields
     assert "tags" in response.updated_fields
+    assert uploaded == [
+        (200, "archive/1/20260402_163722_fallback/photo-finish.jpg"),
+        (200, "archive/1/20260402_163722_fallback/photo-error.jpg"),
+    ]
 
     connection = sqlite3.connect(db_path)
     try:
@@ -244,6 +291,12 @@ def test_restore_archive_from_source_apply_updates_target_fields(tmp_path: Path)
         assert row[3] == "completed"
         assert row[4] == 1
         assert "Hueforge" in row[5]
+
+        photo_rows = connection.execute(
+            "SELECT photo_index, photo_path, photo_role FROM archive_photos WHERE archive_id = 200 ORDER BY photo_index"
+        ).fetchall()
+        assert len(photo_rows) == 1
+        assert photo_rows[0][1].endswith("photo-finish.jpg")
     finally:
         connection.close()
 
@@ -312,6 +365,17 @@ def test_restore_verify_after_merge_can_remove_source_when_no_actionable_differe
                 200,
             ),
         )
+        connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (200,))
+        connection.executemany(
+            "INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role) VALUES (?, ?, ?, ?)",
+            [
+                (200, 0, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-finish.jpg", "finish"),
+                (200, 1, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-source-finish-copy.jpg", "finish"),
+                (200, 2, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-error-copy.jpg", "error"),
+            ],
+        )
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-source-finish-copy.jpg").write_bytes(b"source-finish")
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-error-copy.jpg").write_bytes(b"source-error")
         connection.commit()
     finally:
         connection.close()
@@ -379,6 +443,15 @@ def test_restore_from_endpoint_applies_and_returns_updated_fields(tmp_path: Path
     db_path = _create_test_db(tmp_path)
     monkeypatch.setenv("REPAIR_API_TOKEN", "test-token")
     monkeypatch.setenv("BAMBUDDY_DB_PATH", str(db_path))
+    monkeypatch.setenv("BAMBUDDY_API_BASE_URL", "http://example.invalid")
+    monkeypatch.setenv("BAMBUDDY_API_KEY", "api-key")
+
+    uploaded: list[tuple[int, str]] = []
+
+    def fake_upload(target_archive_id: int, source_photo: dict[str, Any]) -> None:
+        uploaded.append((target_archive_id, str(source_photo["photo_path"])))
+
+    monkeypatch.setattr(repair_module, "_upload_archive_photo", fake_upload)
 
     client = TestClient(sidecar_main.app)
     response = client.post(
@@ -396,3 +469,5 @@ def test_restore_from_endpoint_applies_and_returns_updated_fields(tmp_path: Path
     assert body["applied"] is True
     assert body["updated"] is True
     assert "started_at" in body["updated_fields"]
+    assert "photos" in body["updated_fields"]
+    assert len(uploaded) == 2

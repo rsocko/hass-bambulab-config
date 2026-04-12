@@ -77,7 +77,7 @@ Unless a field explicitly says otherwise:
 | `duplicate_count` | target_identity | `disallowed` | system | keep target | System-maintained relationship data |
 | `duplicate_sequence` | target_identity | `disallowed` | system | keep target | System-maintained relationship data |
 | `original_archive_id` | lineage | `keep_target` | target | keep target | Preserve existing target lineage semantics |
-| `photos` | asset_state | `disallowed` | separate workflow | keep target | Photo migration should be an explicit future feature |
+| `photos` | asset_state | `merge_photos` | merged | preserve target | Preserve target photos and upload only source-only photos to the target archive via Bambuddy API |
 | `energy_kwh` | user_metadata | `copy_source` | source | keep target | Copy only if source has meaningful historical value |
 | `energy_cost` | user_metadata | `copy_source` | source | keep target | Copy only if source has meaningful historical value |
 | `created_by_id` | audit_identity | `keep_target` | target | keep target | Preserve actual creator of recovered record unless explicit override is ever required |

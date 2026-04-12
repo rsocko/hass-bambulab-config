@@ -11,6 +11,7 @@ class FieldGroup(StrEnum):
     USER_METADATA = "user_metadata"
     LINEAGE = "lineage"
     SNAPSHOT_SUBSET = "snapshot_subset"
+    ASSET_STATE = "asset_state"
 
 
 class TagMergeMode(StrEnum):
@@ -50,6 +51,7 @@ class RestoreReason(StrEnum):
     TRANSIENT_SNAPSHOT_NOT_SUPPORTED = "transient_snapshot_not_supported"
     MERGED_TAG_POLICY = "merged_tag_policy"
     MERGED_NOTES_POLICY = "merged_notes_policy"
+    MERGED_PHOTOS_POLICY = "merged_photos_policy"
     EXPLICIT_OVERRIDE = "explicit_override"
     POLICY_NOT_YET_IMPLEMENTED = "policy_not_yet_implemented"
 
@@ -99,6 +101,7 @@ class RestoreFromRequest(BaseModel):
             FieldGroup.RUNTIME,
             FieldGroup.USER_METADATA,
             FieldGroup.LINEAGE,
+            FieldGroup.ASSET_STATE,
         ]
     )
     tag_merge_mode: TagMergeMode = TagMergeMode.MERGE_PRESERVE_TARGET
@@ -168,6 +171,7 @@ class RestoreVerifyRequest(BaseModel):
             FieldGroup.RUNTIME,
             FieldGroup.USER_METADATA,
             FieldGroup.LINEAGE,
+            FieldGroup.ASSET_STATE,
         ]
     )
     tag_merge_mode: TagMergeMode = TagMergeMode.MERGE_PRESERVE_TARGET

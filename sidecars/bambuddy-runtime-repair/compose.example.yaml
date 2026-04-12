@@ -5,6 +5,8 @@ services:
     environment:
       BAMBUDDY_DB_PATH: /data/bambuddy.db
       REPAIR_API_TOKEN: ${REPAIR_API_TOKEN}
+      BAMBUDDY_API_BASE_URL: ${BAMBUDDY_API_BASE_URL}
+      BAMBUDDY_API_KEY: ${BAMBUDDY_API_KEY}
       LOG_LEVEL: INFO
     volumes:
       - bambuddy_data:/data
