@@ -171,7 +171,7 @@ card:
             tap_to_slide: true
             fill_width: false
           - entity: input_select.print_history_card_variant
-            sub_button_type: select
+            sub_button_type: default
             name: Layout
             icon: >-
               ${(() => {
@@ -183,12 +183,12 @@ card:
                 })[variant] || 'mdi:view-dashboard-outline';
               })()}
             show_icon: true
-            # Bubble Card needs name/state rendered for the select control to remain visible.
-            # CSS above hides them so the control stays icon-only on both desktop and mobile.
-            show_name: true
-            show_state: true
+            show_name: false
+            show_state: false
             show_background: true
             fill_width: false
+            tap_action:
+              action: more-info
           - entity: input_boolean.print_history_show_images
             sub_button_type: default
             name: Images
