@@ -46,11 +46,14 @@ curl -X POST http://127.0.0.1:8818/admin/archive-restore-from \
 ### PowerShell helper
 
 ```powershell
-pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 \
-  -BaseUrl http://127.0.0.1:8818 \
-  -Token replace-me \
-  -SourceArchiveId 191 \
-  -TargetArchiveId 200
+$restoreArgs = @{
+  BaseUrl = 'http://127.0.0.1:8818'
+  Token = 'replace-me'
+  SourceArchiveId = 191
+  TargetArchiveId = 200
+}
+
+pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 ### What to review
@@ -91,12 +94,15 @@ curl -X POST http://127.0.0.1:8818/admin/archive-restore-from \
 ### PowerShell helper
 
 ```powershell
-pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 \
-  -BaseUrl http://127.0.0.1:8818 \
-  -Token replace-me \
-  -SourceArchiveId 191 \
-  -TargetArchiveId 200 \
-  -Apply
+$restoreArgs = @{
+  BaseUrl = 'http://127.0.0.1:8818'
+  Token = 'replace-me'
+  SourceArchiveId = 191
+  TargetArchiveId = 200
+  Apply = $true
+}
+
+pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 ### What to review
@@ -134,12 +140,15 @@ curl -X POST http://127.0.0.1:8818/admin/archive-restore-verify \
 ### PowerShell helper
 
 ```powershell
-pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 \
-  -BaseUrl http://127.0.0.1:8818 \
-  -Token replace-me \
-  -SourceArchiveId 191 \
-  -TargetArchiveId 200 \
-  -Verify
+$restoreArgs = @{
+  BaseUrl = 'http://127.0.0.1:8818'
+  Token = 'replace-me'
+  SourceArchiveId = 191
+  TargetArchiveId = 200
+  Verify = $true
+}
+
+pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 ### What to review
@@ -180,14 +189,17 @@ curl -X POST http://127.0.0.1:8818/admin/archive-restore-verify \
 ### PowerShell helper
 
 ```powershell
-pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 \
-  -BaseUrl http://127.0.0.1:8818 \
-  -Token replace-me \
-  -SourceArchiveId 191 \
-  -TargetArchiveId 200 \
-  -Verify \
-  -RemoveOriginal \
-  -Apply
+$restoreArgs = @{
+  BaseUrl = 'http://127.0.0.1:8818'
+  Token = 'replace-me'
+  SourceArchiveId = 191
+  TargetArchiveId = 200
+  Verify = $true
+  RemoveOriginal = $true
+  Apply = $true
+}
+
+pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 @restoreArgs
 ```
 
 ### What to review

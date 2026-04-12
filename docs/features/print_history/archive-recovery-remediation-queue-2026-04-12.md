@@ -50,10 +50,10 @@ Important nuance:
 | `105` | `Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill` | `Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf` | `cancelled` | Yes | Medium | Same source file as `106`. Decide whether cancelled archives should be recovered at all. |
 | `106` | `Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill` | `Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf` | `completed` | Yes | High | Strong exact filename match. Better recovery target than `105`. |
 | `108` | `Laney Rivers 2026_Front_133x200` | `Laney Rivers 2026_Front_133x200.3mf` | `completed` | Yes | High | Strong exact filename match. Good pairwise recovery candidate. |
-| `174` | `200mm x 200mm Deadpool & Wolverine Hueforge` | `200mm x 200mm Deadpool & Wolverine Hueforge.3mf` | `completed` | Yes | Medium | Exact source file exists, but prior analysis shows collision with archive `181`. Recover only with explicit operator approval. |
-| `206` | `Batman B&W Hueforge` | `0.08mm layer, 2 walls, 100% infill.3mf` | `failed` | Yes | Low | Generic profile filename, no obvious Batman-specific cache file. Not safe for automatic recovery. |
-| `207` | `Batman B&W Hueforge` | `0.08mm layer, 2 walls, 100% infill.3mf` | `failed` | Yes | Low | Same ambiguity as `206`. |
-| `208` | `Batman B&W Hueforge` | `0.08mm layer, 2 walls, 100% infill.3mf` | `completed` | Yes | Low | Same ambiguity as `206` and `207`. |
+| `174` | `200mm x 200mm Deadpool & Wolverine Hueforge` | `200mm x 200mm Deadpool & Wolverine Hueforge.3mf` | `completed` | Yes | Medium-High | Original cache candidate collided with archive `181`, but exported sliced file `Deadpool___Wolverine_Deadpool.gcode.3mf` provided a distinct recoverable source. |
+| `206` | `Batman B&W Hueforge` | `0.08mm layer, 2 walls, 100% infill.3mf` | `failed` | Yes | Medium | Exported sliced file `bat4 - 200x200.gcode.3mf` now exists and appears to be the shared Batman source, but this row is still a failed attempt. |
+| `207` | `Batman B&W Hueforge` | `0.08mm layer, 2 walls, 100% infill.3mf` | `failed` | Yes | Medium | Same shared exported sliced candidate as `206`, but this row is still a failed attempt. |
+| `208` | `Batman B&W Hueforge` | `0.08mm layer, 2 walls, 100% infill.3mf` | `completed` | Yes | Medium-High | Exported sliced file `bat4 - 200x200.gcode.3mf` appears to be a Batman-specific shared source and `208` is the highest-value completed row in that cluster. |
 
 ## SD-Card Source Matches
 
@@ -72,7 +72,7 @@ Additional name-based sweep results:
 - `2 AMS` has a clear exact match in cache
 - `Deadpool` has a clear exact match in cache plus related `.bbl` sidecars
 - `Spiderman` has named cache files, but archive `34` points to a generic profile filename instead of the stronger model-named file
-- `Batman` does not have an obvious Batman-specific cache `.3mf` in the backup folder
+- `Batman` does not have an obvious Batman-specific cache `.3mf` in the original backup cache, but an exported sliced file `bat4 - 200x200.gcode.3mf` is now available and embeds Batman-specific metadata
 
 ## Recommended Remediation Queue
 
@@ -90,7 +90,6 @@ These are the best next one-at-a-time candidates.
 
 | Archive ID | Source path | Why review is needed |
 | --- | --- | --- |
-| `174` | `bambuddy/Backup SD Card - 2026-04-03/cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf` | Prior analysis already classified this as medium confidence because the cache file also aligns with live archive `181` |
 | `34` | `bambuddy/Backup SD Card - 2026-04-03/cache/Adaptive Layers .  100% Infill.3mf` | Exact file exists, but print name and filename mismatch make it weaker than Tier 1 candidates |
 
 ### Tier 3: Manual Review Only
@@ -108,8 +107,8 @@ These are the best next one-at-a-time candidates.
 ### Phase 1: Triage And Approval
 
 1. Work Tier 1 candidates first: `19`, `106`, `108`.
-2. Defer `174` and `34` until Tier 1 is complete.
-3. Do not bulk-import the generic-profile candidates (`66`, `105`, `206`, `207`, `208`) without stronger evidence.
+2. Defer `34` until Tier 1 is complete.
+3. Do not bulk-import the remaining generic-profile candidates (`66`, `105`) without stronger evidence.
 
 ### Phase 2: Pairwise Recovery Execution
 
@@ -140,21 +139,36 @@ Current operator run status on 2026-04-12:
 | `19` | restore applied and verified | `225` | pairwise recovery succeeded; verify reports `verified = true` and `remaining_difference_count = 0` | original archive `19` not removed because target enrichment is still missing and normal removal is therefore blocked |
 | `106` | restore applied and verified with photo-skip scope | `226` | upload and restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0` | original archive `106` not removed because target enrichment is still missing and normal removal is therefore blocked |
 | `108` | restore applied and verified with photo-skip scope | `227` | upload and restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0` | original archive `108` not removed because target enrichment is still missing and normal removal is therefore blocked |
+| `174` | finalized after re-enrich and verified removal | `232` | recovered from exported sliced source `Deadpool___Wolverine_Deadpool.gcode.3mf`; original cache candidate remained deferred because it collides with archive `181`; restore apply succeeded, one source photo returned `404 Not Found`, `-SkipPhotos` verify reported `verified = true` and `remaining_difference_count = 0`, re-enrich completed, and normal remove-original then succeeded | original archive `174` has been removed; replacement archive `232` remains as the finalized surviving record |
+| `34` | restore applied and verified | `228` | promoted from deferred review after deeper provenance check; upload, restore apply, and verify all succeeded with `remaining_difference_count = 0` | original archive `34` not removed because target enrichment is still missing and normal removal is therefore blocked |
+| `208` | restore applied and verified | `229` | recovered from shared exported sliced source `bat4 - 200x200.gcode.3mf`; upload, restore apply, and verify all succeeded with `remaining_difference_count = 0` | original archive `208` not removed because target enrichment is still missing and normal removal is therefore blocked |
+| `207` | restore applied and verified | `230` | failed-history row preserved from shared exported sliced source `bat4 - 200x200.gcode.3mf`; restore apply and verify both succeeded with `remaining_difference_count = 0` | original archive `207` not removed because target enrichment is still missing and normal removal is therefore blocked |
+| `206` | restore applied and verified | `231` | failed-history row preserved from shared exported sliced source `bat4 - 200x200.gcode.3mf`; restore apply and verify both succeeded with `remaining_difference_count = 0` | original archive `206` not removed because target enrichment is still missing and normal removal is therefore blocked |
 
-Re-enrich follow-up attempted on replacement archives `225`, `226`, and `227` via the runtime-repair sidecar.
+Re-enrich follow-up attempted on replacement archives `225`, `226`, `227`, and `228` via the runtime-repair sidecar.
 
 - result: blocked by sidecar environment
 - sidecar warning: `run_reenrich requested but HOME_ASSISTANT_BASE_URL/HOME_ASSISTANT_TOKEN are not configured`
 - consequence: removal remains blocked through the normal path because verify still reports `enrichment_status = missing`
 
+Archive `232` is now the first post-blocker finalized example:
+
+- user reran re-enrich for replacement archive `232` and reported success
+- follow-up verify reported `enrichment_status = complete` and `removable = true`
+- normal `remove_original` then succeeded for source archive `174`
+- final surviving archive `232` no longer carries transient recovery tags; only the recovery audit note remains in `notes`
+
 ## Tier 2 Review Notes
 
 ### Archive `174`
 
-- inspect against `cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf` still looks mechanically valid
-- however the candidate source SHA256 is `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856`
-- live archive `181` already has `content_hash = 1aedff714998c7f18b179028b13f378683a2bb6d31a3c02bbb6ccf4790a87856` plus non-empty `file_path` and `thumbnail_path`
-- conclusion: keep `174` deferred; the proposed source is already represented by existing archive `181`, so recovering `174` from the same file would likely create a duplicate or ambiguous lineage
+- original inspect against `cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf` looked mechanically valid but stayed deferred because its SHA256 `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` already matched live archive `181`
+- new source provided on 2026-04-12: `bambuddy/Backup SD Card - 2026-04-03/Deadpool___Wolverine_Deadpool.gcode.3mf`
+- new source SHA256 is `FEC212637B4A24C1B4A4427B7DE7CF9FCDB2D9AAC5D522FD18ADBA836792201E`
+- that hash did not already exist as a file-backed Bambuddy archive before recovery, so the prior collision concern no longer applied
+- operator decision on 2026-04-12: recover `174` from the new exported sliced source rather than the colliding cache file
+- execution result: replacement archive `232` created from `Deadpool___Wolverine_Deadpool.gcode.3mf`; restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0`
+- follow-up finalization result: after re-enrich completed, normal `remove_original` succeeded for archive `174`; archive `232` is now the surviving finalized record and archive `174` has been deleted
 
 ### Archive `34`
 
@@ -166,7 +180,46 @@ Re-enrich follow-up attempted on replacement archives `225`, `226`, and `227` vi
   - `200mm x 200mm Spiderman 4-color Hueforge.3mf` has SHA256 `76973985F87350420F8272E888DCAE3186774B9EE67F68FF53A85CB2299F7388` and already exists as archive `23`
   - `Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf` has SHA256 `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` and already exists as recovered archive `199`
   - the generic `Adaptive Layers .  100% Infill.3mf` candidate has SHA256 `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` and did not surface as an existing file-backed Spider-Man archive during this review
-- conclusion: keep `34` deferred, but with a narrower interpretation: the generic `Adaptive Layers .  100% Infill.3mf` file is now the only obvious unmatched candidate among the reviewed cache files, so it remains the leading manual-review option if you later decide archive `34` is worth a provenance-risk recovery
+- supporting evidence inside the generic `.3mf` improves the case enough for manual promotion:
+  - the embedded `3D/3dmodel.model` metadata describes `Spiderman Symbiote Suit Hueforge`
+  - the generic file has the full expected Bambu metadata set (`plate_1.gcode`, thumbnails, project settings, filament sequence), so it is not a truncated cache artifact
+  - unlike the Hulk-related adaptive-height file, it does not have a matching `.bbl` sidecar in the backup cache, which weakens confidence relative to Tier 1-grade candidates
+- operator decision on 2026-04-12: promote and recover `34` using the generic unmatched candidate
+- execution result: replacement archive `228` created from `Adaptive Layers .  100% Infill.3mf`; restore apply and verify both succeeded; original archive `34` remains in place because target enrichment is still missing
+
+## Remaining Manual-Review Set
+
+### Archive `66`
+
+- still cancelled
+- still uses the fully generic filename `0.08mm layer, 2 walls, 100% infill.3mf`
+- unlike the themed Hueforge rows that share that filename, this row has no user tags, no photos, and no stronger print-name identity to anchor it
+- conclusion: keep `66` parked; it is weaker than the already-reviewed themed rows and there is no new provenance evidence to justify promotion
+
+### Archive `105`
+
+- still cancelled
+- shares the exact same filename and fallback profile identity as archive `106`
+- archive `106` has already been recovered successfully into replacement archive `226`
+- conclusion: keep `105` parked; recovering the cancelled twin of an already-recovered completed row is still low-value unless you explicitly decide cancelled jobs should be preserved the same way
+
+### Archives `206`, `207`, and `208`
+
+- all three point to the same generic fallback filename `0.08mm layer, 2 walls, 100% infill.3mf`
+- the generic cache file originally considered for this cluster was rejected because it embedded `Star Wars Darth Vader Hueforge` metadata rather than Batman metadata
+- new evidence on 2026-04-12 established a better shared source:
+  - exported sliced file `bambuddy/Backup SD Card - 2026-04-03/bat4 - 200x200.gcode.3mf`
+  - embedded `3D/3dmodel.model` metadata has `Title = Batman Hueforge`
+  - embedded metadata `CreationDate = 2026-04-12` reflects the reconstructed export date, not the original print date, so this is reconstructed rather than original-sliced evidence
+  - SHA256 is `BCFCDBD1E2091838A858D596BE4D2F33FCFE74DB766A569238F1C07472AA3A8E`
+  - that hash did not already exist as a file-backed Bambuddy archive before recovery
+- operator decision on 2026-04-12: use the shared exported sliced file to recover the full Batman attempt cluster
+- execution result:
+  - archive `208` recovered to replacement archive `229`
+  - archive `207` recovered to replacement archive `230`
+  - archive `206` recovered to replacement archive `231`
+  - restore apply and verify succeeded for all three
+  - originals `206`, `207`, and `208` remain in place because target enrichment is still missing, so normal removal is blocked
 
 ## One-At-A-Time Command Flow
 
@@ -346,10 +399,10 @@ bambuddy/Backup SD Card - 2026-04-03/cache/Fits A1_P1S_P2S_X1C 0.08mm layer, 2 w
 bambuddy/Backup SD Card - 2026-04-03/cache/Laney Rivers 2026_Front_133x200.3mf
 ```
 
-### Deferred Review: Archive 174
+### Recovered Review: Archive 174
 
 ```text
-bambuddy/Backup SD Card - 2026-04-03/cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf
+bambuddy/Backup SD Card - 2026-04-03/Deadpool___Wolverine_Deadpool.gcode.3mf
 ```
 
 ### Deferred Review: Archive 34
@@ -407,11 +460,13 @@ Use a hybrid model:
 
 Recommended next queue:
 
-1. configure `HOME_ASSISTANT_BASE_URL` and `HOME_ASSISTANT_TOKEN` for the runtime-repair sidecar, then rerun re-enrich for replacement archives `225`, `226`, and `227`
-2. after re-enrich completes, rerun removal verification for original archives `19`, `106`, and `108`
-3. keep archive `174` deferred because its proposed source already matches file-backed archive `181`
-4. keep archive `34` deferred; if it is recovered later, treat `Adaptive Layers .  100% Infill.3mf` as the current leading unmatched candidate and avoid the two alternatives already represented by archives `23` and `199`
-6. leave `66`, `105`, `206`, `207`, and `208` in manual-review status
+1. configure `HOME_ASSISTANT_BASE_URL` and `HOME_ASSISTANT_TOKEN` for the runtime-repair sidecar, then rerun re-enrich for replacement archives `225`, `226`, `227`, `228`, `229`, `230`, and `231`
+2. after re-enrich completes, rerun removal verification for original archives `19`, `106`, `108`, `34`, `208`, `207`, and `206`
+3. archive `174` has now been recovered; keep `Deadpool___Wolverine_Deadpool.gcode.3mf` as the provenance note for that repair and keep the older cache file excluded because it matches archive `181`
+4. archive `34` has now been recovered; keep the generic `Adaptive Layers .  100% Infill.3mf` file as the provenance note for that repair and avoid the two alternatives already represented by archives `23` and `199`
+5. leave `66` parked because it is a cancelled fully generic row with no stronger identity markers
+6. leave `105` parked because `106` already covers the same source profile and was the higher-value completed recovery
+7. Batman cluster recovery is complete; keep `bat4 - 200x200.gcode.3mf` as the shared reconstructed provenance source for `206`, `207`, and `208`
 
 Do not treat `199` and `200` as unresolved just because `extra_data.no_3mf_available` still exists. Their file-backed recovery signals and recovery tags already show they are recovered.
 
@@ -477,8 +532,8 @@ $recoveryArgs = @{
   BaseUrl = $baseUrl
   PrinterId = $printerId
   FallbackArchiveId = 174
-  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\cache\200mm x 200mm Deadpool & Wolverine Hueforge.3mf'
-  RecoverySource = 'sd_cache_3mf'
+  SourceFilePath = '.\bambuddy\Backup SD Card - 2026-04-03\Deadpool___Wolverine_Deadpool.gcode.3mf'
+  RecoverySource = 'bambu_studio_exported_sliced_3mf'
   ApiKey = $env:BAMBUDDY_API_KEY
 }
 
@@ -520,7 +575,7 @@ $recoveryArgs = @{
 ## Recommended Next Actions
 
 1. Process Queue A first in the order `19`, `108`, `106`.
-2. After Queue A, decide whether `174` is acceptable as a provenance-quality recovery despite medium confidence.
+2. Queue item `174` is now resolved via the exported sliced Deadpool source; use that file instead of the colliding cache file if you need to re-run the inspect.
 3. Keep `34` and `105` manual until the inspect output looks credible.
-4. Leave `66`, `206`, `207`, and `208` alone until stronger matching evidence exists.
+4. Leave `66` alone unless stronger matching evidence appears.
 5. If you want true bulk fallback remediation, design a new orchestrator around the current pairwise steps rather than reusing `Backfill` mode directly.
