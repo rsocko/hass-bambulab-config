@@ -21,12 +21,14 @@ card:
       const matchesSelector = byIcon('mdi:counter');
       const pageInfoSelector = byIcon('mdi:book-open-page-variant-outline');
       const pageSizeSelector = byIcon('mdi:format-list-numbered');
-      const layoutSelector = [
+      const layoutSelectors = [
         'mdi:view-grid-outline',
         'mdi:image-multiple-outline',
         'mdi:format-list-bulleted',
         'mdi:view-dashboard-outline',
-      ].map(byIcon).join(',\n        ');
+      ].map(byIcon);
+      const layoutNameSelector = layoutSelectors.map((selector) => `${selector} .bubble-sub-button-name`).join(',\n        ');
+      const layoutStateSelector = layoutSelectors.map((selector) => `${selector} .bubble-sub-button-state`).join(',\n        ');
       const imagesSelector = byIcon('mdi:image-outline');
       const refreshSelector = byIcon('mdi:refresh');
       const nextSelector = byIcon('mdi:chevron-right');
@@ -44,8 +46,8 @@ card:
         }
         ${imagesSelector} .bubble-sub-button-name,
         ${refreshSelector} .bubble-sub-button-name,
-        ${layoutSelector} .bubble-sub-button-name,
-        ${layoutSelector} .bubble-sub-button-state {
+        ${layoutNameSelector},
+        ${layoutStateSelector} {
           display: none !important;
         }
         @media (max-width: 900px) {
