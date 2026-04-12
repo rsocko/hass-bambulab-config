@@ -173,7 +173,7 @@ card:
             tap_to_slide: true
             fill_width: false
           - entity: input_select.print_history_card_variant
-            sub_button_type: default
+            sub_button_type: select
             name: Layout
             icon: >-
               ${(() => {
@@ -185,12 +185,10 @@ card:
                 })[variant] || 'mdi:view-dashboard-outline';
               })()}
             show_icon: true
-            show_name: false
-            show_state: false
+            show_name: true
+            show_state: true
             show_background: true
             fill_width: false
-            tap_action:
-              action: more-info
           - entity: input_boolean.print_history_show_images
             sub_button_type: default
             name: Images

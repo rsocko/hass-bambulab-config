@@ -44,7 +44,7 @@ Each control in this row is also identified by a unique semantic icon, and the m
 
 If a control icon changes, the selector contract in `print_history_top_controls.yaml` must be updated in the same edit.
 
-The `Layout` control is a single icon-only selector launcher that opens the `input_select.print_history_card_variant` picker on both desktop and mobile.
+The `Layout` control is a single icon-only dropdown bound to `input_select.print_history_card_variant` on both desktop and mobile.
 
 ## Mobile Contract
 
@@ -54,9 +54,9 @@ At mobile widths (`<= 720px`):
 - Hide `First`, `Last`, and `Matches`.
 - Show page info as icon + `X/Y`.
 - Show `PpP` as the page-size label.
-- Show `Layout` as an icon-only selector launcher.
+- Show `Layout` as an icon-only dropdown.
 - Show `Images` and `Refresh` as icon-only controls.
-- Keep the `Layout` selector launcher visible on mobile.
+- Keep the `Layout` dropdown visible on mobile.
 - Keep the whole strip as one horizontally scrollable row if needed.
 - Allow `PpP`, `Images`, and `Refresh` to compress by hiding their labels before hiding the controls themselves.
 
@@ -66,7 +66,7 @@ At desktop/tablet widths (`> 720px`):
 - Show page info as `Page X of Y`.
 - Show page size as `Prints / Page`.
 - Keep `Images` and `Refresh` icon-only.
-- Keep `Layout` as an icon-only selector launcher with a dynamic icon that reflects the active variant.
+- Keep `Layout` as an icon-only dropdown with a dynamic icon that reflects the active variant.
 
 ## Hardening Rules
 
@@ -74,7 +74,7 @@ Do not reintroduce these patterns into `print_history_top_controls.yaml`:
 
 - Hidden duplicate controls whose visibility depends on generated child order.
 - Extra temporary buttons that shift the fixed child order without updating the contract.
-- Layout-mode quick buttons that replace the canonical `Layout` selector on some breakpoints.
+- Layout-mode quick buttons that replace the canonical `Layout` dropdown on some breakpoints.
 - Refactors that make mobile visibility depend primarily on raw child indices when unique icon selectors can be used.
 - Reusing one of the semantic icons above for a different action inside this same row.
 
@@ -82,7 +82,7 @@ Preferred change patterns:
 
 - If a control is added or removed, update the YAML order, the icon-selector mapping, and this document together.
 - If mobile behavior changes, target controls by semantic icon selector first rather than by guessed raw child indices.
-- Keep `Layout` as the canonical layout selector across all breakpoints.
+- Keep `Layout` as the canonical layout dropdown across all breakpoints.
 
 ## Validation Checklist
 
@@ -90,7 +90,7 @@ When modifying the top controls, verify all of the following:
 
 1. Desktop shows `First`, `Previous`, `Page Info`, `Next`, `Last` in that order.
 2. Mobile hides `First`, `Last`, and `Matches` but still shows `Previous`, `Page Info`, `Layout`, and `Next`.
-3. Mobile still shows the `Layout` selector.
+3. Mobile still shows the `Layout` dropdown.
 4. Page info reads `Page X of Y` on desktop and `X/Y` on mobile.
 5. The same control strip works in both the top and bottom placements in `view_print_history.yaml`.
 6. The icon selector contract still matches the icons used in the YAML group.
