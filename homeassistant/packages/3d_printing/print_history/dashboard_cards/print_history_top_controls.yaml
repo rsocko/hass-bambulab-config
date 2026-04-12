@@ -27,6 +27,7 @@ card:
         'mdi:format-list-bulleted',
         'mdi:view-dashboard-outline',
       ].map(byIcon);
+      const layoutButtonSelector = layoutSelectors.join(',\n        ');
       const layoutNameContainerSelector = layoutSelectors.map((selector) => `${selector} .bubble-sub-button-name-container`).join(',\n        ');
       const layoutNameSelector = layoutSelectors.map((selector) => `${selector} .bubble-sub-button-name`).join(',\n        ');
       const layoutStateSelector = layoutSelectors.map((selector) => `${selector} .bubble-sub-button-state`).join(',\n        ');
@@ -44,6 +45,13 @@ card:
         }
         .bubble-sub-button {
           min-width: 0 !important;
+        }
+        ${layoutButtonSelector},
+        ${layoutButtonSelector} *,
+        ${layoutButtonSelector} .bubble-dropdown-arrow,
+        ${layoutButtonSelector} .bubble-dropdown-container {
+          transition: none !important;
+          animation: none !important;
         }
         ${imagesSelector} .bubble-sub-button-name,
         ${refreshSelector} .bubble-sub-button-name,
