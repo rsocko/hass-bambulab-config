@@ -141,6 +141,33 @@ Current operator run status on 2026-04-12:
 | `106` | restore applied and verified with photo-skip scope | `226` | upload and restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0` | original archive `106` not removed because target enrichment is still missing and normal removal is therefore blocked |
 | `108` | restore applied and verified with photo-skip scope | `227` | upload and restore apply succeeded; one source photo returned `404 Not Found` during apply; `-SkipPhotos` verify then reported `verified = true` and `remaining_difference_count = 0` | original archive `108` not removed because target enrichment is still missing and normal removal is therefore blocked |
 
+Re-enrich follow-up attempted on replacement archives `225`, `226`, and `227` via the runtime-repair sidecar.
+
+- result: blocked by sidecar environment
+- sidecar warning: `run_reenrich requested but HOME_ASSISTANT_BASE_URL/HOME_ASSISTANT_TOKEN are not configured`
+- consequence: removal remains blocked through the normal path because verify still reports `enrichment_status = missing`
+
+## Tier 2 Review Notes
+
+### Archive `174`
+
+- inspect against `cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf` still looks mechanically valid
+- however the candidate source SHA256 is `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856`
+- live archive `181` already has `content_hash = 1aedff714998c7f18b179028b13f378683a2bb6d31a3c02bbb6ccf4790a87856` plus non-empty `file_path` and `thumbnail_path`
+- conclusion: keep `174` deferred; the proposed source is already represented by existing archive `181`, so recovering `174` from the same file would likely create a duplicate or ambiguous lineage
+
+### Archive `34`
+
+- inspect against `cache/Adaptive Layers .  100% Infill.3mf` is mechanically valid but still weak from a provenance standpoint
+- the backup cache also contains stronger Spider-Man-related candidates:
+  - `200mm x 200mm Spiderman 4-color Hueforge.3mf`
+  - `Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`
+- deeper comparison on 2026-04-12 shows those stronger-looking alternatives already map to other file-backed archives:
+  - `200mm x 200mm Spiderman 4-color Hueforge.3mf` has SHA256 `76973985F87350420F8272E888DCAE3186774B9EE67F68FF53A85CB2299F7388` and already exists as archive `23`
+  - `Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf` has SHA256 `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` and already exists as recovered archive `199`
+  - the generic `Adaptive Layers .  100% Infill.3mf` candidate has SHA256 `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` and did not surface as an existing file-backed Spider-Man archive during this review
+- conclusion: keep `34` deferred, but with a narrower interpretation: the generic `Adaptive Layers .  100% Infill.3mf` file is now the only obvious unmatched candidate among the reviewed cache files, so it remains the leading manual-review option if you later decide archive `34` is worth a provenance-risk recovery
+
 ## One-At-A-Time Command Flow
 
 These commands assume your terminal already has:
@@ -380,11 +407,10 @@ Use a hybrid model:
 
 Recommended next queue:
 
-1. decide whether to run re-enrich and later remove original archive `19` now that replacement archive `225` is verified
-2. decide whether to run re-enrich and later remove original archive `106` now that replacement archive `226` is verified with `-SkipPhotos`
-3. decide whether to run re-enrich and later remove original archive `108` now that replacement archive `227` is verified with `-SkipPhotos`
-4. review archive `174`
-5. review archive `34`
+1. configure `HOME_ASSISTANT_BASE_URL` and `HOME_ASSISTANT_TOKEN` for the runtime-repair sidecar, then rerun re-enrich for replacement archives `225`, `226`, and `227`
+2. after re-enrich completes, rerun removal verification for original archives `19`, `106`, and `108`
+3. keep archive `174` deferred because its proposed source already matches file-backed archive `181`
+4. keep archive `34` deferred; if it is recovered later, treat `Adaptive Layers .  100% Infill.3mf` as the current leading unmatched candidate and avoid the two alternatives already represented by archives `23` and `199`
 6. leave `66`, `105`, `206`, `207`, and `208` in manual-review status
 
 Do not treat `199` and `200` as unresolved just because `extra_data.no_3mf_available` still exists. Their file-backed recovery signals and recovery tags already show they are recovered.
