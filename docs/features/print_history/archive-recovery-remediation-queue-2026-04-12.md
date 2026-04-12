@@ -345,10 +345,100 @@ Use a hybrid model:
 Recommended next queue:
 
 1. recover archive `19`
-2. recover archive `106`
-3. recover archive `108`
+2. recover archive `108`
+3. recover archive `106`
 4. review archive `174`
 5. review archive `34`
 6. leave `66`, `105`, `206`, `207`, and `208` in manual-review status
 
 Do not treat `199` and `200` as unresolved just because `extra_data.no_3mf_available` still exists. Their file-backed recovery signals and recovery tags already show they are recovered.
+
+## Queue-Specific Inspect Commands
+
+These are the copy/paste inspect commands for the current queue.
+
+### Queue item 1: archive `19`
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
+  -Mode Inspect \
+  -BaseUrl $baseUrl \
+  -PrinterId $printerId \
+  -FallbackArchiveId 19 \
+  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\2 AMS.3mf' \
+  -RecoverySource 'sd_cache_3mf' \
+  -ApiKey $env:BAMBUDDY_API_KEY
+```
+
+### Queue item 2: archive `108`
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
+  -Mode Inspect \
+  -BaseUrl $baseUrl \
+  -PrinterId $printerId \
+  -FallbackArchiveId 108 \
+  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Laney Rivers 2026_Front_133x200.3mf' \
+  -RecoverySource 'sd_cache_3mf' \
+  -ApiKey $env:BAMBUDDY_API_KEY
+```
+
+### Queue item 3: archive `106`
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
+  -Mode Inspect \
+  -BaseUrl $baseUrl \
+  -PrinterId $printerId \
+  -FallbackArchiveId 106 \
+  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf' \
+  -RecoverySource 'sd_cache_3mf' \
+  -ApiKey $env:BAMBUDDY_API_KEY
+```
+
+### Queue item 4: archive `174`
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
+  -Mode Inspect \
+  -BaseUrl $baseUrl \
+  -PrinterId $printerId \
+  -FallbackArchiveId 174 \
+  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\200mm x 200mm Deadpool & Wolverine Hueforge.3mf' \
+  -RecoverySource 'sd_cache_3mf' \
+  -ApiKey $env:BAMBUDDY_API_KEY
+```
+
+### Queue item 5: archive `34`
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
+  -Mode Inspect \
+  -BaseUrl $baseUrl \
+  -PrinterId $printerId \
+  -FallbackArchiveId 34 \
+  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Adaptive Layers .  100% Infill.3mf' \
+  -RecoverySource 'sd_cache_3mf' \
+  -ApiKey $env:BAMBUDDY_API_KEY
+```
+
+### Queue item 6: archive `105`
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' \
+  -Mode Inspect \
+  -BaseUrl $baseUrl \
+  -PrinterId $printerId \
+  -FallbackArchiveId 105 \
+  -SourceFilePath '.\bambuddy\Backup SD Card - 2026-04-03\cache\Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf' \
+  -RecoverySource 'sd_cache_3mf' \
+  -ApiKey $env:BAMBUDDY_API_KEY
+```
+
+## Recommended Next Actions
+
+1. Process Queue A first in the order `19`, `108`, `106`.
+2. After Queue A, decide whether `174` is acceptable as a provenance-quality recovery despite medium confidence.
+3. Keep `34` and `105` manual until the inspect output looks credible.
+4. Leave `66`, `206`, `207`, and `208` alone until stronger matching evidence exists.
+5. If you want true bulk fallback remediation, design a new orchestrator around the current pairwise steps rather than reusing `Backfill` mode directly.
