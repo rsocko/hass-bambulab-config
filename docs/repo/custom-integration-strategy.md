@@ -114,6 +114,15 @@ What should move out of YAML into the integration:
 - helper entities used only to store Bambuddy configuration or transport intermediate state
 - backend refresh logic that exists only to glue the API to Home Assistant
 
+Concrete example now implemented in this repo:
+
+- the Bambuddy partial-usage review flow keeps review policy in YAML
+- but the runtime-repair sidecar base URL and bearer token now live on the
+	Bambuddy config entry
+- YAML automations call an integration service boundary
+	(`bambuddy.estimate_partial_usage`) instead of a raw credentialed
+	`rest_command`
+
 What should remain outside the integration:
 
 - dashboard YAML

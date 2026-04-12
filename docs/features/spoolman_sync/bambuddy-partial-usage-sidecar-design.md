@@ -29,6 +29,8 @@ Recommended direction:
 4. Add a new read-first sidecar endpoint that computes a failed-print partial
    usage candidate from Bambuddy's transient tracking row.
 5. Let Home Assistant decide whether to auto-apply, hold for review, or skip.
+6. Keep sidecar credentials and transport details on the Bambuddy integration
+  config entry instead of storing them in HA helper entities.
 
 This preserves the current strengths of the repository:
 
@@ -204,6 +206,8 @@ Recommended authority split:
 - **Home Assistant** remains the only writer to Spoolman for now.
 - **Bambuddy** remains the source of printer/archive/3MF-derived estimation
   inputs only.
+- **Bambuddy integration** owns the sidecar client settings and exposes a
+  service boundary to HA automations.
 - **Sidecar** computes and returns partial-usage candidates plus dedupe state.
 
 That means the first rollout should not let the sidecar decrement Spoolman
@@ -243,6 +247,21 @@ HA should be able to choose one of three actions:
 3. `auto_apply`
 
 Recommended rollout starts with `review_only`.
+
+### Current Implementation Shape
+
+The repository now uses a mixed integration plus YAML pattern:
+
+- sidecar HTTP endpoints remain external runtime infrastructure
+- the Bambuddy custom integration owns the runtime-repair base URL and bearer
+  token in its config entry and options flow
+- Home Assistant automations call `bambuddy.estimate_partial_usage` instead of
+  a raw `rest_command`
+- YAML still owns the terminal-state trigger logic, review-only policy, and
+  notification behavior
+
+This keeps credentialed transport logic out of helpers while preserving
+operator-facing workflow control in automations.
 
 ---
 
@@ -402,11 +421,12 @@ The sidecar is only useful if HA consumes it safely.
 Recommended HA behavior for terminal non-success prints:
 
 1. detect failed/cancelled/aborted/stopped outcome
-2. call `archive-partial-usage/estimate`
+2. call `bambuddy.estimate_partial_usage`
 3. inspect `calculation.confidence`
 4. if confidence is high and policy allows, apply via existing Spoolman write
    service
-5. if write succeeds, call `archive-partial-usage/consume`
+5. if write succeeds, call `archive-partial-usage/consume` through an
+   integration-backed service wrapper when that apply phase is implemented
 6. if confidence is medium or low, log and hold for manual review
 
 Important:
@@ -415,6 +435,8 @@ Important:
   intended
 - do not auto-apply estimates for unresolved or ambiguous spool matches
 - do not call the sidecar success-path estimate on completed prints
+- do not store runtime-repair bearer tokens in helper entities; keep them on
+  the Bambuddy config entry
 
 ---
 
@@ -498,7 +520,8 @@ Cons:
 
 - add estimate endpoint
 - do not write to Spoolman automatically
-- capture results in notifications or helper state for review
+- expose the estimate through the Bambuddy integration service layer
+- capture results in notifications or other review-facing HA state
 
 Purpose:
 
