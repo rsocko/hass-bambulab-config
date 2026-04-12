@@ -17,6 +17,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       coalescedRefreshes: 0,
     };
     this._boundClickHandler = this._handleClick.bind(this);
+    this._boundKeydownHandler = this._handleKeydown.bind(this);
   }
 
   setConfig(config) {
@@ -62,10 +63,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   connectedCallback() {
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
+    this.shadowRoot.addEventListener("keydown", this._boundKeydownHandler);
   }
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
+    this.shadowRoot.removeEventListener("keydown", this._boundKeydownHandler);
     if (this._refreshTimer) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
@@ -87,8 +90,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".grid.compact{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}" +
       ".grid.media{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
       ".grid.detail{grid-template-columns:1fr;}" +
-      ".card{position:relative;border:1px solid var(--divider-color);border-radius:22px;background:var(--ha-card-background,var(--card-background-color));overflow:hidden;cursor:pointer;transition:transform .14s ease, box-shadow .14s ease;}" +
-      ".card:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(15,23,42,0.12);}" +
+      ".card{position:relative;border:1px solid color-mix(in srgb, var(--divider-color) 88%, transparent);border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 96%, rgba(255,255,255,0.04)), var(--ha-card-background,var(--card-background-color)));overflow:hidden;cursor:pointer;transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;}" +
+      ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 18%, transparent);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
+      ".card:hover,.card:focus-visible,.card:focus-within{transform:translateY(-3px);border-color:color-mix(in srgb, var(--accent-color) 44%, var(--divider-color));box-shadow:0 18px 36px rgba(15,23,42,0.18), 0 0 0 1px color-mix(in srgb, var(--accent-color) 28%, transparent);background:linear-gradient(180deg, color-mix(in srgb, var(--accent-color) 10%, var(--ha-card-background,var(--card-background-color))), var(--ha-card-background,var(--card-background-color)));}" +
+      ".card:hover::before,.card:focus-visible::before,.card:focus-within::before{opacity:1;}" +
+      ".card:active{transform:translateY(-1px) scale(0.995);box-shadow:0 10px 22px rgba(15,23,42,0.16);}" +
+      ".card:focus-visible{outline:none;}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
       ".card-shell.compact,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
       ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
@@ -99,6 +106,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
       ".header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;min-width:0;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
+      ".card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb, var(--accent-color) 72%, transparent);text-underline-offset:0.18em;}" +
       ".subtle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}" +
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
@@ -107,11 +115,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
       ".metrics.compact,.metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
       ".metric{padding:10px 12px;border-radius:16px;background:rgba(255,255,255,0.04);min-width:0;}" +
+      ".card:hover .metric,.card:focus-visible .metric,.card:focus-within .metric{background:color-mix(in srgb, var(--accent-color) 8%, rgba(255,255,255,0.04));}" +
       ".metric-label{font-size:11px;color:var(--secondary-text-color);line-height:1.2;margin-bottom:4px;}" +
       ".metric-value{font-size:15px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;}" +
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
       ".dot{width:14px;height:14px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
+      ".card-hint{display:flex;justify-content:flex-end;align-items:center;margin-top:2px;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:color-mix(in srgb, var(--accent-color) 64%, var(--secondary-text-color));opacity:0.78;transition:transform .16s ease, opacity .16s ease, color .16s ease;}" +
+      ".card:hover .card-hint,.card:focus-visible .card-hint,.card:focus-within .card-hint{opacity:1;color:var(--accent-color);transform:translateX(3px);}" +
       ".favorite{position:absolute;top:16px;right:16px;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}" +
       ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
@@ -336,7 +347,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
 
     return "" +
-      '<article class="card" data-action="open" data-archive="' + archiveJson + '">' +
+      '<article class="card" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
       '<button class="favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
       '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
       '</button>' +
@@ -369,6 +380,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '') +
       (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
+      '<div class="card-hint">Open details</div>' +
       '</div>' +
       '</div>' +
       '</article>';
@@ -615,6 +627,24 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (action === "open") {
       await this._openArchivePopup(archive);
     }
+  }
+
+  async _handleKeydown(event) {
+    if (!event || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+    var target = event.target || null;
+    if (!target || target.closest("[data-action=\"favorite\"]")) {
+      return;
+    }
+    var cardNode = target.closest ? target.closest('.card[data-action="open"]') : null;
+    if (!cardNode || cardNode !== target) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    var archive = this._parseJson(cardNode.getAttribute("data-archive") || "{}", {});
+    await this._openArchivePopup(archive);
   }
 
   async _toggleFavorite(archive) {
