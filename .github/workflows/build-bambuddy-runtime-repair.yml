@@ -1,0 +1,44 @@
+name: Build Bambuddy Runtime Repair Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Docker image tag to build
+        required: true
+        default: 0.1.0
+      registry:
+        description: Registry/repository prefix
+        required: true
+        default: registry.socko.us/bambuddy-runtime-repair
+      push_image:
+        description: Push built image to registry
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, docker, homelab, dockhand]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ github.event.inputs.registry }}:${{ github.event.inputs.image_tag }}"
+          docker build -f sidecars/bambuddy-runtime-repair/Dockerfile -t "$IMAGE" .
+          echo "Built $IMAGE"
+
+      - name: Push image
+        if: ${{ github.event.inputs.push_image == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ github.event.inputs.registry }}:${{ github.event.inputs.image_tag }}"
+          docker push "$IMAGE"

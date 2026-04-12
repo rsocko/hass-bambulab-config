@@ -27,17 +27,25 @@ Example:
 ```bash
 docker build \
   -f sidecars/bambuddy-runtime-repair/Dockerfile \
-  -t registry.local:5000/bambuddy-runtime-repair:0.1.0 \
+  -t registry.socko.us/bambuddy-runtime-repair:0.1.0 \
   .
 ```
 
 ## Push To Local Registry
 
 ```bash
-docker push registry.local:5000/bambuddy-runtime-repair:0.1.0
+docker push registry.socko.us/bambuddy-runtime-repair:0.1.0
 ```
 
 After that, Dockhand can deploy from the registry image without building from source.
+
+Repository workflow:
+
+- `.github/workflows/build-bambuddy-runtime-repair.yml`
+
+Default workflow registry:
+
+- `registry.socko.us/bambuddy-runtime-repair`
 
 ## Required Environment Variables
 
@@ -53,6 +61,22 @@ REPAIR_API_TOKEN=<long-random-token>
 LOG_LEVEL=INFO
 ```
 
+## Compose `.env` Entry
+
+If your compose file uses `REPAIR_API_TOKEN: ${REPAIR_API_TOKEN}`, add this to the stack `.env` file that Dockhand or Docker Compose loads:
+
+```text
+REPAIR_API_TOKEN=replace-with-a-long-random-secret
+```
+
+Example with the other sidecar settings if you also externalize them:
+
+```text
+REPAIR_API_TOKEN=replace-with-a-long-random-secret
+BAMBUDDY_DB_PATH=/data/bambuddy.db
+LOG_LEVEL=INFO
+```
+
 ## Container Run Example
 
 ```bash
@@ -63,7 +87,7 @@ docker run -d \
   -e REPAIR_API_TOKEN=replace-me \
   -v bambuddy_data:/data \
   -p 127.0.0.1:8818:8080 \
-  registry.local:5000/bambuddy-runtime-repair:0.1.0
+  registry.socko.us/bambuddy-runtime-repair:0.1.0
 ```
 
 ## Same-Host `n8n` Note
@@ -123,6 +147,36 @@ pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 \
   -CreatedAt 2026-03-31T21:47:05+00:00 \
   -Status completed
 ```
+
+## First Dry-Run Tests
+
+After the sidecar is up and `/health` responds, run these first:
+
+Dry-run restore-from plan:
+
+```powershell
+pwsh -File tools/bambuddy/Test-RestoreFromSidecar.ps1 \
+  -BaseUrl http://127.0.0.1:8818 \
+  -Token $env:REPAIR_API_TOKEN \
+  -SourceArchiveId 191 \
+  -TargetArchiveId 200
+```
+
+Dry-run runtime-repair plan:
+
+```powershell
+pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 \
+  -BaseUrl http://127.0.0.1:8818 \
+  -Token $env:REPAIR_API_TOKEN \
+  -ArchiveId 200 \
+  -StartedAt 2026-03-31T18:04:12+00:00 \
+  -CompletedAt 2026-03-31T21:47:05+00:00 \
+  -CreatedAt 2026-03-31T21:47:05+00:00 \
+  -Status completed \
+  -AuditNote "Initial dry-run runtime repair for recovered historical archive"
+```
+
+Those commands stay in dry-run mode unless you add `-Apply`.
 
 ## Planned `restore_from` Endpoint
 

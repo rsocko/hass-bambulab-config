@@ -1,6 +1,6 @@
 services:
   bambuddy-runtime-repair:
-    image: registry.local:5000/bambuddy-runtime-repair:0.1.0
+    image: registry.socko.us/bambuddy-runtime-repair:0.1.0
     container_name: bambuddy-runtime-repair
     environment:
       BAMBUDDY_DB_PATH: /data/bambuddy.db
