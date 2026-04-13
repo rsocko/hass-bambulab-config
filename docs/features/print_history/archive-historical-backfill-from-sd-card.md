@@ -287,15 +287,25 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `250` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `262` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
+- the most recent `batch-002` small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, and `262`
+- `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
+- `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
+- `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
+- `76973985F87350420F8272E888DCAE3186774B9EE67F68FF53A85CB2299F7388` (`cache/200mm x 200mm Spiderman 4-color Hueforge.3mf`) matched existing archive `23` by `content_hash`
+- `14FFD5889A13EFDFB609F7E9C0F3CB484375434A7EB5EB52FA8FBD5279FEFE16` (`cache/200mm x 200mm Stormtrooper Poker Hueforge.3mf`) matched existing archive `68` by `content_hash`
+- `93CB5FDC3EF8CE8C21E4A757FC3C1D194AE6AFED68725F922D739EAE54DE32D8` (`cache/200mm x 400mm Darth Vader Light Saber 2-piece Hueforge.3mf`) matched existing archive `170` by `content_hash`
+- `1BBEE9FFB7EB97E5DB97DD6FF9EB09658A3866CF41F82BB2BB3DD0B84D5AA7BA` (`cache/200mm x 400mm Luke Skywalker Light Saber 2-piece Hueforge.3mf`) matched existing archive `177` by `content_hash`
+- `9CC0B28C8FC474FC2CDCA6CEA30900B4C2C9025CA565D3C49F602AFB10FC7E49` (`cache/200mm x 400mm Obi-Wan Light Saber 2-piece Hueforge.3mf`) matched existing archive `182` by `content_hash`
+- `64F0988D6D0FDEFC84BC78B509AC12E89AAAF1A4DFC4F98BD4FD6652FC140015` (`cache/200mm, 6 color, 0.08mm layer, 1 walls, 100% infill.3mf`) matched existing archive `112` by `content_hash`
+- `C3A3448D8C45C20CD2D555937F8B84726B33B288E48B2E5DE4CB8CD15457D2E9` (`cache/200x200 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `156` by `content_hash`
+- `4EBA6B4EACE8D55A2C39C583E610AB7DD3DE22DBA54AB6D98C16F68AFD001953` (`cache/200x200 - AMS Ready - Slice & Print.3mf`) matched existing archive `200` by `content_hash`
 - `batch-001` is exhausted; the next validated small-run candidates are now in `batch-002`:
-   - `330D0FCB56E244F712428FF80D16A911CA7DA5913F91CDD9EEB278F955DED179` -> `cache/0.2mm layer, 3 walls, 15% infill.3mf`
-   - `FA28E6B5F49D8030D60F164D5FCA1662E9A3787AD590AD858774303EBDD464D1` -> `cache/0.2mm layer, 3 walls, 5% infill.3mf`
-   - `B9582DB7FAF9AB099EDC617B7B3783424A5A7CF2F789147D36B9A6ADD04D8FD3` -> `cache/0.2mm layer, 5 walls, 40% infill.3mf`
-   - `F786687A8D4008D14B21887D6C79C242DD9D76DBD588DFD45F1CA30558235845` -> `cache/0.2mm layer, 6 walls, 25% infill.3mf`
-- all four are currently `batch_ready` high-confidence SD-cache imports in the permanent manifest
+-   - `95F373651EC9E55CA3B27AA78CDEF2AE9916FB7566A4AE2E35F1822EE9FAFEEB` -> `cache/240-1w-1h-decor-drawer.stl + 240-1w-1h-decor-drawer.stl.3mf`
+- manifest summary is now `completed: 29`, `already_in_archive: 21`, `batch_ready: 180`, `manual_review: 1`
+- the only currently queued `batch-002` high-confidence SD-cache import in the permanent manifest is the single entry listed above
 
 ### Optional runtime-repair flow
 
