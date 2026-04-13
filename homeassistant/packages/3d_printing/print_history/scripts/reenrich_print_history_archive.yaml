@@ -788,7 +788,7 @@ reenrich_print_history_archive:
                       ambiguities: "{{ candidate_ambiguity_rows | count }}"
                     event_key: >-
                       manual-reenrich:{{ resolved_archive_id }}:{{ candidate_payload_status_label | lower | trim }}:{{ archive_row_source | default('unknown', true) | string | trim }}:{{ candidate_filament_rows | int(0) }}
-                    response_variable: append_event_result
+                  response_variable: append_event_result
                 - if:
                     - condition: template
                       value_template: "{{ should_refresh_browser }}"
