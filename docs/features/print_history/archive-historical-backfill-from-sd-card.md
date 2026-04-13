@@ -302,10 +302,10 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `292` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `299` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, and `292`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, and `299`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -322,6 +322,7 @@ Current live checkpoint:
 - `5159262D9660C92CBF72811BD53EF70F8B35CEF221464A2F1D650C7E720B3CAC` (`cache/All (8) hooks on the same build plate.3mf`) matched existing archive `58` by `content_hash`
 - `1480BD1FF6943C3C7291EF404679EAC35C87B44B9F7EC8AE3F137FDAA8747F23` (`cache/BAMBU - LEBRON signed lay - Large.3mf`) matched existing archive `77` by `content_hash`
 - `CB431F9945339C850725F102B72DD9F95481934CC0F7CE32FA3D10858C8DBBCC` (`cache/BAMBU - LEBRON signed lay.3mf`) matched existing archive `75` by `content_hash`
+- `FA78866937010B344D330CAA9CE9B5D489B56DA1C92927F28AE1E5F28D458EF7` (`cache/CURRY SIGNED - P2_Front_155x200.3mf`) matched existing archive `79` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -355,12 +356,19 @@ Current live checkpoint:
    - archive `290` <- `cache/College Pennant - Georgia_Normal.3mf`
    - archive `291` <- `cache/Complete profile with sample card, holder and hanger.3mf`
    - archive `292` <- `cache/Connector, 0.2mm layer, 3 walls, 15% infill.3mf`
+   - archive `293` <- `cache/Core - (Supports, Connectors, Lock-Pins, Pin-Bin).3mf`
+   - archive `294` <- `cache/d2g-dq-lrs-100-long-box (extra holders).3mf`
+   - archive `295` <- `cache/d2g-dq-lrs-100-long-box (extra holders)_plate_1.3mf`
+   - archive `296` <- `cache/d2g-dq-lrs-100-long-lid.stl.3mf`
+   - archive `297` <- `cache/Daring Curcan-Amur (1).stl + Daring Curcan-Amur.stl + Daring Curcan-Amur (1).stl.3mf`
+   - archive `298` <- `cache/Daring Curcan-Amur (3).stl.3mf`
+   - archive `299` <- `cache/Daring Curcan-Amur (5).3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `31470E40FDDCBBE23E588716CC96B783C214FDBB4131FFE2A0FAADEE877865F1` -> `cache/Core - (Supports, Connectors, Lock-Pins, Pin-Bin).3mf`
-   - `FA78866937010B344D330CAA9CE9B5D489B56DA1C92927F28AE1E5F28D458EF7` -> `cache/CURRY SIGNED - P2_Front_155x200.3mf`
-   - `106FB2CD7DAE6AE8227CF835AF1B9C5EB8B64655B93480F5162075FDD51113B1` -> `cache/d2g-dq-lrs-100-long-box (extra holders).3mf`
-   - `1B834C6B904BD0BFD17603647E0A1E9D216F1C9E9BFD20250F12511A21805029` -> `cache/d2g-dq-lrs-100-long-box (extra holders)_plate_1.3mf`
-- manifest summary is now `completed: 59`, `already_in_archive: 28`, `batch_ready: 143`, `manual_review: 1`
+   - `E92043E1EC0FDDE31DCE89AD80AAE0F3FCF07C7CA58E35779D31B9D97B0F7E5E` -> `cache/Daring Curcan-Amur (6).stl + Daring Curcan-Amur (5).stl + Daring Curcan-Amur (5).stl + Daring Cur....3mf`
+   - `3D3789D4CFDDB1A1CE060A5BB0132847D4BC2A4DE2B194F5AB96ABB7ADD862C0` -> `cache/Daring Curcan-Amur (6).stl.3mf`
+   - `C5646E6D686461D4E70EB8FB161304062C3DF0F793ACB96210BCE80563A0A49E` -> `cache/Desiccant_Spool_Tumbler_-_Airflow_Remix.3mf`
+   - `16E57F36BE95C328AFFDF1D5E6601DB77F4A64D9D8BB63B06FA6A525673D854C` -> `cache/Designer Profile (Multi-Color, 0.16mm layer).3mf`
+- manifest summary is now `completed: 66`, `already_in_archive: 29`, `batch_ready: 135`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow

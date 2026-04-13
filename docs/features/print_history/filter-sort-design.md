@@ -1030,9 +1030,9 @@ bambuddy_fetch_archives:
 
 ### What About the Existing REST Sensor?
 
-The existing `bambuddy_print_history_sensor.yaml` (the `rest:` block with "last print" derived sensors) should be **kept for now**. It serves a different purpose — powering the `sensor.bambuddy_last_print_*` entities used for quick-glance tiles and automations. It polls at a low rate and is lightweight.
+That earlier recommendation is now superseded.
 
-The new `print_history_archives` sensor is specifically for the filterable table view. They can coexist. In a future cleanup, the "last print" sensors could be derived from the archives data instead.
+The old `bambuddy_print_history_sensor.yaml` REST path and its `sensor.bambuddy_last_print_*` derivatives are retired and archived under `archive/print_history/legacy-yaml-browser/`. The active print-history browser stack should use only the Bambuddy custom integration plus the lightweight template sensors that remain in `homeassistant/packages/3d_printing/print_history/`.
 
 ---
 
@@ -1654,7 +1654,7 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 
 | Entity | Current Purpose | Replaced By |
 |--------|----------------|-------------|
-| `input_number.bambuddy_history_limit` | REST sensor `?limit=` param | `input_number.print_history_max_archives` |
+| `input_number.bambuddy_history_limit` | Historical REST sensor `?limit=` param (retired) | `input_number.print_history_max_archives` |
 | `sensor.bambuddy_print_history_browser_page_archives` | Current visible page slice | Dashboard card entity |
 | `script.load_history_page` | REST command pagination | Template sensor paging (no script needed) |
 | `script.navigate_history` | Prev/next REST calls | Direct `input_number.set_value` on page helper |
@@ -1666,7 +1666,7 @@ These can be removed in a cleanup phase after the new filter system is validated
 
 | Entity | Reason |
 |--------|--------|
-| `sensor.bambuddy_print_history` (REST) | Powers `sensor.bambuddy_last_print_*` quick-glance sensors |
+| `sensor.bambuddy_print_history` (REST, retired) | Formerly powered `sensor.bambuddy_last_print_*` quick-glance sensors |
 | All `sensor.bambuddy_last_print_*` | Used by automations and other dashboard tiles |
 | All photo capture / enrichment entities | Independent subsystems, unaffected |
 

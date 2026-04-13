@@ -134,6 +134,8 @@ That layout has been superseded by the package split under `homeassistant/packag
 
 When a current design doc mentions lineage from `bambuddy/`, it means historical origin only. It does not mean this folder is current, complete, or canonical.
 
+The print-history REST sensor family documented below is historical prototype material. The active implementation lives under `homeassistant/packages/3d_printing/print_history/` and `homeassistant/custom_components/bambuddy/`.
+
 ## Entity Reference
 
 ### Input Helpers
@@ -147,13 +149,13 @@ When a current design doc mentions lineage from `bambuddy/`, it means historical
 | `input_boolean.bambuddy_integration_enabled` | Master on/off switch |
 | `input_boolean.bambuddy_history_sync_enabled` | Enable/disable history sync |
 | `input_boolean.bambuddy_maintenance_alerts_enabled` | Enable/disable maintenance alerts |
-| `input_number.bambuddy_history_limit` | Number of history entries to display (5–50) |
+| `input_number.bambuddy_history_limit` | Historical prototype helper for the retired REST print-history sensor family |
 
 ### REST Sensors (Raw)
 
 | Entity | Description | Update Interval |
 |--------|-------------|-----------------|
-| `sensor.bambuddy_print_history` | Print archive list (JSON attributes) | 5 min |
+| `sensor.bambuddy_print_history` | Historical prototype print archive list (retired) | 5 min |
 | `sensor.bambuddy_print_queue` | Print queue jobs (JSON attributes) | 1 min |
 | `sensor.bambuddy_statistics` | Overall statistics (JSON attributes) | 10 min |
 | `sensor.bambuddy_printer_status` | Printer status from Bambuddy | 30 sec |
@@ -162,10 +164,10 @@ When a current design doc mentions lineage from `bambuddy/`, it means historical
 
 | Entity | Description | Unit |
 |--------|-------------|------|
-| `sensor.bambuddy_last_print_name` | Name of most recent print | — |
-| `sensor.bambuddy_last_print_status` | Status of most recent print | — |
-| `sensor.bambuddy_last_print_duration` | Duration of most recent print | h |
-| `sensor.bambuddy_last_print_image_url` | Photo URL of most recent print | — |
+| `sensor.bambuddy_last_print_name` | Historical prototype derived from the retired REST sensor family | — |
+| `sensor.bambuddy_last_print_status` | Historical prototype derived from the retired REST sensor family | — |
+| `sensor.bambuddy_last_print_duration` | Historical prototype derived from the retired REST sensor family | h |
+| `sensor.bambuddy_last_print_image_url` | Historical prototype derived from the retired REST sensor family | — |
 | `sensor.bambuddy_success_rate` | Overall print success rate | % |
 | `sensor.bambuddy_total_print_time` | All-time print hours | h |
 | `sensor.bambuddy_total_filament_used` | All-time filament usage | g |

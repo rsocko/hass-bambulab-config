@@ -179,8 +179,6 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — enrichment + popup edit fields
 │   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
-├── rest_sensors/
-│   └── bambuddy_print_history_sensor.yaml         # GET /archives (page 1, recent)
 ├── scripts/
 │   ├── load_history_page.yaml                     # set current browser page
 │   ├── navigate_history.yaml                      # prev/next/first/last within Layer 2 totals
@@ -223,7 +221,6 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
 │   ├── input_number/
-│   │   ├── input_number_bambuddy_history_limit.yaml
 │   │   ├── input_number_history_current_page.yaml
 │   │   ├── input_number_midprint_capture_percent.yaml
 │   │   ├── input_number_print_history_page_size.yaml
@@ -258,7 +255,6 @@ archive/print_history/
 ```yaml
 # print_history_loader.yaml
 automation: !include_dir_merge_list automations
-rest: !include_dir_merge_list rest_sensors
 rest_command: !include_dir_merge_named rest_commands
 shell_command: !include_dir_merge_named shell_commands
 script: !include_dir_merge_named scripts
@@ -271,14 +267,6 @@ input_select: !include_dir_merge_named helpers/input_select
 ```
 
 ## Entity Reference
-
-### REST Sensors
-
-| Entity | Endpoint | Interval | Attributes |
-|---|---|---|---|
-| `sensor.bambuddy_print_history` | `GET /api/v1/archives/?limit=N` | 5 min | Flat array — count via `value_json \| count`, first item via `value_json[0]` |
-
-> **OpenAPI note**: No `sort` or `order` query params exist. Default ordering is assumed newest-first. No `total` or `page` attributes — response is a flat `ArchiveResponse[]` array.
 
 ### REST Commands
 
@@ -299,12 +287,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `sensor.bambuddy_print_history_browser_page_info` | Bambuddy custom integration | Current page label and total page count |
 | `sensor.print_history_payload_diagnostics` | Template sensor | Confirms the live browser path stays frontend-only and keeps large payloads out of HA state |
 | `sensor.print_history_popup_archive_detail` | Template sensor | Popup-scoped detail cache for one selected archive |
-| `sensor.bambuddy_last_print_name` | `archives[0].print_name` | Most recent print name |
-| `sensor.bambuddy_last_print_status` | `archives[0].status` | Most recent print result |
-| `sensor.bambuddy_last_print_duration` | `archives[0].actual_time_seconds` | Most recent print time (hours) |
-| `sensor.bambuddy_last_print_image_url` | `{base_url}/api/v1/archives/{id}/thumbnail` | Most recent print thumbnail (constructed URL) |
 
-> **OpenAPI note**: The field is `print_name` (not `name`), `actual_time_seconds` (not `duration_seconds`), and thumbnail is accessed via `GET /api/v1/archives/{id}/thumbnail` (unauthenticated). There is no `photo_url` field.
+> The older REST-derived `sensor.bambuddy_print_history` and `sensor.bambuddy_last_print_*` entities were retired and moved to `archive/print_history/legacy-yaml-browser/`. The active browser contract now comes from the Bambuddy custom integration entities above.
 
 ### Helpers
 
@@ -324,7 +308,6 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
 | `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
 | `input_boolean.print_history_debug_instrumentation` | input_boolean | Enable browser and heatmap performance instrumentation for future debugging sessions | Off by default |
-| `input_number.bambuddy_history_limit` | input_number | Number of history entries per page (5–50) | — |
 | `input_number.history_current_page` | input_number | Current pagination page | — |
 | `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
 | `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | — |
@@ -372,7 +355,7 @@ Deferred advanced scripts:
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
-| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Refresh the legacy recent-print REST sensor and reset paging; the Bambuddy integration refreshes its own store-backed browser state directly |
+| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Reset browser paging after lifecycle events; the Bambuddy integration refreshes its own store-backed browser state directly |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ### Operating Without Webhook
@@ -449,7 +432,7 @@ For detailed design of the two major subsystems, see:
 - **REST commands**: `bambuddy_update_archive_status` prototype evolved into `bambuddy_update_archive` (generalized to support notes, tags, name, cost, status, and failure_reason)
 - **Template sensors**: 4 "last print" sensors from the root `bambuddy/sensors.yaml` prototype (converted to modern `template:` format)
 - **Dashboard cards**: root `bambuddy/dashboards/print_history.yaml` prototype evolved into `dashboard_cards/`
-- **Helpers**: `bambuddy_current_archive_id`, `bambuddy_history_sync_enabled`, `bambuddy_history_limit` originated in the root `bambuddy/helpers.yaml` prototype
+- **Helpers**: `bambuddy_current_archive_id` and `bambuddy_history_sync_enabled` originated in the root `bambuddy/helpers.yaml` prototype; the old `bambuddy_history_limit` helper is retired
 
 ### Eliminated
 - `bambuddy/automations/sync_print_history.yaml` — Bambuddy auto-creates archives; HA no longer calls `POST /archives`
