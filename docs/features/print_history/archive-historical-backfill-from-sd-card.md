@@ -302,10 +302,10 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `306` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `312` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, and `306`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, and `312`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -325,6 +325,8 @@ Current live checkpoint:
 - `FA78866937010B344D330CAA9CE9B5D489B56DA1C92927F28AE1E5F28D458EF7` (`cache/CURRY SIGNED - P2_Front_155x200.3mf`) matched existing archive `79` by `content_hash`
 - `16E57F36BE95C328AFFDF1D5E6601DB77F4A64D9D8BB63B06FA6A525673D854C` (`cache/Designer Profile (Multi-Color, 0.16mm layer).3mf`) matched existing archive `184` by `content_hash`
 - `C5646E6D686461D4E70EB8FB161304062C3DF0F793ACB96210BCE80563A0A49E::FE2847C2B3EB` (`cache/Standard.3mf`) matched newly created archive `302` by `content_hash` during the same grouped import run as `cache/Desiccant_Spool_Tumbler_-_Airflow_Remix.3mf`
+- `70A983F366FED72AF997B0A540FA3925AD147F79F03DE6522A4815E987230DBD` (`cache/final toothbrush.3mf`) matched existing archive `147` by `content_hash`
+- `9655586D79F50879A5A7DA1FF8629D6A792194B39C008C0A27542C42B474729D` (`cache/Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `226` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -372,12 +374,18 @@ Current live checkpoint:
    - archive `304` <- `cache/drawer-stoppers.stl + drawer-stoppers.stl + drawer-stoppers.stl + drawer-stoppers.stl + drawer-st....3mf`
    - archive `305` <- `cache/Ellis Snowflake.3mf`
    - archive `306` <- `cache/Embedded_Magnet_Dispenser_Tool_for_3D_Prints.3mf`
+   - archive `307` <- `cache/ESP32C3Mini-Bottom.3mf`
+   - archive `308` <- `cache/faceplate with supports_Faceplate.3mf`
+   - archive `309` <- `cache/Fantastic Bombul (2).stl.3mf`
+   - archive `310` <- `cache/filament_swatch (larger - fits Phenmo Label).3mf`
+   - archive `311` <- `cache/Football National Championship Trophy - Brick Accessory_Inner Part.3mf`
+   - archive `312` <- `cache/Football National Championship Trophy - Brick Accessory_Outer Shell.3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `A80B3199F6CDA0B02F32EC0B4C8A7522CE5D085AEA9000F3E3B308B78ADB7A9F` -> `cache/ESP32C3Mini-Bottom.3mf`
-   - `899E4D3F73715E3CB242BB368699AF6B842C27BCCC5A2A02EF4FDF26A1CE9681` -> `cache/faceplate with supports_Faceplate.3mf`
-   - `4CA1B8BA8D97A2581F76F35C344938BA1A278DBE4F0F26EAECBE49262973A478` -> `cache/Fantastic Bombul (2).stl.3mf`
-   - `3EE7401DC3F85F5D1668E806B65F52EC62CD2920C4BE2A553D0232752F6F8D99` -> `cache/filament_swatch (larger - fits Phenmo Label).3mf`
-- manifest summary is now `completed: 73`, `already_in_archive: 31`, `batch_ready: 126`, `manual_review: 1`
+   - `64B64A94ACD3E3615F3D1998B0776CA133B9A83A002767A4A255A35C0EFE7013` -> `cache/Football National Championship Trophy - Brick Accessory_Trophy Base - Indiana 2025 Variant.3mf`
+   - `3B33F2CBA0CC82269D1B5F9387193F632E9A85556CB61112235EECCBC358C545` -> `cache/For P1S, 0.2mm layer, 3 walls, 15% infill.3mf`
+   - `4DA9719AB8BBAC919DB06C7EC80E328AE89DA4A16208C41A2ED6A203A3905B4B` -> `cache/Funnel - 0.16mm layer, 2 walls, 15% infill.3mf`
+   - `6C9EB19DD82756F5BBB3ED7E0918B159F7C638AB5F6F287FCEFEA154CA30C5E3` -> `cache/gen2-quicklocks-v111.stl + gen2-quicklocks-v111.stl + gen2-quicklocks-v111.stl + gen2-quicklocks-....3mf`
+- manifest summary is now `completed: 79`, `already_in_archive: 33`, `batch_ready: 118`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
