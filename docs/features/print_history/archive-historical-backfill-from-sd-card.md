@@ -291,8 +291,8 @@ Keep:
 
 Do not rely on older or one-off outputs as the source of truth:
 
-- `tmp/archive_backfill_manifest.json` is an older manifest version and should not remain the active ledger once v2 is in use
-- `tmp/archive_backfill_batch-001_inspect_v2.json`, `tmp/archive_backfill_full_one.json`, and `tmp/archive_backfill_inspect.json` are per-run result snapshots
+- `examples/archive-historical-backfill-manifest-v1.json` is an older manifest version kept only as a documentation example and should not remain the active ledger once v2 is in use
+- `tmp/archive_backfill_batch-001_inspect_v2.json`, `examples/archive-historical-backfill-full-one.json`, and `examples/archive-historical-backfill-inspect.json` are per-run result snapshots
 - `tmp/tiny_import_*.json` and `tmp/*repair*.json` are useful audit transcripts, but their important outcomes are already folded into the v2 manifest and the Bambuddy archive rows
 
 Practical rule:

@@ -1,6 +1,9 @@
 # Environment variables (secrets)
 .env
 
+# Local scratch and one-off generated run outputs
+tmp/
+
 # Node modules (if Playwright MCP is installed locally)
 node_modules/
 
