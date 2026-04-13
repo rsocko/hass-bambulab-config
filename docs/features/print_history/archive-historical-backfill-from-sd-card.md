@@ -302,10 +302,10 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `284` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `292` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, and `284`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, and `292`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -347,12 +347,20 @@ Current live checkpoint:
    - archive `282` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 2)_plate_2.3mf`
    - archive `283` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 3)_plate_1.3mf`
    - archive `284` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 3)_plate_2.3mf`
+   - archive `285` <- `cache/BASE.stl.3mf`
+   - archive `286` <- `cache/Basket Only V2 .3mf`
+   - archive `287` <- `cache/Basket, Style 1 Lid and Style 2 Lid.3mf`
+   - archive `288` <- `cache/Big printer - 0.16mm layer, 2 walls, 15% infill.3mf`
+   - archive `289` <- `cache/Book Page Holder - 22 mm - 0.2mm layer, 2 walls, 15% infill.3mf`
+   - archive `290` <- `cache/College Pennant - Georgia_Normal.3mf`
+   - archive `291` <- `cache/Complete profile with sample card, holder and hanger.3mf`
+   - archive `292` <- `cache/Connector, 0.2mm layer, 3 walls, 15% infill.3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `C0FB0BA9B4CFB5FAC0D0668A4A99BA0D8A0CAA60FCAAC9A8269C3BD0837D5E5B` -> `cache/BASE.stl.3mf`
-   - `3AEBDEC110B2D80F872032A5FD43C67177FE19BAD02EF66C4D3CFDA34C57D241` -> `cache/Basket Only V2 .3mf`
-   - `7F25413763B9268006F9B7D503F8C171DC96C5583598304FE57E413BDBAF30BC` -> `cache/Basket, Style 1 Lid and Style 2 Lid.3mf`
-   - `EA2E3127C18925E8B436ADAFDD66228C1A0FC2A087A387894CD27F00F2B939B7` -> `cache/Big printer - 0.16mm layer, 2 walls, 15% infill.3mf`
-- manifest summary is now `completed: 51`, `already_in_archive: 28`, `batch_ready: 151`, `manual_review: 1`
+   - `31470E40FDDCBBE23E588716CC96B783C214FDBB4131FFE2A0FAADEE877865F1` -> `cache/Core - (Supports, Connectors, Lock-Pins, Pin-Bin).3mf`
+   - `FA78866937010B344D330CAA9CE9B5D489B56DA1C92927F28AE1E5F28D458EF7` -> `cache/CURRY SIGNED - P2_Front_155x200.3mf`
+   - `106FB2CD7DAE6AE8227CF835AF1B9C5EB8B64655B93480F5162075FDD51113B1` -> `cache/d2g-dq-lrs-100-long-box (extra holders).3mf`
+   - `1B834C6B904BD0BFD17603647E0A1E9D216F1C9E9BFD20250F12511A21805029` -> `cache/d2g-dq-lrs-100-long-box (extra holders)_plate_1.3mf`
+- manifest summary is now `completed: 59`, `already_in_archive: 28`, `batch_ready: 143`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
