@@ -23,6 +23,7 @@ from app.models import (
     RestoreVerifyRequest,
     RestoreVerifyResponse,
     RuntimeRepairRequest,
+    RuntimeRepairResponseDetail,
     RuntimeRepairResponse,
 )
 
@@ -37,6 +38,19 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Bambuddy Runtime Repair Sidecar", version="0.1.0", lifespan=lifespan)
+
+
+def _build_runtime_repair_response(
+    *,
+    result,
+    detail: RuntimeRepairResponseDetail,
+) -> RuntimeRepairResponse:
+    payload = result.to_dict()
+    payload["response_detail"] = detail
+    if detail == RuntimeRepairResponseDetail.SUMMARY:
+        payload["before"] = None
+        payload["after"] = None
+    return RuntimeRepairResponse(**payload)
 
 
 def _expected_token() -> str:
@@ -140,9 +154,10 @@ def archive_runtime_repair(
 
     try:
         logger.info(
-            "Runtime repair request archive_id=%s dry_run=%s",
+            "Runtime repair request archive_id=%s dry_run=%s response_detail=%s",
             request.archive_id,
             request.dry_run,
+            request.response_detail,
         )
         result = repair_archive_runtime(
             db_path=_db_path(),
@@ -164,7 +179,7 @@ def archive_runtime_repair(
             result.applied,
             ",".join(result.updated_fields),
         )
-        return RuntimeRepairResponse(**result.to_dict())
+        return _build_runtime_repair_response(result=result, detail=request.response_detail)
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Runtime repair rejected archive_id=%s error=%s", request.archive_id, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc

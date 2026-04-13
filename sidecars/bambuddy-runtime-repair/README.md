@@ -149,6 +149,21 @@ curl http://bambuddy-runtime-repair.socko.us/health
 pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://bambuddy-runtime-repair.socko.us
 ```
 
+Runtime repair callers can now choose between the default full response and a summary response that omits the verbose `before` and `after` snapshots:
+
+```bash
+curl -X POST http://127.0.0.1:8818/admin/archive-runtime-repair \
+  -H "Authorization: Bearer replace-me" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "archive_id": 200,
+    "dry_run": true,
+    "response_detail": "summary"
+  }'
+```
+
+Use `response_detail: "full"` when you need the complete pre/post row snapshots for forensics.
+
 ## Archive Spool Linkage Inspection
 
 Use this endpoint to inspect whether Bambuddy itself is storing archive-to-spool linkage in native DB tables beyond the archive's current notes and tags.

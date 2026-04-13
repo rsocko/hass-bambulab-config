@@ -38,6 +38,9 @@ param(
 
     [string]$RepairSidecarToken,
 
+    [ValidateSet('Full', 'Summary')]
+    [string]$RepairResponseDetail = 'Summary',
+
     [switch]$RepairSetCompletedStatus,
 
     [string]$ApiKey
@@ -482,6 +485,85 @@ function Write-OptionalJsonFile {
     Set-Content -LiteralPath $Path -Value ($json + "`n") -Encoding utf8
 }
 
+function ConvertTo-CompactRepairPreview {
+    param([object]$Preview)
+
+    if ($null -eq $Preview) {
+        return $null
+    }
+
+    return [ordered]@{
+        archive_id = $Preview.archive_id
+        timing_confidence = $Preview.timing_confidence
+        can_apply = $Preview.can_apply
+        status = $Preview.status
+        started_at = $Preview.started_at
+        completed_at = $Preview.completed_at
+        created_at = $Preview.created_at
+        print_time_seconds = $Preview.print_time_seconds
+    }
+}
+
+function ConvertTo-CompactRepairResult {
+    param([object]$RepairResult)
+
+    if ($null -eq $RepairResult) {
+        return $null
+    }
+
+    $responseDetail = $null
+    if ($RepairResult.PSObject.Properties.Name -contains 'response_detail') {
+        $responseDetail = $RepairResult.response_detail
+    }
+
+    return [ordered]@{
+        archive_id = $RepairResult.archive_id
+        applied = $RepairResult.applied
+        changed = $RepairResult.changed
+        response_detail = $responseDetail
+        updated_fields = @($RepairResult.updated_fields)
+    }
+}
+
+function ConvertTo-BackfillConsoleResult {
+    param([object]$Result)
+
+    $payload = [ordered]@{
+        entry_id = $Result.entry_id
+        source_path = $Result.source_path
+        source_type = $Result.source_type
+        confidence = $Result.confidence
+        status = $Result.status
+        reason = $Result.reason
+        matched_archive_id = $Result.matched_archive_id
+        created_archive_id = $Result.created_archive_id
+    }
+
+    if ($Result.PSObject.Properties.Name -contains 'repair_preview') {
+        $payload['repair_preview'] = ConvertTo-CompactRepairPreview -Preview $Result.repair_preview
+    }
+
+    if ($Result.PSObject.Properties.Name -contains 'repair_result') {
+        $payload['repair_result'] = ConvertTo-CompactRepairResult -RepairResult $Result.repair_result
+    }
+
+    return $payload
+}
+
+function ConvertTo-BackfillConsoleOutput {
+    param([object]$Output)
+
+    return [ordered]@{
+        mode = $Output.mode
+        action = $Output.action
+        manifest_path = $Output.manifest_path
+        batch_id = $Output.batch_id
+        candidate_count = $Output.candidate_count
+        existing_archive_count = $Output.existing_archive_count
+        results = @($Output.results | ForEach-Object { [pscustomobject](ConvertTo-BackfillConsoleResult -Result $_) })
+    }
+}
+
 function Test-ManifestCandidateAlreadyHandled {
     param([object]$Candidate)
 
@@ -644,7 +726,8 @@ function Invoke-RuntimeRepair {
         [string]$SidecarBaseUrl,
         [string]$SidecarToken,
         [switch]$Apply,
-        [string]$AuditNote
+        [string]$AuditNote,
+        [string]$ResponseDetail = 'Summary'
     )
 
     if ([string]::IsNullOrWhiteSpace($SidecarToken)) {
@@ -660,6 +743,7 @@ function Invoke-RuntimeRepair {
         failure_reason = $(if ($Proposal.failure_reason) { [string]$Proposal.failure_reason } else { $null })
         audit_note = $AuditNote
         dry_run = (-not $Apply.IsPresent)
+        response_detail = $ResponseDetail.ToLowerInvariant()
     }
 
     $headers = @{ Authorization = "Bearer $SidecarToken" }
@@ -698,6 +782,7 @@ function Get-ExistingCandidateRepairResult {
         [string]$RequestedRepairAction,
         [string]$SidecarBaseUrl,
         [string]$SidecarToken,
+        [string]$ResponseDetail,
         [switch]$SetCompletedStatus
     )
 
@@ -715,11 +800,11 @@ function Get-ExistingCandidateRepairResult {
         }
 
         $auditNote = ('Historical import runtime repair from {0} ({1})' -f $Candidate.relative_path, $repairPreview.timing_confidence)
-        $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $SidecarBaseUrl -SidecarToken $SidecarToken -Apply -AuditNote $auditNote
+        $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $SidecarBaseUrl -SidecarToken $SidecarToken -Apply -AuditNote $auditNote -ResponseDetail $ResponseDetail
     }
     elseif ($RequestedRepairAction -eq 'Preview') {
         $auditNote = ('Historical import runtime repair preview from {0} ({1})' -f $Candidate.relative_path, $repairPreview.timing_confidence)
-        $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $SidecarBaseUrl -SidecarToken $SidecarToken -AuditNote $auditNote
+        $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $SidecarBaseUrl -SidecarToken $SidecarToken -AuditNote $auditNote -ResponseDetail $ResponseDetail
     }
 
     return [ordered]@{
@@ -769,7 +854,7 @@ function Invoke-BackfillMode {
             $existing = Find-ExistingArchiveByHash -Archives $existingArchives -Sha256 ([string]$candidate.source_sha256)
             if ($existing) {
                 if ($RepairAction -ne 'None' -and $candidate.created_archive_id -and [int]$existing.id -eq [int]$candidate.created_archive_id) {
-                    $repairOutcome = Get-ExistingCandidateRepairResult -Candidate $candidate -Url $Url -Headers $Headers -RequestedRepairAction $RepairAction -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -SetCompletedStatus:$RepairSetCompletedStatus
+                    $repairOutcome = Get-ExistingCandidateRepairResult -Candidate $candidate -Url $Url -Headers $Headers -RequestedRepairAction $RepairAction -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -ResponseDetail $RepairResponseDetail -SetCompletedStatus:$RepairSetCompletedStatus
                     $resultPayload = ConvertTo-BackfillResult -Candidate $candidate -Status $(if ($RepairAction -eq 'Apply') { 'runtime_repaired' } else { 'repair_previewed' }) -Reason $(if ($RepairAction -eq 'Apply') { 'Existing imported archive received runtime repair.' } else { 'Existing imported archive evaluated for runtime repair.' }) -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id)
                     $resultPayload['repair_preview'] = $repairOutcome.preview
                     if ($repairOutcome.result) {
@@ -813,7 +898,7 @@ function Invoke-BackfillMode {
 
             if (Test-ManifestCandidateAlreadyHandled -Candidate $candidate) {
                 if ($RepairAction -ne 'None' -and $candidate.created_archive_id) {
-                    $repairOutcome = Get-ExistingCandidateRepairResult -Candidate $candidate -Url $Url -Headers $Headers -RequestedRepairAction $RepairAction -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -SetCompletedStatus:$RepairSetCompletedStatus
+                    $repairOutcome = Get-ExistingCandidateRepairResult -Candidate $candidate -Url $Url -Headers $Headers -RequestedRepairAction $RepairAction -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -ResponseDetail $RepairResponseDetail -SetCompletedStatus:$RepairSetCompletedStatus
                     $resultPayload = ConvertTo-BackfillResult -Candidate $candidate -Status $(if ($RepairAction -eq 'Apply') { 'runtime_repaired' } else { 'repair_previewed' }) -Reason $(if ($RepairAction -eq 'Apply') { 'Existing imported archive received runtime repair.' } else { 'Existing imported archive evaluated for runtime repair.' }) -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id)
                     $resultPayload['repair_preview'] = $repairOutcome.preview
                     if ($repairOutcome.result) {
@@ -891,11 +976,11 @@ function Invoke-BackfillMode {
                     }
 
                     $auditNote = ('Historical import runtime repair from {0} ({1})' -f $candidate.relative_path, $repairPreview.timing_confidence)
-                    $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -Apply -AuditNote $auditNote
+                    $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -Apply -AuditNote $auditNote -ResponseDetail $RepairResponseDetail
                 }
                 elseif ($RepairAction -eq 'Preview') {
                     $auditNote = ('Historical import runtime repair preview from {0} ({1})' -f $candidate.relative_path, $repairPreview.timing_confidence)
-                    $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -AuditNote $auditNote
+                    $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -AuditNote $auditNote -ResponseDetail $RepairResponseDetail
                 }
             }
 
@@ -940,7 +1025,7 @@ function Invoke-BackfillMode {
     }
 
     Write-OptionalJsonFile -Path $OutputPath -Value $output
-    $output | ConvertTo-Json -Depth 12
+    (ConvertTo-BackfillConsoleOutput -Output $output) | ConvertTo-Json -Depth 8
 }
 
 $headers = New-Headers -Key $ApiKey

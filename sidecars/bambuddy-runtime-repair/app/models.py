@@ -57,6 +57,11 @@ class RestoreReason(StrEnum):
     POLICY_NOT_YET_IMPLEMENTED = "policy_not_yet_implemented"
 
 
+class RuntimeRepairResponseDetail(StrEnum):
+    FULL = "full"
+    SUMMARY = "summary"
+
+
 class RuntimeRepairRequest(BaseModel):
     archive_id: int
     started_at: str | None = None
@@ -66,6 +71,7 @@ class RuntimeRepairRequest(BaseModel):
     failure_reason: str | None = None
     audit_note: str | None = None
     dry_run: bool = False
+    response_detail: RuntimeRepairResponseDetail = RuntimeRepairResponseDetail.FULL
 
 
 class HealthResponse(BaseModel):
@@ -139,8 +145,9 @@ class RuntimeRepairResponse(BaseModel):
     archive_id: int
     applied: bool
     changed: bool
-    before: dict[str, Any]
-    after: dict[str, Any]
+    response_detail: RuntimeRepairResponseDetail = RuntimeRepairResponseDetail.FULL
+    before: dict[str, Any] | None = None
+    after: dict[str, Any] | None = None
     updated_fields: list[str]
 
 
