@@ -11,11 +11,13 @@ What was moved here:
 - legacy page-info template sensor
 - legacy filter-option sync automation
 - legacy bulk archive fetch REST command
+- legacy REST archive poller and its page-size helper
 
 Why it was archived:
 
 - repeated filter changes kept forcing large Jinja evaluations through the HA state machine
 - the legacy cache path was still hitting Home Assistant template-size limits in production
 - the active browser backend is now the `bambuddy` custom integration with the local SQLite store
+- the legacy REST poller overlapped with the active Variant 3 integration refresh path and was retired to reduce background load during archive backfill/import work
 
 These files are intentionally outside `homeassistant/` so the deploy workflow cannot sync them into `/config` unless they are explicitly restored.

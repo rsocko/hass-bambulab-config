@@ -279,208 +279,287 @@ class PrintHistoryStore:
 
     def replace_archives(self, archives: list[dict[str, Any]]) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
+        prepared_archives = self._prepare_archives_for_sync(archives, timestamp)
         with self._connect() as connection:
             self._ensure_schema(connection)
-            review_rows = connection.execute(
-                "SELECT archive_id, review_status, mismatch_flags, reviewed_at, review_note FROM archive_review_state"
+            existing_rows = connection.execute(
+                "SELECT archive_id, payload_hash, source_updated_at, json_payload FROM archives"
             ).fetchall()
-            event_rows = connection.execute(
-                "SELECT archive_id, event_type, event_time, event_source, event_status, payload_json, derived_from, event_key FROM archive_event_timeline"
-            ).fetchall()
-            lineage_rows = connection.execute(
-                "SELECT archive_id, related_archive_id, relation_type, created_at, note FROM archive_repair_lineage"
-            ).fetchall()
-            connection.execute("DELETE FROM archive_photos")
-            connection.execute("DELETE FROM archive_note_payload_rows")
-            connection.execute("DELETE FROM archive_tags")
-            connection.execute("DELETE FROM archive_filament_rows")
-            connection.execute("DELETE FROM archives")
+            existing_by_id = {
+                as_int(row[0]): {
+                    "payload_hash": as_text(row[1]).strip(),
+                    "source_updated_at": as_text(row[2]).strip(),
+                    "json_payload": as_text(row[3]),
+                }
+                for row in existing_rows
+                if as_int(row[0]) > 0
+            }
 
-            active_archive_ids: set[int] = set()
+            incoming_ids = set(prepared_archives)
+            existing_ids = set(existing_by_id)
+            removed_ids = existing_ids - incoming_ids
+            unchanged_ids: list[int] = []
+            inserted_count = 0
+            updated_count = 0
 
-            for archive in archives:
-                archive_id = as_int(archive.get("id"))
-                if archive_id <= 0:
+            for archive_id, prepared in prepared_archives.items():
+                existing = existing_by_id.get(archive_id)
+                if self._archive_matches_existing(prepared, existing):
+                    unchanged_ids.append(archive_id)
                     continue
-                active_archive_ids.add(archive_id)
-                connection.execute(
-                    """
-                    INSERT INTO archives (
-                        archive_id, printer_id, printer_name, print_name, status, started_at, completed_at,
-                        created_at, actual_time_seconds, print_time_seconds,
-                        filament_used_grams, filament_type, filament_color, duplicate_count, duplicate_sequence,
-                        original_archive_id, cost, quantity,
-                        object_count, layer_height, nozzle_diameter, nozzle_temperature,
-                        total_layers, sliced_for_model, designer, makerworld_url,
-                        is_favorite, tags, notes, failure_reason, thumbnail_path,
-                        project_id, project_name, archive_day_local, has_archive_error,
-                        missing_core_3mf, missing_thumbnail, has_source_only,
-                        archive_error_type, archive_error_severity, enrichment_status, last_synced_at,
-                        source_updated_at, payload_hash, json_payload, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        archive_id,
-                        as_text(archive.get("printer_id")).strip(),
-                        as_text(archive.get("printer_name")).strip(),
-                        as_text(archive.get("print_name")).strip(),
-                        as_text(archive.get("status")).strip(),
-                        as_text(archive.get("started_at")).strip(),
-                        as_text(archive.get("completed_at")).strip(),
-                        as_text(archive.get("created_at")).strip(),
-                        as_int(archive.get("actual_time_seconds")),
-                        as_int(archive.get("print_time_seconds")),
-                        as_float(archive.get("filament_used_grams")),
-                        as_text(archive.get("filament_type")).strip(),
-                        as_text(archive.get("filament_color")).strip(),
-                        as_int(archive.get("duplicate_count")),
-                        as_int(archive.get("duplicate_sequence")),
-                        archive.get("original_archive_id"),
-                        as_float(archive.get("cost")),
-                        as_int(archive.get("quantity")),
-                        as_int(archive.get("object_count"), 1),
-                        as_text(archive.get("layer_height")).strip(),
-                        as_text(archive.get("nozzle_diameter")).strip(),
-                        as_int(archive.get("nozzle_temperature")),
-                        as_int(archive.get("total_layers")),
-                        as_text(archive.get("sliced_for_model")).strip(),
-                        as_text(archive.get("designer")).strip(),
-                        as_text(archive.get("makerworld_url")).strip(),
-                        1 if bool(archive.get("is_favorite")) else 0,
-                        as_text(archive.get("tags")).strip(),
-                        as_text(archive.get("notes")),
-                        as_text(archive.get("failure_reason")).strip(),
-                        as_text(archive.get("thumbnail_path")).strip(),
-                        as_text(archive.get("project_id")).strip(),
-                        as_text(archive.get("project_name")).strip(),
-                        archive_date_key(archive),
-                        1 if bool(archive.get("has_archive_error")) else 0,
-                        1 if bool(archive.get("missing_core_3mf")) else 0,
-                        1 if bool(archive.get("missing_thumbnail")) else 0,
-                        1 if bool(archive.get("has_source_only")) else 0,
-                        as_text(archive.get("archive_error_type")).strip(),
-                        as_text(archive.get("archive_error_severity")).strip(),
-                        as_text(archive.get("enrichment_status")).strip(),
-                        timestamp,
-                        as_text(archive.get("source_updated_at")).strip(),
-                        as_text(archive.get("payload_hash")).strip(),
-                        json.dumps(archive, separators=(",", ":"), sort_keys=True),
-                        timestamp,
-                    ),
+
+                self._upsert_archive(connection, prepared["row"])
+                self._replace_archive_children(connection, archive_id, prepared["archive"])
+                if existing is None:
+                    inserted_count += 1
+                else:
+                    updated_count += 1
+
+            if unchanged_ids:
+                connection.executemany(
+                    "UPDATE archives SET last_synced_at = ? WHERE archive_id = ?",
+                    [(timestamp, archive_id) for archive_id in unchanged_ids],
                 )
 
-                for row_index, row in enumerate(archive.get("filament_slots", [])):
-                    if not isinstance(row, dict):
-                        continue
-                    connection.execute(
-                        """
-                        INSERT INTO archive_filament_rows (
-                            archive_id, row_index, tray, name, type, color, used_grams, filament_id, spool_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            archive_id,
-                            row_index,
-                            as_text(row.get("tray")).strip(),
-                            as_text(row.get("name")).strip(),
-                            as_text(row.get("type")).strip(),
-                            as_text(row.get("color")).strip(),
-                            as_float(row.get("used_grams")),
-                            as_text(row.get("filament_id")).strip(),
-                            as_text(row.get("spool_id")).strip(),
-                        ),
-                    )
+            if removed_ids:
+                self._delete_removed_archives(connection, removed_ids)
 
-                for raw_tag in split_tags(as_text(archive.get("tags"))):
-                    normalized_tag = raw_tag.lower()
-                    connection.execute(
-                        """
-                        INSERT OR REPLACE INTO archive_tags (archive_id, normalized_tag, tag, is_system)
-                        VALUES (?, ?, ?, ?)
-                        """,
-                        (
-                            archive_id,
-                            normalized_tag,
-                            raw_tag,
-                            1 if ":" in normalized_tag and normalized_tag.split(":", 1)[0] in {"f", "s", "status", "cost", "vendor", "material", "spoolman"} else 0,
-                        ),
-                    )
+        _LOGGER.info(
+            "Delta-synced Bambuddy print history store: total=%s inserted=%s updated=%s unchanged=%s removed=%s",
+            len(prepared_archives),
+            inserted_count,
+            updated_count,
+            len(unchanged_ids),
+            len(removed_ids),
+        )
 
-                for photo_index, photo in enumerate(self._extract_photos(archive)):
-                    connection.execute(
-                        """
-                        INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role)
-                        VALUES (?, ?, ?, ?)
-                        """,
-                        (
-                            archive_id,
-                            photo_index,
-                            photo["path"],
-                            photo["role"],
-                        ),
-                    )
+    def _prepare_archives_for_sync(self, archives: list[dict[str, Any]], timestamp: str) -> dict[int, dict[str, Any]]:
+        prepared_archives: dict[int, dict[str, Any]] = {}
+        for archive in archives:
+            archive_id = as_int(archive.get("id"))
+            if archive_id <= 0:
+                continue
+            json_payload = json.dumps(archive, separators=(",", ":"), sort_keys=True)
+            prepared_archives[archive_id] = {
+                "archive": archive,
+                "payload_hash": as_text(archive.get("payload_hash")).strip(),
+                "source_updated_at": as_text(archive.get("source_updated_at")).strip(),
+                "json_payload": json_payload,
+                "row": self._archive_row(archive, timestamp, json_payload),
+            }
+        return prepared_archives
 
-                for payload_row in note_payload_rows(archive):
-                    connection.execute(
-                        """
-                        INSERT INTO archive_note_payload_rows (
-                            archive_id, row_index, tray, name, type, color, used_grams,
-                            filament_id, spool_id, ambiguity_code
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            archive_id,
-                            as_int(payload_row.get("row_index")),
-                            as_text(payload_row.get("tray")).strip(),
-                            as_text(payload_row.get("name")).strip(),
-                            as_text(payload_row.get("type")).strip(),
-                            as_text(payload_row.get("color")).strip(),
-                            as_float(payload_row.get("used_grams")),
-                            as_text(payload_row.get("filament_id")).strip(),
-                            as_text(payload_row.get("spool_id")).strip(),
-                            as_text(payload_row.get("ambiguity_code")).strip(),
-                        ),
-                    )
+    def _archive_row(self, archive: dict[str, Any], timestamp: str, json_payload: str) -> tuple[Any, ...]:
+        return (
+            as_int(archive.get("id")),
+            as_text(archive.get("printer_id")).strip(),
+            as_text(archive.get("printer_name")).strip(),
+            as_text(archive.get("print_name")).strip(),
+            as_text(archive.get("status")).strip(),
+            as_text(archive.get("started_at")).strip(),
+            as_text(archive.get("completed_at")).strip(),
+            as_text(archive.get("created_at")).strip(),
+            as_int(archive.get("actual_time_seconds")),
+            as_int(archive.get("print_time_seconds")),
+            as_float(archive.get("filament_used_grams")),
+            as_text(archive.get("filament_type")).strip(),
+            as_text(archive.get("filament_color")).strip(),
+            as_int(archive.get("duplicate_count")),
+            as_int(archive.get("duplicate_sequence")),
+            archive.get("original_archive_id"),
+            as_float(archive.get("cost")),
+            as_int(archive.get("quantity")),
+            as_int(archive.get("object_count"), 1),
+            as_text(archive.get("layer_height")).strip(),
+            as_text(archive.get("nozzle_diameter")).strip(),
+            as_int(archive.get("nozzle_temperature")),
+            as_int(archive.get("total_layers")),
+            as_text(archive.get("sliced_for_model")).strip(),
+            as_text(archive.get("designer")).strip(),
+            as_text(archive.get("makerworld_url")).strip(),
+            1 if bool(archive.get("is_favorite")) else 0,
+            as_text(archive.get("tags")).strip(),
+            as_text(archive.get("notes")),
+            as_text(archive.get("failure_reason")).strip(),
+            as_text(archive.get("thumbnail_path")).strip(),
+            as_text(archive.get("project_id")).strip(),
+            as_text(archive.get("project_name")).strip(),
+            archive_date_key(archive),
+            1 if bool(archive.get("has_archive_error")) else 0,
+            1 if bool(archive.get("missing_core_3mf")) else 0,
+            1 if bool(archive.get("missing_thumbnail")) else 0,
+            1 if bool(archive.get("has_source_only")) else 0,
+            as_text(archive.get("archive_error_type")).strip(),
+            as_text(archive.get("archive_error_severity")).strip(),
+            as_text(archive.get("enrichment_status")).strip(),
+            timestamp,
+            as_text(archive.get("source_updated_at")).strip(),
+            as_text(archive.get("payload_hash")).strip(),
+            json_payload,
+            timestamp,
+        )
 
-            for review_row in review_rows:
-                archive_id = as_int(review_row[0])
-                if archive_id not in active_archive_ids:
-                    continue
-                connection.execute(
-                    """
-                    INSERT OR REPLACE INTO archive_review_state (
-                        archive_id, review_status, mismatch_flags, reviewed_at, review_note
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
-                    review_row,
-                )
+    def _archive_matches_existing(self, prepared: dict[str, Any], existing: dict[str, str] | None) -> bool:
+        if existing is None:
+            return False
+        return existing["json_payload"] == prepared["json_payload"]
 
-            for lineage_row in lineage_rows:
-                archive_id = as_int(lineage_row[0])
-                related_archive_id = as_int(lineage_row[1])
-                if archive_id not in active_archive_ids or related_archive_id not in active_archive_ids:
-                    continue
-                connection.execute(
-                    """
-                    INSERT OR REPLACE INTO archive_repair_lineage (
-                        archive_id, related_archive_id, relation_type, created_at, note
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
-                    lineage_row,
-                )
+    def _upsert_archive(self, connection: sqlite3.Connection, row: tuple[Any, ...]) -> None:
+        connection.execute(
+            """
+            INSERT INTO archives (
+                archive_id, printer_id, printer_name, print_name, status, started_at, completed_at,
+                created_at, actual_time_seconds, print_time_seconds,
+                filament_used_grams, filament_type, filament_color, duplicate_count, duplicate_sequence,
+                original_archive_id, cost, quantity,
+                object_count, layer_height, nozzle_diameter, nozzle_temperature,
+                total_layers, sliced_for_model, designer, makerworld_url,
+                is_favorite, tags, notes, failure_reason, thumbnail_path,
+                project_id, project_name, archive_day_local, has_archive_error,
+                missing_core_3mf, missing_thumbnail, has_source_only,
+                archive_error_type, archive_error_severity, enrichment_status, last_synced_at,
+                source_updated_at, payload_hash, json_payload, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(archive_id) DO UPDATE SET
+                printer_id = excluded.printer_id,
+                printer_name = excluded.printer_name,
+                print_name = excluded.print_name,
+                status = excluded.status,
+                started_at = excluded.started_at,
+                completed_at = excluded.completed_at,
+                created_at = excluded.created_at,
+                actual_time_seconds = excluded.actual_time_seconds,
+                print_time_seconds = excluded.print_time_seconds,
+                filament_used_grams = excluded.filament_used_grams,
+                filament_type = excluded.filament_type,
+                filament_color = excluded.filament_color,
+                duplicate_count = excluded.duplicate_count,
+                duplicate_sequence = excluded.duplicate_sequence,
+                original_archive_id = excluded.original_archive_id,
+                cost = excluded.cost,
+                quantity = excluded.quantity,
+                object_count = excluded.object_count,
+                layer_height = excluded.layer_height,
+                nozzle_diameter = excluded.nozzle_diameter,
+                nozzle_temperature = excluded.nozzle_temperature,
+                total_layers = excluded.total_layers,
+                sliced_for_model = excluded.sliced_for_model,
+                designer = excluded.designer,
+                makerworld_url = excluded.makerworld_url,
+                is_favorite = excluded.is_favorite,
+                tags = excluded.tags,
+                notes = excluded.notes,
+                failure_reason = excluded.failure_reason,
+                thumbnail_path = excluded.thumbnail_path,
+                project_id = excluded.project_id,
+                project_name = excluded.project_name,
+                archive_day_local = excluded.archive_day_local,
+                has_archive_error = excluded.has_archive_error,
+                missing_core_3mf = excluded.missing_core_3mf,
+                missing_thumbnail = excluded.missing_thumbnail,
+                has_source_only = excluded.has_source_only,
+                archive_error_type = excluded.archive_error_type,
+                archive_error_severity = excluded.archive_error_severity,
+                enrichment_status = excluded.enrichment_status,
+                last_synced_at = excluded.last_synced_at,
+                source_updated_at = excluded.source_updated_at,
+                payload_hash = excluded.payload_hash,
+                json_payload = excluded.json_payload,
+                updated_at = excluded.updated_at
+            """,
+            row,
+        )
 
-            for event_row in event_rows:
-                archive_id = as_int(event_row[0])
-                if archive_id not in active_archive_ids:
-                    continue
-                connection.execute(
-                    """
-                    INSERT OR IGNORE INTO archive_event_timeline (
-                        archive_id, event_type, event_time, event_source, event_status, payload_json, derived_from, event_key
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    event_row,
-                )
+    def _replace_archive_children(self, connection: sqlite3.Connection, archive_id: int, archive: dict[str, Any]) -> None:
+        connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (archive_id,))
+        connection.execute("DELETE FROM archive_note_payload_rows WHERE archive_id = ?", (archive_id,))
+        connection.execute("DELETE FROM archive_tags WHERE archive_id = ?", (archive_id,))
+        connection.execute("DELETE FROM archive_filament_rows WHERE archive_id = ?", (archive_id,))
+
+        for row_index, row in enumerate(archive.get("filament_slots", [])):
+            if not isinstance(row, dict):
+                continue
+            connection.execute(
+                """
+                INSERT INTO archive_filament_rows (
+                    archive_id, row_index, tray, name, type, color, used_grams, filament_id, spool_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    archive_id,
+                    row_index,
+                    as_text(row.get("tray")).strip(),
+                    as_text(row.get("name")).strip(),
+                    as_text(row.get("type")).strip(),
+                    as_text(row.get("color")).strip(),
+                    as_float(row.get("used_grams")),
+                    as_text(row.get("filament_id")).strip(),
+                    as_text(row.get("spool_id")).strip(),
+                ),
+            )
+
+        for raw_tag in split_tags(as_text(archive.get("tags"))):
+            normalized_tag = raw_tag.lower()
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO archive_tags (archive_id, normalized_tag, tag, is_system)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    archive_id,
+                    normalized_tag,
+                    raw_tag,
+                    1 if ":" in normalized_tag and normalized_tag.split(":", 1)[0] in {"f", "s", "status", "cost", "vendor", "material", "spoolman"} else 0,
+                ),
+            )
+
+        for photo_index, photo in enumerate(self._extract_photos(archive)):
+            connection.execute(
+                """
+                INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    archive_id,
+                    photo_index,
+                    photo["path"],
+                    photo["role"],
+                ),
+            )
+
+        for payload_row in note_payload_rows(archive):
+            connection.execute(
+                """
+                INSERT INTO archive_note_payload_rows (
+                    archive_id, row_index, tray, name, type, color, used_grams,
+                    filament_id, spool_id, ambiguity_code
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    archive_id,
+                    as_int(payload_row.get("row_index")),
+                    as_text(payload_row.get("tray")).strip(),
+                    as_text(payload_row.get("name")).strip(),
+                    as_text(payload_row.get("type")).strip(),
+                    as_text(payload_row.get("color")).strip(),
+                    as_float(payload_row.get("used_grams")),
+                    as_text(payload_row.get("filament_id")).strip(),
+                    as_text(payload_row.get("spool_id")).strip(),
+                    as_text(payload_row.get("ambiguity_code")).strip(),
+                ),
+            )
+
+    def _delete_removed_archives(self, connection: sqlite3.Connection, removed_ids: set[int]) -> None:
+        placeholders = ",".join("?" for _ in removed_ids)
+        ordered_ids = sorted(removed_ids)
+        connection.execute(
+            f"DELETE FROM archive_repair_lineage WHERE archive_id IN ({placeholders}) OR related_archive_id IN ({placeholders})",
+            ordered_ids + ordered_ids,
+        )
+        connection.execute(
+            f"DELETE FROM archives WHERE archive_id IN ({placeholders})",
+            ordered_ids,
+        )
 
     def load_archives(self) -> list[dict[str, Any]]:
         with self._connect() as connection:

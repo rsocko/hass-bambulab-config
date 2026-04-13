@@ -1,0 +1,13 @@
+# Archived on 2026-04-13 with the retired REST poller.
+#
+# This helper only existed to size the legacy `sensor.bambuddy_print_history`
+# REST request and is no longer part of the active Home Assistant package load.
+
+bambuddy_history_limit:
+  name: Bambuddy History Page Size
+  min: 5
+  max: 50
+  step: 5
+  initial: 10
+  icon: mdi:format-list-numbered
+  mode: slider

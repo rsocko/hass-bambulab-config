@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 import query as query_module  # noqa: E402
+import store as store_module  # noqa: E402
 from query import archive_activity_rows, option_sets, project_archive, query_archives  # noqa: E402
 from store import PrintHistoryStore  # noqa: E402
 
@@ -1074,6 +1075,104 @@ def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_pa
 
     assert len(timeline) == 1
     assert timeline[0]["type"] == "enrichment_applied"
+
+
+def test_variant3_store_delta_sync_keeps_unchanged_rows_and_updates_last_synced_at(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeDatetime(datetime):
+        _now = datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc)
+
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return cls._now.replace(tzinfo=None)
+            return cls._now.astimezone(tz)
+
+    monkeypatch.setattr(store_module, "datetime", FakeDatetime)
+
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = _projected_archives()
+    store.replace_archives(archives)
+
+    store.append_archive_event(
+        101,
+        event_type="enrichment_applied",
+        event_source="ha_service",
+        event_time="2026-04-08T14:00:00Z",
+        event_status="completed",
+    )
+
+    with sqlite3.connect(tmp_path / "print_history.db") as connection:
+        first_sync = connection.execute(
+            "SELECT last_synced_at, updated_at FROM archives WHERE archive_id = ?",
+            (101,),
+        ).fetchone()
+
+    FakeDatetime._now = datetime(2026, 4, 10, 12, 5, tzinfo=timezone.utc)
+    store.replace_archives(archives)
+
+    with sqlite3.connect(tmp_path / "print_history.db") as connection:
+        second_sync = connection.execute(
+            "SELECT last_synced_at, updated_at FROM archives WHERE archive_id = ?",
+            (101,),
+        ).fetchone()
+
+    timeline = store.load_archive_event_timeline(101)
+
+    assert first_sync is not None
+    assert second_sync is not None
+    assert first_sync[0] != second_sync[0]
+    assert first_sync[1] == second_sync[1]
+    assert len(timeline) == 1
+    assert timeline[0]["type"] == "enrichment_applied"
+
+
+def test_variant3_store_delta_sync_rebuilds_only_changed_archive_children(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = _projected_archives()
+    store.replace_archives(archives)
+
+    changed_archives = _projected_archives()
+    changed_archives[0] = {
+        **changed_archives[0],
+        "notes": "User note updated\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
+        "filament_slots": [
+            {"tray": "A1", "name": "Blue PLA", "color": "#112233", "used_grams": 30.0},
+        ],
+    }
+    store.append_archive_event(
+        101,
+        event_type="repair_applied",
+        event_source="ha_service",
+        event_time="2026-04-08T15:00:00Z",
+        event_status="completed",
+    )
+
+    store.replace_archives(changed_archives)
+
+    archive = store.load_archive(101)
+    timeline = store.load_archive_event_timeline(101)
+
+    with sqlite3.connect(tmp_path / "print_history.db") as connection:
+        changed_child_count = connection.execute(
+            "SELECT COUNT(*) FROM archive_filament_rows WHERE archive_id = ?",
+            (101,),
+        ).fetchone()[0]
+        unchanged_child_count = connection.execute(
+            "SELECT COUNT(*) FROM archive_filament_rows WHERE archive_id = ?",
+            (202,),
+        ).fetchone()[0]
+
+    assert archive is not None
+    assert archive["notes"].startswith("User note updated")
+    assert changed_child_count == 1
+    assert unchanged_child_count == 1
+    assert len(timeline) == 1
+    assert timeline[0]["type"] == "repair_applied"
 
 
 def test_variant3_option_sets_keep_none_and_strip_system_tags() -> None:

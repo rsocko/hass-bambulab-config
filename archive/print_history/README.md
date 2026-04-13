@@ -14,6 +14,11 @@ Archived browser backends:
 - `appdaemon-browser/` — the retired Variant 1 AppDaemon query/cache sidecar
 - `workflows/` — retired workflow files that previously built the AppDaemon sidecar image
 
+Archived legacy polling pieces:
+
+- `legacy-yaml-browser/rest_sensors/` — retired REST poller for recent archive count / latest-print summary
+- `legacy-yaml-browser/helpers/input_number/` — retired helper values used only by the REST poller
+
 Active browser backend:
 
 - `homeassistant/custom_components/bambuddy/`

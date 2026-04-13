@@ -1,3 +1,9 @@
+# Archived on 2026-04-13.
+#
+# This retired REST poller overlapped with the active Variant 3 Bambuddy
+# integration refresh path and is intentionally kept outside homeassistant/
+# so it cannot be deployed accidentally during historical backfill work.
+
 # Bambuddy Print History — polls the archives API for recent prints.
 # Docs: docs/features/print_history/README.md
 #
@@ -18,13 +24,11 @@
     X-API-Key: !secret bambuddy_api_key
   scan_interval: 300
   sensor:
-    # ── Count of archives returned on this page ───────────────────
     - name: "Bambuddy Print History"
       unique_id: bambuddy_print_history
       icon: mdi:history
       value_template: "{{ value_json | default([]) | count }}"
 
-    # ── Most-recent archive fields (value_json[0]) ───────────────
     - name: "Bambuddy Last Print Name"
       unique_id: bambuddy_last_print_name
       icon: mdi:printer-3d-nozzle

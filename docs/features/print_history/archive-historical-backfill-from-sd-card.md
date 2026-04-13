@@ -258,6 +258,21 @@ Recommended upload-and-annotate batch example:
    -BaseUrl 'http://bambuddy.socko.us' `
    -PrinterId 1 `
    -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
+
+## Home Assistant Backfill Guardrail
+
+During large historical imports, Home Assistant should run only the active Variant 3 browser backend:
+
+- `homeassistant/custom_components/bambuddy/`
+- `homeassistant/packages/3d_printing/print_history/template_sensors/`
+- `homeassistant/packages/3d_printing/print_history/automations/`
+
+The legacy REST polling path for `sensor.bambuddy_print_history` has been retired and moved under:
+
+- `archive/print_history/legacy-yaml-browser/rest_sensors/`
+- `archive/print_history/legacy-yaml-browser/helpers/input_number/`
+
+That guardrail matters during backfill because the active Variant 3 integration already performs its own startup, webhook, and interval refresh. Keeping the legacy REST poller disabled avoids overlapping archive fetch cycles while imports are creating new Bambuddy archives.
    -BackfillAction Full `
    -BatchId 'batch-001' `
    -UpdateManifest `
