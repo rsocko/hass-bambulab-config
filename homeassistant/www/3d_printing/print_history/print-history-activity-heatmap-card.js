@@ -571,12 +571,15 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     return {
       id: archive && archive.id != null ? archive.id : null,
+      originalArchiveId: archive && archive.original_archive_id != null ? String(archive.original_archive_id) : "",
       printName: archive && archive.print_name ? String(archive.print_name) : "Unnamed",
       printerId: archive && archive.printer_id != null ? String(archive.printer_id) : "Unknown printer",
       printerName: archive && archive.printer_name ? String(archive.printer_name) : "",
       printerLabel: archive && archive.printer_name ? String(archive.printer_name) : (archive && archive.printer_id != null ? String(archive.printer_id) : "Unknown printer"),
       filamentType: archive && archive.filament_type ? String(archive.filament_type) : "",
       designer: archive && archive.designer ? String(archive.designer) : "",
+      projectName: archive && archive.project_name ? String(archive.project_name) : "",
+      failureReason: archive && archive.failure_reason ? String(archive.failure_reason) : "",
       isFavorite: !!(archive && archive.is_favorite),
       status: this._normalizeStatus(archive && archive.status),
       rawStatus: archive && archive.status ? String(archive.status) : "",
@@ -621,7 +624,17 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       : Number.POSITIVE_INFINITY;
     var archiveStatus = archive.status;
     var tagValues = this._parseTagList(archive.tags);
-    var searchBlob = [archive.printName, archive.designer, archive.tags]
+    var searchBlob = [
+      archive.id,
+      archive.originalArchiveId,
+      archive.printerId,
+      archive.printName,
+      archive.printerName,
+      archive.designer,
+      archive.projectName,
+      archive.failureReason,
+      archive.tags,
+    ]
       .join(" ")
       .toLowerCase();
 

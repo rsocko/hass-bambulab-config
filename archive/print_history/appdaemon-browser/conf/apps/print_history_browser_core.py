@@ -114,6 +114,21 @@ def _archive_date_key(archive: dict[str, Any]) -> str:
     return parsed.astimezone().strftime("%Y-%m-%d")
 
 
+def _archive_search_blob(archive: dict[str, Any]) -> str:
+    values = [
+        archive.get("id"),
+        archive.get("original_archive_id"),
+        archive.get("printer_id"),
+        archive.get("print_name"),
+        archive.get("printer_name"),
+        archive.get("designer"),
+        archive.get("project_name"),
+        archive.get("failure_reason"),
+        archive.get("tags"),
+    ]
+    return " ".join(_as_text(value).strip() for value in values if _as_text(value).strip()).lower()
+
+
 def _extract_enrichment_payload(notes: str) -> dict[str, Any]:
     marker_index = notes.find(ENRICHMENT_MARKER)
     if marker_index < 0:
@@ -435,13 +450,7 @@ def query_archives(
         archive_user_tags = [tag.lower() for tag in _user_tags(_as_text(archive.get("tags")))]
         archive_colors = _archive_colors(archive)
         archive_day = _archive_date_key(archive)
-        search_blob = " ".join(
-            [
-                _as_text(archive.get("print_name")),
-                _as_text(archive.get("designer")),
-                _as_text(archive.get("tags")),
-            ]
-        ).lower()
+        search_blob = _archive_search_blob(archive)
 
         if status_filter != "All" and archive_status != status_filter.lower():
             continue

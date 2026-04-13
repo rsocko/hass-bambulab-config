@@ -799,7 +799,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=13", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=14", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=33", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
@@ -1489,6 +1489,9 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("duplicate_sequence", content)
         self.assertIn("original_archive_id", content)
         self.assertIn("duplicateChipLabel", content)
+        self.assertIn("role-emblem", content)
+        self.assertIn("Dup of #", content)
+        self.assertIn("Source ·", content)
 
     def test_popup_content_renders_duplicate_summary_from_projected_metadata(self):
         content = (
@@ -1498,8 +1501,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("const buildDuplicateState = (currentArchive) =>", content)
         self.assertIn("duplicateState.hasDuplicateContext", content)
         self.assertIn("duplicateState.chipLabel", content)
-        self.assertIn("This archive is the original entry for a duplicate set", content)
-        self.assertIn("This archive is a duplicate entry that points back to archive", content)
+        self.assertIn("This archive is the original source for a duplicate set", content)
+        self.assertIn("This archive is a duplicate copy derived from original archive", content)
 
     def test_popup_favorite_button_updates_helper_before_backend_toggle(self):
         content = (
