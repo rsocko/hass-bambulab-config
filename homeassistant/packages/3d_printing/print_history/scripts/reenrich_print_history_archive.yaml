@@ -408,12 +408,18 @@ reenrich_print_history_archive:
                     {% set target_uuid = slot.tray_uuid | default('', true) | string | trim('"') | lower %}
                     {% set target_type = slot.type | default('', true) | string %}
                     {% set target_name = slot.profile_name | default('', true) | string | trim('"') %}
+                    {% set target_vendor = slot.vendor_hint | default('', true) | string | trim('"') %}
                     {% set target_color = slot.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
                     {% set location_hint = 'AMS' if (slot.tray | default('', true) | string).startswith('A') else ('AMS 2' if (slot.tray | default('', true) | string).startswith('B') else ('External Spool Holder' if (slot.tray | default('', true) | string) == 'External' else '')) %}
                     {% if target_color | length == 8 %}
                       {% set target_color = target_color[0:6] %}
                     {% endif %}
-                    {% set bambu_only = ((target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu')) %}
+                    {% set vendor_mode = 'any' %}
+                    {% if (target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu') or target_vendor == 'Bambu Lab' %}
+                      {% set vendor_mode = 'bambu' %}
+                    {% elif target_vendor | length > 0 %}
+                      {% set vendor_mode = 'exact' %}
+                    {% endif %}
                     {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_code='', match_method='', filament_id=none, filament_match_method='') %}
                     {% if target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
                       {% for spool in spoolman_spools_normalized %}
@@ -436,7 +442,13 @@ reenrich_print_history_archive:
                         {% if spool.sealed %}
                           {% continue %}
                         {% endif %}
-                        {% set vendor_ok = (spool.vendor == 'Bambu Lab') if bambu_only else (spool.vendor != 'Bambu Lab') %}
+                        {% if vendor_mode == 'bambu' %}
+                          {% set vendor_ok = spool.vendor == 'Bambu Lab' %}
+                        {% elif vendor_mode == 'exact' %}
+                          {% set vendor_ok = spool.vendor == target_vendor %}
+                        {% else %}
+                          {% set vendor_ok = true %}
+                        {% endif %}
                         {% set spool_color = spool.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
                         {% if vendor_ok and spool_color == target_color %}
                           {% set ns_color.single = ns_color.single + [spool] %}
@@ -495,7 +507,7 @@ reenrich_print_history_archive:
                         {% set ns_family = namespace(items=[]) %}
                         {% for candidate in spoolman_spools_normalized %}
                           {% if not candidate.sealed and candidate.filament_id == ns_match.filament_id %}
-                            {% if ((candidate.vendor == 'Bambu Lab') if bambu_only else (candidate.vendor != 'Bambu Lab')) %}
+                            {% if (vendor_mode == 'bambu' and candidate.vendor == 'Bambu Lab') or (vendor_mode == 'exact' and candidate.vendor == target_vendor) or vendor_mode == 'any' %}
                               {% set ns_family.items = ns_family.items + [candidate] %}
                             {% endif %}
                           {% endif %}

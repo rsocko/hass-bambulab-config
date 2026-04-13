@@ -1239,6 +1239,14 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("ns_filament_pool.method = 'ct'", content)
         self.assertIn("fm=ns_row.fm", content)
 
+    def test_reenrich_generic_archive_rows_search_all_vendors(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("{% set vendor_mode = 'any' %}", content)
+        self.assertIn("{% elif target_vendor | length > 0 %}", content)
+        self.assertIn("{% set vendor_mode = 'exact' %}", content)
+        self.assertIn("{% else %}\n                          {% set vendor_ok = true %}", content)
+        self.assertNotIn("vendor_ok = (spool.vendor == 'Bambu Lab') if bambu_only else (spool.vendor != 'Bambu Lab')", content)
+
     def test_reenrich_supports_batch_mode_without_refreshing_every_archive(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("refresh_browser:", content)

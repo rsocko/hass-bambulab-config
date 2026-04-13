@@ -252,6 +252,8 @@ This manual re-enrich path is shipped, but it is still a best-effort heuristic f
 
 The temporal fallback is intentionally conservative. It is a last-tier recovery path and records `pm:"t_hist"` on any row resolved this way so inferred lineage stays distinguishable from exact UUID or direct match lineage. When filament recovery had to fall back to color-driven inference first, the row also records `fm` so the hidden payload makes it clear that filament identity and spool identity were proven by different evidence tiers.
 
+Generic `afs` fallback rows with no archived UUID, vendor, or profile hint no longer treat missing Bambu evidence as proof that the row must be non-Bambu. In those cases the matcher now keeps all vendors in the candidate pool and only narrows vendor when archived metadata explicitly supports it.
+
 ### Bulk backfill
 
 The shipped `backfill_print_history_archive_enrichment.yaml` script accepts a CSV list of archive IDs and runs `reenrich_print_history_archive` in batch mode with browser refresh deferred until the batch completes.
