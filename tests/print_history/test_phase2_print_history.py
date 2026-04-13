@@ -1221,6 +1221,12 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("refresh_browser:", content)
         self.assertIn("should_refresh_browser", content)
+        self.assertIn(
+            '            reenrich_started_ts: "{{ as_timestamp(now()) | float(0) }}"\n'
+            '            should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"\n'
+            '        - if:',
+            content,
+        )
         self.assertIn("value_template: \"{{ should_refresh_browser }}\"", content)
 
     def test_backfill_script_batches_reenrich_calls(self):

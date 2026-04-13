@@ -31,7 +31,7 @@ reenrich_print_history_archive:
             resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
             debug_enabled: "{{ states('input_boolean.print_history_debug_instrumentation') == 'on' }}"
             reenrich_started_ts: "{{ as_timestamp(now()) | float(0) }}"
-          should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
+            should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
         - if:
             - condition: template
               value_template: "{{ resolved_archive_id | string | trim != '' }}"
