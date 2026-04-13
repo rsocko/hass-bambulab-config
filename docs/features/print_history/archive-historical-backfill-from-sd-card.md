@@ -302,11 +302,11 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `364`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `366`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`) returned `400 Bad Request`, but Bambuddy still created archive `335`; treat that archive as anomalous until it is reviewed and reconciled with the manifest
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, `360`, `361`, `362`, `363`, and `364`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, `360`, `361`, `362`, `363`, `364`, `365`, and `366`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -340,6 +340,8 @@ Current live checkpoint:
 - `01FA70F261DD2060A6284CA78E1D5B9F3752ED03E3A7BF33B08CB52DE3ECC704` (`cache/Narrow - Strong Hook.3mf`) matched existing archive `53` by `content_hash`
 - `214CF0B92C0833C3793F458584AC12FDE986452A37EBB8B1AFA82DF105315920` (`cache/My Parametric Project Box_plate_5.3mf`) matched existing archive `9` by `content_hash`
 - `FBF724FF125F1C3AC839D950080D54B7A418684D06D41CD56CED8905C1878CB4` (`cache/My Parametric Project Box_Plate 1.3mf`) matched existing archive `11` by `content_hash`
+- `20F27FDFAE8A74656FCC28F45B093DD1FEC63075EBBECD860F5174AC95BC947D` (`cache/Modular_Magnetic_Frame_System_for_Hueforge_Art.3mf`) matched existing archive `144` by `content_hash`
+- `CC62299C244478E1A36CF9DCFD9B8C0C8113B447E5502E0E73693408DE52E886` (`cache/Stormtrooper Helmet Hueforge 200mm x 200mm.3mf`) matched existing archive `43` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -444,12 +446,14 @@ Current live checkpoint:
    - archive `362` <- `cache/Multicolor AMS, only 1 filament change.3mf`
    - archive `363` <- `cache/Modular_Spool_Stand,_Only_8_Grams_Each.3mf`
    - archive `364` <- `cache/Split Spiral, 0.2mm layer, 2 walls, 15% infill.3mf`
+   - archive `365` <- `cache/Standard 0.2mm layer, 3 walls, 12% infill.3mf`
+   - archive `366` <- `cache/MODULAR.3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `8D1724AB3B78FCFBF9D5FA5E3CE455B4B9D1CBE5DA0B0636308E7FB83F9DE552` -> `cache/Standard 0.2mm layer, 3 walls, 12% infill.3mf`
-   - `20F27FDFAE8A74656FCC28F45B093DD1FEC63075EBBECD860F5174AC95BC947D` -> `cache/Modular_Magnetic_Frame_System_for_Hueforge_Art.3mf`
-   - `231A1E630F1D1A88A698DB40C9ECEC4C8A251B0636C30B5163FB2CCA203C9EF2` -> `cache/MODULAR.3mf`
-   - `CC62299C244478E1A36CF9DCFD9B8C0C8113B447E5502E0E73693408DE52E886` -> `cache/Stormtrooper Helmet Hueforge 200mm x 200mm.3mf`
-- manifest summary is now `completed: 130`, `already_in_archive: 45`, `batch_ready: 54`, `manual_review: 1`
+   - `014F458549413655F7EFD446316CBA23B391AC107F0F74E560FED76DB7469E5B` -> `cache/Modular Magnetic Frame System for Hueforge Art.3mf`
+   - `67C2EB8955C0D8B576FA4A11FDD11FE433860D5CCEF194215540A4CAA5960EC3` -> `cache/Microfiber Holder.3mf`
+   - `F0E5C738DDECDD71D8F0329BBCB4A00B398188781820100723BF13FAE3161E3A` -> `cache/Megumi_Shadow_Garden_Front_103x150.3mf`
+   - `1CB8271709685EE82D10346E1DF4687E983596DC620F4D8D146C87D56344DAF8` -> `cache/toothbrush holder.3mf`
+- manifest summary is now `completed: 132`, `already_in_archive: 47`, `batch_ready: 50`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow

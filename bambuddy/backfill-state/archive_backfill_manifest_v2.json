@@ -6,9 +6,9 @@
     "candidate_count":  231,
     "candidate_counts_by_bucket":  {
                                        "manual_review":  1,
-                                       "batch_ready":  50,
-                                       "completed":  132,
-                                       "already_in_archive":  47,
+                                       "batch_ready":  46,
+                                       "completed":  133,
+                                       "already_in_archive":  50,
                                        "deferred":  1
                                    },
     "batch_counts":  {
@@ -11577,14 +11577,14 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "already_in_archive",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-007",
-                           "import_status":  "pending",
-                           "matched_archive_id":  null,
+                           "import_status":  "skipped_existing_content_hash",
+                           "matched_archive_id":  83,
                            "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "last_attempted_at":  "2026-04-13T05:36:01.4755456Z",
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
                            "same_hash_group_index":  0
@@ -11640,17 +11640,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-007",
-                           "import_status":  "pending",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "created_archive_id":  367,
+                           "last_attempted_at":  "2026-04-13T05:36:00.9345374Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
-                           "same_hash_group_index":  0
+                           "same_hash_group_index":  0,
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  367,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-11-23T22:57:50+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-11-23T21:56:56.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-11-23T22:57:50+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  3654,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T05:36:00.9365371Z"
                        },
                        {
                            "entry_id":  "014F458549413655F7EFD446316CBA23B391AC107F0F74E560FED76DB7469E5B",
@@ -11704,14 +11723,14 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "already_in_archive",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-007",
-                           "import_status":  "pending",
-                           "matched_archive_id":  null,
+                           "import_status":  "skipped_existing_content_hash",
+                           "matched_archive_id":  169,
                            "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "last_attempted_at":  "2026-04-13T05:36:00.2476829Z",
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
                            "same_hash_group_index":  0
@@ -16303,14 +16322,14 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "already_in_archive",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-009",
-                           "import_status":  "pending",
-                           "matched_archive_id":  null,
+                           "import_status":  "skipped_existing_content_hash",
+                           "matched_archive_id":  48,
                            "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "last_attempted_at":  "2026-04-13T05:36:02.0442595Z",
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
                            "same_hash_group_index":  0
