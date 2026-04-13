@@ -257,6 +257,25 @@ Recommended upload-and-annotate batch example:
 
 With `-UpdateManifest`, the runner updates each candidate in place after it is inspected, skipped, uploaded, annotated, or fails. That makes batch execution resumable without maintaining a separate progress database.
 
+### Which `tmp` files need to be kept
+
+For the current workflow, only the active manifest file needs to persist if the goal is to resume later without accidentally reimporting work that was already reviewed or processed.
+
+Keep:
+
+- `tmp/archive_backfill_manifest_v2.json` as the canonical resumable ledger for batch assignment, import status, matched archive IDs, created archive IDs, operator notes, and repair state
+
+Do not rely on older or one-off outputs as the source of truth:
+
+- `tmp/archive_backfill_manifest.json` is an older manifest version and should not remain the active ledger once v2 is in use
+- `tmp/archive_backfill_batch-001_inspect_v2.json`, `tmp/archive_backfill_full_one.json`, and `tmp/archive_backfill_inspect.json` are per-run result snapshots
+- `tmp/tiny_import_*.json` and `tmp/*repair*.json` are useful audit transcripts, but their important outcomes are already folded into the v2 manifest and the Bambuddy archive rows
+
+Practical rule:
+
+- if you want the minimum state needed to continue safely, keep `tmp/archive_backfill_manifest_v2.json`
+- keep the other `tmp` JSON files only if you want an operator audit trail of specific preview, import, or repair runs
+
 ### Optional runtime-repair flow
 
 The same runner now supports an optional post-import runtime-repair stage:
