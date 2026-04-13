@@ -26,6 +26,25 @@ Current architecture decision:
 - Keep Variant 4 deferred unless print history clearly becomes a broader archive service with multiple clients or admin-heavy service semantics.
 - The active dashboard path is `custom:print-history-browser-card` plus direct websocket queries; the older Layer 1/Layer 2 page and activity payload sensors are retired and should be treated as historical content below.
 
+## Duplicate Filter Contract
+
+Issue `#737` adds duplicate browsing support without expanding Layer 1 into a full duplicate-members cache.
+
+The current contract is:
+
+- Layer 1 archive projection may persist only the reusable scalar fields needed across browser consumers: `duplicate_count`, `duplicate_sequence`, and `original_archive_id`
+- Layer 1 should not mirror Bambuddy's full `duplicates` array or card-specific wording
+- Layer 2 owns duplicate filter semantics and classification rules for `All`, `Originals Only`, and `Duplicates Only`
+- Layer 3 owns final wording and chip text for the archive cards and popup
+
+Current filter semantics:
+
+- `Originals Only` means rows with `duplicate_count > 0` that are not themselves duplicate children
+- `Duplicates Only` means rows with `original_archive_id` present or `duplicate_sequence > 0`
+- non-duplicate rows remain visible only in the default `All` view
+
+Follow-on work such as related-item navigation, compare flows, or suspicious same-hash review should use popup detail hydration or a dedicated query path rather than widening the base archive projection.
+
 ## Reading This Document Today
 
 Use this file as a historical design record for the earlier YAML, AppDaemon, and custom-integration option analysis.

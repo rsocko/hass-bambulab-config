@@ -260,6 +260,7 @@ class TestFileInventory(unittest.TestCase):
         "input_select_print_history_filter_enrichment_status.yaml",
         "input_select_print_history_filter_material.yaml",
         "input_select_print_history_filter_color.yaml",
+        "input_select_print_history_filter_duplicates.yaml",
         "input_select_print_history_filter_printer.yaml",
         "input_select_print_history_filter_date_range.yaml",
         "input_select_print_history_filter_designer.yaml",
@@ -798,7 +799,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=12", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=13", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=33", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
@@ -1477,6 +1478,28 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
         ).read_text("utf-8")
         self.assertIn('triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"]', content)
+
+    def test_browser_card_renders_duplicate_chip_from_projected_metadata(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_duplicateSummary(archive)", content)
+        self.assertIn("duplicate_count", content)
+        self.assertIn("duplicate_sequence", content)
+        self.assertIn("original_archive_id", content)
+        self.assertIn("duplicateChipLabel", content)
+
+    def test_popup_content_renders_duplicate_summary_from_projected_metadata(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const buildDuplicateState = (currentArchive) =>", content)
+        self.assertIn("duplicateState.hasDuplicateContext", content)
+        self.assertIn("duplicateState.chipLabel", content)
+        self.assertIn("This archive is the original entry for a duplicate set", content)
+        self.assertIn("This archive is a duplicate entry that points back to archive", content)
 
     def test_popup_favorite_button_updates_helper_before_backend_toggle(self):
         content = (

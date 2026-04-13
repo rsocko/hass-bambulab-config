@@ -41,6 +41,7 @@ QUERY_OVERRIDE_ENTITY_MAP = {
     "archive_error": "input_select.print_history_filter_archive_error",
     "enrichment_status": "input_select.print_history_filter_enrichment_status",
     "material": "input_select.print_history_filter_material",
+    "duplicates": "input_select.print_history_filter_duplicates",
     "printer": "input_select.print_history_filter_printer",
     "date_range": "input_select.print_history_filter_date_range",
     "designer": "input_select.print_history_filter_designer",

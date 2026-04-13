@@ -373,6 +373,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
       '<span class="chip">' + this._escapeHtml(normalized.archiveIdLabel) + '</span>' +
       (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
+      (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
       '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>' +
       '</div>' +
       (chips.length ? '<div class="chip-row">' + chips.join("") + '</div>' : '') +
@@ -403,6 +404,44 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return '<span class="chip">' + this._escapeHtml(label) + '</span>';
   }
 
+  _duplicateSummary(archive) {
+    var duplicateCount = Math.max(0, Number(archive && archive.duplicate_count || 0));
+    var duplicateSequence = Math.max(0, Number(archive && archive.duplicate_sequence || 0));
+    var originalArchiveId = Math.max(0, Number(archive && archive.original_archive_id || 0));
+    var isDuplicate = originalArchiveId > 0 || duplicateSequence > 0;
+    var isOriginal = duplicateCount > 0 && !isDuplicate;
+    var groupSize = duplicateCount > 0 ? (duplicateCount + 1) : 0;
+
+    if (isDuplicate) {
+      var duplicatePosition = groupSize > 0 ? Math.min(groupSize, Math.max(1, duplicateSequence + 1)) : Math.max(1, duplicateSequence + 1);
+      var duplicateLabel = groupSize > 1 ? ('Duplicate ' + duplicatePosition + '/' + groupSize) : 'Duplicate';
+      var duplicateTooltip = originalArchiveId > 0
+        ? ('Duplicate archive in the same set as archive #' + originalArchiveId)
+        : 'Duplicate archive in a shared print set';
+      return {
+        chipLabel: duplicateLabel,
+        chipColor: '#00897B',
+        tooltip: duplicateTooltip,
+      };
+    }
+
+    if (isOriginal) {
+      return {
+        chipLabel: groupSize > 1 ? ('Original · ' + groupSize + ' prints') : 'Original',
+        chipColor: '#1565C0',
+        tooltip: groupSize > 1
+          ? ('Original archive for a duplicate set of ' + groupSize + ' prints')
+          : 'Original archive in a duplicate set',
+      };
+    }
+
+    return {
+      chipLabel: '',
+      chipColor: '',
+      tooltip: '',
+    };
+  }
+
   _normalizeArchive(archive) {
     var notesInfo = this._splitArchiveNotes(archive.notes);
     var enrichmentPayload = notesInfo.payload;
@@ -423,6 +462,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     });
     var metadata = [archive.filament_type || "Unknown material", archive.layer_height ? String(archive.layer_height) + "mm" : "", archive.designer || ""].filter(Boolean).join(" · ");
     var printerLabel = archive.printer_name ? String(archive.printer_name) : (archive.printer_id != null && archive.printer_id !== "" ? ("Printer " + String(archive.printer_id)) : "");
+    var duplicateSummary = this._duplicateSummary(archive);
     var facts = [
       printerLabel ? "Printer: " + printerLabel : "",
       archive.filament_type ? String(archive.filament_type) : "",
@@ -451,6 +491,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       objectLabel: String(archive.object_count || 1),
       archiveIdLabel: archive.id != null && archive.id !== "" ? ("Archive #" + archive.id) : "Archive unavailable",
       printerLabel: printerLabel,
+      duplicateChipLabel: duplicateSummary.chipLabel,
+      duplicateChipColor: duplicateSummary.chipColor,
+      duplicateTooltip: duplicateSummary.tooltip,
       metadata: metadata,
       facts: facts,
       filamentChips: filamentChips,

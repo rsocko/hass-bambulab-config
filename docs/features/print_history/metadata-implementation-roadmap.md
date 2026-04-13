@@ -30,6 +30,8 @@ The intent is:
 | F. Analytics and UI surfacing | expose new metadata without Layer 1 bloat | 3D Print Log and existing heatmap/chart issues | `#110`, `#111`, `#112`, `#113`, `#116` |
 | G. Compare and lineage readiness | support duplicate/reprint/repair workflows | O.D.I.N., Bambuddy compare APIs | Phase 2.2, 2.3, `#793` |
 
+Issue `#737` is the first active slice inside Workstream G: compact duplicate metadata now rides with the Variant 3 archive projection so the browser can filter and label duplicate sets without storing the full related-members payload in Layer 1.
+
 ## Phase A: Metadata Contract Hardening
 
 ### Objective
@@ -218,6 +220,26 @@ Expose the new metadata in the existing browser, popup, and activity surfaces wi
 - do not add display-only helper strings to mirrored archive storage just to simplify frontend rendering
 
 ### Exit criteria
+
+## Phase G: Compare And Lineage Readiness
+
+### Objective
+
+Support duplicate, reprint, and repair workflows without forcing those heavier relationships into the base Layer 1 archive cache.
+
+### Current shipped slice
+
+- duplicate browser filtering and compact duplicate chips/summary are now shipped for issue `#737`
+- Layer 1 stores only `duplicate_count`, `duplicate_sequence`, and `original_archive_id`
+- Layer 2 owns duplicate filter semantics and role classification
+- Layer 3 owns card and popup wording
+
+### Deferred follow-on slice
+
+- related duplicate member lookup
+- compare/deep-link actions from the popup
+- suspicious same-hash review flows
+- richer lineage tables when repair and compare workflows need more than the compact duplicate summary
 
 - analytics consume structured query outputs
 - no new giant payload blobs are introduced into entity state

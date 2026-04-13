@@ -9,6 +9,7 @@
         - input_select.print_history_filter_archive_error
         - input_select.print_history_filter_enrichment_status
         - input_select.print_history_filter_material
+        - input_select.print_history_filter_duplicates
         - input_select.print_history_filter_printer
         - input_select.print_history_filter_date_range
         - input_boolean.print_history_filter_favorites_only

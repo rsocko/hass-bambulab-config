@@ -74,6 +74,9 @@ class PrintHistoryStore:
                 filament_used_grams REAL NOT NULL DEFAULT 0,
                 filament_type TEXT NOT NULL DEFAULT '',
                 filament_color TEXT NOT NULL DEFAULT '',
+                duplicate_count INTEGER NOT NULL DEFAULT 0,
+                duplicate_sequence INTEGER NOT NULL DEFAULT 0,
+                original_archive_id INTEGER,
                 cost REAL NOT NULL DEFAULT 0,
                 quantity INTEGER NOT NULL DEFAULT 0,
                 object_count INTEGER NOT NULL DEFAULT 1,
@@ -195,6 +198,9 @@ class PrintHistoryStore:
             "has_source_only": "INTEGER NOT NULL DEFAULT 0",
             "archive_error_type": "TEXT NOT NULL DEFAULT ''",
             "archive_error_severity": "TEXT NOT NULL DEFAULT ''",
+            "duplicate_count": "INTEGER NOT NULL DEFAULT 0",
+            "duplicate_sequence": "INTEGER NOT NULL DEFAULT 0",
+            "original_archive_id": "INTEGER",
             "last_synced_at": "TEXT NOT NULL DEFAULT ''",
             "source_updated_at": "TEXT NOT NULL DEFAULT ''",
             "payload_hash": "TEXT NOT NULL DEFAULT ''",
@@ -256,7 +262,8 @@ class PrintHistoryStore:
                     INSERT INTO archives (
                         archive_id, printer_id, printer_name, print_name, status, started_at, completed_at,
                         created_at, actual_time_seconds, print_time_seconds,
-                        filament_used_grams, filament_type, filament_color, cost, quantity,
+                        filament_used_grams, filament_type, filament_color, duplicate_count, duplicate_sequence,
+                        original_archive_id, cost, quantity,
                         object_count, layer_height, nozzle_diameter, nozzle_temperature,
                         total_layers, sliced_for_model, designer, makerworld_url,
                         is_favorite, tags, notes, failure_reason, thumbnail_path,
@@ -264,7 +271,7 @@ class PrintHistoryStore:
                         missing_core_3mf, missing_thumbnail, has_source_only,
                         archive_error_type, archive_error_severity, enrichment_status, last_synced_at,
                         source_updated_at, payload_hash, json_payload, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         archive_id,
@@ -280,6 +287,9 @@ class PrintHistoryStore:
                         as_float(archive.get("filament_used_grams")),
                         as_text(archive.get("filament_type")).strip(),
                         as_text(archive.get("filament_color")).strip(),
+                        as_int(archive.get("duplicate_count")),
+                        as_int(archive.get("duplicate_sequence")),
+                        archive.get("original_archive_id"),
                         as_float(archive.get("cost")),
                         as_int(archive.get("quantity")),
                         as_int(archive.get("object_count"), 1),
@@ -887,6 +897,7 @@ class PrintHistoryStore:
             "archive_error": states.get("input_select.print_history_filter_archive_error", "All").strip(),
             "enrichment_status": states.get("input_select.print_history_filter_enrichment_status", "All").strip().lower(),
             "material": states.get("input_select.print_history_filter_material", "All").strip(),
+            "duplicates": states.get("input_select.print_history_filter_duplicates", "All").strip(),
             "printer": states.get("input_select.print_history_filter_printer", "All").strip(),
             "date_range": states.get("input_select.print_history_filter_date_range", "All Time").strip(),
             "designer": states.get("input_select.print_history_filter_designer", "All").strip().lower(),
@@ -924,6 +935,10 @@ class PrintHistoryStore:
         if filters["material"] not in {"", "All"}:
             where_clauses.append("LOWER(a.filament_type) = ?")
             params.append(filters["material"].lower())
+        if filters["duplicates"] == "Originals Only":
+            where_clauses.append("a.duplicate_count > 0 AND COALESCE(a.original_archive_id, 0) = 0 AND COALESCE(a.duplicate_sequence, 0) = 0")
+        elif filters["duplicates"] == "Duplicates Only":
+            where_clauses.append("(COALESCE(a.original_archive_id, 0) > 0 OR COALESCE(a.duplicate_sequence, 0) > 0)")
         if filters["printer"] not in {"", "All"}:
             selected_printer_ids = self._resolve_selected_printer_ids(filters["printer"])
             if not selected_printer_ids:

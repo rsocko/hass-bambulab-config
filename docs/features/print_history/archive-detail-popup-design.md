@@ -28,7 +28,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 
 - compare/deep-link actions and future issue-specific popup actions for `#744`, `#747`, `#748`, `#750`, `#755`, and `#783`
 - origin/provenance badges that distinguish native Bambuddy archives from recovered replacements or historical imports
-- duplicate-review and suspicious-same-hash context in the popup action area
+- duplicate-review actions and suspicious-same-hash workflows in the popup action area
 - inferred-timing review and `update to inferred times` actions for imports or recovered records
 - feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
 
@@ -108,6 +108,12 @@ Important current gap:
 
 - the active page payload does **not** yet carry a compact origin/provenance summary, duplicate metadata, or inferred-timing review fields
 - those should be added as a compact summary or fetched through popup detail flows, not by dumping full provenance blobs into the main page payload
+
+Update as of issue `#737` implementation:
+
+- the active page payload now carries compact duplicate scalar fields (`duplicate_count`, `duplicate_sequence`, `original_archive_id`)
+- the popup may render a read-only duplicate summary from those fields without a second detail fetch
+- matching-item navigation and compare actions remain deferred to a later follow-up
 
 ## Recommended Architecture
 
@@ -364,6 +370,12 @@ The popup should gain a dedicated metadata section for:
 - whether the record was captured natively, restored, or historically imported
 - whether canonical timing came from native Bambuddy capture, copied source runtime, or inferred evidence
 - duplicate-review state and related archive IDs when relevant
+
+Current shipped duplicate slice:
+
+- card variants may show a compact duplicate chip when the archive is an original in a duplicate set or a duplicate child row
+- the popup may show a read-only duplicate summary using the compact duplicate fields already present on the page payload
+- no duplicate compare or matching-archive jump action should be added in this phase
 
 ### Timeline presentation rule
 

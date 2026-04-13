@@ -114,6 +114,7 @@ cards:
       - input_select.print_history_filter_archive_error
       - input_select.print_history_filter_enrichment_status
       - input_select.print_history_filter_material
+      - input_select.print_history_filter_duplicates
       - input_select.print_history_filter_printer
       - input_select.print_history_filter_date_range
       - input_select.print_history_filter_designer
@@ -171,6 +172,16 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.print_history_filter_material']?.state !== (states['input_select.print_history_filter_material']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_material']?.state !== (states['input_select.print_history_filter_material']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_duplicates
+                sub_button_type: select
+                name: Duplicates
+                icon: mdi:content-copy
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_duplicates']?.state !== (states['input_select.print_history_filter_duplicates']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_duplicates']?.state !== (states['input_select.print_history_filter_duplicates']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.print_history_filter_printer
                 sub_button_type: select
@@ -314,6 +325,7 @@ cards:
           - input_select.print_history_filter_archive_error
           - input_select.print_history_filter_enrichment_status
           - input_select.print_history_filter_material
+          - input_select.print_history_filter_duplicates
           - input_select.print_history_filter_printer
           - input_select.print_history_filter_date_range
           - input_select.print_history_filter_designer
@@ -482,6 +494,26 @@ cards:
                 service: input_select.select_option
                 target:
                   entity_id: input_select.print_history_filter_material
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_duplicates
+              sub_button_type: default
+              name: Clear Duplicate Filter
+              icon: mdi:content-copy
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_duplicates
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_duplicates
                 data:
                   option: "All"
             - entity: input_select.print_history_filter_printer

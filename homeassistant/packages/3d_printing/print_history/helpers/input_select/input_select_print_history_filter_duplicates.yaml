@@ -1,0 +1,8 @@
+print_history_filter_duplicates:
+  name: Print History Filter Duplicates
+  icon: mdi:content-copy
+  options:
+    - All
+    - Originals Only
+    - Duplicates Only
+  initial: All

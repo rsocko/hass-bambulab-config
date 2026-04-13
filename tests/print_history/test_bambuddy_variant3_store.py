@@ -28,6 +28,9 @@ def _projected_archives() -> list[dict]:
             "completed_at": "2026-04-08T14:00:00Z",
             "created_at": "2026-04-08T09:58:00Z",
             "cost": 2.35,
+            "duplicate_count": 2,
+            "duplicate_sequence": 0,
+            "original_archive_id": None,
             "object_count": 2,
             "layer_height": 0.16,
             "designer": "Jane",
@@ -65,6 +68,9 @@ def _projected_archives() -> list[dict]:
             "completed_at": "2026-03-15T09:00:00Z",
             "created_at": "2026-03-15T07:55:00Z",
             "cost": 0.75,
+            "duplicate_count": 2,
+            "duplicate_sequence": 1,
+            "original_archive_id": 101,
             "object_count": 1,
             "layer_height": 0.20,
             "designer": "Alex",
@@ -129,6 +135,7 @@ def test_variant3_query_contract_matches_browser_filters() -> None:
         "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "PLA",
+        "input_select.print_history_filter_duplicates": "Originals Only",
         "input_select.print_history_filter_printer": "Workshop P1S",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "Jane",
@@ -162,6 +169,7 @@ def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blan
         "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
         "input_select.print_history_filter_printer": "All",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "All",
@@ -208,8 +216,45 @@ def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> Non
     loaded = store.load_archives()
 
     assert [archive["id"] for archive in loaded] == [101, 202]
+    assert loaded[0]["duplicate_count"] == 2
+    assert loaded[1]["duplicate_sequence"] == 1
+    assert loaded[1]["original_archive_id"] == 101
     assert loaded[0]["filament_slots"][0]["color"] == "#112233"
     assert loaded[0]["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "detail-angle.png"]
+
+
+def test_variant3_query_contract_filters_duplicates_and_originals() -> None:
+    archives = _projected_archives()
+    base_states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "Duplicates Only",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    duplicate_result = query_archives(archives, base_states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
+    assert [archive["id"] for archive in duplicate_result.page_items] == [202]
+    assert "duplicates" in duplicate_result.active_filters
+
+    original_states = dict(base_states)
+    original_states["input_select.print_history_filter_duplicates"] = "Originals Only"
+    original_result = query_archives(archives, original_states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
+    assert [archive["id"] for archive in original_result.page_items] == [101]
 
 
 def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: Path) -> None:
@@ -264,6 +309,11 @@ def test_variant3_store_preserves_archive_error_projection_fields(tmp_path: Path
     assert detail["missing_core_3mf"] is True
     assert detail["has_source_only"] is True
     assert detail["archive_error_type"] == "source_only"
+
+
+def test_variant3_option_sets_include_duplicate_filter() -> None:
+    options = option_sets(_projected_archives())
+    assert options["input_select.print_history_filter_duplicates"] == ["All", "Originals Only", "Duplicates Only"]
 
 
 def test_variant3_store_migrates_legacy_schema_before_refresh(tmp_path: Path) -> None:

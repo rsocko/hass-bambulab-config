@@ -254,6 +254,7 @@ def _default_state_map() -> dict[str, str]:
         "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
         "input_select.print_history_filter_printer": "All",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "All",
@@ -290,6 +291,9 @@ def _projected_archives(project_archive) -> list[dict]:
             "completed_at": "2026-04-08T14:00:00Z",
             "created_at": "2026-04-08T09:58:00Z",
             "cost": 2.35,
+            "duplicate_count": 2,
+            "duplicate_sequence": 0,
+            "original_archive_id": None,
             "object_count": 2,
             "layer_height": 0.16,
             "designer": "Jane",
@@ -321,6 +325,9 @@ def _projected_archives(project_archive) -> list[dict]:
             "completed_at": "2026-03-15T09:00:00Z",
             "created_at": "2026-03-15T07:55:00Z",
             "cost": 0.75,
+            "duplicate_count": 2,
+            "duplicate_sequence": 1,
+            "original_archive_id": 101,
             "object_count": 1,
             "layer_height": 0.20,
             "designer": "Alex",
@@ -377,11 +384,40 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
 
     assert response["archive_count"] == 2
     assert response["archives"][0]["id"] == 101
+    assert response["archives"][0]["duplicate_count"] == 2
     assert response["review_state_by_archive"]["101"]["review_status"] == "needs_review"
     assert response["repair_lineage_by_archive"]["101"][0]["relation_type"] == "reprint_of"
     assert response["sync_metadata_by_archive"]["101"]["payload_hash"]
     assert response["store"]["archive_count"] == 2
     assert response["query"]["page_info"] == "1 of 1"
+
+
+def test_variant3_manager_build_query_response_filters_duplicates(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_select.print_history_filter_duplicates"] = "Duplicates Only"
+    hass = FakeHass(tmp_path, state_map)
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+
+    response = manager.build_query_response({"duplicates": "Duplicates Only"})
+
+    assert [archive["id"] for archive in response["archives"]] == [202]
+    assert "duplicates" in response["query"]["active_filters"]
 
 
 def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Path) -> None:

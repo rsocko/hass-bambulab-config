@@ -40,6 +40,12 @@ query_print_history_browser:
       required: false
       selector:
         text:
+    duplicates:
+      name: Duplicates
+      description: Filter by duplicate role such as Originals Only or Duplicates Only.
+      required: false
+      selector:
+        text:
     printer:
       name: Printer
       required: false

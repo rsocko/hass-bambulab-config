@@ -18,7 +18,7 @@ Status below reflects the current state of this repository as of 2026-04-04. `Pa
 | 2.05  | Archive detection and recovery workflow                             | Medium | Very High                                       | Partial     | Recovery design docs and sidecar planning/work have started, but the HA-side detection and exception UX described here are not fully shipped. |
 | 2.1   | Favorites toggle                                                    | Low    | Medium                                          | Complete    | Favorites toggle is implemented with REST command, script, and dashboard actions. |
 | 2.2   | Compare on failure                                                  | Medium | Medium                                          | Not started | No compare-on-failure automation, similar-archive lookup, or compare-link notification flow is wired yet. |
-| 2.3   | Duplicate and reprint intelligence                                  | Medium | High                                            | Not started | No duplicate lookup, reprint intelligence, or duplicate-based tagging/notifications are implemented yet. |
+| 2.3   | Duplicate and reprint intelligence                                  | Medium | High                                            | Partial     | Duplicate metadata now flows into print-history browser filtering and card/popup visibility, but duplicate lookup, reprint tagging, notifications, and compare workflows are still not implemented. |
 | 2.4   | MakerWorld attribution and designer tracking                        | Low    | Medium                                          | Partial     | Designer data already flows into print-history browsing and filtering, but attribution tags, notes enrichment, and notification updates are still missing. |
 | 2.5   | Spool remaining pre-print warning                                   | Medium | Very High                                       | Not started | Spoolman/tray-map prerequisites exist, but there is no pre-print remaining-weight warning workflow yet. |
 | 2.6   | Energy cost enrichment                                              | Medium | High                                            | Partial     | Archive enrichment already writes overall print cost, but measured energy delta capture and dedicated energy enrichment are not implemented. |
@@ -248,6 +248,22 @@ Important caveat:
 - **Depends on**: bambuddy_common, print_history core (enrichment automation)
 - **Package**: print_history
 - **Effort**: Medium — extends enrichment and notification automations, one new REST call
+
+### Current implementation slice
+
+The first shipped slice for issue `#737` is intentionally browser-focused:
+
+- the Variant 3 browser projection now carries compact duplicate metadata fields (`duplicate_count`, `duplicate_sequence`, `original_archive_id`)
+- the browser query layer supports `All`, `Originals Only`, and `Duplicates Only`
+- `Compact`, `Media`, and `Detail` cards now show compact duplicate chips when relevant
+- the archive popup now shows a read-only duplicate summary
+
+Still deferred within Phase 2.3:
+
+- `GET /archives/{id}/duplicates` driven related-item lists
+- `reprint_of:{id}` or `print_attempt:{n}` tag writes during enrichment
+- print-started notifications that summarize prior attempts
+- compare or deep-link actions from the popup
 
 ---
 

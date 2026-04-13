@@ -21,6 +21,10 @@ clear_print_history_filters:
         option: All
     - action: input_select.select_option
       data:
+        entity_id: input_select.print_history_filter_duplicates
+        option: All
+    - action: input_select.select_option
+      data:
         entity_id: input_select.print_history_filter_color
         option: All
     - action: input_select.select_option

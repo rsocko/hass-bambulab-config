@@ -34,6 +34,7 @@ ACTIVE_FILTER_DEFAULTS = {
     "input_select.print_history_filter_archive_error": "All",
     "input_select.print_history_filter_enrichment_status": "All",
     "input_select.print_history_filter_material": "All",
+    "input_select.print_history_filter_duplicates": "All",
     "input_select.print_history_filter_printer": "All",
     "input_select.print_history_filter_date_range": "All Time",
     "input_select.print_history_filter_designer": "All",
@@ -222,6 +223,27 @@ def enrichment_status(payload: dict[str, Any]) -> str:
     }.get(status_code, "not defined")
 
 
+def duplicate_count(value: Any) -> int:
+    return max(0, as_int(value))
+
+
+def duplicate_sequence(value: Any) -> int:
+    return max(0, as_int(value))
+
+
+def original_archive_id(value: Any) -> int | None:
+    normalized = as_int(value)
+    return normalized if normalized > 0 else None
+
+
+def is_duplicate_archive(archive: dict[str, Any]) -> bool:
+    return original_archive_id(archive.get("original_archive_id")) is not None or duplicate_sequence(archive.get("duplicate_sequence")) > 0
+
+
+def is_duplicate_original(archive: dict[str, Any]) -> bool:
+    return duplicate_count(archive.get("duplicate_count")) > 0 and not is_duplicate_archive(archive)
+
+
 def project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
     if not isinstance(extra_data, dict):
         return []
@@ -309,6 +331,9 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         ),
         "project_id": raw_archive.get("project_id"),
         "project_name": as_text(raw_archive.get("project_name")).strip(),
+        "duplicate_count": duplicate_count(raw_archive.get("duplicate_count")),
+        "duplicate_sequence": duplicate_sequence(raw_archive.get("duplicate_sequence")),
+        "original_archive_id": original_archive_id(raw_archive.get("original_archive_id")),
         "filament_slots": project_filament_slots(raw_archive.get("extra_data")),
         "enrichment_status": enrichment_status(payload),
         "source_updated_at": source_updated_at(raw_archive),
@@ -550,6 +575,7 @@ def active_filters(states: dict[str, str]) -> list[str]:
         "input_select.print_history_filter_archive_error": "archive_error",
         "input_select.print_history_filter_enrichment_status": "enrichment",
         "input_select.print_history_filter_material": "material",
+        "input_select.print_history_filter_duplicates": "duplicates",
         "input_select.print_history_filter_printer": "printer",
         "input_select.print_history_filter_date_range": "date",
         "input_select.print_history_filter_designer": "designer",
@@ -634,6 +660,7 @@ def query_archives(
     archive_error_filter = states.get("input_select.print_history_filter_archive_error", "All")
     enrichment_filter = states.get("input_select.print_history_filter_enrichment_status", "All")
     material_filter = states.get("input_select.print_history_filter_material", "All")
+    duplicate_filter = states.get("input_select.print_history_filter_duplicates", "All")
     printer_filter = states.get("input_select.print_history_filter_printer", "All")
     date_filter = states.get("input_select.print_history_filter_date_range", "All Time")
     designer_filter = states.get("input_select.print_history_filter_designer", "All")
@@ -669,6 +696,8 @@ def query_archives(
         archive_designer = as_text(archive.get("designer")).lower()
         archive_project = as_text(archive.get("project_name")).strip()
         archive_layer_height = as_text(archive.get("layer_height")).strip()
+        archive_is_duplicate = is_duplicate_archive(archive)
+        archive_is_duplicate_original = is_duplicate_original(archive)
         archive_user_tags = [tag.lower() for tag in user_tags(as_text(archive.get("tags")))]
         archive_palette = archive_colors(archive)
         archive_day = archive_date_key(archive)
@@ -693,6 +722,10 @@ def query_archives(
         if enrichment_filter != "All" and archive_enrichment != enrichment_filter.lower():
             continue
         if material_filter != "All" and archive_material != material_filter.lower():
+            continue
+        if duplicate_filter == "Originals Only" and not archive_is_duplicate_original:
+            continue
+        if duplicate_filter == "Duplicates Only" and not archive_is_duplicate:
             continue
         if printer_filter != "All" and archive_printer not in selected_printer_ids:
             continue
@@ -759,6 +792,7 @@ def option_sets(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
     return {
         "input_select.print_history_filter_material": ["All", *material_values],
         "input_select.print_history_filter_color": ["All", *color_values],
+        "input_select.print_history_filter_duplicates": ["All", "Originals Only", "Duplicates Only"],
         "input_select.print_history_filter_printer": ["All", *printer_values],
         "input_select.print_history_filter_designer": ["All", *designer_values],
         "input_select.print_history_filter_project": ["All", "None", *project_values],
