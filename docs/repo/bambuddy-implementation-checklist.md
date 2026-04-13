@@ -28,7 +28,7 @@ Canonical sources:
 - [ ] `print_history` archive detail actions
   Current state: favorites are toggleable from both the cards and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits are implemented, and manual re-enrich is available. Compare and richer follow-on actions are not yet implemented.
 - [ ] `print_history` manual re-enrich hardening
-  Current state: popup-triggered re-enrich exists, already compares archive-slot vs AMS-tray candidates, preserves richer existing payloads, and surfaces duplicate `type + color` ambiguity. Remaining work is UUID-first matching and UX polish.
+  Current state: popup-triggered re-enrich exists, already compares archive-slot vs AMS-tray candidates, preserves richer existing payloads, surfaces duplicate `type + color` ambiguity, and now resolves filament families before using location/time-window evidence to pick a spool. Remaining work is UUID-first matching and UX polish.
 - [ ] cleanup of superseded Bambuddy artifacts
   Current state: docs are now mostly redirect/stub oriented, but legacy package/code remains in repo.
 

@@ -404,6 +404,7 @@ reenrich_print_history_archive:
                 candidate_filaments: >-
                   {% set ns = namespace(rows=[]) %}
                   {% for slot in archive_slot_rows %}
+                    {% set archive_ambiguity_code = slot.am | default('', true) | string %}
                     {% set target_uuid = slot.tray_uuid | default('', true) | string | trim('"') | lower %}
                     {% set target_type = slot.type | default('', true) | string %}
                     {% set target_name = slot.profile_name | default('', true) | string | trim('"') %}
@@ -413,8 +414,8 @@ reenrich_print_history_archive:
                       {% set target_color = target_color[0:6] %}
                     {% endif %}
                     {% set bambu_only = ((target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu')) %}
-                      {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_code=slot.am | default('', true) | string, match_method='') %}
-                      {% if ns_match.ambiguity_code | length == 0 and target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
+                    {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_code='', match_method='', filament_id=none, filament_match_method='') %}
+                    {% if target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
                       {% for spool in spoolman_spools_normalized %}
                         {% if not spool.sealed %}
                           {% if spool.spool_uuid == target_uuid %}
@@ -426,26 +427,24 @@ reenrich_print_history_archive:
                         {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
                         {% set ns_match.match_method = 'uuid' %}
                       {% elif ns_match.raw_candidates | count > 1 %}
-                          {% set ns_match.ambiguity_code = 's_uuid' %}
+                        {% set ns_match.ambiguity_code = 's_uuid' %}
                       {% endif %}
                     {% endif %}
-                    {% if not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) %}
+                    {% if ns_match.ambiguity_code | length == 0 and not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) %}
                       {% set ns_color = namespace(single=[], multi_first=[], multi_any=[]) %}
                       {% for spool in spoolman_spools_normalized %}
                         {% if spool.sealed %}
                           {% continue %}
                         {% endif %}
                         {% set vendor_ok = (spool.vendor == 'Bambu Lab') if bambu_only else (spool.vendor != 'Bambu Lab') %}
-                        {% set profile_ok = (spool.profile_name == target_name) if (bambu_only and target_name | length > 0 and spool.profile_name | length > 0) else true %}
                         {% set spool_color = spool.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
-                        {% set base_ok = (spool.material == target_type and vendor_ok and profile_ok) %}
-                        {% if base_ok and spool_color == target_color %}
+                        {% if vendor_ok and spool_color == target_color %}
                           {% set ns_color.single = ns_color.single + [spool] %}
                         {% endif %}
-                        {% if base_ok and spool.multi_first == target_color %}
+                        {% if vendor_ok and spool.multi_first == target_color %}
                           {% set ns_color.multi_first = ns_color.multi_first + [spool] %}
                         {% endif %}
-                        {% if base_ok and target_color in spool.multi_any %}
+                        {% if vendor_ok and target_color in spool.multi_any %}
                           {% set ns_color.multi_any = ns_color.multi_any + [spool] %}
                         {% endif %}
                       {% endfor %}
@@ -458,7 +457,59 @@ reenrich_print_history_archive:
                       {% else %}
                         {% set ns_match.raw_candidates = [] %}
                       {% endif %}
-                      {% if ns_match.ambiguity_code | length == 0 and ns_match.raw_candidates | count > 1 and location_hint | length > 0 %}
+
+                      {% set ns_filament = namespace(material=[], type_meta=[], combined=[], ids=[]) %}
+                      {% for candidate in ns_match.raw_candidates %}
+                        {% set material_ok = target_type | length > 0 and candidate.material == target_type %}
+                        {% set type_meta_ok = target_name | length > 0 and candidate.profile_name | length > 0 and candidate.profile_name == target_name %}
+                        {% if material_ok %}
+                          {% set ns_filament.material = ns_filament.material + [candidate] %}
+                        {% endif %}
+                        {% if type_meta_ok %}
+                          {% set ns_filament.type_meta = ns_filament.type_meta + [candidate] %}
+                        {% endif %}
+                        {% if material_ok and type_meta_ok %}
+                          {% set ns_filament.combined = ns_filament.combined + [candidate] %}
+                        {% endif %}
+                      {% endfor %}
+                      {% set ns_filament_pool = namespace(items=ns_match.raw_candidates, method='c') %}
+                      {% if ns_filament.combined | count > 0 %}
+                        {% set ns_filament_pool.items = ns_filament.combined %}
+                        {% set ns_filament_pool.method = 'cmt' %}
+                      {% elif ns_filament.material | count > 0 %}
+                        {% set ns_filament_pool.items = ns_filament.material %}
+                        {% set ns_filament_pool.method = 'cm' %}
+                      {% elif ns_filament.type_meta | count > 0 %}
+                        {% set ns_filament_pool.items = ns_filament.type_meta %}
+                        {% set ns_filament_pool.method = 'ct' %}
+                      {% endif %}
+                      {% for candidate in ns_filament_pool.items %}
+                        {% set candidate_filament_id = candidate.filament_id | default(none, true) %}
+                        {% if candidate_filament_id is not none and candidate_filament_id not in ns_filament.ids %}
+                          {% set ns_filament.ids = ns_filament.ids + [candidate_filament_id] %}
+                        {% endif %}
+                      {% endfor %}
+                      {% if ns_filament.ids | count == 1 %}
+                        {% set ns_match.filament_id = ns_filament.ids[0] | int(0) %}
+                        {% set ns_match.filament_match_method = ns_filament_pool.method %}
+                        {% set ns_family = namespace(items=[]) %}
+                        {% for candidate in spoolman_spools_normalized %}
+                          {% if not candidate.sealed and candidate.filament_id == ns_match.filament_id %}
+                            {% if ((candidate.vendor == 'Bambu Lab') if bambu_only else (candidate.vendor != 'Bambu Lab')) %}
+                              {% set ns_family.items = ns_family.items + [candidate] %}
+                            {% endif %}
+                          {% endif %}
+                        {% endfor %}
+                        {% if ns_family.items | count > 0 %}
+                          {% set ns_match.raw_candidates = ns_family.items %}
+                        {% else %}
+                          {% set ns_match.raw_candidates = ns_filament_pool.items %}
+                        {% endif %}
+                      {% else %}
+                        {% set ns_match.raw_candidates = ns_filament_pool.items %}
+                      {% endif %}
+
+                      {% if ns_match.filament_id is not none and ns_match.raw_candidates | count > 1 and location_hint | length > 0 %}
                         {% set ns_location = namespace(items=[]) %}
                         {% for candidate in ns_match.raw_candidates %}
                           {% if candidate.location | default('', true) | string == location_hint %}
@@ -472,7 +523,7 @@ reenrich_print_history_archive:
                           {% set ns_match.raw_candidates = ns_location.items %}
                         {% endif %}
                       {% endif %}
-                      {% if ns_match.ambiguity_code | length == 0 and not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) and ns_match.raw_candidates | count > 1 and archive_temporal_window_start_ts | float(0) > 0 and archive_temporal_window_end_ts | float(0) > 0 %}
+                      {% if not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) and ns_match.filament_id is not none and ns_match.raw_candidates | count > 1 and archive_temporal_window_start_ts | float(0) > 0 and archive_temporal_window_end_ts | float(0) > 0 %}
                         {% set ns_temporal = namespace(items=[]) %}
                         {% for candidate in ns_match.raw_candidates %}
                           {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
@@ -492,13 +543,19 @@ reenrich_print_history_archive:
                       {% if ns_match.ambiguity_code | length == 0 and ns_match.raw_candidates | count == 1 %}
                         {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
                         {% if ns_match.match_method | length == 0 %}
-                          {% set ns_match.match_method = 'color' %}
+                          {% set ns_match.match_method = 'filament' if ns_match.filament_id is not none else 'color' %}
                         {% endif %}
                       {% elif ns_match.raw_candidates | count > 1 and ns_match.ambiguity_code | length == 0 %}
-                        {% set ns_match.ambiguity_code = 's_tc' %}
+                        {% if archive_ambiguity_code | length > 0 and ns_match.filament_id is none %}
+                          {% set ns_match.ambiguity_code = archive_ambiguity_code %}
+                        {% else %}
+                          {% set ns_match.ambiguity_code = 's_tc' %}
+                        {% endif %}
+                      {% elif ns_match.raw_candidates | count == 0 and archive_ambiguity_code | length > 0 and ns_match.ambiguity_code | length == 0 %}
+                        {% set ns_match.ambiguity_code = archive_ambiguity_code %}
                       {% endif %}
                     {% endif %}
-                    {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code, pm='') %}
+                    {% set ns_row = namespace(spool_id=none, filament_id=ns_match.filament_id, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code, pm='', fm=ns_match.filament_match_method) %}
                     {% if ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined %}
                       {% set ns_row.spool_id = ns_match.matched_spool.id | int(0) %}
                       {% set ns_row.filament_id = ns_match.matched_spool.filament_id | default(none, true) %}
@@ -543,6 +600,9 @@ reenrich_print_history_archive:
                     {% if ns_row.pm | length > 0 %}
                       {% set row = dict(row, pm=ns_row.pm) %}
                     {% endif %}
+                    {% if ns_row.fm | length > 0 %}
+                      {% set row = dict(row, fm=ns_row.fm) %}
+                    {% endif %}
                     {% set ns.rows = ns.rows + [row] %}
                   {% endfor %}
                   {{ ns.rows | tojson | from_json }}
@@ -550,9 +610,9 @@ reenrich_print_history_archive:
                   {% set ns = namespace(items=[]) %}
                   {% for slot in archive_slot_rows %}
                     {% set row = candidate_filaments[loop.index0] if loop.index0 < (candidate_filaments | count) else {} %}
-                    {% set code = slot.am | default('', true) | string %}
-                    {% if code | length == 0 and row is mapping %}
-                      {% set code = row.am | default('', true) | string %}
+                    {% set code = row.am | default('', true) | string if row is mapping else '' %}
+                    {% if code | length == 0 %}
+                      {% set code = slot.am | default('', true) | string %}
                     {% endif %}
                     {% if code | length > 0 %}
                       {% if code == 'a_tc' %}

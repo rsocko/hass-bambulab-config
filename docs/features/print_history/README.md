@@ -332,7 +332,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.capture_and_upload_snapshot` | Multi-camera capture + local save + count tracking + upload verification via archive detail |
 | `script.set_print_history_capture_cameras` | Persist the photo-capture camera list using a multi-select camera entity picker |
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
-| `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags; can use location and strict time-window fallback when stronger provenance is unavailable |
+| `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags; now resolves filament first from color/material/profile hints, then uses location and strict time-window fallback to pick the actual spool when needed |
 | `script.backfill_print_history_archive_enrichment` | Batch re-enrich a CSV archive list while deferring browser refresh until the batch completes |
 | `script.save_print_history_archive_popup_edits` | Save popup edits while preserving hidden enrichment metadata |
 | `script.toggle_print_history_archive_favorite` | Toggle an archive's favorite state from the card or popup |

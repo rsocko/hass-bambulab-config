@@ -1226,6 +1226,19 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("ns_row.pm = 't_hist'", content)
         self.assertIn("Multiple Spoolman spools matched the archive time window.", content)
 
+    def test_reenrich_identifies_filament_before_resolving_spool_family(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("ns_match.filament_id = ns_filament.ids[0] | int(0)", content)
+        self.assertIn("candidate.filament_id == ns_match.filament_id", content)
+        self.assertIn("ns_match.match_method = 'filament' if ns_match.filament_id is not none else 'color'", content)
+
+    def test_reenrich_payload_marks_color_based_filament_recovery(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("ns_filament_pool.method = 'cmt'", content)
+        self.assertIn("ns_filament_pool.method = 'cm'", content)
+        self.assertIn("ns_filament_pool.method = 'ct'", content)
+        self.assertIn("fm=ns_row.fm", content)
+
     def test_reenrich_supports_batch_mode_without_refreshing_every_archive(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("refresh_browser:", content)

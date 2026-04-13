@@ -190,6 +190,10 @@ Optional row field used when lineage is inferred rather than exact:
 
 - `pm`: provenance marker. `t_hist` = the spool was resolved from a strict archive-time window fallback using Spoolman `last_used`/`first_used` after stronger UUID, location, and direct color/material paths failed.
 
+Optional row field used when filament identity is recovered before spool identity:
+
+- `fm`: filament match marker. `c` = color-only recovery, `cm` = color plus material, `ct` = color plus archived profile/type metadata, `cmt` = color plus both material and archived profile/type metadata.
+
 This payload `s` value is **not** the Bambuddy archive outcome. It only describes the completeness of enrichment data.
 
 ## Cost Handling
@@ -236,15 +240,17 @@ It currently:
 - reads Bambuddy archive detail for an older archive
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
 - pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
-- prefers a unique spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`) before treating color/material matches as unresolved spool ambiguity
-- can use a strict archive-time window fallback based on Spoolman `last_used` and `first_used`, but only when that window reduces the remaining candidates to one defensible spool
+- identifies filament families first from color matches, then narrows them with material and archived profile/type metadata before trying to select the actual spool
+- expands a uniquely identified filament into the full Spoolman spool family for that filament so older archived or replaced spools remain eligible for recovery
+- prefers a unique spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`) before treating the remaining family as unresolved spool ambiguity
+- can use a strict archive-time window fallback based on Spoolman `last_used` and `first_used`, but only when that window reduces the remaining filament-family candidates to one defensible spool
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
 - writes managed tags plus the hidden `+>` payload when it has a usable candidate
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
 
-The temporal fallback is intentionally conservative. It is a last-tier recovery path and records `pm:"t_hist"` on any row resolved this way so inferred lineage stays distinguishable from exact UUID or direct match lineage.
+The temporal fallback is intentionally conservative. It is a last-tier recovery path and records `pm:"t_hist"` on any row resolved this way so inferred lineage stays distinguishable from exact UUID or direct match lineage. When filament recovery had to fall back to color-driven inference first, the row also records `fm` so the hidden payload makes it clear that filament identity and spool identity were proven by different evidence tiers.
 
 ### Bulk backfill
 
