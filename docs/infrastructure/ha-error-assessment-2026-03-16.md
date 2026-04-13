@@ -521,6 +521,8 @@ If this switch was used for power monitoring or remote power cycling of the prin
 **Category:** Infrastructure — system stability
 **Status:** OPEN (observed 2026-03-19)
 
+Follow-up: see [HA Restart Diagnosis — 2026-04-13](ha-restart-diagnosis-2026-04-13.md) for a newer MCP-based diagnostic pass, current suspects, and recommended isolation order.
+
 ### Symptoms
 
 The WLED orchestrator logbook and Spoolman sync sensor logbook both show evidence of **at least 9 HA restarts** in the 72-hour window (March 16–19, 2026):
