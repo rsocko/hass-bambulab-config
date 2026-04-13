@@ -12,6 +12,12 @@ reenrich_print_history_archive:
       required: false
       selector:
         text:
+    refresh_browser:
+      name: Refresh Browser
+      description: Refresh the print-history browser after saving. Defaults to true.
+      required: false
+      selector:
+        boolean:
   sequence:
     - if:
         - condition: state
@@ -23,6 +29,7 @@ reenrich_print_history_archive:
             recovery_marker: "[RECOVERY_AUDIT_V1]"
             requested_archive_id: "{{ archive_id | string | trim if archive_id is defined else '' }}"
             resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
+          should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
         - if:
             - condition: template
               value_template: "{{ resolved_archive_id | string | trim != '' }}"
@@ -311,6 +318,8 @@ reenrich_print_history_archive:
                     {% set color_value = '#' ~ color_raw.upper() if color_raw | length == 6 else none %}
                     {% set filament_id_raw = filament.id | default('', true) | string | trim %}
                     {% set filament_id_value = filament_id_raw | int(0) if filament_id_raw | regex_match('^\d+$') else none %}
+                    {% set first_used_ts = as_timestamp(spool.first_used | default('', true), 0) | float(0) %}
+                    {% set last_used_ts = as_timestamp(spool.last_used | default('', true), 0) | float(0) %}
                     {% set multi = namespace(values=[], first='') %}
                     {% for raw_hex in (filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}
                       {% set parsed_hex = raw_hex | string | trim | replace('#', '') %}
@@ -338,11 +347,33 @@ reenrich_print_history_archive:
                       'multi_first': multi.first,
                       'multi_any': multi.values,
                       'location': spool.location | default('', true) | string,
+                      'first_used_ts': first_used_ts,
+                      'last_used_ts': last_used_ts,
                       'sealed': spool_extra.sealed | default('', true) | string | lower == 'true',
                       'archived': spool.archived | default(false, true)
                     }] %}
                   {% endfor %}
                   {{ ns.rows | tojson | from_json }}
+                archive_started_ts: >-
+                  {{ as_timestamp(archive_detail.started_at | default('', true), 0) | float(0) }}
+                archive_completed_ts: >-
+                  {% set completed = as_timestamp(archive_detail.completed_at | default('', true), 0) | float(0) %}
+                  {% if completed > 0 %}
+                    {{ completed }}
+                  {% else %}
+                    {% set created = as_timestamp(archive_detail.created_at | default('', true), 0) | float(0) %}
+                    {% if created > 0 %}
+                      {{ created }}
+                    {% else %}
+                      {{ archive_started_ts | float(0) }}
+                    {% endif %}
+                  {% endif %}
+                archive_temporal_window_start_ts: >-
+                  {% set base = archive_started_ts | float(0) %}
+                  {{ (base - 86400) if base > 0 else 0 }}
+                archive_temporal_window_end_ts: >-
+                  {% set base = archive_completed_ts | float(0) %}
+                  {{ (base + 86400) if base > 0 else 0 }}
                 candidate_filaments: >-
                   {% set ns = namespace(rows=[]) %}
                   {% for slot in archive_slot_rows %}
@@ -350,11 +381,12 @@ reenrich_print_history_archive:
                     {% set target_type = slot.type | default('', true) | string %}
                     {% set target_name = slot.profile_name | default('', true) | string | trim('"') %}
                     {% set target_color = slot.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower %}
+                    {% set location_hint = 'AMS' if (slot.tray | default('', true) | string).startswith('A') else ('AMS 2' if (slot.tray | default('', true) | string).startswith('B') else ('External Spool Holder' if (slot.tray | default('', true) | string) == 'External' else '')) %}
                     {% if target_color | length == 8 %}
                       {% set target_color = target_color[0:6] %}
                     {% endif %}
                     {% set bambu_only = ((target_uuid | length > 0 and not target_uuid | regex_match('^0+$')) or target_name.startswith('Bambu')) %}
-                      {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_code=slot.am | default('', true) | string) %}
+                      {% set ns_match = namespace(raw_candidates=[], matched_spool={}, ambiguity_code=slot.am | default('', true) | string, match_method='') %}
                       {% if ns_match.ambiguity_code | length == 0 and target_uuid | length > 0 and not target_uuid | regex_match('^0+$') %}
                       {% for spool in spoolman_spools_normalized %}
                         {% if not spool.sealed %}
@@ -365,6 +397,7 @@ reenrich_print_history_archive:
                       {% endfor %}
                       {% if ns_match.raw_candidates | count == 1 %}
                         {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
+                        {% set ns_match.match_method = 'uuid' %}
                       {% elif ns_match.raw_candidates | count > 1 %}
                           {% set ns_match.ambiguity_code = 's_uuid' %}
                       {% endif %}
@@ -398,18 +431,55 @@ reenrich_print_history_archive:
                       {% else %}
                         {% set ns_match.raw_candidates = [] %}
                       {% endif %}
+                      {% if ns_match.ambiguity_code | length == 0 and ns_match.raw_candidates | count > 1 and location_hint | length > 0 %}
+                        {% set ns_location = namespace(items=[]) %}
+                        {% for candidate in ns_match.raw_candidates %}
+                          {% if candidate.location | default('', true) | string == location_hint %}
+                            {% set ns_location.items = ns_location.items + [candidate] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% if ns_location.items | count == 1 %}
+                          {% set ns_match.matched_spool = ns_location.items[0] %}
+                          {% set ns_match.match_method = 'location' %}
+                        {% elif ns_location.items | count > 1 %}
+                          {% set ns_match.raw_candidates = ns_location.items %}
+                        {% endif %}
+                      {% endif %}
+                      {% if ns_match.ambiguity_code | length == 0 and not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) and ns_match.raw_candidates | count > 1 and archive_temporal_window_start_ts | float(0) > 0 and archive_temporal_window_end_ts | float(0) > 0 %}
+                        {% set ns_temporal = namespace(items=[]) %}
+                        {% for candidate in ns_match.raw_candidates %}
+                          {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
+                          {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
+                          {% if candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0) and candidate_last <= archive_temporal_window_end_ts | float(0) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) %}
+                            {% set ns_temporal.items = ns_temporal.items + [candidate] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% if ns_temporal.items | count == 1 %}
+                          {% set ns_match.matched_spool = ns_temporal.items[0] %}
+                          {% set ns_match.match_method = 't_hist' %}
+                        {% elif ns_temporal.items | count > 1 %}
+                          {% set ns_match.raw_candidates = ns_temporal.items %}
+                          {% set ns_match.ambiguity_code = 's_tw' %}
+                        {% endif %}
+                      {% endif %}
                       {% if ns_match.ambiguity_code | length == 0 and ns_match.raw_candidates | count == 1 %}
                         {% set ns_match.matched_spool = ns_match.raw_candidates[0] %}
+                        {% if ns_match.match_method | length == 0 %}
+                          {% set ns_match.match_method = 'color' %}
+                        {% endif %}
                       {% elif ns_match.raw_candidates | count > 1 and ns_match.ambiguity_code | length == 0 %}
                         {% set ns_match.ambiguity_code = 's_tc' %}
                       {% endif %}
                     {% endif %}
-                    {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code) %}
+                    {% set ns_row = namespace(spool_id=none, filament_id=none, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code, pm='') %}
                     {% if ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined %}
                       {% set ns_row.spool_id = ns_match.matched_spool.id | int(0) %}
                       {% set ns_row.filament_id = ns_match.matched_spool.filament_id | default(none, true) %}
                       {% set ns_row.display_name = ns_match.matched_spool.display_name | default(slot.name_hint | default('Unknown Filament', true), true) | string %}
                       {% set ns_row.am = '' %}
+                      {% if ns_match.match_method == 't_hist' %}
+                        {% set ns_row.pm = 't_hist' %}
+                      {% endif %}
                     {% else %}
                       {% set ns_candidate = namespace(filament_ids=[], first_spool={}) %}
                       {% for candidate in ns_match.raw_candidates %}
@@ -443,6 +513,9 @@ reenrich_print_history_archive:
                     {% if ns_row.am | length > 0 %}
                       {% set row = dict(row, am=ns_row.am) %}
                     {% endif %}
+                    {% if ns_row.pm | length > 0 %}
+                      {% set row = dict(row, pm=ns_row.pm) %}
+                    {% endif %}
                     {% set ns.rows = ns.rows + [row] %}
                   {% endfor %}
                   {{ ns.rows | tojson | from_json }}
@@ -461,6 +534,8 @@ reenrich_print_history_archive:
                         {% set reason = 'Multiple archived AMS trays matched the archive-level fallback.' %}
                       {% elif code == 's_uuid' %}
                         {% set reason = 'Multiple Spoolman spools matched the archived tray UUID.' %}
+                      {% elif code == 's_tw' %}
+                        {% set reason = 'Multiple Spoolman spools matched the archive time window.' %}
                       {% elif code == 's_tc' %}
                         {% set reason = 'Multiple Spoolman spools matched type+color.' %}
                       {% else %}
@@ -628,7 +703,11 @@ reenrich_print_history_archive:
                     archive_id: "{{ resolved_archive_id }}"
                     tags: "{{ merged_tags }}"
                     notes: "{{ merged_notes }}"
-                - action: script.refresh_print_history_archives
+                - if:
+                    - condition: template
+                      value_template: "{{ should_refresh_browser }}"
+                  then:
+                    - action: script.refresh_print_history_archives
                 - choose:
                     - conditions:
                         - condition: template

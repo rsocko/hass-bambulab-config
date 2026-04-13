@@ -15,8 +15,11 @@ Important current-state constraints:
 
 - the automation does **not** currently PATCH Bambuddy native `status`
 - the automation does **not** currently PATCH `failure_reason`
-- the automation does **not** currently consume the tray snapshot captured at print start
 - the automation does **not** currently use archived AMS UUID data from Bambuddy archive detail
+
+Recent update:
+
+- the automation now captures a compact print-start tray snapshot containing `tray_name`, `spool_id`, `filament_id`, and normalized color, and the terminal reconciliation path uses that snapshot as a fallback when the live tray map is missing lower-level spool provenance
 
 The first enrichment write can happen during the print as soon as both `archive_id` and trustworthy per-tray weight data exist. A second reconciliation pass runs on `print_complete`, `print_failed`, or `print_stopped`.
 
@@ -42,10 +45,10 @@ It currently:
 
 1. stores the Bambuddy `archive_id` in `input_text.bambuddy_current_archive_id`
 2. resets runtime helpers such as the photo counter and last upload result
-3. snapshots the live tray map into `input_text.bambuddy_tray_map_snapshot`
+3. snapshots the live tray map into `input_text.bambuddy_tray_map_snapshot` using compact `tray_name:spool_id:filament_id:color` entries
 4. resets `input_select.bambuddy_photo_review_state` to `idle`
 
-The tray snapshot is captured for future recovery work, but the shipped enrichment automation does not use it yet.
+The tray snapshot remains intentionally compact so it fits the helper length limit, but it now gives the automatic terminal reconciliation path a print-start fallback when the live `sensor.spoolman_tray_map` has drifted before completion.
 
 ### Enrichment writes
 
@@ -81,6 +84,7 @@ On terminal runs, the automation compares the newly computed payload with any ex
 The shipped enrichment automation reads these live sources:
 
 - `input_text.bambuddy_current_archive_id`
+- `input_text.bambuddy_tray_map_snapshot`
 - `sensor.print_weight_effective` state and `weights` attribute
 - `sensor.spoolman_tray_map` attribute `tray_map`
 - `sensor.print_cost` state
@@ -182,6 +186,10 @@ Optional row field used only when operator review is needed:
 
 - `am`: ambiguity code. `a_tc` = multiple archived AMS trays matched type+color. `a_fb` = multiple archived AMS trays matched archive-level fallback. `s_uuid` = multiple Spoolman spools matched archived tray UUID. `s_tc` = multiple Spoolman spools matched type+color.
 
+Optional row field used when lineage is inferred rather than exact:
+
+- `pm`: provenance marker. `t_hist` = the spool was resolved from a strict archive-time window fallback using Spoolman `last_used`/`first_used` after stronger UUID, location, and direct color/material paths failed.
+
 This payload `s` value is **not** the Bambuddy archive outcome. It only describes the completeness of enrichment data.
 
 ## Cost Handling
@@ -228,11 +236,21 @@ It currently:
 - reads Bambuddy archive detail for an older archive
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
 - pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
+- prefers a unique spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`) before treating color/material matches as unresolved spool ambiguity
+- can use a strict archive-time window fallback based on Spoolman `last_used` and `first_used`, but only when that window reduces the remaining candidates to one defensible spool
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
 - writes managed tags plus the hidden `+>` payload when it has a usable candidate
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
+
+The temporal fallback is intentionally conservative. It is a last-tier recovery path and records `pm:"t_hist"` on any row resolved this way so inferred lineage stays distinguishable from exact UUID or direct match lineage.
+
+### Bulk backfill
+
+The shipped `backfill_print_history_archive_enrichment.yaml` script accepts a CSV list of archive IDs and runs `reenrich_print_history_archive` in batch mode with browser refresh deferred until the batch completes.
+
+This is intended for targeted recovery sets such as archives with missing hidden payloads, partial ambiguity rows, or unavailable archive-derived enrichment discovered during audit.
 
 ### Manual re-enrich performance notes
 
@@ -258,7 +276,6 @@ Not shipped yet:
 
 - native archive `status` writes from the enrichment automation
 - native archive `failure_reason` writes from the enrichment automation
-- tray snapshot fallback consumption in the live enrichment automation
 - UUID-first live enrichment resolution from archived AMS data
 - a separate HA-side provenance index or sidecar store
 - richer machine-readable provenance beyond the current compact filament rows
@@ -282,8 +299,8 @@ Important design constraint:
 Recommended future matching order:
 
 1. sensor-derived active-print mapping and weights
-2. archived AMS UUID data from archive detail for validation or later correction
-3. compact tray-map snapshot fallback
+2. compact tray-map snapshot fallback
+3. archived AMS UUID data from archive detail for validation or later correction
 4. color-only fallback when nothing better remains
 
 That future direction is what drives the planned UUID-first hardening work and the later archive-detail correction pass.

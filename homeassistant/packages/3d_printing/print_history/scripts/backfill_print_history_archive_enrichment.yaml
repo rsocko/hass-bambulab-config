@@ -1,0 +1,53 @@
+# Bulk re-enrich a targeted set of Bambuddy archives.
+# Intended for backfilling missing, partial, or unavailable payloads discovered during audit.
+backfill_print_history_archive_enrichment:
+  alias: Backfill Print History Archive Enrichment
+  description: >-
+    Re-enrichs a CSV list of archive IDs while deferring the browser refresh
+    until the batch is complete.
+  fields:
+    archive_ids_csv:
+      name: Archive IDs CSV
+      description: Comma-separated archive IDs to re-enrich.
+      example: "185,187,190"
+      required: false
+      selector:
+        text:
+  mode: queued
+  max: 3
+  sequence:
+    - variables:
+        requested_archive_ids: "{{ archive_ids_csv | string | trim if archive_ids_csv is defined else '' }}"
+        archive_ids_json: >-
+          {% set ns = namespace(items=[]) %}
+          {% for token in requested_archive_ids.split(',') %}
+            {% set archive_id = token | string | trim %}
+            {% if archive_id | regex_match('^\d+$') and archive_id not in ns.items %}
+              {% set ns.items = ns.items + [archive_id] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.items | to_json }}
+        archive_count: "{{ archive_ids_json | from_json | count }}"
+    - if:
+        - condition: template
+          value_template: "{{ archive_count | int(0) > 0 }}"
+      then:
+        - repeat:
+            for_each: "{{ archive_ids_json | from_json }}"
+            sequence:
+              - action: script.reenrich_print_history_archive
+                data:
+                  archive_id: "{{ repeat.item }}"
+                  refresh_browser: false
+        - action: script.refresh_print_history_archives
+        - action: logbook.log
+          data:
+            name: Print History Backfill
+            message: >-
+              Re-enriched {{ archive_count }} archive(s):
+              {{ archive_ids_json | from_json | join(', ') }}
+      else:
+        - action: logbook.log
+          data:
+            name: Print History Backfill
+            message: Backfill requested without any valid archive IDs

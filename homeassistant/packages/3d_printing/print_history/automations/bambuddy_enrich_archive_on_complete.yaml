@@ -54,6 +54,7 @@
         enrichment_marker: "+>"
         recovery_marker: "[RECOVERY_AUDIT_V1]"
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+        tray_map_snapshot_raw: "{{ states('input_text.bambuddy_tray_map_snapshot') | string | trim }}"
         binding_source: "{{ states('input_text.bambuddy_archive_binding_source') | string | lower | trim }}"
         binding_task_name: >-
           {{ states('input_text.bambuddy_archive_binding_task')
@@ -227,6 +228,27 @@
             {% set grams = weight_map.get(tray_source.weight_key) | float(0) %}
             {% if grams > 0 %}
               {% set tray_entry = tray_map.get(tray_source.tray_key, {}) if tray_map is mapping else {} %}
+              {% set snapshot = namespace(spool_id='', filament_id='', color_hex=none) %}
+              {% if tray_map_snapshot_raw not in ['', 'unknown', 'unavailable', 'none', 'None'] %}
+                {% for snapshot_entry in tray_map_snapshot_raw.split(',') %}
+                  {% set parts = snapshot_entry.split(':') %}
+                  {% if parts | count >= 2 and (parts[0] | trim) == tray_source.tray_key %}
+                    {% set snapshot.spool_id = parts[1] | string | trim %}
+                    {% if parts | count >= 3 %}
+                      {% set snapshot.filament_id = parts[2] | string | trim %}
+                    {% endif %}
+                    {% if parts | count >= 4 %}
+                      {% set color_raw = parts[3] | string | trim | replace('#', '') | replace('"', '') %}
+                      {% if color_raw | length == 8 %}
+                        {% set color_raw = color_raw[0:6] %}
+                      {% endif %}
+                      {% if color_raw | length == 6 %}
+                        {% set snapshot.color_hex = '#' ~ color_raw.upper() %}
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
               {% set spool_entity_id = tray_entry.spool_entity_id | default('', true) | string %}
               {% set spool_id_raw = tray_entry.spool_id | default('', true) | string | trim %}
               {% set spool_id_valid = spool_id_raw | regex_match('^\d+$') %}
@@ -239,7 +261,15 @@
                 {% set spool_name = tray_entry.name | default('Unknown Filament', true) | string %}
                 {% set color_raw = '' %}
               {% endif %}
+              {% if not spool_id_valid and snapshot.spool_id | regex_match('^\d+$') %}
+                {% set spool_id_raw = snapshot.spool_id %}
+                {% set spool_id_valid = true %}
+              {% endif %}
               {% set filament_id_valid = filament_id_raw | regex_match('^\d+$') %}
+              {% if not filament_id_valid and snapshot.filament_id | regex_match('^\d+$') %}
+                {% set filament_id_raw = snapshot.filament_id %}
+                {% set filament_id_valid = true %}
+              {% endif %}
               {% set color_norm = color_raw | replace('"', '') | trim %}
               {% if color_norm.startswith('#') %}
                 {% set color_norm = color_norm[1:] %}
@@ -249,6 +279,8 @@
               {% endif %}
               {% if color_norm | length == 6 %}
                 {% set color_norm = '#' ~ color_norm.upper() %}
+              {% elif snapshot.color_hex is not none %}
+                {% set color_norm = snapshot.color_hex %}
               {% else %}
                 {% set color_norm = none %}
               {% endif %}

@@ -63,8 +63,10 @@
       data:
         value: "idle"
 
-    # Snapshot spoolman tray map for enrichment (Tier 2 matching)
-    # Stores simplified tray_name → spool_id mapping to stay within 255 chars
+    # Snapshot spoolman tray map for enrichment fallback.
+    # Stores compact tray_name:spool_id:filament_id:colorhex entries to stay
+    # within the 255-char helper limit while preserving enough provenance for
+    # terminal reconciliation if the live tray map changes before completion.
     - action: input_text.set_value
       target:
         entity_id: input_text.bambuddy_tray_map_snapshot
@@ -74,8 +76,21 @@
           {% if tray_map is mapping %}
             {% set ns = namespace(entries=[]) %}
             {% for tray_name, tray in tray_map.items() %}
-              {% if tray.spool_id is defined and tray.spool_id not in [None, '', 'None'] %}
-                {% set ns.entries = ns.entries + [tray_name ~ ':' ~ tray.spool_id] %}
+              {% set spool_id_raw = tray.spool_id | default('', true) | string | trim %}
+              {% set spool_entity_id = tray.spool_entity_id | default('', true) | string | trim %}
+              {% if spool_entity_id | length > 0 %}
+                {% set filament_id_raw = state_attr(spool_entity_id, 'filament_id') | default('', true) | string | trim %}
+                {% set color_raw = state_attr(spool_entity_id, 'filament_color_hex') | default('', true) | string | trim %}
+              {% else %}
+                {% set filament_id_raw = '' %}
+                {% set color_raw = '' %}
+              {% endif %}
+              {% set color_norm = color_raw | replace('#', '') | replace('"', '') | trim %}
+              {% if color_norm | length == 8 %}
+                {% set color_norm = color_norm[0:6] %}
+              {% endif %}
+              {% if spool_id_raw | regex_match('^\d+$') %}
+                {% set ns.entries = ns.entries + [tray_name ~ ':' ~ spool_id_raw ~ ':' ~ filament_id_raw ~ ':' ~ color_norm.upper()] %}
               {% endif %}
             {% endfor %}
             {{ ns.entries | join(',') }}

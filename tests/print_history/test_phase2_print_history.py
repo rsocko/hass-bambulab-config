@@ -189,6 +189,7 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_SCRIPTS = [
+        "backfill_print_history_archive_enrichment.yaml",
         "capture_and_upload_snapshot.yaml",
         "resolve_current_archive_id.yaml",
         "load_history_page.yaml",
@@ -1200,6 +1201,36 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertNotIn("spoolman_spools: >-", content)
         self.assertIn("Multiple Spoolman spools matched the archived tray UUID.", content)
 
+    def test_reenrich_prefers_matching_spool_location_before_declaring_color_ambiguity(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("location_hint = 'AMS' if", content)
+        self.assertIn("candidate.location | default('', true) | string == location_hint", content)
+        self.assertIn("ns_location.items | count == 1", content)
+
+    def test_reenrich_supports_temporal_fallback_and_marks_temporal_rows(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("archive_temporal_window_start_ts", content)
+        self.assertIn("archive_temporal_window_end_ts", content)
+        self.assertIn("first_used_ts", content)
+        self.assertIn("last_used_ts", content)
+        self.assertIn("ns_match.match_method = 't_hist'", content)
+        self.assertIn("ns_row.pm = 't_hist'", content)
+        self.assertIn("Multiple Spoolman spools matched the archive time window.", content)
+
+    def test_reenrich_supports_batch_mode_without_refreshing_every_archive(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("refresh_browser:", content)
+        self.assertIn("should_refresh_browser", content)
+        self.assertIn("value_template: \"{{ should_refresh_browser }}\"", content)
+
+    def test_backfill_script_batches_reenrich_calls(self):
+        content = (HISTORY / "scripts" / "backfill_print_history_archive_enrichment.yaml").read_text("utf-8")
+        self.assertIn("backfill_print_history_archive_enrichment:", content)
+        self.assertIn("archive_ids_csv", content)
+        self.assertIn("script.reenrich_print_history_archive", content)
+        self.assertIn("refresh_browser: false", content)
+        self.assertIn("script.refresh_print_history_archives", content)
+
     def test_spoolman_getspools_rest_command_supports_allow_archived_override(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "spoolman_sync" / "rest_commands" / "spoolman_getspools.yaml").read_text("utf-8")
         self.assertIn("spoolman_getspools:", content)
@@ -1665,15 +1696,25 @@ class TestTrayMapSnapshot(unittest.TestCase):
     """Tray map snapshot logic must produce a compact, parseable format."""
 
     def test_snapshot_format_is_compact(self):
-        """Snapshot uses 'tray_name:spool_id' CSV format to fit 255-char input_text."""
+        """Snapshot uses compact tray:spool:filament:color CSV entries."""
         content = (HISTORY / "automations" / "bambuddy_capture_archive_id.yaml").read_text("utf-8")
-        # Must use compact format, not full JSON
+        # Must stay compact, not full JSON.
         self.assertIn("join(',')", content)
         self.assertIn("~ ':'", content)
+        self.assertIn("tray_name ~ ':' ~ spool_id_raw ~ ':' ~ filament_id_raw ~ ':' ~ color_norm.upper()", content)
+        self.assertNotIn("tojson", content)
 
     def test_snapshot_targets_correct_helper(self):
         content = (HISTORY / "automations" / "bambuddy_capture_archive_id.yaml").read_text("utf-8")
         self.assertIn("input_text.bambuddy_tray_map_snapshot", content)
+
+    def test_enrichment_consumes_snapshot_fallback(self):
+        content = (HISTORY / "automations" / "bambuddy_enrich_archive_on_complete.yaml").read_text("utf-8")
+        self.assertIn("tray_map_snapshot_raw", content)
+        self.assertIn("snapshot = namespace(spool_id='', filament_id='', color_hex=none)", content)
+        self.assertIn("not spool_id_valid and snapshot.spool_id | regex_match", content)
+        self.assertIn("not filament_id_valid and snapshot.filament_id | regex_match", content)
+        self.assertIn("elif snapshot.color_hex is not none", content)
 
 
 # =============================================================================
