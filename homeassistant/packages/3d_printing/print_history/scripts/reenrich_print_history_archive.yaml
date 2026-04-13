@@ -29,11 +29,24 @@ reenrich_print_history_archive:
             recovery_marker: "[RECOVERY_AUDIT_V1]"
             requested_archive_id: "{{ archive_id | string | trim if archive_id is defined else '' }}"
             resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
+            debug_enabled: "{{ states('input_boolean.print_history_debug_instrumentation') == 'on' }}"
+            reenrich_started_ts: "{{ as_timestamp(now()) | float(0) }}"
           should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
         - if:
             - condition: template
               value_template: "{{ resolved_archive_id | string | trim != '' }}"
           then:
+            - if:
+                - condition: template
+                  value_template: "{{ debug_enabled }}"
+              then:
+                - action: system_log.write
+                  data:
+                    message: >-
+                      Print History debug: starting manual re-enrich for archive {{ resolved_archive_id }}.
+                      refresh_browser={{ should_refresh_browser }}.
+                    level: info
+                    logger: homeassistant.components.bambulab.print_history
             - action: rest_command.bambuddy_get_archive_detail
               data:
                 archive_id: "{{ resolved_archive_id }}"
@@ -290,6 +303,20 @@ reenrich_print_history_archive:
                   {% else %}
                     This archive does not contain enough archived filament usage detail for re-enrich to rebuild spool lineage safely.
                   {% endif %}
+            - if:
+                - condition: template
+                  value_template: "{{ debug_enabled }}"
+              then:
+                - action: system_log.write
+                  data:
+                    message: >-
+                      Print History debug: archive {{ resolved_archive_id }} detail fetched.
+                      status={{ archive_detail.status | default('unknown', true) }},
+                      archived_rows={{ archive_slot_rows | count }},
+                      source={{ archive_row_source }},
+                      reason={{ archive_row_reason if archive_row_reason | length > 0 else 'none' }}.
+                    level: info
+                    logger: homeassistant.components.bambulab.print_history
             - action: rest_command.spoolman_getspools
               data:
                 allow_archived: "true"
@@ -676,6 +703,25 @@ reenrich_print_history_archive:
                   {% endif %}
                   {% set parts.values = parts.values + [enrichment_marker ~ (effective_payload | to_json)] %}
                   {{ parts.values | join('\n\n') }}
+                reenrich_elapsed_seconds: >-
+                  {{ (as_timestamp(now()) | float(0) - (reenrich_started_ts | float(0))) | round(1) }}
+            - if:
+                - condition: template
+                  value_template: "{{ debug_enabled }}"
+              then:
+                - action: system_log.write
+                  data:
+                    message: >-
+                      Print History debug: archive {{ resolved_archive_id }} spool catalog normalized.
+                      spool_count={{ spoolman_spools_normalized | count }},
+                      candidate_status={{ candidate_payload_status_label }},
+                      candidate_rows={{ candidate_filament_rows }},
+                      candidate_resolved={{ candidate_resolved_rows }},
+                      ambiguities={{ candidate_ambiguity_rows | count }},
+                      preserve_existing={{ should_preserve_existing }},
+                      elapsed_s={{ reenrich_elapsed_seconds }}.
+                    level: info
+                    logger: homeassistant.components.bambulab.print_history
             - choose:
                 - conditions:
                     - condition: template
@@ -697,7 +743,33 @@ reenrich_print_history_archive:
                         message: >-
                           Preserved existing enrichment for archive {{ resolved_archive_id }} because
                           the manual candidate was lower fidelity.
+                    - if:
+                        - condition: template
+                          value_template: "{{ debug_enabled }}"
+                      then:
+                        - action: system_log.write
+                          data:
+                            message: >-
+                              Print History debug: archive {{ resolved_archive_id }} kept existing enrichment.
+                              existing_status={{ existing_payload_status_label }},
+                              candidate_status={{ candidate_payload_status_label }},
+                              elapsed_s={{ reenrich_elapsed_seconds }}.
+                            level: info
+                            logger: homeassistant.components.bambulab.print_history
               default:
+                - if:
+                    - condition: template
+                      value_template: "{{ debug_enabled }}"
+                  then:
+                    - action: system_log.write
+                      data:
+                        message: >-
+                          Print History debug: updating archive {{ resolved_archive_id }} from manual re-enrich.
+                          effective_status={{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }},
+                          tags={{ effective_system_tags | count }},
+                          elapsed_s={{ reenrich_elapsed_seconds }}.
+                        level: info
+                        logger: homeassistant.components.bambulab.print_history
                 - action: rest_command.bambuddy_update_archive
                   data:
                     archive_id: "{{ resolved_archive_id }}"
@@ -745,6 +817,21 @@ reenrich_print_history_archive:
                     message: >-
                       Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status_label }}
                       from {{ archive_row_source_label }} and {{ candidate_filament_rows }} filament row(s).
+                - if:
+                    - condition: template
+                      value_template: "{{ debug_enabled }}"
+                  then:
+                    - action: system_log.write
+                      data:
+                        message: >-
+                          Print History debug: archive {{ resolved_archive_id }} manual re-enrich completed.
+                          status={{ candidate_payload_status_label }},
+                          source={{ archive_row_source_label }},
+                          rows={{ candidate_filament_rows }},
+                          ambiguities={{ candidate_ambiguity_rows | count }},
+                          elapsed_s={{ reenrich_elapsed_seconds }}.
+                        level: info
+                        logger: homeassistant.components.bambulab.print_history
           else:
             - action: logbook.log
               data:

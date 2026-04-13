@@ -76,6 +76,23 @@
 
     - choose:
         - conditions:
+            - condition: trigger
+              id: homeassistant_started
+            - condition: template
+              value_template: "{{ not printer_is_active }}"
+          sequence:
+            - action: system_log.write
+              data:
+                message: >-
+                  Print History skipped startup enrichment for retained archive {{ archive_id }} because
+                  Home Assistant restarted while the printer was not active.
+                  binding_source={{ binding_source if binding_source != '' else 'unknown' }},
+                  archive_status=not_checked,
+                  trigger={{ trigger_id }}.
+                level: warning
+                logger: homeassistant.components.bambulab.print_history
+            - stop: Startup enrichment skipped because retained archive binding may be stale.
+        - conditions:
             - condition: template
               value_template: "{{ not is_terminal_trigger and not write_ready }}"
           sequence:

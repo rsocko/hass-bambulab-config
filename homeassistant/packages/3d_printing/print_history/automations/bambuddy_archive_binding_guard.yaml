@@ -11,6 +11,9 @@
     - trigger: state
       entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
       id: native_status_change
+    - trigger: homeassistant
+      event: start
+      id: homeassistant_started
 
   conditions:
     - condition: state
@@ -28,6 +31,50 @@
              | default('', true) | string | trim }}
 
     - choose:
+        - conditions:
+            - condition: trigger
+              id: homeassistant_started
+            - condition: template
+              value_template: >-
+                {{ states('input_text.bambuddy_current_archive_id') | string | trim != ''
+                   and states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim
+                     not in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
+          sequence:
+            - variables:
+                retained_archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_current_archive_id
+              data:
+                value: ""
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_archive_binding_source
+              data:
+                value: "cleared_on_startup"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_archive_binding_task
+              data:
+                value: ""
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.bambuddy_tray_map_snapshot
+              data:
+                value: ""
+            - action: system_log.write
+              data:
+                message: >-
+                  Print History cleared retained archive binding {{ retained_archive_id }} during Home Assistant startup
+                  because the printer was not active.
+                level: warning
+                logger: homeassistant.components.bambulab.print_history
+            - action: logbook.log
+              data:
+                name: Print History
+                message: >-
+                  Cleared retained archive binding {{ retained_archive_id }} during Home Assistant startup
+                  because no active print was detected.
         - conditions:
             - condition: template
               value_template: >-
