@@ -302,11 +302,12 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `366`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `395`, plus `397`, `398`, `399`, `400`, `401`, and `402`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`) returned `400 Bad Request`, but Bambuddy still created archive `335`; treat that archive as anomalous until it is reviewed and reconciled with the manifest
+- candidate `A8EB3E6AF0CCC705A5F4AAF779C055AD9D94DA069EBF1BC23FC215E457750CC7` (`cache/Ø12x3mm  Magnet Version -0.2mm layer, arachne .3mf`) returned `400 Bad Request` and is now in manifest bucket `deferred` with `import_status: error`; no archive creation was observed in this run
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, `360`, `361`, `362`, `363`, `364`, `365`, and `366`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, `360`, `361`, `362`, `363`, `364`, `365`, `366`, `367`, `368`, `369`, `370`, `372`, `373`, `374`, `375`, `376`, `377`, `378`, `379`, `380`, `381`, `382`, and `383`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -342,6 +343,19 @@ Current live checkpoint:
 - `FBF724FF125F1C3AC839D950080D54B7A418684D06D41CD56CED8905C1878CB4` (`cache/My Parametric Project Box_Plate 1.3mf`) matched existing archive `11` by `content_hash`
 - `20F27FDFAE8A74656FCC28F45B093DD1FEC63075EBBECD860F5174AC95BC947D` (`cache/Modular_Magnetic_Frame_System_for_Hueforge_Art.3mf`) matched existing archive `144` by `content_hash`
 - `CC62299C244478E1A36CF9DCFD9B8C0C8113B447E5502E0E73693408DE52E886` (`cache/Stormtrooper Helmet Hueforge 200mm x 200mm.3mf`) matched existing archive `43` by `content_hash`
+- `014F458549413655F7EFD446316CBA23B391AC107F0F74E560FED76DB7469E5B` (`cache/Modular Magnetic Frame System for Hueforge Art.3mf`) matched existing archive `169` by `content_hash`
+- `9DC1C6863E0824E9B69E7124AF6808B0F5F44141324CD820E6E32A0FE071394A` (`cache/Magnetic Wall Mount for Hueforge.3mf`) matched existing archive `195` by `content_hash`
+- `8E4A0602944A0366596137BF5E2DF921EDB65205633751BF2F4C6799C1355375` (`cache/TWO AMS - 200mm x 200mm Boba Fett 5-color Hueforge.3mf`) matched existing archive `21` by `content_hash`
+- `40556AC96DF3F2EDE385C0A3A95C730A56C3C9B22AAF7D7E6E485AF4F10AE209` (`cache/Labels (Optional).3mf`) matched existing archive `188` by `content_hash`
+- `ACE6EA5AB8C761082841604EAA123A1D1180E9A38518DA1538E84D69A9A8B9E6` (`cache/Laney Rivers 2026_Front_133x200.3mf`) matched existing archive `227` by `content_hash`
+- `0CA648707E1DE734C18BF8C9D713CD161CAF86ADB337680C9B745304604630BB` (`cache/JJK-Shibuya_Front_106x142.stl.3mf`) matched existing archive `81` by `content_hash`
+- `89A4612356233E6DC12CD45AA77FCD325E316993A1BC9E81F74D9EB674040BE7` (`cache/Ingenious Luulia (4).stl.3mf`) matched existing archive `5` by `content_hash`
+- `C610BE07F18C51EEB32A2A684C0E58A7FC10D2B675F9EA8C1BE508F4A82CD8BC` (`cache/Ingenious Luulia (3).stl.3mf`) matched existing archive `4` by `content_hash`
+- `B5350C4B475A8C181C4E257F8ECF019864F73310157B3285C3F758AD5B6EF1D3` (`cache/Yuji-Sukuna Jujutsu kaisen BM.3mf`) matched existing archive `82` by `content_hash`
+- `FEC212637B4A24C1B4A4427B7DE7CF9FCDB2D9AAC5D522FD18ADBA836792201E` (`Deadpool___Wolverine_Deadpool.gcode.3mf`) matched existing archive `232` by `content_hash`
+- `67F5F8C5EBEFEC8836CABC0898990161B7071CB9761FCED0071CA7BA59970A28` (`cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_3.3mf`) matched existing archive `16` by `content_hash`
+- `F0E5C738DDECDD71D8F0329BBCB4A00B398188781820100723BF13FAE3161E3A` (`cache/Megumi_Shadow_Garden_Front_103x150.3mf`) matched existing archive `83` by `content_hash`
+- `1CB8271709685EE82D10346E1DF4687E983596DC620F4D8D146C87D56344DAF8` (`cache/toothbrush holder.3mf`) matched existing archive `48` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -448,13 +462,45 @@ Current live checkpoint:
    - archive `364` <- `cache/Split Spiral, 0.2mm layer, 2 walls, 15% infill.3mf`
    - archive `365` <- `cache/Standard 0.2mm layer, 3 walls, 12% infill.3mf`
    - archive `366` <- `cache/MODULAR.3mf`
-- the next validated small-run candidates now continue in `batch-004`:
-   - `014F458549413655F7EFD446316CBA23B391AC107F0F74E560FED76DB7469E5B` -> `cache/Modular Magnetic Frame System for Hueforge Art.3mf`
-   - `67C2EB8955C0D8B576FA4A11FDD11FE433860D5CCEF194215540A4CAA5960EC3` -> `cache/Microfiber Holder.3mf`
-   - `F0E5C738DDECDD71D8F0329BBCB4A00B398188781820100723BF13FAE3161E3A` -> `cache/Megumi_Shadow_Garden_Front_103x150.3mf`
-   - `1CB8271709685EE82D10346E1DF4687E983596DC620F4D8D146C87D56344DAF8` -> `cache/toothbrush holder.3mf`
-- manifest summary is now `completed: 132`, `already_in_archive: 47`, `batch_ready: 50`, `manual_review: 1`
-- the next queued high-confidence SD-cache imports now begin with the four entries listed above
+   - archive `367` <- `cache/Microfiber Holder.3mf`
+   - archive `368` <- `cache/magnet-insert-10x2mm.stl + magnet-insert-10x2mm.stl + magnet-insert-10x2mm.stl + magnet-insert-10....3mf`
+   - archive `369` <- `cache/Storage Trays for 6 Boxes each 70x70x25.3mf`
+   - archive `370` <- `cache/top.stl + Assembly.3mf`
+   - archive `372` <- `cache/LED Cover - AMS.stl + LED Cover - AMS.stl.3mf`
+   - archive `373` <- `cache/LED Cover - AMS.3mf`
+   - archive `374` <- `cache/LED Cover - AMS.stl.3mf`
+   - archive `375` <- `cache/TPU, no Support, 0.2mm layer, 3 walls, 0% infill.3mf`
+   - archive `376` <- `cache/LED Cover - AMS (Both Ends Open).3mf`
+   - archive `377` <- `cache/Laser Printer Drawer - Gridfinity Base (470x285)_plate_6.3mf`
+   - archive `378` <- `cache/Store & Dry Tray.3mf`
+   - archive `379` <- `cache/Laser Printer Drawer - Gridfinity Base (470x285)_plate_4.3mf`
+   - archive `380` <- `cache/Laser Printer Drawer - Gridfinity Base (470x285)_plate_3.3mf`
+   - archive `381` <- `cache/University_of_Michigan_Chain_Necklace.3mf`
+   - archive `382` <- `cache/Laser Printer Drawer - Gridfinity Base (470x285)_plate_5.3mf`
+   - archive `383` <- `cache/Version 5 - All Sizes - 3 Plates Each, PETG.3mf`
+   - archive `384` <- `cache/Inside_ledstrip_corner_guide.3mf`
+   - archive `385` <- `cache/VerticalItemHolder_Plate 1.3mf`
+   - archive `386` <- `cache/Ingenious Luulia (1).stl.3mf`
+   - archive `387` <- `cache/Wallmount Frame for Deluxe 10_ Rack.3mf`
+   - archive `388` <- `cache/Ingenious Luulia (2).stl.3mf`
+   - archive `389` <- `cache/HomeRacker Shelf - 13W x 15D_Plate 1.3mf`
+   - archive `390` <- `cache/Hygrometer - LED Case.stl.3mf`
+   - archive `391` <- `cache/X-Wing_Kit_Card.3mf`
+   - archive `392` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_plate_7.3mf`
+   - archive `393` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_Shelf + Wall Anchor Slot.3mf`
+   - archive `394` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_plate_5.3mf`
+   - archive `395` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_plate_2.3mf`
+   - archive `397` <- `cache/HomeRacker - Shelf v21 - 13D x 11W_Plate 1.3mf`
+   - archive `398` <- `cache/HomeRacker - Shelf v21 - 11x15_plate_2.3mf`
+   - archive `399` <- `cache/快速夹具（无须五金件）.3mf`
+   - archive `400` <- `cache/gridplates-158x225-Standard-58de9.stl.3mf`
+   - archive `401` <- `cache/Heisman Trophy - Brick Man_Trophy - single color no AMS.3mf`
+   - archive `402` <- `cache/拆件版.3mf`
+   - the final two `batch_ready` candidates both collapsed by exact `content_hash`, so the historical queue is exhausted without creating additional archives:
+      - `B6BCB8C4AC5E4209762E5A0BBE750948A495CB95D26BD0790075D0ED975125FC` -> `cache/gridfinity-baseplate-250x220-446x338-5484a.stl_2.3mf` matched existing archive `8`
+      - `AED394930768859ED4F96DE71D9C669F19D4C954F267706D4060599E2C219769` -> `cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_4.3mf` matched existing archive `17`
+   - manifest summary is now `completed: 166`, `already_in_archive: 62`, `deferred: 2`, `manual_review: 1`
+   - there are no remaining `batch_ready` historical SD-cache imports; follow-up work is limited to the existing deferred/manual-review anomalies
 
 ### Optional runtime-repair flow
 
