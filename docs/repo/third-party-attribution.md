@@ -25,13 +25,19 @@ Upstream references pinned at review time (main branch heads):
 
 ## Branded Assets
 
-- `homeassistant/custom_components/bambuddy/icon.png`
-- `homeassistant/custom_components/bambuddy/logo.png`
+- `homeassistant/custom_components/bambuddy/brand/icon.png`
+- `homeassistant/custom_components/bambuddy/brand/logo.png`
 
 These integration assets are copied from the upstream Bambuddy project snapshot in `.tmp/bambuddy-source/static/img/`:
 
-- `android-chrome-192x192.png` -> `homeassistant/custom_components/bambuddy/icon.png`
-- `android-chrome-512x512.png` -> `homeassistant/custom_components/bambuddy/logo.png`
+- `android-chrome-192x192.png` -> `homeassistant/custom_components/bambuddy/brand/icon.png`
+- `android-chrome-512x512.png` -> `homeassistant/custom_components/bambuddy/brand/logo.png`
+
+Home Assistant branding behavior:
+
+- HACS and the native Home Assistant integrations UI look up integration icons through the Home Assistant brands endpoint.
+- For custom integrations, local brand assets can satisfy that lookup when they are stored in `custom_components/<domain>/brand/`.
+- A separate Home Assistant brands repository entry is only needed if the integration does not ship its own local `brand/` assets.
 
 Attribution and usage note:
 

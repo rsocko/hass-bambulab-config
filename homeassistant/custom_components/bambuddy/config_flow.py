@@ -24,7 +24,8 @@ from .const import (
 
 LOGO_ATTRIBUTION_NOTICE = (
     "Bambuddy name and icon are sourced from the upstream Bambuddy project by @maziggy. "
-    "Keep attribution with the asset and contact the author before reusing the branding outside this integration."
+    "Keep attribution with the asset and contact the author before reusing the branding outside this integration. "
+    "For native Home Assistant and HACS branding, the upstream asset must live under custom_components/bambuddy/brand/."
 )
 
 
